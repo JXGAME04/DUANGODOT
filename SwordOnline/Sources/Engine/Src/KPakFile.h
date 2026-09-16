@@ -11,9 +11,7 @@
 //---------------------------------------------------------------------------
 #include "KFile.h"
 
-#ifndef _SERVER
-#include "XPackFile.h"
-#endif
+#include "XPackFile.h"   // always: KPakFile must have one layout in engine.dll and in CoreServer.dll
 
 //---------------------------------------------------------------------------
 ENGINE_API void g_SetPakFileMode(int nFileMode);
@@ -37,9 +35,8 @@ public:
 	char*		ReadTypeFrame(unsigned int& uSize);
 private:
 	KFile		m_File;			// 真实文件(不在包中)
-	#ifndef _SERVER
-		XPackElemFileRef	m_PackRef;
-	#endif
+	XPackElemFileRef	m_PackRef;	// present in the server build too: engine.dll (built without _SERVER)
+									// reads it, so a shorter server-side object corrupted the caller's stack
 };
 
 //---------------------------------------------------------------------------

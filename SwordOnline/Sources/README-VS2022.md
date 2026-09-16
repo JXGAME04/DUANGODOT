@@ -91,3 +91,29 @@ narrowing casts, `MAKEINTRESOURCE(IDC_*)` double wrapping, and the CRC32 routine
 portable C implementation (bit-identical to the removed `ebp`-based assembly, verified on 3612
 cases). Release builds of both families compile with **0 errors / 0 warnings** at the original
 warning levels (`/W3`, `/W2` for Core).
+
+## Runtime fixes found by actually running the servers
+
+* `Engine\Src\KPakFile.h` - `m_PackRef` was compiled out under `_SERVER`, but `engine.dll` (built
+  without `_SERVER`) is shared by the client and the servers, so `CoreServer.dll` handed it a
+  shorter object and `KPakFile::Close()` corrupted the caller's stack (GameServer crashed in
+  `KRegion::LoadObject`). The member now exists in both builds.
+* Goddess / S3Relay compile with `_USE_32BIT_TIME_T`: `libdb41s.lib` (Berkeley DB 4.1.25, VC6) has a
+  `time_t` member in `DB_ENV` ahead of its method table; the 8-byte `time_t` of v143 shifted every
+  method pointer by one slot (`set_lg_bsize()` called `set_lg_dir()` -> access violation on start).
+* A `.def` listed in a project applies to every configuration (VC6 behaviour); Heaven/Rainbow Release
+  otherwise exported nothing and GameServer exited silently.
+* Bishop: the single-instance mutex/window-class name can be overridden with
+  `BISHOP_INSTANCE_NAME` so two Bishops (e.g. two projects) can run on one machine.
+
+## Test setup on one machine (optional `JXAll.local.props`)
+
+`JXAll.props` imports `JXAll.local.props` (git-ignored) if present. Used here for a side-by-side
+test with another JX server on the same PC: Bishop built with `NO_PAYSYS` (accepts any account, no
+Sword3PaySys/MSSQL needed) and `BISHOP_INSTANCE_NAME="BishopClass_JXTEST"`, servers configured on
+a private port block (Goddess 15001, Bishop 15622/15632, GameServer 16666; GameServer also listens
+on the hard-coded 5006-5008) with `127.0.0.1` in `bin\Server\*.cfg/ini`, `Bishop.cfg`, and the
+client's `config.ini` (`GameServPort=15622`) / `Settings\ServerList.ini` (`0_Address=127.0.0.1`).
+Start order: Goddess (press *Start DB Service*), Bishop, GameServer, then `bin\Client\game.exe`.
+S3Relay (chat/tong) and Sword3PaySys keep hard-coded ports from `Headers\ServerPort.h` and were not
+part of the smoke test.

@@ -96,3 +96,6 @@ SwordOnline/Sources/MultiServer/GameServer/Common.lib
 # ---- VC6 debris ----
 *.pdb
 *.bak
+
+# per-machine build overrides
+SwordOnline/Sources/JXAll.local.props

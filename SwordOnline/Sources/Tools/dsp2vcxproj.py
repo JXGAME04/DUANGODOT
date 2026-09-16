@@ -39,6 +39,10 @@ EXTRA_NODEFAULT = {("Goddess", "Debug"): ["libcmt.lib"], ("S3Relay", "Debug"): [
 EXTRA_LIBS = {("Engine", "Debug"): ["zlib.lib"], ("Engine", "OutRead Debug"): ["zlib.lib"]}
 # prebuilt KavPublicD.lib ships without its PDB: same /ignore:4099 the other projects already use
 EXTRA_LINKOPTS = {("UpdateDLL", "Debug"): ["/ignore:4099"]}
+# libdb41s.lib (Berkeley DB 4.1.25) was built by VC6 with a 4-byte time_t; struct DB_ENV carries a
+# time_t member ahead of its method table, so the 8-byte time_t of v143 shifts every method pointer
+# by one slot (set_lg_bsize() ended up calling set_lg_dir()).  _USE_32BIT_TIME_T restores the VC6 ABI.
+EXTRA_DEFINES = {"Goddess": ["_USE_32BIT_TIME_T"], "S3Relay": ["_USE_32BIT_TIME_T"]}
 # GameServer.dsp compiled its Debug config with /MT (release CRT) yet links the /MTd Debug libs; VC6
 # tolerated that mix, the v143 linker does not (debug-CRT symbols unresolved) - use the debug CRT
 EXTRA_RUNTIME = {("GameServer", "Debug"): "MultiThreadedDebug"}
@@ -342,7 +346,7 @@ def gen_project(P, allproj, prodlib):
             A('      <IntrinsicFunctions>true</IntrinsicFunctions>')
         A('      <SDLCheck>false</SDLCheck>')
         A('      <ConformanceMode>false</ConformanceMode>')
-        A('      <PreprocessorDefinitions>%s;%%(PreprocessorDefinitions)</PreprocessorDefinitions>' % xml(";".join(cpp["defines"])))
+        A('      <PreprocessorDefinitions>%s;%%(PreprocessorDefinitions)</PreprocessorDefinitions>' % xml(";".join(cpp["defines"] + EXTRA_DEFINES.get(name, []))))
         incs = [i for i in cpp["includes"] if not (os.path.isabs(i) and not os.path.isdir(i))]
         if incs:
             A('      <AdditionalIncludeDirectories>%s;%%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>' % xml(";".join(incs)))
@@ -389,8 +393,12 @@ def gen_project(P, allproj, prodlib):
             nodefault = lnk["nodefault"] + EXTRA_NODEFAULT.get((name, sh), [])
             if nodefault:
                 A('      <IgnoreSpecificDefaultLibraries>%s;%%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>' % xml(";".join(nodefault)))
-            if lnk["deffile"]:
-                A('      <ModuleDefinitionFile>%s</ModuleDefinitionFile>' % xml(lnk["deffile"]))
+            # VC6 applied a .def listed among the project files to every configuration, even though only
+            # some link lines spelled out /def: (Heaven/Rainbow Release would otherwise export nothing)
+            listed_def = [f["src"] for f in P["files"] if f["src"].lower().endswith(".def")]
+            deffile = lnk["deffile"] or (listed_def[0] if listed_def else None)
+            if deffile:
+                A('      <ModuleDefinitionFile>%s</ModuleDefinitionFile>' % xml(deffile))
             if lnk["implib"]:
                 A('      <ImportLibrary>%s</ImportLibrary>' % xml(lnk["implib"]))
             extra = lnk["extra"] + [o for o in EXTRA_LINKOPTS.get((name, sh), []) if o not in lnk["extra"]]

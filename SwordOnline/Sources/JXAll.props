@@ -7,7 +7,10 @@
   and execution-charset is byte-bijective, so every literal stays identical to the VC6 build.
 -->
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ImportGroup Label="PropertySheets" />
+  <ImportGroup Label="PropertySheets">
+    <!-- optional, git-ignored per-machine overrides (test port block, NO_PAYSYS, ...) -->
+    <Import Project="$(MSBuildThisFileDirectory)JXAll.local.props" Condition="exists('$(MSBuildThisFileDirectory)JXAll.local.props')" />
+  </ImportGroup>
   <PropertyGroup Label="UserMacros">
     <JXSources>$(MSBuildThisFileDirectory)</JXSources>
     <JXSwordOnline>$(MSBuildThisFileDirectory)..\</JXSwordOnline>

@@ -122,6 +122,7 @@ if exist &quot;release\UpdateDLL.dll&quot; copy /Y &quot;release\UpdateDLL.dll&q
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>KavPublicD.lib;ApLib.lib;Ws2_32.lib;Version.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmtd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ModuleDefinitionFile>.\UpdateDLL.def</ModuleDefinitionFile>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
       <TargetMachine>MachineX86</TargetMachine>
     </Link>

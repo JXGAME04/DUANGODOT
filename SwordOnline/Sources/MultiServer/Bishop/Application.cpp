@@ -24,7 +24,10 @@
 
 using OnlineGameLib::Win32::CPackager;
 
-static const char szBishopClassName[] = "BishopClass";
+#ifndef BISHOP_INSTANCE_NAME
+#define BISHOP_INSTANCE_NAME "BishopClass"   // single-instance mutex / window class; override to run two Bishops side by side
+#endif
+static const char szBishopClassName[] = BISHOP_INSTANCE_NAME;
 //static const DWORD g_dwServerIdentify = 0xAEFC07B5;
 
 HINSTANCE		CBishopApp::m_hInst = NULL;
