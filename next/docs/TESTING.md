@@ -1,0 +1,53 @@
+# Chuẩn test JX NEXT
+
+Nguyên tắc: **không có phần nào được coi là xong nếu chưa có test tự chạy được trên CI**
+(Windows + Linux). Test viết ngay cùng lúc với code, không để "làm sau".
+
+## 1. Các tầng test
+
+| Tầng | Công cụ | Chạy khi | Mục tiêu |
+|---|---|---|---|
+| Unit | Catch2 v3 (C++), `go test` (Go), GUT (Godot) | mỗi lần build | hàm/lớp riêng lẻ, < 1 s toàn bộ |
+| Proto round-trip | Catch2 + Go test dùng cùng file `.bin` mẫu | mỗi lần build | encode ở C++ → decode ở Go và ngược lại, byte-exact |
+| Golden replay | `.jxrec` ghi từ hệ thống cũ, chạy lại qua zone core | mỗi PR | cùng input → cùng trạng thái (checksum theo tick) |
+| Formula compare | bảng số liệu xuất từ Core cũ (`.csv`) | khi động vào combat/skill/item | công thức mới ra đúng số của bản cũ |
+| Integration | docker-compose: gateway + zone + postgres + redis | nightly / trước release | login → vào map → đánh quái → lưu DB |
+| Load | tool Go bắn N client giả | trước release | 2 000 CCU/zone, p99 tick < 50 ms |
+| Multi-platform | GitHub Actions matrix | mỗi PR | Windows MSVC + Linux GCC (client: export Windows/Linux/Android) |
+
+## 2. Chạy tại máy
+
+```bash
+cd next
+cmake --preset windows-msvc            # hoặc linux-gcc   (cần VCPKG_ROOT, chạy trong VS developer prompt trên Windows)
+cmake --build --preset windows-msvc-debug
+ctest --preset windows-msvc-debug      # thêm -R log để chạy riêng nhóm [log]
+```
+
+Chạy trực tiếp binary để thấy output chi tiết: `build/windows-msvc/server/common/tests/Debug/jx_common_tests.exe "[clock]" -s`.
+
+## 3. Quy ước viết test
+
+- Mỗi module `X` có `tests/test_X.cpp`; tên `TEST_CASE` là **câu khẳng định hành vi**, tag `[X]`.
+- Test phải **xác định** (deterministic): không phụ thuộc giờ máy, thứ tự thread, mạng thật.
+  Thời gian → `ManualClock`/`FixedStep`; id → `IdGenerator(1)`; file → `temp_directory_path()/jxnext-test-<module>` và xoá sau.
+- Test đọc log qua `jx::log::ring_snapshot()` khi cần khẳng định "đã log đúng field".
+- Không test private; nếu phải test, thiết kế lại API.
+- Test chạy được **đồng thời** trên CI: không dùng port cố định, không dùng file cố định.
+- Fail phải nói rõ: dùng `CHECK` cho nhiều điều kiện độc lập, `REQUIRE` chỉ khi bước sau vô nghĩa nếu fail.
+
+## 4. Definition of Done cho một phần việc
+
+1. Code + log theo `docs/LOGGING.md`.
+2. Test unit xanh trên **cả hai** job CI.
+3. Nếu là thay đổi giao thức: test round-trip C++ ↔ Go và file mẫu `.bin` được cập nhật.
+4. Nếu là logic gameplay: golden replay hoặc formula-compare có case cho phần đó.
+5. 5 dòng ghi chú trong `docs/` (mục đích, API chính, cách cấu hình, cách test, điều chưa làm).
+6. Báo "Xong: <phần> — bạn kiểm tra" kèm lệnh chạy.
+
+## 5. CI
+
+`.github/workflows/next-ci.yml` chạy khi có thay đổi trong `next/**`: configure → build Debug →
+ctest → build Release → ctest, trên `windows-latest` (MSVC) và `ubuntu-24.04` (GCC). vcpkg dùng
+đúng commit `builtin-baseline` trong `vcpkg.json`; binary cache lưu bằng `actions/cache` nên lần
+chạy sau chỉ mất vài phút. Khi fail, log configure/ctest được đính kèm ở mục *Artifacts* của run.

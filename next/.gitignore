@@ -1,0 +1,8 @@
+# JX NEXT build outputs (the legacy tree has its own rules in the repo root .gitignore)
+build/
+vcpkg_installed/
+.vcpkg-bincache/
+.cache/
+CMakeUserPresets.json
+*.log
+*.crash.log

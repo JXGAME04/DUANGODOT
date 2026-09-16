@@ -1,0 +1,90 @@
+name: next-ci
+
+on:
+  push:
+    branches: [main, master]
+    paths: ["next/**", ".github/workflows/next-ci.yml"]
+  pull_request:
+    paths: ["next/**", ".github/workflows/next-ci.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: next-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # must match "builtin-baseline" in next/vcpkg.json
+  VCPKG_COMMIT: 3855d4d6b52353ee2e2f73044327e59d01a18c84
+
+jobs:
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Windows x64 MSVC", os: windows-latest, preset: windows-msvc }
+          - { name: "Linux x64 GCC",    os: ubuntu-24.04,   preset: linux-gcc }
+    defaults:
+      run:
+        working-directory: next
+        shell: bash
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-bincache
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: lukka/get-cmake@latest
+
+      - name: MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Create vcpkg binary cache directory
+        run: cmake -E make_directory "$VCPKG_DEFAULT_BINARY_CACHE"
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-bin-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('next/vcpkg.json') }}
+          restore-keys: |
+            vcpkg-bin-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-
+            vcpkg-bin-${{ runner.os }}-
+
+      - name: vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+          vcpkgJsonGlob: "next/vcpkg.json"
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build (Debug)
+        run: cmake --build --preset ${{ matrix.preset }}-debug
+
+      - name: Test (Debug)
+        run: ctest --preset ${{ matrix.preset }}-debug
+
+      - name: Build (Release)
+        run: cmake --build --preset ${{ matrix.preset }}-release
+
+      - name: Test (Release)
+        run: ctest --preset ${{ matrix.preset }}-release
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-${{ matrix.preset }}-logs
+          path: |
+            next/build/**/CMakeFiles/CMakeConfigureLog.yaml
+            next/build/**/Testing/Temporary/LastTest.log
+            next/build/**/vcpkg-manifest-install.log
+          if-no-files-found: ignore

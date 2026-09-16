@@ -21,37 +21,61 @@ Hai nguyên tắc bắt buộc, áp dụng cho **mọi bước** trong tài li�
 - Kết quả cuối: hệ thống ngang bản cũ về gameplay, vận hành được như dịch vụ hiện đại
   (monitoring, hot-reload dữ liệu/script, CI/CD).
 
-## 2. Giả định kỹ thuật (chốt lại nếu đổi)
+## 2. Quyết định kỹ thuật (đã chốt 2026-09-16)
 
 | Hạng mục | Chọn | Lý do ngắn |
 |---|---|---|
-| Server | C++20, CMake + vcpkg, CMake presets cho MSVC và GCC/Clang | tận dụng công thức/tham chiếu C++ cũ, hiệu năng, đa nền tảng |
-| Mạng | Asio (standalone), TCP+TLS cho PC, WebSocket cho mobile/web; KCP cân nhắc sau | thay IOCP, chạy Linux |
-| Giao thức | Protocol V2 = protobuf, length-prefixed, versioned, UTF-8 | không copy struct ra dây |
-| Script | Lua 5.4 + sol2 (không LuaJIT vì iOS và kẹt 5.1) | di động, dễ debug |
+| Lõi mô phỏng | **C++20** — `server/zone` (tick, entity, combat, AOI, Lua), CMake + vcpkg, presets MSVC và GCC/Clang | tận dụng công thức/tham chiếu C++ cũ, hiệu năng, đa nền tảng |
+| Dịch vụ xung quanh | **Go** — `services/gateway`, `auth`, `social`, `persist`, `admin`, phần lớn `tools/` | TLS/WebSocket/DB/ops mạnh, ít mã C++ phải bảo trì |
+| Mạng | Go gateway: TLS + WebSocket (mobile/web) + TCP (PC); gateway↔zone: TCP nội bộ, protobuf | thay IOCP, chạy Linux |
+| Giao thức | Protocol V2 = protobuf, length-prefixed, versioned, UTF-8; sinh mã C++ + Go + GDScript | không copy struct ra dây |
+| Script | **Lua 5.4** + sol2 (không LuaJIT: iOS và kẹt 5.1) | di động, dễ debug |
 | Dữ liệu | PostgreSQL (jsonb/bytea cho nhân vật, bảng quan hệ cho kinh tế) + Redis (phiên/cache) | bất đồng bộ, có schema |
 | Log | spdlog (server), Godot `print_*` bọc lại thành `Log` autoload (client) | có cấu trúc, xoay file |
 | Test | Catch2 (C++), GUT (GDScript), replay gói tin làm golden test | chạy trong CI |
 | CI | GitHub Actions: matrix windows-latest + ubuntu-latest, self-hosted Windows cho build bản cũ | cổng chất lượng |
 | Client | Godot 4.3+, GDScript cho UI/glue, GDExtension C++ cho codec/asset/pathfinding | đa nền tảng, hiệu năng chỗ cần |
 
+## 2b. Thứ tự ưu tiên — làm trước những gì đắt nếu phải làm lại
+
+Xếp theo "đổi sau sẽ tốn bao nhiêu"; làm đúng thứ tự này thì các phần sau chỉ *cộng thêm*, không phải sửa lại:
+
+1. **Khung repo + build + CI hai nền tảng** — mọi thứ đứng trên nó; đổi sau = chạm mọi file.
+2. **Chuẩn log + chuẩn test** — mọi module kế thừa; thêm sau = quay lại từng module.
+3. **Mã hoá UTF-8 tại biên** — làm sai thì phải chuyển đổi lại toàn bộ dữ liệu và asset.
+4. **ID và mô hình dữ liệu nhân vật (`RoleData.proto` có version)** — DB, giao thức, client đều phụ thuộc; đổi sau = migration.
+5. **Khung Protocol V2** (header, version, lỗi, framing) — trước khi có bất kỳ message nội dung nào.
+6. **Packet recorder trên bản cũ** — làm sớm để tích luỹ bằng chứng; không phụ thuộc mã mới.
+7. **Định dạng asset/data mà Godot tiêu thụ** (atlas + JSON schema) — trước khi viết UI/map.
+8. **Mô hình tick tất định của zone** — trước khi viết gameplay, vì test replay/đối chiếu dựa vào nó.
+9. Sau đó mới đến vertical slice và từng hệ thống gameplay.
+
+## 2c. Cách làm việc
+
+- Mỗi phần: báo **"Đang làm: <phần>"** khi bắt đầu → làm xong báo **"Xong: <phần> — bạn kiểm tra"** kèm cách
+  test; chủ dự án test/fix/duyệt rồi mới sang phần tiếp. Không làm chồng nhiều phần cùng lúc.
+- Mọi phần đều có log debug theo mục 5 và test theo mục 6 ngay từ commit đầu.
+
 ## 3. Cấu trúc repo (monorepo trong `next/`)
 
 ```
 next/
-  proto/          IDL Protocol V2 (.proto) + sinh mã C++/GDScript
+  proto/          IDL Protocol V2 (.proto) + sinh mã C++/Go/GDScript
   data/           game data data-driven (JSON/CSV + schema) xuất từ Settings cũ
-  tools/          exporter asset (.spr/.pak/map), converter data, converter Lua4->5, packet recorder/replay
-  server/
-    common/       log, config, time, ids, metrics, asio wrappers
-    gateway/      TLS, phiên, rate-limit, dịch V2 <-> (tạm) giao thức cũ
+  tools/          exporter asset (.spr/.pak/map), converter data, converter Lua4->5, packet recorder/replay (Go/Python)
+  server/         C++20 (CMake + vcpkg)
+    common/       log, config, clock, ids, metrics
+    zone/         tick, entity/component, spatial grid + AOI, combat core, Lua 5.4
+  services/       Go (một go.mod, nhiều cmd/)
+    gateway/      TLS/WebSocket/TCP, phiên (sid), rate-limit, dịch V2 <-> (tạm) giao thức cũ
     auth/         tài khoản, argon2, token
-    zone/         tick, entity/component, spatial grid + AOI, combat core, Lua
     social/       chat, bang, bạn bè, mail
     persist/      ghi bất đồng bộ, schema có version
+    admin/        API quản trị
+    pkg/log       logger Go cùng định dạng JSON với server/common
   client-godot/   project Godot + gdextension/
-  ci/             workflow, script build, docker
-  docs/           tài liệu (file này, ADR quyết định kiến trúc)
+  .github/workflows/next-ci.yml (ở gốc repo)  CI: matrix Windows + Ubuntu, Go, Godot export
+  docs/           tài liệu (file này, LOGGING.md, TESTING.md, ADR)
 ```
 
 ## 4. Bắt đầu từ đâu — tuần 1 (theo đúng thứ tự)

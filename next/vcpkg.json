@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "jxnext",
+  "version-string": "0.1.0",
+  "description": "JX NEXT - C++ zone core and shared libraries",
+  "builtin-baseline": "3855d4d6b52353ee2e2f73044327e59d01a18c84",
+  "dependencies": [
+    "fmt",
+    "spdlog",
+    "nlohmann-json",
+    "catch2"
+  ]
+}
