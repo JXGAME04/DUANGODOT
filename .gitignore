@@ -92,3 +92,7 @@ SwordOnline/Sources/MultiServer/GameServer/Common.lib
 !/bin/Server/
 /bin/Server/*
 !/bin/Server/Script/
+
+# ---- VC6 debris ----
+*.pdb
+*.bak
