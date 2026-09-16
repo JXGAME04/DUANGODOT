@@ -1,0 +1,25 @@
+FileName: 1.txt
+  FileTime: 2003.5.15 7:33
+  FileSize: 0
+  CRC32: 0
+  FileVersion: 0000.01.00
+FileName: 2.txt
+  FileTime: 2003.5.15 7:33
+  FileSize: 0
+  CRC32: 0
+  FileVersion: 0000.01.00
+FileName: Update0-2.pak
+  FileTime: 2003.5.15 7:52
+  FileSize: 16
+  CRC32: 2766439412
+  FileVersion: 0000.01.00
+FileName: Update1-2.pak
+  FileTime: 2003.5.15 7:52
+  FileSize: 16
+  CRC32: 2766439412
+  FileVersion: 0000.01.00
+FileName: Version.cfg
+  FileTime: 2003.5.15 7:52
+  FileSize: 21
+  CRC32: 1738561927
+  FileVersion: 0000.01.00

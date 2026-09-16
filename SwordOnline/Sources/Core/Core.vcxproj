@@ -1,0 +1,586 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Server Debug|Win32">
+      <Configuration>Server Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Server Release|Win32">
+      <Configuration>Server Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Client Debug|Win32">
+      <Configuration>Client Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Client Release|Win32">
+      <Configuration>Client Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{4585C08A-C50D-5EE5-AE69-A8D5191DCFC4}</ProjectGuid>
+    <RootNamespace>Core</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">
+    <OutDir>ServerDebug\</OutDir>
+    <IntDir>ServerDebug\</IntDir>
+    <TargetName>CoreServer</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">
+    <OutDir>ServerRelease\</OutDir>
+    <IntDir>ServerRelease\</IntDir>
+    <TargetName>CoreServer</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">
+    <OutDir>ClientDebug\</OutDir>
+    <IntDir>ClientDebug\</IntDir>
+    <TargetName>CoreClient</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">
+    <OutDir>ClientRelease\</OutDir>
+    <IntDir>ClientRelease\</IntDir>
+    <TargetName>CoreClient</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>_DEBUG;_SERVER;WIN32;_WINDOWS;_MBCS;_USRDLL;CORE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\engine\src;..\engine\include;..\Network;..\..\Headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KCore.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;lualibdll.lib;Ws2_32.lib;Winmm.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries>libc.lib;libcmt.lib;msvcrt.lib;libcd.lib;msvcrtd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;ServerDebug\CoreServer.map&quot; copy /Y &quot;ServerDebug\CoreServer.map&quot; &quot;..\..\..\bin\server\Coreserver.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;ServerDebug\CoreServer.pdb&quot; copy /Y &quot;ServerDebug\CoreServer.pdb&quot; &quot;..\..\..\bin\server\Coreserver.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;ServerDebug\CoreServer.dll&quot; copy /Y &quot;ServerDebug\CoreServer.dll&quot; &quot;..\..\..\bin\server\Coreserver.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if exist &quot;ServerDebug\CoreServer.map&quot; copy /Y &quot;ServerDebug\CoreServer.map&quot; &quot;..\..\..\bin\server\debug\Coreserver.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if exist &quot;ServerDebug\CoreServer.pdb&quot; copy /Y &quot;ServerDebug\CoreServer.pdb&quot; &quot;..\..\..\bin\server\debug\Coreserver.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if exist &quot;ServerDebug\CoreServer.dll&quot; copy /Y &quot;ServerDebug\CoreServer.dll&quot; &quot;..\..\..\bin\server\debug\Coreserver.dll&quot; &gt;nul
+if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if exist &quot;ServerDebug\CoreServer.lib&quot; copy /Y &quot;ServerDebug\CoreServer.lib&quot; &quot;..\..\lib\debug\CoreServer.lib&quot; &gt;nul</Command>
+      <Message>Deploying CoreServer</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>NDEBUG;_SERVER;WIN32;_WINDOWS;_MBCS;_USRDLL;CORE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\engine\src;..\engine\include;..\Network;..\..\Headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KCore.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;lualibdll.lib;Ws2_32.lib;Winmm.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\bin\server\release&quot; md &quot;..\..\..\bin\server\release&quot;
+if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;ServerRelease\CoreServer.map&quot; copy /Y &quot;ServerRelease\CoreServer.map&quot; &quot;..\..\..\bin\server\Coreserver.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;ServerRelease\CoreServer.pdb&quot; copy /Y &quot;ServerRelease\CoreServer.pdb&quot; &quot;..\..\..\bin\server\Coreserver.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;ServerRelease\CoreServer.dll&quot; copy /Y &quot;ServerRelease\CoreServer.dll&quot; &quot;..\..\..\bin\server\Coreserver.dll&quot; &gt;nul
+if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if exist &quot;ServerRelease\CoreServer.lib&quot; copy /Y &quot;ServerRelease\CoreServer.lib&quot; &quot;..\..\lib\release\CoreServer.lib&quot; &gt;nul</Command>
+      <Message>Deploying CoreServer</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>_DEBUG;WIN32;_WINDOWS;_MBCS;_USRDLL;CORE_EXPORTS;SWORDONLINE_SHOW_DBUG_INFO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\engine\src;..\..\Headers;..\engine\include;..\Network;src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KCore.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;lualibdll.lib;Shlwapi.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;ClientDebug\CoreClient.pdb&quot; copy /Y &quot;ClientDebug\CoreClient.pdb&quot; &quot;..\..\..\bin\client\CoreClient.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;ClientDebug\CoreClient.map&quot; copy /Y &quot;ClientDebug\CoreClient.map&quot; &quot;..\..\..\bin\client\CoreClient.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;ClientDebug\CoreClient.dll&quot; copy /Y &quot;ClientDebug\CoreClient.dll&quot; &quot;..\..\..\bin\client\CoreClient.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if exist &quot;ClientDebug\CoreClient.pdb&quot; copy /Y &quot;ClientDebug\CoreClient.pdb&quot; &quot;..\..\..\bin\client\debug\CoreClient.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if exist &quot;ClientDebug\CoreClient.map&quot; copy /Y &quot;ClientDebug\CoreClient.map&quot; &quot;..\..\..\bin\client\debug\CoreClient.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if exist &quot;ClientDebug\CoreClient.dll&quot; copy /Y &quot;ClientDebug\CoreClient.dll&quot; &quot;..\..\..\bin\client\debug\CoreClient.dll&quot; &gt;nul
+if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if exist &quot;ClientDebug\CoreClient.lib&quot; copy /Y &quot;ClientDebug\CoreClient.lib&quot; &quot;..\..\lib\debug\CoreClient.lib&quot; &gt;nul</Command>
+      <Message>Deploying CoreClient</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_MBCS;_USRDLL;CORE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\engine\src;..\engine\include;..\Network;..\..\Headers;src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KCore.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;lualibdll.lib;Shlwapi.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\bin\client\release&quot; md &quot;..\..\..\bin\client\release&quot;
+if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;ClientRelease\CoreClient.pdb&quot; copy /Y &quot;ClientRelease\CoreClient.pdb&quot; &quot;..\..\..\bin\client\CoreClient.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;ClientRelease\CoreClient.map&quot; copy /Y &quot;ClientRelease\CoreClient.map&quot; &quot;..\..\..\bin\client\CoreClient.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;ClientRelease\CoreClient.dll&quot; copy /Y &quot;ClientRelease\CoreClient.dll&quot; &quot;..\..\..\bin\client\CoreClient.dll&quot; &gt;nul
+if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if exist &quot;ClientRelease\CoreClient.lib&quot; copy /Y &quot;ClientRelease\CoreClient.lib&quot; &quot;..\..\lib\release\CoreClient.lib&quot; &gt;nul</Command>
+      <Message>Deploying CoreClient</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include=".\Src\KPartnerSkill.cpp" />
+    <ClCompile Include=".\Src\KPlayerPartner.cpp" />
+    <ClCompile Include=".\Src\KThiefSkill.cpp" />
+    <ClCompile Include=".\Src\KMissle.cpp" />
+    <ClCompile Include=".\Src\KMissleRes.cpp" />
+    <ClCompile Include=".\Src\KMissleSet.cpp" />
+    <ClCompile Include=".\Src\KSkillList.cpp" />
+    <ClCompile Include=".\Src\KSkillManager.cpp" />
+    <ClCompile Include=".\Src\KSkills.cpp" />
+    <ClCompile Include=".\Src\KSkillSpecial.cpp" />
+    <ClCompile Include=".\Src\Skill.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\KFaction.cpp" />
+    <ClCompile Include=".\Src\KNpc.cpp" />
+    <ClCompile Include=".\Src\KNpcAI.cpp" />
+    <ClCompile Include=".\Src\KNpcAttribModify.cpp" />
+    <ClCompile Include=".\Src\KNpcDeathCalcExp.cpp" />
+    <ClCompile Include=".\Src\KNpcFindPath.cpp" />
+    <ClCompile Include=".\Src\KNpcGold.cpp" />
+    <ClCompile Include=".\Src\KNpcRes.cpp" />
+    <ClCompile Include=".\Src\KNpcResList.cpp" />
+    <ClCompile Include=".\Src\KNpcResNode.cpp" />
+    <ClCompile Include=".\Src\KNpcSet.cpp" />
+    <ClCompile Include=".\Src\KNpcTemplate.cpp" />
+    <ClCompile Include=".\Src\KPlayer.cpp" />
+    <ClCompile Include=".\Src\KPlayerChat.cpp" />
+    <ClCompile Include=".\Src\KPlayerDBFuns.cpp" />
+    <ClCompile Include=".\Src\KPlayerFaction.cpp" />
+    <ClCompile Include=".\Src\KPlayerMenuState.cpp" />
+    <ClCompile Include=".\Src\KPlayerPK.cpp" />
+    <ClCompile Include=".\Src\KPlayerSet.cpp" />
+    <ClCompile Include=".\Src\KPlayerTask.cpp" />
+    <ClCompile Include=".\Src\KPlayerTeam.cpp" />
+    <ClCompile Include=".\Src\KPlayerTong.cpp" />
+    <ClCompile Include=".\Src\KPlayerTrade.cpp" />
+    <ClCompile Include=".\Src\KSprControl.cpp" />
+    <ClCompile Include=".\Src\KBasPropTbl.CPP" />
+    <ClCompile Include=".\Src\KBuySell.cpp" />
+    <ClCompile Include=".\Src\KInventory.cpp" />
+    <ClCompile Include=".\Src\KItem.cpp" />
+    <ClCompile Include=".\Src\KItemChangeRes.cpp" />
+    <ClCompile Include=".\Src\KItemGenerator.CPP" />
+    <ClCompile Include=".\Src\KItemList.cpp" />
+    <ClCompile Include=".\Src\KItemSet.cpp" />
+    <ClCompile Include=".\Src\KObj.cpp" />
+    <ClCompile Include=".\Src\KObjSet.cpp" />
+    <ClCompile Include=".\Src\KViewItem.cpp" />
+    <ClCompile Include=".\Src\KCore.cpp" />
+    <ClCompile Include=".\Src\KSubWorld.cpp" />
+    <ClCompile Include=".\Src\KSubWorldSet.cpp" />
+    <ClCompile Include=".\Src\KWeatherMgr.cpp" />
+    <ClCompile Include=".\Src\KRegion.cpp" />
+    <ClCompile Include=".\Src\KWorldMsg.cpp" />
+    <ClCompile Include=".\Src\KMath.cpp" />
+    <ClCompile Include=".\Src\KGMProcess.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\KNewProtocolProcess.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\KProtocol.cpp" />
+    <ClCompile Include=".\Src\KProtocolProcess.cpp" />
+    <ClCompile Include=".\Src\ScriptFuns.cpp" />
+    <ClCompile Include=".\Src\LuaFuns.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\KScriptValueSet.cpp" />
+    <ClCompile Include=".\Src\KSortScript.cpp" />
+    <ClCompile Include=".\src\CoreServerShell.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\CoreShell.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\KIpotBranch.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\KIpotLeaf.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\KIpoTree.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\KScenePlaceC.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\KScenePlaceRegionC.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\KWeather.cpp" />
+    <ClCompile Include=".\Src\Scene\SceneMath.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\Scene\ScenePlaceMapC.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\CoreDrawGameObj.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\ImgRef.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\KMagicDesc.cpp" />
+    <ClCompile Include=".\Src\KGMCommand.cpp" />
+    <ClCompile Include=".\Src\KMission.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include=".\Src\KTaskFuns.cpp" />
+    <ClCompile Include=".\Src\KOption.cpp" />
+    <ClCompile Include=".\Src\KMapMusic.cpp" />
+    <ClCompile Include=".\Src\KLadder.cpp" />
+    <ClCompile Include=".\Src\stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">KCore.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">KCore.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">KCore.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">KCore.h</PrecompiledHeaderFile>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\Src\KPartnerSkill.h" />
+    <ClInclude Include=".\Src\KPlayerPartner.h" />
+    <ClInclude Include=".\Src\KThiefSkill.h" />
+    <ClInclude Include=".\Src\KMissle.h" />
+    <ClInclude Include=".\Src\KMissleMagicAttribsData.h" />
+    <ClInclude Include=".\Src\KMissleRes.h" />
+    <ClInclude Include=".\Src\KMissleSet.h" />
+    <ClInclude Include=".\Src\KSkillList.h" />
+    <ClInclude Include=".\Src\KSkillManager.h" />
+    <ClInclude Include=".\Src\KSkills.h" />
+    <ClInclude Include=".\Src\KSkillSpecial.h" />
+    <ClInclude Include=".\Src\Skill.h" />
+    <ClInclude Include=".\Src\SkillDef.h" />
+    <ClInclude Include=".\Src\KFaction.h" />
+    <ClInclude Include=".\Src\KNpc.h" />
+    <ClInclude Include=".\Src\KNpcAI.h" />
+    <ClInclude Include=".\Src\KNpcAttribModify.h" />
+    <ClInclude Include=".\Src\KNpcDeathCalcExp.h" />
+    <ClInclude Include=".\Src\KNpcFindPath.h" />
+    <ClInclude Include=".\Src\KNpcGold.h" />
+    <ClInclude Include=".\Src\KNpcRes.h" />
+    <ClInclude Include=".\Src\KNpcResList.h" />
+    <ClInclude Include=".\Src\KNpcResNode.h" />
+    <ClInclude Include=".\Src\KNpcSet.h" />
+    <ClInclude Include=".\Src\KNpcTemplate.h" />
+    <ClInclude Include=".\Src\KPlayer.h" />
+    <ClInclude Include=".\Src\KPlayerChat.h" />
+    <ClInclude Include=".\Src\KPlayerDef.h" />
+    <ClInclude Include=".\Src\KPlayerFaction.h" />
+    <ClInclude Include=".\Src\KPlayerMenuState.h" />
+    <ClInclude Include=".\Src\KPlayerPK.h" />
+    <ClInclude Include=".\Src\KPlayerSet.h" />
+    <ClInclude Include=".\Src\KPlayerTask.h" />
+    <ClInclude Include=".\Src\KPlayerTeam.h" />
+    <ClInclude Include=".\Src\KPlayerTong.h" />
+    <ClInclude Include=".\Src\KPlayerTrade.h" />
+    <ClInclude Include=".\Src\KSprControl.h" />
+    <ClInclude Include=".\Src\KBasPropTbl.h" />
+    <ClInclude Include=".\Src\KBuySell.h" />
+    <ClInclude Include=".\Src\KInventory.h" />
+    <ClInclude Include=".\Src\KItem.h" />
+    <ClInclude Include=".\Src\KItemChangeRes.h" />
+    <ClInclude Include=".\Src\KItemGenerator.h" />
+    <ClInclude Include=".\Src\KItemList.h" />
+    <ClInclude Include=".\Src\KItemSet.h" />
+    <ClInclude Include=".\Src\KObj.h" />
+    <ClInclude Include=".\Src\KObjSet.h" />
+    <ClInclude Include=".\Src\KViewItem.h" />
+    <ClInclude Include=".\Src\MyAssert.H" />
+    <ClInclude Include=".\Src\KCore.h" />
+    <ClInclude Include=".\Src\KSubWorld.h" />
+    <ClInclude Include=".\Src\KSubWorldSet.h" />
+    <ClInclude Include=".\Src\KWeatherMgr.h" />
+    <ClInclude Include=".\Src\KRegion.h" />
+    <ClInclude Include=".\Src\KWorldMsg.h" />
+    <ClInclude Include=".\Src\KMath.h" />
+    <ClInclude Include=".\Src\KNewProtocolProcess.h" />
+    <ClInclude Include="..\..\Headers\KProtocol.h" />
+    <ClInclude Include="..\..\Headers\KProtocolDef.h" />
+    <ClInclude Include=".\Src\KProtocolProcess.h" />
+    <ClInclude Include=".\Src\KScriptValueSet.h" />
+    <ClInclude Include=".\Src\KSortScript.h" />
+    <ClInclude Include=".\Src\LuaFuns.h" />
+    <ClInclude Include=".\Src\CoreObjGenreDef.h" />
+    <ClInclude Include=".\Src\CoreServerDataDef.h" />
+    <ClInclude Include=".\src\CoreServerShell.h" />
+    <ClInclude Include=".\Src\CoreShell.h" />
+    <ClInclude Include=".\Src\CoreUseNameDef.h" />
+    <ClInclude Include=".\Src\GameDataDef.h" />
+    <ClInclude Include=".\Src\KIndexNode.h" />
+    <ClInclude Include=".\Src\MsgGenreDef.h" />
+    <ClInclude Include="..\..\Lib\S3DBInterface.h" />
+    <ClInclude Include=".\Src\Scene\KIpotBranch.h" />
+    <ClInclude Include=".\Src\Scene\KIpotLeaf.h" />
+    <ClInclude Include=".\Src\Scene\KIpoTree.h" />
+    <ClInclude Include=".\Src\Scene\KScenePlaceC.h" />
+    <ClInclude Include=".\Src\Scene\KScenePlaceRegionC.h" />
+    <ClInclude Include=".\Src\Scene\KWeather.h" />
+    <ClInclude Include=".\Src\Scene\ObstacleDef.h" />
+    <ClInclude Include=".\Src\Scene\SceneDataDef.h" />
+    <ClInclude Include=".\Src\Scene\SceneMath.h" />
+    <ClInclude Include=".\Src\Scene\ScenePlaceMapC.h" />
+    <ClInclude Include=".\Src\CoreDrawGameObj.h" />
+    <ClInclude Include=".\Src\ImgRef.h" />
+    <ClInclude Include=".\Src\KMagicAttrib.h" />
+    <ClInclude Include=".\Src\KMagicDesc.h" />
+    <ClInclude Include=".\Src\KGMCommand.h" />
+    <ClInclude Include=".\Src\KLinkArrayTemplate.h" />
+    <ClInclude Include=".\Src\KMission.h" />
+    <ClInclude Include=".\Src\KMissionArray.h" />
+    <ClInclude Include=".\Src\KTaskFuns.h" />
+    <ClInclude Include=".\Src\TaskDef.h" />
+    <ClInclude Include=".\Src\KOption.h" />
+    <ClInclude Include=".\Src\KMapMusic.h" />
+    <ClInclude Include=".\Src\KLadder.h" />
+    <ClInclude Include=".\Src\USBKey\des.h" />
+    <ClInclude Include=".\Src\USBKey\EPASSAPI.H" />
+    <ClInclude Include=".\Src\USBKey\epsJO.h" />
+    <ClInclude Include=".\Src\USBKey\MD5.H" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Lib\release\engine.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\release\common.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\debug\engine.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\debug\common.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Server Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Client Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include=".\Src\USBKey\EP1KDL20.LIB" />
+    <Library Include=".\Src\USBKey\EpsForJoLib.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\Src\PlayerPartner文档.txt" />
+    <None Include=".\Src\技能系统.txt" />
+    <None Include=".\Src\AI设计.txt" />
+    <None Include=".\Src\NPC系统.txt" />
+    <None Include=".\Protocol.xls" />
+    <None Include=".\Src\脚本说明.txt" />
+    <None Include=".\Src\任务系统设计文档.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MultiServer\Common\Common.vcxproj">
+      <Project>{99C82C01-A84B-52E9-B806-95F32CDE2920}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+    <ProjectReference Include="..\Network\ESClient\ESClient.vcxproj">
+      <Project>{08304608-A51B-5CC4-9043-F17132078B70}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+    <ProjectReference Include="..\Engine\Engine.vcxproj">
+      <Project>{080982A0-905A-5085-950D-AF814BB47734}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+    <ProjectReference Include="..\Library\LuaLib\LuaLibDll.vcxproj">
+      <Project>{C4628CC6-CC2C-5502-8327-28FD7F043EA3}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

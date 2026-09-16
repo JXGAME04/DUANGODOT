@@ -1,0 +1,2060 @@
+
+(object Petal
+    version    	42
+    _written   	"Microsoft Visual Modeler 2.0.8139"
+    charSet    	134)
+
+(object Design "Logical View"
+    is_unit    	TRUE
+    is_loaded  	TRUE
+    defaults   	(object defaults
+	rightMargin 	0.250000
+	leftMargin 	0.250000
+	topMargin  	0.250000
+	bottomMargin 	0.500000
+	pageOverlap 	0.250000
+	clipIconLabels 	TRUE
+	autoResize 	TRUE
+	snapToGrid 	TRUE
+	gridX      	16
+	gridY      	16
+	defaultFont 	(object Font
+	    size       	9
+	    face       	"Tahoma"
+	    charSet    	134
+	    bold       	FALSE
+	    italics    	FALSE
+	    underline  	FALSE
+	    strike     	FALSE
+	    color      	0
+	    default_color 	TRUE)
+	showMessageNum 	3
+	showClassOfObject 	TRUE
+	notation   	"Unified")
+    root_usecase_package 	(object Class_Category "Use Case View"
+	quid       	"3DAB529E0181"
+	exportControl 	"Public"
+	global     	TRUE
+	logical_models 	(list unit_reference_list)
+	logical_presentations 	(list unit_reference_list
+	    (object UseCaseDiagram "Main"
+		quid       	"3DAB529F01AA"
+		title      	"Main"
+		zoom       	100
+		max_height 	28350
+		max_width  	21600
+		origin_x   	0
+		origin_y   	0
+		items      	(list diagram_item_list))))
+    root_category 	(object Class_Category "Logical View"
+	quid       	"3DAB529E0180"
+	exportControl 	"Public"
+	global     	TRUE
+	subsystem  	"Component View"
+	quidu      	"3DAB529E0182"
+	logical_models 	(list unit_reference_list
+	    (object Class "cCamera"
+		quid       	"3DAB54530095"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DAB5BCA0234"
+			supplier   	"Logical View::iCamera"
+			quidu      	"3DAB5BB702EA"))
+		operations 	(list Operations
+		    (object Operation "GetGraphics"
+			quid       	"3DAB5DA50131"
+			result     	"cGraphics"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)
+		    (object Operation "GetGround"
+			quid       	"3DAB5E790148"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)))
+	    (object Class "cTile"
+		quid       	"3DAB56FB0339")
+	    (object Class "cGraphics"
+		quid       	"3DAB584E033A"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DAB5BA9027B"
+			supplier   	"Logical View::iGraphics"
+			quidu      	"3DAB5B9C0109")
+		    (object Inheritance_Relationship
+			quid       	"3DADF96E00E3"
+			supplier   	"Logical View::cScreen"
+			quidu      	"3DAB9B5F017A"))
+		operations 	(list Operations
+		    (object Operation "Run"
+			quid       	"3DABA76D038D"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0))
+		class_attributes 	(list class_attribute_list
+		    (object ClassAttribute "m_pGround"
+			quid       	"3DAB7F7200FD"
+			type       	"cGround*")
+		    (object ClassAttribute "m_pScreen"
+			quid       	"3DAB88DE033C"
+			type       	"cScreen*")
+		    (object ClassAttribute "m_pCamera"
+			quid       	"3DAB88E90220"
+			type       	"cCamera*")
+		    (object ClassAttribute "m_pMsgQueue"
+			quid       	"3DAB893A01C5"
+			type       	"iMsgQueue*")
+		    (object ClassAttribute "m_pFps"
+			quid       	"3DAB89500326"
+			type       	"iFps*")
+		    (object ClassAttribute "m_aTextureCache"
+			quid       	"3DAB89C503D3"
+			type       	"cTextureCache*[]")
+		    (object ClassAttribute "m_pThread"
+			quid       	"3DAB9BD601F8"
+			type       	"cThread")))
+	    (object Class "iItem"
+		quid       	"3DAB5B49025B"
+		stereotype 	"Interface")
+	    (object Class "iGraphics"
+		quid       	"3DAB5B9C0109"
+		stereotype 	"Interface"
+		operations 	(list Operations
+		    (object Operation "GetiGround"
+			quid       	"3DAB61660041"
+			result     	"iGround"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)
+		    (object Operation "GetiScreen"
+			quid       	"3DAB616F030B"
+			result     	"iScreen"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)
+		    (object Operation "GetiCamera"
+			quid       	"3DAB617F03A5"
+			result     	"iCamera"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)))
+	    (object Class "iCamera"
+		quid       	"3DAB5BB702EA"
+		stereotype 	"Interface")
+	    (object Class "cCamera3D"
+		quid       	"3DAB5C480316"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DAB5C52020C"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A")
+		    (object Inheritance_Relationship
+			quid       	"3DAB5EAD033A"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095"))
+		operations 	(list Operations
+		    (object Operation "GetDevice"
+			quid       	"3DAB5F670349"
+			result     	"LPDIRECT3DDEVICE8"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)))
+	    (object Class "iKFont"
+		quid       	"3DAB622001AE"
+		stereotype 	"Interface")
+	    (object Class "cThread"
+		quid       	"3DAB7E84039A")
+	    (object Class "cGround"
+		quid       	"3DAB7EF10297"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DABA7D0031B"
+			supplier   	"Logical View::iGround"
+			quidu      	"3DABA7C601F4"))
+		class_attributes 	(list class_attribute_list
+		    (object ClassAttribute "m_pSelect"
+			quid       	"3DAC548303B1"
+			type       	"cSelect*")))
+	    (object Class "iTexture"
+		quid       	"3DAB9B1D0028"
+		stereotype 	"Interface")
+	    (object Class "iMsgQueue"
+		quid       	"3DAB9B4E0297"
+		stereotype 	"Interface")
+	    (object Class "cScreen"
+		quid       	"3DAB9B5F017A"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADF92800EA"
+			supplier   	"Logical View::iScreen"
+			quidu      	"3DADF91F0173")
+		    (object Inheritance_Relationship
+			quid       	"3DADFA8B0301"
+			supplier   	"Logical View::cPicture"
+			quidu      	"3DADFA830010")))
+	    (object Class "cGraphics3cGraphics3D"
+		quid       	"3DAB9CFA02D6"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DAB9D0201AB"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A")
+		    (object Inheritance_Relationship
+			quid       	"3DAB9D5F0144"
+			supplier   	"Logical View::CD3DApplication"
+			quidu      	"3DAB9D5A02A5"))
+		operations 	(list Operations
+		    (object Operation "GetDevice3D"
+			quid       	"3DABA406017D"
+			result     	"LPDIRECT3DDEVICE8"
+			concurrency 	"Sequential"
+			opExportControl 	"Public"
+			uid        	0)))
+	    (object Class "CD3DApplication"
+		quid       	"3DAB9D5A02A5")
+	    (object Class "iGround"
+		quid       	"3DABA7C601F4"
+		stereotype 	"Interface")
+	    (object Class "iObj"
+		quid       	"3DAC534B01D2"
+		stereotype 	"Interface")
+	    (object Class "cRegion"
+		quid       	"3DAC564A00DA")
+	    (object Class "cSelect"
+		quid       	"3DAC577C03AB")
+	    (object Class "cGround3D"
+		quid       	"3DADE5D3012C"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADE5DC03C4"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297")))
+	    (object Class "cObj"
+		quid       	"3DADE84F03DF"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADE86801FB"
+			supplier   	"Logical View::iObj"
+			quidu      	"3DAC534B01D2"))
+		class_attributes 	(list class_attribute_list
+		    (object ClassAttribute "m_pGraphics"
+			quid       	"3DADE85E00A2"
+			type       	"cGraphics*")))
+	    (object Class "cGroundObj"
+		quid       	"3DADE8F40176"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADE8FA03A6"
+			supplier   	"Logical View::cObj"
+			quidu      	"3DADE84F03DF"))
+		used_nodes 	(list uses_relationship_list
+		    (object Uses_Relationship
+			quid       	"3DADF0E9019E"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297")
+		    (object Uses_Relationship
+			quid       	"3DADF10101B8"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095")))
+	    (object Class "cScreenObj"
+		quid       	"3DADEB350331"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADFFFA01A8"
+			supplier   	"Logical View::CObj"
+			quidu      	"3DADFFEB0124"))
+		used_nodes 	(list uses_relationship_list
+		    (object Uses_Relationship
+			quid       	"3DADF8CF0098"
+			supplier   	"Logical View::cScreen"
+			quidu      	"3DAB9B5F017A")))
+	    (object Class "cLight"
+		quid       	"3DADF1C800AD"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADF1CE0110"
+			supplier   	"Logical View::cGroundObj"
+			quidu      	"3DADE8F40176"))
+		used_nodes 	(list uses_relationship_list
+		    (object Uses_Relationship
+			quid       	"3DADF2840156"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297")
+		    (object Uses_Relationship
+			quid       	"3DADF28E0074"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A")
+		    (object Uses_Relationship
+			quid       	"3DADF2AE0220"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095")))
+	    (object Class "cMesh"
+		quid       	"3DADF6A2006D")
+	    (object Class "cMesh3D"
+		quid       	"3DADF6A8026A"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADF6B103CC"
+			supplier   	"Logical View::cMesh"
+			quidu      	"3DADF6A2006D")))
+	    (object Class "cObstacle"
+		quid       	"3DADF6D5027B"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADF6D901D7"
+			supplier   	"Logical View::cGroundObj"
+			quidu      	"3DADE8F40176")))
+	    (object Class "iScreen"
+		quid       	"3DADF91F0173"
+		stereotype 	"Interface")
+	    (object Class "cPicture"
+		quid       	"3DADFA830010")
+	    (object Class "cScreen3D"
+		quid       	"3DADFACE0057"
+		superclasses 	(list inheritance_relationship_list
+		    (object Inheritance_Relationship
+			quid       	"3DADFAD2032E"
+			supplier   	"Logical View::cScreen"
+			quidu      	"3DAB9B5F017A")))
+	    (object Class "CObj"
+		quid       	"3DADFFEB0124")
+	    (object Association "$UNNAMED$0"
+		quid       	"3DAB5BE102EC"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$1"
+			quid       	"3DAB5BE103AA"
+			supplier   	"Logical View::iItem"
+			quidu      	"3DAB5B49025B"
+			is_navigable 	TRUE)
+		    (object Role "$UNNAMED$2"
+			quid       	"3DAB5BE103AB"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095")))
+	    (object Association "$UNNAMED$3"
+		quid       	"3DAB5DF00236"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$4"
+			quid       	"3DAB5DF00331"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$5"
+			quid       	"3DAB5DF00332"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$6"
+		quid       	"3DAB623C019C"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$7"
+			quid       	"3DAB623C0386"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$8"
+			quid       	"3DAB623C0387"
+			supplier   	"Logical View::iKFont"
+			quidu      	"3DAB622001AE"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$9"
+		quid       	"3DAB7E970167"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$10"
+			quid       	"3DAB7E9703D4"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$11"
+			quid       	"3DAB7E9703D5"
+			supplier   	"Logical View::cThread"
+			quidu      	"3DAB7E84039A"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$12"
+		quid       	"3DAB7EF602BC"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$13"
+			quid       	"3DAB7EF7014B"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$14"
+			quid       	"3DAB7EF7014C"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$15"
+		quid       	"3DAB9B420018"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$16"
+			quid       	"3DAB9B42005E"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$17"
+			quid       	"3DAB9B420072"
+			supplier   	"Logical View::iTexture"
+			quidu      	"3DAB9B1D0028"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$18"
+		quid       	"3DAB9B5203AB"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$19"
+			quid       	"3DAB9B530154"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$20"
+			quid       	"3DAB9B530155"
+			supplier   	"Logical View::iMsgQueue"
+			quidu      	"3DAB9B4E0297"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$21"
+		quid       	"3DAB9B660184"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$22"
+			quid       	"3DAB9B66029C"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$23"
+			quid       	"3DAB9B66029D"
+			supplier   	"Logical View::cScreen"
+			quidu      	"3DAB9B5F017A"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$24"
+		quid       	"3DAB9B840110"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$25"
+			quid       	"3DAB9B8401E2"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$26"
+			quid       	"3DAB9B8401E3"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$27"
+		quid       	"3DABA889004D"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$28"
+			quid       	"3DABA889031E"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$29"
+			quid       	"3DABA889031F"
+			supplier   	"Logical View::cGraphics"
+			quidu      	"3DAB584E033A"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$30"
+		quid       	"3DAC5414013A"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$31"
+			quid       	"3DAC541401DB"
+			supplier   	"Logical View::cCamera"
+			quidu      	"3DAB54530095"
+			is_navigable 	TRUE)
+		    (object Role "$UNNAMED$32"
+			quid       	"3DAC541401DC"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297")))
+	    (object Association "$UNNAMED$33"
+		quid       	"3DAC565901B8"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$34"
+			quid       	"3DAC56590399"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$35"
+			quid       	"3DAC565903A3"
+			supplier   	"Logical View::cRegion"
+			quidu      	"3DAC564A00DA"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$36"
+		quid       	"3DAC578500FB"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$37"
+			quid       	"3DAC57850213"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$38"
+			quid       	"3DAC57850214"
+			supplier   	"Logical View::cSelect"
+			quidu      	"3DAC577C03AB"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$39"
+		quid       	"3DAC9C1001A4"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$40"
+			quid       	"3DAC9C1003AD"
+			supplier   	"Logical View::cGround"
+			quidu      	"3DAB7EF10297"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$41"
+			quid       	"3DAC9C1003AE"
+			supplier   	"Logical View::cThread"
+			quidu      	"3DAB7E84039A"
+			is_navigable 	TRUE)))
+	    (object Association "$UNNAMED$42"
+		quid       	"3DAF0480021A"
+		roles      	(list role_list
+		    (object Role "$UNNAMED$43"
+			quid       	"3DAF04800288"
+			supplier   	"Logical View::iGround"
+			quidu      	"3DABA7C601F4"
+			is_aggregate 	TRUE)
+		    (object Role "$UNNAMED$44"
+			quid       	"3DAF04800289"
+			supplier   	"Logical View::iObj"
+			quidu      	"3DAC534B01D2"
+			is_navigable 	TRUE)))
+	    (object Class_Category "User Services"
+		attributes 	(list Attribute_Set
+		    (object Attribute
+			tool       	"VisualBasic"
+			name       	"TierPackage"
+			value      	"User Services"))
+		quid       	"3DAB529F01B3"
+		documentation 	"User services provide the visual interface for presenting information and gathering data in an application. The user services connect the user with the application and request the business and/or data services needed by the user to execute business tasks."
+		visible_categories 	(list visibility_relationship_list
+		    (object Visibility_Relationship
+			attributes 	(list Attribute_Set
+			    (object Attribute
+				tool       	"VisualBasic"
+				name       	"TierPackage"
+				value      	"Business Services"))
+			quid       	"3DAB529F01B9"
+			supplier   	"Logical View::Business Services"
+			quidu      	"3DAB529F01B5")
+		    (object Visibility_Relationship
+			attributes 	(list Attribute_Set
+			    (object Attribute
+				tool       	"VisualBasic"
+				name       	"TierPackage"
+				value      	"Data Services"))
+			quid       	"3DAB529F01BA"
+			supplier   	"Logical View::Data Services"
+			quidu      	"3DAB529F01B7"))
+		exportControl 	"Public"
+		logical_models 	(list unit_reference_list)
+		logical_presentations 	(list unit_reference_list))
+	    (object Class_Category "Business Services"
+		attributes 	(list Attribute_Set
+		    (object Attribute
+			tool       	"VisualBasic"
+			name       	"TierPackage"
+			value      	"Business Services"))
+		quid       	"3DAB529F01B5"
+		documentation 	"Business services respond to requests from the user (or other business services) in order to execute a business task. They accomplish this by requesting the data services needed and applying formal procedures and business rules to the relevant data. This protocol insulates the user from direct interaction with the database. Because business rules tend to change more frequently than the specific business tasks they support, they are ideal candidates for encapsulating in components that are physically separate from the application logic itself."
+		visible_categories 	(list visibility_relationship_list
+		    (object Visibility_Relationship
+			attributes 	(list Attribute_Set
+			    (object Attribute
+				tool       	"VisualBasic"
+				name       	"TierPackage"
+				value      	"User Services"))
+			quid       	"3DAB529F01BB"
+			supplier   	"Logical View::User Services"
+			quidu      	"3DAB529F01B3")
+		    (object Visibility_Relationship
+			attributes 	(list Attribute_Set
+			    (object Attribute
+				tool       	"VisualBasic"
+				name       	"TierPackage"
+				value      	"Data Services"))
+			quid       	"3DAB529F01BC"
+			supplier   	"Logical View::Data Services"
+			quidu      	"3DAB529F01B7"))
+		exportControl 	"Public"
+		logical_models 	(list unit_reference_list)
+		logical_presentations 	(list unit_reference_list))
+	    (object Class_Category "Data Services"
+		attributes 	(list Attribute_Set
+		    (object Attribute
+			tool       	"VisualBasic"
+			name       	"TierPackage"
+			value      	"Data Services"))
+		quid       	"3DAB529F01B7"
+		documentation 	"Data services maintain, access, and update data. They also manage and satisfy requests to manipulate data that are initiated by business services. Separating data services allows the data structure and access mechanisms to be maintained, modified, or, if necessary, even re-architected without affecting business or user services."
+		visible_categories 	(list visibility_relationship_list
+		    (object Visibility_Relationship
+			attributes 	(list Attribute_Set
+			    (object Attribute
+				tool       	"VisualBasic"
+				name       	"TierPackage"
+				value      	"User Services"))
+			quid       	"3DAB529F01BD"
+			supplier   	"Logical View::User Services"
+			quidu      	"3DAB529F01B3")
+		    (object Visibility_Relationship
+			attributes 	(list Attribute_Set
+			    (object Attribute
+				tool       	"VisualBasic"
+				name       	"TierPackage"
+				value      	"Data Services"))
+			quid       	"3DAB529F01BE"
+			supplier   	"Logical View::Business Services"
+			quidu      	"3DAB529F01B5"))
+		exportControl 	"Public"
+		logical_models 	(list unit_reference_list)
+		logical_presentations 	(list unit_reference_list)))
+	logical_presentations 	(list unit_reference_list
+	    (object Tier_Diagram "Three-Tiered Service Model"
+		quid       	"3DAB529F01BF"
+		title      	"Three-Tiered Service Model"
+		documentation 	"A three-tiered architectural approach separates the various components of a client/server system into three tiers of services. The user services, business and other middle tier services, and data services are the logical tiers that collaborate in an application"
+		zoom       	100
+		max_height 	28350
+		max_width  	21600
+		origin_x   	0
+		origin_y   	0
+		items      	(list diagram_item_list
+		    (object TierView "User Services" @1
+			label      	(object ItemLabel
+			    Parent_View 	@1
+			    location   	(6, 6)
+			    nlines     	2
+			    max_width  	-12
+			    justify    	0
+			    label      	"User Services")
+			icon_style 	"Icon"
+			hidden     	TRUE
+			quidu      	"3DAB529F01B3"
+			width      	300
+			height     	180)
+		    (object TierView "Business Services" @2
+			location   	(600, 0)
+			label      	(object ItemLabel
+			    Parent_View 	@2
+			    location   	(606, 6)
+			    nlines     	2
+			    max_width  	-12
+			    justify    	0
+			    label      	"Business Services")
+			icon_style 	"Icon"
+			hidden     	TRUE
+			quidu      	"3DAB529F01B5"
+			width      	300
+			height     	180)
+		    (object TierView "Data Services" @3
+			location   	(1200, 0)
+			label      	(object ItemLabel
+			    Parent_View 	@3
+			    location   	(1206, 6)
+			    nlines     	2
+			    max_width  	-12
+			    justify    	0
+			    label      	"Data Services")
+			icon_style 	"Icon"
+			hidden     	TRUE
+			quidu      	"3DAB529F01B7"
+			width      	300
+			height     	180)))
+	    (object ClassDiagram "Graphics Modules Arch"
+		quid       	"3DAB52D500AE"
+		title      	"Graphics Modules Arch"
+		zoom       	100
+		max_height 	28350
+		max_width  	21600
+		origin_x   	1901
+		origin_y   	78
+		items      	(list diagram_item_list
+		    (object ClassView "Class" "Logical View::iGraphics" @4
+			ShowCompartmentStereotypes 	TRUE
+			IncludeOperation 	TRUE
+			location   	(1488, 384)
+			label      	(object ItemLabel
+			    Parent_View 	@4
+			    location   	(1348, 288)
+			    nlines     	1
+			    max_width  	280
+			    justify    	0
+			    label      	"iGraphics")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@4
+			    location   	(1348, 244)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	280
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DAB5B9C0109"
+			compartment 	(object Compartment
+			    Parent_View 	@4
+			    location   	(1348, 342)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	4
+			    max_width  	284)
+			width      	298
+			height     	302
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::iCamera" @5
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2288, 384)
+			label      	(object ItemLabel
+			    Parent_View 	@5
+			    location   	(2153, 383)
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"iCamera")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@5
+			    location   	(2153, 339)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DAB5BB702EA"
+			width      	288
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cCamera3D" @6
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2288, 1088)
+			label      	(object ItemLabel
+			    Parent_View 	@6
+			    location   	(2157, 1016)
+			    nlines     	1
+			    max_width  	262
+			    justify    	0
+			    label      	"cCamera3D")
+			icon_style 	"Icon"
+			quidu      	"3DAB5C480316"
+			compartment 	(object Compartment
+			    Parent_View 	@6
+			    location   	(2157, 1070)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	2
+			    max_width  	265)
+			width      	280
+			height     	166
+			annotation 	8
+			autoResize 	TRUE)
+		    (object NoteView @7
+			location   	(352, 1776)
+			label      	(object ItemLabel
+			    Parent_View 	@7
+			    location   	(211, 1717)
+			    nlines     	2
+			    max_width  	246
+			    label      	"»±∑¶»°÷µ∑µªÿ≈–∂œ")
+			width      	306
+			height     	131)
+		    (object ClassView "Class" "Logical View::cGraphics3cGraphics3D" @8
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(1280, 1840)
+			label      	(object ItemLabel
+			    Parent_View 	@8
+			    location   	(1067, 1769)
+			    nlines     	1
+			    max_width  	426
+			    justify    	0
+			    label      	"cGraphics3cGraphics3D")
+			icon_style 	"Icon"
+			quidu      	"3DAB9CFA02D6"
+			compartment 	(object Compartment
+			    Parent_View 	@8
+			    location   	(1067, 1823)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	2
+			    max_width  	312)
+			width      	444
+			height     	164
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::CD3DApplication" @9
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(1184, 1600)
+			label      	(object ItemLabel
+			    Parent_View 	@9
+			    location   	(1034, 1577)
+			    nlines     	1
+			    max_width  	300
+			    justify    	0
+			    label      	"CD3DApplication")
+			icon_style 	"Icon"
+			quidu      	"3DAB9D5A02A5"
+			width      	318
+			height     	69
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @10
+			stereotype 	TRUE
+			quidu      	"3DAB9D5F0144"
+			client     	@8
+			supplier   	@9
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::iKFont" @11
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(1856, 2016)
+			label      	(object ItemLabel
+			    Parent_View 	@11
+			    location   	(1722, 2009)
+			    nlines     	1
+			    max_width  	269
+			    justify    	0
+			    label      	"iKFont")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@11
+			    location   	(1722, 1965)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	269
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DAB622001AE"
+			width      	287
+			height     	125
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::iTexture" @12
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2144, 2032)
+			label      	(object ItemLabel
+			    Parent_View 	@12
+			    location   	(2009, 2006)
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"iTexture")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@12
+			    location   	(2009, 1962)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DAB9B1D0028"
+			width      	288
+			height     	162
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::iMsgQueue" @13
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2464, 2064)
+			label      	(object ItemLabel
+			    Parent_View 	@13
+			    location   	(2329, 2038)
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"iMsgQueue")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@13
+			    location   	(2329, 1994)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DAB9B4E0297"
+			width      	288
+			height     	162
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cScreen" @14
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(736, 1024)
+			label      	(object ItemLabel
+			    Parent_View 	@14
+			    location   	(611, 976)
+			    nlines     	1
+			    max_width  	250
+			    justify    	0
+			    label      	"cScreen")
+			icon_style 	"Icon"
+			quidu      	"3DAB9B5F017A"
+			width      	268
+			height     	119
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cCamera" @15
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2304, 752)
+			label      	(object ItemLabel
+			    Parent_View 	@15
+			    location   	(2159, 658)
+			    nlines     	1
+			    max_width  	290
+			    justify    	0
+			    label      	"cCamera")
+			icon_style 	"Icon"
+			quidu      	"3DAB54530095"
+			compartment 	(object Compartment
+			    Parent_View 	@15
+			    location   	(2159, 712)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	3
+			    max_width  	293)
+			width      	308
+			height     	210
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @16
+			stereotype 	TRUE
+			quidu      	"3DAB5BCA0234"
+			client     	@15
+			supplier   	@5
+			line_style 	0)
+		    (object InheritView "" @17
+			stereotype 	TRUE
+			quidu      	"3DAB5EAD033A"
+			client     	@6
+			supplier   	@15
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cCamera" @18
+			ShowCompartmentStereotypes 	TRUE
+			location   	(3600, 752)
+			label      	(object ItemLabel
+			    Parent_View 	@18
+			    location   	(3514, 707)
+			    nlines     	1
+			    max_width  	172
+			    justify    	0
+			    label      	"cCamera")
+			icon_style 	"Icon"
+			quidu      	"3DAB54530095"
+			width      	190
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cRegion" @19
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3792, 1104)
+			label      	(object ItemLabel
+			    Parent_View 	@19
+			    location   	(3710, 1084)
+			    nlines     	1
+			    max_width  	164
+			    justify    	0
+			    label      	"cRegion")
+			icon_style 	"Icon"
+			quidu      	"3DAC564A00DA"
+			width      	182
+			height     	62
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cSelect" @20
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3584, 848)
+			label      	(object ItemLabel
+			    Parent_View 	@20
+			    location   	(3503, 828)
+			    nlines     	1
+			    max_width  	163
+			    justify    	0
+			    label      	"cSelect")
+			icon_style 	"Icon"
+			quidu      	"3DAC577C03AB"
+			width      	181
+			height     	62
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cGraphics" @21
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(1488, 880)
+			label      	(object ItemLabel
+			    Parent_View 	@21
+			    location   	(1129, 655)
+			    nlines     	1
+			    max_width  	718
+			    justify    	0
+			    label      	"cGraphics")
+			icon_style 	"Icon"
+			quidu      	"3DAB584E033A"
+			compartment 	(object Compartment
+			    Parent_View 	@21
+			    location   	(1129, 709)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	9
+			    max_width  	721)
+			width      	736
+			height     	472
+			annotation 	8
+			autoResize 	TRUE)
+		    (object AssociationViewNew "$UNNAMED$3" @22
+			location   	(2002, 799)
+			stereotype 	TRUE
+			quidu      	"3DAB5DF00236"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$4" @23
+				Parent_View 	@22
+				location   	(258, 207)
+				stereotype 	TRUE
+				quidu      	"3DAB5DF00331"
+				client     	@22
+				supplier   	@15
+				line_style 	0)
+			    (object RoleView "$UNNAMED$5" @24
+				Parent_View 	@22
+				location   	(258, 207)
+				stereotype 	TRUE
+				quidu      	"3DAB5DF00332"
+				client     	@22
+				supplier   	@21
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$6" @25
+			location   	(1699, 1534)
+			stereotype 	TRUE
+			quidu      	"3DAB623C019C"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$7" @26
+				Parent_View 	@25
+				location   	(-733, 1166)
+				stereotype 	TRUE
+				quidu      	"3DAB623C0386"
+				client     	@25
+				supplier   	@21
+				line_style 	0)
+			    (object RoleView "$UNNAMED$8" @27
+				Parent_View 	@25
+				location   	(-733, 1166)
+				stereotype 	TRUE
+				quidu      	"3DAB623C0387"
+				client     	@25
+				supplier   	@11
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$15" @28
+			location   	(1859, 1533)
+			stereotype 	TRUE
+			quidu      	"3DAB9B420018"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$16" @29
+				Parent_View 	@28
+				location   	(-621, 525)
+				stereotype 	TRUE
+				quidu      	"3DAB9B42005E"
+				client     	@28
+				supplier   	@21
+				line_style 	0)
+			    (object RoleView "$UNNAMED$17" @30
+				Parent_View 	@28
+				location   	(-621, 525)
+				stereotype 	TRUE
+				quidu      	"3DAB9B420072"
+				client     	@28
+				supplier   	@12
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$18" @31
+			location   	(2040, 1549)
+			stereotype 	TRUE
+			quidu      	"3DAB9B5203AB"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$19" @32
+				Parent_View 	@31
+				location   	(-472, 205)
+				stereotype 	TRUE
+				quidu      	"3DAB9B530154"
+				client     	@31
+				supplier   	@21
+				line_style 	0)
+			    (object RoleView "$UNNAMED$20" @33
+				Parent_View 	@31
+				location   	(-472, 205)
+				stereotype 	TRUE
+				quidu      	"3DAB9B530155"
+				client     	@31
+				supplier   	@13
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$21" @34
+			location   	(994, 973)
+			stereotype 	TRUE
+			quidu      	"3DAB9B660184"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$22" @35
+				Parent_View 	@34
+				location   	(-1902, 445)
+				stereotype 	TRUE
+				quidu      	"3DAB9B66029C"
+				client     	@34
+				supplier   	@21
+				line_style 	0)
+			    (object RoleView "$UNNAMED$23" @36
+				Parent_View 	@34
+				location   	(-1902, 445)
+				stereotype 	TRUE
+				quidu      	"3DAB9B66029D"
+				client     	@34
+				supplier   	@14
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$24" @37
+			location   	(2059, 762)
+			stereotype 	TRUE
+			quidu      	"3DAB9B840110"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$25" @38
+				Parent_View 	@37
+				location   	(955, 26)
+				stereotype 	TRUE
+				quidu      	"3DAB9B8401E2"
+				client     	@37
+				supplier   	@21
+				vertices   	(list Points
+				    (2059, 762)
+				    (1999, 765)
+				    (1856, 795))
+				line_style 	0)
+			    (object RoleView "$UNNAMED$26" @39
+				Parent_View 	@37
+				location   	(955, 26)
+				stereotype 	TRUE
+				quidu      	"3DAB9B8401E3"
+				client     	@37
+				supplier   	@15
+				line_style 	0)))
+		    (object InheritView "" @40
+			stereotype 	TRUE
+			quidu      	"3DAB9D0201AB"
+			client     	@8
+			supplier   	@21
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cGround" @41
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2976, 864)
+			label      	(object ItemLabel
+			    Parent_View 	@41
+			    location   	(2766, 792)
+			    nlines     	1
+			    max_width  	420
+			    justify    	0
+			    label      	"cGround")
+			icon_style 	"Icon"
+			quidu      	"3DAB7EF10297"
+			compartment 	(object Compartment
+			    Parent_View 	@41
+			    location   	(2766, 846)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	2
+			    max_width  	425)
+			width      	438
+			height     	166
+			annotation 	8
+			autoResize 	TRUE)
+		    (object AssociationViewNew "$UNNAMED$12" @42
+			location   	(2306, 871)
+			stereotype 	TRUE
+			quidu      	"3DAB7EF602BC"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$13" @43
+				Parent_View 	@42
+				location   	(-62, 39)
+				stereotype 	TRUE
+				quidu      	"3DAB7EF7014B"
+				client     	@42
+				supplier   	@21
+				line_style 	0)
+			    (object RoleView "$UNNAMED$14" @44
+				Parent_View 	@42
+				location   	(-62, 39)
+				stereotype 	TRUE
+				quidu      	"3DAB7EF7014C"
+				client     	@42
+				supplier   	@41
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$27" @45
+			location   	(2309, 943)
+			stereotype 	TRUE
+			quidu      	"3DABA889004D"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$28" @46
+				Parent_View 	@45
+				location   	(421, 127)
+				stereotype 	TRUE
+				quidu      	"3DABA889031E"
+				client     	@45
+				supplier   	@41
+				vertices   	(list Points
+				    (2309, 943)
+				    (2510, 959)
+				    (2756, 908))
+				line_style 	0)
+			    (object RoleView "$UNNAMED$29" @47
+				Parent_View 	@45
+				location   	(421, 127)
+				stereotype 	TRUE
+				quidu      	"3DABA889031F"
+				client     	@45
+				supplier   	@21
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$30" @48
+			location   	(3349, 796)
+			stereotype 	TRUE
+			quidu      	"3DAC5414013A"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$31" @49
+				Parent_View 	@48
+				location   	(453, 220)
+				stereotype 	TRUE
+				quidu      	"3DAC541401DB"
+				client     	@48
+				supplier   	@18
+				line_style 	0)
+			    (object RoleView "$UNNAMED$32" @50
+				Parent_View 	@48
+				location   	(453, 220)
+				stereotype 	TRUE
+				quidu      	"3DAC541401DC"
+				client     	@48
+				supplier   	@41
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$33" @51
+			location   	(3447, 1002)
+			stereotype 	TRUE
+			quidu      	"3DAC565901B8"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$34" @52
+				Parent_View 	@51
+				location   	(-169, 410)
+				stereotype 	TRUE
+				quidu      	"3DAC56590399"
+				client     	@51
+				supplier   	@41
+				line_style 	0)
+			    (object RoleView "$UNNAMED$35" @53
+				Parent_View 	@51
+				location   	(-169, 410)
+				stereotype 	TRUE
+				quidu      	"3DAC565903A3"
+				client     	@51
+				supplier   	@19
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$36" @54
+			location   	(3344, 854)
+			stereotype 	TRUE
+			quidu      	"3DAC578500FB"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$37" @55
+				Parent_View 	@54
+				location   	(-208, -10)
+				stereotype 	TRUE
+				quidu      	"3DAC57850213"
+				client     	@54
+				supplier   	@41
+				line_style 	0)
+			    (object RoleView "$UNNAMED$38" @56
+				Parent_View 	@54
+				location   	(-208, -10)
+				stereotype 	TRUE
+				quidu      	"3DAC57850214"
+				client     	@54
+				supplier   	@20
+				line_style 	0)))
+		    (object ClassView "Class" "Logical View::cThread" @57
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2720, 1792)
+			label      	(object ItemLabel
+			    Parent_View 	@57
+			    location   	(2631, 1747)
+			    nlines     	1
+			    max_width  	178
+			    justify    	0
+			    label      	"cThread")
+			icon_style 	"Icon"
+			quidu      	"3DAB7E84039A"
+			width      	196
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object AssociationViewNew "$UNNAMED$9" @58
+			location   	(2225, 1425)
+			stereotype 	TRUE
+			quidu      	"3DAB7E970167"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$10" @59
+				Parent_View 	@58
+				location   	(1, 1041)
+				stereotype 	TRUE
+				quidu      	"3DAB7E9703D4"
+				client     	@58
+				supplier   	@21
+				line_style 	0)
+			    (object RoleView "$UNNAMED$11" @60
+				Parent_View 	@58
+				location   	(1, 1041)
+				stereotype 	TRUE
+				quidu      	"3DAB7E9703D5"
+				client     	@58
+				supplier   	@57
+				line_style 	0)))
+		    (object AssociationViewNew "$UNNAMED$39" @61
+			location   	(2844, 1341)
+			stereotype 	TRUE
+			quidu      	"3DAC9C1001A4"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$40" @62
+				Parent_View 	@61
+				location   	(172, -211)
+				stereotype 	TRUE
+				quidu      	"3DAC9C1003AD"
+				client     	@61
+				supplier   	@41
+				line_style 	0)
+			    (object RoleView "$UNNAMED$41" @63
+				Parent_View 	@61
+				location   	(172, -211)
+				stereotype 	TRUE
+				quidu      	"3DAC9C1003AE"
+				client     	@61
+				supplier   	@57
+				line_style 	0)))
+		    (object ClassView "Class" "Logical View::cGround3D" @64
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2960, 1216)
+			label      	(object ItemLabel
+			    Parent_View 	@64
+			    location   	(2849, 1171)
+			    nlines     	1
+			    max_width  	222
+			    justify    	0
+			    label      	"cGround3D")
+			icon_style 	"Icon"
+			quidu      	"3DADE5D3012C"
+			width      	240
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @65
+			stereotype 	TRUE
+			quidu      	"3DADE5DC03C4"
+			client     	@64
+			supplier   	@41
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cObj" @66
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3952, 512)
+			label      	(object ItemLabel
+			    Parent_View 	@66
+			    location   	(3709, 440)
+			    nlines     	1
+			    max_width  	486
+			    justify    	0
+			    label      	"cObj")
+			icon_style 	"Icon"
+			quidu      	"3DADE84F03DF"
+			compartment 	(object Compartment
+			    Parent_View 	@66
+			    location   	(3709, 494)
+			    icon_style 	"Icon"
+			    anchor     	2
+			    nlines     	2
+			    max_width  	493)
+			width      	504
+			height     	166
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cGroundObj" @67
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3952, 1360)
+			label      	(object ItemLabel
+			    Parent_View 	@67
+			    location   	(3827, 1340)
+			    nlines     	1
+			    max_width  	251
+			    justify    	0
+			    label      	"cGroundObj")
+			icon_style 	"Icon"
+			quidu      	"3DADE8F40176"
+			width      	269
+			height     	63
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @68
+			stereotype 	TRUE
+			quidu      	"3DADE8FA03A6"
+			client     	@67
+			supplier   	@66
+			line_style 	0)
+		    (object UsesView "" @69
+			stereotype 	TRUE
+			quidu      	"3DADF0E9019E"
+			client     	@67
+			supplier   	@41
+			line_style 	0)
+		    (object UsesView "" @70
+			stereotype 	TRUE
+			quidu      	"3DADF10101B8"
+			client     	@67
+			supplier   	@15
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cLight" @71
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3888, 1568)
+			label      	(object ItemLabel
+			    Parent_View 	@71
+			    location   	(3791, 1551)
+			    nlines     	1
+			    max_width  	194
+			    justify    	0
+			    label      	"cLight")
+			icon_style 	"Icon"
+			quidu      	"3DADF1C800AD"
+			width      	212
+			height     	56
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @72
+			stereotype 	TRUE
+			quidu      	"3DADF1CE0110"
+			client     	@71
+			supplier   	@67
+			line_style 	0)
+		    (object UsesView "" @73
+			stereotype 	TRUE
+			quidu      	"3DADF2840156"
+			client     	@71
+			supplier   	@41
+			line_style 	0)
+		    (object UsesView "" @74
+			stereotype 	TRUE
+			quidu      	"3DADF28E0074"
+			client     	@71
+			supplier   	@21
+			line_style 	0)
+		    (object UsesView "" @75
+			stereotype 	TRUE
+			quidu      	"3DADF2AE0220"
+			client     	@71
+			supplier   	@15
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cMesh3D" @76
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3120, 1872)
+			label      	(object ItemLabel
+			    Parent_View 	@76
+			    location   	(3026, 1827)
+			    nlines     	1
+			    max_width  	188
+			    justify    	0
+			    label      	"cMesh3D")
+			icon_style 	"Icon"
+			quidu      	"3DADF6A8026A"
+			width      	206
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cObstacle" @77
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(4144, 1568)
+			label      	(object ItemLabel
+			    Parent_View 	@77
+			    location   	(4031, 1548)
+			    nlines     	1
+			    max_width  	226
+			    justify    	0
+			    label      	"cObstacle")
+			icon_style 	"Icon"
+			quidu      	"3DADF6D5027B"
+			width      	244
+			height     	62
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @78
+			stereotype 	TRUE
+			quidu      	"3DADF6D901D7"
+			client     	@77
+			supplier   	@67
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::iScreen" @79
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(720, 608)
+			label      	(object ItemLabel
+			    Parent_View 	@79
+			    location   	(579, 610)
+			    nlines     	1
+			    max_width  	282
+			    justify    	0
+			    label      	"iScreen")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@79
+			    location   	(579, 566)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	282
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DADF91F0173"
+			width      	300
+			height     	106
+			annotation 	8
+			autoResize 	TRUE)
+		    (object ClassView "Class" "Logical View::cPicture" @80
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(368, 1184)
+			label      	(object ItemLabel
+			    Parent_View 	@80
+			    location   	(285, 1139)
+			    nlines     	1
+			    max_width  	166
+			    justify    	0
+			    label      	"cPicture")
+			icon_style 	"Icon"
+			quidu      	"3DADFA830010"
+			width      	184
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @81
+			stereotype 	TRUE
+			quidu      	"3DADF92800EA"
+			client     	@14
+			supplier   	@79
+			line_style 	0)
+		    (object InheritView "" @82
+			stereotype 	TRUE
+			quidu      	"3DADFA8B0301"
+			client     	@14
+			supplier   	@80
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cScreen3D" @83
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(736, 1344)
+			label      	(object ItemLabel
+			    Parent_View 	@83
+			    location   	(626, 1299)
+			    nlines     	1
+			    max_width  	220
+			    justify    	0
+			    label      	"cScreen3D")
+			icon_style 	"Icon"
+			quidu      	"3DADFACE0057"
+			width      	238
+			height     	112
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @84
+			stereotype 	TRUE
+			quidu      	"3DADFAD2032E"
+			client     	@83
+			supplier   	@14
+			line_style 	0)
+		    (object InheritView "" @85
+			stereotype 	TRUE
+			quidu      	"3DAB5BA9027B"
+			client     	@21
+			supplier   	@4
+			line_style 	0)
+		    (object InheritView "" @86
+			stereotype 	TRUE
+			quidu      	"3DADF96E00E3"
+			client     	@21
+			supplier   	@14
+			vertices   	(list Points
+			    (1119, 842)
+			    (989, 830)
+			    (812, 964))
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::cScreenObj" @87
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(224, 804)
+			label      	(object ItemLabel
+			    Parent_View 	@87
+			    location   	(111, 781)
+			    nlines     	1
+			    max_width  	226
+			    justify    	0
+			    label      	"cScreenObj")
+			icon_style 	"Icon"
+			quidu      	"3DADEB350331"
+			width      	244
+			height     	69
+			annotation 	8
+			autoResize 	TRUE)
+		    (object UsesView "" @88
+			stereotype 	TRUE
+			quidu      	"3DADF8CF0098"
+			client     	@87
+			supplier   	@14
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::CObj" @89
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(224, 644)
+			label      	(object ItemLabel
+			    Parent_View 	@89
+			    location   	(143, 621)
+			    nlines     	1
+			    max_width  	163
+			    justify    	0
+			    label      	"CObj")
+			icon_style 	"Icon"
+			quidu      	"3DADFFEB0124"
+			width      	181
+			height     	69
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @90
+			stereotype 	TRUE
+			quidu      	"3DADFFFA01A8"
+			client     	@87
+			supplier   	@89
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::iGround" @91
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(2944, 464)
+			label      	(object ItemLabel
+			    Parent_View 	@91
+			    location   	(2809, 438)
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"iGround")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@91
+			    location   	(2809, 394)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DABA7C601F4"
+			width      	288
+			height     	162
+			annotation 	8
+			autoResize 	TRUE)
+		    (object InheritView "" @92
+			stereotype 	TRUE
+			quidu      	"3DABA7D0031B"
+			client     	@41
+			supplier   	@91
+			line_style 	0)
+		    (object ClassView "Class" "Logical View::iObj" @93
+			ShowCompartmentStereotypes 	TRUE
+			IncludeAttribute 	TRUE
+			IncludeOperation 	TRUE
+			location   	(3936, 256)
+			label      	(object ItemLabel
+			    Parent_View 	@93
+			    location   	(3801, 230)
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"iObj")
+			stereotype 	(object ItemLabel
+			    Parent_View 	@93
+			    location   	(3801, 186)
+			    anchor     	10
+			    nlines     	1
+			    max_width  	270
+			    justify    	0
+			    label      	"<<Interface>>")
+			icon       	"Interface"
+			icon_style 	"Label"
+			quidu      	"3DAC534B01D2"
+			width      	288
+			height     	162
+			annotation 	8
+			autoResize 	TRUE)
+		    (object AssociationViewNew "$UNNAMED$42" @94
+			location   	(3439, 358)
+			stereotype 	TRUE
+			quidu      	"3DAF0480021A"
+			roleview_list 	(list RoleViews
+			    (object RoleView "$UNNAMED$43" @95
+				Parent_View 	@94
+				location   	(31, -10)
+				stereotype 	TRUE
+				quidu      	"3DAF04800288"
+				client     	@94
+				supplier   	@91
+				line_style 	0)
+			    (object RoleView "$UNNAMED$44" @96
+				Parent_View 	@94
+				location   	(31, -10)
+				stereotype 	TRUE
+				quidu      	"3DAF04800289"
+				client     	@94
+				supplier   	@93
+				line_style 	0)))
+		    (object InheritView "" @97
+			stereotype 	TRUE
+			quidu      	"3DADE86801FB"
+			client     	@66
+			supplier   	@93
+			line_style 	0)))))
+    root_subsystem 	(object SubSystem "Component View"
+	quid       	"3DAB529E0182"
+	physical_models 	(list unit_reference_list)
+	physical_presentations 	(list unit_reference_list
+	    (object Module_Diagram "Main"
+		quid       	"3DAB529F01A9"
+		title      	"Main"
+		zoom       	100
+		max_height 	28350
+		max_width  	21600
+		origin_x   	0
+		origin_y   	0
+		items      	(list diagram_item_list))))
+    process_structure 	(object Processes
+	quid       	"3DAB529E0183"
+	ProcsNDevs 	(list
+	    (object Process_Diagram "Deployment View"
+		quid       	"3DAB529E0185"
+		title      	"Deployment View"
+		zoom       	100
+		max_height 	28350
+		max_width  	21600
+		origin_x   	0
+		origin_y   	0
+		items      	(list diagram_item_list))))
+    properties 	(object Properties
+	attributes 	(list Attribute_Set
+	    (object Attribute
+		tool       	"Repository"
+		name       	"HiddenTool"
+		value      	FALSE)
+	    (object Attribute
+		tool       	"SourceSafe"
+		name       	"HiddenTool"
+		value      	FALSE)
+	    (object Attribute
+		tool       	"TypeLibImporter"
+		name       	"HiddenTool"
+		value      	FALSE)
+	    (object Attribute
+		tool       	"VC++"
+		name       	"propertyId"
+		value      	"809135966")
+	    (object Attribute
+		tool       	"VC++"
+		name       	"default__Class"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"VC++"
+			name       	"Generate"
+			value      	TRUE)
+		    (object Attribute
+			tool       	"VC++"
+			name       	"HeaderFile"
+			value      	"AUTO GENERATE")))
+	    (object Attribute
+		tool       	"VC++"
+		name       	"default__Operation"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"VC++"
+			name       	"OperationIsConst"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"VC++"
+			name       	"OperationKindSet"
+			value      	(list Attribute_Set
+			    (object Attribute
+				tool       	"VC++"
+				name       	"Non-virtual"
+				value      	200)
+			    (object Attribute
+				tool       	"VC++"
+				name       	"Abstract"
+				value      	201)
+			    (object Attribute
+				tool       	"VC++"
+				name       	"Virtual"
+				value      	202)))
+		    (object Attribute
+			tool       	"VC++"
+			name       	"OperationKind"
+			value      	("OperationKindSet" 200))))
+	    (object Attribute
+		tool       	"VC++"
+		name       	"HiddenTool"
+		value      	FALSE)
+	    (object Attribute
+		tool       	"VJ++"
+		name       	"HiddenTool"
+		value      	FALSE)
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"propertyId"
+		value      	"783606378")
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"default__Class"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"CreatableSet"
+			value      	(list Attribute_Set
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"Private"
+				value      	221)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"PublicNotCreatable"
+				value      	213)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"SingleUse"
+				value      	214)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"GlobalSingleUse"
+				value      	215)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"MultiUse"
+				value      	219)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"GlobalMultiUse"
+				value      	220)))
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"OptionBase"
+			value      	"0")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"OptionExplicit"
+			value      	TRUE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"OptionCompare"
+			value      	("CompareSet" 202))
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"Creatable"
+			value      	("CreatableSet" 221))
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateInitialization"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateTermination"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"CollectionClass"
+			value      	"Collection")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"CompareSet"
+			value      	(list Attribute_Set
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"None"
+				value      	202)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"Binary"
+				value      	203)
+			    (object Attribute
+				tool       	"Visual Basic"
+				name       	"Text"
+				value      	204)))))
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"default__Operation"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"OperationName"
+			value      	"$operation")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"LibraryName"
+			value      	"")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"AliasName"
+			value      	"")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"IsStatic"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"EntryCode"
+			value      	(value Text ""))
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"ExitCode"
+			value      	(value Text ""))))
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"default__Attribute"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"IsConst"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"New"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"WithEvents"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"Subscript"
+			value      	"")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"NameIfUnlabeled"
+			value      	"the$supplier")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateDataMember"
+			value      	TRUE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"DataMemberName"
+			value      	"$relationship")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateGetOperation"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateSetOperation"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateLetOperation"
+			value      	FALSE)))
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"default__Role"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"New"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"WithEvents"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"Subscript"
+			value      	"")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"NameIfUnlabeled"
+			value      	"the$supplier")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateDataMember"
+			value      	TRUE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"DataMemberName"
+			value      	"$relationship")
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateGetOperation"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateSetOperation"
+			value      	FALSE)
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"GenerateLetOperation"
+			value      	FALSE)))
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"default__Inherit"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"ImplementsDelegation"
+			value      	TRUE)))
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"default__Module-Spec"
+		value      	(list Attribute_Set
+		    (object Attribute
+			tool       	"Visual Basic"
+			name       	"ProjectFile"
+			value      	"")))
+	    (object Attribute
+		tool       	"Visual Basic"
+		name       	"HiddenTool"
+		value      	FALSE)
+	    (object Attribute
+		tool       	"VisualStudio"
+		name       	"HiddenTool"
+		value      	FALSE))
+	quid       	"3DAB529E0184"))

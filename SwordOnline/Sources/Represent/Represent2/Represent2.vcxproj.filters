@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Font">
+      <UniqueIdentifier>{A999D962-B7D3-501E-9C42-2AB9C528BA45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib">
+      <UniqueIdentifier>{4CA7DC0A-0A5F-516D-BA99-1B4A402F1881}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\Debug">
+      <UniqueIdentifier>{F1EF8B51-2ED7-599B-866D-015EA4B71D71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\Release">
+      <UniqueIdentifier>{A5D8C3C2-371E-5F1D-A8F3-E57DDE3F280B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="图形操作">
+      <UniqueIdentifier>{EFFDF67C-5995-537D-A2FA-E2EBEBD57AA8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="图资源管理">
+      <UniqueIdentifier>{99780AB3-6337-5101-94B2-2A543B8E12FF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="对外接口实现">
+      <UniqueIdentifier>{3144263E-A1BB-57E9-9353-0CB72400F7A9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include=".\KImageStore2.cpp">
+      <Filter>图资源管理</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\RepresentUtility.cpp">
+      <Filter>图资源管理</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KRepresentShell2.cpp">
+      <Filter>对外接口实现</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KFont2.cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KFontData.cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Text\TextProcess.cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\UFont..cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Image\ImageOperation.cpp">
+      <Filter>图形操作</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\KImageStore2.h">
+      <Filter>图资源管理</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\iRepresentShell.h">
+      <Filter>对外接口实现</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KRepresentShell2.h">
+      <Filter>对外接口实现</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\Text\TextProcess.h">
+      <Filter>Font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\Font\UFont.h">
+      <Filter>Font</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\Image\ImageOperation.h">
+      <Filter>图形操作</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\RepresentUtility.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\Lib\debug\engine.lib">
+      <Filter>Lib\Debug</Filter>
+    </Library>
+    <Library Include="..\..\..\Lib\release\engine.lib">
+      <Filter>Lib\Release</Filter>
+    </Library>
+  </ItemGroup>
+</Project>

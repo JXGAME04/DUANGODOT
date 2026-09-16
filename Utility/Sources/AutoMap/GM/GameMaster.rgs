@@ -1,0 +1,27 @@
+HKCR
+{
+	GMAPP.GameMaster.1 = s 'GameMaster Class'
+	{
+		CLSID = s '{D67E5BA4-2C4F-4ec4-AC21-504703F32121}'
+	}
+	GMAPP.GameMaster = s 'GameMaster Class'
+	{
+		CLSID = s '{D67E5BA4-2C4F-4ec4-AC21-504703F32121}'
+		CurVer = s 'GMAPP.GameMaster.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {D67E5BA4-2C4F-4ec4-AC21-504703F32121} = s 'GameMaster Class'
+		{
+			ProgID = s 'GMAPP.GameMaster.1'
+			VersionIndependentProgID = s 'GMAPP.GameMaster'
+			ForceRemove 'Programmable'
+			LocalServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Both'
+				val AppID = s '{DF103556-27C8-4f0f-80D2-D0115C31F54A}'
+			}
+			'TypeLib' = s '{3D76430E-9308-4e9a-9DA8-24215B2DB321}'
+		}
+	}
+}

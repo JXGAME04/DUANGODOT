@@ -1,0 +1,9 @@
+SCC = This is a Source Code Control file
+
+[myTest.dsp]
+SCC_Aux_Path = "\\Swordonline\Sword3Home\sword3vss"
+SCC_Project_Name = "$/SwordOnline/Sources/Sword3PaySys/Toolkits/mysql/examples/libmysqltest", QLLAAAAA
+
+[myTest.mak]
+SCC_Aux_Path = "\\Swordonline\Sword3Home\sword3vss"
+SCC_Project_Name = "$/SwordOnline/Sources/Sword3PaySys/Toolkits/mysql/examples/libmysqltest", QLLAAAAA

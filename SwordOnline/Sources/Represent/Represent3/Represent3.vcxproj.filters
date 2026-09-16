@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{8CE65F42-1AF0-5CBE-AA71-FA00ED3DBEBE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib">
+      <UniqueIdentifier>{B019A517-4A09-56E7-A1DD-D0F5A2622679}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\debug">
+      <UniqueIdentifier>{393E9B13-34D6-5592-ABB4-5504824EED00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\release">
+      <UniqueIdentifier>{77E0D1F9-06B7-56E3-9C2D-9D79E3064022}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{E04489F5-4EDE-5AD7-8AD4-CFEC2032E256}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include=".\D3D_Device.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\D3D_Shell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\D3D_Utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KCharSet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KFont3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KFontData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KFontRes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Font\KMRU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KRepresentShell3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\precompile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\RepresentUtility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\iRepresent\Text\TextProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\TextureRes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\TextureResMgr.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\BaseInclude.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\D3D_Device.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\D3D_Shell.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\D3D_Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\Font\KFont3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KRepresentShell3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\precompile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\Text\TextProcess.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\iRepresent\Text\TextProcessDef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\TextureRes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\TextureResMgr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\Lib\debug\engine.lib">
+      <Filter>Lib\debug</Filter>
+    </Library>
+    <Library Include="..\..\..\Lib\release\engine.lib">
+      <Filter>Lib\release</Filter>
+    </Library>
+  </ItemGroup>
+</Project>

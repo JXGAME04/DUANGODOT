@@ -1,0 +1,134 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AutoMap", "..\AutoMap\AutoMap.vcproj", "{827CC28B-5BC8-4962-A377-472D6D9E5FAB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Command", "..\Command\Command.vcproj", "{FF71EDF5-DE22-449A-8308-208D666E42F9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Common", "..\Common\Common.vcproj", "{D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Graphics", "..\Graphics\Graphics.vcproj", "{63B0E233-E8C3-4295-A553-780D6342D0BB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GraphicsUtility", "..\GraphicsUtility\GraphicsUtility.vcproj", "{E71B64DC-A1B5-4654-84E6-26FF677DF94E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Image", "..\Image\Image.vcproj", "{F5678C5C-A511-4060-A884-1809523E789F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Message", "..\Message\Message.vcproj", "{04455DD3-7E72-40F7-9DCB-0111B2D8BB7B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Status", "..\Status\Status.vcproj", "{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WorldEditor", "WorldEditor.vcproj", "{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}"
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 10
+		SccProjectName0 = \u0022$/Utility/Sources/WorldEditor\u0022,\u0020BSDAAAAA
+		SccLocalPath0 = .
+		SccProvider0 = MSSCCI:Microsoft\u0020Visual\u0020SourceSafe
+		CanCheckoutShared = false
+		SolutionUniqueID = {8C21FEBA-9185-42F8-A9FC-5FCA99DEAA25}
+		SccProjectUniqueName1 = ..\\AutoMap\\AutoMap.vcproj
+		SccProjectName1 = \u0022$/Utility/Sources/AutoMap\u0022,\u0020AUDAAAAA
+		SccLocalPath1 = ..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection1 = Sources\\AutoMap\\
+		SccProjectUniqueName2 = ..\\Command\\Command.vcproj
+		SccProjectName2 = \u0022$/Utility/Sources/Command\u0022,\u0020JHEAAAAA
+		SccLocalPath2 = ..\\Command
+		CanCheckoutShared = false
+		SccProjectUniqueName3 = ..\\Common\\Common.vcproj
+		SccProjectName3 = \u0022$/Utility/Sources/Common\u0022,\u0020FQCAAAAA
+		SccLocalPath3 = ..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection3 = Sources\\Common\\
+		SccProjectUniqueName4 = ..\\Graphics\\Graphics.vcproj
+		SccProjectName4 = \u0022$/Utility/Sources/Graphics\u0022,\u0020QUDAAAAA
+		SccLocalPath4 = ..\\..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection4 = swordonline\\Sources\\Graphics\\
+		SccProjectUniqueName5 = ..\\GraphicsUtility\\GraphicsUtility.vcproj
+		SccProjectName5 = \u0022$/Utility/Sources/GraphicsUtility\u0022,\u0020FJEAAAAA
+		SccLocalPath5 = ..\\GraphicsUtility
+		CanCheckoutShared = false
+		SccProjectUniqueName6 = ..\\Image\\Image.vcproj
+		SccProjectName6 = \u0022$/Utility/Sources/Image\u0022,\u0020ZYDAAAAA
+		SccLocalPath6 = ..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection6 = Sources\\Image\\
+		SccProjectUniqueName7 = ..\\Message\\Message.vcproj
+		SccProjectName7 = \u0022$/Utility/Sources/Message\u0022,\u0020UQCAAAAA
+		SccLocalPath7 = ..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection7 = Sources\\Message\\
+		SccProjectUniqueName8 = ..\\Status\\Status.vcproj
+		SccProjectName8 = \u0022$/Utility/Sources/Status\u0022,\u0020FKEAAAAA
+		SccLocalPath8 = ..\\Status
+		CanCheckoutShared = false
+		SccProjectUniqueName9 = WorldEditor.vcproj
+		SccLocalPath9 = ..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection9 = Sources\\WorldEditor\\
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+		{827CC28B-5BC8-4962-A377-472D6D9E5FAB}.0 = {D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.0 = {63B0E233-E8C3-4295-A553-780D6342D0BB}
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.1 = {D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.2 = {827CC28B-5BC8-4962-A377-472D6D9E5FAB}
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.0 = {04455DD3-7E72-40F7-9DCB-0111B2D8BB7B}
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.1 = {F5678C5C-A511-4060-A884-1809523E789F}
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.2 = {D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}
+		{E71B64DC-A1B5-4654-84E6-26FF677DF94E}.0 = {63B0E233-E8C3-4295-A553-780D6342D0BB}
+		{F5678C5C-A511-4060-A884-1809523E789F}.0 = {D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.0 = {63B0E233-E8C3-4295-A553-780D6342D0BB}
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.1 = {E71B64DC-A1B5-4654-84E6-26FF677DF94E}
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.2 = {FF71EDF5-DE22-449A-8308-208D666E42F9}
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.3 = {827CC28B-5BC8-4962-A377-472D6D9E5FAB}
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.0 = {63B0E233-E8C3-4295-A553-780D6342D0BB}
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.1 = {D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.2 = {BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{827CC28B-5BC8-4962-A377-472D6D9E5FAB}.Debug.ActiveCfg = Debug|Win32
+		{827CC28B-5BC8-4962-A377-472D6D9E5FAB}.Debug.Build.0 = Debug|Win32
+		{827CC28B-5BC8-4962-A377-472D6D9E5FAB}.Release.ActiveCfg = Release|Win32
+		{827CC28B-5BC8-4962-A377-472D6D9E5FAB}.Release.Build.0 = Release|Win32
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.Debug.ActiveCfg = Debug|Win32
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.Debug.Build.0 = Debug|Win32
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.Release.ActiveCfg = Release|Win32
+		{FF71EDF5-DE22-449A-8308-208D666E42F9}.Release.Build.0 = Release|Win32
+		{D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}.Debug.ActiveCfg = Debug|Win32
+		{D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}.Debug.Build.0 = Debug|Win32
+		{D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}.Release.ActiveCfg = Release|Win32
+		{D7DFA107-BB37-4213-A60F-73EDCD6FDDDD}.Release.Build.0 = Release|Win32
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.Debug.ActiveCfg = Debug|Win32
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.Debug.Build.0 = Debug|Win32
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.Release.ActiveCfg = Release|Win32
+		{63B0E233-E8C3-4295-A553-780D6342D0BB}.Release.Build.0 = Release|Win32
+		{E71B64DC-A1B5-4654-84E6-26FF677DF94E}.Debug.ActiveCfg = Debug|Win32
+		{E71B64DC-A1B5-4654-84E6-26FF677DF94E}.Debug.Build.0 = Debug|Win32
+		{E71B64DC-A1B5-4654-84E6-26FF677DF94E}.Release.ActiveCfg = Release|Win32
+		{E71B64DC-A1B5-4654-84E6-26FF677DF94E}.Release.Build.0 = Release|Win32
+		{F5678C5C-A511-4060-A884-1809523E789F}.Debug.ActiveCfg = Debug|Win32
+		{F5678C5C-A511-4060-A884-1809523E789F}.Debug.Build.0 = Debug|Win32
+		{F5678C5C-A511-4060-A884-1809523E789F}.Release.ActiveCfg = Release|Win32
+		{F5678C5C-A511-4060-A884-1809523E789F}.Release.Build.0 = Release|Win32
+		{04455DD3-7E72-40F7-9DCB-0111B2D8BB7B}.Debug.ActiveCfg = Debug|Win32
+		{04455DD3-7E72-40F7-9DCB-0111B2D8BB7B}.Debug.Build.0 = Debug|Win32
+		{04455DD3-7E72-40F7-9DCB-0111B2D8BB7B}.Release.ActiveCfg = Release|Win32
+		{04455DD3-7E72-40F7-9DCB-0111B2D8BB7B}.Release.Build.0 = Release|Win32
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.Debug.ActiveCfg = Debug|Win32
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.Debug.Build.0 = Debug|Win32
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.Release.ActiveCfg = Release|Win32
+		{BF1CF5E9-4CF7-47B0-AA09-A791A072EA92}.Release.Build.0 = Release|Win32
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.Debug.ActiveCfg = Debug|Win32
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.Debug.Build.0 = Debug|Win32
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.Release.ActiveCfg = Release|Win32
+		{C1FE3AF0-8AAB-4316-8CB4-6D2E98F7A002}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

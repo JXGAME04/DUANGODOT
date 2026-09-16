@@ -1,0 +1,226 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "AutoMap"=..\AutoMap\AutoMap.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources", WAEAAAAA
+    ..\automap
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Command"=..\Command\Command.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Command", JHEAAAAA
+    ..\command
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Graphics
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Common
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Common"=..\Common\Common.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Common", FQCAAAAA
+    ..\common
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Zip
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Graphics"=..\Graphics\Graphics.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Graphics", QUDAAAAA
+    ..\graphics
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Image
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Message
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "GraphicsUtility"=..\GraphicsUtility\GraphicsUtility.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/GraphicsUtility", FJEAAAAA
+    ..\graphicsutility
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Graphics
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Image"=..\Image\Image.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Image", ZYDAAAAA
+    ..\image
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Common
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Message"=..\Message\Message.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Message", UQCAAAAA
+    ..\message
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Status"=..\Status\Status.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Status", FKEAAAAA
+    ..\status
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Command
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name GraphicsUtility
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Graphics
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name AutoMap
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "WorldEditor"=.\WorldEditor.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/WorldEditor", BSDAAAAA
+    .
+    end source code control
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Status
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Common
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Graphics
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Zip"=..\Zip\Zip.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/Zip", FUIAAAAA
+    ..\zip
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+    begin source code control
+    "$/Utility/Sources/WorldEditor", BSDAAAAA
+    .
+    end source code control
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

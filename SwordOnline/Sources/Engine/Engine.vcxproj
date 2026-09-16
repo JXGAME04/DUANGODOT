@@ -1,0 +1,663 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="OutRead Debug|Win32">
+      <Configuration>OutRead Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="OuRead Release|Win32">
+      <Configuration>OuRead Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{080982A0-905A-5085-950D-AF814BB47734}</ProjectGuid>
+    <RootNamespace>Engine</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>Release\</OutDir>
+    <IntDir>Release\</IntDir>
+    <TargetName>Engine</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>Debug\</OutDir>
+    <IntDir>Debug\</IntDir>
+    <TargetName>Engine</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">
+    <OutDir>Engine___Win32_OutRead_Debug\</OutDir>
+    <IntDir>Engine___Win32_OutRead_Debug\</IntDir>
+    <TargetName>Engine</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">
+    <OutDir>Engine___Win32_OuRead_Release\</OutDir>
+    <IntDir>Engine___Win32_OuRead_Release\</IntDir>
+    <TargetName>Engine</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_MBCS;_USRDLL;ENGINE_EXPORTS;WINVER=0x0500;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include;..\Pack\ucl-1.01\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KWin32.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;comdlg32.lib;ddraw.lib;dsound.lib;dxguid.lib;winmm.lib;wsock32.lib;dinput8.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if exist &quot;release\engine.lib&quot; copy /Y &quot;release\engine.lib&quot; &quot;..\..\lib\release\engine.lib&quot; &gt;nul
+if not exist &quot;..\..\lib&quot; md &quot;..\..\lib&quot;
+if exist &quot;release\engine.lib&quot; copy /Y &quot;release\engine.lib&quot; &quot;..\..\lib\engine.lib&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\release&quot; md &quot;..\..\..\bin\client\release&quot;
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;release\engine.dll&quot; copy /Y &quot;release\engine.dll&quot; &quot;..\..\..\bin\client\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;release\engine.pdb&quot; copy /Y &quot;release\engine.pdb&quot; &quot;..\..\..\bin\client\engine.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;release\engine.map&quot; copy /Y &quot;release\engine.map&quot; &quot;..\..\..\bin\client\engine.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\release&quot; md &quot;..\..\..\bin\server\release&quot;
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;release\engine.dll&quot; copy /Y &quot;release\engine.dll&quot; &quot;..\..\..\bin\server\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;release\engine.pdb&quot; copy /Y &quot;release\engine.pdb&quot; &quot;..\..\..\bin\server\engine.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;release\engine.map&quot; copy /Y &quot;release\engine.map&quot; &quot;..\..\..\bin\server\engine.map&quot; &gt;nul</Command>
+      <Message>Deploying Engine</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>_DEBUG;WIN32;_WINDOWS;_MBCS;_USRDLL;ENGINE_EXPORTS;USE_STANDALONE_SPR;WINVER=0x0500;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KWin32.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;comdlg32.lib;ddraw.lib;dsound.lib;dxguid.lib;winmm.lib;wsock32.lib;dinput8.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if exist &quot;debug\engine.lib&quot; copy /Y &quot;debug\engine.lib&quot; &quot;..\..\lib\debug\engine.lib&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;debug\engine.dll&quot; copy /Y &quot;debug\engine.dll&quot; &quot;..\..\..\bin\client\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if exist &quot;debug\engine.dll&quot; copy /Y &quot;debug\engine.dll&quot; &quot;..\..\..\bin\client\debug\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;debug\engine.dll&quot; copy /Y &quot;debug\engine.dll&quot; &quot;..\..\..\bin\server\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if exist &quot;debug\engine.dll&quot; copy /Y &quot;debug\engine.dll&quot; &quot;..\..\..\bin\server\debug\engine.dll&quot; &gt;nul</Command>
+      <Message>Deploying Engine</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>_DEBUG;WIN32;_WINDOWS;_MBCS;_USRDLL;ENGINE_EXPORTS;USE_STANDALONE_SPR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KWin32.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;comdlg32.lib;ddraw.lib;dsound.lib;dxguid.lib;winmm.lib;wsock32.lib;dinput8.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if not exist &quot;..\..\lib\debug&quot; md &quot;..\..\lib\debug&quot;
+if exist &quot;Engine___Win32_OutRead_Debug\Engine.lib&quot; copy /Y &quot;Engine___Win32_OutRead_Debug\Engine.lib&quot; &quot;..\..\lib\debug\engine.lib&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; copy /Y &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; &quot;..\..\..\bin\client\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\debug&quot; md &quot;..\..\..\bin\client\debug&quot;
+if exist &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; copy /Y &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; &quot;..\..\..\bin\client\debug\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; copy /Y &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; &quot;..\..\..\bin\server\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\debug&quot; md &quot;..\..\..\bin\server\debug&quot;
+if exist &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; copy /Y &quot;Engine___Win32_OutRead_Debug\Engine.dll&quot; &quot;..\..\..\bin\server\debug\engine.dll&quot; &gt;nul</Command>
+      <Message>Deploying Engine</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_MBCS;_USRDLL;ENGINE_EXPORTS;USE_STANDALONE_SPR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>include;..\Pack\ucl-1.01\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>KWin32.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;comdlg32.lib;ddraw.lib;dsound.lib;dxguid.lib;winmm.lib;wsock32.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if not exist &quot;..\..\lib\release&quot; md &quot;..\..\lib\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\Engine.lib&quot; copy /Y &quot;Engine___Win32_OuRead_Release\Engine.lib&quot; &quot;..\..\lib\release\engine.lib&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\release&quot; md &quot;..\..\..\bin\client\release&quot;
+if not exist &quot;..\..\..\bin\client&quot; md &quot;..\..\..\bin\client&quot;
+if exist &quot;Engine___Win32_OuRead_Release\engine.dll&quot; copy /Y &quot;Engine___Win32_OuRead_Release\engine.dll&quot; &quot;..\..\..\bin\client\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\release&quot; md &quot;..\..\..\bin\client\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\engine.dll&quot; copy /Y &quot;Engine___Win32_OuRead_Release\engine.dll&quot; &quot;..\..\..\bin\client\release\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\release&quot; md &quot;..\..\..\bin\client\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\engine.pdb&quot; copy /Y &quot;Engine___Win32_OuRead_Release\engine.pdb&quot; &quot;..\..\..\bin\client\release\engine.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\client\release&quot; md &quot;..\..\..\bin\client\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\engine.map&quot; copy /Y &quot;Engine___Win32_OuRead_Release\engine.map&quot; &quot;..\..\..\bin\client\release\engine.map&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\release&quot; md &quot;..\..\..\bin\server\release&quot;
+if not exist &quot;..\..\..\bin\server&quot; md &quot;..\..\..\bin\server&quot;
+if exist &quot;Engine___Win32_OuRead_Release\Engine.dll&quot; copy /Y &quot;Engine___Win32_OuRead_Release\Engine.dll&quot; &quot;..\..\..\bin\server\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\release&quot; md &quot;..\..\..\bin\server\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\Engine.dll&quot; copy /Y &quot;Engine___Win32_OuRead_Release\Engine.dll&quot; &quot;..\..\..\bin\server\release\engine.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\release&quot; md &quot;..\..\..\bin\server\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\Engine.pdb&quot; copy /Y &quot;Engine___Win32_OuRead_Release\Engine.pdb&quot; &quot;..\..\..\bin\server\release\engine.pdb&quot; &gt;nul
+if not exist &quot;..\..\..\bin\server\release&quot; md &quot;..\..\..\bin\server\release&quot;
+if exist &quot;Engine___Win32_OuRead_Release\Engine.map&quot; copy /Y &quot;Engine___Win32_OuRead_Release\Engine.map&quot; &quot;..\..\..\bin\server\release\engine.map&quot; &gt;nul</Command>
+      <Message>Deploying Engine</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include=".\Src\KAutoMutex.cpp" />
+    <ClCompile Include=".\Src\KAviFile.cpp" />
+    <ClCompile Include=".\Src\KBitmap.cpp" />
+    <ClCompile Include=".\Src\KBitmap16.cpp" />
+    <ClCompile Include=".\Src\KBitmapConvert.cpp" />
+    <ClCompile Include=".\Src\KBmp2Spr.cpp" />
+    <ClCompile Include=".\Src\KBmpFile.cpp" />
+    <ClCompile Include=".\Src\KBmpFile24.cpp" />
+    <ClCompile Include=".\Src\KCache.cpp" />
+    <ClCompile Include=".\Src\KCanvas.cpp" />
+    <ClCompile Include=".\Src\KCodec.cpp" />
+    <ClCompile Include=".\Src\KCodecLzo.cpp" />
+    <ClCompile Include=".\Src\KColors.cpp" />
+    <ClCompile Include=".\Src\KDDraw.cpp" />
+    <ClCompile Include=".\Src\KDebug.cpp" />
+    <ClCompile Include=".\Src\KDError.cpp" />
+    <ClCompile Include=".\Src\KDInput.cpp" />
+    <ClCompile Include=".\Src\KDrawBase.cpp" />
+    <ClCompile Include=".\Src\KDrawBitmap.cpp" />
+    <ClCompile Include=".\Src\KDrawBitmap16.cpp" />
+    <ClCompile Include=".\Src\KDrawFade.cpp" />
+    <ClCompile Include=".\Src\KDrawFont.cpp" />
+    <ClCompile Include=".\Src\KDrawSprite.cpp" />
+    <ClCompile Include=".\Src\KDrawSpriteAlpha.cpp" />
+    <ClCompile Include=".\Src\KDSound.cpp" />
+    <ClCompile Include=".\Src\KEicScript.cpp" />
+    <ClCompile Include=".\Src\KEicScriptSet.cpp" />
+    <ClCompile Include=".\Src\KEngine.cpp" />
+    <ClCompile Include=".\Src\KEvent.cpp" />
+    <ClCompile Include=".\Src\KFile.cpp" />
+    <ClCompile Include=".\Src\KFileCopy.cpp" />
+    <ClCompile Include=".\Src\KFileDialog.cpp" />
+    <ClCompile Include=".\Src\KFilePath.cpp" />
+    <ClCompile Include=".\Src\KFindBinTree.cpp" />
+    <ClCompile Include=".\Src\KFont.cpp" />
+    <ClCompile Include=".\Src\KGifFile.cpp" />
+    <ClCompile Include=".\Src\KGraphics.cpp" />
+    <ClCompile Include=".\Src\KHashList.cpp" />
+    <ClCompile Include=".\Src\KHashNode.cpp" />
+    <ClCompile Include=".\Src\KHashTable.cpp" />
+    <ClCompile Include=".\Src\Kime.cpp" />
+    <ClCompile Include=".\Src\KIniFile.cpp" />
+    <ClCompile Include=".\Src\KJpgFile.cpp" />
+    <ClCompile Include=".\Src\KKeyboard.cpp" />
+    <ClCompile Include=".\Src\KLinkArray.cpp" />
+    <ClCompile Include=".\Src\KList.cpp" />
+    <ClCompile Include=".\Src\KLuaScript.cpp" />
+    <ClCompile Include=".\Src\KLuaScriptSet.cpp" />
+    <ClCompile Include=".\Src\KLubCmpl_Blocker.cpp" />
+    <ClCompile Include=".\Src\KMemBase.cpp" />
+    <ClCompile Include=".\Src\KMemClass.cpp" />
+    <ClCompile Include=".\Src\KMemClass1.cpp" />
+    <ClCompile Include=".\Src\KMemManager.cpp" />
+    <ClCompile Include=".\Src\KMemStack.cpp" />
+    <ClCompile Include=".\Src\KMessage.cpp" />
+    <ClCompile Include=".\Src\KMouse.cpp" />
+    <ClCompile Include=".\Src\KMp3Music.cpp" />
+    <ClCompile Include=".\Src\KMp4Audio.cpp" />
+    <ClCompile Include=".\Src\KMp4Movie.cpp" />
+    <ClCompile Include=".\Src\KMp4Video.cpp" />
+    <ClCompile Include=".\Src\KMpgMusic.cpp" />
+    <ClCompile Include=".\Src\KMsgNode.cpp" />
+    <ClCompile Include=".\Src\KMusic.cpp" />
+    <ClCompile Include=".\Src\KMutex.cpp" />
+    <ClCompile Include=".\Src\KNode.cpp" />
+    <ClCompile Include=".\Src\KOctree.cpp" />
+    <ClCompile Include=".\Src\KOctreeNode.cpp" />
+    <ClCompile Include=".\Src\KPakData.cpp" />
+    <ClCompile Include=".\Src\KPakFile.cpp" />
+    <ClCompile Include=".\Src\KPakList.cpp" />
+    <ClCompile Include=".\Src\KPakMake.cpp" />
+    <ClCompile Include=".\Src\KPakTool.cpp" />
+    <ClCompile Include=".\Src\KPalette.cpp" />
+    <ClCompile Include=".\Src\KPcxFile.cpp" />
+    <ClCompile Include=".\Src\KPolygon.cpp" />
+    <ClCompile Include=".\Src\KPolyRelation.cpp" />
+    <ClCompile Include=".\Src\KRandom.cpp" />
+    <ClCompile Include=".\Src\KSafeList.cpp" />
+    <ClCompile Include=".\Src\KScanDir.cpp" />
+    <ClCompile Include=".\Src\KScript.cpp" />
+    <ClCompile Include=".\Src\KScriptCache.cpp" />
+    <ClCompile Include=".\Src\KScriptList.cpp" />
+    <ClCompile Include=".\Src\KScriptSet.cpp" />
+    <ClCompile Include=".\Src\KSG_MD5_String.cpp" />
+    <ClCompile Include=".\Src\KSG_StringProcess.cpp" />
+    <ClCompile Include=".\Src\KSortBinTree.cpp" />
+    <ClCompile Include=".\Src\KSortList.cpp" />
+    <ClCompile Include=".\Src\KSoundCache.cpp" />
+    <ClCompile Include=".\Src\KSprite.cpp" />
+    <ClCompile Include=".\Src\KSpriteCache.cpp" />
+    <ClCompile Include=".\Src\KSpriteCodec.cpp" />
+    <ClCompile Include=".\Src\KSpriteMaker.cpp" />
+    <ClCompile Include=".\Src\KStepLuaScript.cpp" />
+    <ClCompile Include=".\Src\KStrBase.cpp" />
+    <ClCompile Include=".\Src\KStrList.cpp" />
+    <ClCompile Include=".\Src\KStrNode.cpp" />
+    <ClCompile Include=".\Src\KTabFile.cpp" />
+    <ClCompile Include=".\Src\KTabFileCtrl.cpp" />
+    <ClCompile Include=".\Src\KTgaFile32.cpp" />
+    <ClCompile Include=".\Src\KThread.cpp" />
+    <ClCompile Include=".\Src\KTimer.cpp" />
+    <ClCompile Include=".\Src\KVideo.cpp" />
+    <ClCompile Include=".\Src\KWavCodec.cpp" />
+    <ClCompile Include=".\Src\KWavFile.cpp" />
+    <ClCompile Include=".\Src\KWavMusic.cpp" />
+    <ClCompile Include=".\Src\KWavSound.cpp" />
+    <ClCompile Include=".\Src\KWin32.cpp" />
+    <ClCompile Include=".\Src\KWin32Wnd.cpp" />
+    <ClCompile Include=".\Src\KZipCodec.cpp" />
+    <ClCompile Include=".\Src\KZipData.cpp" />
+    <ClCompile Include=".\Src\KZipFile.cpp" />
+    <ClCompile Include=".\Src\KZipList.cpp" />
+    <ClCompile Include=".\Src\md5.cpp" />
+    <ClCompile Include=".\Src\stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">kwin32.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">kwin32.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">kwin32.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">kwin32.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include=".\Src\XPackFile.cpp" />
+    <ClCompile Include=".\Src\ZPackFile.cpp" />
+    <ClCompile Include=".\Src\Cryptography\EDOneTimePad.cpp" />
+    <ClCompile Include=".\Src\Text.cpp" />
+    <ClCompile Include=".\Src\ucl\alloc.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\io.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2b_99.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2b_d.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2b_ds.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2b_to.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2d_99.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2d_d.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2d_ds.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2d_to.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2e_99.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2e_d.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2e_ds.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\n2e_to.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\ucl_crc.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\ucl_dll.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\ucl_init.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\ucl_ptr.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\ucl_str.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\Src\ucl\ucl_util.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\Src\DrawSpriteMP.h" />
+    <ClInclude Include=".\Src\Colors.h" />
+    <ClInclude Include=".\Src\KAutoMutex.h" />
+    <ClInclude Include=".\Src\KAviFile.h" />
+    <ClInclude Include=".\Src\KBinsTree.h" />
+    <ClInclude Include=".\Src\KBinTreeNode.h" />
+    <ClInclude Include=".\Src\KBitmap.h" />
+    <ClInclude Include=".\Src\KBitmap16.h" />
+    <ClInclude Include=".\Src\KBitmapConvert.h" />
+    <ClInclude Include=".\Src\KBmp2Spr.h" />
+    <ClInclude Include=".\Src\KBmpFile.h" />
+    <ClInclude Include=".\Src\KBmpFile24.h" />
+    <ClInclude Include=".\Src\KCache.h" />
+    <ClInclude Include=".\Src\KCanvas.h" />
+    <ClInclude Include=".\Src\KCodec.h" />
+    <ClInclude Include=".\Src\KCodecLzo.h" />
+    <ClInclude Include=".\Src\KColors.h" />
+    <ClInclude Include=".\Src\KCriticalSection.h" />
+    <ClInclude Include=".\Src\KDDraw.h" />
+    <ClInclude Include=".\Src\KDebug.h" />
+    <ClInclude Include=".\Src\KDError.h" />
+    <ClInclude Include=".\Src\KDInput.h" />
+    <ClInclude Include=".\Src\KDrawBase.h" />
+    <ClInclude Include=".\Src\KDrawBitmap.h" />
+    <ClInclude Include=".\Src\KDrawBitmap16.h" />
+    <ClInclude Include=".\Src\KDrawFade.h" />
+    <ClInclude Include=".\Src\KDrawFont.h" />
+    <ClInclude Include=".\Src\KDrawSprite.h" />
+    <ClInclude Include=".\Src\KDrawSpriteAlpha.h" />
+    <ClInclude Include=".\Src\KDSound.h" />
+    <ClInclude Include=".\Src\KEicScript.h" />
+    <ClInclude Include=".\Src\KEicScriptSet.h" />
+    <ClInclude Include=".\Src\KEngine.h" />
+    <ClInclude Include=".\Src\KEvent.h" />
+    <ClInclude Include=".\Src\KFile.h" />
+    <ClInclude Include=".\Src\KFileCopy.h" />
+    <ClInclude Include=".\Src\KFileDialog.h" />
+    <ClInclude Include=".\Src\KFilePath.h" />
+    <ClInclude Include=".\Src\KFindBinTree.h" />
+    <ClInclude Include=".\Src\KFont.h" />
+    <ClInclude Include=".\Src\KGifFile.h" />
+    <ClInclude Include=".\Src\KGraphics.h" />
+    <ClInclude Include=".\Src\KHashList.h" />
+    <ClInclude Include=".\Src\KHashNode.h" />
+    <ClInclude Include=".\Src\KHashTable.h" />
+    <ClInclude Include=".\Src\Kime.h" />
+    <ClInclude Include=".\Src\KIniFile.h" />
+    <ClInclude Include=".\Src\KITabFile.h" />
+    <ClInclude Include=".\Src\KJpgFile.h" />
+    <ClInclude Include=".\Src\KKeyboard.h" />
+    <ClInclude Include=".\Src\KLinkArray.h" />
+    <ClInclude Include=".\Src\KList.h" />
+    <ClInclude Include=".\Src\KLuaScript.h" />
+    <ClInclude Include=".\Src\KLuaScriptSet.h" />
+    <ClInclude Include=".\Src\KLubCmpl_Blocker.h" />
+    <ClInclude Include=".\Src\KMemBase.h" />
+    <ClInclude Include=".\Src\KMemClass.h" />
+    <ClInclude Include=".\Src\KMemClass1.h" />
+    <ClInclude Include="..\..\..\Tools\Sources\LubCompile\KMemClass1.h" />
+    <ClInclude Include=".\Src\KMemManager.h" />
+    <ClInclude Include=".\Src\KMemStack.h" />
+    <ClInclude Include=".\Src\KMessage.h" />
+    <ClInclude Include=".\Src\KMouse.h" />
+    <ClInclude Include=".\Src\KMp3Music.h" />
+    <ClInclude Include=".\Src\KMp4Audio.h" />
+    <ClInclude Include=".\Src\KMp4Movie.h" />
+    <ClInclude Include=".\Src\KMp4Video.h" />
+    <ClInclude Include=".\Src\KMpgMusic.h" />
+    <ClInclude Include=".\Src\KMsgNode.h" />
+    <ClInclude Include=".\Src\KMusic.h" />
+    <ClInclude Include=".\Src\KMutex.h" />
+    <ClInclude Include=".\Src\KNode.h" />
+    <ClInclude Include=".\Src\KOctree.h" />
+    <ClInclude Include=".\Src\KOctreeNode.h" />
+    <ClInclude Include=".\Src\KPakData.h" />
+    <ClInclude Include=".\Src\KPakFile.h" />
+    <ClInclude Include=".\Src\KPakList.h" />
+    <ClInclude Include=".\Src\KPakMake.h" />
+    <ClInclude Include=".\Src\KPakTool.h" />
+    <ClInclude Include=".\Src\KPalette.h" />
+    <ClInclude Include=".\Src\KPcxFile.h" />
+    <ClInclude Include=".\Src\KPolygon.h" />
+    <ClInclude Include=".\Src\KPolyRelation.h" />
+    <ClInclude Include=".\Src\KRandom.h" />
+    <ClInclude Include=".\Src\KSafeList.h" />
+    <ClInclude Include=".\Src\KScanDir.h" />
+    <ClInclude Include=".\Src\KScript.h" />
+    <ClInclude Include=".\Src\KScriptCache.h" />
+    <ClInclude Include=".\Src\KScriptList.h" />
+    <ClInclude Include=".\Src\KScriptSet.h" />
+    <ClInclude Include=".\Src\KSG_MD5_String.h" />
+    <ClInclude Include=".\Src\KSG_StringProcess.h" />
+    <ClInclude Include=".\Src\KSortBinTree.h" />
+    <ClInclude Include=".\Src\KSortList.h" />
+    <ClInclude Include=".\Src\KSoundCache.h" />
+    <ClInclude Include=".\Src\KSprite.h" />
+    <ClInclude Include=".\Src\KSpriteCache.h" />
+    <ClInclude Include=".\Src\KSpriteCodec.h" />
+    <ClInclude Include=".\Src\KSpriteMaker.h" />
+    <ClInclude Include=".\Src\KStepLuaScript.h" />
+    <ClInclude Include=".\Src\KStrBase.h" />
+    <ClInclude Include=".\Src\KStrList.h" />
+    <ClInclude Include=".\Src\KStrNode.h" />
+    <ClInclude Include=".\Src\KTabFile.h" />
+    <ClInclude Include=".\Src\KTabFileCtrl.h" />
+    <ClInclude Include=".\Src\KTgaFile32.h" />
+    <ClInclude Include=".\Src\KThread.h" />
+    <ClInclude Include=".\Src\KTimer.h" />
+    <ClInclude Include=".\Src\KVideo.h" />
+    <ClInclude Include=".\Src\KWavCodec.h" />
+    <ClInclude Include=".\Src\KWavFile.h" />
+    <ClInclude Include=".\Src\KWavMusic.h" />
+    <ClInclude Include=".\Src\KWavSound.h" />
+    <ClInclude Include=".\Src\KWin32.h" />
+    <ClInclude Include=".\Src\KWin32Wnd.h" />
+    <ClInclude Include=".\Src\KZipCodec.h" />
+    <ClInclude Include=".\Src\KZipData.h" />
+    <ClInclude Include=".\Src\KZipFile.h" />
+    <ClInclude Include=".\Src\KZipList.h" />
+    <ClInclude Include=".\Src\LinkStruct.h" />
+    <ClInclude Include=".\Src\md5.h" />
+    <ClInclude Include=".\Src\XPackFile.h" />
+    <ClInclude Include=".\Src\ZPackFile.h" />
+    <ClInclude Include=".\Include\JpgLib.h" />
+    <ClInclude Include=".\Include\LuaLib.h" />
+    <ClInclude Include="..\..\Lib\mp3lib.h" />
+    <ClInclude Include=".\Src\Cryptography\EDOneTimePad.h" />
+    <ClInclude Include=".\Src\Text.h" />
+    <ClInclude Include=".\Src\ucl\fake16.h" />
+    <ClInclude Include=".\Src\ucl\getbit.h" />
+    <ClInclude Include=".\Src\ucl\internal.h" />
+    <ClInclude Include=".\Include\ucl\ucl.h" />
+    <ClInclude Include=".\Src\ucl\ucl_conf.h" />
+    <ClInclude Include=".\Src\ucl\ucl_ptr.h" />
+    <ClInclude Include=".\Src\ucl\ucl_util.h" />
+    <ClInclude Include=".\Include\ucl\uclconf.h" />
+    <ClInclude Include=".\Include\ucl\uclutil.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Lib\JpgLib.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\debug\LuaLibDll.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\mp3lib.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='OuRead Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\release\JpgLib.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\release\LuaLibDll.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\release\mp3lib.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='OutRead Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Library\LuaLib\LuaLibDll.vcxproj">
+      <Project>{C4628CC6-CC2C-5502-8327-28FD7F043EA3}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

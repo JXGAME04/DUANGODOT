@@ -1,0 +1,444 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (P.R.C.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE MOVEABLE PURE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE MOVEABLE PURE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE MOVEABLE PURE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\ResourceManager.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""l.chs\\afxres.rc""          // Standard components\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\ResourceManager.ico"
+IDI_ITEM_FOLDEROPEN     ICON    DISCARDABLE     "res\\ico00001.ico"
+IDI_ITEM_FOLDER         ICON    DISCARDABLE     "res\\icon1.ico"
+IDI_ITEM_FOLDERHAVEFILE ICON    DISCARDABLE     "res\\item_fol.ico"
+IDI_ITEM_FOLDERHAVEFILEOPEN ICON    DISCARDABLE     "res\\ico00006.ico"
+IDI_ITEM_CAMERA         ICON    DISCARDABLE     "res\\IDI_ITEM_CAMERA.ICO"
+IDI_ITEM_COMMAND        ICON    DISCARDABLE     "res\\IDI_ITEM_COMMAND.ICO"
+IDI_ITEM_DOODAD         ICON    DISCARDABLE     "res\\IDI_ITEM_DOODAD.ico"
+IDI_ITEM_DOODADCOMPLEX  ICON    DISCARDABLE     "res\\IDI_ITEM_DOODADCOMPLEX.ico"
+IDI_ITEM_GROUP          ICON    DISCARDABLE     "res\\IDI_ITEM_GROUP.ICO"
+IDI_ITEM_LIGHT          ICON    DISCARDABLE     "res\\IDI_ITEM_LIGHT.ICO"
+IDI_ITEM_NPC            ICON    DISCARDABLE     "res\\IDI_ITEM_NPC.ICO"
+IDI_ITEM_OBJECT         ICON    DISCARDABLE     "res\\IDI_ITEM_OBJECT.ICO"
+IDI_ITEM_OBSTACLE       ICON    DISCARDABLE     "res\\IDI_ITEM_OBSTACLE.ICO"
+IDI_ITEM_SETTING        ICON    DISCARDABLE     "res\\IDI_ITEM_SETTING.ICO"
+IDI_ITEM_TERRA          ICON    DISCARDABLE     "res\\IDI_ITEM_TERRA.ICO"
+IDI_ITEM_TRAP           ICON    DISCARDABLE     "res\\IDI_ITEM_TRAP.ICO"
+IDI_ITEM_FILE           ICON    DISCARDABLE     "res\\ico00002.ico"
+IDI_ITEM_ROOM           ICON    DISCARDABLE     "res\\ico00003.ico"
+IDI_ITEM_ROAD           ICON    DISCARDABLE     "res\\ico00004.ico"
+IDI_ITEM_SPECIAL        ICON    DISCARDABLE     "res\\item_spe.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 229, 103
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "关于 ResourceManager"
+FONT 9, "宋体"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,21,21
+    LTEXT           "ResourceManager 1.0 版",IDC_STATIC,40,10,119,8,
+                    SS_NOPREFIX
+    LTEXT           "版权所有 (C) 2002",IDC_STATIC,40,25,119,8
+    DEFPUSHBUTTON   "确定",IDOK,172,7,50,14,WS_GROUP
+    LTEXT           "右键点击转化选择的节点",IDC_STATIC,23,60,89,8
+    LTEXT           "F5刷新tree",IDC_STATIC,23,75,41,8
+    GROUPBOX        "命令说明",IDC_STATIC,13,45,205,45
+END
+
+IDD_RESOURCEMANAGER_DIALOG DIALOGEX 0, 0, 621, 387
+STYLE DS_MODALFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | 
+    WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "资源管理器"
+FONT 9, "宋体"
+BEGIN
+    CONTROL         "Tree1",IDC_TREE_SOURCE,"SysTreeView32",TVS_HASBUTTONS | 
+                    TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS | 
+                    WS_BORDER | WS_TABSTOP,0,32,124,303
+    CONTROL         "Tree1",IDC_TREE_DES,"SysTreeView32",TVS_HASBUTTONS | 
+                    TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS | 
+                    WS_BORDER | WS_TABSTOP,132,32,124,303
+    CONTROL         "显示重心",IDC_SHOWCENTER,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,272,265,48,10
+    CONTROL         "AutoPlay",IDC_AUTOPLAY,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,353,27,48,10
+    EDITTEXT        IDC_ANIMATION,324,41,48,14,ES_AUTOHSCROLL
+    CONTROL         "Spin1",IDC_SPIN_ANIMATION,"msctls_updown32",
+                    UDS_AUTOBUDDY | UDS_ARROWKEYS | UDS_HORZ,379,40,23,14
+    EDITTEXT        IDC_DIRECTION,348,55,24,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPIN_DIRECTION,"msctls_updown32",UDS_WRAP | 
+                    UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS | 
+                    UDS_HORZ,379,55,23,14
+    EDITTEXT        IDC_FRAME,348,69,24,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPIN_FRAME,"msctls_updown32",UDS_WRAP | 
+                    UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS | 
+                    UDS_HORZ,379,69,23,14
+    EDITTEXT        IDC_SPEED,348,83,24,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPIN_SPEED,"msctls_updown32",UDS_WRAP | 
+                    UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS | 
+                    UDS_HORZ,379,83,23,14
+    COMBOBOX        IDC_PLANETYPE,501,27,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_LIGHTING,501,47,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_LIGHTED,501,67,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_RADIUS,501,87,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_LAYER,501,107,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_ANGLEXY,501,145,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_ANGLEZ,501,165,59,59,CBS_DROPDOWN | WS_DISABLED | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_HEIGHT,501,183,59,59,CBS_DROPDOWN | WS_DISABLED | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_OBSTACLETYPE,501,203,59,59,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Save",IDC_SAVE,343,297,54,14
+    DEFPUSHBUTTON   "确定",IDOK,441,366,50,14,WS_DISABLED
+    PUSHBUTTON      "取消",IDCANCEL,500,366,50,14
+    LTEXT           "资源文件",IDC_STATIC,10,16,33,8
+    LTEXT           "游戏文件(位于run\\游戏资源)",IDC_STATIC,138,15,109,8
+    LTEXT           "Animation",IDC_STATIC,275,43,37,8
+    LTEXT           "Direction",IDC_STATIC,275,58,37,8
+    LTEXT           "Name",IDC_STATIC,275,29,17,8
+    LTEXT           "Frame",IDC_STATIC,275,73,21,8
+    LTEXT           "Spr Picture",IDC_STATIC_SPR,272,101,132,155,0,
+                    WS_EX_STATICEDGE
+    GROUPBOX        "Object View",IDC_STATIC,265,14,142,301
+    LTEXT           "Speed",IDC_STATIC,275,86,21,8
+    LTEXT           "(0)",IDC_STATIC_FRAME,295,74,38,8
+    LTEXT           "(0)",IDC_STATIC_DIRECTION,311,59,26,8
+    LTEXT           "重心X",IDC_STATIC,428,226,29,8
+    LTEXT           "重心Y",IDC_STATIC,428,246,29,8
+    LTEXT           "几何类型",IDC_STATIC,428,30,33,8
+    LTEXT           "受光类型",IDC_STATIC,428,50,33,8
+    LTEXT           "挡光类型",IDC_STATIC,428,70,33,8
+    LTEXT           "平行排序类型",IDC_STATIC,428,110,49,8
+    LTEXT           "底边在地面的角度",IDC_STATIC,428,148,65,8
+    LTEXT           "挡光半径(阻挡半径)",IDC_STATIC,428,90,73,8
+    GROUPBOX        "几何信息",IDC_STATIC,420,14,142,343
+    LTEXT           "障碍类型",IDC_STATIC,427,206,33,8
+    LTEXT           "立边与地面的角度",IDC_STATIC,428,168,65,8
+    LTEXT           "初始高度",IDC_STATIC,428,186,33,8
+    COMBOBOX        IDC_CENTERY,501,243,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "Spin3",IDC_SPINY,"msctls_updown32",UDS_SETBUDDYINT | 
+                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,560,243,
+                    11,14
+    COMBOBOX        IDC_CENTERX,501,223,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "Spin3",IDC_SPINX,"msctls_updown32",UDS_SETBUDDYINT | 
+                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,560,222,
+                    11,14
+    CONTROL         "Save All",IDC_ALL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    273,298,48,10
+    PUSHBUTTON      "确定重心",IDC_GETCENTER,343,277,54,14,WS_DISABLED
+    LTEXT           "存储方式",IDC_STATIC,427,266,44,8
+    COMBOBOX        IDC_SAVETYPE,501,263,59,59,CBS_DROPDOWNLIST | 
+                    WS_DISABLED | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "从spr得到txt...",IDC_SPR2TXT,226,366,76,14,WS_DISABLED
+    LTEXT           "贴图的使用方式",IDC_STATIC,427,288,64,8
+    COMBOBOX        IDC_TEXTUREUSE,501,284,59,59,CBS_DROPDOWNLIST | 
+                    WS_DISABLED | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "自定义种类",IDC_STATIC,427,308,64,8
+    COMBOBOX        IDC_KIND,501,304,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "去白边或者黑边...",IDC_ALPHAFORMAT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,346,84,10
+    CONTROL         "获得最小的图片",IDC_ALPHASET,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,7,370,70,10
+    LTEXT           "垂直排序类型",IDC_STATIC,428,128,49,8
+    COMBOBOX        IDC_VERSORT,501,125,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_CENTERSETTING,271,277,51,81,CBS_DROPDOWNLIST | 
+                    WS_DISABLED | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Save All",IDC_ALL_PLANETYPE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,29,48,10
+    CONTROL         "Save All",IDC_ALL_LIGHTING,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,47,48,10
+    CONTROL         "Save All",IDC_ALL_LIGHTED,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,70,48,10
+    CONTROL         "Save All",IDC_ALL_RADIUS,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,88,48,10
+    CONTROL         "Save All",IDC_ALL_LAYER,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,109,48,10
+    CONTROL         "Save All",IDC_ALL_VERSORT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,127,48,10
+    CONTROL         "Save All",IDC_ALL_ANGLEXY,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,145,48,10
+    CONTROL         "Save All",IDC_ALL_ANGLEZ,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,165,48,10
+    CONTROL         "Save All",IDC_ALL_HEIGHT,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,184,48,10
+    CONTROL         "Save All",IDC_ALL_OBSTACLETYPE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,204,48,10
+    CONTROL         "Save All",IDC_ALL_CENTERX,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,225,48,10
+    CONTROL         "Save All",IDC_ALL_CENTERY,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,243,48,10
+    CONTROL         "Save All",IDC_ALL_SAVETYPE,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,265,48,10
+    CONTROL         "Save All",IDC_ALL_TEXTUREUSE,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,283,48,10
+    CONTROL         "Save All",IDC_ALL_KIND,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,566,303,48,10
+    COMBOBOX        IDC_ANISPEED,501,324,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "Save All",IDC_ALL_ANISPEED,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,325,48,10
+    LTEXT           "动画速度(ms/帧)",IDC_STATIC,427,327,70,8
+    PUSHBUTTON      "察看该图素的Log",IDC_LOG,332,366,76,14
+    PUSHBUTTON      "从Tab得到txt...",IDC_INI2TXT,225,341,76,14
+    CONTROL         "去掉图素的阴影",IDC_SHADOW,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,101,345,72,10
+    PUSHBUTTON      "反向定位",IDC_LOCATE,268,320,54,14
+    PUSHBUTTON      "添加spr文件的信息",IDC_ADDSPRINFO,331,339,76,14,
+                    WS_DISABLED
+    COMBOBOX        IDC_ANILOOP,501,342,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "是否循环",IDC_STATIC,427,345,70,8
+    CONTROL         "Save All",IDC_ALL_ANILOOP,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,566,344,48,10
+END
+
+IDD_DIVIDE DIALOGEX 0, 0, 308, 427
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Divide Dialog"
+FONT 9, "宋体", 0, 0, 0x1
+BEGIN
+    COMBOBOX        IDC_DOODADTYPE,61,290,59,59,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_GEOMETRY,61,308,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_HEIGHT,61,326,59,59,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    CONTROL         "Spin1",IDC_SPIN_HEIGHT,"msctls_updown32",
+                    UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | 
+                    UDS_ARROWKEYS,121,326,11,14
+    EDITTEXT        IDC_WIDE,61,344,59,14,ES_AUTOHSCROLL | ES_NUMBER | 
+                    WS_DISABLED
+    CONTROL         "Spin1",IDC_SPIN_HEIGHT2,"msctls_updown32",
+                    UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | 
+                    UDS_ARROWKEYS,121,345,11,14
+    EDITTEXT        IDC_HIGH,61,364,59,14,ES_AUTOHSCROLL | ES_NUMBER | 
+                    WS_DISABLED
+    CONTROL         "Spin1",IDC_SPIN_HEIGHT3,"msctls_updown32",
+                    UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | 
+                    UDS_ARROWKEYS,121,365,11,14
+    LISTBOX         IDC_LISTPOINT,137,292,64,53,LBS_SORT | 
+                    LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "X",IDC_STATIC,137,352,8,8
+    EDITTEXT        IDC_X,149,349,50,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPINX,"msctls_updown32",UDS_SETBUDDYINT | 
+                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,201,349,
+                    11,14
+    LTEXT           "Y",IDC_STATIC,137,369,8,8
+    EDITTEXT        IDC_Y,149,366,50,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPINY,"msctls_updown32",UDS_SETBUDDYINT | 
+                    UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS,201,366,
+                    11,14
+    LTEXT           "width",IDC_STATIC_WIDTH,202,353,26,8
+    LTEXT           "Height",IDC_STATIC_HEIGHT,202,369,26,8
+    DEFPUSHBUTTON   "确定",IDOK,186,406,50,14,WS_DISABLED | WS_GROUP
+    LTEXT           "Spr Picture",IDC_STATIC_SPR,7,35,294,232,0,
+                    WS_EX_STATICEDGE
+    LTEXT           "Doodad类型",IDC_STATIC,13,292,41,8
+    LTEXT           "几何类型",IDC_STATIC,13,311,33,8
+    PUSHBUTTON      "取消",IDCANCEL,245,406,50,14,WS_GROUP
+    LTEXT           "高度",IDC_STATIC,13,330,17,8
+    GROUPBOX        "底边点的列表",IDC_STATIC,131,278,170,106
+    PUSHBUTTON      "删除",IDC_DELETEPOINT,237,365,50,14
+    PUSHBUTTON      "添加",IDC_ADDPOINT,237,348,50,14
+    PUSHBUTTON      "上",IDC_UP,247,297,20,14
+    PUSHBUTTON      "右",IDC_RIGHT,267,311,20,14
+    PUSHBUTTON      "左",IDC_LEFT,227,311,20,14
+    PUSHBUTTON      "下",IDC_DOWN,247,325,20,14
+    PUSHBUTTON      "切分图片",ID_DIVIDED,15,406,50,14,WS_GROUP
+    LTEXT           "横向切分",IDC_STATIC,13,349,33,8
+    LTEXT           "纵向切分",IDC_STATIC,13,368,33,8
+    COMBOBOX        IDC_OBSTACLE,61,386,59,59,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "阻挡类型",IDC_STATIC,13,389,33,8
+    CONTROL         "显示通道",IDC_DISPLAYALPHA,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,137,390,48,10
+    LTEXT           "注意,任意图素不能超过400*400",IDC_STATIC,19,16,265,8
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404B0"
+        BEGIN
+            VALUE "FileDescription", "ResourceManager Microsoft 基础类应用程序\0"
+            VALUE "FileVersion", "1, 0, 0, 1\0"
+            VALUE "InternalName", "ResourceManager\0"
+            VALUE "LegalCopyright", "版权所有 (C) 2002\0"
+            VALUE "OriginalFilename", "ResourceManager.EXE\0"
+            VALUE "ProductName", "ResourceManager 应用程序\0"
+            VALUE "ProductVersion", "1, 0, 0, 1\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO MOVEABLE PURE 
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 222
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 96
+    END
+
+    IDD_RESOURCEMANAGER_DIALOG, DIALOG
+    BEGIN
+        RIGHTMARGIN, 614
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 380
+    END
+
+    IDD_DIVIDE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 301
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 420
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_ABOUTBOX            "关于 ResourceManager(&A)..."
+END
+
+#endif    // Chinese (P.R.C.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE 4, 2
+#pragma code_page(936)
+#endif //_WIN32
+#include "res\ResourceManager.rc2"  // non-Microsoft Visual C++ edited resources
+#include "l.chs\afxres.rc"          // Standard components
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

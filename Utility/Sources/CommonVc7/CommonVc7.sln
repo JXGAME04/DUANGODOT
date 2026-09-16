@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CommonVc7", "CommonVc7.vcproj", "{78A7D9BF-4E69-450A-B9A7-F8D509CF119C}"
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 1
+		SccProjectUniqueName0 = CommonVc7.vcproj
+		SccProjectName0 = \u0022$/Utility/Sources/CommonVc7\u0022,\u0020OEKAAAAA
+		SccLocalPath0 = .
+		SccProvider0 = MSSCCI:Microsoft\u0020Visual\u0020SourceSafe
+		CanCheckoutShared = false
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{78A7D9BF-4E69-450A-B9A7-F8D509CF119C}.Debug.ActiveCfg = Debug|Win32
+		{78A7D9BF-4E69-450A-B9A7-F8D509CF119C}.Debug.Build.0 = Debug|Win32
+		{78A7D9BF-4E69-450A-B9A7-F8D509CF119C}.Release.ActiveCfg = Release|Win32
+		{78A7D9BF-4E69-450A-B9A7-F8D509CF119C}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

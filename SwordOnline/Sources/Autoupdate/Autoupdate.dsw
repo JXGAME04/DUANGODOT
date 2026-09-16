@@ -1,0 +1,85 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "AutoUpdateRes"=..\AutoUpdateRes\AutoUpdateRes.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources", ZLCAAAAA
+    ..\autoupdateres
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Autoupdate"=.\Autoupdate.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/Autoupdate", IGTAAAAA
+    .
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "ExpandPackageStaticLib"=..\ExpandPackageStaticLib\ExpandPackageStaticLib.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/ExpandPackageStaticLib", XEVAAAAA
+    ..\expandpackagestaticlib
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "UpdateDLL"=..\UPDATEDLL\UpdateDLL.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources", ZLCAAAAA
+    ..\updatedll
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/Autoupdate", IGTAAAAA
+    .
+    end source code control
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

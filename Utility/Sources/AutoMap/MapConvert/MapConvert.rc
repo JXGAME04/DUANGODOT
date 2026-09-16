@@ -1,0 +1,311 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (P.R.C.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE MOVEABLE PURE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE MOVEABLE PURE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE MOVEABLE PURE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\MapConvert.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""l.chs\\afxres.rc""          // Standard components\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\MapConvert.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 235, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "关于 MapConvert"
+FONT 9, "宋体"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,20,20
+    LTEXT           "MapConvert 1.0 版",IDC_STATIC,40,10,119,8,SS_NOPREFIX
+    LTEXT           "版权所有 (C) 2002",IDC_STATIC,40,25,119,8
+    DEFPUSHBUTTON   "确定",IDOK,178,7,50,14,WS_GROUP
+END
+
+IDD_MAPCONVERT_DIALOG DIALOGEX 0, 0, 585, 260
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Mapconvert"
+FONT 9, "宋体"
+BEGIN
+    LTEXT           "",IDC_NOW_FILE,199,220,383,18,0,WS_EX_STATICEDGE
+    CONTROL         "地表层",IDC_BIN_GROUND_LAYER,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,23,298,42,11
+    CONTROL         "内建对象、OBJ",IDC_BIN_BIO,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,17,313,64,11
+    CHECKBOX        "Trap",IDC_BIN_TRAP,95,306,32,11,WS_DISABLED
+    CONTROL         "Light",IDC_BIN_LIGHT,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,131,313,32,11
+    CONTROL         "障碍",IDC_BIN_OBSTACLE,"Button",BS_AUTOCHECKBOX | 
+                    WS_DISABLED | WS_TABSTOP,131,306,32,11
+    PUSHBUTTON      "最后步骤： 退出",IDCANCEL,200,240,382,19
+    PUSHBUTTON      "选择...",IDC_MAP,204,25,47,18
+    EDITTEXT        IDC_MAPNAME,260,27,316,14,ES_AUTOHSCROLL | WS_DISABLED
+    PUSHBUTTON      "第六步骤：   清除临时文件   ",IDC_CLEAR,402,165,180,26
+    PUSHBUTTON      "取得wor的全部信息",IDC_INI,167,319,71,14,WS_DISABLED
+    PUSHBUTTON      "转化NPC格式",IDC_CONVERNPC,246,319,54,14,WS_DISABLED
+    EDITTEXT        IDC_SRC,206,121,308,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse..",IDC_BROWSE,206,140,48,14
+    EDITTEXT        IDC_DES,261,140,252,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "检验",IDC_VALIDATE,525,121,50,14
+    PUSHBUTTON      "替换",IDC_REPLACE,525,139,50,14
+    EDITTEXT        IDC_NEWMAP,216,394,51,14,ES_AUTOHSCROLL | WS_DISABLED
+    EDITTEXT        IDC_DIV_LEFT,13,412,40,14,ES_AUTOHSCROLL | WS_DISABLED
+    EDITTEXT        IDC_DIV_TOP,59,412,40,14,ES_AUTOHSCROLL | WS_DISABLED
+    EDITTEXT        IDC_DIV_RIGHT,107,412,40,14,ES_AUTOHSCROLL | WS_DISABLED
+    EDITTEXT        IDC_DIV_BOTTOM,157,412,40,14,ES_AUTOHSCROLL | 
+                    WS_DISABLED
+    PUSHBUTTON      "切割地图",IDC_DIV,211,412,50,14,WS_DISABLED
+    PUSHBUTTON      "检查字符串的长度",IDC_LENGTH,292,389,78,14,WS_DISABLED
+    PUSHBUTTON      "检查Alpha的透明度",IDC_ALPHA,291,405,78,14,WS_DISABLED
+    PUSHBUTTON      "检查未使用的spr",IDC_CHECKSPR,291,419,78,14,WS_DISABLED
+    EDITTEXT        IDC_RIGHT,229,194,40,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_RIGHT2,302,193,40,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "移动",IDC_OFFSET,350,192,33,17
+    PUSHBUTTON      "转化障碍",IDC_OBSTACLE,19,359,90,14,WS_DISABLED
+    GROUPBOX        "第三步骤：全地图替换",IDC_STATIC,198,109,384,54
+    LTEXT           "注意，下面的操作都十分危险，请先备份地图文件！！",
+                    IDC_STATIC,148,1,200,9
+    GROUPBOX        "第五步骤：移动地图(以region为单位)",IDC_STATIC,198,183,
+                    198,32
+    LTEXT           "向右",IDC_STATIC,201,197,17,8
+    LTEXT           "向下",IDC_STATIC,278,197,17,8
+    PUSHBUTTON      "第四步骤：添加图像资源的信息",IDC_IMAGE,199,165,197,16
+    PUSHBUTTON      "第七步骤：得到游戏用地图文件",IDC_BINARY,401,191,181,23
+    PUSHBUTTON      "将模板文件打包",IDC_ZIPTEMPLATE,113,341,80,14,
+                    WS_DISABLED
+    PUSHBUTTON      "补全模板的信息",IDC_FILLSPRINFO,20,341,80,14,
+                    WS_DISABLED
+    PUSHBUTTON      "将地图打包",IDC_ZIPMAP,197,360,85,14,WS_DISABLED
+    PUSHBUTTON      "打包地表图素",IDC_ZIPGROUND,206,341,80,14,WS_DISABLED
+    GROUPBOX        "分隔地图(以region为单位)",IDC_STATIC,2,386,273,44
+    LTEXT           "Left",IDC_STATIC,13,402,17,8
+    LTEXT           "Right",IDC_STATIC,107,402,21,8
+    LTEXT           "Top",IDC_STATIC,59,402,13,8
+    LTEXT           "Bottom",IDC_STATIC,157,402,25,8
+    LTEXT           "新的名称",IDC_STATIC,178,396,33,8
+    PUSHBUTTON      "Pack Animation",IDC_ZIPNPC,299,341,80,14,WS_DISABLED
+    PUSHBUTTON      "转化Trap",IDC_TRAP,112,359,80,14,WS_DISABLED
+    GROUPBOX        "Pack",IDC_STATIC,2,331,580,48
+    GROUPBOX        "第二步骤：根据需要，合并策划与美工对地图的改动",
+                    IDC_STATIC,198,51,384,57
+    EDITTEXT        IDC_ART_MAP,255,64,210,14,ES_AUTOHSCROLL | WS_DISABLED
+    EDITTEXT        IDC_DESIGN_MAP,257,88,208,14,ES_AUTOHSCROLL | 
+                    WS_DISABLED
+    PUSHBUTTON      "合并到策划地图",IDC_JOIN_DESIGN,469,85,71,17
+    PUSHBUTTON      "合并到美术地图",IDC_JOIN_ART,469,60,71,19
+    PUSHBUTTON      "美术地图",IDC_ARTMAP,209,65,45,14
+    PUSHBUTTON      "策划地图",IDC_DESIGNMAP,209,87,44,14
+    CONTROL         "NPC",IDC_COMBO_NPC,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,544,62,28,11
+    CONTROL         "OBJ",IDC_COMBO_OBJ,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,544,75,29,11
+    CONTROL         "Trap",IDC_COMBO_TRAP,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,544,88,32,11
+    CONTROL         "NPC",IDC_BIN_NPC,"Button",BS_AUTOCHECKBOX | WS_DISABLED | 
+                    WS_TABSTOP,95,313,28,11
+    CONTROL         "OBJ",IDC_BIN_OBJ,"Button",BS_AUTOCHECKBOX | WS_DISABLED | 
+                    WS_TABSTOP,335,360,29,11
+    GROUPBOX        "第一步骤：选择要处理的地图",IDC_STATIC,198,12,384,36
+    GROUPBOX        "批处理列表",IDC_STATIC,2,12,186,247
+    CONTROL         "List1",IDC_MAP_LIST,"SysListView32",LVS_REPORT | 
+                    LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,5,33,178,179
+    LTEXT           "执行步骤选项",IDC_STATIC,9,217,48,8
+    CONTROL         "第四步骤",IDC_STEP_4,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,10,229,45,10
+    CONTROL         "第六步骤",IDC_STEP_6,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,63,229,45,10
+    CONTROL         "第七步骤",IDC_STEP_7,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,117,229,45,10
+    CONTROL         "自动清除非最终文件",IDC_STEP_9,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,63,216,103,10
+    PUSHBUTTON      "开始成批处理地图",IDC_START_BAT,9,240,172,16
+    PUSHBUTTON      "添加",IDC_MAP_ADD,15,21,78,11
+    PUSHBUTTON      "去除",IDC_MAP_REMOVE,93,21,78,11
+END
+
+IDD_PROGRESS DIALOG DISCARDABLE  0, 0, 235, 83
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Progress"
+FONT 9, "宋体"
+BEGIN
+    ICON            IDR_MAINFRAME,-1,11,17,21,21
+    LTEXT           "版权所有 (C) 2002 file name",IDC_STATIC_FILE,30,51,119,
+                    8
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404B0"
+        BEGIN
+            VALUE "FileDescription", "MapConvert Microsoft 基础类应用程序\0"
+            VALUE "FileVersion", "1, 0, 0, 1\0"
+            VALUE "InternalName", "MapConvert\0"
+            VALUE "LegalCopyright", "版权所有 (C) 2002\0"
+            VALUE "OriginalFilename", "MapConvert.EXE\0"
+            VALUE "ProductName", "MapConvert 应用程序\0"
+            VALUE "ProductVersion", "1, 0, 0, 1\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO MOVEABLE PURE 
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 48
+    END
+
+    IDD_MAPCONVERT_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 2
+        RIGHTMARGIN, 582
+        TOPMARGIN, 1
+    END
+
+    IDD_PROGRESS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 76
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDS_ABOUTBOX            "关于 MapConvert(&A)..."
+END
+
+#endif    // Chinese (P.R.C.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE 4, 2
+#pragma code_page(936)
+#endif //_WIN32
+#include "res\MapConvert.rc2"  // non-Microsoft Visual C++ edited resources
+#include "l.chs\afxres.rc"          // Standard components
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -1,0 +1,4 @@
+LIBRARY   Heaven.dll
+
+EXPORTS
+	CreateInterface	@1

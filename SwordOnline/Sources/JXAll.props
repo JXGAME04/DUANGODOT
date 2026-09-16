@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  JXAll.props - settings shared by every project in JXAll.sln (VS2022 / v143 / Win32).
+  Replaces the machine-wide VC6 "Directories" options that IncludePath.txt documented.
+  The source tree mixes GBK (Chinese) and TCVN3 (Vietnamese) bytes and was always built by
+  VC6 on a cp1252 system, i.e. bytes copied verbatim into literals. cp1252 as both source-
+  and execution-charset is byte-bijective, so every literal stays identical to the VC6 build.
+-->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <JXSources>$(MSBuildThisFileDirectory)</JXSources>
+    <JXSwordOnline>$(MSBuildThisFileDirectory)..\</JXSwordOnline>
+    <JXRoot>$(MSBuildThisFileDirectory)..\..\</JXRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <_PropertySheetDisplayName>JXAll common</_PropertySheetDisplayName>
+    <!-- a machine-wide 'vcpkg integrate install' would otherwise inject every vcpkg lib into each link -->
+    <VcpkgEnabled>false</VcpkgEnabled>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(JXSwordOnline)Headers;$(JXRoot)Utility\Headers;$(JXSources)Engine\Src;$(JXSources)Core\Src;$(JXSwordOnline)sdk\dx9\Include;$(JXSwordOnline)ftlib;$(JXRoot)Utility\Sources\Zip\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/source-charset:.1252 /execution-charset:.1252 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(JXSwordOnline)Lib;$(JXRoot)Utility\lib;$(JXSwordOnline)sdk\dx9\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <!-- prebuilt VC6 libs carry -defaultlib directives for STLport and the old single-threaded LIBC -->
+      <IgnoreSpecificDefaultLibraries>stlport_vc6.lib;stlport_vc6_static.lib;LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="JXSources"><Value>$(JXSources)</Value></BuildMacro>
+    <BuildMacro Include="JXSwordOnline"><Value>$(JXSwordOnline)</Value></BuildMacro>
+    <BuildMacro Include="JXRoot"><Value>$(JXRoot)</Value></BuildMacro>
+  </ItemGroup>
+</Project>

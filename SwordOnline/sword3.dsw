@@ -1,0 +1,189 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "Common"=.\Sources\MultiServer\Common\Common.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/MultiServer/Common", HSNAAAAA
+    .\sources\multiserver\common
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Core"=.\Sources\Core\Core.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/Core", FPAAAAAA
+    .\sources\core
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "ESClient"=.\Sources\Network\ESClient\ESClient.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Engine"=.\Sources\Engine\Engine.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/Engine", BAAAAAAA
+    .\sources\engine
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "FilterText"=.\Sources\FilterText\FilterText.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/FilterText", ERUAAAAA
+    .\sources\filtertext
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "FilterText_StaticLib"=.\Sources\FilterText\FilterText_StaticLib.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/FilterText", ERUAAAAA
+    .\sources\filtertext
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "KLVideo"=.\Sources\KLVideo\KLVideo.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/KLVideo", JIUAAAAA
+    .\sources\klvideo
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Represent2"=.\Sources\Represent\Represent2\Represent2.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/Represent/Represent2", AYGAAAAA
+    .\sources\represent\represent2
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Represent3"=.\Sources\Represent\Represent3\Represent3.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/Represent/Represent3", XVJAAAAA
+    .\sources\represent\represent3
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "S3Client"=.\Sources\S3Client\S3Client.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/S3Client", VRDAAAAA
+    .\sources\s3client
+    end source code control
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "d3dframe"=.\Sources\Represent\D3DFrame\d3dframe.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+    begin source code control
+    "$/SwordOnline/Sources/KLVideo", JIUAAAAA
+    .\sources\klvideo
+    end source code control
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

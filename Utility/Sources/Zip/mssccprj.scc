@@ -1,0 +1,5 @@
+SCC = This is a Source Code Control file
+
+[Zip.dsp]
+SCC_Aux_Path = "\\swordonline\Sword3Home\sword3vss"
+SCC_Project_Name = "$/Utility/Sources/Zip", FUIAAAAA

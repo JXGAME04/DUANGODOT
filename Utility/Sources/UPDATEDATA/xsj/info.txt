@@ -1,0 +1,25 @@
+FileName: 1.exe
+  FileTime: 2003.4.25 14:9
+  FileSize: 106573
+  CRC32: 2741011895
+  FileVersion: 2002.12.16.1
+FileName: Version.cfg
+  FileTime: 2003.4.26 6:41
+  FileSize: 23
+  CRC32: 1141460910
+  FileVersion: 0000.01.00
+FileName: 2.exe
+  FileTime: 2003.4.25 14:9
+  FileSize: 106573
+  CRC32: 2741011895
+  FileVersion: 2002.12.16.1
+FileName: 3.exe
+  FileTime: 2003.4.25 14:9
+  FileSize: 106573
+  CRC32: 2741011895
+  FileVersion: 2002.12.16.1
+FileName: 4.exe
+  FileTime: 2003.4.25 14:9
+  FileSize: 106573
+  CRC32: 2741011895
+  FileVersion: 2002.12.16.1

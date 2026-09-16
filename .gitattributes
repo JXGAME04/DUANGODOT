@@ -1,0 +1,2 @@
+# Legacy mixed-encoding (GBK/TCVN3) sources: store every file byte-for-byte, never convert line endings
+* -text

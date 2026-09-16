@@ -1,0 +1,54 @@
+//////////////////////////////////////////////////////////////////////////////////////
+//	文件名			:	GameMaster.idl
+//	创建人			:	王西贝
+//	创建时间		:	2003-6-5 13:32:55
+//	文件说明		:	GameMaster 中间件对外接口定义
+//////////////////////////////////////////////////////////////////////////////////////
+
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+	[
+		object,
+		uuid(5C75CC7B-3379-4a82-9FAB-9454C6D22434),
+		dual,
+		helpstring("IKGameMaster Interface"),
+		pointer_default(unique)
+	]
+	interface IKGameMaster : IDispatch
+	{
+		[propget, id(1), helpstring("property OnlineCount")] HRESULT OnlineCount([out, retval] long* prop);
+	};
+[
+	uuid(3D76430E-9308-4e9a-9DA8-24215B2DB321),
+	version(1.0),
+	helpstring("JXOnline GameMaster 1.0 Type Library")
+]
+library GameMasterLib
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+	[
+		uuid(06B48D52-EAA1-4807-A83C-DE67DB50E865),
+		helpstring("_IGameMasterEvents Interface")
+	]
+	dispinterface _IGameMasterEvents
+	{
+		properties:
+		methods:
+		[id(1), helpstring("method Alert")] HRESULT Alert([in] BSTR Message);
+	};
+
+	[
+		uuid(D67E5BA4-2C4F-4ec4-AC21-504703F32121),
+		helpstring("GameMaster Class")
+	]
+	coclass GameMaster
+	{
+		[default] interface IKGameMaster;
+		[default, source] dispinterface _IGameMasterEvents;
+	};
+};
+
+

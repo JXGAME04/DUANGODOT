@@ -1,0 +1,54 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Autoupdate", "Autoupdate.vcproj", "{9BDA59BF-0B21-4DDC-881F-EDB37CF335BC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CommonVc7", "..\CommonVc7\CommonVc7.vcproj", "{017CCE49-4D4D-4004-A42A-40C9A63B508D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Zip", "..\Zip\Zip.vcproj", "{900F10B4-492B-4E4F-8B0E-CB75E13433ED}"
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 4
+		SccProjectUniqueName0 = Autoupdate.vcproj
+		SccLocalPath0 = .
+		CanCheckoutShared = false
+		SccProjectUniqueName1 = ..\\CommonVc7\\CommonVc7.vcproj
+		SccProjectName1 = \u0022$/Utility/Sources/CommonVc7\u0022,\u0020OEKAAAAA
+		SccLocalPath1 = ..\\CommonVc7
+		CanCheckoutShared = false
+		SccProjectUniqueName2 = ..\\Zip\\Zip.vcproj
+		SccProjectName2 = \u0022$/Utility/Sources/Zip\u0022,\u0020FUIAAAAA
+		SccLocalPath2 = ..\\..
+		CanCheckoutShared = false
+		SccProjectFilePathRelativizedFromConnection2 = Sources\\Zip\\
+		SccProjectName3 = \u0022$/Utility/Sources/Autoupdate\u0022,\u0020BPIAAAAA
+		SccLocalPath3 = .
+		SccProvider3 = MSSCCI:Microsoft\u0020Visual\u0020SourceSafe
+		CanCheckoutShared = false
+		SolutionUniqueID = {0BD8D527-FD17-4FF5-89C8-274E39FD1A9F}
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+		{9BDA59BF-0B21-4DDC-881F-EDB37CF335BC}.0 = {900F10B4-492B-4E4F-8B0E-CB75E13433ED}
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{9BDA59BF-0B21-4DDC-881F-EDB37CF335BC}.Debug.ActiveCfg = Debug|Win32
+		{9BDA59BF-0B21-4DDC-881F-EDB37CF335BC}.Debug.Build.0 = Debug|Win32
+		{9BDA59BF-0B21-4DDC-881F-EDB37CF335BC}.Release.ActiveCfg = Release|Win32
+		{9BDA59BF-0B21-4DDC-881F-EDB37CF335BC}.Release.Build.0 = Release|Win32
+		{017CCE49-4D4D-4004-A42A-40C9A63B508D}.Debug.ActiveCfg = Debug|Win32
+		{017CCE49-4D4D-4004-A42A-40C9A63B508D}.Debug.Build.0 = Debug|Win32
+		{017CCE49-4D4D-4004-A42A-40C9A63B508D}.Release.ActiveCfg = Release|Win32
+		{017CCE49-4D4D-4004-A42A-40C9A63B508D}.Release.Build.0 = Release|Win32
+		{900F10B4-492B-4E4F-8B0E-CB75E13433ED}.Debug.ActiveCfg = Debug|Win32
+		{900F10B4-492B-4E4F-8B0E-CB75E13433ED}.Debug.Build.0 = Debug|Win32
+		{900F10B4-492B-4E4F-8B0E-CB75E13433ED}.Release.ActiveCfg = Release|Win32
+		{900F10B4-492B-4E4F-8B0E-CB75E13433ED}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

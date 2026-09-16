@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{46F629C6-02AB-5A63-8E8D-3C559E171614}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Libs">
+      <UniqueIdentifier>{300919E9-BD4F-5E48-AC92-772A053DC99C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{A4D7230E-2795-5358-9BA8-25D8BA41FE62}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include=".\KLAviFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLCFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLMp3Music.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLMp4Audio.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLMp4Video.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLMusic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLThread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\KLVideo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\StdAfx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\KLAviFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KLMp3Music.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KLMp4Audio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KLMp4Video.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KLMusic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\KLVideo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\StdAfx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Lib\decore.lib">
+      <Filter>Libs</Filter>
+    </Library>
+    <Library Include="..\..\Lib\mp3lib.lib">
+      <Filter>Libs</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\ReadMe.txt" />
+  </ItemGroup>
+</Project>

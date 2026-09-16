@@ -1,0 +1,6 @@
+LIBRARY   JXGM.dll
+DESCRIPTION "JXGM Library"
+
+EXPORTS
+	CreateSystemOnline	@1
+	DestroySystemOnline	@2

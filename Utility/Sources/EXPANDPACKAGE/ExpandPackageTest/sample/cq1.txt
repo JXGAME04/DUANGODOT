@@ -1,0 +1,3 @@
+E:\
+FONT\gbk_fs12.fnt
+FONT\gbk_fs16.fnt

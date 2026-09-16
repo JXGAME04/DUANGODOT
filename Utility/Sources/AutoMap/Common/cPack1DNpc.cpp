@@ -1,0 +1,25 @@
+// cPack1DNpc.cpp: implementation of the cPack1DNpc class.
+//
+//////////////////////////////////////////////////////////////////////
+
+#include "stdafx.h"
+#include "cPack1DNpc.h"
+
+//////////////////////////////////////////////////////////////////////
+// Construction/Destruction
+//////////////////////////////////////////////////////////////////////
+
+cPack1DNpc::cPack1DNpc()
+{
+
+}
+
+cPack1DNpc::~cPack1DNpc()
+{
+
+}
+
+BOOL cPack1DNpc::LoadTemplate(LPCSTR szFile,char** buffer, DWORD& size)
+{
+	return TRUE;
+}

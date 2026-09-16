@@ -1,0 +1,112 @@
+//////////////////////////////////////////////////////////////////////////////////////
+//	文件名			:	GameMaster.idl
+//	创建人			:	王西贝
+//	创建时间		:	2003-6-5 13:32:55
+//	文件说明		:	GameMaster 中间件对外接口定义
+//////////////////////////////////////////////////////////////////////////////////////
+
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+	[
+		object,
+		uuid(AC961E16-2C9F-4dcf-9BCE-228B1218D2B6),
+		dual,
+		helpstring("IKRole Interface"),
+		nonextensible,
+		oleautomation
+	]
+	interface IKRole : IDispatch
+	{
+		[propget, id(1), helpstring("property Name")] HRESULT Name([out, retval] BSTR *pVal);
+		[propget, id(2), helpstring("property PlayerAccountName")] HRESULT PlayerAccountName([out, retval] BSTR *pVal);
+		[id(3), helpstring("method SendMessageToThis")] HRESULT SendMessageToThis([in]BSTR strMessage);
+		[id(4), helpstring("method PutInJail")] HRESULT PutInJail([in]long Minutes);
+		[id(5), helpstring("method FreeFromJail")] HRESULT FreeFromJail();
+		[id(6), helpstring("method ShutUp")] HRESULT ShutUp([in]long Minutes);
+		[id(7), helpstring("method FreeChat")] HRESULT FreeChat();
+		[propget, id(8), helpstring("property RoleInGameWorldName")] HRESULT RoleInGameWorldName([out, retval] BSTR *pVal);
+	};
+
+	[
+		object,
+		uuid(98C49B84-9506-4c52-95E9-5208E502B389),
+		dual,
+		helpstring("IKPlayer Interface"),
+		nonextensible,
+		oleautomation
+	]
+
+	interface IKPlayer : IDispatch
+	{
+		[propget, id(1), helpstring("property Name")] HRESULT Name([out, retval] BSTR *pVal);
+		[propget, id(2), helpstring("property ActiveRole")] HRESULT ActiveRole([out, retval] IKRole** prop);
+
+		[propget, id(3), helpstring("property CountOfRoles")] HRESULT CountOfRolesInGW([in]BSTR strGameWorldName, [out, retval] long *pVal);
+		[id(4), helpstring("method ItemRoleByName")] HRESULT ItemRoleByNameInGW([in]BSTR strGameWorldName, [in]BSTR strRoleName, [out, retval] IKRole** prop);
+		[id(5), helpstring("method ItemRoleByIndex")] HRESULT ItemRoleByIndexInGW([in]BSTR strGameWorldName, [in]long Index, [out, retval] IKRole** prop);
+
+		[id(6), helpstring("method Unlock")] HRESULT UnlockAccount([in]BSTR strPassword);
+		[id(7), helpstring("method KickOffActiveRole")] HRESULT KickOffActiveRole([in]long ForbidMinutes);
+	};
+
+	[
+		object,
+		uuid(4D98C1D8-9AEE-427b-A9D3-E27BD47B7049),
+		dual,
+		helpstring("IKGameWorld Interface"),
+		nonextensible,
+		oleautomation
+	]
+	interface IKGameWorld : IDispatch
+	{
+		[propget, id(1), helpstring("property OnlineCount")] HRESULT OnlineCount([out, retval] long *pVal);
+		[propget, id(2), helpstring("property Name")] HRESULT Name([out, retval] BSTR *pVal);
+		[propget, id(3), helpstring("property IsRunning")] HRESULT IsRunning([out, retval] BOOL *pVal);
+		[id(4), helpstring("method BroadCast")] HRESULT BroadCast([in]BSTR strCharMessage);
+	};
+
+	[
+		object,
+		uuid(5C75CC7B-3379-4a82-9FAB-9454C6D22434),
+		dual,
+		helpstring("IKGameMaster Interface"),
+		nonextensible,
+		oleautomation
+	]
+	interface IKGameMaster : IDispatch
+	{
+		[propget, id(1), helpstring("property TotalOnlineCount")] HRESULT TotalOnlineCount([out, retval] long* prop);
+		[propget, id(2), helpstring("property TotalRegisteredCount")] HRESULT TotalRegisteredCount([out, retval] long *pVal);
+		[propget, id(3), helpstring("property IsGMSystemRunning")] HRESULT IsGMSystemRunning([out, retval] BOOL *pVal);
+
+		[id(4), helpstring("method FindPlayer")] HRESULT FindPlayer([in]BSTR strAccount, [out, retval]BSTR* pstrInGameWorld);
+		[id(5), helpstring("method FindPlayerInRealTime")] HRESULT FindPlayerInRealTime([in]BSTR strAccount, [out, retval]BSTR* pstrInGameWorld);
+
+		[propget, id(6), helpstring("property CountOfGameWorlds")] HRESULT CountOfGameWorlds([out, retval] long *pVal);
+		[id(7), helpstring("method ItemGameWorldByName")] HRESULT ItemGameWorldByName([in]BSTR strGWName, [out, retval] IKGameWorld** prop);
+		[id(8), helpstring("method ItemGameWorldByIndex")] HRESULT ItemGameWorldByIndex([in]long Index, [out, retval] IKGameWorld** prop);
+		[id(9), helpstring("method ItemPlayerByName")] HRESULT ItemPlayerByName([in]BSTR strAccount, [out, retval] IKPlayer** prop);
+		[id(10), helpstring("method SpeakToTheWorld")] HRESULT SpeakToTheWorld([in]BSTR strCharMessage);
+	};
+[
+	uuid(3D76430E-9308-4e9a-9DA8-24215B2DB321),
+	version(1.0),
+	helpstring("JXOnline GameMaster 1.0 Type Library")
+]
+library GameMasterLib
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+	[
+		uuid(D67E5BA4-2C4F-4ec4-AC21-504703F32121),
+		helpstring("GameMaster Class")
+	]
+	coclass GameMaster
+	{
+		[default] interface IKGameMaster;
+	};
+};
+
+

@@ -1,0 +1,289 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{867BB8EF-5ABA-5EC2-99E7-3319116D0BC4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib">
+      <UniqueIdentifier>{F5345FBA-A54E-5CB3-A3C7-32B6C79465B7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\Debug">
+      <UniqueIdentifier>{AEBC6A66-375C-5B41-8CEF-E3879C43D89B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\Release">
+      <UniqueIdentifier>{7C69A979-4565-54E7-808E-25014A85E219}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Public">
+      <UniqueIdentifier>{1B9EFF2B-5A58-5683-BDD5-3FB6BEE11819}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{B34650C6-3D86-5FDA-B1A8-C264652253C9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{3F4ECFCD-5933-56D3-9B9E-5E1B97923CC3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include=".\src\MsgWnd.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\StdAfx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\UpdateDLL.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\UpdateDLLImplement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\UpdateExport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\bufsocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\BusyThread.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\CheckThread.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\CRC32.C">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\DgmSocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\downloadfile.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\downnotify.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\ftpdownload.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\GenKAVMoveProgram.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\getfilesversion.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\getproxysetting.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\GetVersion.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\Global.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\httpdownload.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\InetStruct.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\IpSocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\KCloseProgramMgr.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\LoadHostList.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\PingSocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\PingThread.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\ProcessIndex.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\proxyutility.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\PublicFun.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\RawSocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\SaveLog.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\sockspacket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\stmsocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\tcpsocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\UdpSocket.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\UpdateData.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\UpdatePublic.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\usercheck.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+    <ClCompile Include=".\src\wndnotify.cpp">
+      <Filter>Public</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\src\MsgWnd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\SourceDef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Publish\stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\UpdateDLL.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\UpdateExport.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\bufsocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\BusyThread.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\CheckThread.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\CRC32.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\DataDefine.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\DgmSocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\downloadfile.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\downnotify.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\ftpdownload.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\GenKAVMoveProgram.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\getfilesversion.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\getproxysetting.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\GetVersion.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\Global.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\httpdownload.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\InetStruct.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\IpSocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\KCloseProgramMgr.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\LoadHostList.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\PingSocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\PingThread.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\ProcessIndex.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\proxyutility.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\PublicFun.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\RawSocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\SaveLog.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\sockspacket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\stmsocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\tcpsocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\UdpSocket.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\UpdateData.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\UpdatePublic.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\UpdateSelf.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\usercheck.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include=".\src\wndnotify.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include=".\UpdateDLL.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Lib\debug\ExpandPackageStaticLib.lib">
+      <Filter>Lib\Debug</Filter>
+    </Library>
+    <Library Include="..\..\Lib\Release\ExpandPackageStaticLib.lib">
+      <Filter>Lib\Release</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\UpdateDLL.def">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include=".\res\UpdateDLL.rc2">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include=".\ReadMe.txt" />
+  </ItemGroup>
+</Project>

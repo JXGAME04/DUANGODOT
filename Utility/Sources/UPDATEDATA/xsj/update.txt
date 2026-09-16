@@ -1,0 +1,24 @@
+服务器端更新工具流程：
+
+每次服务器端需要更新内容分成三个部分：
+1、需要单独更新，不参与打包的内容（如执行exe、dll之类的）	（目录结构同游戏需要使用的结构）
+2、游戏的资源文件，需要打包后再更新到客户端			（目录结构同游戏需要使用的结构）
+3、本次更新的初始配置文件（FileComment.ini、Version.cfg等，包括自动更新程序自身）
+——初始配置文件的内容可能很简单，如FileComment.ini中只有：
+[Version.cfg]
+CheckVersionMethod=5
+UpdateFileFlag=1
+Belong=-1
+UpdateFileMethod=LastCopy
+如果需要更新自动更新程序自身，对应的东西也要添加到这个初始的FileComment.ini中。
+
+将第1部分的内容放到指定目录一（如D:\UpdateSwordOnline\Exec）
+  第2部分的内容放到指定目录二（如D:\UpdateSwordOnline\Resource）
+  第3部分的内容放到指定目录三（如D:\UpdateSwordOnline）
+如果有重复的文件就覆盖原文件
+
+在文件复制完成后，自动更新包的生成工具执行以下操作：
+1、把指定目录二（Resource目录）下的所有文件生成一个文件列表文件，内容包含文件名与文件的修改时间。文件名由从Version.cfg中取出版本号来决定（如版本10可以命名为FileListV0010.txt），存放到指定目录四（如D:\UpdateSwordOnline\VersionFileList）
+2、从最初始版本开始（如版本0）到最终版本的前一个版本，到指定目录四（VersionFileList目录）中取出对应的列表文件，把刚生成的列表文件与其进行比较，找出区别（新增的文件与系统时间不符的文件），把区别的东西到指定目录二（Resource目录）中取出来打成一个包，包的命名由初始版本与最终版本的版本号来决定（如版本2到版本10可以命名为Update0002_0010.pak），并且在FileComment.ini里添加这个文件的更新信息（Belong为初始版本号）
+3、遍历指定目录一，把指定目录一的所有文件都添加到FileComment.ini中（Belong为-1，需要CRC校验值）
+4、运行Auto.bat，生成index.dat

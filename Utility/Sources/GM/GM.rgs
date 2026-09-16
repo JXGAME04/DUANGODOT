@@ -1,0 +1,11 @@
+HKCR
+{
+	NoRemove AppID
+	{
+		{DF103556-27C8-4f0f-80D2-D0115C31F54A} = s 'GMAPP'
+		'GM.EXE'
+		{
+			val AppID = s {DF103556-27C8-4f0f-80D2-D0115C31F54A}
+		}
+	}
+}

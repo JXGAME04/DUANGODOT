@@ -1,0 +1,11 @@
+文件打包工具用法：
+Package [RootPath] [HalfPath] [FileName] [0..5] [DiscardFileExt] 
+
+
+RootPath       根路径 
+HalfPath       要打包的目录的相对根目录的路径  
+FileName       打好包的包文件名 
+0..5           压缩算法代号（0..5) 
+DiscardFileExt 选取文件时要滤除的文件的文件后缀 可不设定
+
+ 

@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Zip", "Zip.vcproj", "{2852AC0A-0317-4ED4-82BA-23CE66053B8D}"
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 1
+		SccProjectUniqueName0 = Zip.vcproj
+		SccProjectName0 = \u0022$/SwordOnline/Sources/Zip\u0022,\u0020GTCAAAAA
+		SccLocalPath0 = .
+		SccProvider0 = MSSCCI:Microsoft\u0020Visual\u0020SourceSafe
+		CanCheckoutShared = false
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{2852AC0A-0317-4ED4-82BA-23CE66053B8D}.Debug.ActiveCfg = Debug|Win32
+		{2852AC0A-0317-4ED4-82BA-23CE66053B8D}.Debug.Build.0 = Debug|Win32
+		{2852AC0A-0317-4ED4-82BA-23CE66053B8D}.Release.ActiveCfg = Release|Win32
+		{2852AC0A-0317-4ED4-82BA-23CE66053B8D}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

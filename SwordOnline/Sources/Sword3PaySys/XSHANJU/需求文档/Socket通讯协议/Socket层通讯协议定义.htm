@@ -1,0 +1,699 @@
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns="http://www.w3.org/TR/REC-html40">
+
+<head>
+<meta http-equiv="Content-Language" content="zh-cn">
+<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+<link rel="File-List" href="Socket层通讯协议定义.files/filelist.xml">
+<title>剑侠情缘3</title>
+<style>
+<!--
+DIV.Section1 {
+	page: Section1
+}
+P.MsoNormal {
+	TEXT-JUSTIFY: inter-ideograph; FONT-SIZE: 10.5pt; FONT-FAMILY: "Times New Roman"; TEXT-ALIGN: justify; mso-style-parent: ""; margin-left:0cm; margin-right:0cm; margin-top:0cm; margin-bottom:0pt
+}
+ table.MsoNormalTable
+	{mso-style-parent:"";
+	font-size:10.0pt;
+	font-family:"Times New Roman"}
+SPAN.SpellE {
+	
+}
+SPAN.GramE {
+	
+}
+-->
+</style>
+<!--[if !mso]>
+<style>
+v\:*         { behavior: url(#default#VML) }
+o\:*         { behavior: url(#default#VML) }
+.shape       { behavior: url(#default#VML) }
+</style>
+<![endif]--><!--[if gte mso 9]>
+<xml><o:shapedefaults v:ext="edit" spidmax="1027"/>
+</xml><![endif]-->
+</head>
+
+<body>
+
+<div class="Section1" style="layout-grid: 15.6pt none">
+  <p class="MsoNormal" style="text-align: center" align="center"><b>
+  <span style="font-size: 16pt; font-family: 宋体">剑侠情缘</span><span lang="EN-US" style="font-size: 16pt">3</span><span style="font-size: 16pt; font-family: 宋体">——游戏与账号数据库的</span><span lang="EN-US" style="font-size: 16pt">Socket</span><span style="font-size: 16pt; font-family: 宋体">层通讯协议定义</span></b></p>
+  <p class="MsoNormal"><b><span style="font-size: 14pt; font-family: 宋体">
+  一、数据包字节顺序结构：</span></b></p>
+  <table class="MsoNormalTable" style="width: 351pt; border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" width="468" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 72pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="96">
+      <p class="MsoNormal"><span lang="EN-US">8 bits</span></td>
+      <td style="width: 144pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="192">
+      <p class="MsoNormal"><span lang="EN-US">64 bits</span></td>
+      <td style="width: 135pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="180">
+      <p class="MsoNormal"><span style="font-family: 宋体">变长的（</span><span lang="EN-US">unfixed</span><span style="font-family: 宋体">）</span></td>
+    </tr>
+    <tr style="height: 15.75pt">
+      <td style="width: 72pt; height: 15.75pt; border-left: 1pt solid windowtext; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="96">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 144pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="192">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginStructHead" style="color: blue; text-decoration: underline">
+      KLoginStructHead</a></span></td>
+      <td style="width: 135pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="180">
+      <p class="MsoNormal"><span lang="EN-US">Data</span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><!--[if gte vml 1]><v:line id="_x0000_s1025"
+ style='position:absolute;left:0;text-align:left;top:0;z-index:1;
+ mso-position-horizontal-relative:text;mso-position-vertical-relative:text'
+ from="194.25pt,110.25pt" to="194.25pt,156.75pt">
+ <v:stroke endarrow="block"/>
+</v:line><![endif]--><![if !vml]><span style='mso-ignore:vglayout;position:
+absolute;z-index:1;left:253px;top:146px;width:12px;height:65px'><img width=12
+height=65 src="Socket层通讯协议定义.files/image001.gif" v:shapes="_x0000_s1025"></span><![endif]></p>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 68.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.9pt">
+      <td style="width: 108pt; height: 15.9pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="144">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 108pt; height: 15.9pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="144">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+    </tr>
+    <tr style="height: 15.9pt">
+      <td style="width: 108pt; height: 15.9pt; border-left: 1pt solid windowtext; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="144">
+      <p class="MsoNormal"><span lang="EN-US">Size(DWORD)</span></td>
+      <td style="width: 108pt; height: 15.9pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="144">
+      <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">Param</span></span><span lang="EN-US">(<span class="SpellE">int</span>)</span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span lang="EN-US">Size</span><span style="font-family: 宋体">是除掉标记位</span><span lang="EN-US">(Tag)</span><span style="font-family: 宋体">后的数据包的大小，其单位为</span><span lang="EN-US">Byte</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span style="font-size: 14pt; font-family: 宋体">
+  二、参数宏、结构体定义：</span></b></p>
+  <font COLOR="#0000ff">
+  <p class="MsoNormal"><span style="font-size: 9pt">#define</span></font><span lang="EN-US" style="font-size: 9pt; color: blue">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><font COLOR="#a000a0"><span style="font-size: 9pt">LOGIN_A_TAG</span></font><span style="font-size: 9pt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <font COLOR="#ff00ff">0</font></span></p>
+  <font COLOR="#0000ff">
+  <p class="MsoNormal"><span style="font-size: 9pt">#define</span></font><span lang="EN-US" style="font-size: 9pt; color: blue">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><font COLOR="#a000a0"><span style="font-size: 9pt">LOGIN_R_TAG</span></font><span style="font-size: 9pt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><font COLOR="#ff00ff"><span style="font-size: 9pt">0</span></p>
+  </font>
+  <p class="MsoNormal">　</p>
+  <p class="MsoNormal">　</p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_ACCOUNT_MIN_LEN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">4</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_ACCOUNT_MAX_LEN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>
+  <span lang="EN-US" style="font-size: 9pt; color: fuchsia">30</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_PASSWORD_MIN_LEN</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">6</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_PASSWORD_MAX_LEN</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">30</span></p>
+  <font COLOR="#0000ff">
+  <p class="MsoNormal"><font face="Times New Roman" style="font-size: 9pt">
+  #define</font></font><span lang="EN-US" style="font-size: 9pt; color: blue">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><font face="Times New Roman"><font COLOR="#a000a0">
+  <span style="font-size: 9pt">LOGIN_REALNAME_MAX_LEN</span></font><span style="font-size: 9pt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span></font><font COLOR="#ff00ff"><font face="Times New Roman">
+  <span style="font-size: 9pt">30</span></font></p>
+  </font><font COLOR="#0000ff">
+  <p class="MsoNormal"><font face="Times New Roman" style="font-size: 9pt">
+  #define</font></font><span lang="EN-US" style="font-size: 9pt; color: blue">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><font face="Times New Roman"><font COLOR="#a000a0">
+  <span style="font-size: 9pt">GAMESERVERNAME_MAX_LEN&nbsp;&nbsp; </span></font>
+  <span style="font-size: 9pt">&nbsp;</span></font><font COLOR="#ff00ff"><font face="Times New Roman"><span style="font-size: 9pt">30</span></font></p>
+  </font>
+  <p class="MsoNormal" style="text-align: left" align="left">　</p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: green">//login action return 
+  value</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: green">//the
+  <span class="SpellE">folloin</span>' value is used in login connect
+  <span class="SpellE">operaion</span></span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_ACTION_FILTER</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0xffff0000</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">登陆过程中的操作类型过滤数值</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: green">// Parameters from 
+  client to server</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_A_CONNECT</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x010000</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">连接</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_A_NEWACCOUNT</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x020000</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">新建账号</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_A_SERVERLIST</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x030000</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">获取服务器列表</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_A_REPORT&nbsp; </span>
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x040000&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">通知服务器在线</span><span lang="EN-US" style="font-size: 9pt; color: green">(</span><span style="font-size: 9pt; color: green; font-family: 宋体">定期向服务器发送</span><span lang="EN-US" style="font-size: 9pt; color: green">)</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_A_LOGIN&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x050000&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">登陆服务器</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_A_LOGOUT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x060000&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">注销</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: green">&nbsp;</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: green">// Parameters from 
+  server to client</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_CONNECT</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_A_CONNECT</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_NEWACCOUNT</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_A_ 
+  NEWACCOUNT</span></p>
+  <p class="MsoNormal"><span lang="EN-US" style="font-size: 9pt; color: blue">
+  #define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>
+  <span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_R_SERVERLIST&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  LOGIN_A_SERVERLIST</span></p>
+  <p class="MsoNormal"><span lang="EN-US" style="font-size: 9pt; color: blue">
+  #define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>
+  <span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_R_LOGIN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  LOGIN_A_LOGIN</span></p>
+  <p class="MsoNormal"><span lang="EN-US" style="font-size: 9pt; color: blue">
+  #define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>
+  <span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_R_REPORT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  LOGIN_A_REPORT</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_LOGOUT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  LOGIN_A_LOGOUT</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_REQUEST</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x0</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//when the 
+  login request is send from client to server</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_SUCCESS</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x1</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_FAILED</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x2</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_ACCOUNT_OR_PASSWORD_ERROR</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x3</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_ACCOUNT_EXIST</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x4</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_TIMEOUT</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x5</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_IN_PROGRESS</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x6</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_NO_IN_PROGRESS</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x7</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_R_VALID&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x8&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">合法用户</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">#define&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">
+  LOGIN_R_INVALID&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: fuchsia">0x9&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">非法用户</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">&nbsp;</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span class="SpellE"><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">struct</span></span></span><span lang="EN-US" style="font-size: 9pt; color: black">
+  </span><a name="KLoginStructHead"></a><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginStructHead</span></span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">{</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: blue">DWORD</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Size</span><span lang="EN-US" style="font-size: 9pt; color: black">;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">// size of the
+  <span class="SpellE">struct</span>, if the <span class="SpellE">struct</span> 
+  is been <span class="SpellE">inherit<span class="GramE">,the</span></span> 
+  size is ref the <span class="SpellE">the</span> derive <span class="SpellE">
+  struct</span></span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span class="SpellE"><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">int</span></span></span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: gray">Param</span></span><span lang="EN-US" style="font-size: 9pt; color: black">;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">// be one of 
+  the LOGIN_R_* define value <span class="SpellE">combin</span> with a LOGIN_A_* 
+  value.</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">};</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span class="SpellE"><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">struct</span></span></span><span lang="EN-US" style="font-size: 9pt; color: black">
+  </span><a name="KLoginAccountInfo"></a><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginAccountInfo</span></span><span lang="EN-US" style="font-size: 9pt; color: black"> 
+  : </span><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginStructHead</span></span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">{</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">char</span></span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Account</span><span lang="EN-US" style="font-size: 9pt; color: black">[</span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_ACCOUNT_MAX_LEN</span><span lang="EN-US" style="font-size: 9pt; color: black">];&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//account</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">char</span></span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Password</span><span lang="EN-US" style="font-size: 9pt; color: black">[</span><span lang="EN-US" style="font-size: 9pt; color: #a000a0">LOGIN_PASSWORD_MAX_LEN</span><span lang="EN-US" style="font-size: 9pt; color: black">];&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//password</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">};</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span class="SpellE"><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">struct</span></span></span><span lang="EN-US" style="font-size: 9pt; color: black">
+  </span><a name="KLoginGameServer"></a><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginGameServer</span></span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">{ </span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: blue">char</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Title</span><span lang="EN-US" style="font-size: 9pt; color: black">[</span><font COLOR="#a000a0" face="Times New Roman"><span style="font-size: 9pt">GAMESERVERNAME_MAX_LEN</span></font><span lang="EN-US" style="font-size: 9pt; color: black">];&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">服务器文字说明</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: blue">DWORD</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Address</span><span lang="EN-US" style="font-size: 9pt; color: black">;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">服务器域名地址</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: green">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: blue">DWORD</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">ID</span><span lang="EN-US" style="font-size: 9pt; color: black">;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">服务器</span><span lang="EN-US" style="font-size: 9pt; color: green">ID</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">};</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span class="SpellE"><span class="GramE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">struct</span></span></span><span lang="EN-US" style="font-size: 9pt; color: black">
+  </span><a name="KLoginServerList"></a><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginServerList</span></span><span lang="EN-US" style="font-size: 9pt; color: black"> 
+  : </span><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginStructHead</span></span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">{</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: blue">DWORD</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Count</span><span lang="EN-US" style="font-size: 9pt; color: black">;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">此次传送的服务器项的数目</span></p>
+  <p class="MsoNormal" style="text-align: left" align="left">
+  <span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span class="SpellE">
+  <span lang="EN-US" style="font-size: 9pt; color: blue">KLoginGameServer</span></span><span lang="EN-US" style="font-size: 9pt; color: blue">*</span><span lang="EN-US" style="font-size: 9pt; color: black">&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: gray">Server</span><span lang="EN-US" style="font-size: 9pt; color: black">;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  </span><span lang="EN-US" style="font-size: 9pt; color: green">//</span><span style="font-size: 9pt; color: green; font-family: 宋体">服务器信息</span><span lang="EN-US" style="font-size: 9pt; color: green">(</span><span style="font-size: 9pt; color: green; font-family: 宋体">变长数组</span><span lang="EN-US" style="font-size: 9pt; color: green">)</span></p>
+  <p class="MsoNormal"><span lang="EN-US" style="font-size: 9pt; color: black">
+  };</span></p>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <p class="MsoNormal"><b><span style="font-size: 14pt; font-family: 宋体">三、示范</span></b></p>
+  <p class="MsoNormal" style="text-indent: -18pt; margin-left: 18pt">
+  <span lang="EN-US" style="font-size: 14pt; font-family: 宋体">＊<span style="font-style: normal; font-variant: normal; font-weight: normal; font-size: 7pt; font-family: Times New Roman">&nbsp;&nbsp;
+  </span></span><b><span style="font-size: 14pt; font-family: 宋体">登陆流程及数据包字节顺序</span></b></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step1</span><span style="font-size: 12pt; font-family: 宋体">：</span><span style="font-size: 12pt">
+  </span><span style="font-size: 12pt; font-family: 宋体">客户端——<span class="GramE">〉</span>服务器</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">发送请求数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginAccountInfo" style="color: blue; text-decoration: underline">
+      KLoginAccountInfo</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span class="SpellE"><span lang="EN-US">KLoginStructHead::Param</span></span><span lang="EN-US"> 
+  = LOGIN_A_LOGIN</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">字节顺序如下：</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 45pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="60">
+      <p class="MsoNormal"><span lang="EN-US">8 bits</span></td>
+      <td style="width: 90pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 63pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 63pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">8*3</span>0<span lang="EN-US"> 
+      bits</span></td>
+      <td style="width: 81pt; height: 15.75pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="108">
+      <p class="MsoNormal" style="text-align: left" align="left">
+      <span lang="EN-US">8*3</span>0<span lang="EN-US"> bits</span></td>
+    </tr>
+    <tr style="height: 15.75pt">
+      <td style="width: 45pt; height: 15.75pt; border-left: 1pt solid windowtext; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="60">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 90pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Size(=72 bytes)</span></td>
+      <td style="width: 63pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">Param</span></span></td>
+      <td style="width: 63pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">Account</span></td>
+      <td style="width: 81pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="108">
+      <p class="MsoNormal" style="text-align: left" align="left">
+      <span lang="EN-US">Password</span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">如上</span><span lang="EN-US">Size</span><span style="font-family: 宋体">的计算方法为：</span><span lang="EN-US">Size 
+  = 32 + 32 + 8*3</span>0<span lang="EN-US"> + 8*3</span>0<span lang="EN-US"> = 
+  5</span>44<span lang="EN-US"> bits = </span>68<span lang="EN-US"> bytes</span><span style="font-family: 宋体">，也就是除掉标记</span><span lang="EN-US">(Tag)</span><span style="font-family: 宋体">位后的数据包的大小。</span></p>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step2</span><span style="font-size: 12pt; font-family: 宋体">：服务器——<span class="GramE">〉</span>客户端</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">反馈请求响应数据</span></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果成功</span></b><span style="font-family: 宋体">，发送数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginServerList" style="color: blue; text-decoration: underline">
+      KLoginServerList</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span class="SpellE"><span lang="EN-US">KLoginServerList::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_LOGIN | LOGIN_R_VALID(</span><span style="font-family: 宋体">服务器信息还未全部反馈</span><span lang="EN-US">)</span><span style="font-family: 宋体">，</span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">或者</span><span class="SpellE"><span lang="EN-US">KLoginServerList::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_LOGIN | LOGIN_R_SUCCESS(</span><span style="font-family: 宋体">服务器信息已全部发送完毕</span><span lang="EN-US">)</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">字节顺序如下：</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 5.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15pt">
+      <td style="width: 63pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">8 bits</span></td>
+      <td style="width: 63pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 54pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="72">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 135pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="180">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 99pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="132">
+      <p class="MsoNormal"><span lang="EN-US">Count * 64 bits</span></td>
+    </tr>
+    <tr style="height: 15pt">
+      <td style="width: 63pt; height: 15pt; border-left: 1pt solid windowtext; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 63pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">Size</span></td>
+      <td style="width: 54pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="72">
+      <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">Param</span></span></td>
+      <td style="width: 135pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="180">
+      <p class="MsoNormal"><span lang="EN-US">Count(</span><span style="font-family: 宋体">所含服务器项数目</span><span lang="EN-US">)</span></td>
+      <td style="width: 99pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="132">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginGameServer" style="color: blue; text-decoration: underline">
+      KLoginGameServer</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果失败</span></b><span style="font-family: 宋体">，发送数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginStructHead" style="color: blue; text-decoration: underline">
+      KLoginStructHead</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span lang="EN-US">
+  <span class="SpellE">KLoginStructHead:<span class="GramE">:Param</span></span> 
+  = LOGIN_R_LOGIN | LOGIN_R_FAILED </span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">或者</span>
+  <span class="SpellE"><span lang="EN-US">KLoginStructHead:<span class="GramE">:Param</span></span></span></p>
+  <p class="MsoNormal" style="text-indent: 21pt; margin-left: 21pt">
+  <span lang="EN-US">= LOGIN_R_LOGIN | LOGIN_R_ACCOUNT_OR_PASSWORD_ERROR</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step3:</span><span style="font-size: 12pt; font-family: 宋体">客户端——<span class="GramE">〉</span>服务器</span></b></p>
+  <p class="MsoNormal"><b><span lang="EN-US">1</span><span style="font-family: 宋体">、如果登陆成功并选择好游戏服务器后</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">定期向服务器发送在线消息，发送数据包如下</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 72pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="96">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 126pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="168">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginAccountInfo" style="color: blue; text-decoration: underline">
+      KLoginAccountInfo</a></span></td>
+      <td style="width: 180pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="240">
+      <p class="MsoNormal" style="text-align: left" align="left">
+      <span lang="EN-US">DWORD(</span><span style="font-family: 宋体">游戏服务器</span><span lang="EN-US">ID)</span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span class="SpellE"><span lang="EN-US">KLoginAccountInfo::Param</span></span><span lang="EN-US"> 
+  = LOGIN_A_REPORT</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US">2</span><span style="font-family: 宋体">、如果退出游戏</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">发送数据包如下</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginAccountInfo" style="color: blue; text-decoration: underline">
+      KLoginAccountInfo</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span lang="EN-US">
+  <span class="SpellE">KLoginAccountInfo::Param</span> = LOGIN_A_LOGOUT</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step4:</span><span style="font-size: 12pt; font-family: 宋体">服务器——<span class="GramE">〉</span>客户端</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">返回数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginStructHead" style="color: blue; text-decoration: underline">
+      KLoginStructHead</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中<b>如果该用户合法</b>，相应的有</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US">1</span><span style="font-family: 宋体">、</span></b><span class="SpellE"><span lang="EN-US">KLoginStructHead::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_REPORT | LOGIN_R_VALID</span><span style="font-family: 宋体">，</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US">2</span><span style="font-family: 宋体">、</span></b><span class="SpellE"><span lang="EN-US">KLoginStructHead:<span class="GramE">:Param</span></span></span><span lang="EN-US"> 
+  = LOGIN_R_LOGOUT | LOGIN_R_VALID</span></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">否则</span></b></p>
+  <p class="MsoNormal"><b><span lang="EN-US">1</span><span style="font-family: 宋体">、</span></b><span class="SpellE"><span lang="EN-US">KLoginStructHead::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_REPORT | LOGIN_R_INVALID</span><span style="font-family: 宋体">，</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US">2</span><span style="font-family: 宋体">、</span></b><span class="SpellE"><span lang="EN-US">KLoginStructHead::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_LOGOUT | LOGIN_R_INVALID</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step5:</span><span style="font-size: 12pt; font-family: 宋体">客户端</span></b></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果收到成功消息</span></b><span style="font-family: 宋体">——</span><b><span lang="EN-US">1</span><span style="font-family: 宋体">、</span></b><span style="font-family: 宋体">重复</span><span lang="EN-US">Step3</span><span style="font-family: 宋体">；</span><b><span lang="EN-US">2</span><span style="font-family: 宋体">、</span></b><span style="font-family: 宋体">通讯结束。</span></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果失败</span></b><span style="font-family: 宋体">——错误处理，通讯结束。</span></p>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <p class="MsoNormal" style="text-indent: -18pt; margin-left: 18pt">
+  <span lang="EN-US" style="font-size: 14pt; font-family: 宋体">＊<span style="font-style: normal; font-variant: normal; font-weight: normal; font-size: 7pt; font-family: Times New Roman">&nbsp;&nbsp;
+  </span></span><b><span style="font-size: 14pt; font-family: 宋体">
+  申请新账号流程及数据包字节顺序</span></b></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step1:</span><span style="font-size: 12pt; font-family: 宋体">客户端——<span class="GramE">〉</span>服务器</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">发送数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginAccountInfo" style="color: blue; text-decoration: underline">
+      KLoginAccountInfo</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span lang="EN-US">
+  <span class="SpellE">KLoginAccountInfo::Param</span> = LOGIN_A_NEWACCOUNT</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step2:</span><span style="font-size: 12pt; font-family: 宋体">服务器——<span class="GramE">〉</span>客户端</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">发送数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginStructHead" style="color: blue; text-decoration: underline">
+      KLoginStructHead</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果创建信账号成功</span></b></p>
+  <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">
+  KLoginStructHead::Param</span></span><span lang="EN-US"> = LOGIN_R_NEWACCOUNT 
+  | LOGIN_R_SUCCESS</span><span style="font-family: 宋体">；</span></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果创建新账号失败</span></b></p>
+  <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">
+  KLoginStructHead::Param</span></span><span lang="EN-US"> = LOGIN_R_NEWACCOUNT 
+  | LOGIN_R_FAILED </span><span style="font-family: 宋体">或者</span></p>
+  <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">
+  KLoginStructHead::Param</span></span><span lang="EN-US"> = LOGIN_R_NEWACCOUNT 
+  | LOGIN_R_ACCOUNT_EXIST</span><span style="font-family: 宋体">。</span><span lang="EN-US">(</span><span style="font-family: 宋体">账号已经被其它用户申请</span><span lang="EN-US">)</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step3:</span><span style="font-size: 12pt; font-family: 宋体">客户端——<span class="GramE">〉</span>服务器</span></b></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">收到创建账号成功消息</span></b></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">索取游戏服务器列表，发送数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginAccountInfo" style="color: blue; text-decoration: underline">
+      KLoginAccountInfo</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span lang="EN-US">
+  <span class="SpellE">KLoginAccountInfo::Param</span> = LOGIN_A_SERVERLIST</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step4:</span><span style="font-size: 12pt; font-family: 宋体">服务器——<span class="GramE">〉</span>客户端</span></b></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果成功</span></b></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginServerList" style="color: blue; text-decoration: underline">
+      KLoginServerList</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span class="SpellE"><span lang="EN-US">KLoginServerList::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_SERVERLIST | LOGIN_R_VALID(</span><span style="font-family: 宋体">服务器信息还未全部反馈</span><span lang="EN-US">)</span><span style="font-family: 宋体">，</span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">或者</span><span class="SpellE"><span lang="EN-US">KLoginServerList::Param</span></span><span lang="EN-US"> 
+  = LOGIN_R_SERVERLIST | LOGIN_R_SUCCESS(</span><span style="font-family: 宋体">服务器信息已全部发送完毕</span><span lang="EN-US">)</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">字节顺序如下：</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 5.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15pt">
+      <td style="width: 63pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">8 bits</span></td>
+      <td style="width: 63pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 54pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="72">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 135pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="180">
+      <p class="MsoNormal"><span lang="EN-US">32 bits</span></td>
+      <td style="width: 99pt; height: 15pt; border-left: medium none; border-right: medium none; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="132">
+      <p class="MsoNormal"><span lang="EN-US">Count * 64 bits</span></td>
+    </tr>
+    <tr style="height: 15pt">
+      <td style="width: 63pt; height: 15pt; border-left: 1pt solid windowtext; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 63pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="84">
+      <p class="MsoNormal"><span lang="EN-US">Size</span></td>
+      <td style="width: 54pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="72">
+      <p class="MsoNormal"><span class="SpellE"><span lang="EN-US">Param</span></span></td>
+      <td style="width: 135pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="180">
+      <p class="MsoNormal"><span lang="EN-US">Count(</span><span style="font-family: 宋体">所含服务器项数目</span><span lang="EN-US">)</span></td>
+      <td style="width: 99pt; height: 15pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: medium none; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="132">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginGameServer" style="color: blue; text-decoration: underline">
+      KLoginGameServer</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span lang="EN-US">&nbsp;</span></p>
+  <p class="MsoNormal"><b><span style="font-family: 宋体">如果失败</span></b><span style="font-family: 宋体">，发送数据包</span></p>
+  <table class="MsoNormalTable" style="border-collapse: collapse; border: medium none; margin-left: 32.4pt" cellSpacing="0" cellPadding="0" border="1">
+    <tr style="height: 15.75pt">
+      <td style="width: 90pt; height: 15.75pt; border: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="120">
+      <p class="MsoNormal"><span lang="EN-US">Tag(=0)</span></td>
+      <td style="width: 162pt; height: 15.75pt; border-left: medium none; border-right: 1pt solid windowtext; border-top: 1pt solid windowtext; border-bottom: 1pt solid windowtext; padding-left: 5.4pt; padding-right: 5.4pt; padding-top: 0cm; padding-bottom: 0cm" vAlign="top" width="216">
+      <p class="MsoNormal">
+      <span lang="EN-US" style="font-size: 9pt; color: blue">
+      <a href="file://owen/root/temp/游戏与账号数据库的Socket层通讯协议.htm#KLoginStructHead" style="color: blue; text-decoration: underline">
+      KLoginStructHead</a></span></td>
+    </tr>
+  </table>
+  <p class="MsoNormal"><span style="font-family: 宋体">其中</span><span lang="EN-US">
+  <span class="SpellE">KLoginStructHead::Param</span> = LOGIN_R_SERVERLIST | 
+  LOGIN_R_FAILED</span><span style="font-family: 宋体">，</span></p>
+  <p class="MsoNormal"><span style="font-family: 宋体">或者</span><span lang="EN-US">
+  <span class="SpellE">KLoginStructHead::Param</span> = LOGIN_R_SERVERLIST | 
+  LOGIN_R_INVALID</span><span style="font-family: 宋体">。</span></p>
+  <p class="MsoNormal"><b><span lang="EN-US" style="font-size: 12pt">Step5</span><span style="font-size: 12pt; font-family: 宋体">以后步骤：类似登陆流程</span><span lang="EN-US" style="font-size: 12pt">Step3</span><span style="font-size: 12pt; font-family: 宋体">以后步骤。</span></b></div>
+
+</body>
+
+</html>

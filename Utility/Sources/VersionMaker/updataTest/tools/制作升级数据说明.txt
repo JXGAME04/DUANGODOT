@@ -1,0 +1,62 @@
+制作在线升级数据的说明：
+
+运行Auto.bat
+文件说明：
+    GenIndex.bat      生成Index.txt文件的批处理程序
+    IndexGen.exe      生成Index.txt文件的程序
+    CommonIndex.ini   生成Index.txt文件的通用配置
+    FileComment.ini   生成Index.txt文件的文件的描述
+    
+
+更新文件信息Index.DAT中的信息的说明：
+    [COMMENT]
+    NewUpdateSelfFirstFlag=1        //最新版本的升级程序必须优先更新自身的标志
+    UpdateSelfFirstFlag=1           //第二版本的升级程序必须优先更新自身的标志
+    UpdateSelfFirst=0               //最初版本的升级程序必须优先更新自身的标志
+    Readme=                         //通告用户的重要信息
+    
+    [Install]
+    暂时不用
+    
+    [Version]
+    AppVersion0=SWOnline
+    Version0=1			    //升级包的版本号
+    
+    [ExitType]
+    暂时不用			//程序模块退出/调用方式:      (KCloseProgramMgr)  
+
+    [FileType]
+    暂时不用    
+
+    文件信息描述说明：		//注意，因为Version.cfg标志是否升级成功，必须是文件列表的最后一个
+    [1.exe]
+	FileName=1.exe	         //文件名
+	Version=2002.12.16.1      //文件版本号,其具体值和CheckVersionMethod有关
+	FileSize=106573         //文件大小
+	CRC=2741011895          //CRC较验值
+	RemotePath=SWOnline/    //远程的相对路径（相对提供的下载路径）
+	LocalPath=%PROGRAMDIR%  //本地更新目录,%PROGRAMDIR\XXX %TEMPDIR% %SYSTEMDIR% %WINDIR%
+	UpdateFileFlag=1        //该Section为更新文件信息的标志
+	UpdateFileMethod=Copy   //更新文件的方法 Copy;Last;Package各个动作之间;隔开如Last;Copy
+	Reboot=0                //更新该文件后是否重启的标志
+	CheckVersionMethod=5    //判断是否要更新的方法：
+                                  0－－取标准的程序文件的版本的方式
+                                  1－－取引擎文件版本的方式 
+                                  2－－取病毒库文件版本的方式
+                                  3－－判断CRC较验值
+                                  4－－直接下载   
+                                  5－－文本文件，没有版本信息，取文件的修改时间作
+                                       为版本号
+                                  6－－判断序列号头
+	SharedNeedReboot=1      //更新冲突的情况下需要强行重启的标志
+	Description=	        //文件描述
+	ApplyVersion=SWOnline   //暂时未用
+	FileType=Program        //暂时未用
+	UpdateRelative=0        //需要优先更新的标志
+	Belong=-1               //文件适用于的本地版本，<0所有本地版本, >=0特定本地版本
+	NeedDownload=1          //必须下载的标志，如果该值为1，则如果该文件下载失
+                                  败，则不更新所有已经下载的文件
+        SNMask=                 //暂时未用
+        Comment=                //暂时未用
+        CallBy=     		//暂时未用
+

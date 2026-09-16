@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="DLL Header Files">
+      <UniqueIdentifier>{0195F05E-DA88-5FE9-872F-FE20CFDD17F5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DLL Source Files">
+      <UniqueIdentifier>{469DE6FC-4F31-5839-8F38-BEC5406AAC08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IOCPServer">
+      <UniqueIdentifier>{DC85A529-8604-52F9-A696-B9296363A2F5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IOCPServer\Header Files">
+      <UniqueIdentifier>{59BEB005-526F-5C87-B4DA-C6D5489C4BE7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IOCPServer\Source Files">
+      <UniqueIdentifier>{2760754A-9DB9-5034-B424-AFCD950B53A4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{06C72E55-CA17-51ED-8E19-7B69CEC4DB22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib">
+      <UniqueIdentifier>{4B41F430-8D88-5719-9C74-85AFEB379B24}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\Debug">
+      <UniqueIdentifier>{0CA289B4-F37E-5772-A73A-E3CF7BFCABDF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lib\Release">
+      <UniqueIdentifier>{2B13AAF3-8734-5FE5-959F-9092086D52BD}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include=".\Heaven.cpp">
+      <Filter>DLL Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\IServer.cpp">
+      <Filter>DLL Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include=".\ServerStage.cpp">
+      <Filter>IOCPServer\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\ServerStage.h">
+      <Filter>IOCPServer\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include=".\Interface\HeavenInterface.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include=".\Interface\IServer.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\Lib\debug\common.lib">
+      <Filter>Lib\Debug</Filter>
+    </Library>
+    <Library Include="..\..\..\Lib\release\common.lib">
+      <Filter>Lib\Release</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\Heaven.def">
+      <Filter>DLL Header Files</Filter>
+    </None>
+    <None Include=".\Interface.txt" />
+  </ItemGroup>
+</Project>

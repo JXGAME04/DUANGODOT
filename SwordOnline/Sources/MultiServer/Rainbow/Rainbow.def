@@ -1,0 +1,4 @@
+LIBRARY   Rainbow.dll
+
+EXPORTS
+	CreateInterface	@1

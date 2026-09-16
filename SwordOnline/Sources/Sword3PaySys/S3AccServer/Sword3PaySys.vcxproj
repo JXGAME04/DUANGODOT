@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{30C07C0A-B378-5A82-8E51-A9C995434430}</ProjectGuid>
+    <RootNamespace>Sword3PaySys</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\JXAll.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>Release\</OutDir>
+    <IntDir>Release\</IntDir>
+    <TargetName>Sword3PaySys</TargetName>
+    <TargetExt>.exe</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>Debug\</OutDir>
+    <IntDir>Debug\</IntDir>
+    <TargetName>Sword3PaySys</TargetName>
+    <TargetExt>.exe</TargetExt>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\Headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\..\bin\server&quot; md &quot;..\..\..\..\bin\server&quot;
+if exist &quot;release\Sword3PaySys.exe&quot; copy /Y &quot;release\Sword3PaySys.exe&quot; &quot;..\..\..\..\bin\server\Sword3PaySys.exe&quot; &gt;nul
+if not exist &quot;..\..\..\..\bin\server&quot; md &quot;..\..\..\..\bin\server&quot;
+if exist &quot;release\Sword3PaySys.map&quot; copy /Y &quot;release\Sword3PaySys.map&quot; &quot;..\..\..\..\bin\server\Sword3PaySys.map&quot; &gt;nul
+if not exist &quot;..\..\..\..\bin\server&quot; md &quot;..\..\..\..\bin\server&quot;
+if exist &quot;release\Sword3PaySys.pdb&quot; copy /Y &quot;release\Sword3PaySys.pdb&quot; &quot;..\..\..\..\bin\server\Sword3PaySys.pdb&quot; &gt;nul</Command>
+      <Message>Deploying Sword3PaySys</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\Headers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\..\bin\client\debug&quot; md &quot;..\..\..\..\bin\client\debug&quot;
+if not exist &quot;..\..\..\..\bin\Client&quot; md &quot;..\..\..\..\bin\Client&quot;
+if exist &quot;debug\Sword3PaySys.exe&quot; copy /Y &quot;debug\Sword3PaySys.exe&quot; &quot;..\..\..\..\bin\Client\Sword3PaySys.exe&quot; &gt;nul
+if not exist &quot;..\..\..\..\bin\Client\debug&quot; md &quot;..\..\..\..\bin\Client\debug&quot;
+if exist &quot;debug\Sword3PaySys.exe&quot; copy /Y &quot;debug\Sword3PaySys.exe&quot; &quot;..\..\..\..\bin\Client\debug\Sword3PaySys.exe&quot; &gt;nul</Command>
+      <Message>Deploying Sword3PaySys</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include=".\GlobalFun.cpp" />
+    <ClCompile Include=".\KThread.cpp" />
+    <ClCompile Include=".\LogFile.cpp" />
+    <ClCompile Include=".\main.cpp" />
+    <ClCompile Include=".\S3P_MSSQLServer_Result.cpp" />
+    <ClCompile Include=".\S3PAccount.cpp" />
+    <ClCompile Include=".\S3PDB_MSSQLServer_Connection.cpp" />
+    <ClCompile Include=".\S3PDBConnectionPool.cpp" />
+    <ClCompile Include=".\S3PDBConVBC.cpp" />
+    <ClCompile Include=".\S3PDBSocketPool.cpp" />
+    <ClCompile Include=".\S3PResultVBC.cpp" />
+    <ClCompile Include=".\StdAfx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\AccountLoginDef.h" />
+    <ClInclude Include=".\GlobalDTD.h" />
+    <ClInclude Include=".\GlobalFun.h" />
+    <ClInclude Include=".\KStdAfx.h" />
+    <ClInclude Include=".\KThread.h" />
+    <ClInclude Include=".\LogFile.h" />
+    <ClInclude Include=".\S3P_MSSQLServer_Result.h" />
+    <ClInclude Include=".\S3PAccount.h" />
+    <ClInclude Include=".\S3PDB_MSSQLServer_Connection.h" />
+    <ClInclude Include=".\S3PDBConnectionPool.h" />
+    <ClInclude Include=".\S3PDBConVBC.h" />
+    <ClInclude Include=".\S3PDBSocketPool.h" />
+    <ClInclude Include=".\S3PResultVBC.h" />
+    <ClInclude Include=".\StdAfx.h" />
+    <ClInclude Include=".\resource.h" />
+    <ClInclude Include=".\msado15.tlh" />
+    <ClInclude Include=".\msado15.tli" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include=".\Sword3PaySys.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include=".\Sword3PaySys.ico" />
+    <Image Include=".\Sword3PaySys2.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\ReadMe.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

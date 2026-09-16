@@ -1,0 +1,10 @@
+文件编码检查程序用法:
+
+Package1 [ROOTFOLDER] [HALFFOLDER]..... [OutFileName]
+
+[RootFolder] 所要检查根目录
+[HALFFOLDER]..... 要检查的相对根目录的目录名
+[OutFileName] 结果输出文件名
+
+例子：pakcage1 d:\  Folder1  Folder2 Folder3  out.txt
+

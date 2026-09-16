@@ -1,0 +1,686 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (P.R.C.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\WorldEditor.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""l.chs\\afxres.rc""          // Standard components\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\WorldEditor.ico"
+IDR_WORLDETYPE          ICON    DISCARDABLE     "res\\WorldEditorDoc.ico"
+IDI_OUTPUT_HINT         ICON    DISCARDABLE     "res\\vc.ico"
+IDI_OUTPUT_SUCCEED      ICON    DISCARDABLE     "res\\vc1.ico"
+IDI_OUTPUT_FORBID       ICON    DISCARDABLE     "res\\vc2.ico"
+IDI_OUTPUT_WARNNING     ICON    DISCARDABLE     "res\\vc3.ico"
+IDI_OUTPUT_NEXT         ICON    DISCARDABLE     "res\\vc4.ico"
+IDI_OUTPUT_ERROR        ICON    DISCARDABLE     "res\\vc5.ico"
+IDI_OUTPUT_CHAT         ICON    DISCARDABLE     "res\\vc6.ico"
+IDI_OUTPUT_OK           ICON    DISCARDABLE     "res\\output_c.ico"
+IDI_OUTPUT_HELP         ICON    DISCARDABLE     "res\\output_n.ico"
+IDI_OUTPUT_NEW          ICON    DISCARDABLE     "res\\output_h.ico"
+IDI_ITEM_TRAP           ICON    DISCARDABLE     "res\\IDI_ITEM_TRAP.ICO"
+IDI_ITEM_TERRA          ICON    DISCARDABLE     "res\\IDI_ITEM_TERRA.ICO"
+IDI_ITEM_SETTING        ICON    DISCARDABLE     "res\\IDI_ITEM_SETTING.ICO"
+IDI_ITEM_OBSTACLE       ICON    DISCARDABLE     "res\\IDI_ITEM_OBSTACLE.ICO"
+IDI_ITEM_OBJECT         ICON    DISCARDABLE     "res\\IDI_ITEM_OBJECT.ICO"
+IDI_ITEM_NPC            ICON    DISCARDABLE     "res\\IDI_ITEM_NPC.ICO"
+IDI_ITEM_LIGHT          ICON    DISCARDABLE     "res\\IDI_ITEM_LIGHT.ICO"
+IDI_ITEM_GROUP          ICON    DISCARDABLE     "res\\IDI_ITEM_GROUP.ICO"
+IDI_ITEM_FOLDEROPEN     ICON    DISCARDABLE     "res\\ico00001.ico"
+IDI_ITEM_FOLDER         ICON    DISCARDABLE     "res\\icon1.ico"
+IDI_ITEM_DOODADCOMPLEX  ICON    DISCARDABLE     "res\\IDI_ITEM_DOODADCOMPLEX.ico"
+IDI_ITEM_DOODAD         ICON    DISCARDABLE     "res\\IDI_ITEM_DOODAD.ico"
+IDI_ITEM_COMMAND        ICON    DISCARDABLE     "res\\IDI_ITEM_COMMAND.ICO"
+IDI_ITEM_CAMERA         ICON    DISCARDABLE     "res\\IDI_ITEM_CAMERA.ICO"
+IDI_ITEM_FILE           ICON    DISCARDABLE     "res\\ico00002.ico"
+IDI_ITEM_ROOM           ICON    DISCARDABLE     "res\\icon_roo.ico"
+IDI_ITEM_ROAD           ICON    DISCARDABLE     "res\\icon_roa.ico"
+IDI_ITEM_SPECIAL        ICON    DISCARDABLE     "res\\item_spe.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDR_MAINFRAME           BITMAP  MOVEABLE PURE   "res\\Toolbar.bmp"
+IDB_BITMAP1             BITMAP  DISCARDABLE     "res\\tte.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Toolbar
+//
+
+IDR_MAINFRAME TOOLBAR DISCARDABLE  16, 16
+BEGIN
+    BUTTON      ID_FILE_NEW
+    BUTTON      ID_FILE_OPEN
+    BUTTON      ID_FILE_SAVE
+    SEPARATOR
+    BUTTON      ID_EDIT_CUT
+    BUTTON      ID_EDIT_COPY
+    BUTTON      ID_EDIT_PASTE
+    SEPARATOR
+    BUTTON      ID_FILE_PRINT
+    SEPARATOR
+    BUTTON      ID_APP_ABOUT
+    BUTTON      ID_TOOLS_RESOURCEEDITOR
+    BUTTON      ID_TOOLS_MAPCONVERT
+    BUTTON      ID_TOOLS_IMAGECREATE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAINFRAME MENU PRELOAD DISCARDABLE 
+BEGIN
+    POPUP "文件(&F)"
+    BEGIN
+        MENUITEM "新建(&N)\tCtrl+N",            ID_FILE_NEW
+        MENUITEM "打开(&O)...\tCtrl+O",         ID_FILE_OPEN
+        MENUITEM "保存(&S)\tCtrl+S",            ID_FILE_SAVE
+        MENUITEM "另存为(&A)...",               ID_FILE_SAVE_AS
+        MENUITEM SEPARATOR
+        MENUITEM "最近文件",                    ID_FILE_MRU_FILE1, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "退出(&X)",                    ID_APP_EXIT
+    END
+    POPUP "编辑(&E)"
+    BEGIN
+        MENUITEM "撤消(&U)\tCtrl+Z",            ID_EDIT_UNDO
+        MENUITEM "执行(&Y)\tCtrl+Y",            ID_EDIT_REDO
+        MENUITEM "倒退至初始\tCtrl+Shift+Z",    ID_EDIT_UNDOTOBEGIN
+        MENUITEM "执行至最后\tCtrl+Shift+Y",    ID_EDIT_REDOTOEND
+        MENUITEM SEPARATOR
+        MENUITEM "剪切(&T)\tCtrl+X",            ID_EDIT_CUT
+        MENUITEM "复制(&C)\tCtrl+C",            ID_EDIT_COPY
+        MENUITEM "粘贴(&P)\tCtrl+V",            ID_EDIT_PASTE
+    END
+    POPUP "查看(&V)"
+    BEGIN
+        MENUITEM "工具栏(&T)",                  ID_VIEW_TOOLBAR
+        MENUITEM "状态栏(&S)",                  ID_VIEW_STATUS_BAR
+    END
+    POPUP "工具"
+    BEGIN
+        MENUITEM "资源管理器...",               ID_TOOLS_RESOURCEEDITOR
+        MENUITEM "地图转换器...",               ID_TOOLS_MAPCONVERT
+        MENUITEM "图片生成器...",               ID_TOOLS_IMAGECREATE
+    END
+    POPUP "帮助(&H)"
+    BEGIN
+        MENUITEM "关于 WorldEditor(&A)...",     ID_APP_ABOUT
+    END
+    POPUP "地表"
+    BEGIN
+        MENUITEM "填充一个矩形",                ID_GROUND_FILLRECT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_MAINFRAME ACCELERATORS PRELOAD MOVEABLE PURE 
+BEGIN
+    "C",            ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    "N",            ID_FILE_NEW,            VIRTKEY, CONTROL, NOINVERT
+    "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
+    "P",            ID_FILE_PRINT,          VIRTKEY, CONTROL, NOINVERT
+    "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
+    "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
+    VK_BACK,        ID_EDIT_UNDO,           VIRTKEY, ALT, NOINVERT
+    VK_DELETE,      ID_EDIT_CUT,            VIRTKEY, SHIFT, NOINVERT
+    VK_F12,         ID_NEXT_PANE,           VIRTKEY, NOINVERT
+    VK_F12,         ID_PREV_PANE,           VIRTKEY, SHIFT, NOINVERT
+    VK_INSERT,      ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    VK_INSERT,      ID_EDIT_PASTE,          VIRTKEY, SHIFT, NOINVERT
+    "X",            ID_EDIT_CUT,            VIRTKEY, CONTROL, NOINVERT
+    "Y",            ID_EDIT_REDO,           VIRTKEY, CONTROL, NOINVERT
+    "Y",            ID_EDIT_REDOTOEND,      VIRTKEY, SHIFT, CONTROL, 
+                                                    NOINVERT
+    "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
+    "Z",            ID_EDIT_UNDOTOBEGIN,    VIRTKEY, SHIFT, CONTROL, 
+                                                    NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 235, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "关于 WorldEditor"
+FONT 9, "宋体"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,20,20
+    LTEXT           "WorldEditor 1.0 版",IDC_STATIC,40,10,119,8,SS_NOPREFIX
+    LTEXT           "版权所有 (C) 2002",IDC_STATIC,40,25,119,8
+    DEFPUSHBUTTON   "确定",IDOK,178,7,50,14,WS_GROUP
+END
+
+IDD_WORLDEDITOR_FORM DIALOGEX 0, 0, 382, 465
+STYLE WS_CHILD
+FONT 9, "宋体"
+BEGIN
+    CONTROL         "Tree1",IDC_DIR,"SysTreeView32",TVS_HASBUTTONS | 
+                    TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS | 
+                    WS_BORDER | WS_TABSTOP,9,13,130,199
+    CONTROL         "AutoPlay",IDC_AUTOPLAY,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,91,234,48,10
+    GROUPBOX        "Folder Explorer",IDC_STATIC,3,1,141,213
+    LTEXT           "Animation",IDC_STATIC,13,250,37,8
+    EDITTEXT        IDC_ANIMATION,62,248,48,14,ES_AUTOHSCROLL
+    CONTROL         "Spin1",IDC_SPIN_ANIMATION,"msctls_updown32",
+                    UDS_AUTOBUDDY | UDS_ARROWKEYS | UDS_HORZ,117,247,23,14
+    LTEXT           "Direction",IDC_STATIC,13,265,37,8
+    EDITTEXT        IDC_DIRECTION,86,262,24,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPIN_DIRECTION,"msctls_updown32",UDS_WRAP | 
+                    UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS | 
+                    UDS_HORZ,117,262,23,14
+    LTEXT           "Name",IDC_STATIC,13,236,17,8
+    LTEXT           "Frame",IDC_STATIC,13,280,21,8
+    EDITTEXT        IDC_FRAME,86,276,24,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPIN_FRAME,"msctls_updown32",UDS_WRAP | 
+                    UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS | 
+                    UDS_HORZ,117,276,23,14
+    LTEXT           "Spr Picture",IDC_STATIC_SPR,12,308,130,155,0,
+                    WS_EX_STATICEDGE
+    GROUPBOX        "Object View",IDC_STATIC,3,220,142,243
+    CONTROL         "List1",IDC_LIST,"SysListView32",LVS_REPORT | 
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOSORTHEADER | 
+                    WS_BORDER | WS_TABSTOP,148,398,227,65
+    EDITTEXT        IDC_SPEED,86,290,24,14,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Spin1",IDC_SPIN_SPEED,"msctls_updown32",UDS_WRAP | 
+                    UDS_SETBUDDYINT | UDS_AUTOBUDDY | UDS_ARROWKEYS | 
+                    UDS_HORZ,117,290,23,14
+    LTEXT           "Speed",IDC_STATIC,13,293,21,8
+    LTEXT           "(0)",IDC_STATIC_FRAME,34,281,38,8
+    LTEXT           "(0)",IDC_STATIC_DIRECTION,52,266,26,8
+END
+
+IDD_STRING DIALOG DISCARDABLE  0, 0, 139, 155
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "设置一个STRING"
+FONT 9, "宋体"
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,15,134,50,14,WS_GROUP
+    GROUPBOX        "String",-1,13,7,114,116
+    PUSHBUTTON      "取消",IDCANCEL,79,134,50,14,WS_GROUP
+    EDITTEXT        IDC_STRING,27,61,87,16,ES_AUTOHSCROLL
+END
+
+IDD_NPCSETTING DIALOG DISCARDABLE  0, 0, 187, 219
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_VSCROLL | 
+    WS_HSCROLL | WS_SYSMENU | WS_THICKFRAME
+CAPTION "角色信息栏"
+FONT 10, "System"
+BEGIN
+    CONTROL         "",IDC_ACTIVEINIFORMCTRL1,
+                    "{D2897E2A-90DA-4BAA-9051-31048CC4EFE8}",WS_TABSTOP,7,7,
+                    165,163
+END
+
+IDD_OBJ DIALOG DISCARDABLE  0, 0, 343, 139
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Obj属性"
+FONT 9, "宋体"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,15,118,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,87,118,50,14
+    EDITTEXT        IDC_NICK,85,16,48,14,ES_AUTOHSCROLL
+    LTEXT           "Name",IDC_STATIC,24,20,17,8
+    EDITTEXT        IDC_TEMPLATE,85,43,168,14,ES_AUTOHSCROLL | WS_DISABLED
+    LTEXT           "模板文件",IDC_STATIC,23,47,33,8
+    PUSHBUTTON      "Browse...",IDC_BROWSE_TEMPLATE,269,43,50,14
+    EDITTEXT        IDC_ANIMATION,85,69,168,14,ES_AUTOHSCROLL
+    LTEXT           "模板Section",IDC_STATIC,23,73,45,8
+    CONTROL         "AutoPlay",IDC_ANI_AUTOPLAY,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,21,91,48,10
+END
+
+IDD_OBSTACLE DIALOG DISCARDABLE  0, 0, 177, 117
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Obstacle属性"
+FONT 9, "宋体"
+BEGIN
+    COMBOBOX        IDC_OBSTACLE_TYPE,71,25,85,67,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_OBSTACLE_KIND,71,45,85,70,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    DEFPUSHBUTTON   "OK",IDOK,15,96,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,87,96,50,14
+    LTEXT           "障碍类型",IDC_STATIC,17,29,33,8
+    LTEXT           "障碍种类",IDC_STATIC,17,51,33,8
+    LTEXT           "半径",IDC_STATIC,18,71,17,8
+    EDITTEXT        IDC_OBSTACLE_RADIUS,71,67,40,14,ES_AUTOHSCROLL
+END
+
+IDD_SELECT DIALOG DISCARDABLE  0, 0, 199, 189
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Obj属性"
+FONT 9, "宋体"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,15,168,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,142,168,50,14
+    CONTROL         "Default",IDC_TYPE,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP | WS_TABSTOP,17,36,44,10
+    CONTROL         "根据排序",IDC_RADIO2,"Button",BS_AUTORADIOBUTTON,67,35,
+                    48,10
+    CONTROL         "根据种类",IDC_RADIO3,"Button",BS_AUTORADIOBUTTON,123,35,
+                    48,10
+    LTEXT           "类型",IDC_STATIC,16,20,17,8
+    COMBOBOX        IDC_COMBO_SORT,69,63,48,75,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        IDC_COMBO_KIND,127,63,48,75,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Filter type",IDC_STATIC,19,105,45,8
+    COMBOBOX        IDC_COMBO_FILTER,102,103,48,75,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Filter param type",IDC_STATIC,20,132,69,8
+    COMBOBOX        IDC_COMBO_FILTERPARAM,103,130,48,75,CBS_DROPDOWNLIST | 
+                    WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Reset",ID_RESET,78,168,50,14
+END
+
+IDD_SPECIAL DIALOG DISCARDABLE  0, 0, 304, 401
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 9, "宋体"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,19,380,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,73,380,50,14
+    LTEXT           "Static",IDC_ITEM1,24,21,50,8
+    EDITTEXT        IDC_VALUE1,80,18,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION1,219,21,66,8
+    LTEXT           "Static",IDC_ITEM2,24,42,50,8
+    EDITTEXT        IDC_VALUE2,80,39,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION2,219,42,66,8
+    LTEXT           "Static",IDC_ITEM3,24,63,50,8
+    EDITTEXT        IDC_VALUE3,80,60,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION3,219,63,66,8
+    LTEXT           "Static",IDC_ITEM4,24,84,50,8
+    EDITTEXT        IDC_VALUE4,80,81,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION4,219,84,66,8
+    LTEXT           "Static",IDC_ITEM5,24,105,50,8
+    EDITTEXT        IDC_VALUE5,80,102,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION5,219,105,66,8
+    LTEXT           "Static",IDC_ITEM6,24,126,50,8
+    EDITTEXT        IDC_VALUE6,80,123,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION6,219,126,66,8
+    LTEXT           "Static",IDC_ITEM7,24,147,50,8
+    EDITTEXT        IDC_VALUE7,80,144,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION7,219,147,66,8
+    LTEXT           "Static",IDC_ITEM8,24,168,50,8
+    EDITTEXT        IDC_VALUE8,80,165,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION8,219,168,66,8
+    LTEXT           "Static",IDC_ITEM9,24,189,50,8
+    EDITTEXT        IDC_VALUE9,80,186,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION9,219,189,66,8
+    LTEXT           "Static",IDC_ITEM10,24,210,50,8
+    EDITTEXT        IDC_VALUE10,80,207,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION10,219,210,66,8
+    LTEXT           "Static",IDC_ITEM11,24,231,50,8
+    EDITTEXT        IDC_VALUE11,80,228,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION11,219,231,66,8
+    LTEXT           "Static",IDC_ITEM12,24,252,50,8
+    EDITTEXT        IDC_VALUE12,80,249,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION12,219,252,66,8
+    LTEXT           "Static",IDC_ITEM13,24,273,50,8
+    EDITTEXT        IDC_VALUE13,80,270,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION13,219,273,66,8
+    LTEXT           "Static",IDC_ITEM14,24,294,50,8
+    EDITTEXT        IDC_VALUE14,80,291,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION14,219,294,66,8
+    LTEXT           "Static",IDC_ITEM15,24,315,50,8
+    EDITTEXT        IDC_VALUE15,80,312,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION15,219,315,66,8
+    LTEXT           "Static",IDC_ITEM16,24,336,50,8
+    EDITTEXT        IDC_VALUE16,80,333,130,14,ES_AUTOHSCROLL
+    LTEXT           "Static",IDC_DESCRIPTION16,219,336,66,8
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "Comments", "\0"
+            VALUE "CompanyName", "\0"
+            VALUE "FileDescription", "WorldEditor Microsoft 基础类应用程序\0"
+            VALUE "FileVersion", "1, 0, 0, 1\0"
+            VALUE "InternalName", "WorldEditor\0"
+            VALUE "LegalCopyright", "版权所有 (C) 2002\0"
+            VALUE "LegalTrademarks", "\0"
+            VALUE "OriginalFilename", "WorldEditor.EXE\0"
+            VALUE "PrivateBuild", "\0"
+            VALUE "ProductName", "WorldEditor 应用程序\0"
+            VALUE "ProductVersion", "1, 0, 0, 1\0"
+            VALUE "SpecialBuild", "\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 48
+    END
+
+    IDD_WORLDEDITOR_FORM, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 375
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 463
+    END
+
+    IDD_STRING, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 132
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 148
+    END
+
+    IDD_NPCSETTING, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 172
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 204
+    END
+
+    IDD_OBJ, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 336
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 132
+    END
+
+    IDD_OBSTACLE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 170
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 110
+    END
+
+    IDD_SELECT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 192
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 182
+    END
+
+    IDD_SPECIAL, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 297
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 394
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog Info
+//
+
+IDD_NPCSETTING DLGINIT
+BEGIN
+    IDC_ACTIVEINIFORMCTRL1, 0x376, 20, 0
+0x0000, 0x0000, 0x0000, 0x0001, 0x221b, 0x0000, 0x21b1, 0x0000, 0x0000, 
+0x0000, 
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE PRELOAD DISCARDABLE 
+BEGIN
+    IDR_MAINFRAME           "WorldEditor\n\nWorldE\nWorldE 文件 (*.wor,*.zip)\n.wor\nWorldEditor.Document\nWorldE Document"
+END
+
+STRINGTABLE PRELOAD DISCARDABLE 
+BEGIN
+    AFX_IDS_APP_TITLE       "WorldEditor"
+    AFX_IDS_IDLEMESSAGE     "就绪"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_INDICATOR_EXT        "扩展名"
+    ID_INDICATOR_CAPS       "大写"
+    ID_INDICATOR_NUM        "数字"
+    ID_INDICATOR_SCRL       "滚动"
+    ID_INDICATOR_OVR        "改写"
+    ID_INDICATOR_REC        "记录"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_FILE_NEW             "建立新文档\n新建"
+    ID_FILE_OPEN            "打开一个现有文档\n打开"
+    ID_FILE_CLOSE           "关闭活动文档\n关闭"
+    ID_FILE_SAVE            "保存活动文档\n保存"
+    ID_FILE_SAVE_AS         "将活动文档以一个新文件名保存\n另存为"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_APP_ABOUT            "显示程序信息，版本号和版权\n关于"
+    ID_APP_EXIT             "退出应用程序；提示保存文档\n退出"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_FILE_MRU_FILE1       "打开该文档"
+    ID_FILE_MRU_FILE2       "打开该文档"
+    ID_FILE_MRU_FILE3       "打开该文档"
+    ID_FILE_MRU_FILE4       "打开该文档"
+    ID_FILE_MRU_FILE5       "打开该文档"
+    ID_FILE_MRU_FILE6       "打开该文档"
+    ID_FILE_MRU_FILE7       "打开该文档"
+    ID_FILE_MRU_FILE8       "打开该文档"
+    ID_FILE_MRU_FILE9       "打开该文档"
+    ID_FILE_MRU_FILE10      "打开该文档"
+    ID_FILE_MRU_FILE11      "打开该文档"
+    ID_FILE_MRU_FILE12      "打开该文档"
+    ID_FILE_MRU_FILE13      "打开该文档"
+    ID_FILE_MRU_FILE14      "打开该文档"
+    ID_FILE_MRU_FILE15      "打开该文档"
+    ID_FILE_MRU_FILE16      "打开该文档"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_NEXT_PANE            "切换到下一个窗格\n下一窗格"
+    ID_PREV_PANE            "切换回前一个窗格\n前一窗格"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_WINDOW_SPLIT         "将活动的窗口分隔成窗格\n分隔"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_EDIT_CLEAR           "删除被选对象\n删除"
+    ID_EDIT_CLEAR_ALL       "全部删除\n全部删除"
+    ID_EDIT_COPY            "复制被选对象并将其置于剪贴板上\n复制"
+    ID_EDIT_CUT             "剪切被选对象并将其置于剪贴板上\n剪切"
+    ID_EDIT_FIND            "查找指定的正文\n查找"
+    ID_EDIT_PASTE           "插入剪贴板内容\n粘贴"
+    ID_EDIT_REPEAT          "重复上一步操作\n重复"
+    ID_EDIT_REPLACE         "用不同的正文替换指定的正文\n替换"
+    ID_EDIT_SELECT_ALL      "选择整个文档\n选择全部"
+    ID_EDIT_UNDO            "撤消最后一步操作\n撤消"
+    ID_EDIT_REDO            "重新执行先前已撤消的操作\n重新执行"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_VIEW_TOOLBAR         "显示或隐藏工具栏\n显隐工具栏"
+    ID_VIEW_STATUS_BAR      "显示或隐藏状态栏\n显隐状态栏"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDS_SCSIZE          "改变窗口大小"
+    AFX_IDS_SCMOVE          "改变窗口位置"
+    AFX_IDS_SCMINIMIZE      "将窗口缩小成图标"
+    AFX_IDS_SCMAXIMIZE      "把窗口放大到最大尺寸"
+    AFX_IDS_SCNEXTWINDOW    "切换到下一个文档窗口"
+    AFX_IDS_SCPREVWINDOW    "切换到先前的文档窗口"
+    AFX_IDS_SCCLOSE         "关闭活动的窗口并提示保存所有文档"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDS_SCRESTORE       "把窗口恢复到正常大小"
+    AFX_IDS_SCTASKLIST      "激活任务表"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    ID_TOOL_RESOURCEEDIT    "启动资源管理器"
+END
+
+#endif    // Chinese (P.R.C.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE 4, 2
+#pragma code_page(936)
+#endif //_WIN32
+#include "res\WorldEditor.rc2"  // non-Microsoft Visual C++ edited resources
+#include "l.chs\afxres.rc"          // Standard components
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

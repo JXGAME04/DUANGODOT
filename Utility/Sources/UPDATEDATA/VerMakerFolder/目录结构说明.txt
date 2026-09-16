@@ -1,0 +1,9 @@
+制作自动更新的数据组织目录
+
+----UpdateData  	所有从Release后需要更新的数据都放在这个目录下面
+----UpdateDataBackup	每次往UpdateData中拷贝数据之前对上一次的的更新数据的备份
+----VersionData		生成的相对于当前版本的各个版本的更新数据
+----UpdateFileList	每次的总的更新的文件列表
+----Temp		临时文件夹，用来保存中间数据
+
+	

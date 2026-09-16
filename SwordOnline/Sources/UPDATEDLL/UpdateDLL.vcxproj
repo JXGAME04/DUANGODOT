@@ -1,0 +1,252 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{42812CAB-D302-535C-957C-E5B400D489D6}</ProjectGuid>
+    <RootNamespace>UpdateDLL</RootNamespace>
+    <Keyword>MFCProj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\JXAll.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>Release\</OutDir>
+    <IntDir>Release\</IntDir>
+    <TargetName>UpdateDLL</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>Debug\</OutDir>
+    <IntDir>Debug\</IntDir>
+    <TargetName>UpdateDLL</TargetName>
+    <TargetExt>.dll</TargetExt>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>_XP_WIN32_MFC_;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;_WINDLL;_AFXDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>./;./src/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;_AFXDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
+      <AdditionalDependencies>KavPublicR.lib;ApLib.lib;Ws2_32.lib;Version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>LIBCMT.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ModuleDefinitionFile>.\UpdateDLL.def</ModuleDefinitionFile>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\bin\Client&quot; md &quot;..\..\..\bin\Client&quot;
+if exist &quot;release\UpdateDLL.dll&quot; copy /Y &quot;release\UpdateDLL.dll&quot; &quot;..\..\..\bin\Client\UpdateDLL.dll&quot; &gt;nul</Command>
+      <Message>Deploying UpdateDLL</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>_XP_WIN32_MFC_;WIN32;_DEBUG;_WINDOWS;_WINDLL;_AFXDLL;_MBCS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>./;./src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;_AFXDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>KavPublicD.lib;ApLib.lib;Ws2_32.lib;Version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>libcmtd.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist &quot;..\..\..\bin\Client&quot; md &quot;..\..\..\bin\Client&quot;
+if exist &quot;debug\UpdateDLL.dll&quot; copy /Y &quot;debug\UpdateDLL.dll&quot; &quot;..\..\..\bin\Client\UpdateDLL.dll&quot; &gt;nul
+if not exist &quot;..\..\..\bin\Client\debug&quot; md &quot;..\..\..\bin\Client\debug&quot;
+if exist &quot;debug\UpdateDLL.dll&quot; copy /Y &quot;debug\UpdateDLL.dll&quot; &quot;..\..\..\bin\Client\debug\UpdateDLL.dll&quot; &gt;nul</Command>
+      <Message>Deploying UpdateDLL</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include=".\src\MsgWnd.cpp">
+      <AdditionalIncludeDirectories>..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include=".\StdAfx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\UpdateDLL.cpp" />
+    <ClCompile Include=".\src\UpdateDLLImplement.cpp" />
+    <ClCompile Include=".\src\UpdateExport.cpp" />
+    <ClCompile Include=".\src\bufsocket.cpp" />
+    <ClCompile Include=".\src\BusyThread.cpp" />
+    <ClCompile Include=".\src\CheckThread.cpp" />
+    <ClCompile Include=".\src\CRC32.C">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include=".\src\DgmSocket.cpp" />
+    <ClCompile Include=".\src\downloadfile.cpp" />
+    <ClCompile Include=".\src\downnotify.cpp" />
+    <ClCompile Include=".\src\ftpdownload.cpp" />
+    <ClCompile Include=".\src\GenKAVMoveProgram.cpp" />
+    <ClCompile Include=".\src\getfilesversion.cpp" />
+    <ClCompile Include=".\src\getproxysetting.cpp" />
+    <ClCompile Include=".\GetVersion.cpp" />
+    <ClCompile Include=".\src\Global.cpp" />
+    <ClCompile Include=".\src\httpdownload.cpp" />
+    <ClCompile Include=".\src\InetStruct.cpp" />
+    <ClCompile Include=".\src\IpSocket.cpp" />
+    <ClCompile Include=".\src\KCloseProgramMgr.cpp" />
+    <ClCompile Include=".\src\LoadHostList.cpp" />
+    <ClCompile Include=".\src\PingSocket.cpp" />
+    <ClCompile Include=".\src\PingThread.cpp" />
+    <ClCompile Include=".\src\ProcessIndex.cpp" />
+    <ClCompile Include=".\src\proxyutility.cpp" />
+    <ClCompile Include=".\src\PublicFun.cpp" />
+    <ClCompile Include=".\src\RawSocket.cpp" />
+    <ClCompile Include=".\src\SaveLog.cpp" />
+    <ClCompile Include=".\src\sockspacket.cpp" />
+    <ClCompile Include=".\src\stmsocket.cpp" />
+    <ClCompile Include=".\src\tcpsocket.cpp" />
+    <ClCompile Include=".\src\UdpSocket.cpp" />
+    <ClCompile Include=".\src\UpdateData.cpp" />
+    <ClCompile Include=".\src\UpdatePublic.cpp" />
+    <ClCompile Include=".\src\usercheck.cpp" />
+    <ClCompile Include=".\src\wndnotify.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include=".\src\MsgWnd.h" />
+    <ClInclude Include=".\Resource.h" />
+    <ClInclude Include=".\src\SourceDef.h" />
+    <ClInclude Include="..\..\Publish\stdafx.h" />
+    <ClInclude Include=".\UpdateDLL.h" />
+    <ClInclude Include=".\src\UpdateExport.h" />
+    <ClInclude Include=".\src\bufsocket.h" />
+    <ClInclude Include=".\src\BusyThread.h" />
+    <ClInclude Include=".\src\CheckThread.h" />
+    <ClInclude Include=".\src\CRC32.h" />
+    <ClInclude Include=".\src\DataDefine.h" />
+    <ClInclude Include=".\src\DgmSocket.h" />
+    <ClInclude Include=".\src\downloadfile.h" />
+    <ClInclude Include=".\src\downnotify.h" />
+    <ClInclude Include=".\src\ftpdownload.h" />
+    <ClInclude Include=".\src\GenKAVMoveProgram.h" />
+    <ClInclude Include=".\src\getfilesversion.h" />
+    <ClInclude Include=".\src\getproxysetting.h" />
+    <ClInclude Include=".\GetVersion.h" />
+    <ClInclude Include=".\src\Global.h" />
+    <ClInclude Include=".\src\httpdownload.h" />
+    <ClInclude Include=".\src\InetStruct.h" />
+    <ClInclude Include=".\src\IpSocket.h" />
+    <ClInclude Include=".\src\KCloseProgramMgr.h" />
+    <ClInclude Include=".\src\LoadHostList.h" />
+    <ClInclude Include=".\src\PingSocket.h" />
+    <ClInclude Include=".\src\PingThread.h" />
+    <ClInclude Include=".\src\ProcessIndex.h" />
+    <ClInclude Include=".\src\proxyutility.h" />
+    <ClInclude Include=".\src\PublicFun.h" />
+    <ClInclude Include=".\src\RawSocket.h" />
+    <ClInclude Include=".\src\SaveLog.h" />
+    <ClInclude Include=".\src\sockspacket.h" />
+    <ClInclude Include=".\src\stmsocket.h" />
+    <ClInclude Include=".\src\tcpsocket.h" />
+    <ClInclude Include=".\src\UdpSocket.h" />
+    <ClInclude Include=".\src\UpdateData.h" />
+    <ClInclude Include=".\src\UpdatePublic.h" />
+    <ClInclude Include=".\src\UpdateSelf.h" />
+    <ClInclude Include=".\src\usercheck.h" />
+    <ClInclude Include=".\src\wndnotify.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include=".\UpdateDLL.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Lib\debug\ExpandPackageStaticLib.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Lib\Release\ExpandPackageStaticLib.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\UpdateDLL.def" />
+    <None Include=".\res\UpdateDLL.rc2" />
+    <None Include=".\ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ExpandPackageStaticLib\ExpandPackageStaticLib.vcxproj">
+      <Project>{5F5BEA49-32A8-5C74-8B6A-F773CD96B6CF}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
