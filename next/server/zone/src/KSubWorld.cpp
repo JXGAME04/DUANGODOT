@@ -1,4 +1,4 @@
-#include "jx/zone/world.hpp"
+#include "jx/zone/KSubWorld.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,13 +18,13 @@ std::int64_t isqrt(std::int64_t v) noexcept
     return r;
 }
 
-pb::EntityType to_pb(EntityKind k) noexcept
+pb::EntityType to_pb(KNpcKind k) noexcept
 {
     switch (k) {
-    case EntityKind::player: return pb::ENTITY_PLAYER;
-    case EntityKind::npc: return pb::ENTITY_NPC;
-    case EntityKind::monster: return pb::ENTITY_MONSTER;
-    case EntityKind::drop: return pb::ENTITY_DROP;
+    case KNpcKind::player: return pb::ENTITY_PLAYER;
+    case KNpcKind::npc: return pb::ENTITY_NPC;
+    case KNpcKind::monster: return pb::ENTITY_MONSTER;
+    case KNpcKind::drop: return pb::ENTITY_DROP;
     }
     return pb::ENTITY_UNKNOWN;
 }
@@ -37,7 +37,7 @@ void set_vec(pb::Vec2* v, Pos p)
 
 } // namespace
 
-World::World(WorldConfig cfg)
+KSubWorld::KSubWorld(KSubWorldConfig cfg)
     : cfg_(std::move(cfg)), grid_(cfg_.cell_size, cfg_.view_cells), ids_(1), rng_(cfg_.seed)
 {
     if (cfg_.tick_hz == 0) cfg_.tick_hz = 20;
@@ -45,10 +45,10 @@ World::World(WorldConfig cfg)
         cfg_.width = cfg_.map->scene_w;
         cfg_.height = cfg_.map->scene_h;
         cfg_.spawn_point = cfg_.map->spawn;
-        grid_ = AoiGrid(cfg_.cell_size, cfg_.view_cells);
+        grid_ = KRegionGrid(cfg_.cell_size, cfg_.view_cells);
         if (cfg_.map_npcs) {
-            for (const NpcPlacement& n : cfg_.map->npcs) {
-                spawn_npc(n.name, n.pos, n.template_id, 0, EntityKind::npc);
+            for (const KNpcPlacement& n : cfg_.map->npcs) {
+                spawn_npc(n.name, n.pos, n.template_id, 0, KNpcKind::npc);
             }
             take_outbox();   // nobody is listening yet
             log::info("zone", "map npcs placed", {log::kv("count", cfg_.map->npcs.size())});
@@ -56,24 +56,24 @@ World::World(WorldConfig cfg)
     }
 }
 
-Pos World::clamp(Pos p) const noexcept
+Pos KSubWorld::clamp(Pos p) const noexcept
 {
     return Pos{std::clamp(p.x, 0, cfg_.width - 1), std::clamp(p.y, 0, cfg_.height - 1)};
 }
 
-const Entity* World::find_entity(EntityId id) const
+const KNpc* KSubWorld::find_entity(EntityId id) const
 {
     const auto it = entities_.find(id);
     return it == entities_.end() ? nullptr : &it->second;
 }
 
-const Entity* World::find_player(std::uint64_t sid) const
+const KNpc* KSubWorld::find_player(std::uint64_t sid) const
 {
     const auto it = players_.find(sid);
     return it == players_.end() ? nullptr : find_entity(it->second);
 }
 
-std::vector<std::uint64_t> World::session_ids() const
+std::vector<std::uint64_t> KSubWorld::session_ids() const
 {
     std::vector<std::uint64_t> out;
     out.reserve(players_.size());
@@ -82,14 +82,14 @@ std::vector<std::uint64_t> World::session_ids() const
     return out;
 }
 
-std::vector<Packet> World::take_outbox()
+std::vector<Packet> KSubWorld::take_outbox()
 {
     std::vector<Packet> out;
     out.swap(outbox_);
     return out;
 }
 
-void World::emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg)
+void KSubWorld::emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg)
 {
     if (sids.empty()) return;
     Packet p;
@@ -99,18 +99,18 @@ void World::emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const go
     outbox_.push_back(std::move(p));
 }
 
-void World::viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const
+void KSubWorld::viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const
 {
     grid_.for_each_in_view(c, [&](EntityId id) {
         if (id == exclude) return;
         const auto it = entities_.find(id);
-        if (it != entities_.end() && it->second.kind == EntityKind::player && it->second.sid != 0) {
+        if (it != entities_.end() && it->second.kind == KNpcKind::player && it->second.sid != 0) {
             sids.push_back(it->second.sid);
         }
     });
 }
 
-void World::fill_info(const Entity& e, pb::EntityInfo& out) const
+void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
 {
     out.set_entity_id(e.id.value);
     out.set_entity_type(to_pb(e.kind));
@@ -129,15 +129,15 @@ void World::fill_info(const Entity& e, pb::EntityInfo& out) const
     }
 }
 
-pb::Result World::spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out)
+pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out)
 {
     if (sid == 0) return pb::RESULT_BAD_REQUEST;
     if (players_.contains(sid)) return pb::RESULT_WRONG_STATE;
     if (players_.size() >= cfg_.max_players) return pb::RESULT_FULL;
 
-    Entity e;
+    KNpc e;
     e.id = ids_.next<EntityId>();
-    e.kind = EntityKind::player;
+    e.kind = KNpcKind::player;
     e.name = role.name();
     e.level = role.level() == 0 ? 1u : role.level();
     e.series = role.series();
@@ -158,7 +158,7 @@ pb::Result World::spawn_player(std::uint64_t sid, const pb::RoleData& role, Enti
     players_[sid] = id;
     roles_[sid] = role;
 
-    const Entity& self = entities_.at(id);
+    const KNpc& self = entities_.at(id);
     const Cell cell = grid_.cell_of(start);
 
     // everything the newcomer can see (including itself)
@@ -183,7 +183,7 @@ pb::Result World::spawn_player(std::uint64_t sid, const pb::RoleData& role, Enti
     return pb::RESULT_OK;
 }
 
-bool World::remove_player(std::uint64_t sid)
+bool KSubWorld::remove_player(std::uint64_t sid)
 {
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
@@ -208,7 +208,7 @@ bool World::remove_player(std::uint64_t sid)
     return true;
 }
 
-void World::emit_move(const Entity& e)
+void KSubWorld::emit_move(const KNpc& e)
 {
     pb::EntityMove mv;
     mv.set_entity_id(e.id.value);
@@ -228,17 +228,17 @@ void World::emit_move(const Entity& e)
         mv.set_seq(0);
         emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE), mv);
     }
-    if (e.kind == EntityKind::player && e.sid != 0) {
+    if (e.kind == KNpcKind::player && e.sid != 0) {
         mv.set_seq(e.move_seq);
         emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE), mv);
     }
 }
 
-bool World::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
+bool KSubWorld::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
 {
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
-    Entity& e = entities_.at(pit->second);
+    KNpc& e = entities_.at(pit->second);
     e.move_seq = seq;
     Pos dest = clamp(target);
     std::size_t waypoints = 1;
@@ -257,11 +257,11 @@ bool World::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     return true;
 }
 
-bool World::chat(std::uint64_t sid, std::string_view text)
+bool KSubWorld::chat(std::uint64_t sid, std::string_view text)
 {
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
-    const Entity& e = entities_.at(pit->second);
+    const KNpc& e = entities_.at(pit->second);
     pb::ChatMsg msg;
     msg.set_entity_id(e.id.value);
     msg.set_name(e.name);
@@ -274,9 +274,9 @@ bool World::chat(std::uint64_t sid, std::string_view text)
     return true;
 }
 
-EntityId World::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, EntityKind kind)
+EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind)
 {
-    Entity e;
+    KNpc e;
     e.id = ids_.next<EntityId>();
     e.kind = kind;
     e.name = std::move(name);
@@ -291,7 +291,7 @@ EntityId World::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, 
     grid_.insert(id, e.home);
     entities_.emplace(id, std::move(e));
 
-    const Entity& self = entities_.at(id);
+    const KNpc& self = entities_.at(id);
     scratch_sids_.clear();
     viewers_of(grid_.cell_of(self.pos()), scratch_sids_, id);
     if (!scratch_sids_.empty()) {
@@ -302,7 +302,7 @@ EntityId World::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, 
     return id;
 }
 
-void World::wander(Entity& e)
+void KSubWorld::wander(KNpc& e)
 {
     const std::int32_t r = e.wander_radius;
     const auto dx = static_cast<std::int32_t>(rng_() % static_cast<std::uint32_t>(2 * r + 1)) - r;
@@ -318,7 +318,7 @@ void World::wander(Entity& e)
     if (e.moving) emit_move(e);
 }
 
-void World::on_cell_change(Entity& e, Cell from, Cell to)
+void KSubWorld::on_cell_change(KNpc& e, Cell from, Cell to)
 {
     grid_.view_diff(from, to, scratch_entered_, scratch_left_);
 
@@ -335,16 +335,16 @@ void World::on_cell_change(Entity& e, Cell from, Cell to)
         const auto it = entities_.find(other);
         if (it == entities_.end()) continue;
         fill_info(it->second, *appear.add_entities());
-        if (it->second.kind == EntityKind::player && it->second.sid != 0) new_viewers.push_back(it->second.sid);
+        if (it->second.kind == KNpcKind::player && it->second.sid != 0) new_viewers.push_back(it->second.sid);
     }
     for (const EntityId other : scratch_left_) {
         if (other == e.id) continue;
         const auto it = entities_.find(other);
         if (it == entities_.end()) continue;
         vanish.add_entity_ids(other.value);
-        if (it->second.kind == EntityKind::player && it->second.sid != 0) old_viewers.push_back(it->second.sid);
+        if (it->second.kind == KNpcKind::player && it->second.sid != 0) old_viewers.push_back(it->second.sid);
     }
-    if (e.kind == EntityKind::player && e.sid != 0) {
+    if (e.kind == KNpcKind::player && e.sid != 0) {
         if (appear.entities_size() > 0) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), appear);
         if (vanish.entity_ids_size() > 0) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), vanish);
     }
@@ -352,7 +352,7 @@ void World::on_cell_change(Entity& e, Cell from, Cell to)
     if (!old_viewers.empty()) emit(std::move(old_viewers), static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), me_gone);
 }
 
-void World::tick()
+void KSubWorld::tick()
 {
     ++tick_;
     // deterministic iteration order regardless of hash layout
@@ -362,8 +362,8 @@ void World::tick()
 
     std::vector<EntityId> moved, arrived;
     for (const EntityId id : scratch_ids_) {
-        Entity& e = entities_.at(id);
-        if (e.kind != EntityKind::player && e.wander_radius > 0 && !e.moving && tick_ >= e.next_wander_tick) wander(e);
+        KNpc& e = entities_.at(id);
+        if (e.kind != KNpcKind::player && e.wander_radius > 0 && !e.moving && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
         std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
         while (budget > 0 && e.moving) {
@@ -389,19 +389,19 @@ void World::tick()
         moved.push_back(id);
     }
     for (const EntityId id : moved) {
-        Entity& e = entities_.at(id);
+        KNpc& e = entities_.at(id);
         Cell from, to;
         if (grid_.move(id, e.pos(), from, to)) on_cell_change(e, from, to);
     }
     for (const EntityId id : arrived) emit_move(entities_.at(id));
 }
 
-bool World::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
+bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
 {
     const auto rit = roles_.find(sid);
     if (rit == roles_.end()) return false;
     out = rit->second;
-    if (const Entity* e = find_player(sid)) {
+    if (const KNpc* e = find_player(sid)) {
         out.mutable_position()->set_zone_id(cfg_.zone_id);
         set_vec(out.mutable_position()->mutable_pos(), e->pos());
         out.set_level(e->level);

@@ -86,6 +86,6 @@ func _on_login_result(ok: bool, text: String) -> void:
 	_button.disabled = false
 	if ok:
 		_status.text = "Đăng nhập thành công."
-		get_tree().change_scene_to_file("res://scenes/char_select.tscn")
+		get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
 	else:
 		_status.text = text

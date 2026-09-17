@@ -12,15 +12,15 @@ config_version=5
 
 config/name="JX NEXT"
 config/version="0.1.0"
-run/main_scene="res://scenes/login.tscn"
+run/main_scene="res://scenes/UiLogin.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
 
-Log="*res://autoload/log.gd"
-Net="*res://autoload/net.gd"
-Assets="*res://autoload/assets.gd"
-Game="*res://autoload/game.gd"
+Log="*res://autoload/KDebug.gd"
+Net="*res://autoload/KSocketClient.gd"
+Assets="*res://autoload/KPakFile.gd"
+Game="*res://autoload/KProtocolProcess.gd"
 
 [display]
 

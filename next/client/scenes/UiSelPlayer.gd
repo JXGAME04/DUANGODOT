@@ -85,7 +85,7 @@ func _build_ui() -> void:
 	back.text = "Thoát"
 	back.pressed.connect(func():
 		Game.logout("back to login")
-		get_tree().change_scene_to_file("res://scenes/login.tscn"))
+		get_tree().change_scene_to_file("res://scenes/UiLogin.tscn"))
 	box.add_child(back)
 
 
@@ -144,7 +144,7 @@ func _on_enter_pressed() -> void:
 
 
 func _on_entered_world(_info: Dictionary) -> void:
-	get_tree().change_scene_to_file("res://scenes/world.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiGame.tscn")
 
 
 func _on_enter_failed(result: int) -> void:
@@ -159,4 +159,4 @@ func _on_kicked(_reason: int, text: String) -> void:
 
 func _on_connection_lost(reason: String) -> void:
 	Log.warn("ui", "connection lost in lobby", {"reason": reason})
-	get_tree().change_scene_to_file("res://scenes/login.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiLogin.tscn")

@@ -17,13 +17,13 @@
 #include "jx/common.pb.h"
 #include "jx/role.pb.h"
 #include "jx/ids.hpp"
-#include "jx/zone/aoi.hpp"
-#include "jx/zone/entity.hpp"
-#include "jx/zone/map.hpp"
+#include "jx/zone/KRegion.h"
+#include "jx/zone/KNpc.h"
+#include "jx/zone/KMapData.h"
 
 namespace jx::zone {
 
-struct WorldConfig {
+struct KSubWorldConfig {
     std::uint32_t zone_id = 1;
     std::string name = "Test Field";
     std::uint32_t tick_hz = 20;
@@ -35,7 +35,7 @@ struct WorldConfig {
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
-    std::shared_ptr<const MapData> map;  // optional: walkability + spawn + npcs override the fields above
+    std::shared_ptr<const KMapData> map;  // optional: walkability + spawn + npcs override the fields above
     bool map_npcs = true;                // place the npcs listed in the map bundle
 };
 
@@ -46,32 +46,32 @@ struct Packet {
     std::string payload;
 };
 
-class World {
+class KSubWorld {
 public:
-    explicit World(WorldConfig cfg);
+    explicit KSubWorld(KSubWorldConfig cfg);
 
-    [[nodiscard]] const WorldConfig& config() const noexcept { return cfg_; }
+    [[nodiscard]] const KSubWorldConfig& config() const noexcept { return cfg_; }
 
     pb::Result spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out);
     bool remove_player(std::uint64_t sid);
     bool move_request(std::uint64_t sid, Pos target, std::uint32_t seq);
     bool chat(std::uint64_t sid, std::string_view text);
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
-                       EntityKind kind = EntityKind::npc);
+                       KNpcKind kind = KNpcKind::npc);
 
     void tick();
     [[nodiscard]] std::uint64_t tick_count() const noexcept { return tick_; }
 
     [[nodiscard]] std::size_t player_count() const noexcept { return players_.size(); }
     [[nodiscard]] std::size_t entity_count() const noexcept { return entities_.size(); }
-    [[nodiscard]] const Entity* find_entity(EntityId id) const;
-    [[nodiscard]] const Entity* find_player(std::uint64_t sid) const;
+    [[nodiscard]] const KNpc* find_entity(EntityId id) const;
+    [[nodiscard]] const KNpc* find_player(std::uint64_t sid) const;
     [[nodiscard]] std::vector<std::uint64_t> session_ids() const;
     // Copies the stored RoleData with the current position (what PlayerSave sends).
     bool role_snapshot(std::uint64_t sid, pb::RoleData& out) const;
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
-    [[nodiscard]] const MapData* map() const noexcept { return cfg_.map.get(); }
+    [[nodiscard]] const KMapData* map() const noexcept { return cfg_.map.get(); }
     [[nodiscard]] std::uint32_t map_id() const noexcept { return cfg_.map ? static_cast<std::uint32_t>(cfg_.map->id) : 0u; }
 
     std::vector<Packet>& outbox() noexcept { return outbox_; }
@@ -80,15 +80,15 @@ public:
 private:
     void emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     void viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const;
-    void fill_info(const Entity& e, pb::EntityInfo& out) const;
-    void emit_move(const Entity& e);
-    void on_cell_change(Entity& e, Cell from, Cell to);
-    void wander(Entity& e);
+    void fill_info(const KNpc& e, pb::EntityInfo& out) const;
+    void emit_move(const KNpc& e);
+    void on_cell_change(KNpc& e, Cell from, Cell to);
+    void wander(KNpc& e);
 
-    WorldConfig cfg_;
-    AoiGrid grid_;
+    KSubWorldConfig cfg_;
+    KRegionGrid grid_;
     IdGenerator ids_;
-    std::unordered_map<EntityId, Entity, IdHash> entities_;
+    std::unordered_map<EntityId, KNpc, IdHash> entities_;
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::vector<Packet> outbox_;

@@ -2,8 +2,8 @@
 # circles, click to move, chat box, debug HUD.  Screen = (scene x, scene y / 2).
 extends Node2D
 
-const EntityScene := preload("res://scenes/entity.gd")
-const MapViewScript := preload("res://scenes/map_view.gd")
+const NpcScript := preload("res://scenes/KNpc.gd")
+const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
@@ -28,7 +28,7 @@ func _ready() -> void:
 	_scene_h = Game.scene_h if Game.scene_h > 0 else 8192
 
 	_map = Node2D.new()
-	_map.set_script(MapViewScript)
+	_map.set_script(ScenePlaceScript)
 	_map.name = "Map"
 	add_child(_map)
 	var has_map: bool = Game.map_id > 0 and Assets.has_map(Game.map_id) and bool(_map.load_map(Game.map_id))
@@ -37,7 +37,7 @@ func _ready() -> void:
 	else:
 		_grid = Node2D.new()
 		_grid.name = "Grid"
-		_grid.set_script(preload("res://scenes/grid.gd"))
+		_grid.set_script(preload("res://scenes/KSceneGrid.gd"))
 		_grid.size = Vector2(_scene_w, _scene_h * 0.5)
 		add_child(_grid)
 		_entity_layer = Node2D.new()
@@ -152,7 +152,7 @@ func _set_zoom(z: float) -> void:
 
 func _leave() -> void:
 	Game.leave_world()
-	get_tree().change_scene_to_file("res://scenes/char_select.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
 
 
 # ---- world events --------------------------------------------------------------------------
@@ -162,7 +162,7 @@ func _add_entity(d: Dictionary) -> void:
 	var node: Node2D = _entities.get(id)
 	if node == null:
 		node = Node2D.new()
-		node.set_script(EntityScene)
+		node.set_script(NpcScript)
 		_entity_layer.add_child(node)
 		_entities[id] = node
 	node.setup(d, id == Game.entity_id)
@@ -208,12 +208,12 @@ func _on_chat_submitted(text: String) -> void:
 
 func _on_kicked(_reason: int, text: String) -> void:
 	_append_chat("[color=red]Bị ngắt: %s[/color]" % text)
-	get_tree().change_scene_to_file("res://scenes/char_select.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
 
 
 func _on_connection_lost(reason: String) -> void:
 	Log.warn("ui", "connection lost in world", {"reason": reason})
-	get_tree().change_scene_to_file("res://scenes/login.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiLogin.tscn")
 
 
 # ---- automation ----------------------------------------------------------------------------

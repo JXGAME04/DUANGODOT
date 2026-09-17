@@ -42,7 +42,7 @@ client/assets/
 
 ## 4. Zone dùng gì
 
-`zone.map_dir` trong `config/zone.json` → `MapData` (`server/zone/include/jx/zone/map.hpp`): lưới đi được,
+`zone.map_dir` trong `config/zone.json` → `KMapData` (`server/zone/include/jx/zone/KMapData.h`): lưới đi được,
 điểm spawn, NPC. `MoveReq` → điểm đến gần nhất đi được → **A\*** 8 hướng (không cắt góc) → làm mượt
 theo tầm nhìn → `EntityMove.path` (waypoints). Client đi đúng các waypoint đó với cùng tốc độ.
 

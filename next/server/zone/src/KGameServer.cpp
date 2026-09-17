@@ -1,4 +1,4 @@
-#include "jx/zone/zone_server.hpp"
+#include "jx/zone/KGameServer.h"
 
 #include <chrono>
 
@@ -11,13 +11,13 @@ namespace jx::zone {
 
 using namespace std::chrono_literals;
 
-ZoneServer::ZoneServer(asio::io_context& io, ZoneServerConfig cfg)
+KGameServer::KGameServer(asio::io_context& io, KGameServerConfig cfg)
     : io_(io), cfg_(std::move(cfg)), listener_(io, frame::kMaxInternalPayload), world_(cfg_.world), timer_(io),
       step_(cfg_.world.tick_hz, cfg_.max_ticks_per_update)
 {
 }
 
-std::error_code ZoneServer::start()
+std::error_code KGameServer::start()
 {
     if (const auto ec = listener_.open(cfg_.listen_address, cfg_.port)) {
         log::error("boot", "cannot listen", {log::kv("addr", cfg_.listen_address), log::kv("port", cfg_.port), log::kv("error", ec.message())});
@@ -33,7 +33,7 @@ std::error_code ZoneServer::start()
     return {};
 }
 
-void ZoneServer::stop()
+void KGameServer::stop()
 {
     if (!running_) return;
     running_ = false;
@@ -50,7 +50,7 @@ void ZoneServer::stop()
 
 // ---- connections ---------------------------------------------------------------------------
 
-void ZoneServer::on_accept(net::Connection::Ptr conn)
+void KGameServer::on_accept(net::Connection::Ptr conn)
 {
     const std::uint64_t id = conn->id();
     gateways_[id] = Gateway{conn, "", false};
@@ -59,7 +59,7 @@ void ZoneServer::on_accept(net::Connection::Ptr conn)
                 [this](net::Connection& c, const std::error_code& ec) { on_close(c, ec); });
 }
 
-void ZoneServer::on_close(net::Connection& conn, const std::error_code& ec)
+void KGameServer::on_close(net::Connection& conn, const std::error_code& ec)
 {
     const auto it = gateways_.find(conn.id());
     if (it == gateways_.end()) return;
@@ -81,7 +81,7 @@ void ZoneServer::on_close(net::Connection& conn, const std::error_code& ec)
     flush_outbox();
 }
 
-void ZoneServer::on_frame(net::Connection& conn, const frame::View& view)
+void KGameServer::on_frame(net::Connection& conn, const frame::View& view)
 {
     const auto it = gateways_.find(conn.id());
     if (it == gateways_.end()) return;
@@ -103,7 +103,7 @@ void ZoneServer::on_frame(net::Connection& conn, const frame::View& view)
     flush_outbox();
 }
 
-void ZoneServer::handle_hello(Gateway& gw, const frame::View& view)
+void KGameServer::handle_hello(Gateway& gw, const frame::View& view)
 {
     pb::ZoneHello hello;
     if (!net::parse(view, hello)) {
@@ -132,7 +132,7 @@ void ZoneServer::handle_hello(Gateway& gw, const frame::View& view)
     log::info("net", "gateway ready", {log::kv("conn", gw.conn->id()), log::kv("gateway", gw.id)});
 }
 
-void ZoneServer::handle_session_open(Gateway& gw, const frame::View& view)
+void KGameServer::handle_session_open(Gateway& gw, const frame::View& view)
 {
     pb::SessionOpen open;
     if (!net::parse(view, open)) {
@@ -156,7 +156,7 @@ void ZoneServer::handle_session_open(Gateway& gw, const frame::View& view)
     net::send(*gw.conn, static_cast<std::uint16_t>(pb::ZG_SESSION_OPEN_ACK), ack);
 }
 
-void ZoneServer::handle_session_close(Gateway& gw, const frame::View& view)
+void KGameServer::handle_session_close(Gateway& gw, const frame::View& view)
 {
     pb::SessionClose close;
     if (!net::parse(view, close)) {
@@ -173,7 +173,7 @@ void ZoneServer::handle_session_close(Gateway& gw, const frame::View& view)
     session_gateway_.erase(it);
 }
 
-void ZoneServer::handle_client_packet(Gateway& gw, const frame::View& view)
+void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
 {
     pb::ClientPacket cp;
     if (!net::parse(view, cp)) {
@@ -206,7 +206,7 @@ void ZoneServer::handle_client_packet(Gateway& gw, const frame::View& view)
 
 // ---- output --------------------------------------------------------------------------------
 
-void ZoneServer::flush_outbox()
+void KGameServer::flush_outbox()
 {
     if (world_.outbox().empty()) return;
     for (Packet& p : world_.take_outbox()) {
@@ -227,7 +227,7 @@ void ZoneServer::flush_outbox()
     }
 }
 
-void ZoneServer::send_save(std::uint64_t sid, bool final)
+void KGameServer::send_save(std::uint64_t sid, bool final)
 {
     const auto it = session_gateway_.find(sid);
     if (it == session_gateway_.end()) return;
@@ -240,7 +240,7 @@ void ZoneServer::send_save(std::uint64_t sid, bool final)
     net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_PLAYER_SAVE), save);
 }
 
-void ZoneServer::send_stats()
+void KGameServer::send_stats()
 {
     pb::ZoneStats st;
     st.set_zone_id(cfg_.world.zone_id);
@@ -263,7 +263,7 @@ void ZoneServer::send_stats()
 
 // ---- tick ----------------------------------------------------------------------------------
 
-void ZoneServer::schedule_tick()
+void KGameServer::schedule_tick()
 {
     timer_.expires_after(std::chrono::duration_cast<std::chrono::steady_clock::duration>(step_.step()));
     timer_.async_wait([this](const std::error_code& ec) {
@@ -273,7 +273,7 @@ void ZoneServer::schedule_tick()
     });
 }
 
-void ZoneServer::run_ticks()
+void KGameServer::run_ticks()
 {
     const Nanos now = steady_now();
     const std::uint32_t n = step_.update(now - last_update_);

@@ -9,11 +9,11 @@
 #include <string>
 #include <vector>
 
-#include "jx/zone/aoi.hpp"
+#include "jx/zone/KRegion.h"
 
 namespace jx::zone {
 
-struct NpcPlacement {
+struct KNpcPlacement {
     std::uint32_t template_id = 0;
     std::string name;      // UTF-8
     Pos pos;               // scene units
@@ -22,12 +22,12 @@ struct NpcPlacement {
     std::string script;
 };
 
-class MapData {
+class KMapData {
 public:
     // Loads <dir>/map.json and <dir>/obstacle.bin; returns nullopt and fills *error on failure.
-    static std::optional<MapData> load(const std::filesystem::path& dir, std::string* error);
+    static std::optional<KMapData> load(const std::filesystem::path& dir, std::string* error);
     // Builds a synthetic map for tests: every cell walkable unless marked later.
-    static MapData synthetic(int cells_x, int cells_y, int cell = 32);
+    static KMapData synthetic(int cells_x, int cells_y, int cell = 32);
 
     int id = 0;
     std::string name;
@@ -36,7 +36,7 @@ public:
     int scene_w = 0, scene_h = 0;
     Pos spawn;
     std::vector<std::uint8_t> obstacle;   // cells_x * cells_y, row major, 0 = walkable
-    std::vector<NpcPlacement> npcs;
+    std::vector<KNpcPlacement> npcs;
 
     [[nodiscard]] bool in_bounds(int cx, int cy) const noexcept
     {

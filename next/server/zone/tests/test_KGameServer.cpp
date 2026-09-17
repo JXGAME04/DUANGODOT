@@ -9,9 +9,9 @@
 #include "jx/internal.pb.h"
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
-#include "jx/net/connection.hpp"
+#include "jx/net/KSocket.h"
 #include "jx/net/proto.hpp"
-#include "jx/zone/zone_server.hpp"
+#include "jx/zone/KGameServer.h"
 
 using namespace std::chrono_literals;
 
@@ -122,7 +122,7 @@ TEST_CASE("gateway handshake, sessions, movement over ticks, save on close", "[z
 {
     Quiet q;
     asio::io_context io;
-    jx::zone::ZoneServerConfig cfg;
+    jx::zone::KGameServerConfig cfg;
     cfg.listen_address = "127.0.0.1";
     cfg.port = 0;
     cfg.world.tick_hz = 20;
@@ -130,7 +130,7 @@ TEST_CASE("gateway handshake, sessions, movement over ticks, save on close", "[z
     cfg.world.default_speed = 200;
     cfg.stats_interval_s = 0;
     cfg.save_interval_s = 0;
-    jx::zone::ZoneServer server(io, cfg);
+    jx::zone::KGameServer server(io, cfg);
     REQUIRE(!server.start());
     REQUIRE(server.port() != 0);
 

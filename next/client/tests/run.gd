@@ -4,8 +4,8 @@
 extends SceneTree
 
 const Proto := preload("res://proto/jx_pb.gd")
-const NetScript := preload("res://net/frame.gd")   # pure framing (autoload scripts cannot be preloaded here)
-const LogScript := preload("res://autoload/log.gd")
+const NetScript := preload("res://net/KProtocol.gd")   # pure framing (autoload scripts cannot be preloaded here)
+const LogScript := preload("res://autoload/KDebug.gd")
 
 var _failed := 0
 var _passed := 0

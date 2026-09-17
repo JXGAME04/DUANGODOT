@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "jx/log.hpp"
-#include "jx/net/connection.hpp"
+#include "jx/net/KSocket.h"
 #include "jx/net/proto.hpp"
 #include "jx/client.pb.h"
 #include "jx/msg.pb.h"

@@ -23,9 +23,9 @@ struct Cell {
     constexpr bool operator==(const Cell&) const noexcept = default;
 };
 
-class AoiGrid {
+class KRegionGrid {
 public:
-    explicit AoiGrid(std::int32_t cell_size, std::int32_t view_cells = 1);
+    explicit KRegionGrid(std::int32_t cell_size, std::int32_t view_cells = 1);
 
     [[nodiscard]] Cell cell_of(Pos p) const noexcept;
     [[nodiscard]] const Cell* cell_of(EntityId id) const;

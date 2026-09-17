@@ -1,15 +1,15 @@
-#include "jx/zone/aoi.hpp"
+#include "jx/zone/KRegion.h"
 
 #include <algorithm>
 
 namespace jx::zone {
 
-AoiGrid::AoiGrid(std::int32_t cell_size, std::int32_t view_cells)
+KRegionGrid::KRegionGrid(std::int32_t cell_size, std::int32_t view_cells)
     : cell_size_(cell_size > 0 ? cell_size : 1), view_(view_cells >= 0 ? view_cells : 0)
 {
 }
 
-Cell AoiGrid::cell_of(Pos p) const noexcept
+Cell KRegionGrid::cell_of(Pos p) const noexcept
 {
     // floor division so negative coordinates map to a stable cell as well
     const auto fdiv = [](std::int32_t a, std::int32_t b) noexcept {
@@ -18,13 +18,13 @@ Cell AoiGrid::cell_of(Pos p) const noexcept
     return Cell{fdiv(p.x, cell_size_), fdiv(p.y, cell_size_)};
 }
 
-const Cell* AoiGrid::cell_of(EntityId id) const
+const Cell* KRegionGrid::cell_of(EntityId id) const
 {
     const auto it = where_.find(id);
     return it == where_.end() ? nullptr : &it->second;
 }
 
-void AoiGrid::insert(EntityId id, Pos p)
+void KRegionGrid::insert(EntityId id, Pos p)
 {
     remove(id);
     const Cell c = cell_of(p);
@@ -32,7 +32,7 @@ void AoiGrid::insert(EntityId id, Pos p)
     where_[id] = c;
 }
 
-void AoiGrid::remove(EntityId id)
+void KRegionGrid::remove(EntityId id)
 {
     const auto it = where_.find(id);
     if (it == where_.end()) return;
@@ -45,7 +45,7 @@ void AoiGrid::remove(EntityId id)
     where_.erase(it);
 }
 
-bool AoiGrid::move(EntityId id, Pos p, Cell& from, Cell& to)
+bool KRegionGrid::move(EntityId id, Pos p, Cell& from, Cell& to)
 {
     const auto it = where_.find(id);
     if (it == where_.end()) {
@@ -62,7 +62,7 @@ bool AoiGrid::move(EntityId id, Pos p, Cell& from, Cell& to)
     return true;
 }
 
-void AoiGrid::view_diff(Cell from, Cell to, std::vector<EntityId>& entered, std::vector<EntityId>& left) const
+void KRegionGrid::view_diff(Cell from, Cell to, std::vector<EntityId>& entered, std::vector<EntityId>& left) const
 {
     entered.clear();
     left.clear();

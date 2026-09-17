@@ -6,10 +6,10 @@
 #include "jx/client.pb.h"
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
-#include "jx/zone/map.hpp"
-#include "jx/zone/world.hpp"
+#include "jx/zone/KMapData.h"
+#include "jx/zone/KSubWorld.h"
 
-using jx::zone::MapData;
+using jx::zone::KMapData;
 using jx::zone::Pos;
 
 namespace {
@@ -25,9 +25,9 @@ struct Quiet {
 };
 
 // 20 x 20 cells, a vertical wall at x = 10 from y = 0..14 (gap at the bottom)
-MapData walled()
+KMapData walled()
 {
-    MapData m = MapData::synthetic(20, 20);
+    KMapData m = KMapData::synthetic(20, 20);
     for (int y = 0; y < 15; ++y) m.set_blocked(10, y);
     return m;
 }
@@ -36,7 +36,7 @@ MapData walled()
 
 TEST_CASE("walkability, nearest walkable and line of sight", "[map]")
 {
-    const MapData m = walled();
+    const KMapData m = walled();
     CHECK(m.walkable(Pos{16, 16}));
     CHECK_FALSE(m.walkable(Pos{10 * 32 + 5, 5}));
     CHECK_FALSE(m.walkable_cell(-1, 0));
@@ -54,7 +54,7 @@ TEST_CASE("walkability, nearest walkable and line of sight", "[map]")
 
 TEST_CASE("A* routes around the wall and smooths straight stretches", "[map]")
 {
-    const MapData m = walled();
+    const KMapData m = walled();
     const Pos from{2 * 32 + 16, 2 * 32 + 16};
     const Pos to{17 * 32 + 16, 2 * 32 + 16};
     const auto path = m.find_path(from, to);
@@ -76,7 +76,7 @@ TEST_CASE("A* routes around the wall and smooths straight stretches", "[map]")
     CHECK(m.find_path(from, Pos{5 * 32, 5 * 32}).size() == 1);   // direct line of sight: one leg
     CHECK(m.find_path(from, from).size() == 1);
 
-    MapData boxed = MapData::synthetic(5, 5);
+    KMapData boxed = KMapData::synthetic(5, 5);
     for (int i = 0; i < 5; ++i) {
         boxed.set_blocked(2, i);
     }
@@ -87,13 +87,13 @@ TEST_CASE("A* routes around the wall and smooths straight stretches", "[map]")
 TEST_CASE("world with a map follows waypoints and clamps to walkable cells", "[map][world]")
 {
     Quiet q;
-    jx::zone::WorldConfig cfg;
+    jx::zone::KSubWorldConfig cfg;
     cfg.tick_hz = 20;
     cfg.default_speed = 320;   // 16 units per tick
     cfg.cell_size = 512;
-    cfg.map = std::make_shared<const MapData>(walled());
+    cfg.map = std::make_shared<const KMapData>(walled());
     cfg.map_npcs = false;
-    jx::zone::World w(cfg);
+    jx::zone::KSubWorld w(cfg);
     CHECK(w.config().width == 20 * 32);
     CHECK(w.config().spawn_point == cfg.map->spawn);
 
@@ -143,12 +143,12 @@ TEST_CASE("world with a map follows waypoints and clamps to walkable cells", "[m
 TEST_CASE("map npcs are placed from the bundle", "[map][world]")
 {
     Quiet q;
-    MapData m = MapData::synthetic(10, 10);
-    m.npcs.push_back(jx::zone::NpcPlacement{7, "Lão Bản", Pos{100, 100}, 0, 1, ""});
-    m.npcs.push_back(jx::zone::NpcPlacement{8, "Thợ Rèn", Pos{200, 200}, 0, 1, ""});
-    jx::zone::WorldConfig cfg;
-    cfg.map = std::make_shared<const MapData>(std::move(m));
-    jx::zone::World w(cfg);
+    KMapData m = KMapData::synthetic(10, 10);
+    m.npcs.push_back(jx::zone::KNpcPlacement{7, "Lão Bản", Pos{100, 100}, 0, 1, ""});
+    m.npcs.push_back(jx::zone::KNpcPlacement{8, "Thợ Rèn", Pos{200, 200}, 0, 1, ""});
+    jx::zone::KSubWorldConfig cfg;
+    cfg.map = std::make_shared<const KMapData>(std::move(m));
+    jx::zone::KSubWorld w(cfg);
     CHECK(w.entity_count() == 2);
     CHECK(w.take_outbox().empty());
     jx::pb::RoleData role;

@@ -7,13 +7,13 @@
 #include "jx/client.pb.h"
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
-#include "jx/zone/world.hpp"
+#include "jx/zone/KSubWorld.h"
 
 using jx::EntityId;
 using jx::zone::Packet;
 using jx::zone::Pos;
-using jx::zone::World;
-using jx::zone::WorldConfig;
+using jx::zone::KSubWorld;
+using jx::zone::KSubWorldConfig;
 
 namespace {
 
@@ -27,9 +27,9 @@ struct Quiet {
     }
 };
 
-WorldConfig small_world()
+KSubWorldConfig small_world()
 {
-    WorldConfig c;
+    KSubWorldConfig c;
     c.zone_id = 1;
     c.tick_hz = 20;
     c.width = 4096;
@@ -75,7 +75,7 @@ std::vector<Packet> to(const std::vector<Packet>& all, std::uint64_t sid, jx::pb
 TEST_CASE("spawn sends the visible set to the newcomer and the newcomer to viewers", "[world]")
 {
     Quiet q;
-    World w(small_world());
+    KSubWorld w(small_world());
     EntityId ea, eb;
     Pos pa, pb;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{100, 100}), ea, pa) == jx::pb::RESULT_OK);
@@ -107,7 +107,7 @@ TEST_CASE("spawn sends the visible set to the newcomer and the newcomer to viewe
 TEST_CASE("players far apart do not see each other and other zones fall back to the spawn point", "[world]")
 {
     Quiet q;
-    World w(small_world());
+    KSubWorld w(small_world());
     EntityId ea, eb;
     Pos pa, pb;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{100, 100}), ea, pa) == jx::pb::RESULT_OK);
@@ -129,7 +129,7 @@ TEST_CASE("players far apart do not see each other and other zones fall back to 
 TEST_CASE("movement is deterministic, integer exact and arrives on the target", "[world]")
 {
     Quiet q;
-    World w(small_world());
+    KSubWorld w(small_world());
     EntityId ea;
     Pos pa;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{0, 0}), ea, pa) == jx::pb::RESULT_OK);
@@ -168,7 +168,7 @@ TEST_CASE("movement is deterministic, integer exact and arrives on the target", 
     CHECK_FALSE(w.find_player(1)->moving);
 
     // same inputs on a fresh world give the same trajectory
-    World w2(small_world());
+    KSubWorld w2(small_world());
     REQUIRE(w2.spawn_player(1, role(11, "A", Pos{0, 0}), ea, pa) == jx::pb::RESULT_OK);
     REQUIRE(w2.move_request(1, Pos{100, 0}, 7));
     for (int i = 0; i < 10; ++i) w2.tick();
@@ -182,7 +182,7 @@ TEST_CASE("movement is deterministic, integer exact and arrives on the target", 
 TEST_CASE("crossing a cell boundary spawns and despawns on both sides", "[world]")
 {
     Quiet q;
-    World w(small_world());   // cell 512, view 1
+    KSubWorld w(small_world());   // cell 512, view 1
     EntityId ea, eb;
     Pos pa, pb;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{500, 100}), ea, pa) == jx::pb::RESULT_OK);     // cell 0
@@ -222,7 +222,7 @@ TEST_CASE("crossing a cell boundary spawns and despawns on both sides", "[world]
 TEST_CASE("remove, chat and role snapshot", "[world]")
 {
     Quiet q;
-    World w(small_world());
+    KSubWorld w(small_world());
     EntityId ea, eb;
     Pos pa, pb;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{100, 100}), ea, pa) == jx::pb::RESULT_OK);
@@ -266,7 +266,7 @@ TEST_CASE("wandering npcs move and are announced to viewers", "[world]")
     Quiet q;
     auto cfg = small_world();
     cfg.seed = 42;
-    World w(cfg);
+    KSubWorld w(cfg);
     EntityId ea;
     Pos pa;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{1000, 1000}), ea, pa) == jx::pb::RESULT_OK);

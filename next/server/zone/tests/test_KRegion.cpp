@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <vector>
 
-#include "jx/zone/aoi.hpp"
+#include "jx/zone/KRegion.h"
 
 using jx::EntityId;
-using jx::zone::AoiGrid;
+using jx::zone::KRegionGrid;
 using jx::zone::Cell;
 using jx::zone::Pos;
 
@@ -18,7 +18,7 @@ std::vector<EntityId> sorted(std::vector<EntityId> v)
     return v;
 }
 
-std::vector<EntityId> in_view(const AoiGrid& g, Cell c)
+std::vector<EntityId> in_view(const KRegionGrid& g, Cell c)
 {
     std::vector<EntityId> out;
     g.for_each_in_view(c, [&](EntityId id) { out.push_back(id); });
@@ -29,7 +29,7 @@ std::vector<EntityId> in_view(const AoiGrid& g, Cell c)
 
 TEST_CASE("cells are floor divisions of the position", "[aoi]")
 {
-    AoiGrid g(512);
+    KRegionGrid g(512);
     CHECK(g.cell_of(Pos{0, 0}) == Cell{0, 0});
     CHECK(g.cell_of(Pos{511, 511}) == Cell{0, 0});
     CHECK(g.cell_of(Pos{512, 1023}) == Cell{1, 1});
@@ -41,7 +41,7 @@ TEST_CASE("cells are floor divisions of the position", "[aoi]")
 
 TEST_CASE("insert, move and remove keep the buckets consistent", "[aoi]")
 {
-    AoiGrid g(100);
+    KRegionGrid g(100);
     const EntityId a{1}, b{2}, c{3};
     g.insert(a, Pos{10, 10});
     g.insert(b, Pos{150, 10});     // neighbour cell
@@ -69,7 +69,7 @@ TEST_CASE("insert, move and remove keep the buckets consistent", "[aoi]")
 
 TEST_CASE("view diff lists what appears and what vanishes when crossing cells", "[aoi]")
 {
-    AoiGrid g(100);
+    KRegionGrid g(100);
     // one entity per column x = 0..5 on row 0
     for (std::int32_t i = 0; i < 6; ++i) g.insert(EntityId{static_cast<std::uint64_t>(i + 1)}, Pos{i * 100 + 50, 50});
 

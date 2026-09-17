@@ -1,10 +1,10 @@
 # jx_zone_core - simulation + gateway protocol (library, unit tested)
 # jx_zone      - the executable
 add_library(jx_zone_core STATIC
-    src/aoi.cpp
-    src/map.cpp
-    src/world.cpp
-    src/zone_server.cpp
+    src/KRegion.cpp
+    src/KMapData.cpp
+    src/KSubWorld.cpp
+    src/KGameServer.cpp
 )
 add_library(jx::zone_core ALIAS jx_zone_core)
 target_include_directories(jx_zone_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

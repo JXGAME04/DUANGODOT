@@ -10,7 +10,7 @@
 #include "jx/config.hpp"
 #include "jx/log.hpp"
 #include "jx/net/asio.hpp"
-#include "jx/zone/zone_server.hpp"
+#include "jx/zone/KGameServer.h"
 
 namespace {
 
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
     jx::log::info("boot", "zone starting", {jx::log::kv("version", kVersion), jx::log::kv("config", config_path.empty() ? "(defaults)" : config_path)});
     jx::log::info("cfg", "effective config", {jx::log::kv("json", cfg.dump(-1))});
 
-    jx::zone::ZoneServerConfig zc;
+    jx::zone::KGameServerConfig zc;
     zc.listen_address = cfg.get_string("zone.listen", zc.listen_address);
     zc.port = static_cast<std::uint16_t>(cfg.get_int("zone.port", zc.port));
     zc.save_interval_s = static_cast<std::uint32_t>(cfg.get_int("zone.save_interval_s", zc.save_interval_s));
@@ -106,17 +106,17 @@ int main(int argc, char** argv)
     const std::string map_dir = cfg.get_string("zone.map_dir", "");
     if (!map_dir.empty()) {
         std::string error;
-        auto map = jx::zone::MapData::load(map_dir, &error);
+        auto map = jx::zone::KMapData::load(map_dir, &error);
         if (!map) {
             jx::log::fatal("boot", "map bundle failed", {jx::log::kv("dir", map_dir), jx::log::kv("error", error)});
             jx::log::shutdown();
             return 1;
         }
-        w.map = std::make_shared<const jx::zone::MapData>(std::move(*map));
+        w.map = std::make_shared<const jx::zone::KMapData>(std::move(*map));
     }
 
     asio::io_context io;
-    jx::zone::ZoneServer server(io, zc);
+    jx::zone::KGameServer server(io, zc);
     if (const auto ec = server.start()) {
         jx::log::fatal("boot", "zone cannot start", {jx::log::kv("error", ec.message())});
         jx::log::shutdown();

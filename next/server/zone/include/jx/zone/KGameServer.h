@@ -1,4 +1,4 @@
-// ZoneServer: accepts gateway links, drives the World at a fixed tick and relays packets.
+// KGameServer: accepts gateway links, drives the World at a fixed tick and relays packets.
 // Single threaded: everything runs on the io_context that owns the server.
 #pragma once
 
@@ -9,30 +9,30 @@
 
 #include "jx/clock.hpp"
 #include "jx/frame.hpp"
-#include "jx/net/connection.hpp"
-#include "jx/zone/world.hpp"
+#include "jx/net/KSocket.h"
+#include "jx/zone/KSubWorld.h"
 
 namespace jx::zone {
 
-struct ZoneServerConfig {
+struct KGameServerConfig {
     std::string listen_address = "0.0.0.0";
     std::uint16_t port = 17001;
-    WorldConfig world;
+    KSubWorldConfig world;
     std::uint32_t save_interval_s = 60;
     std::uint32_t stats_interval_s = 10;
     std::uint32_t max_ticks_per_update = 5;
 };
 
-class ZoneServer {
+class KGameServer {
 public:
-    ZoneServer(asio::io_context& io, ZoneServerConfig cfg);
+    KGameServer(asio::io_context& io, KGameServerConfig cfg);
 
     std::error_code start();
     void stop();
 
     [[nodiscard]] std::uint16_t port() const { return listener_.port(); }
-    [[nodiscard]] World& world() noexcept { return world_; }
-    [[nodiscard]] const ZoneServerConfig& config() const noexcept { return cfg_; }
+    [[nodiscard]] KSubWorld& world() noexcept { return world_; }
+    [[nodiscard]] const KGameServerConfig& config() const noexcept { return cfg_; }
     [[nodiscard]] std::size_t gateway_count() const noexcept { return gateways_.size(); }
     [[nodiscard]] std::size_t session_count() const noexcept { return session_gateway_.size(); }
 
@@ -59,9 +59,9 @@ private:
     void run_ticks();
 
     asio::io_context& io_;
-    ZoneServerConfig cfg_;
+    KGameServerConfig cfg_;
     net::Listener listener_;
-    World world_;
+    KSubWorld world_;
     asio::steady_timer timer_;
     FixedStep step_;
     Nanos last_update_{0};

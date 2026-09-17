@@ -1,8 +1,9 @@
-# Net - one TCP connection to the gateway using the Protocol V2 framing (net/frame.gd).
+# Net (KSocketClient, cf. old S3Client/NetConnect) - one TCP connection to the gateway using
+# the Protocol V2 framing (net/KProtocol.gd).
 # Emits `message(msg_id, payload)` for every complete frame.
 extends Node
 
-const Frame := preload("res://net/frame.gd")
+const Frame := preload("res://net/KProtocol.gd")
 
 signal connected
 signal disconnected(reason: String)

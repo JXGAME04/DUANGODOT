@@ -9,7 +9,7 @@
 #include <google/protobuf/message_lite.h>
 
 #include "jx/frame.hpp"
-#include "jx/net/connection.hpp"
+#include "jx/net/KSocket.h"
 
 namespace jx::net {
 

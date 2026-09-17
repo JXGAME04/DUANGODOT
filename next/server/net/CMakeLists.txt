@@ -2,7 +2,7 @@
 find_package(asio CONFIG REQUIRED)
 
 add_library(jx_net STATIC
-    src/connection.cpp
+    src/KSocket.cpp
 )
 add_library(jx::net ALIAS jx_net)
 target_include_directories(jx_net PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "jx/ids.hpp"
-#include "jx/zone/aoi.hpp"
+#include "jx/zone/KRegion.h"
 
 namespace jx::zone {
 
@@ -14,11 +14,11 @@ namespace jx::zone {
 // so every platform produces bit-identical results for the same inputs (replayable ticks).
 inline constexpr std::int64_t kSub = 256;
 
-enum class EntityKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 };
+enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 };
 
-struct Entity {
+struct KNpc {
     EntityId id;
-    EntityKind kind = EntityKind::npc;
+    KNpcKind kind = KNpcKind::npc;
     std::string name;
 
     std::int64_t fx = 0, fy = 0;   // current position (sub-units)

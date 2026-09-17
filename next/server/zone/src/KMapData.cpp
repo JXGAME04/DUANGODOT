@@ -1,4 +1,4 @@
-#include "jx/zone/map.hpp"
+#include "jx/zone/KMapData.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -11,7 +11,7 @@
 
 namespace jx::zone {
 
-std::optional<MapData> MapData::load(const std::filesystem::path& dir, std::string* error)
+std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::string* error)
 {
     auto fail = [&](const std::string& msg) {
         if (error) *error = msg;
@@ -25,7 +25,7 @@ std::optional<MapData> MapData::load(const std::filesystem::path& dir, std::stri
     } catch (const std::exception& e) {
         return fail(std::string("map.json: ") + e.what());
     }
-    MapData m;
+    KMapData m;
     try {
         m.id = j.value("id", 0);
         m.name = j.value("name", "");
@@ -38,7 +38,7 @@ std::optional<MapData> MapData::load(const std::filesystem::path& dir, std::stri
             m.spawn = Pos{j["spawn"][0].get<int>(), j["spawn"][1].get<int>()};
         }
         for (const auto& n : j.value("npcs", nlohmann::json::array())) {
-            NpcPlacement p;
+            KNpcPlacement p;
             p.template_id = n.value("template_id", 0u);
             p.name = n.value("name", "");
             p.pos = Pos{n.value("x", 0), n.value("y", 0)};
@@ -68,9 +68,9 @@ std::optional<MapData> MapData::load(const std::filesystem::path& dir, std::stri
     return m;
 }
 
-MapData MapData::synthetic(int cells_x, int cells_y, int cell)
+KMapData KMapData::synthetic(int cells_x, int cells_y, int cell)
 {
-    MapData m;
+    KMapData m;
     m.cell = cell;
     m.cells_x = cells_x;
     m.cells_y = cells_y;
@@ -81,12 +81,12 @@ MapData MapData::synthetic(int cells_x, int cells_y, int cell)
     return m;
 }
 
-void MapData::set_blocked(int cx, int cy, std::uint8_t kind)
+void KMapData::set_blocked(int cx, int cy, std::uint8_t kind)
 {
     if (in_bounds(cx, cy)) obstacle[static_cast<std::size_t>(cy) * static_cast<std::size_t>(cells_x) + static_cast<std::size_t>(cx)] = kind;
 }
 
-Pos MapData::nearest_walkable(Pos p, int max_radius) const noexcept
+Pos KMapData::nearest_walkable(Pos p, int max_radius) const noexcept
 {
     const int cx = p.x / cell, cy = p.y / cell;
     if (walkable_cell(cx, cy)) return p;
@@ -110,7 +110,7 @@ Pos MapData::nearest_walkable(Pos p, int max_radius) const noexcept
     return p;
 }
 
-bool MapData::line_of_sight(Pos a, Pos b) const noexcept
+bool KMapData::line_of_sight(Pos a, Pos b) const noexcept
 {
     // supercover traversal over cells (every cell the segment touches must be walkable)
     int x0 = a.x / cell, y0 = a.y / cell;
@@ -141,7 +141,7 @@ bool MapData::line_of_sight(Pos a, Pos b) const noexcept
     return true;
 }
 
-std::vector<Pos> MapData::find_path(Pos from, Pos to, std::size_t max_expand) const
+std::vector<Pos> KMapData::find_path(Pos from, Pos to, std::size_t max_expand) const
 {
     const int sx = from.x / cell, sy = from.y / cell;
     const int tx = to.x / cell, ty = to.y / cell;
@@ -205,7 +205,7 @@ std::vector<Pos> MapData::find_path(Pos from, Pos to, std::size_t max_expand) co
     return smooth(from, cells);
 }
 
-std::vector<Pos> MapData::smooth(Pos from, const std::vector<Pos>& points) const
+std::vector<Pos> KMapData::smooth(Pos from, const std::vector<Pos>& points) const
 {
     std::vector<Pos> out;
     Pos anchor = from;
