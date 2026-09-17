@@ -31,6 +31,7 @@ var total_frame := 15              # m_Frames.nTotalFrame
 var cur_frame := 0                 # m_Frames.nCurrentFrame
 var has_res := false
 var frames := {"stand": 15, "stand1": 15, "walk": 12, "run": 15}
+var stature := 0                   # m_nStature (npcs.txt): name height above the feet
 var _res: Node2D
 var _label: Label
 var _tick_acc := 0.0
@@ -87,7 +88,10 @@ func setup(d: Dictionary, own: bool) -> void:
 		res_name = str(tpl.get("res", ""))
 		frames = {"stand": int(tpl.get("stand_frame", 15)), "stand1": int(tpl.get("stand_frame1", 15)),
 			"walk": int(tpl.get("walk_frame", 12)), "run": int(tpl.get("run_frame", 15))}
+		stature = int(tpl.get("stature", 0))
 	has_res = _res.setup(res_name)
+	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
+	_label.position.y = -float(_pate()) - 20.0
 	if not has_res:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
@@ -172,7 +176,14 @@ func _tick() -> void:
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
 		_res.paint(res_dir, total_frame, cur_frame)
-		_label.position.y = _res.head_top - 24.0
+
+
+# KNpc::GetNpcPate (no jump height, sitting or riding yet).
+func _pate() -> int:
+	var h := stature
+	if entity_type == ENTITY_PLAYER:
+		h += 84
+	return h
 
 
 func _set_doing(d: int) -> void:

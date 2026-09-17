@@ -35,6 +35,7 @@ type TemplateInfo struct {
 	Weapon      int    `json:"weapon"`
 	Horse       int    `json:"horse"`
 	Ride        bool   `json:"ride"`
+	Stature     int    `json:"stature"` // height of the name above the feet (KNpc::GetNpcPate)
 }
 
 // ResFile is npcres/res/<name>.json: one KNpcResNode.
@@ -105,7 +106,7 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 		}
 		bundle.Templates[strconv.Itoa(t.ID)] = TemplateInfo{Name: t.Name, Res: t.ResType, Kind: t.Kind, Series: t.Series,
 			StandFrame: t.StandFrame, StandFrame1: t.StandFrame1, WalkFrame: t.WalkFrame, RunFrame: t.RunFrame, DeathFrame: t.DeathFrame,
-			Helm: t.HelmType, Armor: t.ArmorType, Weapon: t.WeaponType, Horse: t.HorseType, Ride: t.RideHorse}
+			Helm: t.HelmType, Armor: t.ArmorType, Weapon: t.WeaponType, Horse: t.HorseType, Ride: t.RideHorse, Stature: t.Stature}
 	}
 	data, err := json.MarshalIndent(bundle, "", " ")
 	if err != nil {

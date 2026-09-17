@@ -35,10 +35,14 @@ client/assets/sprites/<id8>.png/.json atlas dùng chung với map
   `动作编号表.txt`) và `<bộ phận>信息.txt`. Doing → action qua `未骑马关联表.txt` (hàng = loại vũ khí, cột =
   14 doing) hoặc `骑马关联表.txt` khi cưỡi ngựa. `res/<tên>.json`: `parts[] {index, name, equips {"<trang bị>":
   [75 × {s, frames, dirs, interval, color}]}}`, `no_horse[][]`, `on_horse[][]`, `sort`, `shadow[75]`, `equips`
-  (bộ trang bị đã xuất: helm 0, armor 0, weapon 0 = tay không, horse 0, không披风).
+  (bộ trang bị đã xuất, xem dưới).
 
-Bộ mặc định của bản này không có file tóc/vai (`MA_HR_*`, `MA_SH_*` không có trong pak) nên chỉ Head + Body +
-hai tay + hai "vũ khí tay không" + bóng.
+Số hàng trang bị của mỗi nhóm bộ phận **không** phải 0 khi không mặc gì: game cũ lấy từ `g_ItemChangeRes`
+(`KItemChangeRes.cpp`, bảng `Settings/item/{HelmRes,ArmorRes,MeleeRes,RangeRes,HorseRes}.txt`):
+`GetHelmRes(0,0)` = ô (2,2) của HelmRes − 2 = **18**, `GetArmorRes(0,0)` = **18**, `GetWeaponRes(0,0,0)` = **0**
+(tay không), ngựa −1, phi phong −1 (`KItemList.cpp:1054`, `KPlayerDBFuns.cpp:402`). Port: `KItemChangeRes.go`,
+`DefaultEquips()`; khi mặc đồ sẽ tính từ item như `KItemList.cpp:733` (chưa làm). Tên nhân vật đặt cao
+`m_nStature` (+84 với người chơi) trên chân (`KNpc::GetNpcPate`).
 
 ## 3. Vẽ (client `KNpcRes.gd`, `KNpc.gd`, `KNpcResNode.gd`, `KMath.gd`)
 

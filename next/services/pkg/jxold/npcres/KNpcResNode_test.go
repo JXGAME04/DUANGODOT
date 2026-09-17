@@ -148,4 +148,30 @@ func TestNpcResTablesOfTheOldClient(t *testing.T) {
 	if pf["male"].StandFrame != 25 || pf["female"].StandFrame != 45 || pf["male"].WalkFrame != 12 || pf["male"].RunFrame != 14 {
 		t.Errorf("player base frames: %+v", pf)
 	}
+
+	// a character wearing nothing: KItemChangeRes row 2 column 2 minus 2 of each table
+	icr, err := LoadItemChangeRes(set.ReadFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if icr.HelmRes(0, 0) != 18 || icr.ArmorRes(0, 0) != 18 || icr.WeaponRes(0, 0, 0) != 0 || icr.HorseRes(0, 0) != -1 {
+		t.Errorf("unequipped look: helm %d armor %d weapon %d horse %d", icr.HelmRes(0, 0), icr.ArmorRes(0, 0), icr.WeaponRes(0, 0, 0), icr.HorseRes(0, 0))
+	}
+	if icr.WeaponRes(EquipMeleeWeapon, 0, 1) != 1 {
+		t.Errorf("melee weapon particular 0 level 1 -> %d", icr.WeaponRes(EquipMeleeWeapon, 0, 1))
+	}
+	if eq := icr.DefaultEquips(); eq[0] != 18 || eq[1] != 18 || eq[2] != 0 || len(eq) != 3 {
+		t.Errorf("default equips: %v", eq)
+	}
+	// the rows exist in the part tables and their sprites in the archives
+	bare := man.Parts[0].Equips[icr.HelmRes(0, 0)][standAct]
+	if bare.File != `\spr\npcres\man\MA_HD_019_ST02.spr` {
+		t.Errorf("default head: %+v", bare)
+	}
+	if _, _, ok := set.Lookup(bare.File); !ok {
+		t.Errorf("default head sprite missing: %s", bare.File)
+	}
+	if atoi(" 20abc") != 20 || atoi("-3") != -3 || atoi("") != 0 {
+		t.Error("atoi")
+	}
 }

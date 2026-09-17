@@ -396,10 +396,15 @@ func main() {
 		}
 		names := append([]string{"MainMan", "MainLady"}, export.ResNamesOf(templates, placed)...)
 		e := export.New(set, *flagOut)
+		// what a character wearing nothing looks like: g_ItemChangeRes (KItemList.cpp:1054)
+		icr, err := npcres.LoadItemChangeRes(set.ReadFile)
+		if err != nil {
+			fail("item appearance tables: %v", err)
+		}
 		opt := export.NpcResOptions{
 			Names:  names,
 			Doings: []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun},
-			Equips: map[int]int{0: 0, 1: 0, 2: 0, 3: 0}, // bare hands, default clothes, no mantle
+			Equips: icr.DefaultEquips(),
 		}
 		n, err := e.NpcRes(list, templates, player, opt)
 		if err != nil {
