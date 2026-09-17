@@ -117,7 +117,7 @@ thu bằng cảm tính.
 | **M7** | N3, N5, N6 | 1–2 | 20 000 người trên hai gateway: p99 < 55 ms, tồn đọng đường truyền < 4 MB. Cần bot từ máy thứ hai. |
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. |
-| **M10** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | Danh sách đầy đủ 235 hàm và bảng kỹ năng, có tài liệu. |
+| **M10** *(đang làm)* | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | **Liệt kê xong**: 1506 hàm script (game) + 438 (gateway) + 102 tệp settings, phân loại + định vị, công cụ `re_elf.py`, [LINUX-SERVER.md]. Còn: chữ ký từng hàm theo hệ (làm cùng M11–M13). |
 | **M11** | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
@@ -137,6 +137,28 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 (khuya) — M10: mổ nhị phân server Linux — bộ hàm script + hệ settings
+
+Chủ dự án giao: "mổ nhị phân `D:\ServerLinux` lấy toàn bộ settings và script, chính xác từng dòng".
+Đợt này làm phần **liệt kê + phân loại + định vị** (bản đồ để M11–M13 hiện thực từng hệ). Tất cả đọc
+thẳng từ nhị phân, không đoán. Chi tiết: [LINUX-SERVER.md](LINUX-SERVER.md).
+
+- Công cụ mới `next/tools/re/re_elf.py`: đọc ELF **không có section header** qua program header +
+  DYNAMIC (info/imports/exports/strings/xref/xrefstr/dis/func/luamap).
+- `jx_linux_y` **không nén UPX**; code game + bảng Lua + chuỗi settings nằm **rõ** trong segment r-x
+  đầu. Có một segment rwx 5,7 MB entropy 8.0 (lớp bảo vệ KG_Angel) — bỏ qua, không cần.
+- **Bộ hàm script: 1506 hàm** (`jx_linux_y`) + **438** (`s3relay_y`), lọc theo prologue `push ebp`
+  nên sạch hơn bản đồ cũ (1561, lẫn từ khoá Lua). Nhóm theo miền: Bang hội/công thành 194, Vật phẩm
+  123, NPC 84, Nhiệm vụ 61, Kỹ năng+chiêu 53, Cấp/exp 42, Thú cưng 35, Nhân vật 36... JX NEXT hiện
+  mới đăng ký **3** hàm — khoảng cách đó là M11–M13.
+- **Hệ settings: 102 tệp** trong `\settings\` (+ 62 đường dẫn script). Đã ghi ra tệp, đã chỉ tệp nào
+  cho hệ nào. Tìm nơi đọc + cột đọc bằng `xrefstr`/`func` (ví dụ `gamesetting.ini` @0x805EA59).
+- **Quy ước gọi**: hàm nhận đối số nguyên/thực trực tiếp (KGLua bọc), y như bindings Lua4 của JX1 —
+  nên zone mới đăng ký cùng tên, cùng số. Mẫu chữ ký `GetLevel` đọc bằng disassembly ở tài liệu.
+
+Dữ liệu kèm theo (text, ~100 KB): `docs/linux/jx_linux_luaapi.txt`, `s3relay_luaapi.txt`,
+`jx_linux_luaapi_nhom.txt`, `jx_settings_files.txt`.
 
 ### 2026-09-17 (khuya) — console của `jx_zone` và gateway: từng dòng, tiếng Việt, có màu
 
