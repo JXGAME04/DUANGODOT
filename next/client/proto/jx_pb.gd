@@ -4731,6 +4731,11 @@ class RoleData:
 		service.field = __data_version
 		data[__data_version.tag] = service
 		
+		__fight_mode = PBField.new("fight_mode", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 16, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __fight_mode
+		data[__fight_mode.tag] = service
+		
 	var data = {}
 	
 	var __player_id: PBField
@@ -4927,6 +4932,19 @@ class RoleData:
 		__data_version.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_data_version(value : int) -> void:
 		__data_version.value = value
+	
+	var __fight_mode: PBField
+	func has_fight_mode() -> bool:
+		if __fight_mode.value != null:
+			return true
+		return false
+	func get_fight_mode() -> bool:
+		return __fight_mode.value
+	func clear_fight_mode() -> void:
+		data[16].state = PB_SERVICE_STATE.UNFILLED
+		__fight_mode.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_fight_mode(value : bool) -> void:
+		__fight_mode.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

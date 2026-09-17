@@ -191,6 +191,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.sid = sid;
     e.player_id = role.player_id();
     e.speed = role.stats().move_speed() > 0 ? static_cast<std::uint32_t>(role.stats().move_speed()) : cfg_.default_speed;
+    e.fight_mode = role.fight_mode();
     // BaseValue.ini of the old client ([Common] AttackFrame 18, HurtFrame 12); life and damage are
     // placeholders until the attribute system
     e.attack_frame = 18;
@@ -1046,6 +1047,7 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
         out.mutable_position()->set_map_id(map_id());
         set_vec(out.mutable_position()->mutable_pos(), e->pos());
         out.set_level(e->level);
+        out.set_fight_mode(e->fight_mode);   // KNpc::SetFightMode survives a logout like in the old game
     }
     return true;
 }

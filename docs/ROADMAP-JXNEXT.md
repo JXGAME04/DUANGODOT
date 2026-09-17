@@ -262,6 +262,12 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       tắt êm **chờ zone lưu xong**, thống kê `cat=gw.stats` + `Server.Snapshot()` cho Prometheus sau. Client: `KLogin.gd`
       dịch mã kết quả theo `LOGIN_R_*`/`CI_MI_*` cũ, watchdog heartbeat, bị đá thì về màn đăng nhập kèm lý do.
       Test: `pkg/auth` (6), `internal/gateway` (7 mới). Chi tiết `next/docs/PROTOCOL.md` mục 3b, `RUNNING.md` mục 3b/3c.
+- [x] **M4b — mô hình dữ liệu nhân vật có phiên bản (2026-09-17, ưu tiên 2b mục 4)**: `RoleData.data_version` +
+      `persist.CurrentRoleVersion` (2) + chuỗi di trú `MigrateRole` (`TRoleData.go`): bản ghi cũ được nâng cấp **một lần**
+      lúc mở store rồi ghi lại, bản ghi **mới hơn bị từ chối** (`ErrNewerData`) thay vì để server cũ ghi đè mất trường
+      (lỗi kinh điển của `TRoleData` cũ trong Goddess/BDB). Bước 1: điền trường của bản chưa có version; bước 2: sửa
+      chỉ số hỏng (max > 0, hp/mp trong khoảng, move_speed). Thêm `RoleData.fight_mode` (trạng thái chiến đấu giữ qua
+      lần đăng nhập). Test: 4 test `TRoleData_test.go` + `test_KTrap.cpp` (lưu/khôi phục fight_mode). ADR-003.
 - [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android

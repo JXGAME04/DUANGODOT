@@ -420,6 +420,10 @@ message RoleData {
   uint64 created_at_ms = 12;
   uint64 last_login_ms = 13;
   uint64 play_time_s = 14;
-  uint32 data_version = 15; // bump when a migration is required
+  // Shape of this record.  persist.CurrentRoleVersion is what the running server writes; an
+  // older record is upgraded on load (persist.MigrateRole), a newer one is refused instead of
+  // being silently downgraded.  See docs/ADR-003-role-data.md.
+  uint32 data_version = 15;
+  bool fight_mode = 16;     // KNpc::SetFightMode: in/out of combat stance (city gate traps)
 }
 

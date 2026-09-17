@@ -286,22 +286,26 @@ func (x *RoleItem) GetContainer() uint32 {
 }
 
 type RoleData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PlayerId      uint64                 `protobuf:"varint,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	AccountId     uint64                 `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"` // UTF-8, validated by the auth/persist layer
-	Level         uint32                 `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
-	Exp           uint64                 `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
-	Series        uint32                 `protobuf:"varint,6,opt,name=series,proto3" json:"series,omitempty"` // five elements (metal, wood, water, fire, earth) as in the old game
-	Sex           uint32                 `protobuf:"varint,7,opt,name=sex,proto3" json:"sex,omitempty"`
-	Faction       uint32                 `protobuf:"varint,8,opt,name=faction,proto3" json:"faction,omitempty"`
-	Position      *RolePosition          `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
-	Stats         *RoleStats             `protobuf:"bytes,10,opt,name=stats,proto3" json:"stats,omitempty"`
-	Items         []*RoleItem            `protobuf:"bytes,11,rep,name=items,proto3" json:"items,omitempty"`
-	CreatedAtMs   uint64                 `protobuf:"varint,12,opt,name=created_at_ms,json=createdAtMs,proto3" json:"created_at_ms,omitempty"`
-	LastLoginMs   uint64                 `protobuf:"varint,13,opt,name=last_login_ms,json=lastLoginMs,proto3" json:"last_login_ms,omitempty"`
-	PlayTimeS     uint64                 `protobuf:"varint,14,opt,name=play_time_s,json=playTimeS,proto3" json:"play_time_s,omitempty"`
-	DataVersion   uint32                 `protobuf:"varint,15,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"` // bump when a migration is required
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	PlayerId    uint64                 `protobuf:"varint,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
+	AccountId   uint64                 `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Name        string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"` // UTF-8, validated by the auth/persist layer
+	Level       uint32                 `protobuf:"varint,4,opt,name=level,proto3" json:"level,omitempty"`
+	Exp         uint64                 `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
+	Series      uint32                 `protobuf:"varint,6,opt,name=series,proto3" json:"series,omitempty"` // five elements (metal, wood, water, fire, earth) as in the old game
+	Sex         uint32                 `protobuf:"varint,7,opt,name=sex,proto3" json:"sex,omitempty"`
+	Faction     uint32                 `protobuf:"varint,8,opt,name=faction,proto3" json:"faction,omitempty"`
+	Position    *RolePosition          `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
+	Stats       *RoleStats             `protobuf:"bytes,10,opt,name=stats,proto3" json:"stats,omitempty"`
+	Items       []*RoleItem            `protobuf:"bytes,11,rep,name=items,proto3" json:"items,omitempty"`
+	CreatedAtMs uint64                 `protobuf:"varint,12,opt,name=created_at_ms,json=createdAtMs,proto3" json:"created_at_ms,omitempty"`
+	LastLoginMs uint64                 `protobuf:"varint,13,opt,name=last_login_ms,json=lastLoginMs,proto3" json:"last_login_ms,omitempty"`
+	PlayTimeS   uint64                 `protobuf:"varint,14,opt,name=play_time_s,json=playTimeS,proto3" json:"play_time_s,omitempty"`
+	// Shape of this record.  persist.CurrentRoleVersion is what the running server writes; an
+	// older record is upgraded on load (persist.MigrateRole), a newer one is refused instead of
+	// being silently downgraded.  See docs/ADR-003-role-data.md.
+	DataVersion   uint32 `protobuf:"varint,15,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	FightMode     bool   `protobuf:"varint,16,opt,name=fight_mode,json=fightMode,proto3" json:"fight_mode,omitempty"` // KNpc::SetFightMode: in/out of combat stance (city gate traps)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -441,6 +445,13 @@ func (x *RoleData) GetDataVersion() uint32 {
 	return 0
 }
 
+func (x *RoleData) GetFightMode() bool {
+	if x != nil {
+		return x.FightMode
+	}
+	return false
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -471,7 +482,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"templateId\x12\x14\n" +
 	"\x05count\x18\x03 \x01(\rR\x05count\x12\x12\n" +
 	"\x04slot\x18\x04 \x01(\rR\x04slot\x12\x1c\n" +
-	"\tcontainer\x18\x05 \x01(\rR\tcontainer\"\xd1\x03\n" +
+	"\tcontainer\x18\x05 \x01(\rR\tcontainer\"\xf0\x03\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -489,7 +500,9 @@ const file_jx_role_proto_rawDesc = "" +
 	"\rcreated_at_ms\x18\f \x01(\x04R\vcreatedAtMs\x12\"\n" +
 	"\rlast_login_ms\x18\r \x01(\x04R\vlastLoginMs\x12\x1e\n" +
 	"\vplay_time_s\x18\x0e \x01(\x04R\tplayTimeS\x12!\n" +
-	"\fdata_version\x18\x0f \x01(\rR\vdataVersionB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"\fdata_version\x18\x0f \x01(\rR\vdataVersion\x12\x1d\n" +
+	"\n" +
+	"fight_mode\x18\x10 \x01(\bR\tfightModeB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once

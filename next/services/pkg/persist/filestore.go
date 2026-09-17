@@ -58,6 +58,7 @@ func OpenFileStore(dir string) (*FileStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	migrated := 0
 	for _, e := range entries {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 			continue
@@ -70,13 +71,26 @@ func OpenFileStore(dir string) (*FileStore, error) {
 		if err := protojson.Unmarshal(raw, role); err != nil {
 			return nil, fmt.Errorf("persist: %s: %w", e.Name(), err)
 		}
+		// an old record is upgraded once, here, and written back; a newer one stops the server
+		// instead of being loaded half understood
+		changed, err := MigrateRole(role)
+		if err != nil {
+			return nil, fmt.Errorf("persist: %s: %w", e.Name(), err)
+		}
+		if changed {
+			if err := s.saveCharLocked(role); err != nil {
+				return nil, err
+			}
+			migrated++
+		}
 		s.chars[role.PlayerId] = role
 		s.names[NormalizeName(role.Name)] = role.PlayerId
 		if role.PlayerId >= s.db.NextPlayer {
 			s.db.NextPlayer = role.PlayerId + 1
 		}
 	}
-	log.Info("db", "file store opened", log.F("dir", dir), log.F("accounts", len(s.db.Accounts)), log.F("chars", len(s.chars)))
+	log.Info("db", "file store opened", log.F("dir", dir), log.F("accounts", len(s.db.Accounts)), log.F("chars", len(s.chars)),
+		log.F("role_version", CurrentRoleVersion), log.F("migrated", migrated))
 	return s, nil
 }
 
@@ -241,7 +255,7 @@ func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.
 		Position:    &jxpb.RolePosition{ZoneId: 0}, // 0 = let the zone choose its spawn point
 		Stats:       &jxpb.RoleStats{Hp: 100, HpMax: 100, Mp: 50, MpMax: 50, Stamina: 100, StaminaMax: 100, Strength: 10, Dexterity: 10, Vitality: 10, Energy: 10, MoveSpeed: 200},
 		CreatedAtMs: uint64(now),
-		DataVersion: 1,
+		DataVersion: CurrentRoleVersion,
 	}
 }
 
@@ -285,7 +299,13 @@ func (s *FileStore) SaveCharacter(_ context.Context, role *jxpb.RoleData) error 
 	if old.AccountId != role.AccountId {
 		return ErrForbidden
 	}
+	if role.DataVersion > CurrentRoleVersion {
+		return ErrNewerData
+	}
 	copyRole := proto.Clone(role).(*jxpb.RoleData)
+	if _, err := MigrateRole(copyRole); err != nil { // a round trip through an old zone never downgrades
+		return err
+	}
 	if err := s.saveCharLocked(copyRole); err != nil {
 		return err
 	}

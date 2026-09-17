@@ -162,6 +162,30 @@ TEST_CASE("a gate trap runs its script: SetPos and the fight state toggle", "[tr
     CHECK(w.find_player(7)->pos() == Pos{50 * 32 + 1, 50 * 32 + 1});
 }
 
+TEST_CASE("the fight state of a gate trap is saved with the character and restored", "[trap][world][role]")
+{
+    Quiet q;
+    KSubWorld w(trap_world());
+    EntityId hero;
+    Pos at;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{10 * 32 + 16, 10 * 32 + 16}), hero, at) == jx::pb::RESULT_OK);
+    w.tick();   // the gate trap switches the fight state on
+    REQUIRE(w.find_player(7)->fight_mode);
+    jx::pb::RoleData saved;
+    REQUIRE(w.role_snapshot(7, saved));
+    CHECK(saved.fight_mode());
+    CHECK(saved.position().map_id() == 1);
+
+    // logging in again with that record starts in the same stance
+    KSubWorld w2(trap_world());
+    EntityId again;
+    Pos at2;
+    saved.mutable_position()->mutable_pos()->set_x(40 * 32);
+    saved.mutable_position()->mutable_pos()->set_y(40 * 32);
+    REQUIRE(w2.spawn_player(8, saved, again, at2) == jx::pb::RESULT_OK);
+    CHECK(w2.find_player(8)->fight_mode);
+}
+
 TEST_CASE("script coordinates are absolute Mps: the map origin is subtracted", "[trap][world]")
 {
     Quiet q;
