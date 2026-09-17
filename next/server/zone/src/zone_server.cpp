@@ -39,9 +39,12 @@ void ZoneServer::stop()
     running_ = false;
     timer_.cancel();
     listener_.stop();
+    // close() reports on_close synchronously, which erases from gateways_: never iterate the map itself
+    std::vector<net::Connection::Ptr> links;
     for (auto& [id, gw] : gateways_) {
-        if (gw.conn) gw.conn->close();
+        if (gw.conn) links.push_back(gw.conn);
     }
+    for (auto& conn : links) conn->close();
     log::info("boot", "zone stopped", {log::kv("tick", world_.tick_count()), log::kv("players", world_.player_count())});
 }
 

@@ -80,7 +80,14 @@ grep '"sid":3' logs/gateway.log logs/zone.log
 Chạy 2 zone/gateway song song để test trên cùng máy: đổi `zone.port`, `gateway.zone`, `gateway.listen`
 và `gateway.data_dir`.
 
-## 7. Sự cố thường gặp
+## 7. Dừng server đúng cách
+
+`python tools/dev.py stop` gửi CTRL_BREAK (Windows) / SIGTERM (Linux): zone và gateway ghi nốt log,
+gateway lưu nhân vật, rồi thoát; sau 5 giây không thoát mới bị giết cứng. Đóng cửa sổ console bằng
+nút X cũng là dừng êm (zone bắt SIGBREAK). Log zone được flush mỗi giây, nên kể cả khi bị giết cứng
+cũng chỉ mất tối đa 1 giây log cuối.
+
+## 8. Sự cố thường gặp
 
 - **Client báo "zone chưa sẵn sàng" (mã 9)**: gateway chưa nối được zone — xem `logs/gateway.log`
   dòng `zone link down`; zone chưa chạy hoặc sai cổng.
