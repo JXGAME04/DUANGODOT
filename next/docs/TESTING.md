@@ -98,6 +98,7 @@ p99 xấu nhất, và lúc kết thúc. Không tuyên bố con số người ch�
 | 500 cùng một chỗ | 500 | 14,05 ms | 25,2 | 29,0 | | 0 |
 | **5000 trên 40 map, 1 gateway** | **5000** | **8,08 ms** | **14,68** | **19,85** | 1353 MB | **0** |
 | **10 000 trên 80 map, 1 gateway** | **9 995** | **8,56 ms** | **16,78** | **16,78** | 1374 MB | **0** |
+| **20 000 bot, 120 map, 1 gateway** | **13 031** | **10,20 ms** | **14,68** | **20,13** | 1956 MB | **0** |
 
 Ở lượt 5000 người: 980 map và 115 734 entity trong zone, gateway đẩy 670 738 gói/giây (22,6 MB/giây),
 **không ai rớt, không ai bị đá, không gói nào bị bỏ, không lần đăng nhập nào hỏng**.
@@ -124,6 +125,36 @@ không phải của người chơi thật, nhưng rời thế giới hàng loạ
    (scatter/gather), gói điều khiển có hàng ưu tiên riêng (`send_urgent`), và khi một đường truyền
    đã tồn đọng quá 4 MiB thì **bỏ gói vị trí** (chỉ vị trí, không bao giờ bỏ spawn/sát thương/chat).
    Tồn đọng 49 MB → ~150 KB, vào thế giới 8,0 → 2,8 giây.
+
+### 20 000 bot: chỗ chặn là **máy test hết cổng TCP**, không phải server
+
+Bắn 20 000 bot thì **13 031** vào được cùng lúc, zone vẫn thảnh thơi: tick trung bình 10,20 ms, p99
+20,13 ms trong ngân sách 55 ms, không ai bị đá, không timeout, không gói nào bị bỏ. 6 969 bot hỏng, và lý do
+đọc được ngay trong log của bot:
+
+| Lý do | Số bot |
+|---|---:|
+| `Only one usage of each socket address ... is normally permitted` (hết cổng động) | 3 665 |
+| hết giờ chờ `G2C_ENTER_WORLD_RES` | 3 304 |
+
+Windows mặc định chỉ có **16 384 cổng động** (49152–65535) cho mọi kết nối đi ra, đo lúc đó còn
+10 540 cổng đang ở TIME_WAIT:
+
+```
+netsh int ipv4 show dynamicport tcp     ->  Start 49152, Number of Ports 16384
+```
+
+20 000 kết nối đồng thời từ **một máy** là không thể, dù server có rảnh đến đâu. Muốn đo thật 20 000
+thì phải chọn một trong hai:
+
+- nới dải cổng động của máy test:
+  `netsh int ipv4 set dynamicport tcp start=10000 num=55000` (đổi cấu hình hệ điều hành, cần quyền admin);
+- hoặc bắn bot từ **máy thứ hai** — cách đúng đắn hơn, vì bot và server đang tranh nhau cùng 24 luồng.
+
+Còn 3 304 bot hết giờ chờ vào thế giới là vấn đề thật của server: **một gateway không rút kịp**. Đo được
+**356 MB** tồn đọng trên đường truyền zone → gateway ở 13 878 người: cơ chế bỏ bớt hiện chỉ bỏ gói
+vị trí, còn gói đánh nhau và gói máu vẫn dồn lại. Từ ~10 000 người trở lên cần **nhiều gateway**, và
+đó chính là lý do có `ZoneHelloAck.session_prefix`.
 
 ### Hai lỗi đúng thật chỉ lộ ra ở mức này
 
