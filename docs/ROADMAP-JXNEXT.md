@@ -210,8 +210,15 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       PlayerSave), gateway Go (phiên, auth dev, persist file, cầu zone, tự nối lại), `jxbot`, client Godot
       (đăng nhập → nhân vật → map lưới, click đi, chat, HUD), `tools/dev.py` (build/start/e2e/screenshot),
       CI: C++ Win+Linux, Go Win+Linux, client headless, e2e Linux. Chi tiết: `next/docs/RUNNING.md`.
-- [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), bảng TCVN3/GBK→UTF-8, ADR.
-- [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: xuất map/.spr cũ để client vẽ map thật thay lưới)
+- [x] **M2 — tài sản cũ (2026-09-17)**: `jxassets` đọc `.pak` (hash tên, UCL NRV2B, spr nén frame), `.spr` → PNG atlas,
+      `.wor`/`Region_C.dat` → bundle `client/assets/maps/<id>` (map.json, obstacle.bin, region JSON); bảng TCVN3/GBK→UTF-8;
+      zone nạp lưới vật cản, A* + làm mượt, NPC từ map (63 NPC Phượng Tường); client vẽ map thật theo region, y-sort,
+      đi theo waypoints. Chi tiết: `next/docs/MAPS.md`.
+- [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
+      `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
+      bảng đối chiếu `next/docs/OLD-TO-NEW.md`.
+- [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
+- [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: sprite nhân vật/NPC từ `npcres` + `npcs.txt`, minimap, bẫy/cổng)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8
 - [ ] Giai đoạn 4: 4.1 · 4.2 · 4.3 · 4.4 · 4.5
