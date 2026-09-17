@@ -104,6 +104,11 @@ jobs:
       - name: go test -race (Linux)
         if: runner.os == 'Linux'
         run: go test -race ./...
+      - name: fuzz the frame codec (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          go test ./pkg/frame -run XXX -fuzz FuzzParser -fuzztime 30s
+          go test ./pkg/frame -run XXX -fuzz FuzzReader -fuzztime 15s
       - name: go build
         run: go build -o ../build/go/ ./cmd/...
 

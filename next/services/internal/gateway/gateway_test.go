@@ -126,6 +126,11 @@ type testClient struct {
 	r    *frame.Reader
 }
 
+// dialRaw opens a plain connection without the test helpers (used by the garbage test).
+func dialRaw(addr string) (net.Conn, error) {
+	return net.DialTimeout("tcp", addr, 2*time.Second)
+}
+
 func dial(t *testing.T, addr string) *testClient {
 	t.Helper()
 	c, err := net.Dial("tcp", addr)

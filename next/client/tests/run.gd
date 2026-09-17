@@ -28,6 +28,7 @@ func check(cond: bool, what: String) -> void:
 func _init() -> void:
 	test_frame_vectors()
 	test_frame_split()
+	test_frame_fuzz()
 	test_log_format()
 	test_proto_round_trip()
 	test_login_text()
@@ -194,6 +195,38 @@ func test_frame_split() -> void:
 	check(big["error"] == "too_large", "oversized frame detected")
 	var partial := NetScript.parse(PackedByteArray([0x06, 0x00, 0x00]))
 	check(partial["frames"].size() == 0 and partial["rest"].size() == 3 and partial["error"] == "", "partial frame waits")
+
+
+# Arbitrary bytes from the network may only give frames, an empty result or an error - never a
+# crash and never a payload over the limit (C++: test_frame.cpp [fuzz], Go: frame_fuzz_test.go).
+func test_frame_fuzz() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260917
+	var limit := 4096
+	var failures := 0
+	for round in 300:
+		var data := PackedByteArray()
+		if round % 2 == 0:
+			data.append_array(NetScript.encode(rng.randi_range(0, 9000), "hello".to_utf8_buffer()))
+		for i in rng.randi_range(0, 400):
+			data.append(rng.randi_range(0, 255))
+		var buf := PackedByteArray()
+		var chunk := rng.randi_range(1, 17)
+		var pos := 0
+		while pos < data.size():
+			var end: int = min(pos + chunk, data.size())
+			buf.append_array(data.slice(pos, end))
+			pos = end
+			var parsed := NetScript.parse(buf, limit)
+			buf = parsed["rest"]
+			for fr in parsed["frames"]:
+				if fr[2].size() > limit:
+					failures += 1
+			if parsed["error"] != "":
+				if parsed["error"] != "corrupt" and parsed["error"] != "too_large":
+					failures += 1
+				break   # a broken stream closes the connection
+	check(failures == 0, "garbage bytes never produce a bad frame (%d failures)" % failures)
 
 
 func test_log_format() -> void:

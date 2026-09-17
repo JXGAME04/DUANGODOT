@@ -1,6 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstdint>
+#include <random>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -89,5 +92,46 @@ TEST_CASE("parser compacts consumed bytes on the next feed", "[frame]")
         REQUIRE(p.next(v) == ParseStatus::ok);
         CHECK(v.msg_id == static_cast<std::uint16_t>(i));
         CHECK(p.buffered() == 0);
+    }
+}
+
+// Robustness: arbitrary bytes, fed in arbitrary chunks, may only produce a frame, "need more"
+// or an error - never a crash, never a payload larger than the limit.  The old server cast the
+// socket buffer to a packet struct, so a wrong length byte read past the buffer; this is the
+// test that keeps the new parser honest.  (Go: pkg/frame/frame_fuzz_test.go, GDScript:
+// tests/run.gd test_frame_fuzz.)
+TEST_CASE("parser survives arbitrary garbage in arbitrary chunks", "[frame][fuzz]")
+{
+    std::mt19937 rng(20260917);   // fixed seed: a failure is reproducible
+    constexpr std::uint32_t kLimit = 4096;
+    for (int round = 0; round < 500; ++round) {
+        std::vector<std::uint8_t> data;
+        const int n = static_cast<int>(rng() % 600);
+        data.reserve(static_cast<std::size_t>(n));
+        for (int i = 0; i < n; ++i) data.push_back(static_cast<std::uint8_t>(rng() & 0xFFu));
+        // every other round starts with a valid frame so the parser also has something to find
+        if (round % 2 == 0) {
+            const auto good = jx::frame::encode(static_cast<std::uint16_t>(rng() % 9000), std::string_view("hello"));
+            data.insert(data.begin(), good.begin(), good.end());
+        }
+
+        Parser p(kLimit);
+        const std::size_t chunk = 1 + rng() % 17;
+        bool broken = false;
+        for (std::size_t off = 0; off < data.size() && !broken; off += chunk) {
+            const std::size_t end = std::min(off + chunk, data.size());
+            p.feed(std::span<const std::uint8_t>(data.data() + off, end - off));
+            for (;;) {
+                View v;
+                const ParseStatus st = p.next(v);
+                if (st == ParseStatus::need_more) break;
+                if (st != ParseStatus::ok) {   // corrupt / too_large: the connection would close
+                    broken = true;
+                    break;
+                }
+                REQUIRE(v.payload.size() <= kLimit);
+            }
+        }
+        if (!broken) CHECK(p.buffered() <= data.size());
     }
 }

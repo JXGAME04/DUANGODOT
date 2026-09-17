@@ -268,6 +268,10 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       (lỗi kinh điển của `TRoleData` cũ trong Goddess/BDB). Bước 1: điền trường của bản chưa có version; bước 2: sửa
       chỉ số hỏng (max > 0, hp/mp trong khoảng, move_speed). Thêm `RoleData.fight_mode` (trạng thái chiến đấu giữ qua
       lần đăng nhập). Test: 4 test `TRoleData_test.go` + `test_KTrap.cpp` (lưu/khôi phục fight_mode). ADR-003.
+- [x] **M4c — codec chịu được gói hỏng (2026-09-17, giai đoạn 1 mục 1.5)**: fuzz khung tin ở cả ba bên —
+      Go `FuzzParser`/`FuzzReader` (21 triệu lượt không lỗi, CI chạy 30 s mỗi PR), C++ `[fuzz]` 500 vòng seed cố định,
+      GDScript `test_frame_fuzz` 300 vòng; `KGarbage_test.go`: 40 kết nối bắn id/payload ngẫu nhiên vào gateway,
+      phiên đang chơi vẫn ping/đi lại bình thường và mọi kết nối rác bị đóng. `docs/TESTING.md` mục 3b.
 - [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android

@@ -12,6 +12,7 @@ Nguyên tắc: **không có phần nào được coi là xong nếu chưa có te
 | Golden replay | `.jxrec` ghi từ hệ thống cũ, chạy lại qua zone core | mỗi PR | cùng input → cùng trạng thái (checksum theo tick) |
 | Formula compare | bảng số liệu xuất từ Core cũ (`.csv`) | khi động vào combat/skill/item | công thức mới ra đúng số của bản cũ |
 | Integration | docker-compose: gateway + zone + postgres + redis | nightly / trước release | login → vào map → đánh quái → lưu DB |
+| Fuzz codec | `go test -fuzz`, test ngẫu nhiên có seed cố định (C++/GDScript) | mỗi PR (seed corpus) | byte rác không làm sập, không sinh gói quá hạn |
 | Load | tool Go bắn N client giả | trước release | 2 000 CCU/zone, p99 tick < 50 ms |
 | Multi-platform | GitHub Actions matrix | mỗi PR | Windows MSVC + Linux GCC (client: export Windows/Linux/Android) |
 
@@ -35,6 +36,22 @@ Chạy trực tiếp binary để thấy output chi tiết: `build/windows-msvc/
 - Không test private; nếu phải test, thiết kế lại API.
 - Test chạy được **đồng thời** trên CI: không dùng port cố định, không dùng file cố định.
 - Fail phải nói rõ: dùng `CHECK` cho nhiều điều kiện độc lập, `REQUIRE` chỉ khi bước sau vô nghĩa nếu fail.
+
+## 3b. Test gói tin hỏng (fuzz)
+
+Server cũ đọc gói bằng cách ép con trỏ buffer sang struct: một byte độ dài sai là đọc tràn. Ở bản
+mới, **byte rác chỉ được phép** cho ra khung tin hợp lệ, "cần thêm dữ liệu", hoặc lỗi — không bao
+giờ sập, không bao giờ sinh payload vượt giới hạn. Ba chỗ kiểm cùng một hợp đồng:
+
+| Nơi | Test | Chạy |
+|---|---|---|
+| Go | `pkg/frame/frame_fuzz_test.go` (`FuzzParser`, `FuzzReader`) | seed chạy trong `go test`; engine: `go test ./pkg/frame -run XXX -fuzz FuzzParser -fuzztime 30s` |
+| C++ | `test_frame.cpp` `[fuzz]` (mt19937 seed 20260917, 500 vòng) | `ctest` |
+| GDScript | `tests/run.gd` `test_frame_fuzz` (300 vòng) | test client headless |
+| Gateway | `internal/gateway/KGarbage_test.go` | 40 kết nối gửi id/payload ngẫu nhiên; phiên đang chơi **không** bị ảnh hưởng |
+
+Seed cố định nên lỗi tái hiện được. Khi fuzzer tìm ra input lỗi, Go ghi vào
+`services/testdata/fuzz/...` — **commit file đó** để thành test hồi quy.
 
 ## 4. Definition of Done cho một phần việc
 
