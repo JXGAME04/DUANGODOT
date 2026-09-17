@@ -10,7 +10,8 @@
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "JX_BUILD_TESTS": "ON"
+        "JX_BUILD_TESTS": "ON",
+        "VCPKG_INSTALL_OPTIONS": "--x-buildtrees-root=${sourceDir}/build/vcpkg-work/buildtrees;--x-packages-root=${sourceDir}/build/vcpkg-work/packages;--clean-buildtrees-after-build"
       }
     },
     {

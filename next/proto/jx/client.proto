@@ -1,0 +1,144 @@
+// Client <-> gateway messages.  C2G = client to gateway, G2C = gateway to client.
+// Some C2G messages are forwarded unchanged to the zone (see MsgId comments in msg.proto).
+syntax = "proto3";
+package jx.pb;
+option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
+
+import "jx/common.proto";
+
+// ---- handshake / auth ------------------------------------------------------------------
+
+message Hello {
+  uint32 protocol_version = 1;   // PROTOCOL_VERSION in msg.proto
+  string client_version = 2;
+  string platform = 3;           // "windows", "linux", "android", ...
+  string device_id = 4;
+}
+
+message HelloAck {
+  uint32 protocol_version = 1;
+  uint64 server_time_ms = 2;
+  string server_version = 3;
+  uint64 sid = 4;                // session id, useful when reading logs
+}
+
+message LoginReq {
+  string account = 1;
+  string password = 2;           // dev auth only; real auth uses tokens (phase 3)
+}
+
+message LoginRes {
+  Result result = 1;
+  uint64 account_id = 2;
+  string text = 3;               // human readable reason (field names must avoid protobuf keywords: godobuf)
+}
+
+// ---- characters ------------------------------------------------------------------------
+
+message CharSummary {
+  uint64 player_id = 1;
+  string name = 2;
+  uint32 level = 3;
+  uint32 series = 4;
+  uint32 sex = 5;
+  uint32 faction = 6;
+  uint32 zone_id = 7;
+}
+
+message CharListReq {}
+
+message CharListRes {
+  Result result = 1;
+  repeated CharSummary chars = 2;
+  uint32 max_chars = 3;
+}
+
+message CharCreateReq {
+  string name = 1;
+  uint32 series = 2;
+  uint32 sex = 3;
+}
+
+message CharCreateRes {
+  Result result = 1;
+  CharSummary summary = 2;
+}
+
+message EnterWorldReq {
+  uint64 player_id = 1;
+}
+
+message EnterWorldRes {
+  Result result = 1;
+  uint32 zone_id = 2;
+  string zone_name = 3;
+  uint64 entity_id = 4;          // the entity that belongs to this client in the zone
+  Vec2 pos = 5;
+  uint32 tick_hz = 6;
+}
+
+message LeaveWorldReq {}
+
+// ---- world (zone) ----------------------------------------------------------------------
+
+// Server authoritative movement: the client asks to move towards a target, the zone
+// simulates and broadcasts EntityMove to everyone who can see the entity.
+message MoveReq {
+  Vec2 target = 1;
+  uint32 seq = 2;                // client sequence number, echoed in EntityMove for the own entity
+}
+
+message EntityInfo {
+  uint64 entity_id = 1;
+  EntityType entity_type = 2;
+  string name = 3;
+  Vec2 pos = 4;
+  Vec2 target = 5;               // where it is currently moving to (== pos when idle)
+  uint32 move_speed = 6;
+  uint32 level = 7;
+  uint32 series = 8;
+  uint32 sex = 9;
+  uint32 template_id = 10;       // npc/monster template, 0 for players
+}
+
+message EntitySpawn {
+  repeated EntityInfo entities = 1;
+}
+
+message EntityDespawn {
+  repeated uint64 entity_ids = 1;
+}
+
+message EntityMove {
+  uint64 entity_id = 1;
+  Vec2 pos = 2;                  // position at tick
+  Vec2 target = 3;
+  uint32 move_speed = 4;
+  uint64 tick = 5;
+  uint32 seq = 6;                // MoveReq.seq when this is the receiver own entity
+}
+
+message ChatReq {
+  string text = 1;
+}
+
+message ChatMsg {
+  uint64 entity_id = 1;
+  string name = 2;
+  string text = 3;
+}
+
+message Ping {
+  uint64 client_ms = 1;
+}
+
+message Pong {
+  uint64 client_ms = 1;
+  uint64 server_ms = 2;
+  uint64 tick = 3;
+}
+
+message Kick {
+  Result reason = 1;
+  string text = 2;
+}

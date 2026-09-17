@@ -6,3 +6,6 @@ vcpkg_installed/
 CMakeUserPresets.json
 *.log
 *.crash.log
+# runtime state of the dev servers
+logs/
+data/

@@ -1,0 +1,53 @@
+// Persistent character data ("RoleData").  This is the model every layer agrees on:
+// persist stores it, the zone loads/saves it, the client receives a projection of it.
+// Add fields freely; never renumber or reuse a tag.
+syntax = "proto3";
+package jx.pb;
+option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
+
+import "jx/common.proto";
+
+message RolePosition {
+  uint32 zone_id = 1;   // logical zone/map id
+  Vec2 pos = 2;
+}
+
+message RoleStats {
+  int32 hp = 1;
+  int32 hp_max = 2;
+  int32 mp = 3;
+  int32 mp_max = 4;
+  int32 stamina = 5;
+  int32 stamina_max = 6;
+  int32 strength = 7;
+  int32 dexterity = 8;
+  int32 vitality = 9;
+  int32 energy = 10;
+  int32 move_speed = 11;    // units per second
+}
+
+message RoleItem {
+  uint64 item_uid = 1;
+  uint32 template_id = 2;
+  uint32 count = 3;
+  uint32 slot = 4;          // container/slot are decided by the inventory design (phase 2)
+  uint32 container = 5;
+}
+
+message RoleData {
+  uint64 player_id = 1;
+  uint64 account_id = 2;
+  string name = 3;          // UTF-8, validated by the auth/persist layer
+  uint32 level = 4;
+  uint64 exp = 5;
+  uint32 series = 6;        // five elements (metal, wood, water, fire, earth) as in the old game
+  uint32 sex = 7;
+  uint32 faction = 8;
+  RolePosition position = 9;
+  RoleStats stats = 10;
+  repeated RoleItem items = 11;
+  uint64 created_at_ms = 12;
+  uint64 last_login_ms = 13;
+  uint64 play_time_s = 14;
+  uint32 data_version = 15; // bump when a migration is required
+}

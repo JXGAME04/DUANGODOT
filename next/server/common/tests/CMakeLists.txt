@@ -6,6 +6,7 @@ add_executable(jx_common_tests
     test_config.cpp
     test_clock.cpp
     test_ids.cpp
+    test_frame.cpp
 )
 target_link_libraries(jx_common_tests PRIVATE jx::common Catch2::Catch2WithMain jx_warnings)
 catch_discover_tests(jx_common_tests)

@@ -6,6 +6,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 add_library(jx_common STATIC
     src/log.cpp
     src/config.cpp
+    src/frame.cpp
 )
 add_library(jx::common ALIAS jx_common)
 

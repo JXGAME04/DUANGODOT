@@ -1,0 +1,27 @@
+{
+  // JX NEXT zone server (jx_zone).  Override any key with JX_ZONE__PORT=... or --set zone.port=...
+  "zone": {
+    "id": 1,
+    "name": "Test Field",
+    "listen": "0.0.0.0",
+    "port": 17001,
+    "tick_hz": 20,
+    "width": 8192,
+    "height": 8192,
+    "spawn": { "x": 4096, "y": 4096 },
+    "cell_size": 512,
+    "view_cells": 1,
+    "default_speed": 200,
+    "max_players": 2000,
+    "save_interval_s": 60,
+    "stats_interval_s": 10,
+    "test_npcs": 8,
+    "seed": 1
+  },
+  "log": {
+    "level": "info",
+    "levels": "",
+    "console": true,
+    "file": "logs/zone.log"
+  }
+}

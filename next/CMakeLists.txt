@@ -32,3 +32,6 @@ if(JX_BUILD_TESTS)
 endif()
 
 add_subdirectory(server/common)
+add_subdirectory(server/proto)
+add_subdirectory(server/net)
+add_subdirectory(server/zone)

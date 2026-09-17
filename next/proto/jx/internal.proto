@@ -1,0 +1,69 @@
+// Gateway <-> zone messages (never sent to clients).
+syntax = "proto3";
+package jx.pb;
+option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
+
+import "jx/common.proto";
+import "jx/role.proto";
+
+message ZoneHello {
+  uint32 protocol_version = 1;
+  string gateway_id = 2;
+}
+
+message ZoneHelloAck {
+  uint32 protocol_version = 1;
+  uint32 zone_id = 2;
+  string zone_name = 3;
+  uint32 tick_hz = 4;
+  uint32 capacity = 5;
+}
+
+// Gateway asks the zone to spawn a player for a client session.
+message SessionOpen {
+  uint64 sid = 1;
+  uint64 account_id = 2;
+  RoleData role = 3;
+}
+
+message SessionOpenAck {
+  uint64 sid = 1;
+  Result result = 2;
+  uint64 entity_id = 3;
+  Vec2 pos = 4;
+}
+
+message SessionClose {
+  uint64 sid = 1;
+  uint32 reason = 2;             // 0 = client left, 1 = timeout, 2 = kicked, 3 = gateway shutdown
+}
+
+// A client message forwarded to the zone verbatim.
+message ClientPacket {
+  uint64 sid = 1;
+  uint32 msg_id = 2;
+  bytes payload = 3;
+}
+
+// A message from the zone to one or many client sessions (fan-out done by the gateway).
+message ZonePacket {
+  repeated uint64 sids = 1;
+  uint32 msg_id = 2;
+  bytes payload = 3;
+}
+
+// Zone -> gateway: persist the player (periodic and on SessionClose).
+message PlayerSave {
+  uint64 sid = 1;
+  RoleData role = 2;
+  bool final = 3;                // true when the player has left the zone
+}
+
+message ZoneStats {
+  uint32 zone_id = 1;
+  uint64 tick = 2;
+  uint32 players = 3;
+  uint32 entities = 4;
+  uint32 tick_ms_avg = 5;
+  uint32 tick_ms_max = 6;
+}

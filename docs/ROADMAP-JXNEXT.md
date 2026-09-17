@@ -204,8 +204,14 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
 
 ## 9. Bảng theo dõi
 
-- [ ] Tuần 1 hoàn tất (mục 4)
-- [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5
+- [x] Bước 1 (2026-09-16): khung `next/`, `jx::common` (log/config/clock/ids), CMake 2 nền tảng, CI.
+- [x] **M1 — lát cắt dọc chạy được (2026-09-17)**: Protocol V2 (`proto/jx`, sinh C++/Go/GDScript),
+      khung tin + Asio (`server/net`), zone C++ (AOI grid, di chuyển fixed-point xác định, NPC đi lại,
+      PlayerSave), gateway Go (phiên, auth dev, persist file, cầu zone, tự nối lại), `jxbot`, client Godot
+      (đăng nhập → nhân vật → map lưới, click đi, chat, HUD), `tools/dev.py` (build/start/e2e/screenshot),
+      CI: C++ Win+Linux, Go Win+Linux, client headless, e2e Linux. Chi tiết: `next/docs/RUNNING.md`.
+- [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), bảng TCVN3/GBK→UTF-8, ADR.
+- [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: xuất map/.spr cũ để client vẽ map thật thay lưới)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8
 - [ ] Giai đoạn 4: 4.1 · 4.2 · 4.3 · 4.4 · 4.5

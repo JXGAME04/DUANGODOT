@@ -1,0 +1,33 @@
+// Shared scalar types.  Package jx.pb is used by every file so the three generators
+// (C++ jx::pb, Go jxpb, GDScript) see one namespace.
+syntax = "proto3";
+package jx.pb;
+option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
+
+// World position in integer units (old game: 1 cell = 32 units, one map ~ 10k x 10k units).
+message Vec2 {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+enum Result {
+  RESULT_OK = 0;
+  RESULT_INTERNAL_ERROR = 1;
+  RESULT_BAD_REQUEST = 2;
+  RESULT_UNAUTHORIZED = 3;
+  RESULT_NOT_FOUND = 4;
+  RESULT_ALREADY_EXISTS = 5;
+  RESULT_FULL = 6;
+  RESULT_INVALID_NAME = 7;
+  RESULT_WRONG_STATE = 8;
+  RESULT_ZONE_UNAVAILABLE = 9;
+  RESULT_VERSION_MISMATCH = 10;
+}
+
+enum EntityType {
+  ENTITY_UNKNOWN = 0;
+  ENTITY_PLAYER = 1;
+  ENTITY_NPC = 2;
+  ENTITY_MONSTER = 3;
+  ENTITY_DROP = 4;
+}

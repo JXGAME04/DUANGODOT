@@ -1,0 +1,52 @@
+// Message id registry.  Every frame on the wire carries one of these ids (see docs/PROTOCOL.md).
+//   1000-1999  C2G   client -> gateway
+//   2000-2999  G2C   gateway -> client
+//   9000-9999  internal gateway <-> zone
+// Never reuse a number.  Ids marked (zone) are forwarded by the gateway to the zone as ClientPacket.
+syntax = "proto3";
+package jx.pb;
+option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
+
+enum Protocol {
+  PROTOCOL_UNSPECIFIED = 0;
+  PROTOCOL_VERSION = 1;
+}
+
+enum MsgId {
+  MSG_NONE = 0;
+
+  // client -> gateway
+  C2G_HELLO = 1001;
+  C2G_LOGIN = 1002;
+  C2G_CHAR_LIST = 1003;
+  C2G_CHAR_CREATE = 1004;
+  C2G_ENTER_WORLD = 1005;
+  C2G_LEAVE_WORLD = 1006;
+  C2G_PING = 1007;
+  C2G_MOVE = 1101;             // (zone)
+  C2G_CHAT = 1102;             // (zone)
+
+  // gateway -> client
+  G2C_HELLO_ACK = 2001;
+  G2C_LOGIN_RES = 2002;
+  G2C_CHAR_LIST_RES = 2003;
+  G2C_CHAR_CREATE_RES = 2004;
+  G2C_ENTER_WORLD_RES = 2005;
+  G2C_PONG = 2007;
+  G2C_KICK = 2008;
+  G2C_ENTITY_SPAWN = 2101;
+  G2C_ENTITY_DESPAWN = 2102;
+  G2C_ENTITY_MOVE = 2103;
+  G2C_CHAT_MSG = 2104;
+
+  // gateway <-> zone
+  GZ_ZONE_HELLO = 9001;
+  ZG_ZONE_HELLO_ACK = 9002;
+  GZ_SESSION_OPEN = 9003;
+  ZG_SESSION_OPEN_ACK = 9004;
+  GZ_SESSION_CLOSE = 9005;
+  GZ_CLIENT_PACKET = 9006;
+  ZG_ZONE_PACKET = 9007;
+  ZG_PLAYER_SAVE = 9008;
+  ZG_ZONE_STATS = 9009;
+}
