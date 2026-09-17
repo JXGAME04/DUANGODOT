@@ -120,6 +120,8 @@ func main() {
 		StatsInterval:        time.Duration(cfg.Int("gateway.stats_interval_s", 30)) * time.Second,
 	}, store, accounts)
 
+	startProfiler(cfg.String("gateway.pprof", ""))
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {

@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,6 +27,12 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/transport"
+)
+
+// Per bot buffer sizes, lowered when thousands of bots share one process (see main).
+var (
+	readBufferSize = 64 * 1024
+	frameQueue     = 1024
 )
 
 type stats struct {
@@ -111,8 +118,10 @@ func (b *bot) dial() error {
 }
 
 func (b *bot) startReader() error {
-	b.r = frame.NewReader(b.conn, frame.MaxClientPayload)
-	b.frames = make(chan frame.Frame, 1024)
+	// A load test holds thousands of these in one process: the default 64 KiB read buffer and a
+	// 1024 frame channel would be ~1,3 GB at 20 000 bots, all of it in the test client.
+	b.r = frame.NewReaderSize(b.conn, frame.MaxClientPayload, readBufferSize)
+	b.frames = make(chan frame.Frame, frameQueue)
 	b.readEr = make(chan error, 1)
 	go func() {
 		for {
@@ -368,19 +377,28 @@ func main() {
 	gw := flag.String("gateway", "127.0.0.1:17100", "gateway address: host:port, tls://host:port or ws(s)://host:port/ws")
 	n := flag.Int("bots", 1, "number of bots")
 	prefix := flag.String("prefix", "bot", "account name prefix")
+	first := flag.Int("first", 1, "first account number, so several bot processes can share one set of accounts")
 	password := flag.String("password", "bot", "account password")
 	duration := flag.Duration("duration", 30*time.Second, "how long to wander")
 	once := flag.Bool("once", false, "smoke test: login, move once, wait for arrival, exit")
 	scenario := flag.String("scenario", "spread", "spread = wander over the map, hot = every bot stays in one small area (MASTER SPEC 57)")
 	radius := flag.Int("radius", 600, "hot scenario: how far from the meeting point a bot may walk")
 	attack := flag.Bool("attack", false, "attack whatever comes into view (MASTER SPEC 58 scenario C/D)")
+	ramp := flag.Duration("ramp", 0, "spread the logins over this long instead of all at once (MASTER SPEC 58 case E)")
 	level := flag.String("log-level", "info", "log level")
 	flag.Parse()
 
 	_ = log.Init(log.Options{Level: log.ParseLevel(*level), Console: true, Process: "jxbot"})
 	defer log.Shutdown()
 
-	ctx, cancel := context.WithTimeout(context.Background(), *duration+30*time.Second)
+	// Thousands of connections in one process: shrink what each one holds, or the test client runs
+	// out of memory long before the server does.
+	if *n >= 500 {
+		readBufferSize = 8 * 1024
+		frameQueue = 64
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), *duration+*ramp+60*time.Second)
 	defer cancel()
 	st := &stats{}
 	var wg sync.WaitGroup
@@ -391,7 +409,16 @@ func main() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			b := &bot{name: fmt.Sprintf("%s%d", *prefix, i+1), addr: *gw, ctx: ctx, st: st,
+			// Evenly spread starts: 5000 clients hitting the door in the same millisecond measures the
+			// accept queue, not the game.  Real players arrive over minutes.
+			if *ramp > 0 && *n > 1 {
+				select {
+				case <-time.After(time.Duration(int64(*ramp) * int64(i) / int64(*n))):
+				case <-ctx.Done():
+					return
+				}
+			}
+			b := &bot{name: fmt.Sprintf("%s%d", *prefix, *first+i), addr: *gw, ctx: ctx, st: st,
 				hot: *scenario == "hot", radius: int32(*radius), attack: *attack}
 			if err := b.connect(); err != nil {
 				log.Error("bot", "connect failed", log.F("bot", b.name), log.F("error", err))
@@ -427,6 +454,13 @@ func main() {
 	}
 	wg.Wait()
 
+	// What the test client itself cost: when a load test stops scaling it matters whether the
+	// server or the machine running the bots ran out (MASTER SPEC 55).
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	log.Info("bot", "client cost", log.F("heap_mb", mem.HeapAlloc/(1024*1024)),
+		log.F("sys_mb", mem.Sys/(1024*1024)), log.F("goroutines", runtime.NumGoroutine()),
+		log.F("gc", mem.NumGC))
 	log.Info("bot", "summary", log.F("bots", *n), log.F("failed", failed.Load()), log.F("spawns", st.spawns.Load()), log.F("despawns", st.despawns.Load()),
 		log.F("moves", st.moves.Load()), log.F("chats", st.chats.Load()), log.F("pongs", st.pongs.Load()),
 		log.F("actions", st.actions.Load()), log.F("lifes", st.lifes.Load()), log.F("errors", st.errors.Load()),

@@ -159,20 +159,34 @@ func (s *session) run() {
 	log.InfoCtx(s.logCtx(), "net", "client disconnected", log.F("reason", s.closeMsg), log.F("zone_reason", s.getLeaveReason()))
 }
 
+// maxWriteBatch caps one socket write.  Frames carry their own length, so the client reads a
+// batch as a stream and never sees the difference; on WebSocket one batch is one message, which
+// has to stay well under the client's inbound buffer (1 MiB in KSocketClient.gd).
+const maxWriteBatch = 64 * 1024
+
 func (s *session) writer() {
+	var batch [][]byte
+	buf := make([]byte, 0, 8*1024)
 	for {
-		for {
-			b, ok := s.out.pop()
-			if !ok {
-				break
+		// One write per round instead of one per frame.  At 5000 players this gateway wrote
+		// 508 000 frames a second, one syscall each, and that was where its CPU went.
+		batch = s.out.drain(batch[:0])
+		for i := 0; i < len(batch); {
+			buf = buf[:0]
+			n := 0
+			for i+n < len(batch) && (n == 0 || len(buf)+len(batch[i+n]) <= maxWriteBatch) {
+				buf = append(buf, batch[i+n]...)
+				n++
 			}
 			_ = s.conn.SetWriteDeadline(time.Now().Add(s.srv.cfg.WriteTimeout))
-			if _, err := s.conn.Write(b); err != nil {
+			if _, err := s.conn.Write(buf); err != nil {
 				s.close("write failed: " + err.Error())
 				return
 			}
-			s.srv.stats.FramesOut.Add(1)
-			s.srv.stats.BytesOut.Add(uint64(len(b)))
+			s.srv.stats.FramesOut.Add(uint64(n))
+			s.srv.stats.BytesOut.Add(uint64(len(buf)))
+			s.srv.stats.Writes.Add(1)
+			i += n
 		}
 		select {
 		case <-s.wake:

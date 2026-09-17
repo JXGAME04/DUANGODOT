@@ -120,12 +120,27 @@ func seedOne(ctx context.Context, store persist.Store, accounts *auth.S3PAccount
 		if acc, err = accounts.Register(ctx, name, opt.password); err != nil {
 			return err
 		}
+	} else if err := accounts.SetPassword(ctx, name, opt.password); err != nil {
+		// An account left over from an older run keeps its old password, and the whole run then
+		// fails on "wrong password".  Seeding owns these names, so it sets the password every time.
+		return err
 	}
 	chars, err := store.Characters(ctx, acc.ID)
 	if err != nil {
 		return err
 	}
 	if len(chars) > 0 {
+		// Already has a character: make sure it is on the map this run wants it on.
+		role, err := store.Character(ctx, chars[0].PlayerId)
+		if err != nil {
+			return err
+		}
+		if role.Position == nil || role.Position.MapId != mapID {
+			role.Position = &jxpb.RolePosition{ZoneId: opt.zoneID, MapId: mapID}
+			if err := store.SaveCharacter(ctx, role); err != nil {
+				return err
+			}
+		}
 		return errAlreadySeeded
 	}
 	role, err := store.CreateCharacter(ctx, acc.ID, characterName(name), 0, 0)

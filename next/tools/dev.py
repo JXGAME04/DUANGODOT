@@ -8,7 +8,7 @@
   python tools/dev.py stop             stop them
   python tools/dev.py status           show what is running / listening
   python tools/dev.py bots [N] [SEC]   run N bots for SEC seconds against the gateway
-  python tools/dev.py load [N] [SEC] [hot|spread]   load test: N bots, then print what the zone measured
+  python tools/dev.py load [N] [SEC] [hot|spread] [MAPS]   load test: N bots over MAPS maps, then print what the zone measured
   python tools/dev.py smoke            zone + gateway + 1 bot (--once), exit 0 when the whole path works
   python tools/dev.py e2e              smoke + the Godot client headless with --auto (login, enter, move)
   python tools/dev.py screenshot       same client run with a window; saves user://logs/auto_*.png
@@ -357,30 +357,129 @@ def run_client_auto(account: str = "auto1", windowed: bool = False, server: str 
     return res.returncode
 
 
-def cmd_load(n: int, seconds: int, scenario: str = "hot") -> int:
-    """MASTER SPEC 56-58: N simulated clients, then the numbers the zone measured for that run
-    (tick average / p95 / p99, per worker load, awake entities)."""
+def map_index() -> list[dict]:
+    """Every exported map with how much is on it, cached in build/map-index.json.
+
+    Reading 980 map.json files takes a few seconds, and a load test wants them sorted by how much
+    content they hold: those are the maps a real population would be spread over.
+    """
+    cache = os.path.join(BUILD, "map-index.json")
+    maps_dir = os.path.join(ROOT, "client", "assets", "maps")
+    newest = 0.0
+    for name in os.listdir(maps_dir) if os.path.isdir(maps_dir) else []:
+        f = os.path.join(maps_dir, name, "map.json")
+        if os.path.exists(f):
+            newest = max(newest, os.path.getmtime(f))
+    if os.path.exists(cache) and os.path.getmtime(cache) >= newest:
+        with open(cache, encoding="utf-8") as f:
+            return json.load(f)
+    out = []
+    for name in sorted(os.listdir(maps_dir)):
+        if not name.isdigit():
+            continue
+        f = os.path.join(maps_dir, name, "map.json")
+        if not os.path.exists(f):
+            continue
+        with open(f, encoding="utf-8") as fh:
+            j = json.load(fh)
+        out.append({"id": int(name), "name": j.get("name", ""), "npcs": len(j.get("npcs") or []),
+                    "regions": len(j.get("regions") or []), "traps": len(j.get("traps") or [])})
+    out.sort(key=lambda m: (-m["npcs"], -m["regions"], m["id"]))
+    os.makedirs(BUILD, exist_ok=True)
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump(out, f)
+    return out
+
+
+def load_maps(count: int) -> list[int]:
+    """The `count` busiest maps: where a real population would be."""
+    idx = map_index()
+    if not idx:
+        return [1]
+    return [m["id"] for m in idx[:max(1, count)]]
+
+
+LOAD_PASSWORD = "botbot"   # jxaccount enforces the old PaySys minimum of 6 characters
+
+
+def seed_accounts(n: int, maps: list[int], prefix: str = "load", password: str = LOAD_PASSWORD) -> None:
+    """Accounts + one character each, spread over `maps`.  Run with the gateway stopped."""
+    subprocess.check_call(["go", "build", "-o", os.path.join(BUILD, "go") + os.sep, "./cmd/jxaccount"],
+                          cwd=os.path.join(ROOT, "services"))
+    subprocess.check_call([go_exe("jxaccount"), "-data", "data/gateway", "-n", str(n),
+                           "-prefix", prefix, "-password", password,
+                           "-maps", ",".join(str(m) for m in maps), "seed"], cwd=ROOT)
+
+
+def show_stats(lines: list[str], title: str, gateway: list[str] | None = None) -> None:
+    """Print what the servers measured, as numbers a human reads, not raw JSON."""
+    print(f"--- {title}")
+    if not lines:
+        print("  (the zone logged no stats: it may not have started)")
+        return
+    rows = [json.loads(x) for x in lines]
+    peak = max(rows, key=lambda s: int(s.get("players", 0)))
+    worst = max(rows, key=lambda s: float(s.get("tick_ms_p99", 0)))
+    print("  zone                players entities   awake   tick avg      p95      p99      max   RSS MB")
+    for tag, r in (("most players", peak), ("worst p99  ", worst), ("at the end ", rows[-1])):
+        print(f"  {tag} {int(r.get('players', 0)):>9} {int(r.get('entities', 0)):>8} {int(r.get('awake', 0)):>7}"
+              f" {float(r.get('tick_ms_avg', 0)):>10.2f} {float(r.get('tick_ms_p95', 0)):>8.2f}"
+              f" {float(r.get('tick_ms_p99', 0)):>8.2f} {float(r.get('tick_ms_max', 0)):>8.2f}"
+              f" {int(r.get('rss_mb', 0)):>8}")
+    if int(peak.get("dropped", 0)):
+        print(f"  ticks dropped: {peak['dropped']}")
+    busiest = peak.get("workers", "")
+    if busiest:
+        parts = sorted(busiest.split(), key=lambda w: -float(w.split(":")[1].split("ms")[0]))
+        print("  busiest workers at the peak: " + "  ".join(parts[:4]) + f"   (map {peak.get('busiest_map')})")
+    if gateway:
+        g = max((json.loads(x) for x in gateway), key=lambda s: int(s.get("online", 0)))
+        print(f"  gateway      online {int(g.get('online', 0)):>6}   in/s {int(g.get('msg_in_s', 0)):>7}"
+              f"   out/s {int(g.get('msg_out_s', 0)):>8}   writes/s {int(g.get('writes_s', 0)):>7}"
+              f"   MB out/s {int(g.get('kb_out_s', 0)) / 1024:>6.1f}")
+        print(f"               logins {int(g.get('logins', 0)):>6}   failed {int(g.get('login_fails', 0)):>5}"
+              f"   kicked {int(g.get('kicks', 0)):>5}   rate kicks {int(g.get('rate_kicks', 0)):>5}"
+              f"   timeouts {int(g.get('timeouts', 0)):>5}   frames dropped {int(g.get('dropped', 0)):>5}")
+
+
+def cmd_load(n: int, seconds: int, scenario: str = "hot", map_count: int = 1) -> int:
+    """MASTER SPEC 56-58: N simulated clients, then the numbers the zone measured for that run.
+
+    map_count > 1 spreads the population over that many maps (the busiest ones), which is what a
+    live server looks like; map_count = 1 is the worst case, everybody in one place.
+    """
     cmd_stop()
+    maps = load_maps(map_count)
+    seed_accounts(n, maps)
     cmd_start(new_console=False)
     log_path = os.path.join(ROOT, "logs", "zone.log")
     before = os.path.getsize(log_path) if os.path.exists(log_path) else 0
+    gw_path = os.path.join(ROOT, "logs", "gateway.log")
+    before_gw = os.path.getsize(gw_path) if os.path.exists(gw_path) else 0
+    ramp = max(10, n // 100)   # ~100 logins a second: argon2 is deliberately expensive
     try:
         rc = subprocess.call([go_exe("jxbot"), "-gateway", "127.0.0.1:17100", "-bots", str(n),
-                              "-duration", f"{seconds}s", "-prefix", "load", "-scenario", scenario,
-                              "-attack", "true" if scenario == "hot" else "false", "-log-level", "warn"], cwd=ROOT)
+                              "-duration", f"{seconds}s", "-ramp", f"{ramp}s", "-prefix", "load",
+                              "-password", LOAD_PASSWORD,
+                              "-scenario", scenario, "-attack", "true", "-log-level", "warn"], cwd=ROOT)
     finally:
-        stats = []
-        if os.path.exists(log_path):
-            with open(log_path, encoding="utf-8", errors="replace") as f:
-                f.seek(before)
-                for line in f:
-                    if '"msg":"stats"' in line:
-                        stats.append(line.strip())
+        stats = tail_json(log_path, before, '"cat":"zone.tick"')
+        gw = tail_json(os.path.join(ROOT, "logs", "gateway.log"), before_gw, '"cat":"gw.stats"')
         cmd_stop()
-    print(f"--- zone stats during the run ({scenario}, {n} bots, {seconds}s)")
-    for line in stats[-6:]:
-        print(line)
+    show_stats(stats, f"{n} bots, {seconds}s, {scenario}, {len(maps)} map(s), ramp {ramp}s", gw)
     return rc
+
+
+def tail_json(path: str, offset: int, marker: str) -> list[str]:
+    """The stats lines a server wrote after `offset` bytes."""
+    out = []
+    if os.path.exists(path):
+        with open(path, encoding="utf-8", errors="replace") as f:
+            f.seek(offset)
+            for line in f:
+                if marker in line and '"msg":"' in line and "stats" in line:
+                    out.append(line.strip())
+    return out
 
 
 def cmd_e2e() -> int:
@@ -460,7 +559,8 @@ def main() -> None:
     elif cmd == "load":
         sys.exit(cmd_load(int(args[1]) if len(args) > 1 else 50,
                           int(args[2]) if len(args) > 2 else 30,
-                          args[3] if len(args) > 3 else "hot"))
+                          args[3] if len(args) > 3 else "hot",
+                          int(args[4]) if len(args) > 4 else 1))
     elif cmd == "bots":
         sys.exit(cmd_bots(int(args[1]) if len(args) > 1 else 5, int(args[2]) if len(args) > 2 else 30))
     elif cmd == "smoke":

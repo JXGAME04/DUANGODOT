@@ -22,6 +22,7 @@ type Stats struct {
 	FramesOut   atomic.Uint64
 	BytesIn     atomic.Uint64
 	BytesOut    atomic.Uint64
+	Writes      atomic.Uint64 // socket writes: several frames go out in one (see session.writer)
 	Dropped     atomic.Uint64 // frames thrown away because a client could not keep up
 	RateKicks   atomic.Uint64
 	Timeouts    atomic.Uint64
@@ -36,6 +37,7 @@ type Snapshot struct {
 	Connects, Disconnects, Logins, LoginFails     uint64
 	Kicks, RateKicks, Timeouts, Replaced, Dropped uint64
 	FramesIn, FramesOut, BytesIn, BytesOut        uint64
+	Writes                                        uint64
 	ZonePackets, ZoneFanout                       uint64
 	ZoneReady                                     bool
 }
@@ -48,6 +50,7 @@ func (s *Server) Snapshot() Snapshot {
 		Connects: st.Connects.Load(), Disconnects: st.Disconnects.Load(), Logins: st.Logins.Load(), LoginFails: st.LoginFails.Load(),
 		Kicks: st.Kicks.Load(), RateKicks: st.RateKicks.Load(), Timeouts: st.Timeouts.Load(), Replaced: st.Replaced.Load(), Dropped: st.Dropped.Load(),
 		FramesIn: st.FramesIn.Load(), FramesOut: st.FramesOut.Load(), BytesIn: st.BytesIn.Load(), BytesOut: st.BytesOut.Load(),
+		Writes: st.Writes.Load(),
 		ZonePackets: st.ZonePackets.Load(), ZoneFanout: st.ZoneFanout.Load(),
 	}
 }
@@ -73,6 +76,7 @@ func (s *Server) reportStats(ctx context.Context, every time.Duration) {
 				log.F("sessions", cur.Sessions), log.F("online", cur.Online), log.F("zone_ready", cur.ZoneReady),
 				log.F("msg_in_s", perSec(cur.FramesIn, prev.FramesIn)), log.F("msg_out_s", perSec(cur.FramesOut, prev.FramesOut)),
 				log.F("kb_in_s", perSec(cur.BytesIn, prev.BytesIn)/1024), log.F("kb_out_s", perSec(cur.BytesOut, prev.BytesOut)/1024),
+				log.F("writes_s", perSec(cur.Writes, prev.Writes)),
 				log.F("logins", cur.Logins), log.F("login_fails", cur.LoginFails), log.F("kicks", cur.Kicks),
 				log.F("rate_kicks", cur.RateKicks), log.F("timeouts", cur.Timeouts), log.F("replaced", cur.Replaced),
 				log.F("dropped", cur.Dropped), log.F("zone_fanout", cur.ZoneFanout))

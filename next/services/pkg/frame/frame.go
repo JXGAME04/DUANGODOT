@@ -106,9 +106,19 @@ type Reader struct {
 	hdr        [MinFrameSize]byte
 }
 
-// NewReader wraps r.
+// NewReader wraps r with the buffer a real connection deserves.
 func NewReader(r io.Reader, maxPayload uint32) *Reader {
-	return &Reader{r: bufio.NewReaderSize(r, 64*1024), maxPayload: maxPayload}
+	return NewReaderSize(r, maxPayload, 64*1024)
+}
+
+// NewReaderSize is NewReader with a chosen buffer size.  A load test holding thousands of
+// connections in one process pays this per connection, so it asks for a small one; the buffer only
+// has to be big enough to keep syscalls rare, never to hold a whole frame.
+func NewReaderSize(r io.Reader, maxPayload uint32, bufSize int) *Reader {
+	if bufSize < MinFrameSize {
+		bufSize = MinFrameSize
+	}
+	return &Reader{r: bufio.NewReaderSize(r, bufSize), maxPayload: maxPayload}
 }
 
 // Read blocks until one frame is available or the stream fails.

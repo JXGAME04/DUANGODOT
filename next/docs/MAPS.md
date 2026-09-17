@@ -101,6 +101,50 @@ cắm lại khi di chuyển như `KScenePlaceC::MoveObject`. Vật `t` bị cắ
 điểm spawn, NPC. `MoveReq` → điểm đến gần nhất đi được → **A\*** 8 hướng (không cắt góc) → làm mượt
 theo tầm nhìn → `EntityMove.path` (waypoints). Client đi đúng các waypoint đó với cùng tốc độ.
 
+## 4b. Toàn bộ map (980 map trong một zone)
+
+```bash
+python tools/dev.py assets            # chỉ map 1
+build/go/jxassets export-all -client "<client>" -server "<server>" -out client/assets   # toàn bộ
+```
+
+`export-all` đọc mọi dòng `<id>=<đường dẫn>` của `Settings/MapList.ini`. Đo thật trên bộ tham chiếu
+(client VLTK 2.0 + `bin/Client` dự phòng, server Linux + `bin/Server`):
+
+| | |
+|---|---:|
+| map xuất được | **980** |
+| map không có `.wor` trong cả hai client | 74 |
+| region có dữ liệu | 272 638 |
+| NPC | 110 730 |
+| bẫy / cổng | 17 443 |
+| sprite | 2 510 |
+| dung lượng | 1,5 GB map + 906 MB sprite |
+| thời gian | 3 phút 49 giây |
+
+Một region hỏng không làm hỏng cả map: nó bị bỏ qua, ghi vào `map.json` ở `bad_regions` và vào log.
+Ba map 605–607 của bộ tham chiếu rơi vào trường hợp này (id của `105_region_c.dat` trùng với một sprite
+nén theo khung). Ô vật cản của region đó là 0 nên zone coi như đất trống đi được, client không vẽ gì.
+
+**Zone chứa tất cả**: `zone.maps = "all"` nạp mọi thư mục số trong `zone.maps_dir`. Đo trên máy 24 luồng
+(18 Hz, 22 worker mô phỏng), **không người chơi**:
+
+| | |
+|---|---:|
+| map | 980 (mỗi worker 45 map) |
+| entity | 110 734 |
+| thời gian nạp | 7,2 giây |
+| bộ nhớ | 819 MB |
+| tick trung bình / p99 | 1,62 ms / 2,14 ms |
+
+Hai thay đổi làm được điều này:
+
+- `KPathFinder` cấp phát theo nhu cầu. Buffer A* tốn 13 byte mỗi ô (11 MB riêng Phượng Tường);
+  980 map cấp phát sẵn là **2,7 GB**. Giờ nó chỉ cấp phát ở truy vấn đầu tiên và trả lại khi map ngủ.
+- `KSubWorld` **ngủ hẳn**: không người chơi và không còn gì thức trong 36 tick (2 giây) thì `tick()`
+  trả về trước cả khi liệt kê entity. Nếu không, zone phải duyệt 110 730 npc 18 lần mỗi giây chỉ
+  để bỏ qua tất cả.
+
 ## 5. Chưa có (làm ở mốc kế)
 
 - Sprite nhân vật/quái (`npcres`: ghép đầu/thân/vũ khí theo hướng, hành động) — hiện vẽ chấm tròn.

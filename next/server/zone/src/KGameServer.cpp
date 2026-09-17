@@ -8,6 +8,7 @@
 #include "jx/core/Metrics.h"
 #include "jx/internal.pb.h"
 #include "jx/log.hpp"
+#include "jx/process.hpp"
 #include "jx/msg.pb.h"
 #include "jx/net/proto.hpp"
 
@@ -479,6 +480,7 @@ void KGameServer::send_stats()
     }
     std::size_t awake = 0;
     for (const auto& inst : instances_) awake += inst->world().awake_entities();
+    const ProcessUsage usage = process_usage();   // what this many players actually cost (SPEC 55)
     log::info("zone.tick", "stats",
               {log::kv("tick", clock_.tick()), log::kv("players", session_instance_.size()),
                log::kv("entities", total_entities()), log::kv("awake", awake), log::kv("maps", instances_.size()), log::kv("gateways", gateways_.size()),
@@ -488,7 +490,10 @@ void KGameServer::send_stats()
                log::kv("tick_ms_max", fmt::format("{:.2f}", tick_snapshot.max_ms)),
                log::kv("sim_workers", workers_), log::kv("workers", per_worker),
                log::kv("busiest_map", busiest != nullptr ? busiest->map_id() : 0u), log::kv("phases", phases),
-               log::kv("dropped", fixed_.dropped())});
+               log::kv("dropped", fixed_.dropped()),
+               log::kv("rss_mb", usage.rss_bytes / (1024 * 1024)),
+               log::kv("peak_rss_mb", usage.peak_rss_bytes / (1024 * 1024)),
+               log::kv("cpu_s", fmt::format("{:.1f}", static_cast<double>(usage.cpu_ms) / 1000.0))});
     profile_.total().reset();
 }
 

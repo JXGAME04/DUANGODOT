@@ -72,3 +72,53 @@ func TestDroppableEntity(t *testing.T) {
 		}
 	}
 }
+
+func TestDrainTakesEverythingInOrder(t *testing.T) {
+	q := newSendQueue(8)
+	q.push(uint16(jxpb.MsgId_G2C_ENTITY_SPAWN), 0, []byte("spawn"))
+	q.push(uint16(jxpb.MsgId_G2C_ENTITY_MOVE), 7, []byte("move1"))
+	q.push(uint16(jxpb.MsgId_G2C_CHAT_MSG), 0, []byte("chat"))
+
+	var got []string
+	for _, b := range q.drain(nil) {
+		got = append(got, string(b))
+	}
+	if len(got) != 3 || got[0] != "spawn" || got[1] != "move1" || got[2] != "chat" {
+		t.Fatalf("drained %v", got)
+	}
+	if q.len() != 0 {
+		t.Fatalf("queue still holds %d", q.len())
+	}
+	if n := len(q.drain(nil)); n != 0 {
+		t.Fatalf("draining an empty queue gave %d", n)
+	}
+}
+
+func TestDrainReusesTheCallersSlice(t *testing.T) {
+	q := newSendQueue(8)
+	dst := make([][]byte, 0, 4)
+	for round := 0; round < 3; round++ {
+		q.push(uint16(jxpb.MsgId_G2C_CHAT_MSG), 0, []byte("x"))
+		q.push(uint16(jxpb.MsgId_G2C_CHAT_MSG), 0, []byte("y"))
+		dst = q.drain(dst[:0])
+		if len(dst) != 2 {
+			t.Fatalf("round %d drained %d", round, len(dst))
+		}
+	}
+	if cap(dst) != 4 {
+		t.Fatalf("drain grew the slice to %d: it should reuse it", cap(dst))
+	}
+}
+
+func TestDrainStillCoalescesMovement(t *testing.T) {
+	q := newSendQueue(8)
+	q.push(uint16(jxpb.MsgId_G2C_ENTITY_MOVE), 7, []byte("old"))
+	q.push(uint16(jxpb.MsgId_G2C_ENTITY_MOVE), 7, []byte("new"))
+	out := q.drain(nil)
+	if len(out) != 1 || string(out[0]) != "new" {
+		t.Fatalf("coalescing broke: %v", out)
+	}
+	if _, coalesced := q.stats(); coalesced != 1 {
+		t.Fatalf("coalesced = %d, want 1", coalesced)
+	}
+}
