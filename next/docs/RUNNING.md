@@ -29,14 +29,24 @@ cmake --preset windows-msvc            # lần đầu: vcpkg build fmt/spdlog/pr
 python tools/dev.py build              # sinh proto Go, build C++ Debug, build gateway.exe + jxbot.exe
 ```
 
-Sinh lại mã protocol sau khi sửa `proto/jx/*.proto`: `python tools/gen_proto.py` (Go + GDScript;
+`dev.py` chạy cấu hình C++ **`JX_CONFIG`** (mặc định `Debug`; zone Debug chậm hơn Release 5–10 lần, nên
+**đo hiệu năng luôn với `JX_CONFIG=Release`** — dòng tổng kết của `dev.py load` in rõ `zone Debug/Release`).
+Build Release: `cmake --build --preset windows-msvc-release`. Trên máy không có `cmake` trong PATH, dùng
+bản của Visual Studio sau `VsDevCmd.bat -arch=x64` (xem mục 8).
+
+Sinh lại mã protocol sau khi sửa `proto/jx/*.proto`: `python tools/gen_proto.py --go --gd` (Go + GDScript;
 C++ tự sinh khi build).
 
 ## 2b. Xuất map và sprite từ client cũ (một lần, ~10 giây)
 
 ```bash
-python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite -> client/assets (75 MB, không commit)
+python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite + giao diện đăng nhập 2.0 -> client/assets (không commit)
 ```
+
+Lệnh này cũng chạy `jxassets export-ui`: đọc bố cục `\Ui\ui3_1024\UiNewLogin\*.ini`, ảnh `.spr`, font
+bitmap và bảng chuỗi của client VLTK 2.0 rồi ghi `client/assets/ui` (JSON + atlas + `.fnt`). Không có
+client 2.0 thì bước này bỏ qua và Godot dùng màn đăng nhập trơn (`UiLoginPlain`). Chi tiết:
+[VLTK20-CLIENT.md](VLTK20-CLIENT.md).
 
 Nguồn dữ liệu: `config/oldgame.local.json` (mẫu `config/oldgame.example.json`) trỏ tới **client VLTK 2.0** (thư mục có
 `config.ini` + `data/*.pak`), client dự phòng (`bin/Client`, chỉ cấp file 2.0 thiếu) và **server Linux** (`D:\ServerLinux\server1`:
@@ -73,6 +83,19 @@ python tools/dev.py stop
 Client: nhập máy chủ `127.0.0.1:17100`, tài khoản bất kỳ (tự tạo lần đầu, mật khẩu phải giống
 lần sau) → tạo nhân vật → **Vào game** → click chuột trái để đi, Enter để chat, cuộn chuột để zoom,
 Esc để về màn chọn nhân vật. Mở nhiều client cùng lúc để thấy nhau.
+
+Client có vài tham số dòng lệnh (sau `--`) cho test và chụp màn hình:
+`--auto` (tự đăng nhập, vào game, đi, đánh, thoát — `dev.py e2e` dùng), `--server=host:port`,
+`--account=`, `--password=`, `--shot=<cửa sổ>` (mở thẳng một cửa sổ đăng nhập 2.0 và chụp ảnh:
+`bat-dau`, `chon-may-chu`, `dang-nhap`, `chon-nhan-vat`, `chon-tan-thu-thon`, `tao-nhan-vat`),
+`--serverlist=<tệp>`, `--region=`, `--roles=`, `--series=`. Ví dụ: `godot --path client -- --shot=dang-nhap`.
+
+**Hai bản chạy cùng máy** (checkout chính và worktree): đặt `JX_PORT_OFFSET=1000` cho bản thứ hai → zone
+18001, gateway 18100 / 18102, và mọi lệnh `dev.py` của bản đó dùng đúng cổng ấy. Không đặt thì bản thứ hai
+báo "port 17001 is already taken".
+
+Không có dữ liệu game (`client/assets`, `data/`): `dev.py start` thấy thiếu `zone.map_dir` thì chạy zone
+trên **thế giới phẳng thử nghiệm** (`--set zone.map_dir=`) và nói rõ — đó là cách CI chạy `e2e`.
 
 ## 3a. Đường truyền: TCP, TLS, WebSocket
 
@@ -215,3 +238,12 @@ cũng chỉ mất tối đa 1 giây log cuối.
   checkout git.
 - **Godot không thấy addon godobuf**: mở project trong editor một lần để nó import; test headless
   không cần editor.
+- **`cmake: command not found` trong shell**: dùng bản CMake/Ninja của Visual Studio:
+  `"%ProgramFiles%\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" -arch=x64` rồi
+  `cmake --build --preset windows-msvc-release --target jx_zone` (đường dẫn cmake:
+  `Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`).
+- **Số đo tải thấp bất thường, tick hàng chục ms ở 1 500 người**: đang chạy zone **Debug**. Đặt
+  `JX_CONFIG=Release` (mục 2).
+- **Client vào game thấy trống trơn (`entities=1`)**: nhân vật đó có toạ độ lưu từ một lần chạy trên
+  thế giới phẳng (không có bản đồ) và được đặt lại vào góc map thật. Dùng tài khoản khác hoặc xoá
+  `data/gateway/<tài khoản>`.

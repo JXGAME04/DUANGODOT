@@ -12,6 +12,7 @@ file cũ là *thay thế bởi ADR-xxx*, để sau này còn đọc được vì
 | [ADR-004](ADR-004-tai-khoan-phien.md) | Tài khoản argon2id, một tài khoản một phiên, bảo vệ đường vào | đã chốt |
 | [ADR-005](ADR-005-gameserver-nhieu-nhan.md) | GameServer nhiều nhân: chủ sở hữu, hàng lệnh, worker pool, scheduler | đã chốt |
 | [ADR-006](ADR-006-lua54-khong-tuong-thich-lua4.md) | Script là Lua 5.4 thật, không có lớp tương thích Lua 4 | đã chốt |
+| [ADR-007](ADR-007-tuoi-tho-cong-nghe.md) | Tuổi thọ công nghệ 5–10 năm: từng tầng ghim gì, vì sao tin được, chính sách nâng cấp, bảng việc | đã chốt |
 
 Bàn giao và lịch trình tới khi hoàn thiện: [HANDOVER.md](../HANDOVER.md).
 

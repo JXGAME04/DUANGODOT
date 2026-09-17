@@ -138,6 +138,15 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-17 (đêm) — ADR-007: tuổi thọ công nghệ 5–10 năm; RUNNING.md cập nhật
+
+Chủ dự án yêu cầu "mã nguồn dùng được 5–10 năm sau không cần nâng cấp nữa". Viết thành quyết định có
+kiểm chứng: [ADR-007](adr/ADR-007-tuoi-tho-cong-nghe.md) — từng tầng (C++20, CMake+vcpkg ghim, Go 1.26,
+protobuf 3, Lua 5.4, Godot 4.7, JSON/PostgreSQL, UTF-8, Windows+Linux) đang ghim gì và vì sao sống được,
+những gì cố ý không chọn, chính sách nâng cấp mỗi năm một commit riêng, và bảng việc T1–T12 (8 xong, còn
+PostgreSQL M9, validator D1, lịch nâng cấp, Docker O4). RUNNING.md thêm `JX_CONFIG`, `JX_PORT_OFFSET`,
+`export-ui`, tham số `--shot`/`--auto` của client, thế giới phẳng khi không có dữ liệu, và ba sự cố mới.
+
 ### 2026-09-17 (đêm) — M7: một map 3 000 người từ p99 325 ms xuống 21 ms; N3, N5, N6
 
 Đo trước khi làm (1 500 bot một chỗ) chỉ ra chỗ nghẽn thật của một map đông **không phải mạng** mà là pha
