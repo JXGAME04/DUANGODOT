@@ -37,8 +37,20 @@ struct KSubWorldConfig {
     std::int32_t width = 8192;
     std::int32_t height = 8192;
     Pos spawn_point{4096, 4096};
-    std::int32_t cell_size = 512;
-    std::int32_t view_cells = 1;
+    std::int32_t cell_size = 256;
+    // What one client must be told about, in scene units.  The renderer draws a scene point at
+    // (x, y/2), so a screen W x H pixels shows W units of x and 2H units of y: 1280 x 1536 covers
+    // both the VLTK 2.0 client (1024 x 768) and this project's Godot client (1280 x 720) with room
+    // to spare.  The grid turns these into cell counts, rounding up so the view is never smaller
+    // than the screen - an entity the player can see must always have been sent.
+    std::int32_t view_width = 1280;
+    std::int32_t view_height = 1536;
+    // At most this many sessions receive one world packet, nearest first.  A crowd otherwise makes
+    // the traffic grow with the square of the number of players: measured, 1846 players in one spot
+    // produced 1 058 242 packets a second.  The old server had the same rule, MAX_BROADCAST_COUNT
+    // in Core/Src/KRegion.h, and its number was 100.  0 = no limit.
+    std::int32_t max_viewers = 100;
+    std::int32_t view_cells = 0;   // derived from view_width/view_height; set only by tests
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
@@ -112,6 +124,9 @@ public:
     // a zone can host all 980 maps of the old game and only pay for the ones being played.
     [[nodiscard]] bool dormant() const noexcept { return dormant_; }
     [[nodiscard]] std::uint64_t idle_ticks() const noexcept { return idle_ticks_; }
+    // How many times a viewer list was cut down to max_viewers: the number that says a crowd is
+    // being protected against, and by how much.
+    [[nodiscard]] std::uint64_t viewers_capped() const noexcept { return viewers_capped_; }
 
     [[nodiscard]] std::size_t player_count() const noexcept { return players_.size(); }
     [[nodiscard]] std::size_t entity_count() const noexcept { return entities_.size(); }
@@ -206,6 +221,7 @@ private:
     std::unordered_set<std::uint64_t> awake_cells_;   // cells with a player within the largest vision
     std::size_t awake_entities_ = 0;
     std::uint64_t idle_ticks_ = 0;   // consecutive ticks with no player and nothing awake
+    mutable std::uint64_t viewers_capped_ = 0;
     bool dormant_ = false;
     std::int32_t max_vision_ = 0;                     // largest vision radius spawned here
     // per phase cost of this map's tick (MASTER SPEC 22, 53, 96): "map.<id>.tick.<phase>"

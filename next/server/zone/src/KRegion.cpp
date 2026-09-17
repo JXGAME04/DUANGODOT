@@ -4,8 +4,10 @@
 
 namespace jx::zone {
 
-KRegionGrid::KRegionGrid(std::int32_t cell_size, std::int32_t view_cells)
-    : cell_size_(cell_size > 0 ? cell_size : 1), view_(view_cells >= 0 ? view_cells : 0)
+KRegionGrid::KRegionGrid(std::int32_t cell_size, std::int32_t view_x, std::int32_t view_y)
+    : cell_size_(cell_size > 0 ? cell_size : 1),
+      view_x_(view_x >= 0 ? view_x : 0),
+      view_y_(view_y < 0 ? (view_x >= 0 ? view_x : 0) : view_y)
 {
 }
 
@@ -80,16 +82,16 @@ void KRegionGrid::view_diff(Cell from, Cell to, std::vector<EntityId>& entered, 
 {
     entered.clear();
     left.clear();
-    for (std::int32_t cy = to.cy - view_; cy <= to.cy + view_; ++cy) {
-        for (std::int32_t cx = to.cx - view_; cx <= to.cx + view_; ++cx) {
+    for (std::int32_t cy = to.cy - view_y_; cy <= to.cy + view_y_; ++cy) {
+        for (std::int32_t cx = to.cx - view_x_; cx <= to.cx + view_x_; ++cx) {
             const Cell c{cx, cy};
             if (in_view(from, c)) continue;
             const auto it = cells_.find(key(c));
             if (it != cells_.end()) entered.insert(entered.end(), it->second.begin(), it->second.end());
         }
     }
-    for (std::int32_t cy = from.cy - view_; cy <= from.cy + view_; ++cy) {
-        for (std::int32_t cx = from.cx - view_; cx <= from.cx + view_; ++cx) {
+    for (std::int32_t cy = from.cy - view_y_; cy <= from.cy + view_y_; ++cy) {
+        for (std::int32_t cx = from.cx - view_x_; cx <= from.cx + view_x_; ++cx) {
             const Cell c{cx, cy};
             if (in_view(to, c)) continue;
             const auto it = cells_.find(key(c));

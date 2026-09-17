@@ -494,7 +494,11 @@ void KGameServer::send_stats()
         per_worker += fmt::format("w{}:{:.2f}ms/{}maps/{}p", load.worker, load.cost_ms, load.instances, load.players);
     }
     std::size_t awake = 0;
-    for (const auto& inst : instances_) awake += inst->world().awake_entities();
+    std::uint64_t viewers_capped = 0;
+    for (const auto& inst : instances_) {
+        awake += inst->world().awake_entities();
+        viewers_capped += inst->world().viewers_capped();
+    }
     const ProcessUsage usage = process_usage();   // what this many players actually cost (SPEC 55)
     // How much the gateway links are behind: an ack queued behind a megabyte of world traffic is
     // an ack the player waits for, so this is the number that explains a slow "enter world".
@@ -513,6 +517,7 @@ void KGameServer::send_stats()
                log::kv("busiest_map", busiest != nullptr ? busiest->map_id() : 0u), log::kv("phases", phases),
                log::kv("dropped", fixed_.dropped()),
                log::kv("link_kb", link_queued / 1024), log::kv("link_dropped", link_dropped_),
+               log::kv("viewers_capped", viewers_capped),
                log::kv("rss_mb", usage.rss_bytes / (1024 * 1024)),
                log::kv("peak_rss_mb", usage.peak_rss_bytes / (1024 * 1024)),
                log::kv("cpu_s", fmt::format("{:.1f}", static_cast<double>(usage.cpu_ms) / 1000.0))});

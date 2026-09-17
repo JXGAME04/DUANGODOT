@@ -35,6 +35,10 @@ KSubWorldConfig small_world()
     c.width = 4096;
     c.height = 4096;
     c.cell_size = 512;
+    // These tests are about the mechanics around a cell boundary, not about how wide the view is,
+    // so they pin the old one-cell square.  The default view is a rectangle derived from the
+    // screen (see "the default view covers a whole client screen").
+    c.view_cells = 1;
     c.spawn_point = Pos{2000, 2000};
     c.default_speed = 200;   // 10 units per tick
     return c;
@@ -406,4 +410,77 @@ TEST_CASE("npcs far from every player sleep, and wake up when one comes near", "
     const std::size_t awake_far = w.awake_entities();
     CHECK(awake_far >= 2);
     CHECK(awake_far < 41);
+}
+
+TEST_CASE("the default view covers a whole client screen", "[world][aoi]")
+{
+    // The renderer draws a scene point at (x, y/2), so a screen W x H pixels shows W units of x
+    // and 2H units of y.  Anything the player can see must have been sent: a view smaller than the
+    // screen means an entity appears out of nothing at the edge.
+    Quiet q;
+    KSubWorldConfig c;
+    c.width = 20000;
+    c.height = 20000;
+    c.spawn_point = Pos{10000, 10000};
+    KSubWorld w(c);
+
+    struct Screen {
+        const char* name;
+        std::int32_t half_x;
+        std::int32_t half_y;
+    };
+    // VLTK 2.0 runs 1024x768; this project's Godot client runs 1280x720.
+    const Screen screens[] = {{"VLTK 2.0 1024x768", 512, 768}, {"Godot 1280x720", 640, 720}};
+
+    EntityId me, other;
+    Pos pme, pother;
+    REQUIRE(w.spawn_player(1, role(11, "A", c.spawn_point), me, pme) == jx::pb::RESULT_OK);
+
+    for (const Screen& s : screens) {
+        INFO(s.name);
+        for (const Pos corner : {Pos{s.half_x, s.half_y}, Pos{-s.half_x, s.half_y},
+                                 Pos{s.half_x, -s.half_y}, Pos{-s.half_x, -s.half_y}}) {
+            const Pos at{c.spawn_point.x + corner.x, c.spawn_point.y + corner.y};
+            REQUIRE(w.spawn_player(2, role(22, "B", at), other, pother) == jx::pb::RESULT_OK);
+            const auto out = w.take_outbox();
+            // A must be told about B, and B about A: the contract is what the client receives.
+            INFO("corner " << corner.x << "," << corner.y);
+            CHECK_FALSE(to(out, 1, jx::pb::G2C_ENTITY_SPAWN).empty());
+            CHECK_FALSE(to(out, 2, jx::pb::G2C_ENTITY_SPAWN).empty());
+            REQUIRE(w.remove_player(2));
+            w.take_outbox();
+        }
+    }
+}
+
+TEST_CASE("a crowd does not make one action reach everybody", "[world][aoi]")
+{
+    // MASTER SPEC 69, and the old server's own rule (MAX_BROADCAST_COUNT = 100 in
+    // Core/Src/KRegion.h): without a cap, 1846 players in one spot produced over a million packets
+    // a second because every action reached every one of them.
+    Quiet q;
+    KSubWorldConfig c;
+    c.width = 20000;
+    c.height = 20000;
+    c.spawn_point = Pos{10000, 10000};
+    c.max_viewers = 8;
+    KSubWorld w(c);
+
+    EntityId id;
+    Pos p;
+    for (std::uint64_t sid = 1; sid <= 40; ++sid) {
+        const Pos at{c.spawn_point.x + static_cast<std::int32_t>(sid), c.spawn_point.y};
+        REQUIRE(w.spawn_player(sid, role(10 + sid, "P" + std::to_string(sid), at), id, p) == jx::pb::RESULT_OK);
+    }
+    w.take_outbox();
+
+    REQUIRE(w.chat(1, "xin chao"));
+    const auto out = w.take_outbox();
+    std::size_t recipients = 0;
+    for (const Packet& pk : out) {
+        if (pk.msg_id == static_cast<std::uint16_t>(jx::pb::G2C_CHAT_MSG)) recipients += pk.sids.size();
+    }
+    CHECK(recipients > 0);
+    CHECK(recipients <= static_cast<std::size_t>(c.max_viewers));
+    CHECK(w.viewers_capped() > 0);
 }

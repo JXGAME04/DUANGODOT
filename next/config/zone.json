@@ -14,8 +14,16 @@
     "width": 8192,
     "height": 8192,
     // "spawn": { "x": 4096, "y": 4096 },   -> when set it overrides the map spawn (useful for testing a spot)
-    "cell_size": 512,
-    "view_cells": 1,
+    // AOI: o luoi 256 don vi; vung nhin la hinh chu nhat theo man hinh, khong phai hinh vuong.
+    // Phep chieu la (x, y/2) nen man hinh 1024x768 phu 1024 x 1536 don vi canh; 1280 x 1536 phu
+    // ca client 2.0 lan client Godot (1280x720).  view_cells = 0 nghia la suy tu hai so tren.
+    "cell_size": 256,
+    "view_width": 1280,
+    "view_height": 1536,
+    "view_cells": 0,
+    // Toi da bao nhieu phien nhan mot goi the gioi, gan nhat truoc (0 = khong gioi han).
+    // Ban cu dung MAX_BROADCAST_COUNT = 100 trong Core/Src/KRegion.h.
+    "max_viewers": 100,
     "default_speed": 200,
     "max_players": 30000,
     "save_interval_s": 60,

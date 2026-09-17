@@ -104,6 +104,9 @@ int main(int argc, char** argv)
     w.spawn_from_config = cfg.has("zone.spawn.x") && cfg.has("zone.spawn.y");
     w.cell_size = static_cast<std::int32_t>(cfg.get_int("zone.cell_size", w.cell_size));
     w.view_cells = static_cast<std::int32_t>(cfg.get_int("zone.view_cells", w.view_cells));
+    w.view_width = static_cast<std::int32_t>(cfg.get_int("zone.view_width", w.view_width));
+    w.view_height = static_cast<std::int32_t>(cfg.get_int("zone.view_height", w.view_height));
+    w.max_viewers = static_cast<std::int32_t>(cfg.get_int("zone.max_viewers", w.max_viewers));
     w.default_speed = static_cast<std::uint32_t>(cfg.get_int("zone.default_speed", w.default_speed));
     w.max_players = static_cast<std::uint32_t>(cfg.get_int("zone.max_players", w.max_players));
     w.seed = static_cast<std::uint32_t>(cfg.get_int("zone.seed", w.seed));

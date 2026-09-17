@@ -134,6 +134,42 @@ khoảng **32 tuần**.
 Thứ tự trên có một ràng buộc cứng: **M10 phải xong trước M11, M12, M13**, vì cả ba đều cần biết
 chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
+## 4b. Nhật ký — cập nhật mỗi lần có việc xong
+
+Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 — N1 và N2: chặn số người nhận, và vùng nhìn đúng hình màn hình
+
+**N2 — vùng nhìn theo màn hình.** `KRegionGrid` nhận hai số ô riêng cho trục x và trục y thay vì một
+hình vuông. `KSubWorldConfig` khai báo vùng nhìn bằng **đơn vị cảnh** (`view_width` 1280, `view_height`
+1536) và luới tự suy ra số ô, **làm tròn lên** để vùng nhìn không bao giờ nhỏ hơn màn hình. Ô lưới
+512 → 256. Đây là **sửa lỗi**: trước đó vùng nhìn chỉ bảo đảm 512 đơn vị trong khi màn hình cần 640
+ngang và 768 dọc, nên có lúc entity hiện trên màn hình mà server chưa gửi.
+
+**N1 — chặn số người nhận mỗi gói.** `KSubWorld::viewers_cached` giờ giữ khoảng cách của từng người
+xem và cắt danh sách xuống `max_viewers` (mặc định **100**, đúng con số `MAX_BROADCAST_COUNT` của bản cũ ở
+`Core/Src/KRegion.h:9`), **giữ người gần nhất**. Bản cũ giữ ai đến trước, cách này tốt hơn. Số lần cắt
+đếm được qua `viewers_capped` trong dòng `zone.tick`.
+
+**Đo được**, cùng kịch bản dồn vào một map:
+
+| | Trước | Sau |
+|---|---:|---:|
+| người trên một map | 1 846 | **2 000** (vào được hết) |
+| tick trung bình | 11,26 ms | **5,16 ms** |
+| p95 | 33,55 | **12,58** |
+| p99 | **100,66** | **29,36** |
+| chi phí worker giữ map đó | 4,85 ms | **3,54 ms** |
+| gateway đẩy ra | 1 058 242 gói/s | **197 805 gói/s** |
+| băng thông | 56,3 MB/s | **15,0 MB/s** |
+
+Số gói giảm **5,3 lần**, băng thông giảm **3,8 lần**, p99 tốt hơn **3,4 lần** — trong khi vùng nhìn mới
+còn **rộng hơn** cũ (1792 đơn vị so với 1536). Đó là giá trị của N1.
+
+Thêm ba test: vùng nhìn mặc định phủ hết bốn góc màn hình của cả hai loại client; đám đông không làm
+một hành động đến được tất cả; các test cơ chế qua biên ô giờ ghim `view_cells = 1` vì chúng nói về cơ
+chế chứ không về độ rộng. **119 ctest xanh.**
+
 ## 5. Điều người tiếp nhận cần biết để không vấp
 
 - **Không sửa mã nguồn cũ bằng công cụ soạn thảo thường.** Cây `SwordOnline/` trộn GBK và TCVN3;

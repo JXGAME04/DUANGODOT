@@ -41,10 +41,29 @@ void set_vec(pb::Vec2* v, Pos p)
     v->set_y(p.y);
 }
 
+// How many cells of `cell` it takes to cover half of `extent`, rounded up.  Rounding up matters:
+// the view must never be smaller than the screen, or an entity the player can see was never sent.
+std::int32_t view_cells_for(std::int32_t extent, std::int32_t cell)
+{
+    if (cell <= 0) return 1;
+    const std::int32_t half = std::max(0, extent) / 2;
+    return std::max(1, (half + cell - 1) / cell);
+}
+
+// The interest grid of a world: a rectangle in scene units turned into cell counts.  A test may
+// pin the old square behaviour by setting view_cells.
+KRegionGrid make_grid(const KSubWorldConfig& cfg)
+{
+    if (cfg.view_cells > 0) return KRegionGrid(cfg.cell_size, cfg.view_cells, cfg.view_cells);
+    return KRegionGrid(cfg.cell_size,
+                       view_cells_for(cfg.view_width, cfg.cell_size),
+                       view_cells_for(cfg.view_height, cfg.cell_size));
+}
+
 } // namespace
 
 KSubWorld::KSubWorld(KSubWorldConfig cfg)
-    : cfg_(std::move(cfg)), grid_(cfg_.cell_size, cfg_.view_cells), rng_(cfg_.seed)
+    : cfg_(std::move(cfg)), grid_(make_grid(cfg_)), rng_(cfg_.seed)
 {
     paths_.reset(cfg_.map.get());
     profile_ = std::make_unique<core::TickProfile>(
@@ -55,7 +74,7 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
         cfg_.height = cfg_.map->scene_h;
         if (!cfg_.spawn_from_config) cfg_.spawn_point = cfg_.map->spawn;
         cfg_.spawn_point = cfg_.map->nearest_walkable(clamp(cfg_.spawn_point));
-        grid_ = KRegionGrid(cfg_.cell_size, cfg_.view_cells);
+        grid_ = make_grid(cfg_);
         if (cfg_.map_npcs) {
             for (const KNpcPlacement& n : cfg_.map->npcs) {
                 // NPCKIND of the old GameDataDef.h: 0 = kind_normal (a monster); everything else
@@ -138,11 +157,40 @@ const std::vector<std::uint64_t>& KSubWorld::viewers_cached(Cell c) const
                               static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cy));
     const auto it = viewer_cache_.find(key);
     if (it != viewer_cache_.end()) return it->second;
-    std::vector<std::uint64_t> list;
+
+    // Collect who can see this cell, keeping how far away each one is so the list can be cut to
+    // the nearest ones.  MASTER SPEC 69: what a player must be told about first is what is close.
+    struct Near {
+        std::uint64_t sid;
+        std::int64_t dist2;
+    };
+    std::vector<Near> near;
     grid_.for_each_in_view(c, [&](EntityId id) {
         const KNpc* e = entities_.find(id);
-        if (e != nullptr && e->kind == KNpcKind::player && e->sid != 0) list.push_back(e->sid);
+        if (e == nullptr || e->kind != KNpcKind::player || e->sid == 0) return;
+        const Cell oc = grid_.cell_of(e->pos());
+        const std::int64_t dx = static_cast<std::int64_t>(oc.cx) - c.cx;
+        const std::int64_t dy = static_cast<std::int64_t>(oc.cy) - c.cy;
+        near.push_back(Near{e->sid, dx * dx + dy * dy});
     });
+
+    // A crowd would otherwise make one action reach everybody: 1846 players in one spot produced
+    // 1 058 242 packets a second, because the number of "who sees whom" pairs grows with the square
+    // of the crowd.  The old server capped it the same way (MAX_BROADCAST_COUNT = 100 in
+    // Core/Src/KRegion.h), except it kept whoever came first; keeping the nearest is strictly better.
+    const auto cap = static_cast<std::size_t>(std::max(0, cfg_.max_viewers));
+    if (cap != 0 && near.size() > cap) {
+        std::nth_element(near.begin(), near.begin() + static_cast<std::ptrdiff_t>(cap), near.end(),
+                         [](const Near& a, const Near& b) { return a.dist2 < b.dist2; });
+        near.resize(cap);
+        ++viewers_capped_;
+    }
+
+    std::vector<std::uint64_t> list;
+    list.reserve(near.size());
+    for (const Near& n : near) list.push_back(n.sid);
+    // A stable order keeps the packets a session receives reproducible between runs.
+    std::sort(list.begin(), list.end());
     return viewer_cache_.emplace(key, std::move(list)).first->second;
 }
 

@@ -1,5 +1,11 @@
 // Area of interest: a uniform grid.  An entity in cell C is visible to every player whose cell is
-// within view_cells of C (Chebyshev distance) and vice versa, so visibility is symmetric.
+// within view_x cells horizontally and view_y cells vertically, and vice versa, so visibility stays
+// symmetric.
+//
+// The two counts are separate because the world is not seen as a square.  The old renderer draws
+// a scene point at (x, y/2), so a 1024 x 768 screen shows 1024 units of x but 1536 units of y: the
+// area a player must be told about is a rectangle, taller than it is wide in world units.  The
+// counts are derived from that rectangle in KSubWorld, never guessed here.
 #pragma once
 
 #include <cstdint>
@@ -25,16 +31,19 @@ struct Cell {
 
 class KRegionGrid {
 public:
-    explicit KRegionGrid(std::int32_t cell_size, std::int32_t view_cells = 1);
+    // view_y defaults to view_x, which keeps the old square behaviour for callers that do not care.
+    explicit KRegionGrid(std::int32_t cell_size, std::int32_t view_x = 1, std::int32_t view_y = -1);
 
     [[nodiscard]] Cell cell_of(Pos p) const noexcept;
     [[nodiscard]] const Cell* cell_of(EntityId id) const;
     [[nodiscard]] bool in_view(Cell a, Cell b) const noexcept
     {
-        return std::abs(a.cx - b.cx) <= view_ && std::abs(a.cy - b.cy) <= view_;
+        return std::abs(a.cx - b.cx) <= view_x_ && std::abs(a.cy - b.cy) <= view_y_;
     }
     [[nodiscard]] std::int32_t cell_size() const noexcept { return cell_size_; }
-    [[nodiscard]] std::int32_t view_cells() const noexcept { return view_; }
+    [[nodiscard]] std::int32_t view_cells() const noexcept { return view_x_; }
+    [[nodiscard]] std::int32_t view_cells_x() const noexcept { return view_x_; }
+    [[nodiscard]] std::int32_t view_cells_y() const noexcept { return view_y_; }
     [[nodiscard]] std::size_t size() const noexcept { return where_.size(); }
     [[nodiscard]] bool contains(EntityId id) const { return where_.contains(id); }
 
@@ -60,8 +69,8 @@ public:
     template <class Fn>
     void for_each_in_view(Cell c, Fn&& fn) const
     {
-        for (std::int32_t cy = c.cy - view_; cy <= c.cy + view_; ++cy) {
-            for (std::int32_t cx = c.cx - view_; cx <= c.cx + view_; ++cx) {
+        for (std::int32_t cy = c.cy - view_y_; cy <= c.cy + view_y_; ++cy) {
+            for (std::int32_t cx = c.cx - view_x_; cx <= c.cx + view_x_; ++cx) {
                 const auto it = cells_.find(key(Cell{cx, cy}));
                 if (it == cells_.end()) continue;
                 for (const EntityId id : it->second) fn(id);
@@ -97,7 +106,8 @@ private:
     }
 
     std::int32_t cell_size_;
-    std::int32_t view_;
+    std::int32_t view_x_;
+    std::int32_t view_y_;
     struct Placed {
         Cell cell;
         bool player = false;
