@@ -3,11 +3,12 @@ package pak
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/oldgame"
 )
 
 // testElem is one element of a synthetic archive.
@@ -175,20 +176,11 @@ func TestSetWithoutNestedArchiveIsUnchanged(t *testing.T) {
 // "client" of next/config/oldgame.local.json when that is a 2.0 client.
 func vltk20Client(t *testing.T) string {
 	t.Helper()
-	cands := []string{os.Getenv("JX_VLTK20_CLIENT")}
-	if home, err := os.UserHomeDir(); err == nil {
-		cands = append(cands, filepath.Join(home, "Level Up Games", "Vo Lam Truyen Ky 2.0"))
+	dir := oldgame.ClientVLTK20()
+	if dir == "" {
+		t.Skip("VLTK 2.0 client not found (JX_VLTK20_CLIENT, JX_OLD_CLIENT or config/oldgame.local.json)")
 	}
-	for _, c := range cands {
-		if c == "" {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(c, "data", "font.pak")); err == nil {
-			return c
-		}
-	}
-	t.Skip("VLTK 2.0 client not found (set JX_VLTK20_CLIENT)")
-	return ""
+	return dir
 }
 
 // The real thing: the 2.0 client's login window is only reachable through the nested archive.

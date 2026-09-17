@@ -81,8 +81,14 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Engine/Src/KDebug` | `client/autoload/KDebug.gd` | `Log` |
 | `Core/Src/KProtocol.h` (khung tin) | `client/net/KProtocol.gd` + `client/proto/jx_pb.gd` (sinh) | |
 | `S3Client/Login/Login.cpp` (`KLogin`, `ProcessAccountLoginResponse`) | `client/net/KLogin.gd` (bảng thông báo kết quả đăng nhập/bị đá) | |
-| `Ui/UiCase/UiLogin` | `client/scenes/UiLogin.gd/.tscn` | |
-| `Ui/UiCase/UiSelPlayer`, `UiNewPlayer` | `client/scenes/UiSelPlayer.gd/.tscn` | |
+| `Ui/UiShell.cpp` (UiStart, luồng trước khi vào game) | `client/scenes/UiShell.gd/.tscn` | cảnh chính; `UiLoginPlain.gd` khi chưa xuất dữ liệu game |
+| `Ui/Elem/WndWindow`, `WndImage`, `WndButton`, `WndLabeledButton`, `WndText`, `WndEdit`, `WndList`, `WndShowAnimate` | `client/ui/elem/KWnd*.gd` | mỗi lớp một tệp, `init_from(ini, section)` đọc đúng các khoá của `Init` cũ; `KWndList` gồm cả lớp danh sách có ảnh dòng của 2.0 |
+| `Ui/Elem/UiImage` (`KUiImageRef`) | `client/ui/KUiImage.gd` | atlas + bảng khung hình |
+| `KIniFile` đọc bố cục | `client/ui/KUiScheme.gd` | `get_integer/get_integer2/get_color/image` trên `bo-cuc.json` |
+| `Represent/iRepresent/Font/KFont2`, `KFontData`; `Engine/Src/KDrawFont` | `services/pkg/jxold/font/KFontData.go`, `export/KFontExport.go`, `client/ui/KFont.gd` | font ASF → BMFont hai lớp (nét + viền) |
+| `Engine/Src/Text.cpp` (`TEncodeText`, bảng màu) | `client/ui/KText.gd` | bảng màu lấy từ `enginefree.dll` 2.0 |
+| `Ui/UiCase/UiInit`, `UiSelServer`, `UiLogin`, `UiLoginBg`, `UiConnectInfo`, `UiSelPlayer`, `UiSelNativePlace`, `UiNewPlayer` | `client/ui/uicase/<cùng tên>.gd` | |
+| `Login/Login.cpp` `GetServerRegionList`, `GetServerList`, `m_Choices` | `client/net/KLoginServer.gd`, `client/config/serverlist.json` | |
 | `Ui/UiCase/UiGame` + `UiChatCentre` + `UiInformation` | `client/scenes/UiGame.gd/.tscn` | |
 | `Core/Src/Scene/KScenePlaceC.cpp` (vẽ map theo region, `AddObject/MoveObject` nhân vật vào cây) | `client/scenes/KScenePlaceC.gd` | |
 | `Core/Src/Scene/KIpoTree.h/.cpp` (cây sắp xếp vật thể ↔ nhân vật, bỏ phần ánh sáng) | `client/scenes/KIpoTree.gd` | |

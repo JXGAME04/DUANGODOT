@@ -43,6 +43,11 @@ var last_rtt_ms := 0
 var auth_mode := ""      # "dev" / "strict" from HelloAck
 var heartbeat_s := 30    # the gateway's silence limit in the world
 var last_notice := ""    # why we are back on the login screen (kick / lost connection)
+# The Result of the last login attempt, for the window that turns it into the game's own sentence
+# (KUiConnectInfo): Proto.Result.*, or LOGIN_NO_CONNECTION when the gateway was never reached.
+const LOGIN_NO_CONNECTION := -1
+var last_login_result := 0
+var max_chars := 3       # CharListRes.max_chars
 var chars: Array = []
 # entity_id -> Dictionary; the model of what the zone shows us.  Kept here (not in the scene) so
 # packets that arrive before the world scene is loaded are not lost.
@@ -77,8 +82,10 @@ func login(server: String, account: String, password: String) -> void:
 	_account = account
 	_password = password
 	_set_state("connecting")
+	last_login_result = Proto.Result.OK
 	if Net.connect_to(server) != OK:
 		_set_state("offline")
+		last_login_result = LOGIN_NO_CONNECTION
 		login_result.emit(false, "Không kết nối được tới %s" % server)
 
 
@@ -86,11 +93,13 @@ func request_char_list() -> void:
 	Net.send_msg(Proto.MsgId.C2G_CHAR_LIST, Proto.CharListReq.new())
 
 
-func create_char(name: String, series: int, sex: int) -> void:
+func create_char(name: String, series: int, sex: int, native_place: int = 0) -> void:
 	var req := Proto.CharCreateReq.new()
 	req.set_name(name)
 	req.set_series(series)
 	req.set_sex(sex)
+	if req.has_method("set_native_place"):
+		req.set_native_place(native_place)
 	Net.send_msg(Proto.MsgId.C2G_CHAR_CREATE, req)
 
 
@@ -195,6 +204,8 @@ func _on_disconnected(reason: String) -> void:
 	if last_notice == "" and reason != "logout" and reason != "back to login":
 		last_notice = "Mất kết nối: " + reason
 	if was == "connecting" or was == "hello" or was == "auth":
+		if last_login_result == Proto.Result.OK:
+			last_login_result = LOGIN_NO_CONNECTION
 		login_result.emit(false, last_notice if last_notice != "" else "Mất kết nối: " + reason)
 	connection_lost.emit(reason)
 
@@ -235,6 +246,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				Log.info("auth", "login ok", {"account": _account, "account_id": account_id})
 				login_result.emit(true, "")
 			else:
+				last_login_result = res.get_result()
 				Log.warn("auth", "login failed", {"result": res.get_result(), "text": res.get_text()})
 				login_result.emit(false, KLogin.result_text(res.get_result(), res.get_text()))
 
@@ -245,6 +257,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			chars = []
 			for c in res.get_chars():
 				chars.append(_summary_dict(c))
+			max_chars = maxi(int(res.get_max_chars()), 1)
 			Log.info("lobby", "char list", {"count": chars.size(), "max": res.get_max_chars()})
 			char_list.emit(chars)
 

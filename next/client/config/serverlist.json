@@ -1,0 +1,13 @@
+{
+  "_doc": "Danh sach cum va may chu ma man 'Chon May Chu' hien (KLoginServer.gd). Cung hinh dang voi serverlist.ini cua client cu: moi cum co ten va cac may chu {title, address}. address la thu KNetAddress hieu: host:port, tls://host:port, ws://host:port/ws, wss://host/ws. Ban tren may nguoi choi (user://serverlist.json) duoc uu tien hon tep nay.",
+  "advice_region": 0,
+  "regions": [
+    {
+      "title": "Máy chủ nội bộ",
+      "servers": [
+        {"title": "Máy này (TCP)", "address": "127.0.0.1:17100"},
+        {"title": "Máy này (WebSocket)", "address": "ws://127.0.0.1:17102/ws"}
+      ]
+    }
+  ]
+}

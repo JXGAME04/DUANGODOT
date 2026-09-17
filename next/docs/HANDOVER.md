@@ -39,7 +39,7 @@ Xong và có test:
 | Tài khoản argon2id, một tài khoản một phiên | xong | [ADR-004](adr/ADR-004-tai-khoan-phien.md) |
 | Script Lua 5.4 thật, **không còn lớp tương thích Lua 4** | xong | 7 663 tệp, 0 lỗi, [ADR-006](adr/ADR-006-lua54-khong-tuong-thich-lua4.md) |
 | Toàn bộ 980 map trong một zone | xong | 819 MB, tick 1,6 ms lúc rỗng |
-| Client Godot: đăng nhập → chọn nhân vật → vào map → đi → đánh | xong | e2e TCP + WS |
+| Client Godot: luồng đăng nhập **bản 2.0** (7 cửa sổ) → vào map → đi → đánh | xong | e2e TCP + WS, 95 kiểm tra giao diện, khớp điểm ảnh client thật |
 | Bẫy và cổng dịch chuyển giữa map | xong | test trap |
 
 Đo được về tải, trên máy 24 luồng (i7-13700K, 32 GB), 18 Hz, ngân sách 55 ms một tick:
@@ -75,14 +75,14 @@ Chia theo nhóm; cột **giá** là ước lượng công sức, không phải c
 | N6 | Chạy thật gateway thứ hai | nhỏ | Hạ tầng xong (`ZoneHelloAck.session_prefix`), chưa đo được vì máy test hết cổng. |
 | N7 | **Chia vùng trong một map nóng** | lớn | Giai đoạn R. Chỉ làm **sau** N1–N3, vì nút thắt hiện ở mạng. |
 
-### 3b. Giao diện bản 2.0 — việc bạn giao, chưa làm
+### 3b. Giao diện bản 2.0 — luồng đăng nhập đã xong, khớp client thật
 
-| # | Việc | Giá | Ghi chú |
-|---|---|---|---|
-| ~~U1~~ | ~~Bộ xuất bố cục UI từ `.ini` sang JSON~~ **xong** | vừa | Client JX1 có `\Ui\Ui3\登陆.ini`, `选游戏存档人物.ini`, `新建角色.ini` với toạ độ, cỡ chữ, màu, ảnh nền. |
-| ~~U2~~ | ~~Màn đăng nhập theo bản 2.0~~ **xong** | vừa | Client 2.0 **không** có ba tệp đó; phải lấy bố cục JX1 rồi ghép ảnh 2.0, hoặc mổ tiếp `gamecl.exe` (đang bị nén). |
-| ~~U3~~ | ~~Màn chọn nhân vật~~ **xong** | vừa | |
-| ~~U4~~ | ~~Màn tạo nhân vật~~ **xong** | vừa | Có sẵn các ô: tên, nam/nữ, và ngũ hành Kim/Mộc/Thuỷ/Hoả/Thổ. |
+| # | Việc | Trạng thái |
+|---|---|---|
+| ~~U1~~ | Bộ xuất bố cục UI: `.ini` của 2.0 (đọc theo đúng tên game gọi) → JSON + atlas + font bitmap + câu thông báo | **xong** |
+| ~~U2–U5~~ | Bảy cửa sổ của luồng đăng nhập 2.0 trong Godot (`client/ui/uicase`), phần tử theo `Ui/Elem` cũ (`client/ui/elem`) | **xong**, hai màn đối chiếu được với client thật: 99,98 % và 99,88 % |
+| U6 | Bàn phím ảo, "Tùy Chọn Hệ Thống", "Xem Ghi Hình", âm thanh nút | chưa |
+| U7 | Đối chiếu điểm ảnh các màn sau đăng nhập | cần ảnh chụp client thật (phải có tài khoản) |
 
 ### 3c. Gameplay — chủ dự án đã hoãn, chờ mổ nhị phân bản Linux
 
@@ -115,7 +115,7 @@ thu bằng cảm tính.
 |---|---|---:|---|
 | ~~**M6**~~ **đạt 2026‑09‑17** | N1, N2, N4 | 1 | 3 000 người **một map**: p99 < 55 ms, 0 tick bị rớt → đo được **p99 16,78 ms, 0 tick rớt**. Có test khẳng định vùng nhìn phủ hết màn hình và client không bao giờ giữ bóng ma. |
 | **M7** | N3, N5, N6 | 1–2 | 20 000 người trên hai gateway: p99 < 55 ms, tồn đọng đường truyền < 4 MB. Cần bot từ máy thứ hai. |
-| **M8** | U1–U4 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu. |
+| ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. |
 | **M10** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | Danh sách đầy đủ 235 hàm và bảng kỹ năng, có tài liệu. |
 | **M11** | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. |
@@ -137,6 +137,53 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 (tối) — M8 làm lại: luồng đăng nhập bản 2.0, khớp client thật 99,9 % điểm ảnh
+
+Phiên trước dựng ba màn từ bố cục **đoán** (nó không tìm thấy các `.ini` của 2.0). Giờ bố cục thật
+đã đọc được (kho lồng `\reslst.dat`), nên toàn bộ luồng được **viết lại từ mã nguồn cũ + mã máy
+`gamecl.exe` 2.0**, không đoán chỗ nào:
+
+| Việc | Kết quả đo được |
+|---|---|
+| Đối chiếu điểm ảnh với client 2.0 thật, 1024x768 | **Chọn Máy Chủ: 99,98 %** điểm ảnh lệch ≤ 11/255 (danh sách cụm 100 %, danh sách máy chủ 99,99 %, tiêu đề 100 %); **bảng chọn đầu (`KUiInit`): 99,88 %** (bốn nút 100 %, dải bản quyền 100 %). Phần lệch còn lại là lá rơi đang chuyển động và màu 16‑bit của bản cũ. |
+| Bảy cửa sổ, đúng thứ tự của bản 2.0 | `KUiInit` → `KUiSelServer` → `KUiLogin` → `KUiConnectInfo` → `KUiSelPlayer` → `KUiSelNativePlace` → `KUiNewPlayer`, nền `KUiLoginBackGround` (lá rơi, logo, biển 18+). Ai mở ai, nút nào quay về đâu: theo `UiCase/*.cpp`. |
+| Chữ | Font bitmap **của chính game** (`\font\vn\gbk_fs12/14/16.fnt`, định dạng ASF): mỗi ký tự cách nhau đúng `cỡ/2` px, viền chữ nằm sẵn trong glyph. Xuất thành BMFont (`chu-14.fnt` + `chu-14-vien.fnt`). |
+| Câu thông báo | 89 câu `[InfoString]` của `\Ui\Setting.ini` ("Hiện đang kết nối với máy chủ"…), 752 chuỗi `stringtable_client.txt`, 8 tân thủ thôn, mô tả ngũ hành — đều lấy từ game, không tự viết. |
+| Ảnh | Mỗi sprite một atlas + bảng khung hình (x, y, w, h, ox, oy). Cách cũ (mỗi khung một PNG 800x528) tốn 65 MB và ~760 MB VRAM cho 900 khung nhân vật; giờ **34 MB**, dáng nhân vật dùng chung một thư mục. |
+| Test | Go 31 test (`jxold/...`, có fuzz font), Godot **95 kiểm tra giao diện** + 262 test thuần, e2e TCP + WebSocket qua luồng mới: **đạt**. Không có dữ liệu game (CI, máy mới clone) thì client tự lùi về `UiLoginPlain` và vẫn đăng nhập, tạo nhân vật, vào game được. |
+
+**Những điều chỉ mã máy mới cho biết** (chi tiết ở [VLTK20-CLIENT.md](VLTK20-CLIENT.md) §6–§9):
+
+- `KUiSelServer`: `LeftList` + `RightList` là **một** danh sách CỤM chia hai cột, 14 cụm mỗi cột;
+  `IpList` mới là danh sách máy chủ của cụm đang chọn; `NameBigger` là tên cụm. Danh sách có ảnh
+  nền từng dòng (`SprImg`), các dòng cách nhau **18 px** (hằng số trong mã, không phải `Font+1`),
+  chữ bắt đầu ở `TextXStart` (mặc định 7). Máy chủ có chữ "(Đầy)" tô đỏ, "(Đề cử)" tô xanh.
+- Danh sách máy chủ của 2.0 là `\UserDataCl\serverlist.ini`, XOR 0x32, cùng cấu trúc
+  `[List]/[Region_n]` như mã nguồn cũ. Của ta: `client/config/serverlist.json` cùng hình dạng.
+- Bảng màu của thẻ `<color=...>` trong `enginefree.dll` có 21 tên (Gold, Orange, Violet… mà JX1
+  không có).
+- Ảnh tên hệ ở màn tạo nhân vật ghép trong mã: `<PropertyBgImgPrefix>\<金|木|水|火|土>vn.spr`.
+  Cấp nhân vật in theo `"LV:%d"`. Kim chỉ nam, Thủy chỉ nữ (giống mã nguồn cũ).
+- Client thật mở ở `KUiInit` (bốn nút), không phải vào thẳng Chọn Máy Chủ như ghi chú trước.
+
+**Chưa đối chiếu được bằng ảnh**: từ màn Đăng nhập trở đi. Client thật không nhận phím/chuột ảo
+(`PostMessage`), còn các màn sau đăng nhập thì phải có tài khoản thật mới tới được — tôi không được
+phép đăng nhập thay ai. Các màn đó dựng bằng **cùng bộ phần tử đã kiểm chứng** trên hai màn kia.
+Nếu muốn chắc từng điểm ảnh: chụp giúp bốn màn đó ở 1024x768, tôi so bằng `tools/re` trong vài phút.
+
+**Sửa lỗi của phiên trước gặp trên đường**: test Go đọc dữ liệu thật vỡ khi `JX_OLD_CLIENT` trỏ vào
+client 2.0 (chúng mặc định client nào cũng có `package.ini`). Giờ mỗi test gọi
+`oldgame.ClientJX1()` / `ClientVLTK20()` / `ServerJX1()` — nói rõ loại thư mục mình cần, tự tìm qua
+biến môi trường, `config/oldgame.local.json`, `bin/`, và bỏ qua nếu không có.
+
+Xem ảnh: `python tools/dev.py assets` rồi
+`godot --path client --resolution 1024x768 res://scenes/UiShell.tscn -- --shot=chon-may-chu`
+(các tên khác: `bat-dau`, `dang-nhap`, `thong-bao-ket-noi`, `chon-nhan-vat`, `chon-tan-thu-thon`,
+`tao-nhan-vat`) → `user://logs/ui_<tên>.png`.
+
+Còn lại của phần giao diện đăng nhập: bàn phím ảo (`虚拟键盘.ini` đã xuất, chưa dựng), hai bảng
+"Tùy Chọn Hệ Thống" và "Xem Ghi Hình" của `KUiInit`, âm thanh nút bấm (`UiSoundPlay`).
 
 ### 2026-09-17 (chiều) — rà lại việc của phiên trước: ba lỗi thật, sửa xong cả ba
 

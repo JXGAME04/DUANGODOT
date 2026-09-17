@@ -139,6 +139,9 @@ type Exporter struct {
 	StandFrames func(templateID int) int
 	// uiCache holds the sprites a window named, so one screen decodes each picture once.
 	uiCache map[string]*spr.Sprite
+	// uiPortraits: PlayerImgPrefix -> the thirty character figures, written once for every window
+	// that names the prefix.
+	uiPortraits map[string]map[string]*UiImage
 }
 
 func New(set *pak.Set, out string) *Exporter {

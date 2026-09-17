@@ -1,11 +1,11 @@
 package wor
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/oldgame"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 )
@@ -13,17 +13,11 @@ import (
 // oldClient returns the old client folder (bin/Client of the swrod3 checkout) or skips.
 func oldClient(t *testing.T) string {
 	t.Helper()
-	if dir := os.Getenv("JX_OLD_CLIENT"); dir != "" {
-		return dir
+	dir := oldgame.ClientJX1()
+	if dir == "" {
+		t.Skip("JX1 client data not found (JX_OLD_CLIENT, config/oldgame.local.json or bin/Client)")
 	}
-	for _, rel := range []string{"../../../../../bin/Client", "../../../../bin/Client"} {
-		p, _ := filepath.Abs(rel)
-		if _, err := os.Stat(filepath.Join(p, "package.ini")); err == nil {
-			return p
-		}
-	}
-	t.Skip("old client data not found (set JX_OLD_CLIENT)")
-	return ""
+	return dir
 }
 
 // The smithy of Phượng Tường (region 101,99): the header counts classify the records the way

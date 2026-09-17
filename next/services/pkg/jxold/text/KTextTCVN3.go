@@ -39,6 +39,15 @@ var utf8ToTCVN3 = func() map[rune]byte {
 	return m
 }()
 
+// TCVN3Rune returns the letter one TCVN3 byte stands for, 0 when the byte has none.  The old
+// bitmap fonts are indexed by this byte, so this is also the way from a glyph slot to Unicode.
+func TCVN3Rune(b byte) rune {
+	if b < 0x80 {
+		return rune(b)
+	}
+	return tcvn3[b-0x80]
+}
+
 // TCVN3ToUTF8 decodes a TCVN3 string.  Bytes without a mapping are kept as U+FFFD.
 func TCVN3ToUTF8(b []byte) string {
 	var sb strings.Builder

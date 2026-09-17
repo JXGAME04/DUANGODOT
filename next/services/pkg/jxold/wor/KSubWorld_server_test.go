@@ -1,10 +1,10 @@
 package wor
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/oldgame"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 )
@@ -12,17 +12,11 @@ import (
 // oldServer returns the old server folder (bin/Server: package.ini + pak/maps.pak) or skips.
 func oldServer(t *testing.T) string {
 	t.Helper()
-	if dir := os.Getenv("JX_OLD_SERVER"); dir != "" {
-		return dir
+	dir := oldgame.ServerJX1()
+	if dir == "" {
+		t.Skip("old server data not found (JX_OLD_SERVER, config/oldgame.local.json or bin/Server)")
 	}
-	for _, rel := range []string{"../../../../../bin/Server", "../../../../bin/Server"} {
-		p, _ := filepath.Abs(rel)
-		if _, err := os.Stat(filepath.Join(p, "package.ini")); err == nil {
-			return p
-		}
-	}
-	t.Skip("old server data not found (set JX_OLD_SERVER)")
-	return ""
+	return dir
 }
 
 // The server archive's Region_S.dat carries the real npcs (KRegion::LoadServerNpc): the smithy

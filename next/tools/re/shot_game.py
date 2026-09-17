@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
-"""Start a game client, wait, capture ONLY its own window(s) with PrintWindow, optionally click, stop it.
+"""Start a game client, walk through its windows and capture ONLY its own window with PrintWindow.
 
-  shot_game.py <exe> <out-prefix> [--wait S] [--shots N] [--every S] [--keep] [--click x,y ...]
+  shot_game.py <exe> <out-prefix> [--wait S] [--do "<steps>"] [--keep]
 
-Only windows owned by the process started here are captured - nothing else on the desktop.
+<steps> is a ';'-separated script, run after the first wait:
+  shot            save <out-prefix>_<n>.png (n counts up from 0)
+  wait:2.5        sleep
+  key:enter       a key press sent to the game's window (enter, esc, tab, up, down, left, right)
+  click:x,y       a left click at client coordinates of the game's window
+  move:x,y        move the mouse there (hover states)
+Without --do it takes one shot.
+
+Input goes to the window of the process started here as window messages (PostMessage): the real
+mouse and keyboard are not touched and nothing else on the desktop is looked at or clicked.  The tool
+is for LOOKING at the old client's windows; it types no text, so it cannot log in anywhere.
 """
 import ctypes
 import ctypes.wintypes as wt
@@ -17,6 +27,11 @@ from PIL import Image
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32
 user32.SetProcessDPIAware()
+
+WM_KEYDOWN, WM_KEYUP = 0x0100, 0x0101
+WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP = 0x0200, 0x0201, 0x0202
+MK_LBUTTON = 0x0001
+KEYS = {"enter": 0x0D, "esc": 0x1B, "tab": 0x09, "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27}
 
 
 def windows_of(pid):
@@ -49,11 +64,10 @@ def capture(hwnd, path, client_only=True):
     if w <= 0 or h <= 0:
         return False
     hdc = user32.GetWindowDC(hwnd)
-    mdc = gdi32.CreateCompatibleDC(hdc)
+    mem = gdi32.CreateCompatibleDC(hdc)
     bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
-    gdi32.SelectObject(mdc, bmp)
-    PW_CLIENTONLY, PW_RENDERFULLCONTENT = 1, 2
-    ok = user32.PrintWindow(hwnd, mdc, (PW_CLIENTONLY if client_only else 0) | PW_RENDERFULLCONTENT)
+    gdi32.SelectObject(mem, bmp)
+    ok = user32.PrintWindow(hwnd, mem, 3 if client_only else 2)   # PW_CLIENTONLY | PW_RENDERFULLCONTENT
 
     class BITMAPINFOHEADER(ctypes.Structure):
         _fields_ = [("biSize", wt.DWORD), ("biWidth", wt.LONG), ("biHeight", wt.LONG), ("biPlanes", wt.WORD),
@@ -65,27 +79,36 @@ def capture(hwnd, path, client_only=True):
     bi.biSize = ctypes.sizeof(bi)
     bi.biWidth, bi.biHeight, bi.biPlanes, bi.biBitCount = w, -h, 1, 32
     buf = ctypes.create_string_buffer(w * h * 4)
-    gdi32.GetDIBits(mdc, bmp, 0, h, buf, ctypes.byref(bi), 0)
+    gdi32.GetDIBits(mem, bmp, 0, h, buf, ctypes.byref(bi), 0)
+    Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB").save(path)
     gdi32.DeleteObject(bmp)
-    gdi32.DeleteDC(mdc)
+    gdi32.DeleteDC(mem)
     user32.ReleaseDC(hwnd, hdc)
-    img = Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
-    img.save(path)
     return bool(ok)
+
+
+def game_window(pid):
+    best = None
+    for hwnd, _title, w, h in windows_of(pid):
+        if w >= 200 and h >= 150 and (best is None or w * h > best[1]):
+            best = (hwnd, w * h)
+    return best[0] if best else None
+
+
+def lparam(x, y):
+    return (y << 16) | (x & 0xFFFF)
 
 
 def main():
     a = sys.argv[1:]
     exe, prefix = a[0], a[1]
-    wait, shots, every, keep = 20.0, 1, 5.0, False
+    wait, keep, steps = 20.0, False, "shot"
     i = 2
     while i < len(a):
         if a[i] == "--wait":
             wait = float(a[i + 1]); i += 2
-        elif a[i] == "--shots":
-            shots = int(a[i + 1]); i += 2
-        elif a[i] == "--every":
-            every = float(a[i + 1]); i += 2
+        elif a[i] == "--do":
+            steps = a[i + 1]; i += 2
         elif a[i] == "--keep":
             keep = True; i += 1
         else:
@@ -93,20 +116,40 @@ def main():
     proc = subprocess.Popen([exe], cwd=os.path.dirname(exe))
     print("started pid", proc.pid)
     time.sleep(wait)
+    shot = 0
     try:
-        for n in range(shots):
+        for step in [s.strip() for s in steps.split(";") if s.strip()]:
             if proc.poll() is not None:
                 print("process exited with", proc.returncode)
                 break
-            wins = windows_of(proc.pid)
-            print(f"shot {n}: windows", [(t, w, h) for _, t, w, h in wins])
-            for k, (hwnd, title, w, h) in enumerate(wins):
-                if w < 200 or h < 150:
-                    continue
-                out = f"{prefix}_{n}_{k}.png"
+            hwnd = game_window(proc.pid)
+            if hwnd is None:
+                print("no window yet for step", step)
+                time.sleep(1.0)
+                continue
+            name, _, arg = step.partition(":")
+            if name == "shot":
+                out = f"{prefix}_{shot}.png"
                 ok = capture(hwnd, out)
-                print("   saved", out, "PrintWindow ok" if ok else "PrintWindow returned 0")
-            time.sleep(every)
+                print("saved", out, "" if ok else "(PrintWindow returned 0)")
+                shot += 1
+            elif name == "wait":
+                time.sleep(float(arg))
+            elif name == "key":
+                vk = KEYS[arg.lower()]
+                user32.PostMessageW(hwnd, WM_KEYDOWN, vk, 1)
+                time.sleep(0.05)
+                user32.PostMessageW(hwnd, WM_KEYUP, vk, 0xC0000001)
+            elif name in ("click", "move"):
+                x, y = (int(v) for v in arg.split(","))
+                user32.PostMessageW(hwnd, WM_MOUSEMOVE, 0, lparam(x, y))
+                if name == "click":
+                    time.sleep(0.05)
+                    user32.PostMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam(x, y))
+                    time.sleep(0.08)
+                    user32.PostMessageW(hwnd, WM_LBUTTONUP, 0, lparam(x, y))
+            else:
+                print("unknown step", step)
     finally:
         if not keep and proc.poll() is None:
             proc.terminate()

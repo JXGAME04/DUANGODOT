@@ -67,6 +67,7 @@ var loaded_bytes := 0
 func _exit_tree() -> void:
 	_sprites.clear()
 	_ui_images.clear()
+	_ui_pixels.clear()
 
 
 func assets_root() -> String:
@@ -139,26 +140,38 @@ func ui_screen(name: String):
 	return load_json("%s/ui/%s/bo-cuc.json" % [assets_root(), name])
 
 
-# One picture of a window: assets/ui/<man>/<tep>.  Named after the widget it belongs to, so the
-# file says what it is (nut-xac-dinh.png, the-kim-nhan.png) instead of carrying a hash.
-func ui_picture(screen: String, file: String) -> Texture2D:
+# A table of the old client that is data, not a layout: assets/ui/du-lieu/<ten>.json
+# (tan-thu-thon, ngu-hanh, thong-diep, chuoi-client).
+func ui_data(name: String):
+	return load_json("%s/ui/du-lieu/%s.json" % [assets_root(), name])
+
+
+# One picture of a window, by the path the layout gives below assets/ui ("dang-nhap/nut-huy.png").
+# A sprite's atlas or a .jpg; the file is named after the widget it belongs to, never after a hash.
+func ui_texture(file: String) -> Texture2D:
 	if file == "":
 		return null
-	var key := screen + "/" + file
-	if _ui_images.has(key):
-		return _ui_images[key]
-	var path := "%s/ui/%s/%s" % [assets_root(), screen, file]
+	if _ui_images.has(file):
+		return _ui_images[file]
+	var path := "%s/ui/%s" % [assets_root(), file]
 	var img := Image.new()
 	var err := img.load(path)
 	if err != OK:
 		Log.error("asset", "ui picture load failed", {"path": path, "error": error_string(err)})
-		_ui_images[key] = null
+		_ui_images[file] = null
 		return null
 	var tex := ImageTexture.create_from_image(img)
-	_ui_images[key] = tex
+	_ui_images[file] = tex
+	_ui_pixels[tex] = img
 	loaded_bytes += img.get_data_size()
-	Log.trace("asset", "ui picture loaded", {"file": key, "size": "%dx%d" % [img.get_width(), img.get_height()]})
+	Log.trace("asset", "ui picture loaded", {"file": file, "size": "%dx%d" % [img.get_width(), img.get_height()]})
 	return tex
 
 
+# The pixels behind a ui_texture, for windows that let the mouse through their transparent parts.
+func ui_image_data(tex: Texture2D) -> Image:
+	return _ui_pixels.get(tex, null)
+
+
 var _ui_images := {}
+var _ui_pixels := {}

@@ -42,6 +42,7 @@ var (
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
+	flagTheme  = flag.String("theme", "", "export-ui: a fragment of the theme folder name (1024, 800); default: the largest")
 	flagServer = flag.String("server", "", "old server folder(s) 'a;b' (package.ini + pak/maps.pak, Settings, script): the first with a pak serves the regions, plain files come from the first that has them; default: the Server folder next to the client")
 )
 
@@ -642,24 +643,12 @@ func main() {
 		fmt.Printf("ghi ra %s\n", out)
 
 	case "export-ui":
-		// The login windows, as JSON layouts plus the pictures they name.
+		// The windows of the login flow, as JSON layouts plus the pictures they name.
 		//
-		// A screen is found by WHAT ITS SECTIONS ARE CALLED, never by file name: a .pak keeps only
-		// the hash of each name, so the VLTK 2.0 client cannot be listed, and its windows have no
-		// name we could guess.  Section names are plain ASCII in every client, which also keeps
-		// GBK byte escapes out of this file.
-		//
-		// When a client carries the same window twice - the 2.0 one ships an 800x600 and a
-		// 1024x768 copy - the larger canvas wins, because that is the one it actually runs.
-		screens := []struct {
-			name, label string
-			must        []string
-		}{
-			{"dang-nhap", "Đăng nhập", []string{"main", "account", "password", "login", "cancel"}},
-			{"nen-dang-nhap", "Nền đăng nhập", []string{"init", "login", "login2", "versiontext"}},
-			{"chon-nhan-vat", "Chọn nhân vật", []string{"selrole", "player", "ok", "new", "del"}},
-			{"tao-nhan-vat", "Tạo nhân vật", []string{"newplayer", "name", "male", "female", "gold", "wood", "water", "fire", "earth"}},
-		}
+		// Each window is read BY THE NAME THE GAME ASKS FOR - <theme>\UiNewLogin\<file>.ini, the
+		// names KUi*::LoadScheme of gamecl.exe passes to KIniFile::Load - out of the nested
+		// archive \reslst.dat (docs/VLTK20-CLIENT.md).  The theme folder comes from
+		// \Ui\Setting.ini like in the game; -theme 800 picks the small one.
 		out := *flagOut
 		if out == "" {
 			out = "client/assets"
@@ -668,39 +657,57 @@ func main() {
 		set := openSet(dir)
 		defer set.Close()
 		ex := export.New(set, out)
-		defer prepareExporter(ex, dir, set)()
-
-		texts := set.ScanText()
-		fmt.Printf("doc %d tep van ban trong %d kho\n", len(texts), len(set.Files))
+		theme, width, height := ex.UiTheme(*flagTheme)
+		fmt.Printf("theme %s (%dx%d)\n", theme, width, height)
 		ok, missing := 0, 0
-		for _, sc := range screens {
-			var best *pak.TextFile
-			bestArea := -1
-			for i := range texts {
-				t := &texts[i]
-				if !export.HasSections(t.Body, sc.must) {
-					continue
-				}
-				w, h := export.CanvasOf(t.Body)
-				if w*h > bestArea {
-					best, bestArea = t, w*h
-				}
-			}
-			if best == nil {
-				missing++
-				fmt.Printf("  %-14s khong co trong client nay\n", sc.name)
-				continue
-			}
-			source := fmt.Sprintf("%s#%08x", filepath.Base(best.Pak), best.ID)
-			screen, err := ex.Ui(sc.name, sc.label, source, best.Body)
+		for _, def := range export.LoginScreens {
+			screen, err := ex.UiByName(def, theme, width, height)
 			if err != nil {
 				missing++
-				fmt.Printf("  %-14s %v\n", sc.name, err)
+				fmt.Printf("  %-20s %-20s THIEU: %v\n", def.Name, def.Class, err)
 				continue
 			}
 			ok++
-			fmt.Printf("  %-14s %2d o, khung %dx%d, %d anh  <- %s\n",
-				sc.name, len(screen.Widgets), screen.Width, screen.Height, len(screen.Files), source)
+			pictures, frames := 0, 0
+			for _, w := range screen.Widgets {
+				for _, img := range w.Images {
+					pictures++
+					frames += len(img.Frames)
+				}
+			}
+			fmt.Printf("  %-20s %-20s %2d o, %2d anh (%3d khung hinh), %2d dang nhan vat\n", def.Name, def.Class, len(screen.Widgets), pictures, frames, len(screen.Portraits))
+		}
+		// the data those windows show: starting villages, the five elements, the login messages
+		for _, t := range []struct{ name, path string }{
+			{"tan-thu-thon", `\Settings\NativePlaceList.ini`},
+			{"ngu-hanh", `\Ui\五行.ini`},
+			{"thong-diep", `\Ui\Setting.ini`},
+		} {
+			n, err := ex.UiTable(t.name, t.path)
+			if err != nil {
+				missing++
+				fmt.Printf("  %-20s THIEU: %v\n", t.name, err)
+				continue
+			}
+			fmt.Printf("  %-20s %d muc  <- %s\n", t.name, n, t.path)
+		}
+		// the fixed texts the windows look up by key, and the bitmap fonts all text is drawn with
+		if n, err := ex.UiStrings("chuoi-client", `\lang\vn\stringtable_client.txt`); err != nil {
+			fmt.Printf("  %-20s THIEU: %v\n", "chuoi-client", err)
+		} else {
+			fmt.Printf("  %-20s %d chuoi  <- %s\n", "chuoi-client", n, `\lang\vn\stringtable_client.txt`)
+		}
+		fonts, err := ex.UiFonts(theme)
+		if err != nil {
+			missing++
+			fmt.Printf("  %-20s THIEU: %v\n", "font", err)
+		}
+		for _, f := range fonts {
+			if f.SameAs > 0 {
+				fmt.Printf("  font %-15d dung chung net chu voi co %d\n", f.Size, f.SameAs)
+			} else {
+				fmt.Printf("  font %-15d o %dx%d, moi chu cach %d px, %d chu  <- %s\n", f.Size, f.CellW, f.CellH, f.Advance, f.Glyphs, f.GamePath)
+			}
 		}
 		reportFallback(set)
 		fmt.Printf("export-ui: %d man, %d thieu, %d anh -> %s\n", ok, missing, ex.Exported, filepath.Join(out, "ui"))

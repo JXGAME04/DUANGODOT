@@ -214,7 +214,7 @@ func _select_target(node: Node2D) -> void:
 
 func _leave() -> void:
 	Game.leave_world()
-	get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiShell.tscn")
 
 
 # ---- world events --------------------------------------------------------------------------
@@ -294,14 +294,14 @@ func _on_kicked(reason: int, text: String) -> void:
 	if KLogin.session_ends(reason):
 		# replaced / shutdown / rate limit: the gateway closes the socket, back to the login screen
 		Game.logout("kicked")
-		get_tree().change_scene_to_file("res://scenes/UiLogin.tscn")
+		get_tree().change_scene_to_file("res://scenes/UiShell.tscn")
 	else:
-		get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
+		get_tree().change_scene_to_file("res://scenes/UiShell.tscn")
 
 
 func _on_connection_lost(reason: String) -> void:
 	Log.warn("ui", "connection lost in world", {"reason": reason})
-	get_tree().change_scene_to_file("res://scenes/UiLogin.tscn")
+	get_tree().change_scene_to_file("res://scenes/UiShell.tscn")
 
 
 # ---- automation ----------------------------------------------------------------------------

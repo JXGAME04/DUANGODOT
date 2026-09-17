@@ -1,29 +1,23 @@
 package npcres
 
 import (
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"unicode/utf8"
 
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/oldgame"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 )
 
 func oldClient(t *testing.T) string {
 	t.Helper()
-	if dir := os.Getenv("JX_OLD_CLIENT"); dir != "" {
-		return dir
+	dir := oldgame.ClientJX1()
+	if dir == "" {
+		t.Skip("JX1 client data not found (JX_OLD_CLIENT, config/oldgame.local.json or bin/Client)")
 	}
-	for _, rel := range []string{"../../../../../bin/Client", "../../../../bin/Client"} {
-		p, _ := filepath.Abs(rel)
-		if _, err := os.Stat(filepath.Join(p, "package.ini")); err == nil {
-			return p
-		}
-	}
-	t.Skip("old client data not found (set JX_OLD_CLIENT)")
-	return ""
+	return dir
 }
 
 func gbk(t *testing.T, s string) string {

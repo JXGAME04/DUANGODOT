@@ -1,27 +1,36 @@
 package export
 
 // The old client draws every window from an .ini: one section per widget with its rectangle, its
-// sprite and, for an edit box, its font and colours.  KUiBase::GetSchemePath picks the folder,
-// then each screen loads its own file (KUiLogin::LoadScheme reads its .ini and hands each section
-// to KWndEdit/KWndButton::Init).
+// sprite and, for text, its font and colours.  KUiBase::GetCurSchemePath picks the theme folder,
+// each window class loads its own file (KUiLogin::LoadScheme reads <theme>\UiNewLogin\登陆.ini and
+// hands each section to KWndEdit / KWndButton / KWndText ::Init).
 //
-// This turns one of those files into JSON the Godot client can lay out directly, and writes every
-// picture it names under a readable Vietnamese path.  Two things are deliberate:
+// This file turns such a layout into JSON the Godot client lays out the same way, and writes every
+// picture it names.  What it guarantees:
 //
-//   - The screen is NOT found by file name.  A .pak keeps only the hash of each name, so the VLTK
-//     2.0 client cannot be listed at all; its windows are found by what their sections are called
-//     (see HasSections).  That also keeps GBK byte escapes out of this source entirely.
-//   - Every picture is written as ui/<man-hinh>/<o>-<trang-thai>.png, named after the widget it
-//     belongs to, not after a hash.  files[] in the JSON maps each old game path to the file it
-//     became, so a picture can still be traced back to the client it came from.
+//   - The layout is read BY THE NAME THE GAME ASKS FOR.  gamecl.exe of VLTK 2.0 names fourteen
+//     files under UiNewLogin\ (docs/VLTK20-CLIENT.md); they live in the nested archive \reslst.dat.
+//     An earlier version guessed a window from its section names because it could not find these
+//     files at all - and guessed wrong for three of them.
+//   - A section is transcribed WHOLE.  Every key goes into `values` under its lower-cased name,
+//     with the value decoded to UTF-8, so the client reads a section exactly the way the old
+//     KWnd*::Init did and nothing is lost to a field this exporter did not think of.
+//   - A picture keeps what the old renderer needed to draw it.  A window image is drawn WITHOUT
+//     RUIMAGE_RENDER_FLAG_FRAME_DRAW (IR_InitUiImageRef clears bRenderFlag), so each frame sits
+//     at its own offset inside the sprite's box.  A sprite becomes one atlas .png plus, in the
+//     JSON, where each frame is in the atlas (x, y, w, h) and where it goes in the box (ox, oy).
+//     The first exporter wrote the bare first frame and every such picture landed a few pixels up
+//     and to the left; writing each frame on a full-size canvas instead was exact but cost 65 MB
+//     and an 800x528 texture for every frame of every animated figure.
+//   - Every frame of a sprite is kept.  A button's states are frame NUMBERS (Up, Down,
+//     OverFrame - `Over` itself is only the switch), an ornament or a figure is an animation.
 //
-// Coordinates stay exactly as the old client had them; the canvas is whatever the window says
-// (800x600 for the JX1 scheme, 1024x768 for the 2.0 one).
+// Pictures are named after the widget they belong to, in Vietnamese, never after a hash:
+// ui/dang-nhap/nut-dang-nhap.png.  files{} in the JSON maps each old game path to what it became.
 
 import (
 	"encoding/json"
 	"fmt"
-	"image"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -33,84 +42,116 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
 )
 
-// UiColor is an RGB triple as the old ini writes it ("255,252,178").
-type UiColor struct {
-	R int `json:"r"`
-	G int `json:"g"`
-	B int `json:"b"`
+// UiScreenDef names one window of the old client: the file its class loads and what we call it.
+type UiScreenDef struct {
+	Name  string // folder under ui/, Vietnamese without diacritics
+	Label string // what to call it in Vietnamese
+	Class string // the old C++ class, the name the project owner knows the window by
+	File  string // path below the theme folder, exactly as the executable spells it
 }
 
-// UiWidget is one section of the file.
+// LoginScreens are the windows of the login flow, in the order the player meets them.  The file
+// names are the ones KUi*::LoadScheme of gamecl.exe passes to KIniFile::Load.
+var LoginScreens = []UiScreenDef{
+	{"nen-dang-nhap", "Nền của luồng đăng nhập", "KUiLoginBackGround", `UiNewLogin\登陆过程背景窗口.ini`},
+	{"bat-dau", "Bảng chọn đầu tiên", "KUiInit", `UiNewLogin\开始.ini`},
+	{"chon-may-chu", "Chọn máy chủ", "KUiSelServer", `UiNewLogin\选服务器.ini`},
+	{"dang-nhap", "Đăng nhập", "KUiLogin", `UiNewLogin\登陆.ini`},
+	{"thong-bao-ket-noi", "Thông báo trong lúc kết nối", "KUiConnectInfo", `UiNewLogin\登陆过程提示.ini`},
+	{"chon-nhan-vat", "Chọn nhân vật", "KUiSelPlayer", `UiNewLogin\选游戏存档人物.ini`},
+	{"tao-nhan-vat", "Tạo nhân vật", "KUiNewPlayer", `UiNewLogin\新建角色.ini`},
+	{"chon-tan-thu-thon", "Chọn tân thủ thôn", "KUiSelNativePlace", `UiNewLogin\选新手村.ini`},
+	{"ban-phim-ao", "Bàn phím ảo", "KUiVirtualKeyboard", `UiNewLogin\虚拟键盘.ini`},
+	{"khuyen-cao", "Khuyến cáo chơi game lành mạnh", "KUiHealthGameNotice", `UiNewLogin\健康游戏公告.ini`},
+	{"bang-thong-bao", "Bảng thông báo", "KUiNotice", `UiNewLogin\提示公告界面.ini`},
+	{"canh-bao-pk", "Cảnh báo PK", "KUiPKNotice", `UiNewLogin\PK提示.ini`},
+	{"kich-hoat-tai-khoan", "Kích hoạt tài khoản", "KUiActiveAccount", `UiNewLogin\ActiveAccount.ini`},
+}
+
+// UiImage is one picture of the old client, written out.
+type UiImage struct {
+	GamePath string `json:"game_path"`
+	File     string `json:"file"`               // below ui/: "dang-nhap/nut-dang-nhap.png" - a sprite's atlas, or the .jpg as it was
+	Width    int    `json:"width"`              // the sprite's box (0 for a copied .jpg)
+	Height   int    `json:"height"`             //
+	Interval int    `json:"interval,omitempty"` // milliseconds per frame (KImageParam.nInterval)
+	// One entry per frame: x, y, w, h cut it out of the atlas, ox, oy place it inside the box.
+	Frames []spr.AtlasFrame `json:"frames,omitempty"`
+}
+
+// UiWidget is one section of a layout.
 type UiWidget struct {
-	Name   string `json:"name"` // the section name, lower-cased: "account", "ok", ...
-	Slug   string `json:"slug"` // the Vietnamese name its pictures are filed under
-	Left   int    `json:"left"`
-	Top    int    `json:"top"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-
-	// A button or a picture.  Each state is a file under ui/<screen>/, so the client loads a
-	// picture by name and never has to know about atlases or ids.
-	Picture   string `json:"picture,omitempty"`   // the resting picture
-	Pressed   string `json:"pressed,omitempty"`   // Down=
-	Hover     string `json:"hover,omitempty"`     // Over=
-	GamePath  string `json:"game_path,omitempty"` // where it came from in the old client
-	CheckBox  bool   `json:"checkbox,omitempty"`  // CheckBox=1: a two-state button
-	Transback bool   `json:"trans,omitempty"`     // Trans=1: the window itself draws nothing
-
-	// An edit box or a piece of text.
-	Font        int      `json:"font,omitempty"`
-	HAlign      int      `json:"halign,omitempty"`
-	Type        int      `json:"type,omitempty"` // KWndEdit type: 1 = password, 2 = plain
-	Password    bool     `json:"password,omitempty"`
-	MultiLine   bool     `json:"multi_line,omitempty"`
-	MaxLen      int      `json:"max_len,omitempty"`
-	Color       *UiColor `json:"color,omitempty"`
-	BorderColor *UiColor `json:"border_color,omitempty"`
-
-	// Everything else the section said, so nothing is silently lost.
-	Extra map[string]string `json:"extra,omitempty"`
+	Name   string              `json:"name"`             // as the file spells it: "BtnOpenAccountList"
+	Key    string              `json:"key"`              // lower-cased: what the client looks a widget up by
+	Slug   string              `json:"slug"`             // the Vietnamese name its pictures are filed under
+	Values map[string]string   `json:"values"`           // every key of the section (lower-cased), decoded
+	Images map[string]*UiImage `json:"images,omitempty"` // key that named a picture -> that picture
 }
 
 // UiScreen is one window of the old client.
 type UiScreen struct {
-	Name    string     `json:"name"`   // "tao-nhan-vat", "dang-nhap", ...
-	Label   string     `json:"label"`  // what to call it in Vietnamese
-	Source  string     `json:"source"` // where it was found: archive and id, or a game path
-	Width   int        `json:"width"`  // the canvas the coordinates belong to
+	Name    string     `json:"name"`
+	Label   string     `json:"label"`
+	Class   string     `json:"class"`
+	Source  string     `json:"source"` // game path and the archive it was read from
+	Theme   string     `json:"theme"`  // "ui3_1024"
+	Width   int        `json:"width"`  // the screen the theme was drawn for
 	Height  int        `json:"height"`
 	Widgets []UiWidget `json:"widgets"`
-	// The character pictures the select/create screens build by name, keyed "<series>_<sex>_<n>":
-	// KUiSelPlayer::GetRoleImageName makes "<PlayerImgPrefix>_<series>_<sex>_<n>.spr", with n = 0
-	// for the small portrait and 1 / 2 for the near and far figure.
-	Portraits map[string]string `json:"portraits,omitempty"`
-	// Every old game path this screen used, and the file it became: the way back to the client.
+	// The character pictures the select / create windows build by name, keyed "<series>_<sex>_<n>":
+	// KUiSelPlayer::GetRoleImageName makes "<PlayerImgPrefix>_<series>_<sex>_<n>.spr".
+	Portraits map[string]*UiImage `json:"portraits,omitempty"`
+	// Every old game path this window used, and the first file it became: the way back to the client.
 	Files map[string]string `json:"files,omitempty"`
 }
 
-// known keys are read into the typed fields; the rest lands in Extra.
-var uiTypedKeys = map[string]bool{
-	"left": true, "top": true, "width": true, "height": true, "image": true,
-	"up": true, "down": true, "over": true, "overframe": true, "checkbox": true, "trans": true,
-	"font": true, "halign": true, "type": true, "password": true, "multiline": true,
-	"maxlen": true, "color": true, "bordercolor": true,
-}
-
-// uiSlugs gives each section of the login screens a Vietnamese file name.  A section the table
+// uiSlugs gives the sections of the login windows Vietnamese file names.  A section the table
 // does not know keeps its own name, lower-cased - still readable, just not translated.
 var uiSlugs = map[string]string{
-	"main": "nen", "init": "nen", "newplayer": "nen", "selrole": "nen", "login": "nen-dang-nhap",
-	"login2": "nen-2", "login3": "nen-3",
-	"account": "tai-khoan", "password": "mat-khau", "name": "ten", "namebg": "khung-ten",
-	"level": "cap-do", "ok": "nut-xac-dinh", "cancel": "nut-huy", "new": "nut-tao-moi",
-	"del": "nut-xoa", "transfer": "nut-chuyen", "remember": "nut-nho-tai-khoan",
-	"invisible": "nut-dang-nhap-an", "male": "nam", "female": "nu",
+	"main": "nen", "init": "nen-mo-dau", "newplayer": "nen", "selrole": "nen",
+	"login2": "nen-chon-nhan-vat", "login3": "nen-3",
+	"account": "o-tai-khoan", "password": "o-mat-khau", "name": "o-ten", "namebg": "khung-ten",
+	"level": "cap-do", "ok": "nut-xac-dinh", "cancel": "nut-huy", "new": "nut-tao-nhan-vat",
+	"del": "nut-xoa", "transfer": "nut-chuyen", "remember": "o-nho-tai-khoan",
+	"invisible": "o-dang-nhap-an", "virtualkeyboard": "o-ban-phim-ao",
+	"male": "nam", "female": "nu", "pre": "nut-trang-truoc", "next": "nut-trang-sau",
 	"gold": "the-kim", "wood": "the-moc", "water": "the-thuy", "fire": "the-hoa", "earth": "the-tho",
 	"propertyshow": "mo-ta", "propertybg": "nen-mo-ta", "player": "cho-dung",
 	"playerinfobg": "khung-thong-tin", "versiontext": "phien-ban", "setting": "cai-dat",
-	"healthgame": "khuyen-cao", "limit16yearsold": "gioi-han-tuoi", "lifetime": "thoi-han",
-	"refuselogin": "bao-loi", "refuserole0": "bao-loi-0", "refuserole1": "bao-loi-1",
-	"refuserole2": "bao-loi-2",
+	"healthgame": "khuyen-cao", "limit16yearsold": "nhan-do-tuoi", "lifetime": "thoi-han",
+	"refuselogin": "bao-loi", "entergame": "nut-bat-dau", "gameconfig": "nut-tuy-chon",
+	"openrep": "nut-xem-lai", "exitgame": "nut-thoat", "kingsoft": "ban-quyen",
+	// KUiSelServer::GetList of gamecl.exe: LeftList takes the first 14 regions, RightList the rest,
+	// IpList the servers of the region that is picked
+	"leftlist": "danh-sach-cum", "rightlist": "danh-sach-cum-cot-2", "iplist": "danh-sach-may-chu",
+	"list": "danh-sach", "namebigger": "ten-cum", "scroll": "thanh-cuon", "scroll_btn": "con-truot",
+	"up_btn": "nut-len", "down_btn": "nut-xuong", "btnopenaccountlist": "nut-mo-danh-sach",
+	"accountlist": "danh-sach-tai-khoan", "agree": "o-dong-y", "selserver": "nut-doi-may-chu",
+	"runingimgbg": "khung-thong-bao", "confirmbtn": "nut-quay-lai", "continuebtn": "nut-tiep-tuc",
+	"cancelbtn": "nut-huy-ket-noi", "delrole": "nut-xoa-nhan-vat", "canceldelrole": "nut-thoi-xoa",
+	"delrolebgimg": "khung-xoa-nhan-vat", "activecodebgimg": "khung-ma-kich-hoat",
+	"activecodeconfirm": "nut-xac-nhan-ma", "placeimg": "anh-thon", "recommendimg": "dau-de-cu",
+	"placedesctext": "mo-ta-thon", "close": "nut-dong", "key": "phim",
+	"login_butterfly_0": "la-roi", "login_butterfly_1": "trang-tri-1", "login_butterfly_2": "logo",
+	"login2_butterfly_0": "trang-tri-2a", "login2_butterfly_1": "la-roi-2", "login2_butterfly_2": "trang-tri-2c",
+	"login3_butterfly_0": "trang-tri-3a", "login3_butterfly_1": "la-roi-3", "login3_butterfly_2": "trang-tri-3c",
+	"refuse": "nut-tu-choi", "quit": "nut-thoat", "on_off": "nut-bat-tat",
+	"messagelist": "danh-sach-tin", "messagescroll": "thanh-cuon-tin", "messagescroll_btn": "con-truot-tin",
+	"privacytext": "chinh-sach", "privacyscroll": "thanh-cuon-chinh-sach", "privacyscroll_btn": "con-truot-chinh-sach",
+	"usernotify": "dieu-khoan", "privacynotify": "chinh-sach-bao-mat", "usertitle": "tieu-de-dieu-khoan",
+	"privacytitle": "tieu-de-chinh-sach", "remembertxt": "chu-nho-tai-khoan", "invisibletxt": "chu-dang-nhap-an",
+	"virtualkeyboardtxt": "chu-ban-phim-ao", "agreeinfo": "chu-dong-y", "selserverinfo": "chu-may-chu",
+	"servername": "ten-may-chu", "message": "thong-diep", "btnunlock": "nut-mo-khoa", "rolename": "ten-nhan-vat",
+	"activecode": "o-ma-kich-hoat", "sprimg": "hang", "3dplayrepwarn": "canh-bao-xem-lai",
+}
+
+// uiScreenSlugs settles the sections that mean something else from one window to the next: [Login]
+// is the backdrop picture in the background window, the OK button when choosing a server and the
+// login button in the login window.
+var uiScreenSlugs = map[string]map[string]string{
+	"nen-dang-nhap": {"login": "nen-chon-may-chu"},
+	"chon-may-chu":  {"login": "nut-xac-dinh"},
+	"dang-nhap":     {"login": "nut-dang-nhap"},
 }
 
 // uiSeries / uiSex are the names KUiSelPlayer::GetRoleImageName builds the file name from, in the
@@ -122,21 +163,33 @@ var uiSeries = []struct{ key, vi, cn string }{
 
 var uiSex = []struct{ key, vi, cn string }{{"male", "nam", "男"}, {"female", "nu", "女"}}
 
+// uiSeriesSections are the sections of the five element buttons, in the order of uiSeries
+// (the table at 0x81054C of gamecl.exe: Gold, Wood, Water, Fire, Earth).
+var uiSeriesSections = []string{"gold", "wood", "water", "fire", "earth"}
+
+// pictureExts are what a value has to end in to be taken for a picture.
+var pictureExts = map[string]bool{".spr": true, ".jpg": true, ".jpeg": true, ".bmp": true, ".png": true}
+
 func atoiOr(s string, def int) int {
-	v, err := strconv.Atoi(strings.TrimSpace(s))
+	s = strings.TrimSpace(s)
+	// the old KIniFile::GetInteger reads the leading number and ignores what follows ("5000 ;ms")
+	end := 0
+	for end < len(s) && (s[end] == '-' || s[end] == '+' || (s[end] >= '0' && s[end] <= '9')) {
+		end++
+	}
+	v, err := strconv.Atoi(s[:end])
 	if err != nil {
 		return def
 	}
 	return v
 }
 
-// parseColor reads "255,252,178".
-func parseColor(s string) *UiColor {
-	parts := strings.Split(s, ",")
-	if len(parts) < 3 {
-		return nil
+// uiSlugIn is uiSlug with the window taken into account.
+func uiSlugIn(screen, section string) string {
+	if s, ok := uiScreenSlugs[screen][section]; ok {
+		return s
 	}
-	return &UiColor{R: atoiOr(parts[0], 0), G: atoiOr(parts[1], 0), B: atoiOr(parts[2], 0)}
+	return uiSlug(section)
 }
 
 func uiSlug(section string) string {
@@ -160,73 +213,175 @@ func uiSlug(section string) string {
 	return keep
 }
 
-// uiBuilder carries what one screen's export needs.
+// isGamePath reports whether a raw value names a file of the game rather than being text.
+func isGamePath(v string) bool {
+	if strings.ContainsAny(v, `\/`) && !strings.Contains(v, "://") {
+		return true
+	}
+	return pictureExts[strings.ToLower(filepath.Ext(v))]
+}
+
+// DecodeValue turns the bytes of one .ini value into UTF-8.  The Vietnamese client mixes two
+// encodings in one file: paths are GBK (the Chinese folder names of the original), what the
+// player reads is TCVN3.  A path is recognised by its separators; anything else is TCVN3 when
+// every high byte has a TCVN3 meaning, and GBK otherwise (a Chinese label nobody translated).
+func DecodeValue(raw string) string {
+	high := false
+	for i := 0; i < len(raw); i++ {
+		if raw[i] >= 0x80 {
+			high = true
+			break
+		}
+	}
+	if !high {
+		return raw
+	}
+	if isGamePath(raw) {
+		return text.GBKToUTF8([]byte(raw))
+	}
+	if text.IsTCVN3([]byte(raw)) {
+		return text.TCVN3ToUTF8([]byte(raw))
+	}
+	return text.GBKToUTF8([]byte(raw))
+}
+
+// uiBuilder carries what one window's export needs.
 type uiBuilder struct {
 	ex     *Exporter
 	screen *UiScreen
-	dir    string // <out>/ui/<screen>
+	dir    string              // <out>/ui/<folder>
+	folder string              // the folder below ui/ the pictures are written to
+	done   map[string]*UiImage // game path -> what it became, so a sprite named twice is written once
+	taken  map[string]string   // file stem -> the game path that owns it, so two pictures never share a name
 }
 
-// Ui exports the screen in `data`, the raw bytes of one layout .ini (still GBK).  `source` is
-// written into the JSON so a reader can tell which archive and entry it came from.
+// UiTheme returns the theme folder the client runs with: \Ui\Setting.ini [Theme] lists them
+// ("ui3_800", "ui3_1024") and the game takes the one that fits the resolution.  `want` picks one by
+// a fragment of its name ("1024"); empty means the largest.  A JX1 client has no such section and
+// its single scheme is \Ui\Ui3.
+func (e *Exporter) UiTheme(want string) (path string, width, height int) {
+	data, err := e.Set.ReadFile(`\Ui\Setting.ini`)
+	if err != nil {
+		return `\Ui\Ui3`, 800, 600
+	}
+	best, bestW, bestH := "", 0, 0
+	for _, sec := range parseIniOrdered(data) {
+		if sec.name != "theme" {
+			continue
+		}
+		for i := 0; i < atoiOr(sec.values["count"], 0); i++ {
+			p := strings.TrimSpace(sec.values[strconv.Itoa(i)+"_path"])
+			if p == "" {
+				continue
+			}
+			w, h := 800, 600
+			if strings.Contains(p, "1024") {
+				w, h = 1024, 768
+			}
+			if want != "" && !strings.Contains(strings.ToLower(p), strings.ToLower(want)) {
+				continue
+			}
+			if w*h > bestW*bestH {
+				best, bestW, bestH = p, w, h
+			}
+		}
+	}
+	if best == "" {
+		return `\Ui\Ui3`, 800, 600
+	}
+	return `\Ui\` + best, bestW, bestH
+}
+
+// UiByName exports one window: the file <theme>\<def.File>, the name the game asks for.
+func (e *Exporter) UiByName(def UiScreenDef, theme string, width, height int) (*UiScreen, error) {
+	gbk, err := text.UTF8ToGBK(theme + `\` + def.File)
+	if err != nil {
+		return nil, err
+	}
+	gamePath := string(gbk)
+	f, entry, ok := e.Set.Lookup(gamePath)
+	if !ok {
+		return nil, fmt.Errorf("khong co %s trong client nay", theme+`\`+def.File)
+	}
+	data, err := f.Read(entry)
+	if err != nil {
+		return nil, err
+	}
+	source := fmt.Sprintf(`%s\%s (%s)`, theme, def.File, filepath.Base(strings.ReplaceAll(f.Path, `\`, "/")))
+	return e.ui(def, source, strings.TrimPrefix(theme, `\Ui\`), width, height, data)
+}
+
+// Ui exports the window in `data`, the raw bytes of a layout .ini.  Kept for callers and tests
+// that already hold the bytes; UiByName is the normal way in.
 func (e *Exporter) Ui(name, label, source string, data []byte) (*UiScreen, error) {
+	w, h := CanvasOf(data)
+	if w <= 0 || h <= 0 {
+		w, h = 800, 600
+	}
+	return e.ui(UiScreenDef{Name: name, Label: label}, source, "", w, h, data)
+}
+
+func (e *Exporter) ui(def UiScreenDef, source, theme string, width, height int, data []byte) (*UiScreen, error) {
 	sections := parseIniOrdered(data)
 	if len(sections) == 0 {
-		return nil, fmt.Errorf("ui %s: khong co section nao", name)
+		return nil, fmt.Errorf("ui %s: khong co section nao", def.Name)
 	}
 	b := &uiBuilder{
-		ex:  e,
-		dir: filepath.Join(e.Out, "ui", name),
+		ex:     e,
+		dir:    filepath.Join(e.Out, "ui", def.Name),
+		folder: def.Name,
+		done:   map[string]*UiImage{},
 		screen: &UiScreen{
-			Name: name, Label: label, Source: source,
-			Width: 800, Height: 600, Files: map[string]string{},
+			Name: def.Name, Label: def.Label, Class: def.Class, Source: source, Theme: theme,
+			Width: width, Height: height, Files: map[string]string{},
 		},
 	}
 	if err := os.MkdirAll(b.dir, 0o755); err != nil {
 		return nil, err
 	}
 	for _, sec := range sections {
-		w := UiWidget{
-			Name:   sec.name,
-			Slug:   uiSlug(sec.name),
-			Left:   atoiOr(sec.values["left"], 0),
-			Top:    atoiOr(sec.values["top"], 0),
-			Width:  atoiOr(sec.values["width"], 0),
-			Height: atoiOr(sec.values["height"], 0),
-		}
-		// The first section is the window itself: its size is the canvas the rest sits on.
-		if len(b.screen.Widgets) == 0 && w.Width > 0 && w.Height > 0 {
-			b.screen.Width, b.screen.Height = w.Width, w.Height
-		}
-		w.CheckBox = atoiOr(sec.values["checkbox"], 0) != 0
-		w.Transback = atoiOr(sec.values["trans"], 0) != 0
-		if img := sec.values["image"]; img != "" {
-			b.pictures(&w, img, sec.values)
-		}
-		w.Font = atoiOr(sec.values["font"], 0)
-		w.HAlign = atoiOr(sec.values["halign"], 0)
-		w.Type = atoiOr(sec.values["type"], 0)
-		w.Password = atoiOr(sec.values["password"], 0) != 0
-		w.MultiLine = atoiOr(sec.values["multiline"], 0) != 0
-		w.MaxLen = atoiOr(sec.values["maxlen"], 0)
-		if c := sec.values["color"]; c != "" {
-			w.Color = parseColor(c)
-		}
-		if c := sec.values["bordercolor"]; c != "" {
-			w.BorderColor = parseColor(c)
-		}
-		for k, v := range sec.values {
-			if uiTypedKeys[k] {
+		w := UiWidget{Name: sec.raw, Key: sec.name, Slug: uiSlugIn(def.Name, sec.name), Values: map[string]string{}}
+		for _, k := range sec.order {
+			raw := sec.values[k]
+			w.Values[k] = DecodeValue(raw)
+			// A picture is any value that ends like one.  The key says what it is for ("image",
+			// "sprimg" of a list row, "keyshift" of the keyboard) and names the file.
+			if !pictureExts[strings.ToLower(filepath.Ext(raw))] || strings.Contains(raw, "%") {
 				continue
 			}
-			if w.Extra == nil {
-				w.Extra = map[string]string{}
+			slug := w.Slug
+			if k != "image" {
+				slug += "-" + uiSlug(k)
 			}
-			// a value may itself be a GBK game path (PlayerImgPrefix, LoginBg)
-			w.Extra[k] = text.GBKToUTF8([]byte(v))
+			if img := b.picture(slug, raw); img != nil {
+				if w.Images == nil {
+					w.Images = map[string]*UiImage{}
+				}
+				w.Images[k] = img
+			}
+		}
+		// KUiNewPlayer builds the picture that names the picked element in code (0x4976C0 of
+		// gamecl.exe: sprintf("%s\%svn.spr", PropertyBgImgPrefix, 金|木|水|火|土)); filed under the
+		// section names of the five elements so the client asks for image("PropertyBg", "Gold").
+		if p := sec.values["propertybgimgprefix"]; p != "" {
+			for i, series := range uiSeries {
+				cn, err := text.UTF8ToGBK(series.cn)
+				if err != nil {
+					continue
+				}
+				if img := b.picture("ten-he-"+series.vi, p+`\`+string(cn)+"vn.spr"); img != nil {
+					if w.Images == nil {
+						w.Images = map[string]*UiImage{}
+					}
+					w.Images[uiSeriesSections[i]] = img
+				}
+			}
 		}
 		if p := sec.values["playerimgprefix"]; p != "" && b.screen.Portraits == nil {
 			b.screen.Portraits = b.portraits(p)
+			for _, img := range b.screen.Portraits {
+				b.screen.Files[img.GamePath] = img.File
+			}
 		}
 		b.screen.Widgets = append(b.screen.Widgets, w)
 	}
@@ -238,82 +393,95 @@ func (e *Exporter) Ui(name, label, source string, data []byte) (*UiScreen, error
 	if err := os.WriteFile(filepath.Join(b.dir, "bo-cuc.json"), blob, 0o644); err != nil {
 		return nil, err
 	}
-	log.Info("asset", "ui screen exported", log.F("name", name), log.F("source", source),
-		log.F("widgets", len(b.screen.Widgets)), log.F("pictures", len(b.screen.Files)),
-		log.F("canvas", fmt.Sprintf("%dx%d", b.screen.Width, b.screen.Height)))
+	log.Info("asset", "ui screen exported", log.F("name", def.Name), log.F("class", def.Class), log.F("source", source),
+		log.F("widgets", len(b.screen.Widgets)), log.F("pictures", len(b.done)),
+		log.F("screen", fmt.Sprintf("%dx%d", width, height)))
 	return b.screen, nil
 }
 
-// pictures writes the states a section names.  A button gives Up / Down / Over as frame numbers
-// of one sprite; a plain picture is frame 0; a .jpg backdrop is copied unchanged.
-func (b *uiBuilder) pictures(w *UiWidget, gamePath string, values map[string]string) {
-	w.GamePath = text.GBKToUTF8([]byte(gamePath))
-	ext := strings.ToLower(filepath.Ext(gamePath))
-	if ext != ".spr" && ext != "" {
-		if file := b.copyRaw(w.Slug+ext, gamePath); file != "" {
-			w.Picture = file
+// picture writes what a game path names: a sprite as an atlas of its frames, a .jpg as it is.
+func (b *uiBuilder) picture(slug, gamePath string) *UiImage {
+	if img, ok := b.done[gamePath]; ok {
+		return img
+	}
+	shown := text.GBKToUTF8([]byte(gamePath))
+	img := &UiImage{GamePath: shown}
+	slug = b.freeStem(slug, gamePath)
+	if strings.ToLower(filepath.Ext(gamePath)) != ".spr" {
+		data, err := b.ex.Set.ReadFile(gamePath)
+		if err != nil {
+			log.Warn("asset", "ui picture missing", log.F("path", shown), log.F("error", err))
+			b.done[gamePath] = nil
+			return nil
 		}
-		return
+		name := slug + strings.ToLower(filepath.Ext(gamePath))
+		if err := os.WriteFile(filepath.Join(b.dir, name), data, 0o644); err != nil {
+			log.Error("asset", "ui picture write failed", log.F("file", name), log.F("error", err))
+			return nil
+		}
+		img.File = b.folder + "/" + name
+	} else {
+		s := b.ex.uiSprite(gamePath)
+		if s == nil || len(s.Frames) == 0 {
+			b.done[gamePath] = nil
+			return nil
+		}
+		atlas, meta := s.PackAtlas(shown)
+		name := slug + ".png"
+		out, err := os.Create(filepath.Join(b.dir, name))
+		if err == nil {
+			err = png.Encode(out, atlas)
+			if cerr := out.Close(); err == nil {
+				err = cerr
+			}
+		}
+		if err != nil {
+			log.Error("asset", "ui picture write failed", log.F("file", name), log.F("error", err))
+			return nil
+		}
+		img.File = b.folder + "/" + name
+		img.Width, img.Height, img.Interval, img.Frames = s.Width, s.Height, s.Interval, meta.Frames
 	}
-	w.Picture = b.frame(w.Slug, gamePath, atoiOr(values["up"], 0))
-	if _, ok := values["down"]; ok {
-		w.Pressed = b.frame(w.Slug+"-nhan", gamePath, atoiOr(values["down"], 1))
+	b.ex.Exported++
+	b.done[gamePath] = img
+	b.screen.Files[shown] = img.File
+	return img
+}
+
+// freeStem returns a file stem nobody else in this window uses: the slug itself, or slug-2, slug-3...
+// when two sections translate to the same words.
+func (b *uiBuilder) freeStem(slug, gamePath string) string {
+	if b.taken == nil {
+		b.taken = map[string]string{}
 	}
-	if _, ok := values["over"]; ok {
-		w.Hover = b.frame(w.Slug+"-re-chuot", gamePath, atoiOr(values["over"], 2))
+	stem := slug
+	for n := 2; ; n++ {
+		owner, used := b.taken[stem]
+		if !used || owner == gamePath {
+			b.taken[stem] = gamePath
+			return stem
+		}
+		stem = fmt.Sprintf("%s-%d", slug, n)
 	}
 }
 
-// frame writes one frame of a sprite as its own .png and returns the file name.
-func (b *uiBuilder) frame(file, gamePath string, n int) string {
-	s := b.ex.uiSprite(gamePath)
-	if s == nil || len(s.Frames) == 0 {
-		return ""
-	}
-	if n < 0 || n >= len(s.Frames) {
-		n = 0
-	}
-	f := s.Frames[n]
-	if f.Width <= 0 || f.Height <= 0 {
-		return ""
-	}
-	img := &image.RGBA{Pix: f.RGBA, Stride: f.Width * 4, Rect: image.Rect(0, 0, f.Width, f.Height)}
-	name := file + ".png"
-	out, err := os.Create(filepath.Join(b.dir, name))
-	if err != nil {
-		log.Error("asset", "ui picture write failed", log.F("file", name), log.F("error", err))
-		return ""
-	}
-	defer out.Close()
-	if err := png.Encode(out, img); err != nil {
-		log.Error("asset", "ui picture encode failed", log.F("file", name), log.F("error", err))
-		return ""
-	}
-	b.ex.Exported++
-	b.screen.Files[text.GBKToUTF8([]byte(gamePath))+"#"+strconv.Itoa(n)] = name
-	return name
-}
-
-// copyRaw writes a picture the sprite reader does not handle (the .jpg backdrops) unchanged.
-func (b *uiBuilder) copyRaw(name, gamePath string) string {
-	data, err := b.ex.Set.ReadFile(gamePath)
-	if err != nil {
-		log.Warn("asset", "ui picture missing", log.F("path", text.GBKToUTF8([]byte(gamePath))), log.F("error", err))
-		return ""
-	}
-	if err := os.WriteFile(filepath.Join(b.dir, name), data, 0o644); err != nil {
-		log.Error("asset", "ui picture write failed", log.F("file", name), log.F("error", err))
-		return ""
-	}
-	b.ex.Exported++
-	b.screen.Files[text.GBKToUTF8([]byte(gamePath))] = name
-	return name
-}
+// PortraitFolder is where the character figures go: the select and the create window name the
+// same thirty sprites, so they are written once and both layouts point there.
+const PortraitFolder = "nhan-vat"
 
 // portraits writes every picture the prefix can name: five elements x two sexes x three views,
-// the same set the old screen could ask for.
-func (b *uiBuilder) portraits(prefix string) map[string]string {
-	out := map[string]string{}
+// the same set the old window could ask for.
+func (b *uiBuilder) portraits(prefix string) map[string]*UiImage {
+	if done, ok := b.ex.uiPortraits[prefix]; ok {
+		return done
+	}
+	shared := &uiBuilder{ex: b.ex, dir: filepath.Join(b.ex.Out, "ui", PortraitFolder), folder: PortraitFolder,
+		done: map[string]*UiImage{}, screen: &UiScreen{Files: map[string]string{}}}
+	if err := os.MkdirAll(shared.dir, 0o755); err != nil {
+		log.Error("asset", "ui folder", log.F("dir", shared.dir), log.F("error", err))
+		return nil
+	}
+	out := map[string]*UiImage{}
 	for _, series := range uiSeries {
 		for _, sex := range uiSex {
 			for n := 0; n < 3; n++ {
@@ -322,17 +490,21 @@ func (b *uiBuilder) portraits(prefix string) map[string]string {
 					continue
 				}
 				path := fmt.Sprintf("%s_%s_%d.spr", prefix, cn, n)
-				file := fmt.Sprintf("vai-%s-%s-%d", series.vi, sex.vi, n)
-				if got := b.frame(file, path, 0); got != "" {
-					out[fmt.Sprintf("%s_%s_%d", series.key, sex.key, n)] = got
+				slug := fmt.Sprintf("vai-%s-%s-%d", series.vi, sex.vi, n)
+				if img := shared.picture(slug, path); img != nil {
+					out[fmt.Sprintf("%s_%s_%d", series.key, sex.key, n)] = img
 				}
 			}
 		}
 	}
+	if b.ex.uiPortraits == nil {
+		b.ex.uiPortraits = map[string]map[string]*UiImage{}
+	}
+	b.ex.uiPortraits[prefix] = out
 	return out
 }
 
-// uiSprite decodes a sprite, caching by game path so a screen that names the same picture twice
+// uiSprite decodes a sprite, caching by game path so a window that names the same picture twice
 // only pays for it once.
 func (e *Exporter) uiSprite(gamePath string) *spr.Sprite {
 	if e.uiCache == nil {
@@ -357,10 +529,58 @@ func (e *Exporter) uiSprite(gamePath string) *spr.Sprite {
 	return s
 }
 
+// UiTable exports one .ini that is DATA rather than a layout - the list of starting villages, the
+// texts of the five elements, the ninety login messages - as JSON with every value decoded, and
+// writes the pictures it names next to it.
+func (e *Exporter) UiTable(name, gamePath string) (int, error) {
+	gbk, err := text.UTF8ToGBK(gamePath)
+	if err != nil {
+		return 0, err
+	}
+	data, err := e.Set.ReadFile(string(gbk))
+	if err != nil {
+		return 0, err
+	}
+	dir := filepath.Join(e.Out, "ui", "du-lieu")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, err
+	}
+	b := &uiBuilder{ex: e, dir: dir, folder: "du-lieu", done: map[string]*UiImage{}, screen: &UiScreen{Files: map[string]string{}}}
+	type section struct {
+		Name   string              `json:"name"`
+		Values map[string]string   `json:"values"`
+		Images map[string]*UiImage `json:"images,omitempty"`
+	}
+	var out []section
+	for _, sec := range parseIniOrdered(data) {
+		s := section{Name: sec.raw, Values: map[string]string{}}
+		for _, k := range sec.order {
+			raw := sec.values[k]
+			s.Values[k] = DecodeValue(raw)
+			if pictureExts[strings.ToLower(filepath.Ext(raw))] && !strings.Contains(raw, "%") {
+				if img := b.picture(name+"-"+uiSlug(sec.name)+"-"+uiSlug(k), raw); img != nil {
+					if s.Images == nil {
+						s.Images = map[string]*UiImage{}
+					}
+					s.Images[k] = img
+				}
+			}
+		}
+		out = append(out, s)
+	}
+	blob, err := json.MarshalIndent(map[string]any{"source": gamePath, "sections": out}, "", "  ")
+	if err != nil {
+		return 0, err
+	}
+	return len(out), os.WriteFile(filepath.Join(dir, name+".json"), blob, 0o644)
+}
+
 // iniSection keeps the file order, which the old client relies on: the first section is the window
 // and the ones after it are drawn in the order they appear.
 type iniSection struct {
-	name   string
+	raw    string // the name as written
+	name   string // lower-cased
+	order  []string
 	values map[string]string
 }
 
@@ -374,7 +594,8 @@ func parseIniOrdered(data []byte) []iniSection {
 		}
 		if line[0] == '[' {
 			if end := strings.IndexByte(line, ']'); end > 0 {
-				out = append(out, iniSection{name: strings.ToLower(strings.TrimSpace(line[1:end])), values: map[string]string{}})
+				raw := strings.TrimSpace(line[1:end])
+				out = append(out, iniSection{raw: raw, name: strings.ToLower(raw), values: map[string]string{}})
 				cur = &out[len(out)-1]
 			}
 			continue
@@ -383,13 +604,16 @@ func parseIniOrdered(data []byte) []iniSection {
 		if eq <= 0 || cur == nil {
 			continue
 		}
-		cur.values[strings.ToLower(strings.TrimSpace(line[:eq]))] = strings.TrimSpace(line[eq+1:])
+		k := strings.ToLower(strings.TrimSpace(line[:eq]))
+		if _, dup := cur.values[k]; !dup {
+			cur.order = append(cur.order, k)
+		}
+		cur.values[k] = strings.TrimSpace(line[eq+1:])
 	}
 	return out
 }
 
-// SectionNames lists the sections of a layout, in file order: how a screen is recognised when the
-// archive cannot tell us its name.
+// SectionNames lists the sections of a layout, in file order.
 func SectionNames(data []byte) []string {
 	secs := parseIniOrdered(data)
 	out := make([]string, 0, len(secs))
@@ -408,8 +632,7 @@ func CanvasOf(data []byte) (int, int) {
 	return atoiOr(secs[0].values["width"], 0), atoiOr(secs[0].values["height"], 0)
 }
 
-// HasSections reports whether every name is a section of the layout: the signature that picks one
-// screen out of the thousands of text files an archive holds.
+// HasSections reports whether every name is a section of the layout.
 func HasSections(data []byte, want []string) bool {
 	have := map[string]bool{}
 	for _, n := range SectionNames(data) {
@@ -421,4 +644,35 @@ func HasSections(data []byte, want []string) bool {
 		}
 	}
 	return true
+}
+
+// UiStrings exports a string table of the client - \lang\vn\stringtable_client.txt, "KEY<TAB>text"
+// lines in TCVN3 - as one JSON object.  The windows look their fixed texts up in it by key
+// (G_STR_SERVERLIST_STATUS1 is the "(Đầy)" that paints a full server red in KUiSelServer).
+func (e *Exporter) UiStrings(name, gamePath string) (int, error) {
+	data, err := e.Set.ReadFile(gamePath)
+	if err != nil {
+		return 0, err
+	}
+	dir := filepath.Join(e.Out, "ui", "du-lieu")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, err
+	}
+	table := map[string]string{}
+	for _, line := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+		tab := strings.IndexByte(line, '\t')
+		if tab <= 0 || strings.HasPrefix(line, "//") {
+			continue
+		}
+		key := strings.TrimSpace(line[:tab])
+		if key == "" || key == "key" { // the header row
+			continue
+		}
+		table[key] = DecodeValue(strings.TrimRight(line[tab+1:], "\t "))
+	}
+	blob, err := json.MarshalIndent(map[string]any{"source": gamePath, "strings": table}, "", "  ")
+	if err != nil {
+		return 0, err
+	}
+	return len(table), os.WriteFile(filepath.Join(dir, name+".json"), blob, 0o644)
 }

@@ -385,6 +385,11 @@ def cmd_assets(map_ids: list[str]) -> None:
     # plus the templates the zone's test npcs use (1000 + i, see server/zone/src/main.cpp)
     subprocess.check_call([*jxassets_args(), "export-npcres", *(map_ids or ["1"]),
                            "-templates", "1000,1001,1002,1003", "-out", out], cwd=ROOT)
+    # the windows of the login flow (layouts, pictures, the game's bitmap fonts, its sentences).
+    # They only exist in a VLTK 2.0 client; with another kind of client the Godot client falls back
+    # to its plain login, so a failure here is reported and does not stop the rest.
+    if subprocess.call([*jxassets_args(), "export-ui", "-out", out], cwd=ROOT) != 0:
+        print("export-ui: no login layouts in this client (need the VLTK 2.0 client) - the plain login will be used")
     print("assets ok")
 
 
