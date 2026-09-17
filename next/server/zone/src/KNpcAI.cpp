@@ -86,9 +86,9 @@ EntityId KNpcAI::nearest_enemy(const KSubWorld& w, const KNpc& e)
     std::tuple<int, int, int, std::uint64_t> best_key;
     w.grid_.for_each_within(e.pos(), e.vision_radius, [&](EntityId id) {
         if (id == e.id) return;
-        const auto it = w.entities_.find(id);
-        if (it == w.entities_.end()) return;
-        const KNpc& o = it->second;
+        const KNpc* found = w.entities_.find(id);
+        if (found == nullptr) return;
+        const KNpc& o = *found;
         if (!o.alive()) return;
         const int di = o.pos().x / kOldCell - cx;
         const int dj = o.pos().y / kOldCell - cy;

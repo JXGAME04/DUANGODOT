@@ -40,7 +40,7 @@ void set_vec(pb::Vec2* v, Pos p)
 } // namespace
 
 KSubWorld::KSubWorld(KSubWorldConfig cfg)
-    : cfg_(std::move(cfg)), grid_(cfg_.cell_size, cfg_.view_cells), ids_(1), rng_(cfg_.seed)
+    : cfg_(std::move(cfg)), grid_(cfg_.cell_size, cfg_.view_cells), rng_(cfg_.seed)
 {
     if (cfg_.tick_hz == 0) cfg_.tick_hz = 20;
     if (cfg_.map) {
@@ -55,14 +55,14 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
                 // (partner, dialoger, bird, mouse) is a friendly npc
                 const KNpcKind kind = n.kind == 0 ? KNpcKind::monster : KNpcKind::npc;
                 const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind);
-                if (auto it = entities_.find(id); it != entities_.end()) {
-                    it->second.dir = static_cast<std::uint32_t>(n.dir & 63);
-                    it->second.level = static_cast<std::uint32_t>(std::max(1, n.level));
-                    it->second.series = static_cast<std::uint32_t>(n.series);
-                    apply_template(it->second);   // skill levels depend on the level (KNpcTemplate::InitNpcLevelData)
-                    it->second.npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
-                    it->second.camp = std::clamp(n.camp, 0, camp_num - 1);
-                    it->second.current_camp = it->second.camp;
+                if (KNpc* placed = entities_.find(id)) {
+                    placed->dir = static_cast<std::uint32_t>(n.dir & 63);
+                    placed->level = static_cast<std::uint32_t>(std::max(1, n.level));
+                    placed->series = static_cast<std::uint32_t>(n.series);
+                    apply_template(*placed);   // skill levels depend on the level (KNpcTemplate::InitNpcLevelData)
+                    placed->npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
+                    placed->camp = std::clamp(n.camp, 0, camp_num - 1);
+                    placed->current_camp = placed->camp;
                 }
             }
             take_outbox();   // nobody is listening yet
@@ -90,8 +90,7 @@ Pos KSubWorld::clamp(Pos p) const noexcept
 
 const KNpc* KSubWorld::find_entity(EntityId id) const
 {
-    const auto it = entities_.find(id);
-    return it == entities_.end() ? nullptr : &it->second;
+    return entities_.find(id);
 }
 
 const KNpc* KSubWorld::find_player(std::uint64_t sid) const
@@ -130,10 +129,8 @@ void KSubWorld::viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId ex
 {
     grid_.for_each_in_view(c, [&](EntityId id) {
         if (id == exclude) return;
-        const auto it = entities_.find(id);
-        if (it != entities_.end() && it->second.kind == KNpcKind::player && it->second.sid != 0) {
-            sids.push_back(it->second.sid);
-        }
+        const KNpc* e = entities_.find(id);
+        if (e != nullptr && e->kind == KNpcKind::player && e->sid != 0) sids.push_back(e->sid);
     });
 }
 
@@ -173,7 +170,6 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     if (players_.size() >= cfg_.max_players) return pb::RESULT_FULL;
 
     KNpc e;
-    e.id = ids_.next<EntityId>();
     e.kind = KNpcKind::player;
     e.npc_kind = kind_player;
     e.camp = camp_begin;   // BaseInfo.iteam of the old RoleData is not carried yet: every player is a beginner
@@ -212,9 +208,9 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     }
     if (cfg_.map) start = cfg_.map->nearest_walkable(start);
     e.set_pos(start);
-    const EntityId id = e.id;
+    const EntityId id = entities_.insert(std::move(e));   // the table owns the handle (SPEC 36)
+    entities_.at(id).id = id;
     grid_.insert(id, start);
-    entities_.emplace(id, std::move(e));
     players_[sid] = id;
     roles_[sid] = role;
 
@@ -248,9 +244,8 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
     const EntityId id = pit->second;
-    const auto eit = entities_.find(id);
-    if (eit != entities_.end()) {
-        const Cell cell = grid_.cell_of(eit->second.pos());
+    if (const KNpc* gone_e = entities_.find(id)) {
+        const Cell cell = grid_.cell_of(gone_e->pos());
         scratch_sids_.clear();
         viewers_of(cell, scratch_sids_, id);
         if (!scratch_sids_.empty()) {
@@ -258,10 +253,10 @@ bool KSubWorld::remove_player(std::uint64_t sid)
             gone.add_entity_ids(id.value);
             emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), gone);
         }
-        log::ScopedContext ctx(log::Context{sid, eit->second.player_id, cfg_.zone_id, tick_});
-        log::info("zone", "player removed", {log::kv("entity", id), log::kv("x", eit->second.pos().x), log::kv("y", eit->second.pos().y)});
+        log::ScopedContext ctx(log::Context{sid, gone_e->player_id, cfg_.zone_id, tick_});
+        log::info("zone", "player removed", {log::kv("entity", id), log::kv("x", gone_e->pos().x), log::kv("y", gone_e->pos().y)});
         grid_.remove(id);
-        entities_.erase(eit);
+        entities_.destroy(id);
     }
     players_.erase(pit);
     roles_.erase(sid);
@@ -344,7 +339,6 @@ bool KSubWorld::chat(std::uint64_t sid, std::string_view text)
 EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind)
 {
     KNpc e;
-    e.id = ids_.next<EntityId>();
     e.kind = kind;
     e.name = std::move(name);
     e.template_id = template_id;
@@ -355,9 +349,10 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     if (cfg_.map) e.home = cfg_.map->nearest_walkable(e.home);
     e.set_pos(e.home);
     e.next_wander_tick = tick_ + static_cast<std::uint64_t>(rng_() % (cfg_.tick_hz * 5 + 1));
-    const EntityId id = e.id;
-    grid_.insert(id, e.home);
-    entities_.emplace(id, std::move(e));
+    const Pos home = e.home;
+    const EntityId id = entities_.insert(std::move(e));
+    entities_.at(id).id = id;
+    grid_.insert(id, home);
 
     const KNpc& self = entities_.at(id);
     scratch_sids_.clear();
@@ -400,17 +395,17 @@ void KSubWorld::on_cell_change(KNpc& e, Cell from, Cell to)
     std::vector<std::uint64_t> new_viewers, old_viewers;
     for (const EntityId other : scratch_entered_) {
         if (other == e.id) continue;
-        const auto it = entities_.find(other);
-        if (it == entities_.end()) continue;
-        fill_info(it->second, *appear.add_entities());
-        if (it->second.kind == KNpcKind::player && it->second.sid != 0) new_viewers.push_back(it->second.sid);
+        const KNpc* o = entities_.find(other);
+        if (o == nullptr) continue;
+        fill_info(*o, *appear.add_entities());
+        if (o->kind == KNpcKind::player && o->sid != 0) new_viewers.push_back(o->sid);
     }
     for (const EntityId other : scratch_left_) {
         if (other == e.id) continue;
-        const auto it = entities_.find(other);
-        if (it == entities_.end()) continue;
+        const KNpc* o = entities_.find(other);
+        if (o == nullptr) continue;
         vanish.add_entity_ids(other.value);
-        if (it->second.kind == KNpcKind::player && it->second.sid != 0) old_viewers.push_back(it->second.sid);
+        if (o->kind == KNpcKind::player && o->sid != 0) old_viewers.push_back(o->sid);
     }
     if (e.kind == KNpcKind::player && e.sid != 0) {
         if (appear.entities_size() > 0) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), appear);
@@ -424,8 +419,7 @@ void KSubWorld::tick()
 {
     ++tick_;
     // deterministic iteration order regardless of hash layout
-    scratch_ids_.clear();
-    for (const auto& [id, e] : entities_) scratch_ids_.push_back(id);
+    entities_.ids(scratch_ids_);
     std::sort(scratch_ids_.begin(), scratch_ids_.end());
 
     std::vector<EntityId> moved, arrived;
@@ -556,25 +550,25 @@ bool KSubWorld::attack_request(std::uint64_t sid, EntityId target, std::uint32_t
     if (pit == players_.end()) return false;
     KNpc& e = entities_.at(pit->second);
     if (!e.alive() || e.doing == KDoing::hurt) return false;
-    const auto tit = entities_.find(target);
-    if (tit == entities_.end() || tit->first == e.id || !tit->second.alive()) return false;
-    if (tit->second.kind == KNpcKind::npc || tit->second.kind == KNpcKind::drop) return false;   // townsfolk cannot be attacked
+    KNpc* t = entities_.find(target);
+    if (t == nullptr || target == e.id || !t->alive()) return false;
+    if (t->kind == KNpcKind::npc || t->kind == KNpcKind::drop) return false;   // townsfolk cannot be attacked
     log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
     e.move_seq = seq;
     e.attack_target = target;
     e.approach_tries = 0;
-    if (in_reach(e, tit->second)) {
+    if (in_reach(e, *t)) {
         if (e.moving) {
             e.set_pos(e.pos());
             emit_move(e);
         }
-        if (e.doing == KDoing::stand) start_attack(e, tit->second);
+        if (e.doing == KDoing::stand) start_attack(e, *t);
     } else {
         // like the old client: walk up to the target first, the swing starts on arrival
-        approach(e, tit->second);
+        approach(e, *t);
     }
     log::trace("zone.fight", "attack request", {log::kv("entity", e.id), log::kv("target", target), log::kv("seq", seq),
-                                                 log::kv("in_reach", in_reach(e, tit->second))});
+                                                 log::kv("in_reach", in_reach(e, *t))});
     return true;
 }
 
@@ -682,8 +676,7 @@ void KSubWorld::do_stand(KNpc& e)
 KNpc* KSubWorld::find_mutable(EntityId id)
 {
     if (!id) return nullptr;
-    const auto it = entities_.find(id);
-    return it == entities_.end() ? nullptr : &it->second;
+    return entities_.find(id);
 }
 
 bool KSubWorld::rand_percent(int percent) { return static_cast<int>(rng_() % 100) < percent; }
@@ -738,16 +731,16 @@ void KSubWorld::update_action(KNpc& e)
             if (e.attack_target == e.id) {
                 heal(e);
             } else {
-                const auto it = entities_.find(e.attack_target);
-                if (it != entities_.end() && it->second.alive()) {
+                KNpc* t = entities_.find(e.attack_target);
+                if (t != nullptr && t->alive()) {
                     // the old melee missile only reaches so far: a target that stepped away is missed
-                    const std::int64_t dx = e.pos().x - it->second.pos().x;
-                    const std::int64_t dy = e.pos().y - it->second.pos().y;
+                    const std::int64_t dx = e.pos().x - t->pos().x;
+                    const std::int64_t dy = e.pos().y - t->pos().y;
                     const std::int64_t reach = reach_of(e) + KNpcAI::kMiniAttackRange;
                     if (dx * dx + dy * dy <= reach * reach) {
-                        hit(e, it->second);
+                        hit(e, *t);
                     } else {
-                        log::trace("zone.fight", "swing missed", {log::kv("attacker", e.id), log::kv("target", it->first)});
+                        log::trace("zone.fight", "swing missed", {log::kv("attacker", e.id), log::kv("target", e.attack_target)});
                     }
                 }
             }
@@ -766,17 +759,17 @@ void KSubWorld::update_action(KNpc& e)
         break;
     }
     if (e.ai_mode == 0 && e.doing == KDoing::stand && e.attack_target.value != 0) {
-        const auto it = entities_.find(e.attack_target);
-        if (it == entities_.end() || !it->second.alive()) {
+        KNpc* t = entities_.find(e.attack_target);
+        if (t == nullptr || !t->alive()) {
             e.attack_target = EntityId{};   // dead or gone
-        } else if (in_reach(e, it->second)) {
+        } else if (in_reach(e, *t)) {
             if (e.moving) {
                 e.set_pos(e.pos());   // arrived within reach: stop and swing
                 emit_move(e);
             }
-            start_attack(e, it->second);
+            start_attack(e, *t);
         } else if (!e.moving) {
-            approach(e, it->second);
+            approach(e, *t);
         }
     }
 }

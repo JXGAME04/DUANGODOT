@@ -307,6 +307,13 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       `Metrics` (counter/gauge/timing histogram → avg/P50/P95/P99/max, JSON, §51/§52/§53/§96). Log chuyển sang
       **bất đồng bộ** (§49): worker chỉ đẩy dòng vào hàng đợi, một luồng ghi file, tắt máy thì xả hết hàng đợi.
       28 test mới, ctest 96/96. Chưa đụng gameplay đa luồng (đúng Phase A).
+- [x] **M5b — MASTER SPEC Phase B: Entity handle an toàn (2026-09-17)**: `server/entity` (`jx::entity`) —
+      `EntityHandle` đóng gói `index(32) | generation(32)` vào chính `EntityId` 64-bit đang chạy trên dây
+      (§5), `EntityTable` là EntityManager của §36: sparse-dense nên **handle bền**, **bộ nhớ liên tục** cho
+      vòng lặp nóng (§47/§77) và **không có mảng cố định `Npc[MAX_NPC]`**. Ô nhớ được tái dùng thì generation
+      tăng, mọi handle cũ thành vô hiệu ngay (bug kinh điển của server cũ: id cũ trỏ sang con quái mới).
+      `KSubWorld` đã chuyển hẳn sang `EntityTable` (bỏ `unordered_map` + `IdGenerator`). 13 test riêng
+      (handle, tái dùng ô, handle lạ, iterate khi đang xoá, 100k entity, kiểu move-only); ctest 109/109, e2e OK.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

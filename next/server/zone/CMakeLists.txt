@@ -17,7 +17,7 @@ add_library(jx::zone_core ALIAS jx_zone_core)
 target_include_directories(jx_zone_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(jx_zone_core PRIVATE ${LUA_INCLUDE_DIR})
 target_link_libraries(jx_zone_core
-    PUBLIC  jx::common jx::proto jx::net
+    PUBLIC  jx::common jx::core jx::entity jx::proto jx::net
     PRIVATE jx_warnings ${LUA_LIBRARIES}
 )
 

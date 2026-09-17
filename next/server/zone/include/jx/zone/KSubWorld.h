@@ -16,6 +16,7 @@
 #include "jx/client.pb.h"
 #include "jx/common.pb.h"
 #include "jx/role.pb.h"
+#include "jx/entity/EntityTable.h"
 #include "jx/ids.hpp"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KNpc.h"
@@ -161,8 +162,10 @@ private:
 
     KSubWorldConfig cfg_;
     KRegionGrid grid_;
-    IdGenerator ids_;
-    std::unordered_map<EntityId, KNpc, IdHash> entities_;
+    // MASTER SPEC 5 / 36: entities live in one table that hands out handles with a generation,
+    // so a stale id (a missile in flight, a target in a packet, a Lua variable) can never reach
+    // the creature that took the slot.  The live entities are contiguous for the hot loops.
+    entity::EntityTable<KNpc> entities_;
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::vector<Packet> outbox_;
