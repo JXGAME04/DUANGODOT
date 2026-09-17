@@ -3,8 +3,12 @@
 extends Node
 
 const Proto := preload("res://proto/jx_pb.gd")
-const CLIENT_VERSION := "0.1.0"
+const KLogin := preload("res://net/KLogin.gd")
+const CLIENT_VERSION := "0.2.0"
 const PING_INTERVAL := 5.0
+# no Pong for this long while in the world = the server is gone (it drops us after
+# heartbeat_s, 30 s by default, so the client notices first)
+const PONG_TIMEOUT := 15.0
 
 signal login_result(ok: bool, text: String)
 signal char_list(chars: Array)
@@ -36,6 +40,9 @@ var map_id := 0          # asset bundle to draw (0 = grid)
 var scene_w := 0         # map size in scene units
 var scene_h := 0
 var last_rtt_ms := 0
+var auth_mode := ""      # "dev" / "strict" from HelloAck
+var heartbeat_s := 30    # the gateway's silence limit in the world
+var last_notice := ""    # why we are back on the login screen (kick / lost connection)
 var chars: Array = []
 # entity_id -> Dictionary; the model of what the zone shows us.  Kept here (not in the scene) so
 # packets that arrive before the world scene is loaded are not lost.
@@ -46,6 +53,7 @@ var _password := ""
 var _move_seq := 0
 var _ping_timer := 0.0
 var _ping_sent_ms := 0
+var _last_pong_ms := 0
 
 
 func _ready() -> void:
@@ -155,6 +163,11 @@ func _process(delta: float) -> void:
 		if _ping_timer >= PING_INTERVAL:
 			_ping_timer = 0.0
 			ping()
+		# heartbeat watchdog: a dead link is noticed here, not after minutes of TCP retries
+		if _last_pong_ms > 0 and Time.get_ticks_msec() - _last_pong_ms > int(PONG_TIMEOUT * 1000):
+			Log.warn("net", "no pong from gateway", {"seconds": PONG_TIMEOUT})
+			last_notice = KLogin.result_text(Proto.Result.TIMEOUT)
+			Net.disconnect_from("timeout")
 
 
 # ---- connection events -------------------------------------------------------------------
@@ -177,8 +190,11 @@ func _on_disconnected(reason: String) -> void:
 	entities = {}
 	Log.ctx["sid"] = 0
 	Log.ctx["zone"] = 0
+	_last_pong_ms = 0
+	if last_notice == "" and reason != "logout" and reason != "back to login":
+		last_notice = "Mất kết nối: " + reason
 	if was == "connecting" or was == "hello" or was == "auth":
-		login_result.emit(false, "Mất kết nối: " + reason)
+		login_result.emit(false, last_notice if last_notice != "" else "Mất kết nối: " + reason)
 	connection_lost.emit(reason)
 
 
@@ -197,8 +213,11 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			if not _decode(ack, payload):
 				return
 			sid = ack.get_sid()
+			auth_mode = ack.get_auth_mode()
+			heartbeat_s = maxi(int(ack.get_heartbeat_s()), 1)
 			Log.ctx["sid"] = sid
-			Log.info("net", "hello ack", {"server_version": ack.get_server_version(), "protocol": ack.get_protocol_version()})
+			Log.info("net", "hello ack", {"server_version": ack.get_server_version(), "protocol": ack.get_protocol_version(),
+				"auth_mode": auth_mode, "heartbeat_s": heartbeat_s})
 			var req := Proto.LoginReq.new()
 			req.set_account(_account)
 			req.set_password(_password)
@@ -216,7 +235,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				login_result.emit(true, "")
 			else:
 				Log.warn("auth", "login failed", {"result": res.get_result(), "text": res.get_text()})
-				login_result.emit(false, "Đăng nhập thất bại: " + res.get_text())
+				login_result.emit(false, KLogin.result_text(res.get_result(), res.get_text()))
 
 		Proto.MsgId.G2C_CHAR_LIST_RES:
 			var res := Proto.CharListRes.new()
@@ -251,6 +270,8 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				scene_h = res.get_scene_h()
 				Log.ctx["zone"] = zone_id
 				entities = {}
+				_last_pong_ms = Time.get_ticks_msec()
+				_ping_timer = PING_INTERVAL   # first heartbeat right away
 				_set_state("world")
 				var info := {"zone_id": zone_id, "zone_name": zone_name, "entity_id": entity_id,
 					"x": res.get_pos().get_x(), "y": res.get_pos().get_y(), "tick_hz": tick_hz,
@@ -352,7 +373,8 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.Pong.new()
 			if not _decode(m, payload):
 				return
-			last_rtt_ms = Time.get_ticks_msec() - int(m.get_client_ms())
+			_last_pong_ms = Time.get_ticks_msec()
+			last_rtt_ms = _last_pong_ms - int(m.get_client_ms())
 			pong.emit(last_rtt_ms, m.get_server_ms())
 
 		Proto.MsgId.G2C_KICK:
@@ -360,7 +382,10 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			if not _decode(k, payload):
 				return
 			Log.warn("net", "kicked", {"reason": k.get_reason(), "text": k.get_text()})
-			if state == "world" or state == "entering":
+			if KLogin.session_ends(k.get_reason()):
+				# the gateway closes the socket right after: remember why for the login screen
+				last_notice = KLogin.result_text(k.get_reason(), k.get_text())
+			elif state == "world" or state == "entering":
 				_set_state("lobby")
 			kicked.emit(k.get_reason(), k.get_text())
 

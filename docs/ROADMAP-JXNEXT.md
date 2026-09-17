@@ -254,6 +254,14 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
 - [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
       `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
       bảng đối chiếu `next/docs/OLD-TO-NEW.md`.
+- [x] **M4a — nền mạng: tài khoản + phiên (2026-09-17)**: mật khẩu argon2id (`auth/password.go`), máy chủ tài khoản
+      `S3PAccount` port từ `S3PAccount::Login` (sai mật khẩu/khoá/hết giờ chơi/khoá tạm sau 5 lần sai), hai chế độ
+      `dev`/`strict`, công cụ `jxaccount` (add/passwd/freeze/expire/list); `persist.Account` có hash + trạng thái, bỏ mật khẩu
+      thường (tự băm lại khi khởi động). Gateway: **một tài khoản một phiên** (đá phiên cũ hoặc từ chối như `E_ACCOUNT_EXIST`),
+      timeout `Hello`/lobby/heartbeat, giới hạn gói/giây (token bucket), giới hạn lần đăng nhập sai, `SessionClose.reason`,
+      tắt êm **chờ zone lưu xong**, thống kê `cat=gw.stats` + `Server.Snapshot()` cho Prometheus sau. Client: `KLogin.gd`
+      dịch mã kết quả theo `LOGIN_R_*`/`CI_MI_*` cũ, watchdog heartbeat, bị đá thì về màn đăng nhập kèm lý do.
+      Test: `pkg/auth` (6), `internal/gateway` (7 mới). Chi tiết `next/docs/PROTOCOL.md` mục 3b, `RUNNING.md` mục 3b/3c.
 - [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android

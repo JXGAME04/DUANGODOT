@@ -1,6 +1,10 @@
 // Package gateway is the client facing edge: it owns TCP sessions, authenticates, serves the
 // character lobby from persist and relays world traffic between clients and the zone
 // (docs/PROTOCOL.md section 3).  Everything a client can do is decided here by session state.
+//
+// It is the Bishop of the old server cluster (login, character list, relay to the game
+// server) with the protections the old one lacked: one live session per account, heartbeat
+// timeouts, a message rate limit per client and a shutdown that waits for the zone to save.
 package gateway
 
 import (
@@ -16,16 +20,29 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/persist"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 type Config struct {
 	ID           string        // gateway id sent to the zone
 	Listen       string        // client listen address, e.g. ":17100"
 	ZoneAddr     string        // "127.0.0.1:17001"
-	MaxChars     int           // characters per account
-	IdleTimeout  time.Duration // client read timeout (0 = 5 min)
+	MaxChars     int           // characters per account (MAX_PLAYER_PER_ACCOUNT of the old client: 3)
+	IdleTimeout  time.Duration // read timeout in the lobby (0 = 5 min)
 	WriteTimeout time.Duration // 0 = 10 s
 	OutQueue     int           // frames buffered per client (0 = 256)
+
+	// session protection (new in JX NEXT)
+	HelloTimeout     time.Duration // a connection that sends no Hello is dropped after this (0 = 10 s)
+	HeartbeatTimeout time.Duration // in the world: no frame (the client pings every 5 s) for this long = gone (0 = 30 s)
+	RateMsgs         float64       // client frames per second, sustained (0 = 40)
+	RateBurst        int           // frames a client may send at once (0 = 100)
+	MaxLoginTries    int           // failed logins on one connection before it is kicked (0 = 5)
+	// The old PaySys refused a login while the account was online (E_ACCOUNT_EXIST).  The
+	// default here is the modern rule: the new login wins and the old session is kicked with
+	// RESULT_REPLACED, which also frees accounts left behind by a crashed client.
+	RefuseDuplicateLogin bool
+	ShutdownWait         time.Duration // how long to wait for the zone's final saves on shutdown (0 = 3 s)
+	StatsInterval        time.Duration // one cat=gw.stats line every interval (0 = 30 s, negative = off)
 }
 
 func (c *Config) defaults() {
@@ -50,6 +67,27 @@ func (c *Config) defaults() {
 	if c.OutQueue <= 0 {
 		c.OutQueue = 256
 	}
+	if c.HelloTimeout <= 0 {
+		c.HelloTimeout = 10 * time.Second
+	}
+	if c.HeartbeatTimeout <= 0 {
+		c.HeartbeatTimeout = 30 * time.Second
+	}
+	if c.RateMsgs <= 0 {
+		c.RateMsgs = 40
+	}
+	if c.RateBurst <= 0 {
+		c.RateBurst = 100
+	}
+	if c.MaxLoginTries <= 0 {
+		c.MaxLoginTries = 5
+	}
+	if c.ShutdownWait <= 0 {
+		c.ShutdownWait = 3 * time.Second
+	}
+	if c.StatsInterval == 0 {
+		c.StatsInterval = 30 * time.Second
+	}
 }
 
 type Server struct {
@@ -58,17 +96,23 @@ type Server struct {
 	auth  auth.Authenticator
 	zone  *zoneLink
 
-	mu       sync.RWMutex
-	sessions map[uint64]*session
-	nextSID  atomic.Uint64
-	ln       net.Listener
-	addr     atomic.Value // string
-	wg       sync.WaitGroup
+	stats Stats
+
+	mu          sync.RWMutex
+	sessions    map[uint64]*session
+	online      map[uint64]*session   // account id -> the one session logged in with it (iClientID of the old PaySys)
+	pendingSave map[uint64]struct{}   // sids that left the zone and whose final PlayerSave has not arrived yet
+	nextSID     atomic.Uint64
+	ln          net.Listener
+	addr        atomic.Value // string
+	stopping    atomic.Bool
+	sessWG      sync.WaitGroup
+	zoneWG      sync.WaitGroup
 }
 
 func New(cfg Config, store persist.Store, authenticator auth.Authenticator) *Server {
 	cfg.defaults()
-	s := &Server{cfg: cfg, store: store, auth: authenticator, sessions: map[uint64]*session{}}
+	s := &Server{cfg: cfg, store: store, auth: authenticator, sessions: map[uint64]*session{}, online: map[uint64]*session{}, pendingSave: map[uint64]struct{}{}}
 	s.zone = newZoneLink(s, cfg.ZoneAddr)
 	return s
 }
@@ -89,7 +133,15 @@ func (s *Server) SessionCount() int {
 	return len(s.sessions)
 }
 
-// Run listens for clients and keeps the zone link alive until ctx is cancelled.
+// OnlineCount returns the number of accounts logged in.
+func (s *Server) OnlineCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.online)
+}
+
+// Run listens for clients and keeps the zone link alive until ctx is cancelled, then kicks
+// every client, tells the zone, waits for the final saves and returns.
 func (s *Server) Run(ctx context.Context) error {
 	ln, err := net.Listen("tcp", s.cfg.Listen)
 	if err != nil {
@@ -98,20 +150,25 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	s.ln = ln
 	s.addr.Store(ln.Addr().String())
-	log.Info("boot", "gateway listening", log.F("addr", ln.Addr().String()), log.F("zone", s.cfg.ZoneAddr), log.F("id", s.cfg.ID))
+	log.Info("boot", "gateway listening", log.F("addr", ln.Addr().String()), log.F("zone", s.cfg.ZoneAddr), log.F("id", s.cfg.ID),
+		log.F("auth", s.auth.Mode()), log.F("heartbeat_s", s.cfg.HeartbeatTimeout.Seconds()), log.F("rate_msgs", s.cfg.RateMsgs))
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	s.wg.Add(1)
+	// the zone link outlives ctx: the final saves of the kicked players travel over it
+	zctx, zcancel := context.WithCancel(context.Background())
+	defer zcancel()
+	s.zoneWG.Add(1)
 	go func() {
-		defer s.wg.Done()
-		s.zone.run(ctx)
+		defer s.zoneWG.Done()
+		s.zone.run(zctx)
 	}()
 
 	go func() {
 		<-ctx.Done()
 		_ = ln.Close()
 	}()
+	if s.cfg.StatsInterval > 0 {
+		go s.reportStats(ctx, s.cfg.StatsInterval)
+	}
 
 	for {
 		conn, err := ln.Accept()
@@ -132,25 +189,58 @@ func (s *Server) Run(ctx context.Context) error {
 		s.mu.Lock()
 		s.sessions[sid] = sess
 		s.mu.Unlock()
-		s.wg.Add(1)
+		s.sessWG.Add(1)
 		go func() {
-			defer s.wg.Done()
-			sess.run(ctx)
+			defer s.sessWG.Done()
+			sess.run()
 			s.mu.Lock()
 			delete(s.sessions, sid)
 			s.mu.Unlock()
 		}()
 	}
 
-	// shutdown: close every session, then wait
-	s.mu.RLock()
-	for _, sess := range s.sessions {
-		sess.close("gateway shutdown")
-	}
-	s.mu.RUnlock()
-	s.wg.Wait()
+	s.shutdown()
+	zcancel()
+	s.zoneWG.Wait()
 	log.Info("boot", "gateway stopped")
 	return nil
+}
+
+// shutdown kicks every client (the zone gets SessionClose reason 3 for the ones in the
+// world) and waits for the zone's final PlayerSave of each of them, bounded by ShutdownWait.
+func (s *Server) shutdown() {
+	s.stopping.Store(true)
+	var list []*session
+	s.mu.RLock()
+	for _, sess := range s.sessions {
+		list = append(list, sess)
+	}
+	s.mu.RUnlock()
+	log.Info("boot", "shutting down", log.F("sessions", len(list)), log.F("online", s.OnlineCount()))
+	for _, sess := range list {
+		sess.shutdown()
+	}
+	deadline := time.Now().Add(s.cfg.ShutdownWait + time.Second)
+	done := make(chan struct{})
+	go func() {
+		s.sessWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Until(deadline)):
+		log.Warn("boot", "sessions still open at shutdown", log.F("count", s.SessionCount()))
+	}
+	deadline = time.Now().Add(s.cfg.ShutdownWait)
+	for time.Now().Before(deadline) {
+		if n := s.pendingSaves(); n == 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if n := s.pendingSaves(); n > 0 {
+		log.Error("boot", "final saves missing at shutdown", log.F("players", n))
+	}
 }
 
 func (s *Server) session(sid uint64) *session {
@@ -169,4 +259,55 @@ func (s *Server) eachSession(fn func(*session)) {
 	for _, sess := range list {
 		fn(sess)
 	}
+}
+
+// claimOnline records sess as the session of accountID.  When another session holds the
+// account it is returned: with replace it has been unbound (the caller kicks it), otherwise
+// the claim failed and ok is false.
+func (s *Server) claimOnline(accountID uint64, sess *session, replace bool) (old *session, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old = s.online[accountID]
+	if old != nil && old != sess && !replace {
+		return old, false
+	}
+	s.online[accountID] = sess
+	if old == sess {
+		old = nil
+	}
+	return old, true
+}
+
+// releaseOnline forgets the account of sess unless another session took it over meanwhile.
+func (s *Server) releaseOnline(accountID uint64, sess *session) {
+	s.mu.Lock()
+	if s.online[accountID] == sess {
+		delete(s.online, accountID)
+	}
+	s.mu.Unlock()
+}
+
+// expectSave notes that the zone owes a final PlayerSave for sid (after SessionClose).
+func (s *Server) expectSave(sid uint64) {
+	s.mu.Lock()
+	s.pendingSave[sid] = struct{}{}
+	s.mu.Unlock()
+}
+
+func (s *Server) saveArrived(sid uint64) {
+	s.mu.Lock()
+	delete(s.pendingSave, sid)
+	s.mu.Unlock()
+}
+
+func (s *Server) clearPendingSaves() {
+	s.mu.Lock()
+	s.pendingSave = map[uint64]struct{}{}
+	s.mu.Unlock()
+}
+
+func (s *Server) pendingSaves() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.pendingSave)
 }

@@ -5,8 +5,25 @@
     "listen": "0.0.0.0:17100",
     "zone": "127.0.0.1:17001",
     "max_chars": 3,
-    "idle_timeout_s": 300,
-    "data_dir": "data/gateway"
+    "data_dir": "data/gateway",
+
+    // accounts: "dev" = the first login of a new name registers it (tests, bots);
+    // "strict" = only accounts made with jxaccount (password >= min_password)
+    "auth_mode": "dev",
+    "min_password": 0,              // 0 = mode default (dev 1, strict 6 like the old PaySys)
+    "max_fails": 5,                 // wrong passwords before the account is locked for lock_s
+    "lock_s": 60,
+    "refuse_duplicate_login": false, // true = old PaySys rule (E_ACCOUNT_EXIST); false = the new login kicks the old session
+
+    // session protection
+    "hello_timeout_s": 10,          // connection without Hello
+    "idle_timeout_s": 300,          // silence in the lobby
+    "heartbeat_timeout_s": 30,      // silence in the world (the client pings every 5 s)
+    "rate_msgs": 40,                // client frames per second sustained ...
+    "rate_burst": 100,              // ... and at once
+    "max_login_tries": 5,           // failed logins on one connection before it is kicked
+    "shutdown_wait_s": 3,           // wait for the zone's final saves when stopping
+    "stats_interval_s": 30          // one cat=gw.stats line with sessions / msg per second
   },
   "log": {
     "level": "info",

@@ -4,6 +4,7 @@ extends Node2D
 
 const NpcScript := preload("res://scenes/KNpc.gd")
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
+const KLogin := preload("res://net/KLogin.gd")
 const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
@@ -288,9 +289,14 @@ func _on_chat_submitted(text: String) -> void:
 		Game.chat(text)
 
 
-func _on_kicked(_reason: int, text: String) -> void:
-	_append_chat("[color=red]Bị ngắt: %s[/color]" % text)
-	get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
+func _on_kicked(reason: int, text: String) -> void:
+	_append_chat("[color=red]Bị ngắt: %s[/color]" % KLogin.result_text(reason, text))
+	if KLogin.session_ends(reason):
+		# replaced / shutdown / rate limit: the gateway closes the socket, back to the login screen
+		Game.logout("kicked")
+		get_tree().change_scene_to_file("res://scenes/UiLogin.tscn")
+	else:
+		get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
 
 
 func _on_connection_lost(reason: String) -> void:

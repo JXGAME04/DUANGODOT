@@ -20,21 +20,33 @@ var (
 	ErrForbidden   = errors.New("persist: not owned by account")
 )
 
-// Account is a login identity.  Dev auth stores the password in clear text; real auth
-// (phase 3) replaces it by a hash and tokens, the interface stays.
+// Account is a login identity: the Account_info row of the old Sword3PaySys database
+// (cAccName, cPassword, iClientID, dLoginDate, deposit) without the billing part.
 type Account struct {
-	ID          uint64   `json:"id"`
-	Name        string   `json:"name"`
-	Password    string   `json:"password"`
-	Chars       []uint64 `json:"chars"`
-	CreatedAtMs int64    `json:"created_at_ms"`
+	ID           uint64   `json:"id"`
+	Name         string   `json:"name"`
+	PasswordHash string   `json:"password_hash,omitempty"` // argon2id, made by auth.HashPassword
+	Password     string   `json:"password,omitempty"`      // clear text of the first dev builds; auth hashes and clears it on start
+	Chars        []uint64 `json:"chars"`
+	CreatedAtMs  int64    `json:"created_at_ms"`
+	Frozen       bool     `json:"frozen,omitempty"`        // E_ACCOUNT_FREEZE: a GM locked the account
+	FrozenText   string   `json:"frozen_text,omitempty"`   // why (shown to the player)
+	ExpiresAtMs  int64    `json:"expires_at_ms,omitempty"` // game time left (E_ACCOUNT_NODEPOSIT); 0 = unlimited
+	LastLoginMs  int64    `json:"last_login_ms,omitempty"`
+	LastAddr     string   `json:"last_addr,omitempty"`
+	Logins       uint64   `json:"logins,omitempty"`
 }
 
 // Store is what the gateway needs from persistence.
 type Store interface {
-	// EnsureAccount returns the account called name, creating it on first use.
-	EnsureAccount(ctx context.Context, name, password string) (*Account, error)
+	// CreateAccount registers name with an already hashed password (ErrExists when taken).
+	CreateAccount(ctx context.Context, name, passwordHash string) (*Account, error)
 	Account(ctx context.Context, name string) (*Account, error)
+	AccountByID(ctx context.Context, id uint64) (*Account, error)
+	// UpdateAccount stores the mutable fields of acc (password hash, frozen, game time, last
+	// login); the id, name and character list never change through it.
+	UpdateAccount(ctx context.Context, acc *Account) error
+	Accounts(ctx context.Context) ([]*Account, error)
 	Characters(ctx context.Context, accountID uint64) ([]*jxpb.RoleData, error)
 	Character(ctx context.Context, playerID uint64) (*jxpb.RoleData, error)
 	CreateCharacter(ctx context.Context, accountID uint64, name string, series, sex uint32) (*jxpb.RoleData, error)
@@ -63,7 +75,8 @@ func ValidateName(name string) error {
 	return nil
 }
 
-// ValidateAccountName accepts ASCII letters, digits, '_', '.', '-' (3..32 chars).
+// ValidateAccountName accepts ASCII letters, digits, '_', '.', '-' (3..32 chars).  The old
+// PaySys allowed 4..30 characters; three lets the dev accounts of the tests through.
 func ValidateAccountName(name string) error {
 	if len(name) < 3 || len(name) > 32 {
 		return ErrInvalidName

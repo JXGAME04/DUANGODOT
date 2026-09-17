@@ -21,6 +21,9 @@ func _ready() -> void:
 			_password.text = a.substr(11)
 	if OS.has_environment("JX_SERVER"):
 		_server.text = OS.get_environment("JX_SERVER")
+	if Game.last_notice != "":   # kicked / lost the connection: say why (KUiConnectInfo of the old client)
+		_status.text = Game.last_notice
+		Game.last_notice = ""
 	Log.info("ui", "login screen")
 	if "--auto" in args:
 		# automated end-to-end run (tests): login -> create/pick character -> enter -> move once
@@ -54,7 +57,7 @@ func _build_ui() -> void:
 	box.add_child(_button)
 
 	_status = Label.new()
-	_status.text = "Tài khoản mới sẽ được tạo tự động (dev auth)."
+	_status.text = "Máy chủ dev: tài khoản mới tự tạo khi đăng nhập lần đầu (mật khẩu phải giống lần sau)."
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_status)
@@ -89,3 +92,13 @@ func _on_login_result(ok: bool, text: String) -> void:
 		get_tree().change_scene_to_file("res://scenes/UiSelPlayer.tscn")
 	else:
 		_status.text = text
+		Game.last_notice = ""
+		if "--auto" in OS.get_cmdline_user_args():
+			# automated run: never sit on the login screen waiting for a human
+			print("AUTO_LOGIN_FAILED %s" % text)
+			Log.error("auto", "login failed", {"text": text})
+			if DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("user://logs/auto_login_failed.png")
+			get_tree().quit(2)

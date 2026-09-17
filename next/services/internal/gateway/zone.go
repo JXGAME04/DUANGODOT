@@ -117,6 +117,7 @@ func (z *zoneLink) session(ctx context.Context) error {
 		close(stop)
 		z.ready.Store(false)
 		_ = conn.Close()
+		z.srv.clearPendingSaves() // whatever the zone still owed is lost with the link
 		z.srv.eachSession(func(s *session) { s.zoneLost() })
 	}()
 
@@ -187,8 +188,10 @@ func (z *zoneLink) handle(f frame.Frame) {
 			return
 		}
 		b := frame.Encode(uint16(zp.MsgId), 0, zp.Payload) // encode once, share read-only
+		z.srv.stats.ZonePackets.Add(1)
 		for _, sid := range zp.Sids {
 			if s := z.srv.session(sid); s != nil && s.getState() == stWorld {
+				z.srv.stats.ZoneFanout.Add(1)
 				s.sendRaw(b)
 			}
 		}
@@ -200,6 +203,9 @@ func (z *zoneLink) handle(f frame.Frame) {
 			return
 		}
 		ctx := log.WithContext(context.Background(), log.Context{Sid: save.Sid, Pid: save.Role.PlayerId})
+		if save.Final {
+			defer z.srv.saveArrived(save.Sid)
+		}
 		if err := z.srv.store.SaveCharacter(context.Background(), save.Role); err != nil {
 			log.ErrorCtx(ctx, "db", "save failed", log.F("error", err))
 			return

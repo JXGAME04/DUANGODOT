@@ -90,6 +90,47 @@ Z  → G → C   G2C_ENTITY_SPAWN                       vùng nhìn mới (có c
 
 `SessionOpenAck`/`RolePosition` mang `map_id` để người vào lại đúng map đã lưu (`EnterWorldRes.map_id` lấy từ ack khi ≠ 0).
 
+## 3b. Vòng đời phiên và bảo vệ (gateway)
+
+Trạng thái phiên: `hello → auth → lobby → entering → world` (`services/internal/gateway/session.go`).
+Mỗi trạng thái chỉ nhận đúng nhóm message của nó; sai trạng thái = `Kick{RESULT_WRONG_STATE}`.
+
+| Bảo vệ | Mặc định | Cấu hình | Vi phạm |
+|---|---|---|---|
+| Chờ `Hello` | 10 s | `gateway.hello_timeout_s` | đóng kết nối |
+| Im lặng ở lobby | 300 s | `gateway.idle_timeout_s` | đóng kết nối |
+| Im lặng trong game (heartbeat) | 30 s | `gateway.heartbeat_timeout_s` | `SessionClose{reason=1}` + đóng |
+| Số gói/giây của một client | 40, burst 100 | `gateway.rate_msgs`, `rate_burst` | `Kick{RESULT_RATE_LIMITED}` |
+| Đăng nhập sai trên một kết nối | 5 | `gateway.max_login_tries` | `Kick{RESULT_SERVER_BUSY}` |
+| Đăng nhập sai của một tài khoản | 5 lần → khoá 60 s | `gateway.max_fails`, `lock_s` | `LoginRes{RESULT_SERVER_BUSY}` |
+| Hàng gửi của client đầy | 256 khung | `OutQueue` | đóng kết nối (client quá chậm) |
+
+`HelloAck` mang `auth_mode` ("dev"/"strict") và `heartbeat_s` để client tự biết nhịp ping
+(client ping 5 s, tự ngắt nếu 15 s không có `Pong`).
+
+**Một tài khoản = một phiên.** Đăng nhập lần hai mặc định *thắng*: phiên cũ nhận
+`Kick{RESULT_REPLACED}`, zone nhận `SessionClose{reason=2}`. Đặt
+`gateway.refuse_duplicate_login = true` để theo luật server cũ (`E_ACCOUNT_EXIST`): lần hai bị
+từ chối bằng `LoginRes{RESULT_ACCOUNT_IN_USE}`.
+
+`SessionClose.reason`: 0 client rời, 1 hết heartbeat, 2 bị đá/bị thay, 3 gateway tắt.
+Khi tắt, gateway đá mọi client rồi **chờ `PlayerSave{final}` của zone** (`gateway.shutdown_wait_s`)
+trước khi thoát, nên không mất tiến độ người chơi.
+
+Mã kết quả đăng nhập giữ nguyên ý nghĩa của server cũ (`Bishop/LoginDef.h`, `S3PAccount::Login`):
+
+| `Result` | Cũ | Client hiện (`client/net/KLogin.gd`) |
+|---|---|---|
+| `UNAUTHORIZED` | `LOGIN_R_ACCOUNT_OR_PASSWORD_ERROR` | Tài khoản hoặc mật khẩu không đúng |
+| `ACCOUNT_IN_USE` | `LOGIN_R_ACCOUNT_EXIST` | Tài khoản đang được sử dụng ở nơi khác |
+| `ACCOUNT_FROZEN` | `LOGIN_R_FREEZE` | Tài khoản đã bị khoá (+ lý do) |
+| `NO_GAME_TIME` | `LOGIN_R_TIMEOUT` / `E_ACCOUNT_NODEPOSIT` | Hết thời gian chơi |
+| `SERVER_BUSY` | `LOGIN_R_FAILED` | Sai quá nhiều lần / máy chủ bận |
+| `VERSION_MISMATCH` | `LOGIN_R_INVALID_PROTOCOLVERSION` | Client cũ, cần cập nhật |
+| `REPLACED` | `LOGIN_R_BEDISCONNECTED` | Vừa đăng nhập ở nơi khác |
+| `SERVER_SHUTDOWN` | `LL_R_SERVER_SHUTDOWN` | Máy chủ đang bảo trì |
+| `RATE_LIMITED`, `TIMEOUT` | (mới) | Gửi quá nhiều / mất kết nối |
+
 ## 4. Phiên bản
 
 - `PROTOCOL_VERSION` (enum trong `msg.proto`) tăng khi thay đổi **không tương thích** (đổi khung

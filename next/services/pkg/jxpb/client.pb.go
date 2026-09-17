@@ -153,7 +153,9 @@ type HelloAck struct {
 	ProtocolVersion uint32                 `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
 	ServerTimeMs    uint64                 `protobuf:"varint,2,opt,name=server_time_ms,json=serverTimeMs,proto3" json:"server_time_ms,omitempty"`
 	ServerVersion   string                 `protobuf:"bytes,3,opt,name=server_version,json=serverVersion,proto3" json:"server_version,omitempty"`
-	Sid             uint64                 `protobuf:"varint,4,opt,name=sid,proto3" json:"sid,omitempty"` // session id, useful when reading logs
+	Sid             uint64                 `protobuf:"varint,4,opt,name=sid,proto3" json:"sid,omitempty"`                                 // session id, useful when reading logs
+	AuthMode        string                 `protobuf:"bytes,5,opt,name=auth_mode,json=authMode,proto3" json:"auth_mode,omitempty"`        // "dev" (first login registers the account) or "strict" (registered accounts only)
+	HeartbeatS      uint32                 `protobuf:"varint,6,opt,name=heartbeat_s,json=heartbeatS,proto3" json:"heartbeat_s,omitempty"` // the gateway drops a silent in-world session after this many seconds; ping more often
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -212,6 +214,20 @@ func (x *HelloAck) GetServerVersion() string {
 func (x *HelloAck) GetSid() uint64 {
 	if x != nil {
 		return x.Sid
+	}
+	return 0
+}
+
+func (x *HelloAck) GetAuthMode() string {
+	if x != nil {
+		return x.AuthMode
+	}
+	return ""
+}
+
+func (x *HelloAck) GetHeartbeatS() uint32 {
+	if x != nil {
+		return x.HeartbeatS
 	}
 	return 0
 }
@@ -1786,12 +1802,15 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12%\n" +
 	"\x0eclient_version\x18\x02 \x01(\tR\rclientVersion\x12\x1a\n" +
 	"\bplatform\x18\x03 \x01(\tR\bplatform\x12\x1b\n" +
-	"\tdevice_id\x18\x04 \x01(\tR\bdeviceId\"\x94\x01\n" +
+	"\tdevice_id\x18\x04 \x01(\tR\bdeviceId\"\xd2\x01\n" +
 	"\bHelloAck\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12$\n" +
 	"\x0eserver_time_ms\x18\x02 \x01(\x04R\fserverTimeMs\x12%\n" +
 	"\x0eserver_version\x18\x03 \x01(\tR\rserverVersion\x12\x10\n" +
-	"\x03sid\x18\x04 \x01(\x04R\x03sid\"@\n" +
+	"\x03sid\x18\x04 \x01(\x04R\x03sid\x12\x1b\n" +
+	"\tauth_mode\x18\x05 \x01(\tR\bauthMode\x12\x1f\n" +
+	"\vheartbeat_s\x18\x06 \x01(\rR\n" +
+	"heartbeatS\"@\n" +
 	"\bLoginReq\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"d\n" +

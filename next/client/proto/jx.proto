@@ -20,6 +20,8 @@ message HelloAck {
   uint64 server_time_ms = 2;
   string server_version = 3;
   uint64 sid = 4;                // session id, useful when reading logs
+  string auth_mode = 5;          // "dev" (first login registers the account) or "strict" (registered accounts only)
+  uint32 heartbeat_s = 6;        // the gateway drops a silent in-world session after this many seconds; ping more often
 }
 
 message LoginReq {
@@ -222,6 +224,16 @@ enum Result {
   RESULT_WRONG_STATE = 8;
   RESULT_ZONE_UNAVAILABLE = 9;
   RESULT_VERSION_MISMATCH = 10;
+  // login results of the old Sword3PaySys / Bishop (LoginDef.h LOGIN_R_*, S3PAccount::Login)
+  RESULT_ACCOUNT_IN_USE = 11;    // LOGIN_R_ACCOUNT_EXIST: the account is logged in elsewhere
+  RESULT_ACCOUNT_FROZEN = 12;    // LOGIN_R_FREEZE: frozen by a GM
+  RESULT_NO_GAME_TIME = 13;      // LOGIN_R_TIMEOUT / E_ACCOUNT_NODEPOSIT: no game time left
+  RESULT_SERVER_BUSY = 14;       // LOGIN_R_FAILED: too many failed logins, try again later
+  // session protection (new in JX NEXT)
+  RESULT_RATE_LIMITED = 15;      // the client sent more than the gateway allows
+  RESULT_TIMEOUT = 16;           // no heartbeat within the allowed time
+  RESULT_REPLACED = 17;          // LOGIN_R_BEDISCONNECTED: the account logged in from elsewhere
+  RESULT_SERVER_SHUTDOWN = 18;   // LL_R_SERVER_SHUTDOWN: the gateway is going down
 }
 
 enum EntityType {

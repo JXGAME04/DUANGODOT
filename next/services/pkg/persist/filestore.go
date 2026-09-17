@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -114,21 +115,22 @@ func cloneAccount(a *Account) *Account {
 	return &c
 }
 
-// EnsureAccount implements Store.
-func (s *FileStore) EnsureAccount(_ context.Context, name, password string) (*Account, error) {
+// CreateAccount implements Store.
+func (s *FileStore) CreateAccount(_ context.Context, name, passwordHash string) (*Account, error) {
 	if err := ValidateAccountName(name); err != nil {
 		return nil, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := NormalizeName(name)
-	if a, ok := s.db.Accounts[key]; ok {
-		return cloneAccount(a), nil
+	if _, ok := s.db.Accounts[key]; ok {
+		return nil, ErrExists
 	}
-	a := &Account{ID: s.db.NextAccount, Name: name, Password: password, CreatedAtMs: time.Now().UnixMilli()}
+	a := &Account{ID: s.db.NextAccount, Name: name, PasswordHash: passwordHash, CreatedAtMs: time.Now().UnixMilli()}
 	s.db.NextAccount++
 	s.db.Accounts[key] = a
 	if err := s.saveAccountsLocked(); err != nil {
+		delete(s.db.Accounts, key)
 		return nil, err
 	}
 	log.Info("db", "account created", log.F("account", name), log.F("account_id", a.ID))
@@ -144,6 +146,48 @@ func (s *FileStore) Account(_ context.Context, name string) (*Account, error) {
 		return nil, ErrNotFound
 	}
 	return cloneAccount(a), nil
+}
+
+// AccountByID implements Store.
+func (s *FileStore) AccountByID(_ context.Context, id uint64) (*Account, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.accountByIDLocked(id)
+	if a == nil {
+		return nil, ErrNotFound
+	}
+	return cloneAccount(a), nil
+}
+
+// UpdateAccount implements Store.
+func (s *FileStore) UpdateAccount(_ context.Context, acc *Account) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.accountByIDLocked(acc.ID)
+	if a == nil {
+		return ErrNotFound
+	}
+	saved := *a
+	a.PasswordHash, a.Password = acc.PasswordHash, acc.Password
+	a.Frozen, a.FrozenText = acc.Frozen, acc.FrozenText
+	a.ExpiresAtMs, a.LastLoginMs, a.LastAddr, a.Logins = acc.ExpiresAtMs, acc.LastLoginMs, acc.LastAddr, acc.Logins
+	if err := s.saveAccountsLocked(); err != nil {
+		*a = saved
+		return err
+	}
+	return nil
+}
+
+// Accounts implements Store (sorted by id).
+func (s *FileStore) Accounts(_ context.Context) ([]*Account, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*Account, 0, len(s.db.Accounts))
+	for _, a := range s.db.Accounts {
+		out = append(out, cloneAccount(a))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
 }
 
 func (s *FileStore) accountByIDLocked(id uint64) *Account {

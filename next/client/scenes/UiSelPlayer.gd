@@ -1,6 +1,7 @@
 # Character lobby: list / create / enter world.
 extends Control
 
+const KLogin := preload("res://net/KLogin.gd")
 const SERIES_NAMES := ["Kim", "Mộc", "Thủy", "Hỏa", "Thổ"]
 const SEX_NAMES := ["Nam", "Nữ"]
 
@@ -152,9 +153,12 @@ func _on_enter_failed(result: int) -> void:
 	_status.text = "Không vào được game (%d)%s" % [result, " - zone chưa sẵn sàng" if result == 9 else ""]
 
 
-func _on_kicked(_reason: int, text: String) -> void:
+func _on_kicked(reason: int, text: String) -> void:
 	_enter.disabled = false
-	_status.text = "Bị ngắt: " + text
+	_status.text = "Bị ngắt: " + KLogin.result_text(reason, text)
+	if KLogin.session_ends(reason):
+		Game.logout("kicked")
+		get_tree().change_scene_to_file("res://scenes/UiLogin.tscn")
 
 
 func _on_connection_lost(reason: String) -> void:

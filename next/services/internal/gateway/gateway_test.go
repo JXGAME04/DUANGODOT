@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 	"testing"
@@ -19,11 +20,34 @@ import (
 // fakeZone speaks the internal protocol like jx_zone: acks the handshake and sessions,
 // echoes moves as EntityMove to the mover and records saves.
 type fakeZone struct {
-	ln     net.Listener
-	mu     sync.Mutex
-	saves  []*jxpb.PlayerSave
-	closes []uint64
-	next   uint64
+	ln        net.Listener
+	saveDelay time.Duration // how long the final PlayerSave takes after SessionClose
+	mu        sync.Mutex
+	saves     []*jxpb.PlayerSave
+	closes    []uint64
+	reasons   map[uint64]uint32 // sid -> SessionClose.reason
+	next      uint64
+}
+
+func (z *fakeZone) closeReason(sid uint64) (uint32, bool) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	r, ok := z.reasons[sid]
+	return r, ok
+}
+
+// waitClose waits until the zone got SessionClose for sid.
+func (z *fakeZone) waitClose(t *testing.T, sid uint64, timeout time.Duration) uint32 {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if r, ok := z.closeReason(sid); ok {
+			return r
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("zone never got SessionClose for sid %d", sid)
+	return 0
 }
 
 func startFakeZone(t *testing.T) *fakeZone {
@@ -32,7 +56,7 @@ func startFakeZone(t *testing.T) *fakeZone {
 	if err != nil {
 		t.Fatal(err)
 	}
-	z := &fakeZone{ln: ln, next: 100}
+	z := &fakeZone{ln: ln, next: 100, reasons: map[uint64]uint32{}}
 	go func() {
 		for {
 			c, err := ln.Accept()
@@ -85,7 +109,11 @@ func (z *fakeZone) serve(c net.Conn) {
 			_ = proto.Unmarshal(f.Payload, &cl)
 			z.mu.Lock()
 			z.closes = append(z.closes, cl.Sid)
+			z.reasons[cl.Sid] = cl.Reason
 			z.mu.Unlock()
+			if z.saveDelay > 0 {
+				time.Sleep(z.saveDelay)
+			}
 			send(jxpb.MsgId_ZG_PLAYER_SAVE, &jxpb.PlayerSave{Sid: cl.Sid, Final: true, Role: &jxpb.RoleData{PlayerId: 1, AccountId: 1, Name: "Hero", Level: 9, Position: &jxpb.RolePosition{ZoneId: 1, Pos: &jxpb.Vec2{X: 10, Y: 20}}}})
 		}
 	}
@@ -145,12 +173,27 @@ func (c *testClient) expect(id jxpb.MsgId, m proto.Message) {
 
 func startGateway(t *testing.T, zoneAddr string) (*Server, persist.Store) {
 	t.Helper()
+	srv, store, _, _ := startGatewayWith(t, zoneAddr, Config{}, nil)
+	return srv, store
+}
+
+// startGatewayWith runs a gateway with cfg (listen/zone/max chars filled in) and the given
+// authenticator (nil = dev auth).  The returned cancel stops it; done closes when Run returned.
+func startGatewayWith(t *testing.T, zoneAddr string, cfg Config, authenticator auth.Authenticator) (*Server, persist.Store, context.CancelFunc, chan struct{}) {
+	t.Helper()
 	_ = log.Init(log.Options{Level: log.LevelWarn})
 	store, err := persist.OpenFileStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := New(Config{ID: "gw-test", Listen: "127.0.0.1:0", ZoneAddr: zoneAddr, MaxChars: 2}, store, &auth.Dev{Store: store})
+	if authenticator == nil {
+		authenticator = auth.New(store, auth.DevOptions())
+	}
+	cfg.ID, cfg.Listen, cfg.ZoneAddr = "gw-test", "127.0.0.1:0", zoneAddr
+	if cfg.MaxChars == 0 {
+		cfg.MaxChars = 2
+	}
+	srv := New(cfg, store, authenticator)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = srv.Run(ctx); close(done) }()
@@ -158,7 +201,7 @@ func startGateway(t *testing.T, zoneAddr string) (*Server, persist.Store) {
 		cancel()
 		select {
 		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-time.After(8 * time.Second):
 			t.Error("gateway did not stop")
 		}
 	})
@@ -169,7 +212,80 @@ func startGateway(t *testing.T, zoneAddr string) (*Server, persist.Store) {
 	if srv.Addr() == "" || !srv.ZoneReady() {
 		t.Fatal("gateway not ready")
 	}
-	return srv, store
+	return srv, store, cancel, done
+}
+
+// login runs Hello + Login and returns the HelloAck and LoginRes.
+func (c *testClient) login(account, password string) (*jxpb.HelloAck, *jxpb.LoginRes) {
+	c.t.Helper()
+	c.send(jxpb.MsgId_C2G_HELLO, &jxpb.Hello{ProtocolVersion: 1, ClientVersion: "test", Platform: "go"})
+	var hello jxpb.HelloAck
+	c.expect(jxpb.MsgId_G2C_HELLO_ACK, &hello)
+	c.send(jxpb.MsgId_C2G_LOGIN, &jxpb.LoginReq{Account: account, Password: password})
+	var login jxpb.LoginRes
+	c.expect(jxpb.MsgId_G2C_LOGIN_RES, &login)
+	return &hello, &login
+}
+
+// enter creates the first character when needed and enters the world with it.
+func (c *testClient) enter() *jxpb.EnterWorldRes {
+	c.t.Helper()
+	c.send(jxpb.MsgId_C2G_CHAR_LIST, &jxpb.CharListReq{})
+	var list jxpb.CharListRes
+	c.expect(jxpb.MsgId_G2C_CHAR_LIST_RES, &list)
+	var pid uint64
+	if len(list.Chars) > 0 {
+		pid = list.Chars[0].PlayerId
+	} else {
+		c.send(jxpb.MsgId_C2G_CHAR_CREATE, &jxpb.CharCreateReq{Name: "Hero", Series: 1})
+		var created jxpb.CharCreateRes
+		c.expect(jxpb.MsgId_G2C_CHAR_CREATE_RES, &created)
+		if created.Result != jxpb.Result_RESULT_OK {
+			c.t.Fatalf("create failed %+v", &created)
+		}
+		pid = created.Summary.PlayerId
+	}
+	c.send(jxpb.MsgId_C2G_ENTER_WORLD, &jxpb.EnterWorldReq{PlayerId: pid})
+	var enter jxpb.EnterWorldRes
+	c.expect(jxpb.MsgId_G2C_ENTER_WORLD_RES, &enter)
+	if enter.Result != jxpb.Result_RESULT_OK {
+		c.t.Fatalf("enter failed %+v", &enter)
+	}
+	return &enter
+}
+
+// expectKick reads until a Kick arrives and returns it.
+func (c *testClient) expectKick(timeout time.Duration) *jxpb.Kick {
+	c.t.Helper()
+	_ = c.conn.SetReadDeadline(time.Now().Add(timeout))
+	for {
+		f, err := c.r.Read()
+		if err != nil {
+			c.t.Fatalf("waiting for Kick: %v", err)
+		}
+		if jxpb.MsgId(f.MsgID) == jxpb.MsgId_G2C_KICK {
+			var k jxpb.Kick
+			if err := proto.Unmarshal(f.Payload, &k); err != nil {
+				c.t.Fatal(err)
+			}
+			return &k
+		}
+	}
+}
+
+// expectClosed reads until the gateway closes the connection.
+func (c *testClient) expectClosed(timeout time.Duration) {
+	c.t.Helper()
+	_ = c.conn.SetReadDeadline(time.Now().Add(timeout))
+	for {
+		if _, err := c.r.Read(); err != nil {
+			var ne net.Error
+			if errors.As(err, &ne) && ne.Timeout() {
+				c.t.Fatal("connection still open")
+			}
+			return
+		}
+	}
 }
 
 func TestFullClientFlow(t *testing.T) {
@@ -279,6 +395,15 @@ func TestFullClientFlow(t *testing.T) {
 	c.expect(jxpb.MsgId_G2C_CHAR_LIST_RES, &list)
 	if len(list.Chars) != 1 || list.Chars[0].Level != 9 {
 		t.Fatalf("list after leave %+v", &list)
+	}
+
+	// the counters behind the cat=gw.stats line and the future metrics endpoint
+	snap := srv.Snapshot()
+	if snap.Connects != 1 || snap.Logins != 1 || snap.LoginFails != 0 || snap.Kicks != 0 || !snap.ZoneReady {
+		t.Fatalf("stats %+v", snap)
+	}
+	if snap.FramesIn < 10 || snap.BytesIn == 0 || snap.ZoneFanout < 2 {
+		t.Fatalf("traffic counters %+v", snap)
 	}
 }
 

@@ -34,8 +34,10 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 
 | Mã cũ | Mới |
 |---|---|
-| `MultiServer/Bishop` (gateway, tạo/chọn nhân vật) | `services/internal/gateway` (`gateway.go` server, `session.go` phiên, `zone.go` cầu zone), `cmd/gateway` |
-| `Sword3PaySys` (tài khoản) | `services/pkg/auth` (`Dev` cho dev) |
+| `MultiServer/Bishop` (gateway, tạo/chọn nhân vật) | `services/internal/gateway` (`gateway.go` server, `session.go` phiên, `zone.go` cầu zone, `KGatewayStats.go` đếm), `cmd/gateway` |
+| `Sword3PaySys/S3AccServer` (`S3PAccount::Login`, `Account_info`) | `services/pkg/auth` (`S3PAccount.go` máy chủ tài khoản, `password.go` argon2id, `auth.go` giao diện + Options), `cmd/jxaccount` |
+| `MultiServer/testAccServer` (công cụ tài khoản console) | `services/cmd/jxaccount` (`add`/`passwd`/`freeze`/`expire`/`list`) |
+| `Bishop/LoginDef.h` (`LOGIN_R_*`), `S3Client/Login/Login.cpp`, `Ui/UiCase/UiConnectInfo.cpp` (`CI_MI_*`) | `proto/jx/common.proto` (`Result`), `client/net/KLogin.gd` (`result_text`, `session_ends`) |
 | `MultiServer/Goddess` (DB nhân vật) | `services/pkg/persist` (`FileStore`; PostgreSQL sau) |
 | `MultiServer/Common/Buffer.h`, `IOBuffer.h` | `services/pkg/frame` |
 
@@ -67,6 +69,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Engine/Src/KPakFile`, `KImageRes` (nạp tài nguyên) | `client/autoload/KPakFile.gd` | `Assets` |
 | `Engine/Src/KDebug` | `client/autoload/KDebug.gd` | `Log` |
 | `Core/Src/KProtocol.h` (khung tin) | `client/net/KProtocol.gd` + `client/proto/jx_pb.gd` (sinh) | |
+| `S3Client/Login/Login.cpp` (`KLogin`, `ProcessAccountLoginResponse`) | `client/net/KLogin.gd` (bảng thông báo kết quả đăng nhập/bị đá) | |
 | `Ui/UiCase/UiLogin` | `client/scenes/UiLogin.gd/.tscn` | |
 | `Ui/UiCase/UiSelPlayer`, `UiNewPlayer` | `client/scenes/UiSelPlayer.gd/.tscn` | |
 | `Ui/UiCase/UiGame` + `UiChatCentre` + `UiInformation` | `client/scenes/UiGame.gd/.tscn` | |

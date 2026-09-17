@@ -808,6 +808,16 @@ class HelloAck:
 		service.field = __sid
 		data[__sid.tag] = service
 		
+		__auth_mode = PBField.new("auth_mode", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __auth_mode
+		data[__auth_mode.tag] = service
+		
+		__heartbeat_s = PBField.new("heartbeat_s", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __heartbeat_s
+		data[__heartbeat_s.tag] = service
+		
 	var data = {}
 	
 	var __protocol_version: PBField
@@ -861,6 +871,32 @@ class HelloAck:
 		__sid.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
 	func set_sid(value : int) -> void:
 		__sid.value = value
+	
+	var __auth_mode: PBField
+	func has_auth_mode() -> bool:
+		if __auth_mode.value != null:
+			return true
+		return false
+	func get_auth_mode() -> String:
+		return __auth_mode.value
+	func clear_auth_mode() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__auth_mode.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_auth_mode(value : String) -> void:
+		__auth_mode.value = value
+	
+	var __heartbeat_s: PBField
+	func has_heartbeat_s() -> bool:
+		if __heartbeat_s.value != null:
+			return true
+		return false
+	func get_heartbeat_s() -> int:
+		return __heartbeat_s.value
+	func clear_heartbeat_s() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__heartbeat_s.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_heartbeat_s(value : int) -> void:
+		__heartbeat_s.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -3201,7 +3237,15 @@ enum Result {
 	INVALID_NAME = 7,
 	WRONG_STATE = 8,
 	ZONE_UNAVAILABLE = 9,
-	VERSION_MISMATCH = 10
+	VERSION_MISMATCH = 10,
+	ACCOUNT_IN_USE = 11,
+	ACCOUNT_FROZEN = 12,
+	NO_GAME_TIME = 13,
+	SERVER_BUSY = 14,
+	RATE_LIMITED = 15,
+	TIMEOUT = 16,
+	REPLACED = 17,
+	SERVER_SHUTDOWN = 18
 }
 
 enum EntityType {

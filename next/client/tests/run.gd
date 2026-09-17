@@ -5,6 +5,7 @@ extends SceneTree
 
 const Proto := preload("res://proto/jx_pb.gd")
 const NetScript := preload("res://net/KProtocol.gd")   # pure framing (autoload scripts cannot be preloaded here)
+const KLogin := preload("res://net/KLogin.gd")
 const LogScript := preload("res://autoload/KDebug.gd")
 const SceneMath := preload("res://scenes/KSceneMath.gd")
 const IpoTree := preload("res://scenes/KIpoTree.gd")
@@ -29,6 +30,7 @@ func _init() -> void:
 	test_frame_split()
 	test_log_format()
 	test_proto_round_trip()
+	test_login_text()
 	test_scene_math()
 	test_ipot_order()
 	test_kmath_direction()
@@ -209,6 +211,23 @@ func test_log_format() -> void:
 	lg.set_levels("net=trace, zone.tick=debug, =warn")
 	check(lg.effective_level("net.recv") == LogScript.Level.TRACE and lg.effective_level("zone.tick.ai") == LogScript.Level.DEBUG and lg.effective_level("zone") == LogScript.Level.WARN, "level prefix rules")
 	lg.free()
+
+
+# ---- login results (KLogin.gd, old LOGIN_R_* -> CI_MI_* messages) ----------------------------
+
+func test_login_text() -> void:
+	check(KLogin.result_text(Proto.Result.OK) == "", "OK has no message")
+	for r in [Proto.Result.UNAUTHORIZED, Proto.Result.ACCOUNT_IN_USE, Proto.Result.ACCOUNT_FROZEN, Proto.Result.NO_GAME_TIME,
+			Proto.Result.SERVER_BUSY, Proto.Result.VERSION_MISMATCH, Proto.Result.ZONE_UNAVAILABLE, Proto.Result.RATE_LIMITED,
+			Proto.Result.TIMEOUT, Proto.Result.REPLACED, Proto.Result.SERVER_SHUTDOWN]:
+		check(KLogin.result_text(r) != "" and not KLogin.result_text(r).begins_with("Lỗi"), "result %d has its own message" % r)
+	check(KLogin.result_text(Proto.Result.ACCOUNT_FROZEN, "gian lận").ends_with("(gian lận)"), "frozen text carries the reason")
+	check(KLogin.result_text(999) == "Lỗi 999", "unknown result: %s" % KLogin.result_text(999))
+	check(KLogin.session_ends(Proto.Result.REPLACED) and KLogin.session_ends(Proto.Result.SERVER_SHUTDOWN)
+		and KLogin.session_ends(Proto.Result.RATE_LIMITED), "kicks that close the socket end the session")
+	check(not KLogin.session_ends(Proto.Result.ZONE_UNAVAILABLE), "a zone outage keeps the session")
+	# the proto enum carries the new values (godobuf strips the RESULT_ prefix)
+	check(Proto.Result.ACCOUNT_IN_USE == 11 and Proto.Result.SERVER_SHUTDOWN == 18, "Result codes match common.proto")
 
 
 func test_proto_round_trip() -> void:

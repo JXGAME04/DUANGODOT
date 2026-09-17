@@ -38,6 +38,16 @@ const (
 	Result_RESULT_WRONG_STATE      Result = 8
 	Result_RESULT_ZONE_UNAVAILABLE Result = 9
 	Result_RESULT_VERSION_MISMATCH Result = 10
+	// login results of the old Sword3PaySys / Bishop (LoginDef.h LOGIN_R_*, S3PAccount::Login)
+	Result_RESULT_ACCOUNT_IN_USE Result = 11 // LOGIN_R_ACCOUNT_EXIST: the account is logged in elsewhere
+	Result_RESULT_ACCOUNT_FROZEN Result = 12 // LOGIN_R_FREEZE: frozen by a GM
+	Result_RESULT_NO_GAME_TIME   Result = 13 // LOGIN_R_TIMEOUT / E_ACCOUNT_NODEPOSIT: no game time left
+	Result_RESULT_SERVER_BUSY    Result = 14 // LOGIN_R_FAILED: too many failed logins, try again later
+	// session protection (new in JX NEXT)
+	Result_RESULT_RATE_LIMITED    Result = 15 // the client sent more than the gateway allows
+	Result_RESULT_TIMEOUT         Result = 16 // no heartbeat within the allowed time
+	Result_RESULT_REPLACED        Result = 17 // LOGIN_R_BEDISCONNECTED: the account logged in from elsewhere
+	Result_RESULT_SERVER_SHUTDOWN Result = 18 // LL_R_SERVER_SHUTDOWN: the gateway is going down
 )
 
 // Enum value maps for Result.
@@ -54,6 +64,14 @@ var (
 		8:  "RESULT_WRONG_STATE",
 		9:  "RESULT_ZONE_UNAVAILABLE",
 		10: "RESULT_VERSION_MISMATCH",
+		11: "RESULT_ACCOUNT_IN_USE",
+		12: "RESULT_ACCOUNT_FROZEN",
+		13: "RESULT_NO_GAME_TIME",
+		14: "RESULT_SERVER_BUSY",
+		15: "RESULT_RATE_LIMITED",
+		16: "RESULT_TIMEOUT",
+		17: "RESULT_REPLACED",
+		18: "RESULT_SERVER_SHUTDOWN",
 	}
 	Result_value = map[string]int32{
 		"RESULT_OK":               0,
@@ -67,6 +85,14 @@ var (
 		"RESULT_WRONG_STATE":      8,
 		"RESULT_ZONE_UNAVAILABLE": 9,
 		"RESULT_VERSION_MISMATCH": 10,
+		"RESULT_ACCOUNT_IN_USE":   11,
+		"RESULT_ACCOUNT_FROZEN":   12,
+		"RESULT_NO_GAME_TIME":     13,
+		"RESULT_SERVER_BUSY":      14,
+		"RESULT_RATE_LIMITED":     15,
+		"RESULT_TIMEOUT":          16,
+		"RESULT_REPLACED":         17,
+		"RESULT_SERVER_SHUTDOWN":  18,
 	}
 )
 
@@ -212,7 +238,7 @@ const file_jx_common_proto_rawDesc = "" +
 	"\x0fjx/common.proto\x12\x05jx.pb\"\"\n" +
 	"\x04Vec2\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x05R\x01x\x12\f\n" +
-	"\x01y\x18\x02 \x01(\x05R\x01y*\x90\x02\n" +
+	"\x01y\x18\x02 \x01(\x05R\x01y*\xd5\x03\n" +
 	"\x06Result\x12\r\n" +
 	"\tRESULT_OK\x10\x00\x12\x19\n" +
 	"\x15RESULT_INTERNAL_ERROR\x10\x01\x12\x16\n" +
@@ -225,7 +251,15 @@ const file_jx_common_proto_rawDesc = "" +
 	"\x12RESULT_WRONG_STATE\x10\b\x12\x1b\n" +
 	"\x17RESULT_ZONE_UNAVAILABLE\x10\t\x12\x1b\n" +
 	"\x17RESULT_VERSION_MISMATCH\x10\n" +
-	"*h\n" +
+	"\x12\x19\n" +
+	"\x15RESULT_ACCOUNT_IN_USE\x10\v\x12\x19\n" +
+	"\x15RESULT_ACCOUNT_FROZEN\x10\f\x12\x17\n" +
+	"\x13RESULT_NO_GAME_TIME\x10\r\x12\x16\n" +
+	"\x12RESULT_SERVER_BUSY\x10\x0e\x12\x17\n" +
+	"\x13RESULT_RATE_LIMITED\x10\x0f\x12\x12\n" +
+	"\x0eRESULT_TIMEOUT\x10\x10\x12\x13\n" +
+	"\x0fRESULT_REPLACED\x10\x11\x12\x1a\n" +
+	"\x16RESULT_SERVER_SHUTDOWN\x10\x12*h\n" +
 	"\n" +
 	"EntityType\x12\x12\n" +
 	"\x0eENTITY_UNKNOWN\x10\x00\x12\x11\n" +

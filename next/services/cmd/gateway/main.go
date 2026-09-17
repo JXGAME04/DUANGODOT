@@ -77,13 +77,44 @@ func main() {
 	}
 	defer store.Close()
 
+	// the account server: "dev" registers any new name on first login, "strict" only knows
+	// accounts made with jxaccount
+	var opt auth.Options
+	switch mode := cfg.String("gateway.auth_mode", "dev"); mode {
+	case "dev":
+		opt = auth.DevOptions()
+	case "strict":
+		opt = auth.StrictOptions()
+	default:
+		log.Fatal("boot", "gateway.auth_mode must be dev or strict", log.F("value", mode))
+		os.Exit(2)
+	}
+	if v := cfg.Int("gateway.min_password", 0); v > 0 {
+		opt.MinPassword = int(v)
+	}
+	if v := cfg.Int("gateway.max_fails", 0); v > 0 {
+		opt.MaxFails = int(v)
+	}
+	if v := cfg.Int("gateway.lock_s", 0); v > 0 {
+		opt.LockFor = time.Duration(v) * time.Second
+	}
+	accounts := auth.New(store, opt)
+
 	srv := gateway.New(gateway.Config{
-		ID:          cfg.String("gateway.id", "gw1"),
-		Listen:      cfg.String("gateway.listen", ":17100"),
-		ZoneAddr:    cfg.String("gateway.zone", "127.0.0.1:17001"),
-		MaxChars:    int(cfg.Int("gateway.max_chars", 3)),
-		IdleTimeout: time.Duration(cfg.Int("gateway.idle_timeout_s", 300)) * time.Second,
-	}, store, &auth.Dev{Store: store})
+		ID:                   cfg.String("gateway.id", "gw1"),
+		Listen:               cfg.String("gateway.listen", ":17100"),
+		ZoneAddr:             cfg.String("gateway.zone", "127.0.0.1:17001"),
+		MaxChars:             int(cfg.Int("gateway.max_chars", 3)),
+		IdleTimeout:          time.Duration(cfg.Int("gateway.idle_timeout_s", 300)) * time.Second,
+		HelloTimeout:         time.Duration(cfg.Int("gateway.hello_timeout_s", 10)) * time.Second,
+		HeartbeatTimeout:     time.Duration(cfg.Int("gateway.heartbeat_timeout_s", 30)) * time.Second,
+		RateMsgs:             float64(cfg.Int("gateway.rate_msgs", 40)),
+		RateBurst:            int(cfg.Int("gateway.rate_burst", 100)),
+		MaxLoginTries:        int(cfg.Int("gateway.max_login_tries", 5)),
+		RefuseDuplicateLogin: cfg.Bool("gateway.refuse_duplicate_login", false),
+		ShutdownWait:         time.Duration(cfg.Int("gateway.shutdown_wait_s", 3)) * time.Second,
+		StatsInterval:        time.Duration(cfg.Int("gateway.stats_interval_s", 30)) * time.Second,
+	}, store, accounts)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -20,6 +20,8 @@ message HelloAck {
   uint64 server_time_ms = 2;
   string server_version = 3;
   uint64 sid = 4;                // session id, useful when reading logs
+  string auth_mode = 5;          // "dev" (first login registers the account) or "strict" (registered accounts only)
+  uint32 heartbeat_s = 6;        // the gateway drops a silent in-world session after this many seconds; ping more often
 }
 
 message LoginReq {

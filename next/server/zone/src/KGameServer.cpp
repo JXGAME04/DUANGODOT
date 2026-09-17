@@ -206,6 +206,8 @@ void KGameServer::handle_session_close(Gateway& gw, const frame::View& view)
         log::debug("zone", "close for unknown session", {log::kv("sid", close.sid())});
         return;
     }
+    // reason: 0 client left, 1 heartbeat timeout, 2 kicked / replaced by a new login, 3 gateway shutdown
+    log::info("zone", "session closed", {log::kv("sid", close.sid()), log::kv("reason", close.reason())});
     send_save(close.sid(), true);
     if (KSubWorld* w = world_of_session(close.sid())) w->remove_player(close.sid());
     session_world_.erase(close.sid());
