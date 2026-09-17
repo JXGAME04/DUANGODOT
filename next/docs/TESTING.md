@@ -156,6 +156,46 @@ việc, và việc thứ hai mới là việc chính:
   mỗi hành động một gói tới mọi người trong tầm. Không làm việc này thì chia vùng cũng vô ích: ở 1 846
   người một chỗ, mô phỏng chỉ tốn 4,85 ms trong khi gateway phải đẩy 56,3 MB mỗi giây.
 
+### Một map đông người, đo lại sau M7 (N3 + luật hoán đổi + gác theo ô) — 2026‑09‑17
+
+Ba thay đổi trong `KInterest.cpp` / `KSubWorld.cpp`, mỗi cái đo trước khi tin:
+
+1. **Luật hoán đổi của client đã đầy** (`max_viewers`): trước đây đổi một người đang biết lấy bất kỳ
+   người lạ nào *gần bằng nửa*; trong đám đông dày lúc nào cũng có người như thế, nên mỗi client đổi 4
+   người mỗi 16 tick mãi mãi — benchmark `[.bench]` 3000 người một chỗ đếm được **~700 cặp despawn+spawn
+   mỗi tick**, chiếm phần lớn pha interest và nhân đôi số gói. Giờ chỉ đổi khi người lạ **bước vào trong
+   `near_radius`** (320 đơn vị = 1/4 màn hình) còn người bị thay đang **ở ngoài**. Việc tìm người lạ đi
+   theo ô gần trước, dừng khi đủ (`for_each_player_near`) thay vì quét cả nghìn người trong bán kính.
+2. **N3 — di chuyển hai nhịp**: watcher trong `near_radius` nhận `EntityMove` ngay; watcher xa được gom
+   vào `EntityMoves` mỗi `far_period` = 6 tick (0,33 s), mỗi entity một mục mới nhất.
+3. **Gác theo ô**: mỗi ô của lưới có số phiên bản (tăng khi có gì được xếp vào / lấy ra); mỗi client nhớ
+   phiên bản 30 ô trong tầm nhìn và chỉ quét ứng viên ở ô đã đổi. Đo thật: **7–8 ứng viên mỗi lượt
+   nhìn** thay vì ~300 NPC của Phượng Tường.
+
+Benchmark thuần (không mạng, `jx_zone_tests "[.bench]"`, 3000 người một chỗ đi lại liên tục):
+
+| | pha interest | tick | gói gửi/tick |
+|---|---:|---:|---:|
+| trước | 11,9 ms (max 16,7) | 12,0 ms | 19 434 |
+| sau | **2,1 ms** (max 2,6) | **3,0 ms** | **12 692** |
+
+Đo thật (`JX_CONFIG=Release JX_PORT_OFFSET=1000 python tools/dev.py load …`, Phượng Tường 1 472 NPC, bot
+`hot` đánh nhau, cùng máy với bot):
+
+| Người trên một map | tick tb | p95 | p99 | max | rớt | gateway đẩy ra |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 500, 1 gateway | **3,15 ms** | 5,24 | **6,15** | 6,15 | 0 | 125 166 gói/s, 5,8 MB/s |
+| 3 000, 1 gateway (cũ: 2 978 → 41,45 / p99 325,6 / 13 rớt) | **5,82 ms** | 10,49 | **20,97** | 27,8 | **0** | 337 375 gói/s, 15,4 MB/s (cũ 616 698 / 37,9) |
+| 3 000, **2 gateway** × 1 500 (N6) | 6,08 ms | 10,49 | **12,52** | 13,05 | 0 | 2 × ~160 000 gói/s, 2 × 7,7 MB/s |
+
+Nghiệm thu M6 "3 000 người một map, p99 < 55 ms, 0 tick rớt" giờ **đúng nghĩa trên một map** (bảng cũ
+đạt trên 80 map). Hai gateway (N6) chạy thật ở 3 000: cả hai 1 500 online, 0 hỏng, 0 kick — 20 000 vẫn
+cần máy bot thứ hai (hết cổng).
+
+Một bài học đắt: `dev.py` mặc định chạy zone **Debug** (`JX_CONFIG` không đặt). Bốn lượt đo đầu của đợt
+này là Debug (42 → 26 ms) và không so được với bảng trên; giờ dòng tổng kết in rõ `zone Debug/Release`
+và nhắc khi không phải Release.
+
 ### 20 000 bot: chỗ chặn là **máy test hết cổng TCP**, không phải server
 
 Bắn 20 000 bot thì **13 031** vào được cùng lúc, zone vẫn thảnh thơi: tick trung bình 10,20 ms, p99

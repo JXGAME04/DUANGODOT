@@ -32,6 +32,7 @@ void KRegionGrid::file(EntityId id, Cell c, bool player)
     std::vector<EntityId>& list = player ? b.players : b.others;
     where_[id] = Placed{c, player, static_cast<std::uint32_t>(list.size())};
     list.push_back(id);
+    ++(player ? b.players_version : b.others_version);
     if (player) ++players_[key(c)];
 }
 
@@ -57,7 +58,9 @@ void KRegionGrid::remove(EntityId id)
             list.pop_back();
             if (last != id) where_[last].slot = placed.slot;
         }
-        if (bucket->second.players.empty() && bucket->second.others.empty()) cells_.erase(bucket);
+        // the bucket stays, empty, with its versions: a cell that emptied and filled again must not
+        // look untouched to a client that summed the versions in between (a map has ~1000 cells)
+        ++(placed.player ? bucket->second.players_version : bucket->second.others_version);
     }
     if (placed.player) {
         const auto pit = players_.find(key(placed.cell));

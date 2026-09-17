@@ -337,18 +337,16 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.EntityMove.new()
 			if not _decode(m, payload):
 				return
-			var mv := {"id": m.get_entity_id(), "x": m.get_pos().get_x(), "y": m.get_pos().get_y(),
-				"tx": m.get_target().get_x(), "ty": m.get_target().get_y(), "speed": m.get_move_speed(),
-				"tick": m.get_tick(), "seq": m.get_seq(), "path": _path_list(m.get_path())}
-			var d = entities.get(int(mv.id))
-			if d != null:
-				d.x = mv.x
-				d.y = mv.y
-				d.tx = mv.tx
-				d.ty = mv.ty
-				d.speed = mv.speed
-				d.path = mv.path
-			entity_move.emit(mv)
+			_apply_move(m)
+
+		Proto.MsgId.G2C_ENTITY_MOVES:
+			# what moved far from us, gathered by the zone over a few ticks (N3): each entry is a
+			# whole EntityMove, handled exactly like one that came alone
+			var ms := Proto.EntityMoves.new()
+			if not _decode(ms, payload):
+				return
+			for m in ms.get_moves():
+				_apply_move(m)
 
 		Proto.MsgId.G2C_ENTITY_ACTION:
 			var m := Proto.EntityAction.new()
@@ -410,6 +408,21 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 func _summary_dict(c) -> Dictionary:
 	return {"pid": c.get_player_id(), "name": c.get_name(), "level": c.get_level(), "series": c.get_series(),
 		"sex": c.get_sex(), "faction": c.get_faction(), "zone_id": c.get_zone_id()}
+
+
+func _apply_move(m) -> void:
+	var mv := {"id": m.get_entity_id(), "x": m.get_pos().get_x(), "y": m.get_pos().get_y(),
+		"tx": m.get_target().get_x(), "ty": m.get_target().get_y(), "speed": m.get_move_speed(),
+		"tick": m.get_tick(), "seq": m.get_seq(), "path": _path_list(m.get_path())}
+	var d = entities.get(int(mv.id))
+	if d != null:
+		d.x = mv.x
+		d.y = mv.y
+		d.tx = mv.tx
+		d.ty = mv.ty
+		d.speed = mv.speed
+		d.path = mv.path
+	entity_move.emit(mv)
 
 
 func _path_list(points: Array) -> Array:

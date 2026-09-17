@@ -332,7 +332,8 @@ void KGameServer::flush_outbox()
                 if (it == session_gateway_.end()) continue;
                 per_gateway[it->second].add_sids(sid);
             }
-            const bool movement = p.msg_id == static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE);
+            const bool movement = p.msg_id == static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE) ||
+                                  p.msg_id == static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVES);   // the far batches too (N3)
             for (auto& [conn_id, zp] : per_gateway) {
                 const auto git = gateways_.find(conn_id);
                 if (git == gateways_.end() || !git->second.conn) continue;
@@ -495,10 +496,22 @@ void KGameServer::send_stats()
     }
     std::size_t awake = 0;
     std::uint64_t viewers_capped = 0;
+    jx::zone::KSubWorld::LookStats looks;   // what the interest pass did since the last stats line
     for (const auto& inst : instances_) {
         awake += inst->world().awake_entities();
         viewers_capped += inst->world().viewers_capped();
+        const auto& ls = inst->world().look_stats();
+        looks.looks += ls.looks;
+        looks.looks_idle += ls.looks_idle;
+        looks.known_checked += ls.known_checked;
+        looks.candidates += ls.candidates;
+        looks.learned += ls.learned;
+        looks.forgotten += ls.forgotten;
+        inst->world().reset_look_stats();
     }
+    const std::string look_line = fmt::format("{} looks, {} idle, {} known/look, {} candidates/look, {} learned, {} forgotten", looks.looks,
+                                              looks.looks_idle, looks.known_checked / std::max<std::uint64_t>(1, looks.looks),
+                                              looks.candidates / std::max<std::uint64_t>(1, looks.looks), looks.learned, looks.forgotten);
     const ProcessUsage usage = process_usage();   // what this many players actually cost (SPEC 55)
     // How much the gateway links are behind: an ack queued behind a megabyte of world traffic is
     // an ack the player waits for, so this is the number that explains a slow "enter world".
@@ -517,7 +530,7 @@ void KGameServer::send_stats()
                log::kv("busiest_map", busiest != nullptr ? busiest->map_id() : 0u), log::kv("phases", phases),
                log::kv("dropped", fixed_.dropped()),
                log::kv("link_kb", link_queued / 1024), log::kv("link_dropped", link_dropped_),
-               log::kv("viewers_capped", viewers_capped),
+               log::kv("viewers_capped", viewers_capped), log::kv("looks", look_line),
                log::kv("rss_mb", usage.rss_bytes / (1024 * 1024)),
                log::kv("peak_rss_mb", usage.peak_rss_bytes / (1024 * 1024)),
                log::kv("cpu_s", fmt::format("{:.1f}", static_cast<double>(usage.cpu_ms) / 1000.0))});

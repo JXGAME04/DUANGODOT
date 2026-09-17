@@ -43,7 +43,7 @@ def tails(files: list[str]) -> int:
     """`ci_annotate.py --tail <file>...`: after a failed script step (the end-to-end run), the end of
     each file as one annotation - a log file's error/fatal/warn lines first, else its last lines."""
     for path in files:
-        full = path if os.path.isabs(path) else os.path.join(ROOT, path)
+        full = path if os.path.isabs(path) or os.path.exists(path) else os.path.join(ROOT, path)   # as given, else under next/
         try:
             with open(full, encoding="utf-8", errors="replace") as f:
                 lines = [l.rstrip() for l in f if l.strip()]

@@ -214,17 +214,18 @@ func (s *session) close(reason string) {
 	})
 }
 
-// sendRaw queues one already encoded frame.  entity != 0 marks a position update that a newer
-// one may replace (SPEC 70: drop what is obsolete, never the player).
-func (s *session) sendRaw(b []byte) { s.sendFrame(0, 0, b) }
+// sendRaw queues one already encoded frame that must reach the client.  sendFrame takes the
+// frame's class and entity from classify: what a newer frame may replace and what may be thrown
+// away when the client cannot keep up (SPEC 70: drop what is obsolete, never the player).
+func (s *session) sendRaw(b []byte) { s.sendFrame(0, classState, 0, b) }
 
-func (s *session) sendFrame(msgID uint16, entity uint64, b []byte) {
+func (s *session) sendFrame(msgID uint16, class frameClass, entity uint64, b []byte) {
 	select {
 	case <-s.done:
 		return
 	default:
 	}
-	if !s.out.push(msgID, droppableEntity(msgID, entity), b) {
+	if !s.out.push(msgID, class, entity, b) {
 		s.srv.stats.Dropped.Add(1)
 		log.WarnCtx(s.logCtx(), "net", "send queue full of state the client needs", log.F("queued", s.out.len()))
 		s.close("slow consumer")
@@ -243,7 +244,7 @@ func (s *session) send(id jxpb.MsgId, m proto.Message) {
 		return
 	}
 	log.TraceCtx(s.logCtx(), "net.send", "to client", log.F("msg", int32(id)), log.F("bytes", len(payload)))
-	s.sendFrame(uint16(id), 0, frame.Encode(uint16(id), 0, payload))
+	s.sendFrame(uint16(id), classState, 0, frame.Encode(uint16(id), 0, payload))
 }
 
 // kick tells the client why and closes shortly after.  The zone is told "kicked" unless a

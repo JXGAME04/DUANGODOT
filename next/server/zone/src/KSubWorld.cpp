@@ -288,10 +288,8 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     return true;
 }
 
-void KSubWorld::emit_move(const KNpc& e)
+void KSubWorld::fill_move(const KNpc& e, pb::EntityMove& mv) const
 {
-    if (e.watchers.empty()) return;   // nobody knows it: a npc wandering on an empty map costs nothing
-    pb::EntityMove mv;
     mv.set_entity_id(e.id.value);
     set_vec(mv.mutable_pos(), e.pos());
     set_vec(mv.mutable_target(), e.moving ? e.destination() : e.pos());
@@ -301,14 +299,45 @@ void KSubWorld::emit_move(const KNpc& e)
         set_vec(mv.add_path(), e.target());
         for (const Pos& p : e.path) set_vec(mv.add_path(), p);
     }
+}
 
-    // everybody that knows it; the player's own client gets its copy with the sequence number
-    // of the request it answers
+void KSubWorld::emit_move(const KNpc& e)
+{
+    if (e.watchers.empty()) return;   // nobody knows it: a npc wandering on an empty map costs nothing
+    pb::EntityMove mv;
+    fill_move(e, mv);
+
+    // Everybody that knows it - at once when the mover is near the watcher, gathered into that
+    // watcher's next EntityMoves when it is far (N3, flush_far).  The player's own client always
+    // gets its copy at once, with the sequence number of the request it answers.
+    const bool split = cfg_.far_period > 1;
+    const std::int64_t near2 = near_radius2();
+    const Pos at = e.pos();
     scratch_sids_.clear();
     bool to_self = false;
     for (const std::uint64_t sid : e.watchers) {
-        if (e.sid != 0 && sid == e.sid) to_self = true;
-        else scratch_sids_.push_back(sid);
+        if (e.sid != 0 && sid == e.sid) {
+            to_self = true;
+            continue;
+        }
+        if (split) {
+            const auto it = viewers_.find(sid);
+            if (it != viewers_.end()) {
+                KViewer& v = it->second;
+                const KNpc* w = entities_.find(v.self);
+                if (w != nullptr) {
+                    const std::int64_t dx = static_cast<std::int64_t>(w->pos().x) - at.x;
+                    const std::int64_t dy = static_cast<std::int64_t>(w->pos().y) - at.y;
+                    if (dx * dx + dy * dy > near2) {
+                        const auto pos = std::lower_bound(v.far_pending.begin(), v.far_pending.end(), e.id,
+                                                          [](EntityId a, EntityId b) { return a.value < b.value; });
+                        if (pos == v.far_pending.end() || *pos != e.id) v.far_pending.insert(pos, e.id);
+                        continue;
+                    }
+                }
+            }
+        }
+        scratch_sids_.push_back(sid);
     }
     if (!scratch_sids_.empty()) {
         mv.set_seq(0);
@@ -499,6 +528,7 @@ void KSubWorld::tick()
     {
         auto phase = profile_->phase(core::TickPhase::snapshot);
         for (const EntityId id : arrived) emit_move(entities_.at(id));
+        flush_far();
     }
 }
 

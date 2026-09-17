@@ -598,8 +598,11 @@ def cmd_load(n: int, seconds: int, scenario: str = "hot", map_count: int = 1, ga
         for i in range(1, gateways):
             gw += tail_json(os.path.join(ROOT, "logs", f"gateway{i + 1}.log"), 0, '"cat":"gw.stats"')
         cmd_stop()
+    # the build configuration is part of the measurement: a Debug zone is several times slower
     show_stats(stats, f"{n} bots, {seconds}s, {scenario}, {len(maps)} map(s), "
-                      f"{gateways} gateway(s), ramp {ramp}s", gw)
+                      f"{gateways} gateway(s), ramp {ramp}s, zone {CONFIG}", gw)
+    if CONFIG != "Release":
+        print(f"  NOTE: this was the {CONFIG} zone; numbers to compare with docs/TESTING.md need JX_CONFIG=Release")
     print("  bot logs: logs/jxbot*.log")
     return rc
 

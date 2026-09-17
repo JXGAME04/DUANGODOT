@@ -69,10 +69,10 @@ Chia theo nhóm; cột **giá** là ước lượng công sức, không phải c
 |---|---|---|---|
 | ~~N1~~ | ~~Giới hạn số người nhận mỗi gói~~ **xong, và đã sửa lại** | nhỏ | Bản đầu cắt mỗi gói ở 100 phiên gần nhất → client giữ "bóng ma". Nay giới hạn nằm ở **điều mỗi client biết** (`KInterest.cpp`), xem nhật ký. |
 | ~~N2~~ | ~~Vùng nhìn theo hình màn hình~~ **xong** | nhỏ | |
-| N3 | Gửi thưa dần theo khoảng cách, gộp nhiều entity một gói | vừa | Người ở xa nhận vị trí mỗi vài tick. Đã có sẵn chỗ cắm: `KViewer` của từng client. |
+| ~~N3~~ | ~~Gửi thưa dần theo khoảng cách, gộp nhiều entity một gói~~ **xong** | vừa | Trong `near_radius` (320) báo ngay; xa hơn gom vào `EntityMoves` mỗi 6 tick. Kèm luật hoán đổi mới và gác theo ô: 3 000 người một map p99 325 → **21 ms**, xem nhật ký. |
 | ~~N4~~ | ~~Rải việc vào ra nhiều tick~~ **xong** | nhỏ | `spawn_budget` 48 entity mỗi lần nhìn quanh: p99 lúc người ùa vào 268 ms → 16,78 ms. |
-| N5 | Bỏ bớt gói khi tắc, rộng hơn gói vị trí | vừa | Hiện chỉ bỏ vị trí nên ở 13 878 người còn tồn 356 MB trên đường truyền. |
-| N6 | Chạy thật gateway thứ hai | nhỏ | Hạ tầng xong (`ZoneHelloAck.session_prefix`), chưa đo được vì máy test hết cổng. |
+| ~~N5~~ | ~~Bỏ bớt gói khi tắc, rộng hơn gói vị trí~~ **xong** | vừa | Hàng đợi gateway gộp cả gói máu (giá trị tuyệt đối) và đánh/bị đánh theo entity, bỏ theo thứ tự vị trí → chiến đấu, không bao giờ bỏ chết/hồi sinh/spawn/chat. Đường zone→gateway bỏ cả gói gộp xa khi tồn > 4 MiB. Chưa đo lại ở 13 878 người (cần máy bot thứ hai). |
+| ~~N6~~ | ~~Chạy thật gateway thứ hai~~ **xong ở 3 000** | nhỏ | 2 gateway × 1 500 người: cả hai online đủ, 0 hỏng, zone p99 12,5 ms. 20 000 vẫn cần máy bot thứ hai. |
 | N7 | **Chia vùng trong một map nóng** | lớn | Giai đoạn R. Chỉ làm **sau** N1–N3, vì nút thắt hiện ở mạng. |
 
 ### 3b. Giao diện bản 2.0 — luồng đăng nhập đã xong, khớp client thật
@@ -114,7 +114,7 @@ thu bằng cảm tính.
 | Mốc | Nội dung | Tuần | Nghiệm thu |
 |---|---|---:|---|
 | ~~**M6**~~ **đạt 2026‑09‑17** | N1, N2, N4 | 1 | 3 000 người **một map**: p99 < 55 ms, 0 tick bị rớt → đo được **p99 16,78 ms, 0 tick rớt**. Có test khẳng định vùng nhìn phủ hết màn hình và client không bao giờ giữ bóng ma. |
-| **M7** | N3, N5, N6 | 1–2 | 20 000 người trên hai gateway: p99 < 55 ms, tồn đọng đường truyền < 4 MB. Cần bot từ máy thứ hai. |
+| ~~**M7**~~ **đạt 2026‑09‑17 (ở 3 000)** | N3, N5, N6 | 1–2 | 3 000 người **một map**: p99 **20,97 ms** một gateway / **12,52 ms** hai gateway, 0 tick rớt, gateway 337 k gói/s (trước 617 k). 20 000 người trên hai gateway chưa đo được: máy test hết cổng, cần bot từ máy thứ hai. |
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
@@ -137,6 +137,38 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 (đêm) — M7: một map 3 000 người từ p99 325 ms xuống 21 ms; N3, N5, N6
+
+Đo trước khi làm (1 500 bot một chỗ) chỉ ra chỗ nghẽn thật của một map đông **không phải mạng** mà là pha
+**interest** (mỗi client nhìn quanh): 20–27 ms mỗi tick. Benchmark thuần `[.bench]` (3 000 người một chỗ)
+với bộ đếm mới (`look_stats`) chỉ đích danh: **luật hoán đổi "xa nhường gần"** của client đã đầy — trong
+đám đông dày lúc nào cũng có người "gần bằng nửa", nên mỗi client đổi 4 người mỗi 16 tick mãi mãi: ~700
+cặp despawn+spawn mỗi tick, 85 % pha interest, gấp đôi số gói. Chi tiết và bảng đo: [TESTING.md](TESTING.md)
+§3d "đo lại sau M7".
+
+- **Luật hoán đổi mới**: chỉ đổi khi người lạ bước vào trong `near_radius` (320 = 1/4 màn hình) và người
+  bị thay đang ở ngoài; tìm theo ô gần trước, dừng khi đủ (`KRegionGrid::for_each_player_near`). Benchmark:
+  interest **11,9 → 2,1 ms**.
+- **N3**: `EntityMove` ngay cho watcher gần, `EntityMoves` gộp mỗi `far_period` (6 tick) cho watcher xa
+  (`KSubWorld::emit_move` / `flush_far`, proto `G2C_ENTITY_MOVES`, client Godot + bot đã hiểu). Cấu hình
+  `zone.near_radius`, `zone.far_period`. Gói/tick trong benchmark 19 434 → 12 692.
+- **Gác theo ô**: `KRegionGrid` đếm phiên bản mỗi ô; `KViewer` nhớ 30 phiên bản trong tầm nhìn, chỉ quét ứng
+  viên ở ô đã đổi (và quét hết khi đổi ô, quên ai đó, hay còn chỗ hơn lần trước). Đo thật: 7–8 ứng viên
+  mỗi lượt nhìn thay vì ~300 NPC.
+- **N5**: `KSendQueue` của gateway phân lớp khung (`classify`): vị trí và gói gộp xa bỏ trước, gói máu /
+  đánh / bị đánh gộp theo entity và bỏ sau, chết / hồi sinh / spawn / despawn / chat / ack không bao giờ.
+  Đường zone→gateway bỏ cả `EntityMoves` khi tồn > 4 MiB. Có test.
+- **N6**: 3 000 bot trên **2 gateway** (`dev.py load 3000 60 hot 1 2`): 1 500 + 1 500 online, 0 hỏng,
+  zone p99 12,52 ms.
+- **Đo thật (Release)**: 1 500 một chỗ: tick 3,15 / p99 6,15 ms; **3 000 một map: 5,82 / p99 20,97 ms, 0
+  rớt** (bảng cũ 2 978: 41,45 / 325,6, 13 rớt); gateway 337 k gói/s, 15,4 MB/s (cũ 617 k / 37,9).
+- Bài học ghi lại: `dev.py` mặc định zone **Debug**; 4 lượt đo đầu của đợt là Debug (42 → 26 ms, so sánh
+  nội bộ vẫn đúng). Giờ dòng tổng kết in `zone Debug/Release` và nhắc.
+- Dòng `zone.tick` có thêm `looks` (số lượt nhìn quanh, nhàn rỗi, ứng viên/lượt, học/quên) — con số để
+  chẩn đoán pha interest mà không cần benchmark.
+
+Việc còn lại của 3a: N7 (chia vùng trong một map) — chưa cần: 3 000 người một map đã dưới ngân sách.
 
 ### 2026-09-17 (khuya) — CI: hai lỗi thật đầu tiên của lần chạy đủ (5c66f1c) — đã sửa
 

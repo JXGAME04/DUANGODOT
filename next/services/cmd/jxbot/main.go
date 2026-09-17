@@ -37,6 +37,7 @@ var (
 
 type stats struct {
 	spawns, despawns, moves, chats, pongs atomic.Int64
+	moveBatches                           atomic.Int64 // EntityMoves frames: the far movers, gathered (N3)
 	actions, lifes                        atomic.Int64
 	errors                                atomic.Int64
 	// how long the server took to put a bot in the world: the number a real player feels
@@ -188,10 +189,16 @@ func (b *bot) handleWorld(f frame.Frame) error {
 		if err := proto.Unmarshal(f.Payload, &m); err != nil {
 			return err
 		}
-		b.st.moves.Add(1)
-		if m.EntityId == b.entityID {
-			b.pos = m.Pos
-			log.TraceCtx(b.logctx(), "world", "own move", log.F("x", m.Pos.X), log.F("y", m.Pos.Y), log.F("seq", m.Seq), log.F("tick", m.Tick))
+		b.applyMove(&m)
+	case jxpb.MsgId_G2C_ENTITY_MOVES:
+		// the far movers, gathered by the zone (N3): each entry is a whole EntityMove
+		var ms jxpb.EntityMoves
+		if err := proto.Unmarshal(f.Payload, &ms); err != nil {
+			return err
+		}
+		b.st.moveBatches.Add(1)
+		for _, m := range ms.Moves {
+			b.applyMove(m)
 		}
 	case jxpb.MsgId_G2C_CHAT_MSG:
 		var m jxpb.ChatMsg
@@ -305,6 +312,15 @@ func (b *bot) move(dx, dy int32) error {
 	b.seq++
 	target := &jxpb.Vec2{X: b.pos.X + dx, Y: b.pos.Y + dy}
 	return b.send(jxpb.MsgId_C2G_MOVE, &jxpb.MoveReq{Target: target, Seq: b.seq})
+}
+
+// applyMove takes one EntityMove, whether it came alone or inside an EntityMoves batch.
+func (b *bot) applyMove(m *jxpb.EntityMove) {
+	b.st.moves.Add(1)
+	if m.EntityId == b.entityID {
+		b.pos = m.Pos
+		log.TraceCtx(b.logctx(), "world", "own move", log.F("x", m.Pos.X), log.F("y", m.Pos.Y), log.F("seq", m.Seq), log.F("tick", m.Tick))
+	}
 }
 
 // waitArrival waits until an own EntityMove reports pos == target.
@@ -486,7 +502,7 @@ func main() {
 	log.Info("bot", "enter world", log.F("entered", st.enters.Load()),
 		log.F("avg_ms", avgEnter), log.F("max_ms", st.enterMaxMs.Load()))
 	log.Info("bot", "summary", log.F("bots", *n), log.F("failed", failed.Load()), log.F("spawns", st.spawns.Load()), log.F("despawns", st.despawns.Load()),
-		log.F("moves", st.moves.Load()), log.F("chats", st.chats.Load()), log.F("pongs", st.pongs.Load()),
+		log.F("moves", st.moves.Load()), log.F("move_batches", st.moveBatches.Load()), log.F("chats", st.chats.Load()), log.F("pongs", st.pongs.Load()),
 		log.F("actions", st.actions.Load()), log.F("lifes", st.lifes.Load()), log.F("errors", st.errors.Load()),
 		log.F("elapsed_s", fmt.Sprintf("%.1f", time.Since(start).Seconds())))
 	if failed.Load() > 0 || st.errors.Load() > 0 {

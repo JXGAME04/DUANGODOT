@@ -169,6 +169,14 @@ message EntityMove {
   repeated Vec2 path = 7;        // waypoints from pos to target; the client follows the same line
 }
 
+// The movements of entities FAR from the receiver, gathered over a few ticks into one frame
+// (KSubWorld::flush_far, N3).  Each entry is the entity's latest state, exactly what an EntityMove
+// would carry; the client handles them one by one.  What moves near the receiver still comes as a
+// single EntityMove the moment it happens.
+message EntityMoves {
+  repeated EntityMove moves = 1;
+}
+
 message ChatReq {
   string text = 1;
 }

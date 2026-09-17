@@ -2740,6 +2740,52 @@ class EntityMove:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class EntityMoves:
+	extends RefCounted
+	func _init():
+		var service
+		
+		var __moves_default: Array[EntityMove] = []
+		__moves = PBField.new("moves", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 1, true, __moves_default)
+		service = PBServiceField.new()
+		service.field = __moves
+		service.func_ref = Callable(self, "add_moves")
+		data[__moves.tag] = service
+		
+	var data = {}
+	
+	var __moves: PBField
+	func get_moves() -> Array[EntityMove]:
+		return __moves.value
+	func clear_moves() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__moves.value.clear()
+	func add_moves() -> EntityMove:
+		var element = EntityMove.new()
+		__moves.value.append(element)
+		return element
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class ChatReq:
 	extends RefCounted
 	func _init():
@@ -4244,6 +4290,7 @@ enum MsgId {
 	G2C_ENTITY_ACTION = 2105,
 	G2C_ENTITY_LIFE = 2106,
 	G2C_CHANGE_MAP = 2107,
+	G2C_ENTITY_MOVES = 2108,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

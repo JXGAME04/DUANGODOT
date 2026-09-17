@@ -78,7 +78,10 @@ void KSubWorld::run_interest()
 {
     scratch_due_.clear();
     for (const auto& [sid, v] : viewers_) {
-        if (v.dirty || tick_ >= v.next_look) scratch_due_.push_back(sid);
+        if (v.dirty || tick_ >= v.next_look) {
+            scratch_due_.push_back(sid);
+            if (v.dirty) ++look_stats_.looks_dirty;
+        }
     }
     // the map is unordered; the packets a recording replays must not depend on its layout
     std::sort(scratch_due_.begin(), scratch_due_.end());
@@ -94,16 +97,23 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
     v.next_look = tick_ + std::max<std::uint32_t>(1, cfg_.interest_period);
     KNpc* me = entities_.find(v.self);
     if (me == nullptr) return;
+    ++look_stats_.looks;
+    look_stats_.known_checked += v.known.size();
     const Pos at = me->pos();
     const Cell here = grid_.cell_of(at);
+
+    const std::int32_t keep_x = grid_.view_cells_x() + std::max(0, cfg_.view_slack);
+    const std::int32_t keep_y = grid_.view_cells_y() + std::max(0, cfg_.view_slack);
 
     pb::EntityDespawn vanish;
     pb::EntitySpawn appear;
     const auto forget = [&](EntityId id, KNpc* e) {
+        ++look_stats_.forgotten;
         vanish.add_entity_ids(id.value);
         if (e != nullptr) erase_sorted(e->watchers, sid);
     };
     const auto learn = [&](KNpc& e) {
+        ++look_stats_.learned;
         insert_sorted(v.known, e.id);
         insert_sorted(e.watchers, sid);
         if (e.kind == KNpcKind::player && e.id != v.self) ++v.known_players;
@@ -112,8 +122,6 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
 
     // 1. What left.  An entity is only given up view_slack cells OUTSIDE the view, so somebody
     //    pacing along a cell edge does not appear and vanish with every step.
-    const std::int32_t keep_x = grid_.view_cells_x() + std::max(0, cfg_.view_slack);
-    const std::int32_t keep_y = grid_.view_cells_y() + std::max(0, cfg_.view_slack);
     std::size_t kept = 0;
     std::int32_t players_kept = 0;
     for (const EntityId id : v.known) {
@@ -133,6 +141,7 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
             if (e->kind == KNpcKind::player) ++players_kept;
         }
     }
+    const bool forgot = kept < v.known.size();
     v.known.resize(kept);
     v.known_players = players_kept;   // counted, not carried: a count that drifts would silently shrink the limit
 
@@ -154,43 +163,75 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
     // 3. What is near and not known yet.  The grid files players apart from the rest, and each
     //    kind is only looked at when it can be used: measured with 3000 players on one spot, a look
     //    that walked over all of them cost 80 microseconds, and 750 clients look every tick.
+    //    And only the cells that changed since the last look are walked: a cell whose version is
+    //    the same holds exactly the entities it held then, each of which was learned or rejected -
+    //    unless something was forgotten or the room grew meanwhile, then everything is looked at
+    //    again.  Measured with 1500 players and 1500 wandering npcs in one town: every look walked
+    //    ~300 npcs to learn nothing, a third of the interest pass.
     scratch_near_players_.clear();
     scratch_near_npcs_.clear();
     const auto candidate = [&](std::vector<Near>& into, EntityId id) {
+        ++look_stats_.candidates;
         if (id == v.self || knows(v, id)) return;
         if (const KNpc* e = entities_.find(id)) into.push_back(Near{dist2(at, e->pos()), id});
     };
-    if (room_npcs > 0) grid_.for_each_other_in_view(here, [&](EntityId id) { candidate(scratch_near_npcs_, id); });
+    const std::size_t cells = grid_.view_cell_count();
+    const bool everything = !v.looked || v.carry || forgot || here != v.last_cell || v.cell_versions.size() != cells ||
+                            room_players > v.last_room_players || room_npcs > v.last_room_npcs;
+    if (v.cell_versions.size() != cells) v.cell_versions.assign(cells, ~std::uint64_t{0});
+    const bool want_npcs_scan = room_npcs > 0;
+    const bool want_players_scan = room_players > 0;
+    std::size_t cells_walked = 0;
+    grid_.for_each_view_cell(here, [&](std::size_t index, const KRegionGrid::CellView& cell) {
+        const std::uint64_t version = (static_cast<std::uint64_t>(cell.players_version) << 32) | cell.others_version;
+        const bool changed = everything || version != v.cell_versions[index];
+        v.cell_versions[index] = version;
+        if (!changed) return;
+        ++cells_walked;
+        if (want_npcs_scan) for (const EntityId id : *cell.others) candidate(scratch_near_npcs_, id);
+        if (want_players_scan) for (const EntityId id : *cell.players) candidate(scratch_near_players_, id);
+    });
+    if (cells_walked == 0) ++look_stats_.looks_idle;
+    v.looked = true;
+    v.carry = false;
+    v.last_cell = here;
+    v.last_room_players = room_players;
+    v.last_room_npcs = room_npcs;
     if (room_players > 0) {
-        grid_.for_each_player_in_view(here, [&](EntityId id) { candidate(scratch_near_players_, id); });
         if (static_cast<std::int64_t>(scratch_near_players_.size()) > room_players) ++viewers_capped_;
     } else if (cfg_.max_viewers > 0 && tick_ >= v.next_swap) {
         v.next_swap = tick_ + static_cast<std::uint64_t>(std::max<std::uint32_t>(1, cfg_.interest_period)) * kSwapEveryLooks;
-        // A full client still has to notice who walks right up to it: the far make room for the
-        // near.  "Near" means less than half as far away as the one it replaces, so two players
-        // at about the same distance never trade places back and forth - and so only the players
-        // within half the distance of the farthest known one can qualify at all, which in a
-        // crowd is a handful of cells instead of the whole view.
+        // A full client still has to notice who walks right up to it: a player that came within
+        // near_radius takes the place of a known one that is outside it - and only that.  The
+        // first rule here traded a known player for any unknown one less than half as far away;
+        // in a dense crowd such a trade is always available, so every client swapped four players
+        // every 16 ticks for ever: 700 despawn+spawn pairs a tick at 3000 players on one spot,
+        // most of the interest pass and twice the traffic, for players the screen could not tell
+        // apart.  With the near radius the trades stop the moment everybody known is near, or
+        // everybody near is known.
         ++viewers_capped_;
+        const std::int64_t near2 = near_radius2();
         scratch_far_known_.clear();
         for (const EntityId id : v.known) {
             if (id == v.self) continue;
             const KNpc* e = entities_.find(id);
-            if (e != nullptr && e->kind == KNpcKind::player) scratch_far_known_.push_back(Near{dist2(at, e->pos()), id});
+            if (e == nullptr || e->kind != KNpcKind::player) continue;
+            const std::int64_t d2 = dist2(at, e->pos());
+            if (d2 > near2) scratch_far_known_.push_back(Near{d2, id});
         }
         const std::size_t far_n = std::min<std::size_t>(kSwapsPerLook, scratch_far_known_.size());
-        std::partial_sort(scratch_far_known_.begin(), scratch_far_known_.begin() + static_cast<std::ptrdiff_t>(far_n),
-                          scratch_far_known_.end(), [&](const Near& a, const Near& b) { return nearer(b, a); });
         if (far_n > 0) {
-            const std::int64_t limit2 = scratch_far_known_[0].dist2 / 4;   // (farthest / 2) squared
-            std::int64_t r = 0;
-            while ((r + 1) * (r + 1) <= limit2) r += 16;                   // a radius that covers it, in coarse steps
-            grid_.for_each_player_within(at, static_cast<std::int32_t>(std::min<std::int64_t>(r + 16, 1 << 20)), [&](EntityId id) {
-                if (id == v.self || knows(v, id)) return;
+            std::partial_sort(scratch_far_known_.begin(), scratch_far_known_.begin() + static_cast<std::ptrdiff_t>(far_n),
+                              scratch_far_known_.end(), [&](const Near& a, const Near& b) { return nearer(b, a); });
+            // any unknown player within the radius will do; the first few of the nearest cells
+            // are as good as the nearest of all, and cost nothing next to walking a whole crowd
+            grid_.for_each_player_near(at, near_radius(), [&](EntityId id) {
+                if (id == v.self || knows(v, id)) return true;
                 const KNpc* e = entities_.find(id);
-                if (e == nullptr) return;
+                if (e == nullptr) return true;
                 const std::int64_t d2 = dist2(at, e->pos());
-                if (d2 * 4 < scratch_far_known_[0].dist2) scratch_near_players_.push_back(Near{d2, id});
+                if (d2 <= near2) scratch_near_players_.push_back(Near{d2, id});
+                return scratch_near_players_.size() < far_n * 2;
             });
             const std::size_t top = std::min<std::size_t>(far_n, scratch_near_players_.size());
             std::partial_sort(scratch_near_players_.begin(), scratch_near_players_.begin() + static_cast<std::ptrdiff_t>(top),
@@ -198,7 +239,6 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
             for (std::size_t i = 0; i < top && budget > 0; ++i) {
                 const Near& in = scratch_near_players_[i];
                 const Near& out = scratch_far_known_[i];
-                if (in.dist2 * 4 >= out.dist2) break;
                 forget(out.id, entities_.find(out.id));
                 v.known.erase(std::lower_bound(v.known.begin(), v.known.end(), out.id, by_id));
                 --v.known_players;
@@ -229,10 +269,50 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
         }
     }
     // More fits than the budget allowed: carry on next tick instead of waiting for the routine look.
-    if (ip < want_players || in < want_npcs) v.dirty = true;
+    if (ip < want_players || in < want_npcs) {
+        v.dirty = true;
+        v.carry = true;
+        ++look_stats_.looks_carry;
+    }
 
     if (vanish.entity_ids_size() > 0) emit({sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), vanish);
     if (appear.entities_size() > 0) emit_spawn({sid}, appear);
+}
+
+std::int32_t KSubWorld::near_radius() const noexcept
+{
+    return cfg_.near_radius > 0 ? cfg_.near_radius : std::max(1, cfg_.view_width / 4);
+}
+
+std::int64_t KSubWorld::near_radius2() const noexcept
+{
+    const std::int64_t r = near_radius();
+    return r * r;
+}
+
+// The movements that were held back because they happened far from the client (emit_move, N3):
+// every far_period ticks each client gets them in one frame, the latest state of each mover.
+void KSubWorld::flush_far()
+{
+    if (cfg_.far_period <= 1) return;
+    scratch_due_.clear();
+    for (const auto& [sid, v] : viewers_) {
+        if (!v.far_pending.empty() && tick_ >= v.next_far_flush) scratch_due_.push_back(sid);
+    }
+    std::sort(scratch_due_.begin(), scratch_due_.end());   // packets in an order a recording can replay
+    pb::EntityMoves batch;
+    for (const std::uint64_t sid : scratch_due_) {
+        KViewer& v = viewers_.find(sid)->second;
+        batch.clear_moves();
+        for (const EntityId id : v.far_pending) {
+            // dropped from view since it moved: the client was sent its despawn, nothing to say
+            if (!knows(v, id)) continue;
+            if (const KNpc* e = entities_.find(id)) fill_move(*e, *batch.add_moves());
+        }
+        v.far_pending.clear();
+        v.next_far_flush = tick_ + cfg_.far_period;
+        if (batch.moves_size() > 0) emit({sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVES), batch);
+    }
 }
 
 // The entity leaves the world - a player logs out or changes map, a corpse is taken away until it

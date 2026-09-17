@@ -193,19 +193,13 @@ func (z *zoneLink) handle(f frame.Frame) {
 		}
 		b := frame.Encode(uint16(zp.MsgId), 0, zp.Payload) // encode once, share read-only
 		z.srv.stats.ZonePackets.Add(1)
-		// a movement frame carries the entity it is about: a newer position of the same entity
-		// replaces this one in a client's queue instead of piling up (SPEC 70)
-		var entity uint64
-		if jxpb.MsgId(zp.MsgId) == jxpb.MsgId_G2C_ENTITY_MOVE {
-			var mv jxpb.EntityMove
-			if err := proto.Unmarshal(zp.Payload, &mv); err == nil {
-				entity = mv.EntityId
-			}
-		}
+		// what a client's queue may do with the frame while it waits (KSendQueue): a newer
+		// position / life / swing of the same entity replaces it instead of piling up (SPEC 70)
+		class, entity := classify(uint16(zp.MsgId), zp.Payload)
 		for _, sid := range zp.Sids {
 			if s := z.srv.session(sid); s != nil && s.getState() == stWorld {
 				z.srv.stats.ZoneFanout.Add(1)
-				s.sendFrame(uint16(zp.MsgId), entity, b)
+				s.sendFrame(uint16(zp.MsgId), class, entity, b)
 			}
 		}
 

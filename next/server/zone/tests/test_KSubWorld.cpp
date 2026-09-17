@@ -44,6 +44,9 @@ KSubWorldConfig small_world()
     // gives an entity up the moment it leaves the view (no slack), so one tick settles everything.
     c.interest_period = 1;
     c.view_slack = 0;
+    // ... and every move is told the moment it happens: the two rates of N3 have their own tests
+    // (test_KInterest.cpp), here they would only add a wait of up to far_period ticks
+    c.far_period = 1;
     c.spawn_point = Pos{2000, 2000};
     c.default_speed = 200;   // 10 units per tick
     return c;

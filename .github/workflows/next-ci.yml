@@ -108,15 +108,23 @@ jobs:
         with:
           go-version-file: next/services/go.mod
           cache-dependency-path: next/services/go.sum
+      - name: Pick the python of this runner
+        run: if [ "$RUNNER_OS" = "Windows" ]; then echo "PY=python" >> "$GITHUB_ENV"; else echo "PY=python3" >> "$GITHUB_ENV"; fi
       - name: gofmt
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
       - name: go vet
         run: go vet ./...
+      # the log of a failed step needs a login to read: the FAIL lines go out as annotations
       - name: go test
-        run: go test ./...
+        run: |
+          set -o pipefail
+          mkdir -p ../build
+          go test ./... 2>&1 | tee ../build/go-test.log || { $PY ../tools/ci_annotate.py --tail ../build/go-test.log; exit 1; }
       - name: go test -race (Linux)
         if: runner.os == 'Linux'
-        run: go test -race ./...
+        run: |
+          set -o pipefail
+          go test -race ./... 2>&1 | tee ../build/go-test-race.log || { $PY ../tools/ci_annotate.py --tail ../build/go-test-race.log; exit 1; }
       - name: fuzz the frame codec (Linux)
         if: runner.os == 'Linux'
         run: |

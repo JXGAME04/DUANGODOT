@@ -100,6 +100,14 @@ struct Clients {
                     if (!mine.contains(m.entity_id())) complain(sid, "move", m.entity_id());
                     break;
                 }
+                case jx::pb::G2C_ENTITY_MOVES: {
+                    jx::pb::EntityMoves m;
+                    REQUIRE(m.ParseFromString(p.payload));
+                    for (const auto& mv : m.moves()) {
+                        if (!mine.contains(mv.entity_id())) complain(sid, "batched move", mv.entity_id());
+                    }
+                    break;
+                }
                 case jx::pb::G2C_ENTITY_ACTION: {
                     jx::pb::EntityAction m;
                     REQUIRE(m.ParseFromString(p.payload));
@@ -318,6 +326,134 @@ TEST_CASE("a newcomer in a packed place is told about it a piece at a time", "[w
     CHECK(ticks <= 12);          // within about half a second
 }
 
+TEST_CASE("a move reaches the near at once and the far gathered every few ticks", "[world][aoi][interest][n3]")
+{
+    // N3: what moves within near_radius of a client is one EntityMove the moment it happens; what
+    // moves farther away waits for that client's next EntityMoves, far_period ticks apart.
+    Quiet q;
+    KSubWorldConfig c = crowd_world(0);
+    c.near_radius = 300;
+    c.far_period = 6;
+    KSubWorld w(c);
+    EntityId mover, near_id, far_id;
+    Pos p;
+    REQUIRE(w.spawn_player(1, role(101, "mover", c.spawn_point), mover, p) == jx::pb::RESULT_OK);
+    REQUIRE(w.spawn_player(2, role(102, "near", Pos{c.spawn_point.x + 100, c.spawn_point.y}), near_id, p) == jx::pb::RESULT_OK);
+    REQUIRE(w.spawn_player(3, role(103, "far", Pos{c.spawn_point.x + 900, c.spawn_point.y}), far_id, p) == jx::pb::RESULT_OK);
+    for (int i = 0; i < 12; ++i) w.tick();   // everybody knows everybody (all within the view)
+    w.take_outbox();
+
+    REQUIRE(w.move_request(1, Pos{c.spawn_point.x, c.spawn_point.y + 50}, 7));
+    const auto moves_for = [&](const std::vector<Packet>& out, std::uint64_t sid, jx::pb::MsgId id) {
+        int n = 0;
+        for (const Packet& pk : out) {
+            if (pk.msg_id == static_cast<std::uint16_t>(id) && std::find(pk.sids.begin(), pk.sids.end(), sid) != pk.sids.end()) ++n;
+        }
+        return n;
+    };
+    auto out = w.take_outbox();
+    CHECK(moves_for(out, 1, jx::pb::G2C_ENTITY_MOVE) == 1);    // its own copy, at once
+    CHECK(moves_for(out, 2, jx::pb::G2C_ENTITY_MOVE) == 1);    // the near watcher, at once
+    CHECK(moves_for(out, 3, jx::pb::G2C_ENTITY_MOVE) == 0);    // the far one waits
+    CHECK(moves_for(out, 3, jx::pb::G2C_ENTITY_MOVES) == 0);
+
+    int batched = 0, ticks_until = 0;
+    for (int t = 1; t <= 12 && batched == 0; ++t) {
+        w.tick();
+        out = w.take_outbox();
+        batched = moves_for(out, 3, jx::pb::G2C_ENTITY_MOVES);
+        ticks_until = t;
+        CHECK(moves_for(out, 3, jx::pb::G2C_ENTITY_MOVE) == 0);
+    }
+    CHECK(batched == 1);
+    CHECK(ticks_until <= 6);
+    for (const Packet& pk : out) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_MOVES)) continue;
+        jx::pb::EntityMoves m;
+        REQUIRE(m.ParseFromString(pk.payload));
+        REQUIRE(m.moves_size() == 1);
+        CHECK(m.moves(0).entity_id() == mover.value);
+        CHECK(m.moves(0).seq() == 0);
+        CHECK(m.moves(0).path_size() >= 1);   // the latest state, path included
+    }
+
+    // the mover keeps moving: the far watcher gets ONE entry per flush, not one per move
+    REQUIRE(w.move_request(1, Pos{c.spawn_point.x + 20, c.spawn_point.y}, 8));
+    w.tick();
+    REQUIRE(w.move_request(1, Pos{c.spawn_point.x - 20, c.spawn_point.y}, 9));
+    w.tick();
+    int entries = 0;
+    for (int t = 0; t < 8; ++t) {
+        w.tick();
+        for (const Packet& pk : w.take_outbox()) {
+            if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_MOVES) || pk.sids[0] != 3) continue;
+            jx::pb::EntityMoves m;
+            REQUIRE(m.ParseFromString(pk.payload));
+            entries += m.moves_size();
+        }
+    }
+    CHECK(entries == 1);
+
+    // far_period 1: everything at once again, as before N3
+    KSubWorldConfig c1 = crowd_world(0);
+    c1.far_period = 1;
+    KSubWorld w1(c1);
+    REQUIRE(w1.spawn_player(1, role(101, "mover", c1.spawn_point), mover, p) == jx::pb::RESULT_OK);
+    REQUIRE(w1.spawn_player(3, role(103, "far", Pos{c1.spawn_point.x + 900, c1.spawn_point.y}), far_id, p) == jx::pb::RESULT_OK);
+    for (int i = 0; i < 12; ++i) w1.tick();
+    w1.take_outbox();
+    REQUIRE(w1.move_request(1, Pos{c1.spawn_point.x, c1.spawn_point.y + 50}, 7));
+    CHECK(moves_for(w1.take_outbox(), 3, jx::pb::G2C_ENTITY_MOVE) == 1);
+}
+
+TEST_CASE("a full client trades a far player only for one that walked up close", "[world][aoi][interest][n3]")
+{
+    // The swap rule: a known player outside near_radius gives way to an unknown one inside it,
+    // and nothing else - so a dense, restless crowd does not swap for ever (700 despawn+spawn
+    // pairs a tick at 3000 players, measured before this rule).
+    Quiet q;
+    KSubWorldConfig c = crowd_world(3);
+    c.near_radius = 200;
+    KSubWorld w(c);
+    Clients clients;
+    EntityId id;
+    Pos p;
+    clients.connect(1);
+    REQUIRE(w.spawn_player(1, role(101, "me", c.spawn_point), id, p) == jx::pb::RESULT_OK);
+    const EntityId me = id;
+    // three players known, all at 400..600 units, and a fourth stranger farther still
+    for (std::uint64_t sid = 2; sid <= 5; ++sid) {
+        clients.connect(sid);
+        REQUIRE(w.spawn_player(sid, role(100 + sid, "P" + std::to_string(sid), Pos{c.spawn_point.x + 400 + static_cast<std::int32_t>(sid) * 100, c.spawn_point.y}), id, p) == jx::pb::RESULT_OK);
+    }
+    for (int i = 0; i < 40; ++i) {
+        w.tick();
+        clients.apply(w.take_outbox());
+    }
+    REQUIRE(clients.known[1].size() == 4);   // itself + the three nearest: full
+    const auto known_before = clients.known[1];
+
+    // the stranger (sid 5, the farthest) is not nearer than any known one: no trade, ever
+    for (int i = 0; i < 60; ++i) {
+        w.tick();
+        clients.apply(w.take_outbox());
+    }
+    CHECK(clients.known[1] == known_before);
+
+    // now a stranger walks right up to the client: it takes the place of the farthest known one
+    EntityId close;
+    clients.connect(6);
+    REQUIRE(w.spawn_player(6, role(106, "close", Pos{c.spawn_point.x + 50, c.spawn_point.y}), close, p) == jx::pb::RESULT_OK);
+    for (int i = 0; i < 60; ++i) {
+        w.tick();
+        clients.apply(w.take_outbox());
+    }
+    CHECK(clients.known[1].contains(close.value));
+    CHECK(clients.known[1].contains(me.value));
+    CHECK(clients.known[1].size() == 4);
+    for (const std::string& v : clients.violations) FAIL_CHECK(v);
+}
+
 // Hidden benchmark (run with "[.bench]"): the cost of a packed place without any network in the
 // way.  3000 players on one spot is the case that broke M6; the interest pass must fit the tick.
 TEST_CASE("bench: 3000 players on one spot", "[.bench]")
@@ -347,6 +483,7 @@ TEST_CASE("bench: 3000 players on one spot", "[.bench]")
     const jx::core::TickPhase phases[] = {jx::core::TickPhase::spatial_update, jx::core::TickPhase::ai,
                                           jx::core::TickPhase::interest, jx::core::TickPhase::snapshot};
     for (const auto ph : phases) w.profile().phase_timing(ph).reset();
+    w.reset_look_stats();
     double total_ms = 0, worst_ms = 0;
     std::uint64_t deliveries = 0;
     const int ticks = 180;
@@ -369,5 +506,11 @@ TEST_CASE("bench: 3000 players on one spot", "[.bench]")
     WARN("joining: worst tick " << join_worst_ms << " ms, " << join_deliveries << " deliveries in all");
     WARN("steady: tick avg " << total_ms / ticks << " ms, worst " << worst_ms << " ms, " << deliveries / ticks
                              << " deliveries per tick, capped " << w.viewers_capped());
+    const auto& ls = w.look_stats();
+    WARN("looks " << ls.looks / ticks << " per tick (dirty " << ls.looks_dirty / ticks << ", of which carry-on " << ls.looks_carry / ticks << ", idle "
+                  << ls.looks_idle / ticks << "), known re-checked " << ls.known_checked / std::max<std::uint64_t>(1, ls.looks)
+                  << " per look, candidates " << ls.candidates / std::max<std::uint64_t>(1, ls.looks) << " per look, learned "
+                  << ls.learned << ", forgotten " << ls.forgotten);
+
     CHECK(worst_ms < 55.0);
 }

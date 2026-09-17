@@ -67,6 +67,17 @@ struct KSubWorldConfig {
     // the next tick, nearest first: a player walking into a packed town is told about it over a
     // few ticks instead of in one burst, and so is everybody he walks in on (N4).
     std::int32_t spawn_budget = 48;
+    // Movement is told at two rates (N3).  A client hears about what moves within near_radius of
+    // its character the moment it happens, one EntityMove each; what moves farther away is gathered
+    // and sent every far_period ticks as one EntityMoves frame carrying the latest state of each
+    // mover.  A move only needs to be on time where it can matter - a fight, a trade, somebody
+    // walking up - and a quarter of the screen's width (320 units, about three characters) covers
+    // that; the rest of the view is scenery that may lag a third of a second, and in a crowd that
+    // is where most of the packets went.  The same radius decides when a full client (max_viewers)
+    // trades a far player for one that walked up (KInterest.cpp).
+    // near_radius 0 = a quarter of view_width; far_period 0 or 1 = everything at once, as before.
+    std::int32_t near_radius = 0;
+    std::uint32_t far_period = 6;
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
@@ -105,6 +116,17 @@ struct KViewer {
     std::uint64_t next_look = 0;       // tick of the next routine look around
     std::uint64_t next_swap = 0;       // a FULL client looks for nearer players to trade in only this often
     bool dirty = true;                 // look at the next opportunity: just arrived, changed cell, or still catching up
+    std::vector<EntityId> far_pending; // sorted; known entities that moved far from this client, not told yet (N3)
+    std::uint64_t next_far_flush = 0;  // tick at which far_pending goes out as one EntityMoves
+    // What the last look saw: the cell, and the version of every cell in view (KRegionGrid), one
+    // 64-bit word per cell (players << 32 | others).  A cell whose version is unchanged holds
+    // exactly what it held last time, so its candidates are not walked again (KInterest.cpp).
+    Cell last_cell;
+    std::vector<std::uint64_t> cell_versions;
+    std::int32_t last_room_players = 0;   // the room there was at the last look: more room now = look at everything again
+    std::int32_t last_room_npcs = 0;
+    bool looked = false;               // last_cell and the versions are meaningful
+    bool carry = false;                // the last look ran out of budget: there is more to learn
 };
 
 class KSubWorld {
@@ -159,6 +181,12 @@ public:
     // How many times a client could not be told about a player in view because it already knows
     // max_viewers of them: the number that says a crowd is being protected against, and by how much.
     [[nodiscard]] std::uint64_t viewers_capped() const noexcept { return viewers_capped_; }
+    // what the interest pass did, in all: looks around, known entities re-checked, candidates weighed
+    struct LookStats {
+        std::uint64_t looks = 0, looks_dirty = 0, looks_carry = 0, looks_idle = 0, known_checked = 0, candidates = 0, learned = 0, forgotten = 0;
+    };
+    [[nodiscard]] const LookStats& look_stats() const noexcept { return look_stats_; }
+    void reset_look_stats() noexcept { look_stats_ = {}; }
     // Where this map's tick spends its time, phase by phase (MASTER SPEC 22, 53): what a load test
     // and a benchmark read to say WHICH part is slow instead of guessing.
     [[nodiscard]] core::TickProfile& profile() noexcept { return *profile_; }
@@ -202,7 +230,11 @@ private:
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
     static constexpr std::uint64_t kSwapEveryLooks = 4;    // ... and it looks for them every 4th routine look (about 0,9 s)
     void fill_info(const KNpc& e, pb::EntityInfo& out) const;
+    void fill_move(const KNpc& e, pb::EntityMove& out) const;
     void emit_move(const KNpc& e);
+    void flush_far();                                      // once per tick: the far movements that are due, one frame per client
+    [[nodiscard]] std::int32_t near_radius() const noexcept;
+    [[nodiscard]] std::int64_t near_radius2() const noexcept;
     void wander(KNpc& e);
     // entity sleeping (SPEC 44, 45)
     void build_awake_cells();
@@ -265,6 +297,7 @@ private:
     std::size_t awake_entities_ = 0;
     std::uint64_t idle_ticks_ = 0;   // consecutive ticks with no player and nothing awake
     std::uint64_t viewers_capped_ = 0;
+    LookStats look_stats_;
     bool dormant_ = false;
     std::int32_t max_vision_ = 0;                     // largest vision radius spawned here
     // per phase cost of this map's tick (MASTER SPEC 22, 53, 96): "map.<id>.tick.<phase>"

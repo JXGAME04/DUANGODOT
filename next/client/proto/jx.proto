@@ -169,6 +169,14 @@ message EntityMove {
   repeated Vec2 path = 7;        // waypoints from pos to target; the client follows the same line
 }
 
+// The movements of entities FAR from the receiver, gathered over a few ticks into one frame
+// (KSubWorld::flush_far, N3).  Each entry is the entity's latest state, exactly what an EntityMove
+// would carry; the client handles them one by one.  What moves near the receiver still comes as a
+// single EntityMove the moment it happens.
+message EntityMoves {
+  repeated EntityMove moves = 1;
+}
+
 message ChatReq {
   string text = 1;
 }
@@ -366,6 +374,7 @@ enum MsgId {
   G2C_ENTITY_ACTION = 2105;    // attack / hurt / death / revive (old NPC_HURT_SYNC, NPC_DEATH_SYNC, skill sync)
   G2C_ENTITY_LIFE = 2106;
   G2C_CHANGE_MAP = 2107;       // the zone moved the player to another map (NewWorld of a trap script)
+  G2C_ENTITY_MOVES = 2108;     // several EntityMove in one frame: what moved far from the receiver, every few ticks (N3)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

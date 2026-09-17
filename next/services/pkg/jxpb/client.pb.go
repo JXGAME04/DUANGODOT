@@ -1464,6 +1464,54 @@ func (x *EntityMove) GetPath() []*Vec2 {
 	return nil
 }
 
+// The movements of entities FAR from the receiver, gathered over a few ticks into one frame
+// (KSubWorld::flush_far, N3).  Each entry is the entity's latest state, exactly what an EntityMove
+// would carry; the client handles them one by one.  What moves near the receiver still comes as a
+// single EntityMove the moment it happens.
+type EntityMoves struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Moves         []*EntityMove          `protobuf:"bytes,1,rep,name=moves,proto3" json:"moves,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityMoves) Reset() {
+	*x = EntityMoves{}
+	mi := &file_jx_client_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityMoves) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityMoves) ProtoMessage() {}
+
+func (x *EntityMoves) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityMoves.ProtoReflect.Descriptor instead.
+func (*EntityMoves) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *EntityMoves) GetMoves() []*EntityMove {
+	if x != nil {
+		return x.Moves
+	}
+	return nil
+}
+
 type ChatReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
@@ -1473,7 +1521,7 @@ type ChatReq struct {
 
 func (x *ChatReq) Reset() {
 	*x = ChatReq{}
-	mi := &file_jx_client_proto_msgTypes[20]
+	mi := &file_jx_client_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1485,7 +1533,7 @@ func (x *ChatReq) String() string {
 func (*ChatReq) ProtoMessage() {}
 
 func (x *ChatReq) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[20]
+	mi := &file_jx_client_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1498,7 +1546,7 @@ func (x *ChatReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatReq.ProtoReflect.Descriptor instead.
 func (*ChatReq) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{20}
+	return file_jx_client_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ChatReq) GetText() string {
@@ -1524,7 +1572,7 @@ type ChangeMap struct {
 
 func (x *ChangeMap) Reset() {
 	*x = ChangeMap{}
-	mi := &file_jx_client_proto_msgTypes[21]
+	mi := &file_jx_client_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1536,7 +1584,7 @@ func (x *ChangeMap) String() string {
 func (*ChangeMap) ProtoMessage() {}
 
 func (x *ChangeMap) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[21]
+	mi := &file_jx_client_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1549,7 +1597,7 @@ func (x *ChangeMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeMap.ProtoReflect.Descriptor instead.
 func (*ChangeMap) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{21}
+	return file_jx_client_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ChangeMap) GetMapId() uint32 {
@@ -1598,7 +1646,7 @@ type ChatMsg struct {
 
 func (x *ChatMsg) Reset() {
 	*x = ChatMsg{}
-	mi := &file_jx_client_proto_msgTypes[22]
+	mi := &file_jx_client_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1610,7 +1658,7 @@ func (x *ChatMsg) String() string {
 func (*ChatMsg) ProtoMessage() {}
 
 func (x *ChatMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[22]
+	mi := &file_jx_client_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1623,7 +1671,7 @@ func (x *ChatMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatMsg.ProtoReflect.Descriptor instead.
 func (*ChatMsg) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{22}
+	return file_jx_client_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ChatMsg) GetEntityId() uint64 {
@@ -1656,7 +1704,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_jx_client_proto_msgTypes[23]
+	mi := &file_jx_client_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1668,7 +1716,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[23]
+	mi := &file_jx_client_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1681,7 +1729,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{23}
+	return file_jx_client_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Ping) GetClientMs() uint64 {
@@ -1702,7 +1750,7 @@ type Pong struct {
 
 func (x *Pong) Reset() {
 	*x = Pong{}
-	mi := &file_jx_client_proto_msgTypes[24]
+	mi := &file_jx_client_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1714,7 +1762,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[24]
+	mi := &file_jx_client_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1727,7 +1775,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{24}
+	return file_jx_client_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Pong) GetClientMs() uint64 {
@@ -1761,7 +1809,7 @@ type Kick struct {
 
 func (x *Kick) Reset() {
 	*x = Kick{}
-	mi := &file_jx_client_proto_msgTypes[25]
+	mi := &file_jx_client_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1773,7 +1821,7 @@ func (x *Kick) String() string {
 func (*Kick) ProtoMessage() {}
 
 func (x *Kick) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[25]
+	mi := &file_jx_client_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1786,7 +1834,7 @@ func (x *Kick) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kick.ProtoReflect.Descriptor instead.
 func (*Kick) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{25}
+	return file_jx_client_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Kick) GetReason() Result {
@@ -1920,7 +1968,9 @@ const file_jx_client_proto_rawDesc = "" +
 	"move_speed\x18\x04 \x01(\rR\tmoveSpeed\x12\x12\n" +
 	"\x04tick\x18\x05 \x01(\x04R\x04tick\x12\x10\n" +
 	"\x03seq\x18\x06 \x01(\rR\x03seq\x12\x1f\n" +
-	"\x04path\x18\a \x03(\v2\v.jx.pb.Vec2R\x04path\"\x1d\n" +
+	"\x04path\x18\a \x03(\v2\v.jx.pb.Vec2R\x04path\"6\n" +
+	"\vEntityMoves\x12'\n" +
+	"\x05moves\x18\x01 \x03(\v2\x11.jx.pb.EntityMoveR\x05moves\"\x1d\n" +
 	"\aChatReq\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"\x90\x01\n" +
 	"\tChangeMap\x12\x15\n" +
@@ -1962,7 +2012,7 @@ func file_jx_client_proto_rawDescGZIP() []byte {
 }
 
 var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_jx_client_proto_goTypes = []any{
 	(Action)(0),           // 0: jx.pb.Action
 	(*Hello)(nil),         // 1: jx.pb.Hello
@@ -1985,43 +2035,45 @@ var file_jx_client_proto_goTypes = []any{
 	(*EntitySpawn)(nil),   // 18: jx.pb.EntitySpawn
 	(*EntityDespawn)(nil), // 19: jx.pb.EntityDespawn
 	(*EntityMove)(nil),    // 20: jx.pb.EntityMove
-	(*ChatReq)(nil),       // 21: jx.pb.ChatReq
-	(*ChangeMap)(nil),     // 22: jx.pb.ChangeMap
-	(*ChatMsg)(nil),       // 23: jx.pb.ChatMsg
-	(*Ping)(nil),          // 24: jx.pb.Ping
-	(*Pong)(nil),          // 25: jx.pb.Pong
-	(*Kick)(nil),          // 26: jx.pb.Kick
-	(Result)(0),           // 27: jx.pb.Result
-	(*Vec2)(nil),          // 28: jx.pb.Vec2
-	(EntityType)(0),       // 29: jx.pb.EntityType
+	(*EntityMoves)(nil),   // 21: jx.pb.EntityMoves
+	(*ChatReq)(nil),       // 22: jx.pb.ChatReq
+	(*ChangeMap)(nil),     // 23: jx.pb.ChangeMap
+	(*ChatMsg)(nil),       // 24: jx.pb.ChatMsg
+	(*Ping)(nil),          // 25: jx.pb.Ping
+	(*Pong)(nil),          // 26: jx.pb.Pong
+	(*Kick)(nil),          // 27: jx.pb.Kick
+	(Result)(0),           // 28: jx.pb.Result
+	(*Vec2)(nil),          // 29: jx.pb.Vec2
+	(EntityType)(0),       // 30: jx.pb.EntityType
 }
 var file_jx_client_proto_depIdxs = []int32{
-	27, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
-	27, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
+	28, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
+	28, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
 	5,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
-	27, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
+	28, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
 	5,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
-	27, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
-	28, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
-	28, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
+	28, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
+	29, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
+	29, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
 	0,  // 8: jx.pb.EntityAction.action:type_name -> jx.pb.Action
-	28, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
-	29, // 10: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
-	28, // 11: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
-	28, // 12: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	28, // 13: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	29, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
+	30, // 10: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
+	29, // 11: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
+	29, // 12: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
+	29, // 13: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
 	0,  // 14: jx.pb.EntityInfo.doing:type_name -> jx.pb.Action
 	17, // 15: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	28, // 16: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	28, // 17: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	28, // 18: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
-	28, // 19: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
-	27, // 20: jx.pb.Kick.reason:type_name -> jx.pb.Result
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	29, // 16: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	29, // 17: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	29, // 18: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	20, // 19: jx.pb.EntityMoves.moves:type_name -> jx.pb.EntityMove
+	29, // 20: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
+	28, // 21: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_jx_client_proto_init() }
@@ -2036,7 +2088,7 @@ func file_jx_client_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_client_proto_rawDesc), len(file_jx_client_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   26,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -8,6 +8,7 @@
 // counts are derived from that rectangle in KSubWorld, never guessed here.
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <unordered_map>
@@ -53,6 +54,38 @@ public:
     void remove(EntityId id);
     // Re-files id under the cell of p.  Returns true when the cell changed (from/to filled).
     bool move(EntityId id, Pos p, Cell& from, Cell& to);
+
+    // One cell of a view, as for_each_view_cell hands it out: who is in it and its versions.  The
+    // versions change whenever something is filed in the cell or taken away, so a viewer that
+    // remembers them knows which cells hold anything it has not looked at yet (KInterest.cpp).
+    struct CellView {
+        const std::vector<EntityId>* players;
+        const std::vector<EntityId>* others;
+        std::uint32_t players_version;
+        std::uint32_t others_version;
+    };
+    [[nodiscard]] std::size_t view_cell_count() const noexcept
+    {
+        return static_cast<std::size_t>(2 * view_x_ + 1) * static_cast<std::size_t>(2 * view_y_ + 1);
+    }
+    // fn(index, CellView) for every cell in view of c, in a fixed order (index 0 .. count - 1); a
+    // cell nothing was ever filed in comes as empty lists with versions 0.
+    template <class Fn>
+    void for_each_view_cell(Cell c, Fn&& fn) const
+    {
+        static const std::vector<EntityId> none;
+        std::size_t index = 0;
+        for (std::int32_t cy = c.cy - view_y_; cy <= c.cy + view_y_; ++cy) {
+            for (std::int32_t cx = c.cx - view_x_; cx <= c.cx + view_x_; ++cx, ++index) {
+                const auto it = cells_.find(key(Cell{cx, cy}));
+                if (it == cells_.end()) {
+                    fn(index, CellView{&none, &none, 0, 0});
+                } else {
+                    fn(index, CellView{&it->second.players, &it->second.others, it->second.players_version, it->second.others_version});
+                }
+            }
+        }
+    }
 
     // How many players stand in this cell, and where they are: the caller builds its awake set.
     [[nodiscard]] std::size_t players_in(Cell c) const;
@@ -136,6 +169,32 @@ public:
         }
     }
 
+    // The same, own cell first and then ring by ring outwards, and fn says whether to go on
+    // (return false to stop).  For "a few players near this spot": in a packed place the own cell
+    // alone holds hundreds, so a caller that needs four stops after four instead of walking the
+    // thousand within the radius.
+    template <class Fn>
+    void for_each_player_near(Pos p, std::int32_t radius, Fn&& fn) const
+    {
+        const Cell c = cell_of(p);
+        const Cell a = cell_of(Pos{p.x - radius, p.y - radius});
+        const Cell b = cell_of(Pos{p.x + radius, p.y + radius});
+        const std::int32_t rings = std::max({c.cx - a.cx, b.cx - c.cx, c.cy - a.cy, b.cy - c.cy, 0});
+        for (std::int32_t r = 0; r <= rings; ++r) {
+            for (std::int32_t cy = c.cy - r; cy <= c.cy + r; ++cy) {
+                for (std::int32_t cx = c.cx - r; cx <= c.cx + r; ++cx) {
+                    if (r > 0 && cy != c.cy - r && cy != c.cy + r && cx != c.cx - r && cx != c.cx + r) continue;   // inside the ring
+                    if (cx < a.cx || cx > b.cx || cy < a.cy || cy > b.cy) continue;
+                    const auto it = cells_.find(key(Cell{cx, cy}));
+                    if (it == cells_.end()) continue;
+                    for (const EntityId id : it->second.players) {
+                        if (!fn(id)) return;
+                    }
+                }
+            }
+        }
+    }
+
     // Entities that become visible when moving from 'from' to 'to' (entered) and those that stop
     // being visible (left).  The moving entity itself may appear in the lists; callers filter it.
     void view_diff(Cell from, Cell to, std::vector<EntityId>& entered, std::vector<EntityId>& left) const;
@@ -155,6 +214,10 @@ private:
     struct Bucket {
         std::vector<EntityId> players;
         std::vector<EntityId> others;
+        // bumped whenever a player / another entity is filed here or taken away: a client whose
+        // view cells kept their versions has nothing new to look at (KInterest.cpp)
+        std::uint32_t players_version = 0;
+        std::uint32_t others_version = 0;
     };
     struct Placed {
         Cell cell;

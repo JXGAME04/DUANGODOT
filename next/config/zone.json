@@ -30,6 +30,11 @@
     "interest_period": 4,        // moi client nhin quanh lai sau bay nhieu tick (4 tick = 0,22 giay)
     "view_slack": 1,             // entity da biet chi bi bo khi ra NGOAI vung nhin bay nhieu o
     "spawn_budget": 48,          // moi lan nhin quanh bao them toi da bay nhieu entity: nguoi vao cho dong duoc bao dan qua vai tick
+    // N3: di chuyen trong near_radius don vi quanh nhan vat thi bao ngay (moi EntityMove mot goi); xa hon thi gom lai,
+    // cu far_period tick gui mot goi EntityMoves. near_radius 0 = 1/4 view_width (320); far_period 1 = bao ngay tat ca.
+    // Cung ban kinh nay quyet dinh khi nao mot client da day (max_viewers) doi mot nguoi xa lay mot nguoi vua buoc toi gan.
+    "near_radius": 0,
+    "far_period": 6,
     "default_speed": 200,
     "max_players": 30000,
     "save_interval_s": 60,
