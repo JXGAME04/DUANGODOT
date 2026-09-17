@@ -252,7 +252,14 @@ func (e *Exporter) region(w *wor.World, r *wor.Region) *RegionFile {
 		if b.Order != 0 && b.Order != 0xFFFF {
 			layer = "above"
 		}
-		rf.Objects = append(rf.Objects, Object{X: sx, Y: sy, SortY: sortY, Sprite: id, Frame: b.Frame, Frames: b.NumFrames, Layer: layer})
+		// Big buildings are cut into slices: every slice is one *frame* of the same sprite placed
+		// separately so y-sorting works per slice.  Only nAniSpeed > 0 means "animated"
+		// (KScenePlaceRegionC::LoadAboveGroundObjects); everything else must keep its frame.
+		frames := 0
+		if b.AniSpeed > 0 && b.NumFrames > 1 {
+			frames = b.NumFrames
+		}
+		rf.Objects = append(rf.Objects, Object{X: sx, Y: sy, SortY: sortY, Sprite: id, Frame: b.Frame, Frames: frames, Layer: layer})
 	}
 	sort.SliceStable(rf.Objects, func(i, j int) bool { return rf.Objects[i].SortY < rf.Objects[j].SortY })
 	return rf

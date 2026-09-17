@@ -21,7 +21,8 @@ var _cols := 0
 var _rows := 0
 var _margin := 1
 var _anim_time := 0.0
-var _last_view := Rect2()
+var _last_view := Rect2(-99999, -99999, 0, 0)
+var _load_queue: Array[String] = []
 var _anims: Array = []      # [{sprite: Sprite2D, atlas: SpriteAtlas, frame: int, n: int, acc: float}]
 
 
@@ -85,7 +86,9 @@ func update_view(view: Rect2, delta: float) -> void:
 		return
 	_anim_time += delta
 	_animate(delta)
-	if view == _last_view:
+	_drain_load_queue()
+	# recompute the region set only when the camera moved a good part of a region
+	if _last_view.size == view.size and _last_view.position.distance_to(view.position) < 64.0:
 		return
 	_last_view = view
 	# tall buildings are anchored in the region below the pixels they cover: keep two extra rows
@@ -102,9 +105,33 @@ func update_view(view: Rect2, delta: float) -> void:
 	for key in _regions.keys():
 		if not wanted.has(key):
 			_unload_region(key)
+	_load_queue.clear()
 	for key in wanted.keys():
 		if not _regions.has(key):
+			_load_queue.append(key)
+	# regions nearest the camera first
+	var centre := view.get_center()
+	_load_queue.sort_custom(func(a: String, b: String) -> bool:
+		return _region_centre(a).distance_squared_to(centre) < _region_centre(b).distance_squared_to(centre))
+	if _regions.is_empty():
+		_drain_load_queue(64)   # first frame in the world: load everything in view at once
+
+
+func _region_centre(key: String) -> Vector2:
+	var parts := key.split("_")
+	var col := int(parts[0]) - int(info.get("region_left", 0))
+	var row := int(parts[1]) - int(info.get("region_top", 0))
+	return Vector2(col * REGION_PX + REGION_PX / 2, row * REGION_PX + REGION_PX / 2)
+
+
+# Loads a few regions per frame so walking never stalls the frame.
+func _drain_load_queue(limit: int = 2) -> void:
+	var n := 0
+	while n < limit and not _load_queue.is_empty():
+		var key: String = _load_queue.pop_front()
+		if not _regions.has(key):
 			_load_region(key)
+		n += 1
 
 
 func _load_region(key: String) -> void:
@@ -198,3 +225,7 @@ func _animate(delta: float) -> void:
 
 func region_count() -> int:
 	return _regions.size()
+
+
+func anim_count() -> int:
+	return _anims.size()

@@ -105,7 +105,9 @@ func _own() -> Node2D:
 func _update_camera(snap: bool) -> void:
 	var own := _own()
 	if own:
-		_camera.position = own.position if snap else _camera.position.lerp(own.position, 0.3)
+		# whole pixels only: a fractional camera position makes nearest-filtered tiles shimmer
+		var target := own.position if snap else _camera.position.lerp(own.position, 0.3)
+		_camera.position = target.round()
 
 
 func _view_rect() -> Rect2:
@@ -238,6 +240,28 @@ func _auto_run() -> void:
 		"rtt_ms": Game.last_rtt_ms, "regions": _map.region_count(), "sprites": Assets.stats().sprites})
 	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d" % [arrived, _entities.size(), _move_count, _map.region_count()])
 	await _save_screenshot("user://logs/auto_world.png")
+	# stability probe: two frames half a second apart while idle must be (almost) identical
+	if DisplayServer.get_name() != "headless":
+		await get_tree().create_timer(1.0).timeout
+		var cam_a := _camera.position
+		await RenderingServer.frame_post_draw
+		var img_a := get_viewport().get_texture().get_image()
+		await get_tree().create_timer(0.5).timeout
+		var cam_b := _camera.position
+		await RenderingServer.frame_post_draw
+		var img_b := get_viewport().get_texture().get_image()
+		var diff := 0
+		var total := 0
+		for y in range(0, img_a.get_height(), 4):
+			for x in range(0, img_a.get_width(), 4):
+				total += 1
+				if img_a.get_pixel(x, y) != img_b.get_pixel(x, y):
+					diff += 1
+		Log.info("auto", "idle frame diff", {"diff": diff, "sampled": total, "cam_a": str(cam_a), "cam_b": str(cam_b), "fps": Engine.get_frames_per_second(),
+			"anims": _map.anim_count(), "regions": _map.region_count()})
+		print("AUTO_IDLE_DIFF diff=%d of %d cam_a=%s cam_b=%s anims=%d" % [diff, total, str(cam_a), str(cam_b), _map.anim_count()])
+		img_a.save_png("user://logs/auto_world_a.png")
+		img_b.save_png("user://logs/auto_world_b.png")
 	Game.leave_world()
 	await get_tree().create_timer(0.3).timeout
 	get_tree().quit(0 if arrived else 1)
