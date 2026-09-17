@@ -3,6 +3,7 @@
 // Configuration precedence: file < environment (JX_ZONE__PORT=...) < --set / --port.
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -131,14 +132,50 @@ int main(int argc, char** argv)
     // the old server folder holding script\ (npc level scripts through Lua 5.4); empty = placeholder numbers
     const std::string script_root = cfg.get_string("zone.script_root", "");
     if (!script_root.empty()) {
-        if (std::filesystem::exists(std::filesystem::path(script_root) / "script")) {
-            w.scripts = std::make_shared<jx::zone::KScriptCache>(script_root);
-            jx::log::info("boot", "level scripts", {jx::log::kv("root", script_root)});
+        // "a;b": the reference server first, then the fallback (KScriptCache tries each root)
+        auto cache = std::make_shared<jx::zone::KScriptCache>(script_root);
+        std::size_t with_scripts = 0;
+        for (const std::string& root : cache->roots()) {
+            if (std::filesystem::exists(std::filesystem::path(root) / "script")) ++with_scripts;
+        }
+        if (with_scripts > 0) {
+            w.scripts = cache;
+            jx::log::info("boot", "level scripts", {jx::log::kv("root", script_root), jx::log::kv("roots_with_script", with_scripts)});
         } else {
             jx::log::warn("boot", "zone.script_root has no script folder, npc life / damage use placeholders", {jx::log::kv("dir", script_root)});
         }
     } else {
         jx::log::warn("boot", "zone.script_root not set, npc life / damage use placeholders (docs/NPCRES.md)");
+    }
+
+    // every map this zone hosts (a portal needs its target loaded): zone.maps = "1,3,7" under zone.maps_dir;
+    // the default map (zone.map_dir) is the first entry
+    zc.worlds.push_back(w);
+    {
+        const std::string maps_dir = cfg.get_string("zone.maps_dir", "client/assets/maps");
+        std::string list = cfg.get_string("zone.maps", "");
+        for (char& c : list) if (c == ';' || c == ' ') c = ',';
+        std::size_t start = 0;
+        while (start <= list.size()) {
+            const std::size_t comma = list.find(',', start);
+            const std::string item = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+            start = comma == std::string::npos ? list.size() + 1 : comma + 1;
+            if (item.empty()) continue;
+            const auto id = static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 10));
+            if (id == 0 || (w.map && static_cast<std::uint32_t>(w.map->id) == id)) continue;
+            const std::string dir = (std::filesystem::path(maps_dir) / std::to_string(id)).string();
+            std::string error;
+            auto map = jx::zone::KMapData::load(dir, &error);
+            if (!map) {
+                jx::log::warn("boot", "map bundle skipped", {jx::log::kv("map", id), jx::log::kv("dir", dir), jx::log::kv("error", error)});
+                continue;
+            }
+            jx::zone::KSubWorldConfig wc = w;
+            wc.map = std::make_shared<const jx::zone::KMapData>(std::move(*map));
+            wc.spawn_from_config = false;
+            zc.worlds.push_back(std::move(wc));
+        }
+        jx::log::info("boot", "maps hosted", {jx::log::kv("count", zc.worlds.size())});
     }
 
     asio::io_context io;

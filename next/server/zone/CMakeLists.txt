@@ -7,6 +7,7 @@ add_library(jx_zone_core STATIC
     src/KMapData.cpp
     src/KLuaScript.cpp
     src/KScriptCache.cpp
+    src/ScriptFuns.cpp
     src/KNpcTemplate.cpp
     src/KSubWorld.cpp
     src/KNpcAI.cpp

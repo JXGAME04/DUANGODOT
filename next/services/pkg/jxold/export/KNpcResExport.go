@@ -141,7 +141,7 @@ func MergeAppearance(server, client []npcres.Template) ([]npcres.Template, int) 
 	changed := 0
 	for i := range out {
 		id := out[i].ID
-		if id <= 0 || id >= len(client) || client[id].Name == "" || out[i].Name == "" {
+		if id < 0 || id >= len(client) || client[id].Name == "" || out[i].Name == "" {
 			continue
 		}
 		c := client[id]
@@ -168,7 +168,7 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 	}
 	bundle := NpcResBundle{Templates: map[string]TemplateInfo{}, Player: player, NpcActions: list.NpcActions, Actions: list.Actions}
 	for _, t := range templates {
-		if t.ID == 0 || t.Name == "" {
+		if t.Name == "" {
 			continue
 		}
 		info := TemplateInfo{Name: t.Name, Res: t.ResType, Kind: t.Kind, Series: t.Series,
@@ -310,7 +310,7 @@ func ResNamesOf(templates []npcres.Template, ids []int) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, id := range ids {
-		if id <= 0 || id >= len(templates) {
+		if id < 0 || id >= len(templates) {
 			continue
 		}
 		res := templates[id].ResType

@@ -8,8 +8,9 @@ option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
 import "jx/common.proto";
 
 message RolePosition {
-  uint32 zone_id = 1;   // logical zone/map id
+  uint32 zone_id = 1;   // logical zone id
   Vec2 pos = 2;
+  uint32 map_id = 3;    // map bundle within the zone (0 = the zone's default map)
 }
 
 message RoleStats {

@@ -34,6 +34,9 @@ message SessionOpenAck {
   Result result = 2;
   uint64 entity_id = 3;
   Vec2 pos = 4;
+  uint32 map_id = 5;             // the map the player spawned in (a zone hosts several)
+  uint32 scene_w = 6;
+  uint32 scene_h = 7;
 }
 
 message SessionClose {

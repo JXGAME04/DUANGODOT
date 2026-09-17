@@ -2732,6 +2732,126 @@ class ChatReq:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class ChangeMap:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__map_id = PBField.new("map_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __map_id
+		data[__map_id.tag] = service
+		
+		__pos = PBField.new("pos", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __pos
+		service.func_ref = Callable(self, "new_pos")
+		data[__pos.tag] = service
+		
+		__scene_w = PBField.new("scene_w", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_w
+		data[__scene_w.tag] = service
+		
+		__scene_h = PBField.new("scene_h", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_h
+		data[__scene_h.tag] = service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+	var data = {}
+	
+	var __map_id: PBField
+	func has_map_id() -> bool:
+		if __map_id.value != null:
+			return true
+		return false
+	func get_map_id() -> int:
+		return __map_id.value
+	func clear_map_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__map_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_map_id(value : int) -> void:
+		__map_id.value = value
+	
+	var __pos: PBField
+	func has_pos() -> bool:
+		if __pos.value != null:
+			return true
+		return false
+	func get_pos() -> Vec2:
+		return __pos.value
+	func clear_pos() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__pos.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_pos() -> Vec2:
+		__pos.value = Vec2.new()
+		return __pos.value
+	
+	var __scene_w: PBField
+	func has_scene_w() -> bool:
+		if __scene_w.value != null:
+			return true
+		return false
+	func get_scene_w() -> int:
+		return __scene_w.value
+	func clear_scene_w() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__scene_w.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_w(value : int) -> void:
+		__scene_w.value = value
+	
+	var __scene_h: PBField
+	func has_scene_h() -> bool:
+		if __scene_h.value != null:
+			return true
+		return false
+	func get_scene_h() -> int:
+		return __scene_h.value
+	func clear_scene_h() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__scene_h.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_h(value : int) -> void:
+		__scene_h.value = value
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class ChatMsg:
 	extends RefCounted
 	func _init():
@@ -3438,6 +3558,21 @@ class SessionOpenAck:
 		service.func_ref = Callable(self, "new_pos")
 		data[__pos.tag] = service
 		
+		__map_id = PBField.new("map_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __map_id
+		data[__map_id.tag] = service
+		
+		__scene_w = PBField.new("scene_w", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_w
+		data[__scene_w.tag] = service
+		
+		__scene_h = PBField.new("scene_h", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_h
+		data[__scene_h.tag] = service
+		
 	var data = {}
 	
 	var __sid: PBField
@@ -3492,6 +3627,45 @@ class SessionOpenAck:
 	func new_pos() -> Vec2:
 		__pos.value = Vec2.new()
 		return __pos.value
+	
+	var __map_id: PBField
+	func has_map_id() -> bool:
+		if __map_id.value != null:
+			return true
+		return false
+	func get_map_id() -> int:
+		return __map_id.value
+	func clear_map_id() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__map_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_map_id(value : int) -> void:
+		__map_id.value = value
+	
+	var __scene_w: PBField
+	func has_scene_w() -> bool:
+		if __scene_w.value != null:
+			return true
+		return false
+	func get_scene_w() -> int:
+		return __scene_w.value
+	func clear_scene_w() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__scene_w.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_w(value : int) -> void:
+		__scene_w.value = value
+	
+	var __scene_h: PBField
+	func has_scene_h() -> bool:
+		if __scene_h.value != null:
+			return true
+		return false
+	func get_scene_h() -> int:
+		return __scene_h.value
+	func clear_scene_h() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__scene_h.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_h(value : int) -> void:
+		__scene_h.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -3989,6 +4163,7 @@ enum MsgId {
 	G2C_CHAT_MSG = 2104,
 	G2C_ENTITY_ACTION = 2105,
 	G2C_ENTITY_LIFE = 2106,
+	G2C_CHANGE_MAP = 2107,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,
@@ -4015,6 +4190,11 @@ class RolePosition:
 		service.field = __pos
 		service.func_ref = Callable(self, "new_pos")
 		data[__pos.tag] = service
+		
+		__map_id = PBField.new("map_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __map_id
+		data[__map_id.tag] = service
 		
 	var data = {}
 	
@@ -4044,6 +4224,19 @@ class RolePosition:
 	func new_pos() -> Vec2:
 		__pos.value = Vec2.new()
 		return __pos.value
+	
+	var __map_id: PBField
+	func has_map_id() -> bool:
+		if __map_id.value != null:
+			return true
+		return false
+	func get_map_id() -> int:
+		return __map_id.value
+	func clear_map_id() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__map_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_map_id(value : int) -> void:
+		__map_id.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

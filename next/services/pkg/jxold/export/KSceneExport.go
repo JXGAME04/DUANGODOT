@@ -26,28 +26,39 @@ import (
 
 // MapInfo is map.json.
 type MapInfo struct {
-	ID         int       `json:"id"`
-	Name       string    `json:"name"`
-	Source     string    `json:"source"` // old game path (UTF-8)
-	RegionLeft int       `json:"region_left"`
-	RegionTop  int       `json:"region_top"`
-	RegionCols int       `json:"region_cols"`
-	RegionRows int       `json:"region_rows"`
-	RegionW    int       `json:"region_w"` // scene units
-	RegionH    int       `json:"region_h"`
-	CellSize   int       `json:"cell_size"`
-	CellsX     int       `json:"cells_x"` // obstacle grid size (whole map)
-	CellsY     int       `json:"cells_y"`
-	SceneW     int       `json:"scene_w"` // scene units
-	SceneH     int       `json:"scene_h"`
-	Spawn      [2]int    `json:"spawn"` // scene units
-	Indoor     bool      `json:"indoor"`
-	Regions    []string  `json:"regions"` // "XXX_YYY" of regions that have data
-	Npcs       []NpcInfo `json:"npcs"`
-	Sprites    int       `json:"sprites"`
+	ID         int        `json:"id"`
+	Name       string     `json:"name"`
+	Source     string     `json:"source"` // old game path (UTF-8)
+	RegionLeft int        `json:"region_left"`
+	RegionTop  int        `json:"region_top"`
+	RegionCols int        `json:"region_cols"`
+	RegionRows int        `json:"region_rows"`
+	RegionW    int        `json:"region_w"` // scene units
+	RegionH    int        `json:"region_h"`
+	CellSize   int        `json:"cell_size"`
+	CellsX     int        `json:"cells_x"` // obstacle grid size (whole map)
+	CellsY     int        `json:"cells_y"`
+	SceneW     int        `json:"scene_w"` // scene units
+	SceneH     int        `json:"scene_h"`
+	Spawn      [2]int     `json:"spawn"` // scene units
+	Indoor     bool       `json:"indoor"`
+	Regions    []string   `json:"regions"` // "XXX_YYY" of regions that have data
+	Traps      []TrapInfo `json:"traps"`   // KRegion::LoadServerTrap runs, in whole-map cells
+	Npcs       []NpcInfo  `json:"npcs"`
+	Sprites    int        `json:"sprites"`
 }
 
 // NpcInfo is a static npc placement.
+// TrapInfo is one KSPTrap run of a server region: N cells from (X, Y) rightwards carry the script
+// id (g_FileName2Id of the script's game path; Script is the path when the server folder has it).
+type TrapInfo struct {
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	N      int    `json:"n"`
+	ID     uint32 `json:"id"`
+	Script string `json:"script"`
+}
+
 type NpcInfo struct {
 	TemplateID int    `json:"template_id"`
 	Name       string `json:"name"`
@@ -120,6 +131,7 @@ type Exporter struct {
 	ServerSet *pak.Set
 	// ReplaceNames is replacename_npc.txt (KNpcSet::Add renames placements through it).
 	ReplaceNames map[string]string
+	ScriptNames  map[uint32]string // g_FileName2Id -> `\script\...` (GBK) of the old server's script folder(s), for the traps
 	// StandFrames returns the frame count of a template's stand sprite (client-only npcs face
 	// the direction their stand frame encodes); nil = face down.
 	StandFrames func(templateID int) int
@@ -221,6 +233,10 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 				}
 				for _, n := range sr.Npcs {
 					info.Npcs = append(info.Npcs, e.npcInfo(w, n, false))
+				}
+				for _, t := range sr.Traps {
+					info.Traps = append(info.Traps, TrapInfo{X: (rx-w.Left)*wor.CellsX + t.X, Y: (ry-w.Top)*wor.CellsY + t.Y, N: t.NumCell,
+						ID: t.TrapID, Script: text.GBKToUTF8([]byte(e.ScriptNames[t.TrapID]))})
 				}
 			}
 			r, err := wor.LoadRegion(e.Set, w, rx, ry)
@@ -360,7 +376,7 @@ func (e *Exporter) region(w *wor.World, r *wor.Region) *RegionFile {
 // stand frame encodes (KNpcRes::GetNormalNpcStandDir) while server npcs start facing down.
 func (e *Exporter) npcInfo(w *wor.World, n wor.Npc, clientOnly bool) NpcInfo {
 	name := text.TCVN3ToUTF8([]byte(n.Name))
-	if id := int(n.TemplateID); id > 0 && id < len(e.Templates) && e.Templates[id].Name != "" {
+	if id := int(n.TemplateID); id >= 0 && id < len(e.Templates) && e.Templates[id].Name != "" {
 		name = e.Templates[id].Name
 		if !clientOnly {
 			name = npcres.PlacementName(e.ReplaceNames, n.Name, name)

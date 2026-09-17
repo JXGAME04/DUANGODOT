@@ -3,6 +3,7 @@
 // unchanged thanks to a small compatibility prelude (getn, strfind, floor, mod ... as globals).
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <variant>
@@ -38,8 +39,12 @@ public:
     [[nodiscard]] const std::string& root() const noexcept { return root_; }
     [[nodiscard]] lua_State* state() const noexcept { return L_; }
 
-    // `\script\a\b.lua` -> `<root>/script/a/b.lua` (lower-cased, forward slashes).
+    // `\script\a\b.lua` -> `<root>/script/a/b.lua` (lower-cased, forward slashes, UTF-8).
     static std::string resolve(const std::string& root, const std::string& game_path);
+    // The on-disk path of a resolved UTF-8 path.  The old data names its folders in GBK; on Windows
+    // those bytes sit in the file system through the ANSI code page, so the UTF-8 path is turned
+    // back into GBK bytes and handed to the narrow (ANSI) path constructor.
+    static std::filesystem::path os_path(const std::string& resolved_utf8);
 
 private:
     bool run_file(const std::string& path, const char* what);

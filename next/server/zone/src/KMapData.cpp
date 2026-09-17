@@ -11,8 +11,17 @@
 
 namespace jx::zone {
 
+namespace {
+struct TrapRun {
+    int x, y, n;
+    std::uint32_t id;
+    std::string script;
+};
+} // namespace
+
 std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::string* error)
 {
+    std::vector<TrapRun> traps;
     auto fail = [&](const std::string& msg) {
         if (error) *error = msg;
         return std::nullopt;
@@ -34,6 +43,7 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
         m.cells_y = j.value("cells_y", 0);
         m.scene_w = j.value("scene_w", 0);
         m.scene_h = j.value("scene_h", 0);
+        m.origin = Pos{j.value("region_left", 0) * j.value("region_w", 512), j.value("region_top", 0) * j.value("region_h", 1024)};
         if (j.contains("spawn") && j["spawn"].is_array() && j["spawn"].size() == 2) {
             m.spawn = Pos{j["spawn"][0].get<int>(), j["spawn"][1].get<int>()};
         }
@@ -52,6 +62,10 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
             p.script = n.value("script", "");
             m.npcs.push_back(std::move(p));
         }
+        // the trap runs (KRegion::LoadServerTrap) go into the per-cell grid once the size is known
+        for (const auto& t : j.value("traps", nlohmann::json::array())) {
+            traps.push_back({t.value("x", 0), t.value("y", 0), t.value("n", 0), t.value("id", 0u), t.value("script", "")});
+        }
     } catch (const std::exception& e) {
         return fail(std::string("map.json fields: ") + e.what());
     }
@@ -63,6 +77,8 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
     if (m.obstacle.size() != expected) {
         return fail("obstacle.bin: size " + std::to_string(m.obstacle.size()) + " != " + std::to_string(expected));
     }
+    // the trap grid needs the cell grid: only now (KRegion::LoadServerTrap after the obstacle table)
+    for (const TrapRun& t : traps) m.set_trap(t.x, t.y, t.n, t.id, t.script);
     if (m.scene_w == 0) m.scene_w = m.cells_x * m.cell;
     if (m.scene_h == 0) m.scene_h = m.cells_y * m.cell;
     std::size_t blocked = 0;
@@ -84,6 +100,16 @@ KMapData KMapData::synthetic(int cells_x, int cells_y, int cell)
     m.obstacle.assign(static_cast<std::size_t>(cells_x) * static_cast<std::size_t>(cells_y), 0);
     m.spawn = m.cell_center(cells_x / 2, cells_y / 2);
     return m;
+}
+
+void KMapData::set_trap(int cx, int cy, int n, std::uint32_t trap_id, const std::string& script)
+{
+    if (trap.size() != obstacle.size()) trap.assign(obstacle.size(), 0);
+    for (int i = 0; i < n; ++i) {
+        if (!in_bounds(cx + i, cy)) continue;
+        trap[static_cast<std::size_t>(cy) * static_cast<std::size_t>(cells_x) + static_cast<std::size_t>(cx + i)] = trap_id;
+    }
+    if (trap_id != 0 && (!trap_scripts.contains(trap_id) || trap_scripts[trap_id].empty())) trap_scripts[trap_id] = script;
 }
 
 void KMapData::set_blocked(int cx, int cy, std::uint8_t kind)

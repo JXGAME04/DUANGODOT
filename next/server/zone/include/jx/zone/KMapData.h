@@ -1,12 +1,13 @@
 // Map bundle produced by jxassets export-map: map.json + obstacle.bin.
-// The zone only needs the walkability grid (32x32 scene-unit cells), the spawn point and the
-// npc placements; the client uses the same bundle for drawing.
+// The zone only needs the walkability grid (32x32 scene-unit cells), the spawn point, the npc
+// placements and the trap cells; the client uses the same bundle for drawing.
 #pragma once
 
 #include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "jx/zone/KRegion.h"
@@ -40,8 +41,14 @@ public:
     int cells_x = 0, cells_y = 0;
     int scene_w = 0, scene_h = 0;
     Pos spawn;
+    // where the bundle sits on the old world's region grid (region_left * 512, region_top * 1024):
+    // scripts and the old server speak absolute Mps coordinates, the bundle is local to this corner
+    Pos origin;
     std::vector<std::uint8_t> obstacle;   // cells_x * cells_y, row major, 0 = walkable
     std::vector<KNpcPlacement> npcs;
+    // KRegion::m_dwTrap: the trap script id of every cell (0 = none), and the script each id names
+    std::vector<std::uint32_t> trap;
+    std::unordered_map<std::uint32_t, std::string> trap_scripts;   // id -> `\script\...lua` ("" = unknown)
 
     [[nodiscard]] bool in_bounds(int cx, int cy) const noexcept
     {
@@ -57,6 +64,20 @@ public:
     {
         return Pos{cx * cell + cell / 2, cy * cell + cell / 2};
     }
+    // KRegion::GetTrap / KSubWorld::GetTrap: the trap script id under a position (0 = none).
+    [[nodiscard]] std::uint32_t trap_at(Pos p) const noexcept
+    {
+        const int cx = p.x / cell, cy = p.y / cell;
+        if (!in_bounds(cx, cy) || trap.empty()) return 0;
+        return trap[static_cast<std::size_t>(cy) * static_cast<std::size_t>(cells_x) + static_cast<std::size_t>(cx)];
+    }
+    [[nodiscard]] std::string trap_script(std::uint32_t trap_id) const
+    {
+        const auto it = trap_scripts.find(trap_id);
+        return it == trap_scripts.end() ? std::string{} : it->second;
+    }
+    // Marks n cells from (cx, cy) rightwards with a trap (KRegion::LoadServerTrap: one KSPTrap run).
+    void set_trap(int cx, int cy, int n, std::uint32_t trap_id, const std::string& script);
     // Closest walkable position to p (p itself when walkable); p when nothing within max_radius cells.
     [[nodiscard]] Pos nearest_walkable(Pos p, int max_radius = 16) const noexcept;
     // True when every cell crossed by the segment a-b is walkable.

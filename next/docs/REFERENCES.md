@@ -21,7 +21,8 @@ ngược tính năng từ bản Linux, 13 bẫy), `BANGIAO_CANH_VLTK2_1009.md` (
 {
   "client": "C:\\Users\\<you>\\Level Up Games\\Vo Lam Truyen Ky 2.0",
   "client_fallback": "D:\\<repo>\\bin\\Client",
-  "server": "D:\\ServerLinux\\server1"
+  "server": "D:\\ServerLinux\\server1",
+  "server_fallback": "D:\\<repo>\\bin\\Server"
 }
 ```
 
@@ -29,6 +30,10 @@ ngược tính năng từ bản Linux, 13 bẫy), `BANGIAO_CANH_VLTK2_1009.md` (
 - `jxassets` nhận thư mục client có `package.ini` **hoặc** `config.ini` (2.0); `-client "a;b"` là **chuỗi dự phòng**:
   `a` là bản chuẩn, `b` chỉ phục vụ file mà `a` **không có**, và cuối mỗi lệnh xuất log
   `files served by the fallback client folder(s)` liệt kê đúng những file đó (`-log-level debug` in đủ).
+- `server_fallback`: chuỗi server `-server "a;b"` như client — pak region lấy từ thư mục đầu có `package.ini`, file thường
+  (`Settings/npcs.txt`, `skills.txt`, `replacename`) và **script** (`script/`) tra lần lượt. Bản Linux không có script theo
+  map (`script\西北南区\凤翔\连接trap\*.lua` chỉ có ở `bin/Server`) → cổng/bẫy cần nó. Zone nhận cùng chuỗi qua
+  `JX_ZONE__SCRIPT_ROOT` (`KScriptCache` nhiều gốc).
 - Không có file cấu hình → như cũ: `../bin/Client`, `../bin/Server` (hoặc `JX_OLD_CLIENT`, `JX_OLD_SERVER`).
 
 ## 2. Những gì client 2.0 **không có** (lấy từ client dự án qua chuỗi dự phòng)

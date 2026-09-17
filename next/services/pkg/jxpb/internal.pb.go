@@ -242,6 +242,9 @@ type SessionOpenAck struct {
 	Result        Result                 `protobuf:"varint,2,opt,name=result,proto3,enum=jx.pb.Result" json:"result,omitempty"`
 	EntityId      uint64                 `protobuf:"varint,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	Pos           *Vec2                  `protobuf:"bytes,4,opt,name=pos,proto3" json:"pos,omitempty"`
+	MapId         uint32                 `protobuf:"varint,5,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"` // the map the player spawned in (a zone hosts several)
+	SceneW        uint32                 `protobuf:"varint,6,opt,name=scene_w,json=sceneW,proto3" json:"scene_w,omitempty"`
+	SceneH        uint32                 `protobuf:"varint,7,opt,name=scene_h,json=sceneH,proto3" json:"scene_h,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -302,6 +305,27 @@ func (x *SessionOpenAck) GetPos() *Vec2 {
 		return x.Pos
 	}
 	return nil
+}
+
+func (x *SessionOpenAck) GetMapId() uint32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
+}
+
+func (x *SessionOpenAck) GetSceneW() uint32 {
+	if x != nil {
+		return x.SceneW
+	}
+	return 0
+}
+
+func (x *SessionOpenAck) GetSceneH() uint32 {
+	if x != nil {
+		return x.SceneH
+	}
+	return 0
 }
 
 type SessionClose struct {
@@ -645,12 +669,15 @@ const file_jx_internal_proto_rawDesc = "" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x02 \x01(\x04R\taccountId\x12#\n" +
-	"\x04role\x18\x03 \x01(\v2\x0f.jx.pb.RoleDataR\x04role\"\x85\x01\n" +
+	"\x04role\x18\x03 \x01(\v2\x0f.jx.pb.RoleDataR\x04role\"\xce\x01\n" +
 	"\x0eSessionOpenAck\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12%\n" +
 	"\x06result\x18\x02 \x01(\x0e2\r.jx.pb.ResultR\x06result\x12\x1b\n" +
 	"\tentity_id\x18\x03 \x01(\x04R\bentityId\x12\x1d\n" +
-	"\x03pos\x18\x04 \x01(\v2\v.jx.pb.Vec2R\x03pos\"8\n" +
+	"\x03pos\x18\x04 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x15\n" +
+	"\x06map_id\x18\x05 \x01(\rR\x05mapId\x12\x17\n" +
+	"\ascene_w\x18\x06 \x01(\rR\x06sceneW\x12\x17\n" +
+	"\ascene_h\x18\a \x01(\rR\x06sceneH\"8\n" +
 	"\fSessionClose\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\rR\x06reason\"Q\n" +

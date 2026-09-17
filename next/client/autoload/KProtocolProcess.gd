@@ -15,6 +15,7 @@ signal entity_spawn(entities: Array)
 signal entity_despawn(ids: Array)
 signal entity_move(mv: Dictionary)
 signal entity_action(a: Dictionary)
+signal map_changed(info: Dictionary)   # the zone moved us to another map bundle
 signal entity_life(l: Dictionary)
 signal chat_msg(msg: Dictionary)
 signal kicked(reason: int, text: String)
@@ -260,6 +261,20 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				_set_state("lobby")
 				Log.warn("world", "enter failed", {"result": res.get_result()})
 				enter_failed.emit(res.get_result())
+
+		Proto.MsgId.G2C_CHANGE_MAP:
+			var cm := Proto.ChangeMap.new()
+			if not _decode(cm, payload):
+				return
+			map_id = cm.get_map_id()
+			scene_w = cm.get_scene_w()
+			scene_h = cm.get_scene_h()
+			entity_id = cm.get_entity_id()
+			entities = {}
+			var cinfo := {"map_id": map_id, "scene_w": scene_w, "scene_h": scene_h, "entity_id": entity_id,
+				"x": cm.get_pos().get_x(), "y": cm.get_pos().get_y()}
+			Log.info("world", "map changed", cinfo)
+			map_changed.emit(cinfo)
 
 		Proto.MsgId.G2C_ENTITY_SPAWN:
 			var m := Proto.EntitySpawn.new()

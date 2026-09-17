@@ -168,6 +168,17 @@ message ChatReq {
   string text = 1;
 }
 
+// The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
+// The client drops every entity, loads the bundle and waits for the EntitySpawn of the new
+// surroundings (which includes the player itself).
+message ChangeMap {
+  uint32 map_id = 1;
+  Vec2 pos = 2;
+  uint32 scene_w = 3;
+  uint32 scene_h = 4;
+  uint64 entity_id = 5;          // the player's entity in the new map
+}
+
 message ChatMsg {
   uint64 entity_id = 1;
   string name = 2;

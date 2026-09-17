@@ -45,6 +45,13 @@ struct KSubWorldConfig {
     std::shared_ptr<KScriptCache> scripts;              // the old server folder with script\ (level scripts); optional
 };
 
+// A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
+struct KWorldChange {
+    std::uint64_t sid = 0;
+    std::uint32_t map_id = 0;
+    Pos pos;
+};
+
 // One outgoing message for a set of sessions (fan-out happens at the gateway).
 struct Packet {
     std::vector<std::uint64_t> sids;
@@ -58,7 +65,8 @@ public:
 
     [[nodiscard]] const KSubWorldConfig& config() const noexcept { return cfg_; }
 
-    pb::Result spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out);
+    // at: where to put the player instead of the saved / spawn position (a map change)
+    pb::Result spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out, const Pos* at = nullptr);
     bool remove_player(std::uint64_t sid);
     bool move_request(std::uint64_t sid, Pos target, std::uint32_t seq);
     bool attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq);
@@ -77,6 +85,16 @@ public:
     bool teleport(EntityId id, Pos p);
     // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.
     bool set_ai_mode(EntityId id, int mode);
+    // KNpc::SetPos: a jump within this map (the SetPos of the scripts), then DoStand.
+    bool set_pos(EntityId id, Pos p);
+    // KNpc::ChangeWorld from a script: the same map is a SetPos (1); another map is queued for
+    // KGameServer (1); 0 = failed.  Only players change worlds.
+    int change_world_request(KNpc& player, std::uint32_t map_id, Pos pos);
+    std::vector<KWorldChange> take_world_changes();
+    // Msg2Player: one line in the player's chat window.
+    void msg_to_player(std::uint64_t sid, std::string_view text);
+    // KPlayer::ExecuteScript: runs fn(param) of the script (a game path) for the player.
+    bool execute_script(const std::string& game_path, const char* fn, KNpc& player, int param = 0);
 
     void tick();
     [[nodiscard]] std::uint64_t tick_count() const noexcept { return tick_; }
@@ -92,6 +110,10 @@ public:
     [[nodiscard]] int relation(const KNpc& a, const KNpc& b) const noexcept;
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
+    // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
+    // against this map's local ones (bundle relative).
+    [[nodiscard]] Pos to_local(Pos absolute) const noexcept;
+    [[nodiscard]] Pos to_absolute(Pos local) const noexcept;
     [[nodiscard]] const KMapData* map() const noexcept { return cfg_.map.get(); }
     [[nodiscard]] std::uint32_t map_id() const noexcept { return cfg_.map ? static_cast<std::uint32_t>(cfg_.map->id) : 0u; }
 
@@ -117,6 +139,7 @@ private:
     void approach(KNpc& e, const KNpc& target);
     void hit(KNpc& attacker, KNpc& target);
     bool check_hit_target(int ar, int df, int ignore = 0);   // KNpc::CheckHitTarget
+    void check_trap(KNpc& e);                                // KNpc::CheckTrap (players, every frame with m_ProcessAI)
     void process_state(KNpc& e);                            // KNpc::ProcessState: natural life regeneration
     // KNpc::Init -> g_pNpcTemplate[id][level]: the level data of a template, computed once per (id, level, series)
     [[nodiscard]] const KNpcLevelData& level_data_of(const KNpcTemplate& t, int level, int series) const;
@@ -148,6 +171,8 @@ private:
     std::vector<EntityId> scratch_ids_, scratch_entered_, scratch_left_;
     std::vector<std::uint64_t> scratch_sids_;
     mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
+    std::vector<KWorldChange> world_changes_;
+    std::unordered_map<std::uint32_t, bool> trap_warned_;   // trap ids without a script, warned once
 };
 
 } // namespace jx::zone

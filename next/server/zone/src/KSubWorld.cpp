@@ -6,6 +6,7 @@
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
 #include "jx/zone/KNpcAI.h"
+#include "jx/zone/ScriptFuns.h"
 
 namespace jx::zone {
 namespace {
@@ -68,6 +69,18 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
             log::info("zone", "map npcs placed", {log::kv("count", cfg_.map->npcs.size())});
         }
     }
+}
+
+Pos KSubWorld::to_local(Pos absolute) const noexcept
+{
+    const Pos o = cfg_.map ? cfg_.map->origin : Pos{};
+    return Pos{absolute.x - o.x, absolute.y - o.y};
+}
+
+Pos KSubWorld::to_absolute(Pos local) const noexcept
+{
+    const Pos o = cfg_.map ? cfg_.map->origin : Pos{};
+    return Pos{local.x + o.x, local.y + o.y};
 }
 
 Pos KSubWorld::clamp(Pos p) const noexcept
@@ -153,7 +166,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     }
 }
 
-pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out)
+pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out, const Pos* at)
 {
     if (sid == 0) return pb::RESULT_BAD_REQUEST;
     if (players_.contains(sid)) return pb::RESULT_WRONG_STATE;
@@ -190,7 +203,10 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.max_damage = 10;
 
     Pos start = cfg_.spawn_point;
-    if (role.has_position() && role.position().zone_id() == cfg_.zone_id && role.position().has_pos()) {
+    if (at != nullptr) {
+        start = clamp(*at);
+    } else if (role.has_position() && role.position().zone_id() == cfg_.zone_id && role.position().has_pos() &&
+               (role.position().map_id() == 0 || role.position().map_id() == map_id())) {
         start = clamp(Pos{role.position().pos().x(), role.position().pos().y()});
     }
     if (cfg_.map) start = cfg_.map->nearest_walkable(start);
@@ -418,6 +434,8 @@ void KSubWorld::tick()
         // while m_ProcessAI, then the command / status of the frame
         ++e.loop_frames;
         if (e.loop_frames % kGameUpdateTime == 0) process_state(e);
+        // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
+        if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
         if (e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
         update_action(e);
         if (e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
@@ -915,6 +933,77 @@ void KSubWorld::revive(KNpc& e)
     log::debug("zone.fight", "revived", {log::kv("entity", e.id)});
 }
 
+// KNpc::CheckTrap: the trap under the player fires once when stepped on (m_TrapScriptID keeps
+// the current one; leaving it resets, so the same trap can fire again later).
+void KSubWorld::check_trap(KNpc& e)
+{
+    if (!cfg_.map) return;
+    const std::uint32_t id = cfg_.map->trap_at(e.pos());
+    if (e.trap_script_id == id) return;
+    e.trap_script_id = id;
+    if (id == 0) return;
+    const std::string& script = cfg_.map->trap_script(id);
+    if (script.empty() || !cfg_.scripts) {
+        if (!trap_warned_[id]) {
+            trap_warned_[id] = true;
+            log::warn("zone.trap", "trap without a script", {log::kv("map", map_id()), log::kv("trap", id), log::kv("x", e.pos().x), log::kv("y", e.pos().y),
+                                                              log::kv("scripts", static_cast<bool>(cfg_.scripts))});
+        }
+        return;
+    }
+    log::debug("zone.trap", "trap", {log::kv("entity", e.id), log::kv("trap", id), log::kv("script", script)});
+    execute_script(script, "main", e, 0);   // Player.ExecuteScript(m_TrapScriptID, "main", 0)
+}
+
+bool KSubWorld::execute_script(const std::string& game_path, const char* fn, KNpc& player, int param)
+{
+    if (!cfg_.scripts) return false;
+    KLuaScript* script = cfg_.scripts->get(game_path);
+    if (script == nullptr) return false;
+    KScriptContext& ctx = g_ScriptContext();
+    const KScriptContext saved = ctx;
+    ctx.world = this;
+    ctx.player = &player;
+    ctx.sid = player.sid;
+    const bool ok = script->call_number(fn, {static_cast<double>(param)}).has_value() || script->has_function(fn);
+    ctx = saved;
+    if (!ok) log::warn("zone.trap", "script function missing", {log::kv("script", game_path), log::kv("function", fn)});
+    return ok;
+}
+
+bool KSubWorld::set_pos(EntityId id, Pos p)
+{
+    if (!teleport(id, p)) return false;
+    KNpc* e = find_mutable(id);
+    if (e->doing == KDoing::attack) do_stand(*e);   // DoStand(); m_ProcessAI = 1
+    return true;
+}
+
+int KSubWorld::change_world_request(KNpc& player, std::uint32_t target_map, Pos pos)
+{
+    if (player.kind != KNpcKind::player) return 0;
+    if (target_map == map_id()) return set_pos(player.id, to_local(pos)) ? 1 : 0;   // 切换的世界就是本身: 只需切换座标
+    log::info("zone.trap", "world change requested", {log::kv("entity", player.id), log::kv("from", map_id()), log::kv("to", target_map),
+                                                       log::kv("x", pos.x), log::kv("y", pos.y)});
+    world_changes_.push_back(KWorldChange{player.sid, target_map, pos});   // absolute Mps: the target converts
+    return 1;
+}
+
+std::vector<KWorldChange> KSubWorld::take_world_changes()
+{
+    std::vector<KWorldChange> out;
+    out.swap(world_changes_);
+    return out;
+}
+
+void KSubWorld::msg_to_player(std::uint64_t sid, std::string_view text)
+{
+    if (!players_.contains(sid)) return;
+    pb::ChatMsg msg;
+    msg.set_text(std::string(text));
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
+}
+
 void KSubWorld::broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg)
 {
     scratch_sids_.clear();
@@ -954,6 +1043,7 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
     out = rit->second;
     if (const KNpc* e = find_player(sid)) {
         out.mutable_position()->set_zone_id(cfg_.zone_id);
+        out.mutable_position()->set_map_id(map_id());
         set_vec(out.mutable_position()->mutable_pos(), e->pos());
         out.set_level(e->level);
     }

@@ -80,6 +80,16 @@ Z  → G → C*  G2C_ENTITY_DESPAWN ... G2C_ENTITY_SPAWN           xác biến m
 `EntityInfo.life/life_max/doing/doing_frames` để người vào sau thấy đúng trạng thái. Nhịp khung và luật xem
 `NPCRES.md` mục 4.
 
+### Đổi map (bẫy `NewWorld`)
+
+```text
+Z  → G → C*  G2C_ENTITY_DESPAWN                     người xung quanh map cũ thấy biến mất
+Z  → G → C   G2C_CHANGE_MAP{map_id, pos, scene_w, scene_h, entity_id}   client xoá mọi entity, nạp bundle map mới
+Z  → G → C   G2C_ENTITY_SPAWN                       vùng nhìn mới (có cả chính mình)
+```
+
+`SessionOpenAck`/`RolePosition` mang `map_id` để người vào lại đúng map đã lưu (`EnterWorldRes.map_id` lấy từ ack khi ≠ 0).
+
 ## 4. Phiên bản
 
 - `PROTOCOL_VERSION` (enum trong `msg.proto`) tăng khi thay đổi **không tương thích** (đổi khung

@@ -27,8 +27,9 @@ const (
 
 type RolePosition struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ZoneId        uint32                 `protobuf:"varint,1,opt,name=zone_id,json=zoneId,proto3" json:"zone_id,omitempty"` // logical zone/map id
+	ZoneId        uint32                 `protobuf:"varint,1,opt,name=zone_id,json=zoneId,proto3" json:"zone_id,omitempty"` // logical zone id
 	Pos           *Vec2                  `protobuf:"bytes,2,opt,name=pos,proto3" json:"pos,omitempty"`
+	MapId         uint32                 `protobuf:"varint,3,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"` // map bundle within the zone (0 = the zone's default map)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -75,6 +76,13 @@ func (x *RolePosition) GetPos() *Vec2 {
 		return x.Pos
 	}
 	return nil
+}
+
+func (x *RolePosition) GetMapId() uint32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
 }
 
 type RoleStats struct {
@@ -437,10 +445,11 @@ var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
 	"\n" +
-	"\rjx/role.proto\x12\x05jx.pb\x1a\x0fjx/common.proto\"F\n" +
+	"\rjx/role.proto\x12\x05jx.pb\x1a\x0fjx/common.proto\"]\n" +
 	"\fRolePosition\x12\x17\n" +
 	"\azone_id\x18\x01 \x01(\rR\x06zoneId\x12\x1d\n" +
-	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\"\xa1\x02\n" +
+	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x15\n" +
+	"\x06map_id\x18\x03 \x01(\rR\x05mapId\"\xa1\x02\n" +
 	"\tRoleStats\x12\x0e\n" +
 	"\x02hp\x18\x01 \x01(\x05R\x02hp\x12\x15\n" +
 	"\x06hp_max\x18\x02 \x01(\x05R\x05hpMax\x12\x0e\n" +

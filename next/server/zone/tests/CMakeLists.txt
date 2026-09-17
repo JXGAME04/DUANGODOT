@@ -9,6 +9,7 @@ add_executable(jx_zone_tests
     test_KMath.cpp
     test_KNpcAI.cpp
     test_KLuaScript.cpp
+    test_KTrap.cpp
 )
 target_link_libraries(jx_zone_tests PRIVATE jx::zone_core Catch2::Catch2WithMain jx_warnings)
 catch_discover_tests(jx_zone_tests)

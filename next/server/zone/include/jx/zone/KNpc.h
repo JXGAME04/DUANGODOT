@@ -96,6 +96,9 @@ struct KNpc {
     KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4]
     int walk_speed = 5;               // m_WalkSpeed: scene units per frame (KNpc::ServeMove)
     int run_speed = 10;
+    // players: KPlayer / trap state
+    bool fight_mode = false;          // m_FightMode (SetFightState of the gate scripts)
+    std::uint32_t trap_script_id = 0; // m_TrapScriptID: the trap under the feet, so a trap fires once per entry
 
     [[nodiscard]] bool alive() const noexcept { return doing != KDoing::death && doing != KDoing::revive; }
     // m_ProcessAI: the ai only decides while the npc stands or walks (DoSkill / DoAttack / DoHurt /

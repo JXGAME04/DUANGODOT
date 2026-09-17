@@ -12,6 +12,11 @@ extern "C" {
 }
 
 #include "jx/log.hpp"
+#include "jx/zone/ScriptFuns.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace jx::zone {
 namespace {
@@ -87,6 +92,7 @@ bool KLuaScript::init(const std::string& root)
     lua_setglobal(L_, "Include");
     lua_pushcfunction(L_, l_print);
     lua_setglobal(L_, "print");
+    RegisterGameScriptFuns(L_);   // KLuaScript::RegisterFunctions(GameScriptFuns)
     if (luaL_dostring(L_, kLua4Prelude) != LUA_OK) {
         log::error("lua", "prelude failed", {log::kv("error", lua_tostring(L_, -1))});
         lua_pop(L_, 1);
@@ -106,10 +112,29 @@ std::string KLuaScript::resolve(const std::string& root, const std::string& game
     return (std::filesystem::path(root) / p).generic_string();
 }
 
+std::filesystem::path KLuaScript::os_path(const std::string& resolved_utf8)
+{
+#ifdef _WIN32
+    // UTF-8 -> UTF-16 -> GBK (code page 936); a path that is not GBK-encodable stays as it is
+    const int wlen = MultiByteToWideChar(CP_UTF8, 0, resolved_utf8.data(), static_cast<int>(resolved_utf8.size()), nullptr, 0);
+    if (wlen <= 0) return std::filesystem::path(resolved_utf8);
+    std::wstring wide(static_cast<std::size_t>(wlen), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, resolved_utf8.data(), static_cast<int>(resolved_utf8.size()), wide.data(), wlen);
+    BOOL lost = FALSE;
+    const int glen = WideCharToMultiByte(936, 0, wide.data(), wlen, nullptr, 0, nullptr, &lost);
+    if (glen <= 0 || lost) return std::filesystem::path(wide);
+    std::string gbk(static_cast<std::size_t>(glen), '\0');
+    WideCharToMultiByte(936, 0, wide.data(), wlen, gbk.data(), glen, nullptr, nullptr);
+    return std::filesystem::path(gbk);   // narrow = the ANSI code page: the bytes the folders were created with
+#else
+    return std::filesystem::path(resolved_utf8);
+#endif
+}
+
 bool KLuaScript::run_file(const std::string& path, const char* what)
 {
     if (L_ == nullptr) return false;
-    std::ifstream in(path, std::ios::binary);
+    std::ifstream in(os_path(path), std::ios::binary);
     if (!in) {
         log::warn("lua", "script not found", {log::kv("what", what), log::kv("path", path)});
         return false;

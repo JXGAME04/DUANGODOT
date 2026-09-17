@@ -41,7 +41,7 @@ var (
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
-	flagServer = flag.String("server", "", "old server folder (package.ini + pak/maps.pak) for the server-side region files; default: the Server folder next to the client")
+	flagServer = flag.String("server", "", "old server folder(s) 'a;b' (package.ini + pak/maps.pak, Settings, script): the first with a pak serves the regions, plain files come from the first that has them; default: the Server folder next to the client")
 )
 
 func fail(format string, args ...any) {
@@ -165,7 +165,7 @@ func findServer(clientDir string) string {
 	if env := os.Getenv("JX_OLD_SERVER"); env != "" {
 		return env
 	}
-	cand := filepath.Join(filepath.Dir(filepath.Clean(primaryDir(clientDir))), "Server")
+	cand := filepath.Join(filepath.Dir(filepath.Clean(primaryDir(clientDir))), "Server") // no chain: the folder next to the client
 	if _, err := os.Stat(filepath.Join(cand, "package.ini")); err == nil {
 		return cand
 	}
@@ -181,11 +181,13 @@ func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func()
 	closer := func() {}
 	if sdir == "" {
 		log.Warn("asset", "old server folder not found: map npcs come from the client archive only (pass -server)")
-	} else if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err != nil {
+	} else if s, err := openServerSet(sdir); err != nil {
 		log.Warn("asset", "server archive unavailable", log.F("dir", sdir), log.F("error", err))
 	} else {
 		ex.ServerSet = s
 		closer = s.Close
+		ex.ScriptNames = scriptIndex(sdir)
+		log.Info("asset", "script index for the traps", log.F("scripts", len(ex.ScriptNames)))
 		if data, p, err := readServerFile(sdir, npcres.ReplaceNameFile, npcres.ReplaceNameFileLang); err == nil {
 			ex.ReplaceNames = npcres.ParseReplaceNames(data)
 			log.Info("asset", "npc names replaced through", log.F("file", p))
@@ -200,7 +202,7 @@ func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func()
 				return v
 			}
 			frames := 0
-			if id > 0 && id < len(ex.Templates) {
+			if id >= 0 && id < len(ex.Templates) {
 				if node, err := list.Node(ex.Templates[id].ResType); err == nil && !node.Special && npcres.DoStand < len(node.Actions) {
 					frames = node.Actions[npcres.DoStand].Frames
 				}
@@ -218,19 +220,59 @@ func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func()
 // get their in-game names.
 // loadTemplates reads npcs.txt: the old server's plain Settings/npcs.txt when a server folder is
 // known (the table the live server ran with), else the client's copy inside the archives.
-// readServerFile reads the first of the candidate files (game paths with backslashes) under
-// the old server folder.
+// serverRoots splits the -server chain "a;b" (the Linux server first, the project server as
+// the fallback for what it lacks, e.g. the per-map trap scripts).
+func serverRoots(serverDir string) []string {
+	var out []string
+	for _, r := range strings.Split(serverDir, ";") {
+		if r = strings.TrimSpace(r); r != "" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// openServerSet opens the region archive of the first root that has a package.ini.
+func openServerSet(serverDir string) (*pak.Set, error) {
+	var last error = fmt.Errorf("no server folder")
+	for _, r := range serverRoots(serverDir) {
+		if s, err := pak.OpenSet(filepath.Join(r, "package.ini")); err == nil {
+			return s, nil
+		} else {
+			last = err
+		}
+	}
+	return nil, last
+}
+
+// readServerFile reads the first of the candidate files (game paths with backslashes) found
+// under the old server folder chain.
 func readServerFile(serverDir string, candidates ...string) ([]byte, string, error) {
 	var last error
-	for _, c := range candidates {
-		p := filepath.Join(serverDir, filepath.FromSlash(strings.ReplaceAll(c, `\`, "/")))
-		data, err := os.ReadFile(p)
-		if err == nil {
-			return data, p, nil
+	for _, root := range serverRoots(serverDir) {
+		for _, c := range candidates {
+			p := filepath.Join(root, filepath.FromSlash(strings.ReplaceAll(c, `\`, "/")))
+			data, err := os.ReadFile(p)
+			if err == nil {
+				return data, p, nil
+			}
+			last = err
 		}
-		last = err
 	}
 	return nil, "", last
+}
+
+// scriptIndex maps g_FileName2Id -> script path over the script folders of the chain (first wins).
+func scriptIndex(serverDir string) map[uint32]string {
+	out := map[uint32]string{}
+	for _, root := range serverRoots(serverDir) {
+		for id, name := range npcres.ScriptIndex(filepath.Join(root, "script")) {
+			if _, dup := out[id]; !dup {
+				out[id] = name
+			}
+		}
+	}
+	return out
 }
 
 // loadTemplates reads npcs.txt.  With a server folder the server's plain Settings/npcs.txt rules
@@ -524,7 +566,7 @@ func main() {
 		var placed []int
 		var server *pak.Set
 		if sdir := findServer(dir); sdir != "" {
-			if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err == nil {
+			if s, err := openServerSet(sdir); err == nil {
 				server = s
 				defer server.Close()
 			}
@@ -581,6 +623,49 @@ func main() {
 		reportFallback(set)
 		fmt.Printf("npcres: %d resources for %d placed npcs (%d templates), sprites exported %d\nwritten to %s\n",
 			n, len(placed), len(templates), e.Exported, filepath.Join(*flagOut, "npcres"))
+	case "traps":
+		// traps <mapid|gamepath>: the trap cells of the server region files (Region_S.dat, KRegion::LoadServerTrap)
+		// and the script each id resolves to under <server>/script (g_FileName2Id of the game path)
+		if len(args) < 2 {
+			fail("traps <mapid|gamepath>")
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		p, _ := mapPath(dir, set, args[1])
+		w, err := wor.LoadWorld(set, p)
+		if err != nil {
+			fail("%v", err)
+		}
+		sdir := findServer(dir)
+		if sdir == "" {
+			fail("traps need the old server folder (-server)")
+		}
+		server, err := openServerSet(sdir)
+		if err != nil {
+			fail("server archive: %v", err)
+		}
+		defer server.Close()
+		names := scriptIndex(sdir)
+		fmt.Printf("script files indexed: %d\n", len(names))
+		total, known := 0, 0
+		for y := w.Top; y <= w.Bottom; y++ {
+			for x := w.Left; x <= w.Right; x++ {
+				sr, err := wor.LoadServerRegion(server, w, x, y)
+				if err != nil {
+					fail("server region %d,%d: %v", x, y, err)
+				}
+				for _, t := range sr.Traps {
+					total++
+					name := names[t.TrapID]
+					if name != "" {
+						known++
+					}
+					fmt.Printf("region %d,%d cell %d,%d n=%d id %08x %s\n", x, y, t.X, t.Y, t.NumCell, t.TrapID, text.GBKToUTF8([]byte(name)))
+				}
+			}
+		}
+		fmt.Printf("traps: %d runs, %d with a known script\n", total, known)
 	case "npcs":
 		// npcs <mapid|gamepath> [x y]: npc placements of a map (or one region) from the server
 		// archive (Npc_S: the real npcs) and the client archive (Npc_C: client-only extras)
@@ -598,7 +683,7 @@ func main() {
 		}
 		var server *pak.Set
 		if sdir := findServer(dir); sdir != "" {
-			if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err == nil {
+			if s, err := openServerSet(sdir); err == nil {
 				server = s
 				defer server.Close()
 			} else {

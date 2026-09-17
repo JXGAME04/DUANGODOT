@@ -26,35 +26,14 @@ var _scene_h := 8192
 func _ready() -> void:
 	_camera = $Camera
 	_camera.zoom = Vector2(_zoom, _zoom)
-	_scene_w = Game.scene_w if Game.scene_w > 0 else 8192
-	_scene_h = Game.scene_h if Game.scene_h > 0 else 8192
-
 	_map = Node2D.new()
 	_map.set_script(ScenePlaceScript)
 	_map.name = "Map"
 	add_child(_map)
-	var has_map: bool = Game.map_id > 0 and Assets.has_map(Game.map_id) and bool(_map.load_map(Game.map_id))
-	if has_map:
-		_entity_layer = _map.objects   # ordered by the old sorting tree, see KScenePlaceC
-	else:
-		_grid = Node2D.new()
-		_grid.name = "Grid"
-		_grid.set_script(preload("res://scenes/KSceneGrid.gd"))
-		_grid.size = Vector2(_scene_w, _scene_h * 0.5)
-		add_child(_grid)
-		_entity_layer = Node2D.new()
-		_entity_layer.y_sort_enabled = true
-		_entity_layer.z_index = 1
-		add_child(_entity_layer)
-		if Game.map_id > 0:
-			Log.warn("map", "map bundle missing, drawing grid", {"map_id": Game.map_id, "dir": Assets.assets_root()})
-
-	_camera.limit_left = 0
-	_camera.limit_top = 0
-	_camera.limit_right = maxi(_scene_w, 1280)
-	_camera.limit_bottom = maxi(int(_scene_h / 2), 720)
+	var has_map := _setup_map()
 
 	_build_hud()
+	Game.map_changed.connect(_on_map_changed)
 	Game.entity_spawn.connect(_on_spawn)
 	Game.entity_despawn.connect(_on_despawn)
 	Game.entity_move.connect(_on_move)
@@ -100,6 +79,56 @@ func _build_hud() -> void:
 	_chat_input.placeholder_text = "Chat (Enter)"
 	_chat_input.text_submitted.connect(_on_chat_submitted)
 	chat_box.add_child(_chat_input)
+
+
+# Loads the map bundle of Game.map_id (or the plain grid) and sizes the camera; called on entering
+# the world and again after a ChangeMap.
+func _setup_map() -> bool:
+	_scene_w = Game.scene_w if Game.scene_w > 0 else 8192
+	_scene_h = Game.scene_h if Game.scene_h > 0 else 8192
+	if _grid != null:
+		_grid.queue_free()
+		_grid = null
+	if _entity_layer != null and _entity_layer != _map.objects and is_instance_valid(_entity_layer):
+		_entity_layer.queue_free()
+	_entity_layer = null
+	var has_map: bool = Game.map_id > 0 and Assets.has_map(Game.map_id) and bool(_map.load_map(Game.map_id))
+	if has_map:
+		_entity_layer = _map.objects   # ordered by the old sorting tree, see KScenePlaceC
+	else:
+		_map.clear()
+		_grid = Node2D.new()
+		_grid.name = "Grid"
+		_grid.set_script(preload("res://scenes/KSceneGrid.gd"))
+		_grid.size = Vector2(_scene_w, _scene_h * 0.5)
+		add_child(_grid)
+		_entity_layer = Node2D.new()
+		_entity_layer.y_sort_enabled = true
+		_entity_layer.z_index = 1
+		add_child(_entity_layer)
+		if Game.map_id > 0:
+			Log.warn("map", "map bundle missing, drawing grid", {"map_id": Game.map_id, "dir": Assets.assets_root()})
+	_camera.limit_left = 0
+	_camera.limit_top = 0
+	_camera.limit_right = maxi(_scene_w, 1280)
+	_camera.limit_bottom = maxi(int(_scene_h / 2), 720)
+	return has_map
+
+
+# G2C_CHANGE_MAP: drop every entity, load the new bundle; the zone's EntitySpawn (with ourselves)
+# follows right after (KNpc::ChangeWorld -> SendSyncData of the old server).
+func _on_map_changed(info: Dictionary) -> void:
+	_select_target(null)
+	for id in _entities.keys():
+		var node: Node2D = _entities[id]
+		if _map.map_id > 0:
+			_map.remove_entity(node)
+		node.queue_free()
+	_entities.clear()
+	var has_map := _setup_map()
+	_camera.position = Vector2(float(info.get("x", 0)), float(info.get("y", 0)) * 0.5)
+	_append_chat("[color=gray]Sang %s (map %d).[/color]" % [_map.info.get("name", "?") if has_map else "map", Game.map_id])
+	Log.info("ui", "map changed", {"map": Game.map_id, "bundle": has_map, "x": info.get("x", 0), "y": info.get("y", 0)})
 
 
 func _own() -> Node2D:

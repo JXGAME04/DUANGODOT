@@ -33,10 +33,10 @@ func TestParseTemplatesReadsTheServerSideColumns(t *testing.T) {
 	hdr := "Name\tKind\tCamp\tSeries\tNpcResType\tSkill1\tLevel1\tSkill2\tLevel2\tSkill3\tLevel3\tSkill4\tLevel4\tWalkSpeed\tRunSpeed\tAttackSpeed\tCastSpeed\tVisionRadius\tActiveRadius\tAIMode\tAIParam1\tAIParam2\tAIParam3\tAIParam4\tAIParam5\tAIParam6\tAIParam7\tAIParam8\tAIParam9\tAIMaxTime\n"
 	row := "Heo rung\t0\t5\t0\tani018\t53\t1|0\t197\t0|10\t\t\t53\t\t6\t7\t18\t20\t400\t700\t4\t80\t60\t20\t0\t0\t20\t0\t0\t0\t36\n"
 	ts := ParseTemplates([]byte(hdr + row))
-	if len(ts) != 2 {
+	if len(ts) != 1 {
 		t.Fatalf("templates: %d", len(ts))
 	}
-	tp := ts[1]
+	tp := ts[0] // id 0 = the first data row
 	if tp.Camp != 5 || tp.AIMode != 4 || tp.AIMaxTime != 36 || tp.VisionRadius != 400 || tp.ActiveRadius != 700 {
 		t.Fatalf("ai columns: %+v", tp)
 	}
@@ -62,7 +62,7 @@ func TestParseTemplatesKeepsTheLevelScriptAndItsCells(t *testing.T) {
 	hdr := "Name\tKind\tLevelScript\tLifeParam\tLifeParam1\tLifeReplenish\tSkill1\tLevel1\tFireResist\n"
 	row := "Heo rung\t0\t\\script\\npclevelscript\\Animal.lua\t100\t0.5\t0|0.05\t53\t1|0\t\n"
 	ts := ParseTemplates([]byte(hdr + row))
-	tp := ts[1]
+	tp := ts[0]
 	if tp.LevelScript != "\\script\\npclevelscript\\animal.lua" {
 		t.Fatalf("level script %q (must be lower-cased like the old strlwr)", tp.LevelScript)
 	}

@@ -102,6 +102,7 @@ const (
 	MsgId_G2C_CHAT_MSG        MsgId = 2104
 	MsgId_G2C_ENTITY_ACTION   MsgId = 2105 // attack / hurt / death / revive (old NPC_HURT_SYNC, NPC_DEATH_SYNC, skill sync)
 	MsgId_G2C_ENTITY_LIFE     MsgId = 2106
+	MsgId_G2C_CHANGE_MAP      MsgId = 2107 // the zone moved the player to another map (NewWorld of a trap script)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -141,6 +142,7 @@ var (
 		2104: "G2C_CHAT_MSG",
 		2105: "G2C_ENTITY_ACTION",
 		2106: "G2C_ENTITY_LIFE",
+		2107: "G2C_CHANGE_MAP",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -176,6 +178,7 @@ var (
 		"G2C_CHAT_MSG":        2104,
 		"G2C_ENTITY_ACTION":   2105,
 		"G2C_ENTITY_LIFE":     2106,
+		"G2C_CHANGE_MAP":      2107,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
 		"GZ_SESSION_OPEN":     9003,
@@ -222,7 +225,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xaa\x05\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xbf\x05\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -248,7 +251,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x0fG2C_ENTITY_MOVE\x10\xb7\x10\x12\x11\n" +
 	"\fG2C_CHAT_MSG\x10\xb8\x10\x12\x16\n" +
 	"\x11G2C_ENTITY_ACTION\x10\xb9\x10\x12\x14\n" +
-	"\x0fG2C_ENTITY_LIFE\x10\xba\x10\x12\x12\n" +
+	"\x0fG2C_ENTITY_LIFE\x10\xba\x10\x12\x13\n" +
+	"\x0eG2C_CHANGE_MAP\x10\xbb\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +

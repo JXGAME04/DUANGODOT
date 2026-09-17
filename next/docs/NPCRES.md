@@ -13,6 +13,8 @@ python tools/dev.py assets [map ids]         # export-map + export-npcres cho c�
 jxassets export-npcres 1 -templates 1000,1001 -out client/assets
 ```
 
+**Id template đánh số từ 0** (`KNpcTemplate::InitNpcBaseData`: hàng = id + 2; `KSPNpc::nTemplateID` trong map cũng vậy) —
+sửa 2026-09-17 sau khi lệch 1 làm "Nhím" vẽ thành heo rừng.
 `export-npcres` xuất NPC được đặt trên các map (Npc_S.dat của pak server + Npc_C.dat của client → template id,
 xem MAPS.md mục NPC) + hai nhân vật chính (`MainMan`, `MainLady`) + các template liệt kê ở `-templates`
 (zone dùng 1000..1003 cho NPC test). Chỉ sprite của các

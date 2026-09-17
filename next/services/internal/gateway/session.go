@@ -378,10 +378,14 @@ func (s *session) onZoneAck(ack *jxpb.SessionOpenAck) {
 	s.entityID = ack.EntityId
 	s.mu.Unlock()
 	info := s.srv.zone.info()
+	mapID, sceneW, sceneH := info.MapId, info.SceneW, info.SceneH
+	if ack.MapId != 0 { // a zone with several maps says which one the player landed in
+		mapID, sceneW, sceneH = ack.MapId, ack.SceneW, ack.SceneH
+	}
 	s.setState(stWorld)
 	s.send(jxpb.MsgId_G2C_ENTER_WORLD_RES, &jxpb.EnterWorldRes{
 		Result: jxpb.Result_RESULT_OK, ZoneId: info.ZoneId, ZoneName: info.ZoneName, EntityId: ack.EntityId, Pos: ack.Pos, TickHz: info.TickHz,
-		MapId: info.MapId, SceneW: info.SceneW, SceneH: info.SceneH,
+		MapId: mapID, SceneW: sceneW, SceneH: sceneH,
 	})
 	log.InfoCtx(s.logCtx(), "zone", "entered world", log.F("entity", ack.EntityId), log.F("zone", info.ZoneId))
 }

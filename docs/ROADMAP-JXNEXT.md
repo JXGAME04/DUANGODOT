@@ -229,6 +229,13 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       `EntityAction`/`EntityLife`; nhịp khung như `KNpc::DoAttack/OnSpecial1(60 %)/DoHurt/DoDeath/DoRevive`, tự đi tới mục tiêu,
       tự vung tiếp; client hoạt ảnh Attack1/2, Wound, Die (giữ khung cuối), thanh máu, chọn mục tiêu bằng click; `--auto` tự
       đánh quái (`AUTO_FIGHT`). Sát thương/máu tạm (chờ Lua), quái chưa đánh trả. Chi tiết `next/docs/NPCRES.md` mục 4.
+- [x] **M3e — bẫy/cổng, nhiều map trong một zone (2026-09-17)**: `Region_S.dat` trap → `map.json traps` (id = `g_FileName2Id`
+      của script, tra ngược qua `script/` của chuỗi server), `KNpc::CheckTrap` mỗi tick, script trap chạy qua Lua 5.4 với
+      `ScriptFuns` (`GetFightState/SetFightState/SetPos/NewWorld/GetPos/Msg2Player`), `KGameServer` chứa nhiều `KSubWorld`
+      (`zone.maps`), `G2C_CHANGE_MAP` + `RolePosition.map_id`; client nạp lại bundle. Toạ độ script là Mps tuyệt đối →
+      `KSubWorld::to_local/to_absolute` qua `origin` của `map.json`. Sửa lỗi **id template lệch 1** (đánh số từ
+      0) làm tên/sprite NPC lệch. Map 1 ↔ 3/7/99 đã xuất. Test `test_KTrap.cpp`. Chưa: `Say/Talk` (hộp thoại), `AddStation`,
+      sang server khác, chết/hồi sinh người chơi trong chế độ chiến đấu.
 - [x] **M3d — máu/sát thương/kinh nghiệm thật qua Lua 5.4 (2026-09-17)**: `KLuaScript`/`KScriptCache` (Lua 5.4.8 vcpkg,
       lớp tương thích Lua 4 nên `npclevelscript/*.lua` của server Linux chạy nguyên văn), `KNpcTemplateSet::level_data` =
       `InitNpcLevelData` (Exp/Life/AR/Defense/Min-MaxDamage/LifeReplenish/Resist/Level1..4, cache theo cấp), `CheckHitTarget`,

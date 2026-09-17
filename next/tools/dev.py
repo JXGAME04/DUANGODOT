@@ -255,8 +255,11 @@ def old_client_dir() -> str:
 
 
 def old_server_dir() -> str:
-    """Old server folder (package.ini + pak/maps.pak + Settings/npcs.txt); empty = let jxassets guess."""
-    return os.environ.get("JX_OLD_SERVER") or oldgame_config().get("server", "")
+    """Old server folder chain "a;b" (package.ini + pak/maps.pak, Settings, script): the reference server
+    first, "server_fallback" for what it lacks (the per-map trap scripts); empty = let jxassets guess."""
+    env = os.environ.get("JX_OLD_SERVER") or oldgame_config().get("server", "")
+    fb = oldgame_config().get("server_fallback", "")
+    return env + ";" + fb if env and fb and ";" not in env else env
 
 
 def jxassets_args() -> list[str]:

@@ -65,6 +65,27 @@ Hai nguồn, đều là tọa độ scene **tuyệt đối** (`KNpcSet::Add` đ�
 Zone hiện sinh cả hai loại (`KSubWorld` ctor: `kind` 0 → quái, còn lại → NPC). `jxassets npcs <map> [x y]` liệt kê
 để đối chiếu; `-server <thư mục>` (mặc định `../Server` cạnh client, hoặc `JX_OLD_SERVER`).
 
+### Bẫy / cổng (trap) — `KRegion::LoadServerTrap`, `KNpc::CheckTrap`
+
+`Region_S.dat` mục Trap: các đoạn `KSPTrap {cX, cY, cNumCell, uTrapId}`; `uTrapId` = `g_FileName2Id` (băm byte GBK,
+phân biệt hoa/thường, đường dẫn viết thường như `KSortScript` nạp) của script trap, vd
+`\script\西北南区\凤翔\连接trap\凤翔北门.lua`. `jxassets` tra ngược id qua thư mục `script/` của chuỗi server
+(`npcres.ScriptIndex`; bản Linux **không có** script theo map → `server_fallback` = `bin/Server`) và ghi vào `map.json`
+`traps: [{x, y, n, id, script}]` (ô 32 đơn vị tuyệt đối). `jxassets traps <map>` liệt kê để đối chiếu.
+
+Zone (`KMapData::trap_at`): mỗi tick người chơi đang đứng/đi (`m_ProcessAI`) kiểm tra ô dưới chân như
+`KNpcAI::ProcessPlayer → TriggerMapTrap → KNpc::CheckTrap`: id đổi → nhớ vào `m_TrapScriptID` và chạy `main(0)` của script
+(`KPlayer::ExecuteScript`) qua Lua 5.4 với API `ScriptFuns` (`GetFightState/SetFightState/SetPos/NewWorld/GetPos/
+GetWorldPos/Msg2Player`; `AddStation/AddTermini/Say/Talk` mới là stub). Cổng thành = `SetPos` + đổi trạng thái chiến đấu;
+cổng sang map khác = `NewWorld(map, x, y)` → `KWorldChange` để `KGameServer` chuyển người chơi sang `KSubWorld`
+của map đó (zone chứa nhiều map: `zone.maps`), gửi `G2C_CHANGE_MAP` rồi `EntitySpawn` mới; map chưa nạp → log, đứng yên
+(bản cũ: `TobeExchangeServer` sang server khác). **Toạ độ script là Mps tuyệt đối** (ô ×32 trên lưới region toàn cục,
+`Mps2Map`), còn bundle tính từ góc `origin = (region_left × 512, region_top × 1024)` của `map.json`: `SetPos/NewWorld`
+trừ gốc của map đích (`KSubWorld::to_local`), `GetPos/GetWorldPos` cộng lại (`to_absolute`). Vd cổng Bắc Phượng Tường
+`SetPos(1674, 3145)` = (53568, 100640) − (36864, 83968) = (16704, 16672); `凤翔to剑阁西北` `NewWorld(3, 1159, 3715)` →
+map 3 (13024, 4192). Tên NPC/quái: **id template đánh số từ 0** (`nNpcTempRow = id + 2`);
+tên hiển thị = bảng thay tên áp lên tên đặt trong map (`KNpcSet::Add`, `gNpcNameMap`).
+
 ### Thứ tự vẽ (client)
 
 Client port nguyên cây sắp xếp của game cũ: `KSceneMath.gd` (`SceneMath.cpp`), `KIpotLeaf.gd`, `KIpotBranch.gd`,

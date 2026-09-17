@@ -62,9 +62,9 @@ func TestNpcResTablesOfTheOldClient(t *testing.T) {
 	if len(templates) < 2000 {
 		t.Fatalf("only %d templates", len(templates))
 	}
-	first := templates[1]
+	first := templates[0] // id 0 = the first data row (ani001)
 	if first.ResType != "ani001" || first.StandFrame != 28 || first.WalkFrame != 10 || first.Camp != 5 || !utf8.ValidString(first.Name) || first.Name == "" {
-		t.Errorf("template 1: %+v", first)
+		t.Errorf("template 0: %+v", first)
 	}
 
 	// a normal npc: one image per doing, shadow "<name>b.spr"

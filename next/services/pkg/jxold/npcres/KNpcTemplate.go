@@ -7,8 +7,9 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 )
 
-// Template is one row of Settings/npcs.txt (KNpcTemplate of the old client).  The row index
-// (header = 0) is the template id the map files (Npc_C.dat) and the zone use.
+// Template is one row of Settings/npcs.txt (KNpcTemplate of the old client).  Template ids are
+// zero based: id 0 is the first data row (KNpcTemplate::InitNpcBaseData reads row id + 2), and
+// the map files (KSPNpc::nTemplateID) and the zone use these ids.
 type Template struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"` // UTF-8 (the file stores TCVN3)
@@ -85,12 +86,8 @@ func ParseTemplates(data []byte) []Template {
 		}
 		return Atoi(s)
 	}
-	for row := 1; row <= tab.Height(); row++ {
-		t := Template{ID: row - 1}
-		if row == 1 {
-			out = append(out, t) // the header keeps id 0 unused, like the old direct indexing
-			continue
-		}
+	for row := 2; row <= tab.Height(); row++ { // row 1 is the header; id = row - 2 like the old code
+		t := Template{ID: row - 2}
 		t.Name = text.TCVN3ToUTF8([]byte(tab.Get(row, 1)))
 		t.Kind = num(row, "Kind", 0)
 		t.Camp = num(row, "Camp", 0)

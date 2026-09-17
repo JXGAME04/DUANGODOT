@@ -43,7 +43,9 @@ Nguồn dữ liệu: `config/oldgame.local.json` (mẫu `config/oldgame.example.
 `Settings/npcs.txt`, `pak/maps.pak`, `lang/vn/replacename_npc.txt`); không có file này thì dùng `../bin/Client` + `../bin/Server`
 (hoặc `JX_OLD_CLIENT`/`JX_OLD_SERVER`). Vai trò từng nguồn: [REFERENCES.md](REFERENCES.md). Zone chạy **level script Lua**
 (`script/npclevelscript/*.lua`) của thư mục server đó qua `zone.script_root` — `dev.py start` tự đặt `JX_ZONE__SCRIPT_ROOT`;
-không có thì máu/sát thương quái dùng số tạm (xem NPCRES.md mục 4).
+không có thì máu/sát thương quái dùng số tạm (xem NPCRES.md mục 4). Zone chứa nhiều map: `zone.map_dir` (map mặc định) +
+`zone.maps` = "3,7,99" trong `zone.maps_dir` — xuất trước bằng `python tools/dev.py assets 1 3 7 99` (cổng Phượng Tường dẫn
+sang 3 Kiếm Các Tây Bắc, 7 Tần Lĩnh, 99 Vĩnh Lạc Trấn); map chưa xuất bị bỏ qua (log `map bundle skipped`).
 Zone đọc `client/assets/maps/1` theo `zone.map_dir` trong `config/zone.json`; chi tiết ở [MAPS.md](MAPS.md).
 `dev.py assets` cũng xuất sprite nhân vật/NPC vào `client/assets/npcres` (xem [NPCRES.md](NPCRES.md)); thiếu thư mục
 này client vẫn chạy nhưng vẽ nhân vật bằng vòng tròn.
