@@ -126,6 +126,36 @@ không phải của người chơi thật, nhưng rời thế giới hàng loạ
    đã tồn đọng quá 4 MiB thì **bỏ gói vị trí** (chỉ vị trí, không bao giờ bỏ spawn/sát thương/chat).
    Tồn đọng 49 MB → ~150 KB, vào thế giới 8,0 → 2,8 giây.
 
+### Một map đông người: trần là ~1 800, và chi phí tăng theo bình phương
+
+Dồn tất cả vào **một map** (`dev.py load N 60 hot 1 1`, Phượng Tường):
+
+| Người trên một map | Worker giữ map đó | tick tb | p95 | p99 | tick bị rớt | gateway đẩy ra |
+|---:|---:|---:|---:|---:|---:|---:|
+| 500 | | 14,05 ms | 25,2 | 29,0 | 0 | |
+| 1 846 | 4,85 ms | 11,26 ms | 33,6 | 100,7 | 0 | 1 058 242 gói/s, 56,3 MB/s |
+| **2 978** | **28,38 ms** | **41,45 ms** | **201,3** | **325,6** | **13** | 616 698 gói/s, 37,9 MB/s |
+
+Ba điều ba lượt này nói ra:
+
+1. **Thêm nhân không cứu được.** Cả ba lượt, đúng một worker gánh map đó còn worker kia nằm không
+   (`w1:28.38ms/1maps/2978p  w0:0.01ms/1maps/0p`). Đó là hệ quả trực tiếp của luật một map một chủ
+   (SPEC 6): đổi lại là trong tick không cần một khoá nào.
+2. **Chi phí tăng nhanh hơn số người rất nhiều.** Từ 1 846 lên 2 978 người (1,6 lần) thì chi phí
+   của map đi từ 4,85 lên 28,38 ms (**5,9 lần**). Lý do: trong đám đông dày, gần như ai cũng nhìn thấy
+   ai, nên số cặp "người thấy người" tăng theo bình phương.
+3. **Ở 2 978 người, server bắt đầu bỏ tick**: 13 tick bị rớt hẳn. Đây là ngưỡng hỏng thật sự, không
+   phải chỉ là chậm.
+
+**Trần thực tế của một map trên phần cứng này: khoảng 1 500–1 800 người.** Muốn đông hơn thì cần hai
+việc, và việc thứ hai mới là việc chính:
+
+- **Chia vùng trong một map** (giai đoạn R): cắt map nóng thành nhiều mảnh, mỗi mảnh một worker, chỉ
+  đồng bộ ở đường biên.
+- **Giảm số gói theo tầm nhìn**: người ở xa thì gửi thưa hơn và gộp nhiều entity vào một gói, thay vì
+  mỗi hành động một gói tới mọi người trong tầm. Không làm việc này thì chia vùng cũng vô ích: ở 1 846
+  người một chỗ, mô phỏng chỉ tốn 4,85 ms trong khi gateway phải đẩy 56,3 MB mỗi giây.
+
 ### 20 000 bot: chỗ chặn là **máy test hết cổng TCP**, không phải server
 
 Bắn 20 000 bot thì **13 031** vào được cùng lúc, zone vẫn thảnh thơi: tick trung bình 10,20 ms, p99
