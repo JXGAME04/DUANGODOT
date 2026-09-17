@@ -38,7 +38,8 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Sword3PaySys/S3AccServer` (`S3PAccount::Login`, `Account_info`) | `services/pkg/auth` (`S3PAccount.go` máy chủ tài khoản, `password.go` argon2id, `auth.go` giao diện + Options), `cmd/jxaccount` |
 | `MultiServer/testAccServer` (công cụ tài khoản console) | `services/cmd/jxaccount` (`add`/`passwd`/`freeze`/`expire`/`list`) |
 | `Bishop/LoginDef.h` (`LOGIN_R_*`), `S3Client/Login/Login.cpp`, `Ui/UiCase/UiConnectInfo.cpp` (`CI_MI_*`) | `proto/jx/common.proto` (`Result`), `client/net/KLogin.gd` (`result_text`, `session_ends`) |
-| `MultiServer/Goddess` (DB nhân vật) | `services/pkg/persist` (`FileStore`; PostgreSQL sau) |
+| `MultiServer/Goddess` (DB nhân vật), `TRoleData` | `services/pkg/persist` (`FileStore`, `TRoleData.go` phiên bản + di trú; PostgreSQL sau) |
+| `MultiServer/Rainbow` (relay client ↔ server, chỗ bắt gói của bản cũ) | `services/cmd/jxrecord` + `pkg/jxrec` (proxy ghi `.jxrec`, đọc lại bằng `dump`) |
 | `MultiServer/Common/Buffer.h`, `IOBuffer.h` | `services/pkg/frame` |
 | `MultiServer/Common/SocketServer` + `S3Client/NetConnect` (chỉ TCP thô + xáo trộn riêng) | `services/pkg/transport` (`KListener.go` mở cửa tcp/tls/ws/wss, `KWebSocket.go` RFC 6455) |
 

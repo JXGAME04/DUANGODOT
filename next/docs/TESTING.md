@@ -53,6 +53,25 @@ giờ sập, không bao giờ sinh payload vượt giới hạn. Ba chỗ kiểm
 Seed cố định nên lỗi tái hiện được. Khi fuzzer tìm ra input lỗi, Go ghi vào
 `services/testdata/fuzz/...` — **commit file đó** để thành test hồi quy.
 
+## 3c. Ghi gói tin của hệ thống cũ (`.jxrec`)
+
+`jxrecord` đứng giữa client và server như một proxy TCP, ghi **mọi byte của cả hai chiều** kèm mốc
+thời gian vào file `.jxrec`. Nó không hiểu nội dung nên ghi được cả bản cũ (luồng riêng của
+Rainbow/Bishop) lẫn Protocol V2 — đây là **bằng chứng** để đối chiếu server mới về sau (golden
+replay, mục 1 bảng trên).
+
+```bash
+# bản cũ: trỏ client vào 127.0.0.1:7100 thay vì server thật
+build/go/jxrecord proxy -listen 127.0.0.1:7100 -to 203.0.113.9:5600 -out logs/old-login.jxrec -note "dang nhap"
+
+# xem lại (thêm -jx để giải mã khung tin mới, -hex để xem byte)
+build/go/jxrecord dump -jx logs/old-login.jxrec
+```
+
+Định dạng (`services/pkg/jxrec`): `"JXREC1\n"` + một dòng JSON header + các bản ghi
+`dir(1) | ms(4) | len(4) | bytes`. File bị cắt giữa chừng vẫn đọc được đến bản ghi cuối còn nguyên
+(recorder flush mỗi giây). Một file cho mỗi kết nối.
+
 ## 4. Definition of Done cho một phần việc
 
 1. Code + log theo `docs/LOGGING.md`.

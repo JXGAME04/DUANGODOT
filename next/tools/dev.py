@@ -13,7 +13,7 @@
   python tools/dev.py client           launch the Godot client
   python tools/dev.py test             run every test suite (C++ ctest, go test, Godot headless)
 
-Binaries: build/bin/<Config>/jx_zone.exe, build/go/{gateway,jxbot,jxaccount,jxassets}.exe.
+Binaries: build/bin/<Config>/jx_zone.exe, build/go/{gateway,jxbot,jxaccount,jxassets,jxrecord}.exe.
 State (pids) is kept in build/dev-pids.json.  Logs: logs/zone.log, logs/gateway.log.
 """
 from __future__ import annotations

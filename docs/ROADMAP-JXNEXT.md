@@ -280,7 +280,13 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       dùng; `jxbot -gateway ws://...`. Test: 8 test transport (bắt tay, phân mảnh, ping, frame không mask, quá cỡ,
       TLS/wss tự ký), 1 test gateway qua WebSocket, 10 test địa chỉ ở client; `dev.py e2e` chạy client qua **cả hai**
       đường. `docs/PROTOCOL.md` mục 1b, `RUNNING.md` mục 3a.
-- [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
+- [x] **M4e — bộ ghi gói tin `.jxrec` (2026-09-17, tuần 1 mục 4.3, ưu tiên 2b mục 6)**: `services/pkg/jxrec`
+      (định dạng `JXREC1` + header JSON + bản ghi `dir|ms|len|bytes`, đọc được cả file bị cắt giữa chừng) và
+      `cmd/jxrecord` (`proxy` đứng giữa client ↔ server ghi cả hai chiều, `dump` xem lại kèm `-jx` giải mã
+      msg id, `-hex`). Không hiểu nội dung nên ghi được **cả bản cũ** (luồng riêng của Rainbow/Bishop) lẫn
+      Protocol V2. Đã ghi thật một phiên bot: 19 bản ghi, 1230 byte, dump ra đúng chuỗi Hello → Login →
+      CharCreate → EnterWorld → Move. Test: 4 test `KPacketRecord_test.go`. `docs/TESTING.md` mục 3c.
+- [ ] Còn lại của tuần 1 (mục 4): ADR.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8
