@@ -241,8 +241,13 @@ def old_client_dir() -> str:
 def cmd_assets(map_ids: list[str]) -> None:
     """Export map bundles + sprites from the old client into client/assets (default: map 1)."""
     subprocess.check_call(["go", "build", "-o", os.path.join(BUILD, "go") + os.sep, "./cmd/jxassets"], cwd=os.path.join(ROOT, "services"))
+    out = os.path.join(ROOT, "client", "assets")
     for mid in map_ids or ["1"]:
-        subprocess.check_call([go_exe("jxassets"), "-client", old_client_dir(), "export-map", mid, "-out", os.path.join(ROOT, "client", "assets")], cwd=ROOT)
+        subprocess.check_call([go_exe("jxassets"), "-client", old_client_dir(), "export-map", mid, "-out", out], cwd=ROOT)
+    # npc / character appearance (npcs.txt + Settings/npcres) for the npcs placed on those maps
+    # plus the templates the zone's test npcs use (1000 + i, see server/zone/src/main.cpp)
+    subprocess.check_call([go_exe("jxassets"), "-client", old_client_dir(), "export-npcres", *(map_ids or ["1"]),
+                           "-templates", "1000,1001,1002,1003", "-out", out], cwd=ROOT)
     print("assets ok")
 
 

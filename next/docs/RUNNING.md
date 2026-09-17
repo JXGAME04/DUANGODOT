@@ -40,6 +40,8 @@ python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite
 
 Cần thư mục client cũ có `package.ini` + `Data/*.pak` (mặc định `../bin/Client`, hoặc `JX_OLD_CLIENT=...`).
 Zone đọc `client/assets/maps/1` theo `zone.map_dir` trong `config/zone.json`; chi tiết ở [MAPS.md](MAPS.md).
+`dev.py assets` cũng xuất sprite nhân vật/NPC vào `client/assets/npcres` (xem [NPCRES.md](NPCRES.md)); thiếu thư mục
+này client vẫn chạy nhưng vẽ nhân vật bằng vòng tròn.
 
 ## 3. Chạy
 

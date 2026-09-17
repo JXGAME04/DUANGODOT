@@ -63,6 +63,11 @@ var _missing := {}
 var loaded_bytes := 0
 
 
+# Drop the texture cache before the renderer goes away (otherwise Godot reports leaked textures).
+func _exit_tree() -> void:
+	_sprites.clear()
+
+
 func assets_root() -> String:
 	return ProjectSettings.globalize_path(ASSETS_DIR)
 

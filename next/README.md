@@ -16,7 +16,8 @@ next/
   client/                 Godot 4.7: autoload/{log,net,game}.gd, scenes/{login,char_select,world}
   config/                 zone.json, gateway.json
   tools/                  gen_proto.py (sinh mã), dev.py (build/start/stop/test/e2e)
-  docs/                   LOGGING.md, TESTING.md, PROTOCOL.md, RUNNING.md
+  docs/                   LOGGING.md, TESTING.md, PROTOCOL.md, RUNNING.md, MAPS.md (map cũ → bundle),
+                          NPCRES.md (sprite nhân vật/NPC), OLD-TO-NEW.md (bảng đối chiếu tên file cũ → mới)
 ```
 
 Bắt đầu: đọc [docs/RUNNING.md](docs/RUNNING.md). Lộ trình: [../docs/ROADMAP-JXNEXT.md](../docs/ROADMAP-JXNEXT.md).

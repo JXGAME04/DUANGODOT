@@ -55,6 +55,12 @@ func _ready() -> void:
 	add_child(above)
 
 
+# The tree's RefCounted leaves reference each other: fell it explicitly so nothing (and no
+# atlas texture held by a leaf) outlives the renderer.
+func _exit_tree() -> void:
+	clear()
+
+
 func load_map(id: int) -> bool:
 	clear()
 	var data = Assets.map_info(id)

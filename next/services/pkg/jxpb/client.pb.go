@@ -827,7 +827,7 @@ type EntityInfo struct {
 	Sex           uint32                 `protobuf:"varint,9,opt,name=sex,proto3" json:"sex,omitempty"`
 	TemplateId    uint32                 `protobuf:"varint,10,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"` // npc/monster template, 0 for players
 	Path          []*Vec2                `protobuf:"bytes,11,rep,name=path,proto3" json:"path,omitempty"`                                // remaining waypoints after pos (server pathfinding)
-	Dir           uint32                 `protobuf:"varint,12,opt,name=dir,proto3" json:"dir,omitempty"`                                 // facing direction 0..7 (old game convention)
+	Dir           uint32                 `protobuf:"varint,12,opt,name=dir,proto3" json:"dir,omitempty"`                                 // facing direction 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

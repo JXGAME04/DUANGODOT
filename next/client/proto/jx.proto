@@ -103,7 +103,7 @@ message EntityInfo {
   uint32 sex = 9;
   uint32 template_id = 10;       // npc/monster template, 0 for players
   repeated Vec2 path = 11;       // remaining waypoints after pos (server pathfinding)
-  uint32 dir = 12;               // facing direction 0..7 (old game convention)
+  uint32 dir = 12;               // facing direction 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
 }
 
 message EntitySpawn {

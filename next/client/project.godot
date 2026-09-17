@@ -20,6 +20,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 Log="*res://autoload/KDebug.gd"
 Net="*res://autoload/KSocketClient.gd"
 Assets="*res://autoload/KPakFile.gd"
+NpcResList="*res://autoload/KNpcResList.gd"
 Game="*res://autoload/KProtocolProcess.gd"
 
 [display]

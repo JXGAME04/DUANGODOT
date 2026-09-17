@@ -24,7 +24,8 @@ python tools/dev.py assets 1 2 3    # nhiều map (id theo Settings/MapList.ini 
 - **Màn hình**: `sx = x`, `sy = y / 2` (`KRepresentShell2::CoordinateTransform`; vật thể có `z`:
   `sy = y/2 − z·887/1024`). Region trên màn hình là 512 × 512 px; tile nền 32 × 32 px.
 - Gốc toạ độ bundle = region `(rect.left, rect.top)`; các vị trí trong file cũ tính từ region 0 đã được quy về gốc này.
-- Hướng nhân vật `dir` 0..7: 0 = xuống, ngược chiều kim đồng hồ.
+- Hướng nhân vật `dir` 0..63 (`g_GetDirIndex` cũ, `KMath.h` zone / `KMath.gd` client): 0 = xuống, tăng theo chiều kim
+  đồng hồ trên màn hình (16 = trái, 32 = lên, 48 = phải); sprite 8 hướng lấy `(dir + 4) / 8`.
 
 ## 3. Bundle
 

@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/spr"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
@@ -107,6 +109,8 @@ type Exporter struct {
 	failed   map[string]bool
 	seen     map[objectKey]bool // per map: objects already emitted by another region
 	Exported int
+	// Templates (npcs.txt, index = template id) gives map npcs their in-game names when set.
+	Templates []npcres.Template
 }
 
 func New(set *pak.Set, out string) *Exporter {
@@ -225,10 +229,15 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 				return nil, err
 			}
 			for _, n := range r.Npcs {
+				// the map stores the editor's (Chinese) name; the game shows the template's name
+				name := text.TCVN3ToUTF8([]byte(n.Name))
+				if id := int(n.TemplateID); id > 0 && id < len(e.Templates) && e.Templates[id].Name != "" {
+					name = e.Templates[id].Name
+				}
 				info.Npcs = append(info.Npcs, NpcInfo{
-					TemplateID: int(n.TemplateID), Name: text.TCVN3ToUTF8([]byte(n.Name)),
+					TemplateID: int(n.TemplateID), Name: name,
 					X: (rx-w.Left)*wor.RegionWidth + int(n.X), Y: (ry-w.Top)*wor.RegionHeight + int(n.Y),
-					Frame: n.Frame, Kind: n.Kind, Script: text.GBKToUTF8([]byte(n.Script)),
+					Frame: n.Frame, Kind: n.Kind, Script: text.GBKToUTF8([]byte(strings.TrimRight(n.Script, "\x00"))),
 				})
 			}
 		}

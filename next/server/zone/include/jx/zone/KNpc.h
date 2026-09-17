@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "jx/ids.hpp"
+#include "jx/zone/KMath.h"
 #include "jx/zone/KRegion.h"
 
 namespace jx::zone {
@@ -25,7 +26,7 @@ struct KNpc {
     std::int64_t tx = 0, ty = 0;   // next waypoint (sub-units)
     std::vector<Pos> path;         // waypoints after the current one; last = final destination
     bool moving = false;
-    std::uint32_t dir = 0;         // facing 0..7
+    std::uint32_t dir = 0;         // facing 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
     std::uint32_t speed = 0;       // world units per second
     std::uint32_t move_seq = 0;    // last MoveReq.seq (players)
 
@@ -90,13 +91,9 @@ struct KNpc {
     }
     void update_dir() noexcept
     {
-        // 8 directions, 0 = down, counter-clockwise like the old sprites (see docs/MAPS.md)
-        const std::int64_t dx = tx - fx, dy = ty - fy;
-        if (dx == 0 && dy == 0) return;
-        const double a = std::atan2(static_cast<double>(dx), static_cast<double>(dy));   // 0 = +y (down)
-        int d = static_cast<int>(std::lround(a / (3.14159265358979323846 / 4.0)));
-        d = ((d % 8) + 8) % 8;
-        dir = static_cast<std::uint32_t>(d);
+        // 64 directions, 0 = down and clockwise on screen, exactly the old g_GetDirIndex (KMath.h)
+        const int d = g_GetDirIndex(fx / kSub, fy / kSub, tx / kSub, ty / kSub);
+        if (d >= 0) dir = static_cast<std::uint32_t>(d);
     }
 };
 

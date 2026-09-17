@@ -7,7 +7,8 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 
 | Mã cũ | Mới | Ghi chú |
 |---|---|---|
-| `Core/Src/KNpc.h/.cpp` (mọi nhân vật: người chơi lẫn NPC) | `server/zone/include/jx/zone/KNpc.h` (`struct KNpc`, `KNpcKind`) | vị trí fixed-point, waypoints, hướng 0..7 |
+| `Core/Src/KNpc.h/.cpp` (mọi nhân vật: người chơi lẫn NPC) | `server/zone/include/jx/zone/KNpc.h` (`struct KNpc`, `KNpcKind`) | vị trí fixed-point, waypoints, hướng 0..63 |
+| `Core/Src/KMath.h` (`g_GetDirIndex` 64 hướng) | `server/zone/include/jx/zone/KMath.h`, `client/scenes/KMath.gd` | bảng sin sinh lại (bản cũ đọc từ USB key) |
 | `Core/Src/KSubWorld.h/.cpp` | `server/zone/…/KSubWorld.h`, `src/KSubWorld.cpp` (`class KSubWorld`) | spawn/remove, di chuyển theo tick, AOI, chat, outbox |
 | `Core/Src/KRegion.h/.cpp` (region 512×1024, danh sách npc) | `server/zone/…/KRegion.h/.cpp` (`class KRegionGrid`) | lưới AOI 512 ô, tầm nhìn 3×3 |
 | `KSubWorld::LoadMap` + `KRegion::LoadServerObstacle` + `KNpcFindPath` | `server/zone/…/KMapData.h/.cpp` (`class KMapData`) | `map.json`/`obstacle.bin`, A* + làm mượt |
@@ -40,6 +41,10 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Represent2/KRepresentShell2::CoordinateTransform`, `DrawScaleSprite` (FRAME_DRAW / REF_SPOT), `KIpotLeaf.cpp::PaintABuildinObject` | `pkg/jxold/export/KSceneExport.go` (chiếu `y/2 − z·887/1024`, vị trí vật tĩnh/động, kiểu sắp xếp `k`) |
 | `KScenePlaceRegionC::GetBuildinObjs` (header đếm point/line/tree/above) | `pkg/jxold/wor/KSubWorld.go` (`BuildinKind`); `jxassets objects <map> <x> <y>` in bản ghi thô để đối chiếu |
 | `ucl/n2b_d.c` | `pkg/jxold/nrv2b` |
+| `Engine/Src/KTabFile.h/.cpp` (bảng tab, hàng/cột 1-based) | `pkg/jxold/npcres/KTabFile.go` |
+| `Core/Src/KNpcTemplate.cpp` (`npcs.txt`) | `pkg/jxold/npcres/KNpcTemplate.go` |
+| `Core/Src/KNpcResList.cpp`, `KNpcResNode.cpp` (`人物类型.txt`, bảng bộ phận/关联表/贴图顺序表, `CSortTable`) | `pkg/jxold/npcres/KNpcResNode.go` (`List`, `Node`, `SortTable`) |
+| `KNpcRes::Init/SetAction` (chọn file spr theo trang bị + action) | `pkg/jxold/export/KNpcResExport.go` → `client/assets/npcres/{npcs.json,res/<tên>.json}`; `jxassets export-npcres` |
 | Bảng TCVN3 (skill `vn_to_octal.py`) | `pkg/jxold/text/KTextTCVN3.go` |
 
 ## Client (S3Client cũ → Godot `client/`)
@@ -59,4 +64,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Core/Src/Scene/KIpotBranch.h/.cpp` (nhánh = đường đáy chia cảnh, danh sách lá) | `client/scenes/KIpotBranch.gd` | |
 | `Core/Src/Scene/KIpotLeaf.h/.cpp` (lá: vật point/line, nhân vật runtime, `Clone` cắt ảnh) | `client/scenes/KIpotLeaf.gd` | |
 | `Core/Src/Scene/SceneMath.h/.cpp` (`SM_Relation_PointLine`, `SM_Relation_LineLine_CheckCut`) | `client/scenes/KSceneMath.gd` | |
-| `Core/Src/KNpc` (phía client: vẽ nhân vật) | `client/scenes/KNpc.gd` | |
+| `Core/Src/KNpc` (phía client: `Activate`/`Paint`, `m_Frames`, `m_ResDir` quay dần) | `client/scenes/KNpc.gd` | |
+| `Core/Src/KNpcRes.h/.cpp` (`Draw`: ghép bộ phận theo hướng/khung, bóng, thứ tự vẽ) | `client/scenes/KNpcRes.gd` | |
+| `Core/Src/KNpcResNode.cpp` (`GetActNo`, `CSortTable::GetSort`) | `client/scenes/KNpcResNode.gd` (hàm tĩnh, test được) | |
+| `Core/Src/KNpcResList.cpp` (`g_NpcResList`) | `client/autoload/KNpcResList.gd` | `NpcResList` |

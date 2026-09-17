@@ -6,6 +6,7 @@ add_executable(jx_zone_tests
     test_KMapData.cpp
     test_KSubWorld.cpp
     test_KGameServer.cpp
+    test_KMath.cpp
 )
 target_link_libraries(jx_zone_tests PRIVATE jx::zone_core Catch2::Catch2WithMain jx_warnings)
 catch_discover_tests(jx_zone_tests)

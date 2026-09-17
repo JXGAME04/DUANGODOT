@@ -123,11 +123,13 @@ int main(int argc, char** argv)
         jx::log::shutdown();
         return 1;
     }
+    // a ring of wandering npcs around the (map-adjusted) spawn point so a fresh client sees movement;
+    // templates 1000 + i are exported by `dev.py assets` (jxassets export-npcres -templates ...)
+    const jx::zone::Pos spawn = server.world().config().spawn_point;
     for (std::int64_t i = 0; i < test_npcs; ++i) {
-        // a ring of wandering npcs around the spawn point so a fresh client sees movement
         const std::int32_t dx = static_cast<std::int32_t>((i % 4) * 160) - 240;
         const std::int32_t dy = static_cast<std::int32_t>((i / 4) * 160) - 80;
-        server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{w.spawn_point.x + dx, w.spawn_point.y + dy},
+        server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
                                  static_cast<std::uint32_t>(1000 + i), 200);
     }
 

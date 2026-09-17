@@ -217,11 +217,16 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       - 2026-09-17 (sau khi so với client cũ ở lò rèn Phượng Tường): vật tĩnh đặt theo FRAME_DRAW (không cộng offset khung),
         vật động theo REF_SPOT (oPos1 − tâm sprite), thứ tự vẽ port nguyên **cây KIpoTree/KIpotBranch/KIpotLeaf/SceneMath**
         của game cũ thay cho y-sort; `jxassets objects` in bản ghi thô để đối chiếu.
+- [x] **M3a — sprite nhân vật/NPC (2026-09-17)**: `jxassets export-npcres` đọc `npcs.txt` + `Settings/npcres` (KTabFile,
+      KNpcTemplate, KNpcResNode/KNpcResList port sang Go) → `client/assets/npcres`; client ghép bộ phận nhân vật chính
+      (Head/Body/tay/vũ khí + bóng, thứ tự vẽ theo `贴图顺序表`), NPC một ảnh, 64 hướng (`KMath`), khung theo tick 18 Hz
+      như `KNpcRes::Draw`/`KNpc::Paint`; zone gửi `dir` 0..63; tên NPC trên map lấy từ `npcs.txt`. Chi tiết `next/docs/NPCRES.md`.
+      Còn lại: đánh/bị đánh/chết/ngồi, trang bị theo RoleData, ngựa, hiệu ứng, texture memory.
 - [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
       `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
       bảng đối chiếu `next/docs/OLD-TO-NEW.md`.
 - [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
-- [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: sprite nhân vật/NPC từ `npcres` + `npcs.txt`, minimap, bẫy/cổng)
+- [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8
 - [ ] Giai đoạn 4: 4.1 · 4.2 · 4.3 · 4.4 · 4.5

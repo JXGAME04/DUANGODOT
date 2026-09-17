@@ -9,6 +9,8 @@ const LogScript := preload("res://autoload/KDebug.gd")
 const SceneMath := preload("res://scenes/KSceneMath.gd")
 const IpoTree := preload("res://scenes/KIpoTree.gd")
 const IpotLeaf := preload("res://scenes/KIpotLeaf.gd")
+const KMath := preload("res://scenes/KMath.gd")
+const NpcResNode := preload("res://scenes/KNpcResNode.gd")
 
 var _failed := 0
 var _passed := 0
@@ -29,8 +31,51 @@ func _init() -> void:
 	test_proto_round_trip()
 	test_scene_math()
 	test_ipot_order()
+	test_kmath_direction()
+	test_npcres_tables()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
+
+
+# ---- characters (KMath.h, KNpcResNode / KNpcRes) --------------------------------------------
+
+func test_kmath_direction() -> void:
+	check(KMath.get_dir_index(0, 0, 0, 100) == 0, "down is 0")
+	check(KMath.get_dir_index(0, 0, -100, 0) == 16, "left is 16: %d" % KMath.get_dir_index(0, 0, -100, 0))
+	check(KMath.get_dir_index(0, 0, 0, -100) == 31, "up is 31 (x equal): %d" % KMath.get_dir_index(0, 0, 0, -100))
+	check(KMath.get_dir_index(0, 0, 100, 0) == 47, "right is 47: %d" % KMath.get_dir_index(0, 0, 100, 0))
+	check(KMath.get_dir_index(0, 0, -100, 100) == 8, "down-left is 8")
+	check(KMath.get_dir_index(0, 0, 100, -100) == 39, "up-right is 39")
+	check(KMath.get_dir_index(5, 5, 5, 5) == -1, "no movement")
+	check(KMath.dir64_to_sprite(0, 8) == 0 and KMath.dir64_to_sprite(16, 8) == 2 and KMath.dir64_to_sprite(31, 8) == 4
+		and KMath.dir64_to_sprite(63, 8) == 0 and KMath.dir64_to_sprite(47, 8) == 6, "64 directions to 8 sprite directions")
+	check(KMath.dir64_to_sprite(20, 1) == 0, "single direction sprite")
+
+
+func test_npcres_tables() -> void:
+	var def: Array = []
+	for i in 16:
+		def.append([i, 1, 0])
+	var res := {"special": true, "no_horse": [[4, 3, 2, 12, 13], [20, 21, 22, 23, 24]],
+		"sort": {"default": def, "acts": {"3": {"use_default": true, "lines": [[7, 9, 8]]},
+			"4": {"use_default": false, "dirs": [[40], [41], [42], [43], [44], [45], [46], [47], [48], [49], [50], [51], [52], [53], [54], [55]], "lines": [[2, 60]]}}}}
+	check(NpcResNode.act_no(res, 1, 0, false) == 3 and NpcResNode.act_no(res, 4, 1, false) == 24, "doing -> action through the weapon row")
+	check(NpcResNode.act_no(res, 9, 0, false) == -1 and NpcResNode.act_no(res, 1, 5, false) == -1, "out of table")
+	check(NpcResNode.act_no({"special": false}, 6, 0, false) == 6, "normal npc uses the doing")
+	check(NpcResNode.sort_order(res, 3, 0, 7) == [9, 8], "frame line of an action")
+	check(NpcResNode.sort_order(res, 3, 2, 1) == [2, 1, 0], "default row when the frame has no line")
+	check(NpcResNode.sort_order(res, 4, 1, 0) == [41], "own direction rows")
+	check(NpcResNode.sort_order(res, 4, 1, 2) == [60], "frame line wins over own rows")
+	check(NpcResNode.sort_order(res, 9, 5, 0) == [5, 1, 0], "action without a block")
+	check(NpcResNode.sort_order({"special": false}, 1, 0, 0) == [5], "normal npc single image slot")
+	# KNpcRes::Draw frame arithmetic: 48 frames in 8 directions, half way through a 28 frame stand
+	check(NpcResNode.frame_no(0, 28, 14, 48, 8) == 3, "frame 3 of direction 0: %d" % NpcResNode.frame_no(0, 28, 14, 48, 8))
+	check(NpcResNode.frame_no(16, 28, 0, 48, 8) == 12, "first frame of direction 2 (left)")
+	check(NpcResNode.frame_no(63, 10, 9, 48, 8) == 5, "last frame of direction 0")
+	check(NpcResNode.frame_no(0, 10, 5, 120, 8) == 7, "120 frames: 15 per direction")
+	check(NpcResNode.ref_spot(320, 0, 0) == Vector2(160, 192) and NpcResNode.ref_spot(320, 160, 222) == Vector2(160, 222)
+		and NpcResNode.ref_spot(100, 0, 0) == Vector2.ZERO, "reference spot rules")
+	check(NpcResNode.player_res_name(0) == "MainMan" and NpcResNode.player_res_name(1) == "MainLady", "player resource names")
 
 
 # ---- object sorting (SceneMath.cpp / KIpotBranch.cpp) ---------------------------------------

@@ -9,6 +9,7 @@
 //	map    <mapid | gamepath>        summary of a world: rect, regions present, images used
 //	region <mapid | gamepath> <x> <y> parsed Region_C.dat as JSON
 //	objects <mapid | gamepath> <x> <y> [text]  raw cover/buildin records + sprite headers of one region
+//	export-npcres [mapid...] -out <dir>   npc/character appearance tables + sprites used on those maps
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/export"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/spr"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
@@ -38,6 +40,7 @@ var (
 	flagClient = flag.String("client", "", "old client folder containing package.ini and Data/*.pak")
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
+	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
 )
 
 func fail(format string, args ...any) {
@@ -109,6 +112,17 @@ func mapPath(dir, arg string) (string, string) {
 
 // resolveImage finds the archive path of a sprite referenced by map data (names are stored
 // relative to the sprite root).
+// loadTemplates reads Settings/npcs.txt from the archives (nil when it is missing) so map npcs
+// get their in-game names.
+func loadTemplates(set *pak.Set) []npcres.Template {
+	data, err := set.ReadFile(gamePath(npcres.TemplateFile))
+	if err != nil {
+		log.Warn("asset", "npcs.txt missing, map npcs keep their editor names", log.F("error", err))
+		return nil
+	}
+	return npcres.ParseTemplates(data)
+}
+
 func resolveImage(set *pak.Set, name string) (string, bool) {
 	for _, prefix := range []string{"", `\spr`, `\spr\`} {
 		p := prefix + name
@@ -276,6 +290,7 @@ func main() {
 			}
 		}
 		ex := export.New(set, out)
+		ex.Templates = loadTemplates(set)
 		info, err := ex.Map(id, name, w, spawn)
 		if err != nil {
 			fail("%v", err)
@@ -299,6 +314,7 @@ func main() {
 		set := openSet(dir)
 		defer set.Close()
 		ex := export.New(set, out)
+		ex.Templates = loadTemplates(set)
 		re := regexp.MustCompile(`(?m)^(\d+)=(.*)$`)
 		ok, missing, failed := 0, 0, 0
 		start := time.Now()
@@ -328,6 +344,69 @@ func main() {
 		}
 		fmt.Printf("export-all: %d maps ok, %d skipped (no .wor), %d failed, %d sprites, %s\n", ok, missing, failed, ex.Exported, time.Since(start).Round(time.Second))
 
+	case "export-npcres":
+		// export-npcres [mapid...]: appearance tables (npcs.txt, Settings/npcres) plus the sprites
+		// of the npcs placed on those maps and of the two main characters -> <out>/npcres, <out>/sprites
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		if *flagOut == "" {
+			fail("export-npcres needs -out <client/assets>")
+		}
+		list, err := npcres.Load(set.ReadFile)
+		if err != nil {
+			fail("%v", err)
+		}
+		tplData, err := set.ReadFile(gamePath(npcres.TemplateFile))
+		if err != nil {
+			fail("npcs.txt: %v", err)
+		}
+		templates := npcres.ParseTemplates(tplData)
+		player := map[string]npcres.PlayerFrames{}
+		if data, err := set.ReadFile(gamePath(npcres.PlayerBaseFile)); err == nil {
+			player = npcres.ParsePlayerBase(data)
+		}
+		ids := args[1:]
+		if len(ids) == 0 {
+			ids = []string{"1"}
+		}
+		var placed []int
+		for _, arg := range ids {
+			p, _ := mapPath(dir, arg)
+			w, err := wor.LoadWorld(set, p)
+			if err != nil {
+				fail("%v", err)
+			}
+			for y := w.Top; y <= w.Bottom; y++ {
+				for x := w.Left; x <= w.Right; x++ {
+					r, err := wor.LoadRegion(set, w, x, y)
+					if err != nil {
+						fail("region %d,%d: %v", x, y, err)
+					}
+					for _, n := range r.Npcs {
+						placed = append(placed, int(n.TemplateID))
+					}
+				}
+			}
+		}
+		for _, s := range strings.Split(*flagTpl, ",") {
+			if id, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+				placed = append(placed, id)
+			}
+		}
+		names := append([]string{"MainMan", "MainLady"}, export.ResNamesOf(templates, placed)...)
+		e := export.New(set, *flagOut)
+		opt := export.NpcResOptions{
+			Names:  names,
+			Doings: []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun},
+			Equips: map[int]int{0: 0, 1: 0, 2: 0, 3: 0}, // bare hands, default clothes, no mantle
+		}
+		n, err := e.NpcRes(list, templates, player, opt)
+		if err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("npcres: %d resources for %d placed npcs (%d templates), sprites exported %d\nwritten to %s\n",
+			n, len(placed), len(templates), e.Exported, filepath.Join(*flagOut, "npcres"))
 	case "objects":
 		// objects <mapid|gamepath> <x> <y> [image-substring]: every cover / buildin record of one
 		// region together with the sprite header, for checking positions against the old renderer
