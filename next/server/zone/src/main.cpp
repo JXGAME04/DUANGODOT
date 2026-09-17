@@ -159,13 +159,29 @@ int main(int argc, char** argv)
         const std::string maps_dir = cfg.get_string("zone.maps_dir", "client/assets/maps");
         std::string list = cfg.get_string("zone.maps", "");
         for (char& c : list) if (c == ';' || c == ' ') c = ',';
-        std::size_t start = 0;
-        while (start <= list.size()) {
-            const std::size_t comma = list.find(',', start);
-            const std::string item = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
-            start = comma == std::string::npos ? list.size() + 1 : comma + 1;
-            if (item.empty()) continue;
-            const auto id = static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 10));
+        std::vector<std::uint32_t> ids;
+        if (list == "all" || list == "*") {
+            // every bundle python tools/dev.py assets exported: the whole old game is 980 maps
+            std::error_code ec;
+            for (const auto& entry : std::filesystem::directory_iterator(maps_dir, ec)) {
+                if (!entry.is_directory(ec)) continue;
+                const std::string name = entry.path().filename().string();
+                if (name.empty() || name.find_first_not_of("0123456789") != std::string::npos) continue;
+                ids.push_back(static_cast<std::uint32_t>(std::strtoul(name.c_str(), nullptr, 10)));
+            }
+            std::sort(ids.begin(), ids.end());
+            if (ec) jx::log::warn("boot", "maps dir unreadable", {jx::log::kv("dir", maps_dir), jx::log::kv("error", ec.message())});
+        } else {
+            std::size_t start = 0;
+            while (start <= list.size()) {
+                const std::size_t comma = list.find(',', start);
+                const std::string item = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+                start = comma == std::string::npos ? list.size() + 1 : comma + 1;
+                if (!item.empty()) ids.push_back(static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 10)));
+            }
+        }
+        const auto load_start = std::chrono::steady_clock::now();
+        for (const std::uint32_t id : ids) {
             if (id == 0 || (w.map && static_cast<std::uint32_t>(w.map->id) == id)) continue;
             const std::string dir = (std::filesystem::path(maps_dir) / std::to_string(id)).string();
             std::string error;
@@ -182,7 +198,9 @@ int main(int argc, char** argv)
             if (!script_root.empty() && w.scripts) wc.scripts = std::make_shared<jx::zone::KScriptCache>(script_root);
             zc.worlds.push_back(std::move(wc));
         }
-        jx::log::info("boot", "maps hosted", {jx::log::kv("count", zc.worlds.size())});
+        const auto load_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - load_start).count();
+        jx::log::info("boot", "maps hosted", {jx::log::kv("count", zc.worlds.size()), jx::log::kv("load_ms", load_ms)});
     }
 
     asio::io_context io;

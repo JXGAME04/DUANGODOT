@@ -83,6 +83,9 @@ public:
     static constexpr int kMaxHitPercent = 95;                   // MAX_HIT_PERCENT
     static constexpr int kMinHitPercent = 5;                    // MIN_HIT_PERCENT
     static constexpr std::uint64_t kGameUpdateTime = 10;        // GAME_UPDATE_TIME: frames between two KNpc::ProcessState
+    // How long a map has to stay empty and quiet before its tick stops doing anything at all.
+    // Two seconds at 18 Hz: long enough that walking out and back in never sees a frozen map.
+    static constexpr std::uint64_t kDormantAfterTicks = 36;
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
                        KNpcKind kind = KNpcKind::npc);
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
@@ -105,6 +108,10 @@ public:
     // How many entities actually thought during the last tick (MASTER SPEC 44, 45): the rest were
     // asleep because no player was near.  The difference is the CPU a crowded map gets back.
     [[nodiscard]] std::size_t awake_entities() const noexcept { return awake_entities_; }
+    // A map nobody is on and where nothing is still happening.  Its tick does nothing at all, so
+    // a zone can host all 980 maps of the old game and only pay for the ones being played.
+    [[nodiscard]] bool dormant() const noexcept { return dormant_; }
+    [[nodiscard]] std::uint64_t idle_ticks() const noexcept { return idle_ticks_; }
 
     [[nodiscard]] std::size_t player_count() const noexcept { return players_.size(); }
     [[nodiscard]] std::size_t entity_count() const noexcept { return entities_.size(); }
@@ -198,6 +205,8 @@ private:
     mutable std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> viewer_cache_;   // cell -> player sids
     std::unordered_set<std::uint64_t> awake_cells_;   // cells with a player within the largest vision
     std::size_t awake_entities_ = 0;
+    std::uint64_t idle_ticks_ = 0;   // consecutive ticks with no player and nothing awake
+    bool dormant_ = false;
     std::int32_t max_vision_ = 0;                     // largest vision radius spawned here
     // per phase cost of this map's tick (MASTER SPEC 22, 53, 96): "map.<id>.tick.<phase>"
     std::unique_ptr<core::TickProfile> profile_;

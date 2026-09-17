@@ -8,20 +8,38 @@ namespace jx::zone {
 void KPathFinder::reset(const KMapData* map)
 {
     map_ = map;
+    release();
+}
+
+void KPathFinder::release()
+{
     generation_ = 0;
     last_expanded_ = 0;
-    if (map_ == nullptr) {
-        g_.clear();
-        parent_.clear();
-        stamp_.clear();
-        closed_.clear();
-        return;
-    }
+    g_ = {};
+    parent_ = {};
+    stamp_ = {};
+    closed_ = {};
+    heap_ = {};
+    cells_ = {};
+}
+
+std::size_t KPathFinder::bytes() const noexcept
+{
+    return g_.capacity() * sizeof(int) + parent_.capacity() * sizeof(int) +
+           stamp_.capacity() * sizeof(std::uint32_t) + closed_.capacity() * sizeof(std::uint32_t) +
+           heap_.capacity() * sizeof(Node) + cells_.capacity() * sizeof(Pos);
+}
+
+// Sizes the buffers for the current map; called on the first query after reset() or release().
+void KPathFinder::allocate()
+{
     const std::size_t total = static_cast<std::size_t>(map_->cells_x) * static_cast<std::size_t>(map_->cells_y);
+    if (g_.size() == total) return;
     g_.assign(total, -1);
     parent_.assign(total, -1);
     stamp_.assign(total, 0);
     closed_.assign(total, 0);
+    generation_ = 0;
 }
 
 std::vector<Pos> KPathFinder::find(Pos from, Pos to, std::size_t max_expand)
@@ -35,6 +53,7 @@ std::vector<Pos> KPathFinder::find(Pos from, Pos to, std::size_t max_expand)
     if (sx == tx && sy == ty) return {to};
     if (m.line_of_sight(from, to)) return {to};
 
+    allocate();   // the straight-line cases above never need the grid buffers
     ++queries_;
     if (++generation_ == 0) {   // wrapped: start over with clean stamps
         std::fill(stamp_.begin(), stamp_.end(), 0);

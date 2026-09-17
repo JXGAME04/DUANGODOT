@@ -46,6 +46,8 @@ type MapInfo struct {
 	Traps      []TrapInfo `json:"traps"`   // KRegion::LoadServerTrap runs, in whole-map cells
 	Npcs       []NpcInfo  `json:"npcs"`
 	Sprites    int        `json:"sprites"`
+	// regions the archive could not give us; the bundle is still usable, that ground is blank
+	BadRegions []string `json:"bad_regions,omitempty"`
 }
 
 // NpcInfo is a static npc placement.
@@ -241,7 +243,14 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 			}
 			r, err := wor.LoadRegion(e.Set, w, rx, ry)
 			if err != nil {
-				return nil, fmt.Errorf("region %d,%d: %w", rx, ry, err)
+				// One unreadable region must not cost the whole map: the old client drew what it
+				// could and left the rest blank.  Three of the 1054 maps of the reference client
+				// hit this (map 605-607, region 105,81: the archive id of that Region_C.dat
+				// belongs to a frame-compressed sprite).  Obstacles stay 0 there, so the zone
+				// treats the region as walkable empty ground, and the client draws nothing.
+				info.BadRegions = append(info.BadRegions, fmt.Sprintf("%03d_%03d: %v", rx, ry, err))
+				log.Warn("asset", "region skipped", log.F("map", id), log.F("x", rx), log.F("y", ry), log.F("error", err))
+				continue
 			}
 			if !r.HasData {
 				continue

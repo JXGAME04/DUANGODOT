@@ -10,6 +10,9 @@
 // same smoothing), so movement stays deterministic.
 //
 // One finder belongs to one map instance: it is state, and state has exactly one owner (SPEC 6).
+// The buffers cost 13 bytes per cell, which is 11 MB on Phượng Tường, so a zone hosting all 980
+// maps of the old game would hold 2.7 GB of them.  They are therefore allocated on the first query
+// and given back by release() when the map has no players: an empty map costs nothing.
 #pragma once
 
 #include <cstdint>
@@ -25,9 +28,13 @@ public:
     KPathFinder() = default;
     explicit KPathFinder(const KMapData* map) { reset(map); }
 
-    // Points the finder at a map (and sizes the buffers once).
+    // Points the finder at a map; the buffers are sized on the first query.
     void reset(const KMapData* map);
+    // Gives the buffers back to the allocator.  Safe at any time: the next query sizes them again.
+    void release();
     [[nodiscard]] const KMapData* map() const noexcept { return map_; }
+    // Bytes the buffers currently hold (0 before the first query, and after release).
+    [[nodiscard]] std::size_t bytes() const noexcept;
 
     // Waypoints from `from` to `to` (last element == to when reachable), smoothed like the old
     // client did.  Empty when unreachable or the search budget is exhausted.
@@ -42,6 +49,8 @@ private:
         int f = 0, g = 0, x = 0, y = 0;
         bool operator>(const Node& o) const noexcept { return f > o.f; }
     };
+
+    void allocate();
 
     const KMapData* map_ = nullptr;
     std::vector<int> g_;                  // cost so far, valid when stamp_[i] == generation_

@@ -17,15 +17,16 @@
     "cell_size": 512,
     "view_cells": 1,
     "default_speed": 200,
-    "max_players": 2000,
+    "max_players": 20000,
     "save_interval_s": 60,
     "stats_interval_s": 10,
     "test_npcs": 4,
     "seed": 1,
     // exported by: python tools/dev.py assets   (empty = plain 8192x8192 grid)
     "map_dir": "client/assets/maps/1",
-    // every other map bundle the zone hosts (portals need the target loaded), e.g. "3,7,99" after: python tools/dev.py assets 1 3 7 99
-    "maps": "3,7,99",
+    // every other map bundle the zone hosts (portals need the target loaded): a list like "3,7,99",
+    // or "all" for every bundle under maps_dir (980 maps = 110 730 npc, 819 MB, tick 1,6 ms idle)
+    "maps": "all",
     "maps_dir": "client/assets/maps",
     "map_npcs": true
   },

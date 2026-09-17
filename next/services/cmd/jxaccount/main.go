@@ -8,6 +8,7 @@
 //	jxaccount unfreeze <account>
 //	jxaccount expire <account> <hours>         game time left (0 = unlimited)
 //	jxaccount list
+//	jxaccount -n 5000 -maps 1,3,7,99 seed      load test data: N accounts + 1 character each, spread over those maps
 package main
 
 import (
@@ -26,13 +27,18 @@ import (
 )
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: jxaccount [-data DIR] [-min-password N] add|passwd|freeze|unfreeze|expire|list ...")
+	fmt.Fprintln(os.Stderr, "usage: jxaccount [-data DIR] [-min-password N] add|passwd|freeze|unfreeze|expire|list|seed ...")
 	os.Exit(2)
 }
 
 func main() {
 	dataDir := flag.String("data", "data/gateway", "gateway data directory (gateway.data_dir)")
 	minPassword := flag.Int("min-password", 6, "minimum password length (LOGIN_PASSWORD_MIN_LEN of the old PaySys)")
+	seedCount := flag.Int("n", 0, "seed: how many accounts")
+	seedPrefix := flag.String("prefix", "bot", "seed: account name prefix (bot1, bot2, ...)")
+	seedPassword := flag.String("password", "bot", "seed: the password every seeded account gets")
+	seedMaps := flag.String("maps", "", "seed: map ids to spread the characters over, e.g. 1,3,7,99 (empty = the zone's default map)")
+	seedZone := flag.Uint("zone", 1, "seed: zone id of the saved position")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) == 0 {
@@ -109,6 +115,20 @@ func main() {
 			}
 			fmt.Printf("%-6d %-20s %-6d %-8d %-20s %-22s %s\n", a.ID, a.Name, len(a.Chars), a.Logins, last, a.LastAddr, state)
 		}
+	case "seed":
+		if *seedCount <= 0 {
+			fmt.Fprintln(os.Stderr, "seed needs -n <count>")
+			usage()
+		}
+		ids, err := parseMapList(*seedMaps)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		cmdErr = seed(ctx, store, accounts, seedOptions{
+			count: *seedCount, prefix: *seedPrefix, password: *seedPassword,
+			maps: ids, zoneID: uint32(*seedZone),
+		})
 	default:
 		usage()
 	}

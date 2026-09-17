@@ -465,6 +465,23 @@ void KSubWorld::on_cell_change(KNpc& e, Cell from, Cell to)
 void KSubWorld::tick()
 {
     ++tick_;
+    // MASTER SPEC 44/45 taken to the whole map: with nobody on it and nothing left awake, there is
+    // no observable state to advance, so the tick returns before it even lists the entities.  A
+    // zone hosting 980 maps otherwise walks 110 730 npcs 18 times a second to skip every one.
+    // The A* buffers (13 bytes per cell, 11 MB on Phượng Tường) go back to the allocator too.
+    if (players_.empty() && awake_entities_ == 0) {
+        if (++idle_ticks_ > kDormantAfterTicks) {
+            if (!dormant_) {
+                dormant_ = true;
+                paths_.release();
+            }
+            return;
+        }
+    } else {
+        idle_ticks_ = 0;
+        dormant_ = false;
+    }
+
     // deterministic iteration order regardless of hash layout
     entities_.ids(scratch_ids_);
     std::sort(scratch_ids_.begin(), scratch_ids_.end());
