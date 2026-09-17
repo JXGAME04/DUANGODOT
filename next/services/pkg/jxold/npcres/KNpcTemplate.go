@@ -35,7 +35,7 @@ type Template struct {
 	CastFrame   int `json:"cast_frame"` // the CastSpeed column: length of a non-melee skill
 	HitRecover  int `json:"hit_recover"`
 	ReviveFrame int `json:"revive_frame"`
-	LifeParam   int `json:"life_param"` // raw *Param columns, scaled by the level scripts in the old game
+	LifeParam   int `json:"life_param"` // raw *Param columns, placeholders when no level script runs
 	MinDamage   int `json:"min_damage"`
 	MaxDamage   int `json:"max_damage"`
 	Defense     int `json:"defense"`
@@ -46,6 +46,22 @@ type Template struct {
 	VisionRadius int              `json:"vision_radius"` // default 40
 	ActiveRadius int              `json:"active_radius"` // default 30
 	Skills       [5]TemplateSkill `json:"skills"`        // slots 1..4 = Skill1..4 / Level1..4 (KSkillList::m_Skills); 0 unused
+	// the LevelScript column and the raw cells KNpcTemplate::InitNpcLevelData hands to the script
+	LevelScript string            `json:"level_script"`
+	Cells       map[string]string `json:"cells"`
+}
+
+// LevelCells are the columns InitNpcLevelData reads as raw strings for the level script.
+var LevelCells = []string{
+	"ExpParam", "ExpParam1", "ExpParam2", "ExpParam3",
+	"LifeParam", "LifeParam1", "LifeParam2", "LifeParam3",
+	"LifeReplenish",
+	"ARParam", "ARParam1", "ARParam2", "ARParam3",
+	"DefenseParam", "DefenseParam1", "DefenseParam2", "DefenseParam3",
+	"MinDamageParam", "MinDamageParam1", "MinDamageParam2", "MinDamageParam3",
+	"MaxDamageParam", "MaxDamageParam1", "MaxDamageParam2", "MaxDamageParam3",
+	"FireResist", "ColdResist", "LightResist", "PoisonResist", "PhysicsResist",
+	"Level1", "Level2", "Level3", "Level4",
 }
 
 // TemplateSkill is one of the Skill1..4 / Level1..4 pairs.  A level cell "a|b" means
@@ -121,6 +137,13 @@ func ParseTemplates(data []byte) []Template {
 			}
 			a, b := parseLevel(level)
 			t.Skills[slot] = TemplateSkill{ID: Atoi(id), LevelA: a, LevelB: b}
+		}
+		t.LevelScript = strings.ToLower(strings.TrimSpace(tab.GetByName(row, "LevelScript")))
+		t.Cells = map[string]string{}
+		for _, c := range LevelCells {
+			if v := strings.TrimSpace(tab.GetByName(row, c)); v != "" {
+				t.Cells[c] = v
+			}
 		}
 		out = append(out, t)
 	}

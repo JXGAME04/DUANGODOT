@@ -7,6 +7,8 @@
     "port": 17001,
     "tick_hz": 18,                      // the old logic loop: frame counts of npcs.txt are ticks
     // "npcres_file": "client/assets/npcres/npcs.json",   -> default: next to map_dir
+    // "script_root": "D:\\ServerLinux\\server1",        -> old server folder with script\ (npc level scripts);
+    //                                                   dev.py start sets JX_ZONE__SCRIPT_ROOT from config/oldgame.local.json
     "width": 8192,
     "height": 8192,
     // "spawn": { "x": 4096, "y": 4096 },   -> when set it overrides the map spawn (useful for testing a spot)

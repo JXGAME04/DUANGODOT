@@ -128,6 +128,18 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "npc templates unavailable, default combat numbers", {jx::log::kv("file", npcres_file), jx::log::kv("error", error)});
         }
     }
+    // the old server folder holding script\ (npc level scripts through Lua 5.4); empty = placeholder numbers
+    const std::string script_root = cfg.get_string("zone.script_root", "");
+    if (!script_root.empty()) {
+        if (std::filesystem::exists(std::filesystem::path(script_root) / "script")) {
+            w.scripts = std::make_shared<jx::zone::KScriptCache>(script_root);
+            jx::log::info("boot", "level scripts", {jx::log::kv("root", script_root)});
+        } else {
+            jx::log::warn("boot", "zone.script_root has no script folder, npc life / damage use placeholders", {jx::log::kv("dir", script_root)});
+        }
+    } else {
+        jx::log::warn("boot", "zone.script_root not set, npc life / damage use placeholders (docs/NPCRES.md)");
+    }
 
     asio::io_context io;
     jx::zone::KGameServer server(io, zc);

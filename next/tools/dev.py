@@ -178,6 +178,9 @@ def cmd_start(new_console: bool = True) -> None:
     if any(alive(p) for p in pids.values()):
         print("already running:", pids)
         return
+    # the npc level scripts (Lua) live in the old server folder of config/oldgame.local.json
+    if "JX_ZONE__SCRIPT_ROOT" not in os.environ and old_server_dir():
+        os.environ["JX_ZONE__SCRIPT_ROOT"] = old_server_dir()
     zone = spawn([zone_exe(), "--config", "config/zone.json"], "jx_zone", new_console)
     if not wait_port(17001, 10):
         kill(zone.pid)

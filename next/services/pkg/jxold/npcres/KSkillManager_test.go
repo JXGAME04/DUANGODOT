@@ -57,3 +57,22 @@ func TestParseTemplatesReadsTheServerSideColumns(t *testing.T) {
 		t.Fatalf("empty skill or level must leave the slot empty (SetNpcSkill needs both): %+v %+v", tp.Skills[3], tp.Skills[4])
 	}
 }
+
+func TestParseTemplatesKeepsTheLevelScriptAndItsCells(t *testing.T) {
+	hdr := "Name\tKind\tLevelScript\tLifeParam\tLifeParam1\tLifeReplenish\tSkill1\tLevel1\tFireResist\n"
+	row := "Heo rung\t0\t\\script\\npclevelscript\\Animal.lua\t100\t0.5\t0|0.05\t53\t1|0\t\n"
+	ts := ParseTemplates([]byte(hdr + row))
+	tp := ts[1]
+	if tp.LevelScript != "\\script\\npclevelscript\\animal.lua" {
+		t.Fatalf("level script %q (must be lower-cased like the old strlwr)", tp.LevelScript)
+	}
+	want := map[string]string{"LifeParam": "100", "LifeParam1": "0.5", "LifeReplenish": "0|0.05", "Level1": "1|0"}
+	for k, v := range want {
+		if tp.Cells[k] != v {
+			t.Errorf("cell %s = %q, want %q", k, tp.Cells[k], v)
+		}
+	}
+	if _, ok := tp.Cells["FireResist"]; ok {
+		t.Error("an empty cell must not be exported")
+	}
+}

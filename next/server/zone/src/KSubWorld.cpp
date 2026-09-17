@@ -165,6 +165,12 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.npc_kind = kind_player;
     e.camp = camp_begin;   // BaseInfo.iteam of the old RoleData is not carried yet: every player is a beginner
     e.current_camp = camp_begin;
+    // placeholders until KPlayer attributes and equipment set them (KPlayer::UpdateBaseData)
+    e.min_damage = 10;
+    e.max_damage = 20;
+    e.attack_rating = 100;
+    e.defend = 0;
+    e.life_replenish = static_cast<int>((e.level + 5) / 6);   // KNpc.cpp:3971 for players
     e.name = role.name();
     e.level = role.level() == 0 ? 1u : role.level();
     e.series = role.series();
@@ -408,7 +414,10 @@ void KSubWorld::tick()
     std::vector<EntityId> moved, arrived;
     for (const EntityId id : scratch_ids_) {
         KNpc& e = entities_.at(id);
-        // KNpc::Activate: NpcAI.Activate while m_ProcessAI, then the command / status of the frame
+        // KNpc::Activate: m_LoopFrames++, ProcessState every GAME_UPDATE_TIME frames, then NpcAI.Activate
+        // while m_ProcessAI, then the command / status of the frame
+        ++e.loop_frames;
+        if (e.loop_frames % kGameUpdateTime == 0) process_state(e);
         if (e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
         update_action(e);
         if (e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
@@ -462,8 +471,18 @@ void KSubWorld::apply_template(KNpc& e) const
     e.death_frame = t->death_frame;
     e.hit_recover = t->hit_recover;
     e.revive_frame = t->revive_frame;
-    e.min_damage = std::max(1u, t->min_damage);
-    e.max_damage = std::max(e.min_damage, t->max_damage);
+    // KNpc::Init -> InitNpcLevelData -> LoadDataFromTemplate: the level data through the level script
+    const KNpcLevelData& d = level_data_of(*t, static_cast<int>(std::max(1u, e.level)), static_cast<int>(e.series));
+    e.level_data_from_script = d.from_script;
+    e.min_damage = d.min_damage;
+    e.max_damage = std::max(d.min_damage, d.max_damage);
+    e.attack_rating = d.attack_rating;
+    e.defend = d.defend;
+    e.physics_resist = d.physics_resist;
+    e.life_replenish = d.life_replenish;
+    e.exp = d.exp;
+    e.life_max = std::max(1u, d.life_max);
+    e.life = e.life_max;
     if (e.kind != KNpcKind::player) {
         // the server side of KNpc::Init from the template: camp, ai and the skill list
         e.npc_kind = t->kind;
@@ -484,9 +503,8 @@ void KSubWorld::apply_template(KNpc& e) const
             KNpcSkillSlot& slot = e.skills[i];
             slot = KNpcSkillSlot{};
             if (s.id <= 0) continue;
-            // Level1..4 "a|b" through the level script: a + b * level, floored (GetData)
-            const int level = static_cast<int>(std::floor(s.level_a + s.level_b * static_cast<double>(e.level)));
-            if (level <= 0) continue;   // KSkillList::SetNpcSkill ignores a level of 0
+            const int level = d.skill_level[i];   // Level1..4 through the level script
+            if (level <= 0) continue;             // KSkillList::SetNpcSkill ignores a level of 0
             slot.id = s.id;
             slot.level = level;
             slot.known = s.known;
@@ -497,9 +515,6 @@ void KSubWorld::apply_template(KNpc& e) const
         }
         e.ai_param[KNpcAI::kMaxAiParam - 1] = max_radius * max_radius;   // KNpc::Init: the reach of the farthest skill
     }
-    // placeholder for GetNpcKeyData(series, level, "Life", params) of the level scripts
-    e.life_max = std::max(10u, std::max(1u, t->life_param) * std::max(1u, e.level));
-    e.life = e.life_max;
 }
 
 int KSubWorld::reach_of(const KNpc& e) const noexcept
@@ -751,17 +766,65 @@ void KSubWorld::update_action(KNpc& e)
 // resistances comes with the skill system), then KNpc::DoHurt or DoDeath on the target.
 void KSubWorld::hit(KNpc& attacker, KNpc& target)
 {
-    const std::uint32_t span = attacker.max_damage >= attacker.min_damage ? attacker.max_damage - attacker.min_damage + 1 : 1;
-    const std::uint32_t dmg = attacker.min_damage + static_cast<std::uint32_t>(rng_() % span);
-    target.life = dmg >= target.life ? 0u : target.life - dmg;
-    target.people_id = attacker.id;   // KNpc::ReceiveDamage: m_nPeopleIdx = nLauncher (passive ais strike back at it)
-    log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("life", target.life)});
-    emit_life(target, -static_cast<std::int32_t>(dmg), attacker.id);
-    if (target.life == 0) {
+    // KNpc::ReceiveDamage: the attack rating check first (闪过攻击 = dodged, nothing else happens)
+    if (!check_hit_target(static_cast<int>(attacker.attack_rating), static_cast<int>(target.defend))) {
+        log::trace("zone.fight", "dodged", {log::kv("attacker", attacker.id), log::kv("target", target.id)});
+        return;
+    }
+    target.people_id = attacker.id;   // m_nPeopleIdx = nLauncher (passive ais strike back at it)
+    // KNpc::CalcDamage(damage_physics): the blow, then the physics resistance (MAX_RESIST); the
+    // shields, damage return, mana and the PK rate come with the skill system
+    const int min = static_cast<int>(attacker.min_damage);
+    const int max = static_cast<int>(attacker.max_damage);
+    if (min + max <= 0) return;
+    int dmg = max - min < 0 ? max + random(min - max) : min + random(max - min);
+    const int res = std::min(target.physics_resist, kMaxResist);
+    dmg = dmg * (100 - res) / 100;
+    if (dmg <= 0) return;
+    // m_CurrentLife -= nDamage; DoDeath only below zero: a blow that leaves exactly 0 leaves it standing
+    const bool dies = static_cast<std::uint32_t>(dmg) > target.life;
+    target.life = dies ? 0u : target.life - static_cast<std::uint32_t>(dmg);
+    log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("resist", res), log::kv("life", target.life)});
+    emit_life(target, -dmg, attacker.id);
+    if (dies) {
         do_death(target, attacker.id);
     } else {
         do_hurt(target, attacker.id);
     }
+}
+
+// KNpc::CheckHitTarget: hit chance from the attack rating against the (partly ignored) defence.
+bool KSubWorld::check_hit_target(int ar, int df, int ignore)
+{
+    const int defense = df * (100 - ignore) / 100;
+    int percent = (ar + defense) == 0 ? 50 : ar * 100 / (ar + defense);
+    percent = std::clamp(percent, kMinHitPercent, kMaxHitPercent);
+    return rand_percent(percent);
+}
+
+// KNpc::ProcessState every GAME_UPDATE_TIME frames: 生命自然回复 (the life replenish of the level data).
+void KSubWorld::process_state(KNpc& e)
+{
+    if (!e.alive() || e.life_replenish == 0 || e.life >= e.life_max) return;
+    const std::int64_t next = std::clamp<std::int64_t>(static_cast<std::int64_t>(e.life) + e.life_replenish, 0, e.life_max);
+    const auto delta = static_cast<std::int32_t>(next - static_cast<std::int64_t>(e.life));
+    if (delta == 0) return;
+    e.life = static_cast<std::uint32_t>(next);
+    emit_life(e, delta, EntityId{});
+}
+
+const KNpcLevelData& KSubWorld::level_data_of(const KNpcTemplate& t, int level, int series) const
+{
+    const std::uint64_t key = (static_cast<std::uint64_t>(t.id) << 32) | (static_cast<std::uint64_t>(level & 0xffff) << 8) | static_cast<std::uint64_t>(series & 0xff);
+    auto it = level_cache_.find(key);
+    if (it == level_cache_.end()) {
+        KNpcLevelData d = KNpcTemplateSet::level_data(t, level, series, cfg_.scripts.get());
+        log::debug("npc", "level data", {log::kv("template", t.id), log::kv("level", level), log::kv("script", d.from_script),
+                                         log::kv("life", d.life_max), log::kv("ar", d.attack_rating), log::kv("defend", d.defend),
+                                         log::kv("min_damage", d.min_damage), log::kv("max_damage", d.max_damage), log::kv("exp", d.exp)});
+        it = level_cache_.emplace(key, std::move(d)).first;
+    }
+    return it->second;
 }
 
 // A heal cast on oneself (AIMode 2 / 5, skill 1).  Placeholder amount until the skill system

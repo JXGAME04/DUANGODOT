@@ -65,7 +65,7 @@ Vị trí NPC map 1 của `maps.pak` Linux **trùng hệt** bản dự án (1409
 ## 4. Dùng bản Linux làm gì tiếp
 
 - `script/npclevelscript/*.lua` (`GetNpcKeyData`: `Life = 4·GetLife`, `Exp = 1.5·GetExp`, `property.lua`
-  `Quadratic/Linear`) → công thức máu/sát thương thật cho zone (thay placeholder ở `NPCRES.md` mục 4) khi có Lua 5.4.
+  `Quadratic/Linear`) → **đã dùng**: zone nhúng Lua 5.4 và chạy đúng các script này (`KLuaScript`, `NPCRES.md` mục 4).
 - `settings/npcs.txt` cột `AIMode/AIParam1..9/AIMaxTime/VisionRadius/ActiveRadius` → dữ liệu cho port `KNpcAI`.
 - `script/ai/fighter.lua` (AI người chơi tự động, `SetAITime/SetVisionRadius/SetActiveRange`) → tham khảo API AI.
 - Mọi số liệu hoạt động khác (task, drop, skill) — đọc `HUONGDAN_DICHNGUOC_TINHNANG_LINUX.md` trước khi port.

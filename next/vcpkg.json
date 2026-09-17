@@ -10,6 +10,10 @@
     "nlohmann-json",
     "catch2",
     "asio",
-    "protobuf"
+    "protobuf",
+    "lua"
+  ],
+  "overrides": [
+    { "name": "lua", "version": "5.4.8" }
   ]
 }

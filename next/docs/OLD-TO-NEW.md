@@ -20,6 +20,9 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 | `KPlayer.h`, `KPlayerSet` (tài khoản, RoleData) | `proto/jx/role.proto` + gateway Go (`persist`) | dữ liệu nhân vật là protobuf `RoleData` |
 | `Core/Src/KNpcTemplate.h/.cpp` (`npcs.txt`) | `server/zone/…/KNpcTemplate.h/.cpp` (`KNpcTemplateSet`) | đọc `npcres/npcs.json` xuất từ bảng server |
 | `Core/Src/KNpcAI.h/.cpp` (phần `_SERVER`, `ProcessAIType01..06`) | `server/zone/…/KNpcAI.h`, `src/KNpcAI.cpp` (`class KNpcAI`, `g_GenOneRelation`) | quái đánh trả; `KNpcSet::GenOneRelation`/`GetRelation` = `KSubWorld::relation` |
+| `Engine/Src/KLuaScript.h/.cpp` (Lua 4.0: `Load`, `CallFunction`, `Include`) | `server/zone/…/KLuaScript.h/.cpp` (Lua **5.4** + lớp tương thích Lua 4) | script cũ chạy nguyên văn |
+| `Engine/Src/KScriptCache.h` (`g_GetScript`) | `server/zone/…/KScriptCache.h/.cpp` | một trạng thái Lua cho mỗi file, nạp một lần |
+| `KNpcTemplate::InitNpcLevelData` (+ `g_pNpcTemplate[id][level]`) | `KNpcTemplateSet::level_data` + cache trong `KSubWorld` | máu/sát thương/kinh nghiệm qua level script |
 
 Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`KSkills`/`KMissle`, `KPathFinder`,
 `KMission`/`KPlayerTask`, `KPlayerTeam`, `KPlayerTong`, `KScriptValueSet` (Lua 5.4).

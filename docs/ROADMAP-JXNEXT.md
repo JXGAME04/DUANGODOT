@@ -229,6 +229,11 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       `EntityAction`/`EntityLife`; nhịp khung như `KNpc::DoAttack/OnSpecial1(60 %)/DoHurt/DoDeath/DoRevive`, tự đi tới mục tiêu,
       tự vung tiếp; client hoạt ảnh Attack1/2, Wound, Die (giữ khung cuối), thanh máu, chọn mục tiêu bằng click; `--auto` tự
       đánh quái (`AUTO_FIGHT`). Sát thương/máu tạm (chờ Lua), quái chưa đánh trả. Chi tiết `next/docs/NPCRES.md` mục 4.
+- [x] **M3d — máu/sát thương/kinh nghiệm thật qua Lua 5.4 (2026-09-17)**: `KLuaScript`/`KScriptCache` (Lua 5.4.8 vcpkg,
+      lớp tương thích Lua 4 nên `npclevelscript/*.lua` của server Linux chạy nguyên văn), `KNpcTemplateSet::level_data` =
+      `InitNpcLevelData` (Exp/Life/AR/Defense/Min-MaxDamage/LifeReplenish/Resist/Level1..4, cache theo cấp), `CheckHitTarget`,
+      `CalcDamage(physics)`, hồi máu `ProcessState`; `zone.script_root` ← `oldgame.local.json`. Còn tạm: số của người chơi,
+      attrib kỹ năng. Test `test_KLuaScript.cpp`.
 - [x] **M3c — quái đánh trả (2026-09-17)**: `KNpcAI` port 1‑1 sáu chế độ `AIMode` (chủ động/bị động, hồi máu, bỏ chạy),
       `KeepActiveRange/GetNearestNpc/CommonAction/FollowAttack/KeepAttackRange/Flee`, quan hệ camp `GenOneRelation`, nhịp
       `AIMaxTime`, tốc độ `WalkSpeed`/khung, kỹ năng Skill1..4 + bán kính từ `skills.txt` (`KSkillManager.go`), AI tắt khi đang

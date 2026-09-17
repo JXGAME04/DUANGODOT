@@ -23,7 +23,7 @@ enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive 
 // KSkillList::m_Skills[1..4] of a npc (Skill1..4 / Level1..4 of npcs.txt) as far as KNpcAI needs it.
 struct KNpcSkillSlot {
     int id = 0;
-    int level = 0;            // a + b * npc level (level scripts GetData); 0 = SetActiveSkill fails
+    int level = 0;            // from the level script (Level1..4 cells); 0 = SetActiveSkill fails
     bool known = false;       // in skills.txt; unknown skills leave m_CurrentAttackRadius alone (GetSkill == NULL)
     int attack_radius = 0;    // KSkill::GetAttackRadius
     bool melee = false;
@@ -55,8 +55,9 @@ struct KNpc {
     std::uint32_t frame_cur = 0;     // m_Frames.nCurrentFrame
     EntityId attack_target;          // kept attacking until it dies or we are told to move
     std::uint32_t approach_tries = 0;   // walks toward an out-of-reach target, a few times at most
-    std::uint32_t life = 0;
-    std::uint32_t life_max = 0;
+    std::uint32_t life = 0;          // m_CurrentLife (never below 0 here; death when a blow exceeds it)
+    std::uint32_t life_max = 0;      // m_CurrentLifeMax
+    std::uint64_t loop_frames = 0;   // m_LoopFrames: ticks alive, for the periodic state update
     // KNpc::Load from the template (KNpcTemplate); the AttackSpeed column is the attack length
     std::uint32_t attack_frame = 20;
     std::uint32_t cast_frame = 20;   // m_CastFrame: length of a non-melee skill (KNpc::DoSkill)
@@ -65,8 +66,15 @@ struct KNpc {
     std::uint32_t hit_recover = 12;
     std::uint32_t revive_frame = 2400;
     std::uint32_t attack_speed = 0;  // m_CurrentAttackSpeed (percent)
-    std::uint32_t min_damage = 1;
-    std::uint32_t max_damage = 3;
+    // the level data (KNpcTemplate::InitNpcLevelData through the level script; placeholders for players)
+    std::uint32_t min_damage = 1;    // m_PhysicsDamage.nValue[0]
+    std::uint32_t max_damage = 3;    // m_PhysicsDamage.nValue[2]
+    std::uint32_t attack_rating = 100;   // m_AttackRating (m_CurrentAttackRating)
+    std::uint32_t defend = 0;        // m_Defend (m_CurrentDefend)
+    int physics_resist = 0;          // m_PhysicsResist (m_CurrentPhysicsResist)
+    int life_replenish = 0;          // m_LifeReplenish: life per GAME_UPDATE_TIME frames (KNpc::ProcessState)
+    std::uint32_t exp = 0;           // m_Experience: what killing it is worth
+    bool level_data_from_script = false;
 
     // KNpcAI state (server side of KNpc.h), named after the old members
     int npc_kind = 0;                 // NPCKIND of npcs.txt (0 normal, 2 partner, 3 dialoger, 4 bird, 5 mouse); players are kind_player

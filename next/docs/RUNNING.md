@@ -41,7 +41,9 @@ python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite
 Nguồn dữ liệu: `config/oldgame.local.json` (mẫu `config/oldgame.example.json`) trỏ tới **client VLTK 2.0** (thư mục có
 `config.ini` + `data/*.pak`), client dự phòng (`bin/Client`, chỉ cấp file 2.0 thiếu) và **server Linux** (`D:\ServerLinux\server1`:
 `Settings/npcs.txt`, `pak/maps.pak`, `lang/vn/replacename_npc.txt`); không có file này thì dùng `../bin/Client` + `../bin/Server`
-(hoặc `JX_OLD_CLIENT`/`JX_OLD_SERVER`). Vai trò từng nguồn: [REFERENCES.md](REFERENCES.md).
+(hoặc `JX_OLD_CLIENT`/`JX_OLD_SERVER`). Vai trò từng nguồn: [REFERENCES.md](REFERENCES.md). Zone chạy **level script Lua**
+(`script/npclevelscript/*.lua`) của thư mục server đó qua `zone.script_root` — `dev.py start` tự đặt `JX_ZONE__SCRIPT_ROOT`;
+không có thì máu/sát thương quái dùng số tạm (xem NPCRES.md mục 4).
 Zone đọc `client/assets/maps/1` theo `zone.map_dir` trong `config/zone.json`; chi tiết ở [MAPS.md](MAPS.md).
 `dev.py assets` cũng xuất sprite nhân vật/NPC vào `client/assets/npcres` (xem [NPCRES.md](NPCRES.md)); thiếu thư mục
 này client vẫn chạy nhưng vẽ nhân vật bằng vòng tròn.

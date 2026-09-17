@@ -22,6 +22,7 @@
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcTemplate.h"
+#include "jx/zone/KScriptCache.h"
 
 namespace jx::zone {
 
@@ -41,6 +42,7 @@ struct KSubWorldConfig {
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
     std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
+    std::shared_ptr<KScriptCache> scripts;              // the old server folder with script\ (level scripts); optional
 };
 
 // One outgoing message for a set of sessions (fan-out happens at the gateway).
@@ -65,6 +67,10 @@ public:
     static constexpr std::uint32_t kAttackEffectPercent = 60;   // ATTACKACTION_EFFECT_PERCENT (KNpc.cpp)
     static constexpr std::uint32_t kMinHurtPercent = 50;        // MIN_HURT_PERCENT (KNpc::DoHurt)
     static constexpr std::int32_t kMeleeReach = 96;             // scene units, until weapons carry their range
+    static constexpr int kMaxResist = 95;                       // MAX_RESIST (GameDataDef.h)
+    static constexpr int kMaxHitPercent = 95;                   // MAX_HIT_PERCENT
+    static constexpr int kMinHitPercent = 5;                    // MIN_HIT_PERCENT
+    static constexpr std::uint64_t kGameUpdateTime = 10;        // GAME_UPDATE_TIME: frames between two KNpc::ProcessState
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
                        KNpcKind kind = KNpcKind::npc);
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
@@ -110,6 +116,10 @@ private:
     void begin_action(KNpc& e, KNpc& target, std::uint32_t frames);
     void approach(KNpc& e, const KNpc& target);
     void hit(KNpc& attacker, KNpc& target);
+    bool check_hit_target(int ar, int df, int ignore = 0);   // KNpc::CheckHitTarget
+    void process_state(KNpc& e);                            // KNpc::ProcessState: natural life regeneration
+    // KNpc::Init -> g_pNpcTemplate[id][level]: the level data of a template, computed once per (id, level, series)
+    [[nodiscard]] const KNpcLevelData& level_data_of(const KNpcTemplate& t, int level, int series) const;
     void heal(KNpc& e);
     void do_hurt(KNpc& e, EntityId source);
     void do_death(KNpc& e, EntityId killer);
@@ -137,6 +147,7 @@ private:
     std::minstd_rand rng_;
     std::vector<EntityId> scratch_ids_, scratch_entered_, scratch_left_;
     std::vector<std::uint64_t> scratch_sids_;
+    mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
 };
 
 } // namespace jx::zone

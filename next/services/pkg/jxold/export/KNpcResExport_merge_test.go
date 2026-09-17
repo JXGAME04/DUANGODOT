@@ -1,6 +1,7 @@
 package export
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
@@ -29,10 +30,10 @@ func TestMergeAppearanceTakesTheDrawingSideFromTheClientTable(t *testing.T) {
 	if m1.StandFrame != 14 || m1.Stature != 80 || m1.ArmorType != 5 {
 		t.Fatalf("the client row must give the drawing side: %+v", m1)
 	}
-	if merged[2] != server[2] {
+	if !reflect.DeepEqual(merged[2], server[2]) {
 		t.Fatalf("an empty client row must leave the server row alone: %+v", merged[2])
 	}
-	if merged[3] != server[3] {
+	if !reflect.DeepEqual(merged[3], server[3]) {
 		t.Fatalf("an id the client lacks must stay: %+v", merged[3])
 	}
 	if server[1].StandFrame != 20 {

@@ -87,10 +87,32 @@ HurtFrame 12).
   (`Revive` → `EntitySpawn`). `EntityInfo.doing/doing_frames` cho người vào sau thấy xác/đòn đang vung.
 - Đi (`C2G_MOVE`) hủy đòn đang vung; đang giật/chết không đi được.
 
-**Tạm thời chưa 1‑1**: sát thương = ngẫu nhiên [MinDamageParam, MaxDamageParam] không qua công thức
-(AR/phòng thủ/kháng); máu quái = `LifeParam × level` (bản cũ tính bằng script `GetNpcKeyData` trong
-`npclevelscript.lua` → chờ Lua 5.4); người chơi 100 máu. Test: `test_KSubWorld.cpp`
-"melee attack", client `--auto` tự đi đánh quái gần nhất (`AUTO_FIGHT`).
+### Máu / sát thương / kinh nghiệm thật — level script qua Lua 5.4 (`KLuaScript`, `KScriptCache`)
+
+Zone nhúng **Lua 5.4 chuẩn** (vcpkg `lua` 5.4.8). `KLuaScript` (tên theo `Engine/Src/KLuaScript`) = một trạng thái Lua cho
+mỗi file script, có `Include`, `print` → log, và **lớp tương thích Lua 4.0** (`getn`, `floor`, `strfind`, `strsub`, `mod`… là
+hàm toàn cục) nên script cũ chạy **nguyên văn**. `KScriptCache` (= `g_GetScript`) nạp một lần theo đường dẫn `\script\...`
+dưới `zone.script_root` (thư mục server cũ; `dev.py start` đặt `JX_ZONE__SCRIPT_ROOT` từ `config/oldgame.local.json` →
+`D:\ServerLinux\server1`).
+
+`KNpcTemplateSet::level_data` = `KNpcTemplate::InitNpcLevelData` nguyên văn cho mỗi (template, cấp, ngũ hành), cache trong
+`KSubWorld` như `g_pNpcTemplate[id][level]`: script = cột `LevelScript` (không có → `\script
+pclevelscript
+pclevelscript.lua`);
+`Level1..4` → `GetNpcLevelData(series, level, "Level1", "a|b")`; `Exp/Life/AR/Defense/MinDamage/MaxDamage` =
+`Param × GetNpcKeyData(series, level, tên, Param1, Param2, Param3) / 100` (chú ý tên `"AR"` chứ không phải `"AttackRating"`
+→ đa số script rơi xuống công thức bậc hai `P1·L² + P2·L + P3`, đúng như bản cũ); `LifeReplenish`, `*Resist` qua
+`GetNpcLevelData` với ô chuỗi; máu 0 → 100, AR 0 → 100. Không có `script_root` hoặc thiếu file → số tạm như trước (log cảnh báo).
+
+Đòn trúng (`hit`): `KNpc::CheckHitTarget` — tỉ lệ = `AR·100/(AR + phòng thủ)`, kẹp [5, 95] %; trượt = "闪过攻击" không có gì
+xảy ra. Rồi `CalcDamage(damage_physics)`: sát thương ngẫu nhiên `[min, max]` của người đánh, trừ kháng vật lý (tối đa 95 %);
+`m_CurrentLife -= dmg`, **chết chỉ khi xuống dưới 0** (đòn để lại đúng 0 máu chưa chết — luật cũ); giật khi dmg > 0. Hồi máu
+tự nhiên `KNpc::ProcessState` mỗi `GAME_UPDATE_TIME` = 10 khung cộng `LifeReplenish`.
+
+**Còn tạm**: số của người chơi (10–20 sát thương, AR 100, phòng thủ 0, hồi máu `(cấp+5)/6`) chờ `KPlayer` thuộc tính/trang bị;
+sát thương quái chưa cộng attrib của kỹ năng (`KSkill`/`KMissle`), chưa có khiên/phản đòn/nội lực/PK rate. Test:
+`test_KLuaScript.cpp` (Lua 4 trên 5.4, Include, cache, `level_data` theo `InitNpcLevelData`, script thật của bản Linux),
+`test_KSubWorld.cpp` "melee attack", client `--auto` tự đi đánh quái gần nhất (`AUTO_FIGHT`).
 
 ### Quái đánh trả — `KNpcAI` (port `KNpcAI.cpp` phần server, `server/zone/src/KNpcAI.cpp`)
 

@@ -56,6 +56,9 @@ type TemplateInfo struct {
 	VisionRadius int         `json:"vision_radius"`
 	ActiveRadius int         `json:"active_radius"`
 	Skills       []SkillInfo `json:"skills"` // slots 1..4 (index 0 = Skill1); id 0 = empty
+	// the LevelScript column and the raw cells KNpcTemplate::InitNpcLevelData hands to it
+	LevelScript string            `json:"level_script"`
+	Cells       map[string]string `json:"cells,omitempty"`
 }
 
 // SkillInfo is one skill slot of a template (Skill1..4 / Level1..4 of npcs.txt) with what the
@@ -174,7 +177,8 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 			AttackFrame: t.AttackFrame, HurtFrame: t.HurtFrame, HitRecover: t.HitRecover, ReviveFrame: t.ReviveFrame,
 			LifeParam: t.LifeParam, MinDamage: t.MinDamage, MaxDamage: t.MaxDamage, Defense: t.Defense,
 			Camp: t.Camp, CastFrame: t.CastFrame, WalkSpeed: t.WalkSpeed, RunSpeed: t.RunSpeed,
-			AIMode: t.AIMode, AIParam: t.AIParam, AIMaxTime: t.AIMaxTime, VisionRadius: t.VisionRadius, ActiveRadius: t.ActiveRadius}
+			AIMode: t.AIMode, AIParam: t.AIParam, AIMaxTime: t.AIMaxTime, VisionRadius: t.VisionRadius, ActiveRadius: t.ActiveRadius,
+			LevelScript: t.LevelScript, Cells: t.Cells}
 		for slot := 1; slot <= 4; slot++ {
 			ts := t.Skills[slot]
 			si := SkillInfo{ID: ts.ID, LevelA: ts.LevelA, LevelB: ts.LevelB}
