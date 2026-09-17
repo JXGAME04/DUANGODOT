@@ -381,6 +381,7 @@ func (s *session) onZoneAck(ack *jxpb.SessionOpenAck) {
 	s.setState(stWorld)
 	s.send(jxpb.MsgId_G2C_ENTER_WORLD_RES, &jxpb.EnterWorldRes{
 		Result: jxpb.Result_RESULT_OK, ZoneId: info.ZoneId, ZoneName: info.ZoneName, EntityId: ack.EntityId, Pos: ack.Pos, TickHz: info.TickHz,
+		MapId: info.MapId, SceneW: info.SceneW, SceneH: info.SceneH,
 	})
 	log.InfoCtx(s.logCtx(), "zone", "entered world", log.F("entity", ack.EntityId), log.F("zone", info.ZoneId))
 }

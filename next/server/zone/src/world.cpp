@@ -41,6 +41,19 @@ World::World(WorldConfig cfg)
     : cfg_(std::move(cfg)), grid_(cfg_.cell_size, cfg_.view_cells), ids_(1), rng_(cfg_.seed)
 {
     if (cfg_.tick_hz == 0) cfg_.tick_hz = 20;
+    if (cfg_.map) {
+        cfg_.width = cfg_.map->scene_w;
+        cfg_.height = cfg_.map->scene_h;
+        cfg_.spawn_point = cfg_.map->spawn;
+        grid_ = AoiGrid(cfg_.cell_size, cfg_.view_cells);
+        if (cfg_.map_npcs) {
+            for (const NpcPlacement& n : cfg_.map->npcs) {
+                spawn_npc(n.name, n.pos, n.template_id, 0, EntityKind::npc);
+            }
+            take_outbox();   // nobody is listening yet
+            log::info("zone", "map npcs placed", {log::kv("count", cfg_.map->npcs.size())});
+        }
+    }
 }
 
 Pos World::clamp(Pos p) const noexcept
@@ -103,12 +116,17 @@ void World::fill_info(const Entity& e, pb::EntityInfo& out) const
     out.set_entity_type(to_pb(e.kind));
     out.set_name(e.name);
     set_vec(out.mutable_pos(), e.pos());
-    set_vec(out.mutable_target(), e.moving ? e.target() : e.pos());
+    set_vec(out.mutable_target(), e.moving ? e.destination() : e.pos());
     out.set_move_speed(e.speed);
     out.set_level(e.level);
     out.set_series(e.series);
     out.set_sex(e.sex);
     out.set_template_id(e.template_id);
+    out.set_dir(e.dir);
+    if (e.moving) {
+        set_vec(out.add_path(), e.target());
+        for (const Pos& p : e.path) set_vec(out.add_path(), p);
+    }
 }
 
 pb::Result World::spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out)
@@ -132,6 +150,7 @@ pb::Result World::spawn_player(std::uint64_t sid, const pb::RoleData& role, Enti
     if (role.has_position() && role.position().zone_id() == cfg_.zone_id && role.position().has_pos()) {
         start = clamp(Pos{role.position().pos().x(), role.position().pos().y()});
     }
+    if (cfg_.map) start = cfg_.map->nearest_walkable(start);
     e.set_pos(start);
     const EntityId id = e.id;
     grid_.insert(id, start);
@@ -194,9 +213,13 @@ void World::emit_move(const Entity& e)
     pb::EntityMove mv;
     mv.set_entity_id(e.id.value);
     set_vec(mv.mutable_pos(), e.pos());
-    set_vec(mv.mutable_target(), e.moving ? e.target() : e.pos());
+    set_vec(mv.mutable_target(), e.moving ? e.destination() : e.pos());
     mv.set_move_speed(e.speed);
     mv.set_tick(tick_);
+    if (e.moving) {
+        set_vec(mv.add_path(), e.target());
+        for (const Pos& p : e.path) set_vec(mv.add_path(), p);
+    }
 
     const Cell cell = grid_.cell_of(e.pos());
     scratch_sids_.clear();
@@ -216,10 +239,20 @@ bool World::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
     Entity& e = entities_.at(pit->second);
-    e.set_target(clamp(target));
     e.move_seq = seq;
+    Pos dest = clamp(target);
+    std::size_t waypoints = 1;
+    if (cfg_.map) {
+        dest = cfg_.map->nearest_walkable(dest);
+        std::vector<Pos> path = cfg_.map->find_path(e.pos(), dest);
+        waypoints = path.size();
+        e.set_path(std::move(path));   // empty = unreachable: stop where we are
+    } else {
+        e.set_target(dest);
+    }
     log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
-    log::trace("zone.move", "move request", {log::kv("entity", e.id), log::kv("tx", e.target().x), log::kv("ty", e.target().y), log::kv("seq", seq)});
+    log::trace("zone.move", "move request", {log::kv("entity", e.id), log::kv("tx", dest.x), log::kv("ty", dest.y), log::kv("seq", seq),
+                                              log::kv("waypoints", waypoints)});
     emit_move(e);
     return true;
 }
@@ -251,6 +284,7 @@ EntityId World::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, 
     e.speed = cfg_.default_speed / 2;
     e.wander_radius = wander_radius;
     e.home = clamp(pos);
+    if (cfg_.map) e.home = cfg_.map->nearest_walkable(e.home);
     e.set_pos(e.home);
     e.next_wander_tick = tick_ + static_cast<std::uint64_t>(rng_() % (cfg_.tick_hz * 5 + 1));
     const EntityId id = e.id;
@@ -273,9 +307,15 @@ void World::wander(Entity& e)
     const std::int32_t r = e.wander_radius;
     const auto dx = static_cast<std::int32_t>(rng_() % static_cast<std::uint32_t>(2 * r + 1)) - r;
     const auto dy = static_cast<std::int32_t>(rng_() % static_cast<std::uint32_t>(2 * r + 1)) - r;
-    e.set_target(clamp(Pos{e.home.x + dx, e.home.y + dy}));
+    Pos dest = clamp(Pos{e.home.x + dx, e.home.y + dy});
+    if (cfg_.map) {
+        dest = cfg_.map->nearest_walkable(dest);
+        e.set_path(cfg_.map->find_path(e.pos(), dest, 2000));
+    } else {
+        e.set_target(dest);
+    }
     e.next_wander_tick = tick_ + cfg_.tick_hz * 2 + static_cast<std::uint64_t>(rng_() % (cfg_.tick_hz * 6));
-    emit_move(e);
+    if (e.moving) emit_move(e);
 }
 
 void World::on_cell_change(Entity& e, Cell from, Cell to)
@@ -325,19 +365,26 @@ void World::tick()
         Entity& e = entities_.at(id);
         if (e.kind != EntityKind::player && e.wander_radius > 0 && !e.moving && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
-        const std::int64_t step = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;
-        const std::int64_t dx = e.tx - e.fx;
-        const std::int64_t dy = e.ty - e.fy;
-        const std::int64_t dist2 = dx * dx + dy * dy;
-        if (dist2 <= step * step) {
-            e.fx = e.tx;
-            e.fy = e.ty;
-            e.moving = false;
-            arrived.push_back(id);
-        } else {
-            const std::int64_t d = isqrt(dist2);
-            e.fx += dx * step / d;
-            e.fy += dy * step / d;
+        std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
+        while (budget > 0 && e.moving) {
+            const std::int64_t dx = e.tx - e.fx;
+            const std::int64_t dy = e.ty - e.fy;
+            const std::int64_t dist2 = dx * dx + dy * dy;
+            if (dist2 <= budget * budget) {
+                const std::int64_t d = isqrt(dist2);
+                e.fx = e.tx;
+                e.fy = e.ty;
+                budget -= d;
+                if (!e.next_waypoint()) {
+                    arrived.push_back(id);
+                    break;
+                }
+            } else {
+                const std::int64_t d = isqrt(dist2);
+                e.fx += dx * budget / d;
+                e.fy += dy * budget / d;
+                budget = 0;
+            }
         }
         moved.push_back(id);
     }

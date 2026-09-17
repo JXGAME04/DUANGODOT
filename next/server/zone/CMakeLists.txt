@@ -2,6 +2,7 @@
 # jx_zone      - the executable
 add_library(jx_zone_core STATIC
     src/aoi.cpp
+    src/map.cpp
     src/world.cpp
     src/zone_server.cpp
 )

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <random>
 #include <string>
 #include <string_view>
@@ -18,6 +19,7 @@
 #include "jx/ids.hpp"
 #include "jx/zone/aoi.hpp"
 #include "jx/zone/entity.hpp"
+#include "jx/zone/map.hpp"
 
 namespace jx::zone {
 
@@ -33,6 +35,8 @@ struct WorldConfig {
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
+    std::shared_ptr<const MapData> map;  // optional: walkability + spawn + npcs override the fields above
+    bool map_npcs = true;                // place the npcs listed in the map bundle
 };
 
 // One outgoing message for a set of sessions (fan-out happens at the gateway).
@@ -67,6 +71,8 @@ public:
     bool role_snapshot(std::uint64_t sid, pb::RoleData& out) const;
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
+    [[nodiscard]] const MapData* map() const noexcept { return cfg_.map.get(); }
+    [[nodiscard]] std::uint32_t map_id() const noexcept { return cfg_.map ? static_cast<std::uint32_t>(cfg_.map->id) : 0u; }
 
     std::vector<Packet>& outbox() noexcept { return outbox_; }
     std::vector<Packet> take_outbox();

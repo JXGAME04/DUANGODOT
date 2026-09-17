@@ -75,6 +75,9 @@ message EnterWorldRes {
   uint64 entity_id = 4;          // the entity that belongs to this client in the zone
   Vec2 pos = 5;
   uint32 tick_hz = 6;
+  uint32 map_id = 7;             // which map bundle to draw (0 = plain grid)
+  uint32 scene_w = 8;
+  uint32 scene_h = 9;
 }
 
 message LeaveWorldReq {}
@@ -99,6 +102,8 @@ message EntityInfo {
   uint32 series = 8;
   uint32 sex = 9;
   uint32 template_id = 10;       // npc/monster template, 0 for players
+  repeated Vec2 path = 11;       // remaining waypoints after pos (server pathfinding)
+  uint32 dir = 12;               // facing direction 0..7 (old game convention)
 }
 
 message EntitySpawn {
@@ -112,10 +117,11 @@ message EntityDespawn {
 message EntityMove {
   uint64 entity_id = 1;
   Vec2 pos = 2;                  // position at tick
-  Vec2 target = 3;
+  Vec2 target = 3;               // final destination (last waypoint), == pos when idle
   uint32 move_speed = 4;
   uint64 tick = 5;
   uint32 seq = 6;                // MoveReq.seq when this is the receiver own entity
+  repeated Vec2 path = 7;        // waypoints from pos to target; the client follows the same line
 }
 
 message ChatReq {
@@ -190,6 +196,9 @@ message ZoneHelloAck {
   string zone_name = 3;
   uint32 tick_hz = 4;
   uint32 capacity = 5;
+  uint32 map_id = 6;             // asset bundle id (client/assets/maps/<map_id>), 0 = no map
+  uint32 scene_w = 7;            // map size in scene units
+  uint32 scene_h = 8;
 }
 
 // Gateway asks the zone to spawn a player for a client session.

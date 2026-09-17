@@ -3,6 +3,7 @@ include(Catch)
 
 add_executable(jx_zone_tests
     test_aoi.cpp
+    test_map.cpp
     test_world.cpp
     test_zone_server.cpp
 )

@@ -624,6 +624,9 @@ type EnterWorldRes struct {
 	EntityId      uint64                 `protobuf:"varint,4,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"` // the entity that belongs to this client in the zone
 	Pos           *Vec2                  `protobuf:"bytes,5,opt,name=pos,proto3" json:"pos,omitempty"`
 	TickHz        uint32                 `protobuf:"varint,6,opt,name=tick_hz,json=tickHz,proto3" json:"tick_hz,omitempty"`
+	MapId         uint32                 `protobuf:"varint,7,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"` // which map bundle to draw (0 = plain grid)
+	SceneW        uint32                 `protobuf:"varint,8,opt,name=scene_w,json=sceneW,proto3" json:"scene_w,omitempty"`
+	SceneH        uint32                 `protobuf:"varint,9,opt,name=scene_h,json=sceneH,proto3" json:"scene_h,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -696,6 +699,27 @@ func (x *EnterWorldRes) GetPos() *Vec2 {
 func (x *EnterWorldRes) GetTickHz() uint32 {
 	if x != nil {
 		return x.TickHz
+	}
+	return 0
+}
+
+func (x *EnterWorldRes) GetMapId() uint32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
+}
+
+func (x *EnterWorldRes) GetSceneW() uint32 {
+	if x != nil {
+		return x.SceneW
+	}
+	return 0
+}
+
+func (x *EnterWorldRes) GetSceneH() uint32 {
+	if x != nil {
+		return x.SceneH
 	}
 	return 0
 }
@@ -802,6 +826,8 @@ type EntityInfo struct {
 	Series        uint32                 `protobuf:"varint,8,opt,name=series,proto3" json:"series,omitempty"`
 	Sex           uint32                 `protobuf:"varint,9,opt,name=sex,proto3" json:"sex,omitempty"`
 	TemplateId    uint32                 `protobuf:"varint,10,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"` // npc/monster template, 0 for players
+	Path          []*Vec2                `protobuf:"bytes,11,rep,name=path,proto3" json:"path,omitempty"`                                // remaining waypoints after pos (server pathfinding)
+	Dir           uint32                 `protobuf:"varint,12,opt,name=dir,proto3" json:"dir,omitempty"`                                 // facing direction 0..7 (old game convention)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -906,6 +932,20 @@ func (x *EntityInfo) GetTemplateId() uint32 {
 	return 0
 }
 
+func (x *EntityInfo) GetPath() []*Vec2 {
+	if x != nil {
+		return x.Path
+	}
+	return nil
+}
+
+func (x *EntityInfo) GetDir() uint32 {
+	if x != nil {
+		return x.Dir
+	}
+	return 0
+}
+
 type EntitySpawn struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Entities      []*EntityInfo          `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
@@ -997,11 +1037,12 @@ func (x *EntityDespawn) GetEntityIds() []uint64 {
 type EntityMove struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	Pos           *Vec2                  `protobuf:"bytes,2,opt,name=pos,proto3" json:"pos,omitempty"` // position at tick
-	Target        *Vec2                  `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
+	Pos           *Vec2                  `protobuf:"bytes,2,opt,name=pos,proto3" json:"pos,omitempty"`       // position at tick
+	Target        *Vec2                  `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"` // final destination (last waypoint), == pos when idle
 	MoveSpeed     uint32                 `protobuf:"varint,4,opt,name=move_speed,json=moveSpeed,proto3" json:"move_speed,omitempty"`
 	Tick          uint64                 `protobuf:"varint,5,opt,name=tick,proto3" json:"tick,omitempty"`
-	Seq           uint32                 `protobuf:"varint,6,opt,name=seq,proto3" json:"seq,omitempty"` // MoveReq.seq when this is the receiver own entity
+	Seq           uint32                 `protobuf:"varint,6,opt,name=seq,proto3" json:"seq,omitempty"`  // MoveReq.seq when this is the receiver own entity
+	Path          []*Vec2                `protobuf:"bytes,7,rep,name=path,proto3" json:"path,omitempty"` // waypoints from pos to target; the client follows the same line
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1076,6 +1117,13 @@ func (x *EntityMove) GetSeq() uint32 {
 		return x.Seq
 	}
 	return 0
+}
+
+func (x *EntityMove) GetPath() []*Vec2 {
+	if x != nil {
+		return x.Path
+	}
+	return nil
 }
 
 type ChatReq struct {
@@ -1382,18 +1430,21 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x06result\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06result\x12,\n" +
 	"\asummary\x18\x02 \x01(\v2\x12.jx.pb.CharSummaryR\asummary\",\n" +
 	"\rEnterWorldReq\x12\x1b\n" +
-	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\"\xc1\x01\n" +
+	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\"\x8a\x02\n" +
 	"\rEnterWorldRes\x12%\n" +
 	"\x06result\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06result\x12\x17\n" +
 	"\azone_id\x18\x02 \x01(\rR\x06zoneId\x12\x1b\n" +
 	"\tzone_name\x18\x03 \x01(\tR\bzoneName\x12\x1b\n" +
 	"\tentity_id\x18\x04 \x01(\x04R\bentityId\x12\x1d\n" +
 	"\x03pos\x18\x05 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x17\n" +
-	"\atick_hz\x18\x06 \x01(\rR\x06tickHz\"\x0f\n" +
+	"\atick_hz\x18\x06 \x01(\rR\x06tickHz\x12\x15\n" +
+	"\x06map_id\x18\a \x01(\rR\x05mapId\x12\x17\n" +
+	"\ascene_w\x18\b \x01(\rR\x06sceneW\x12\x17\n" +
+	"\ascene_h\x18\t \x01(\rR\x06sceneH\"\x0f\n" +
 	"\rLeaveWorldReq\"@\n" +
 	"\aMoveReq\x12#\n" +
 	"\x06target\x18\x01 \x01(\v2\v.jx.pb.Vec2R\x06target\x12\x10\n" +
-	"\x03seq\x18\x02 \x01(\rR\x03seq\"\xb5\x02\n" +
+	"\x03seq\x18\x02 \x01(\rR\x03seq\"\xe8\x02\n" +
 	"\n" +
 	"EntityInfo\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x122\n" +
@@ -1409,12 +1460,14 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x03sex\x18\t \x01(\rR\x03sex\x12\x1f\n" +
 	"\vtemplate_id\x18\n" +
 	" \x01(\rR\n" +
-	"templateId\"<\n" +
+	"templateId\x12\x1f\n" +
+	"\x04path\x18\v \x03(\v2\v.jx.pb.Vec2R\x04path\x12\x10\n" +
+	"\x03dir\x18\f \x01(\rR\x03dir\"<\n" +
 	"\vEntitySpawn\x12-\n" +
 	"\bentities\x18\x01 \x03(\v2\x11.jx.pb.EntityInfoR\bentities\".\n" +
 	"\rEntityDespawn\x12\x1d\n" +
 	"\n" +
-	"entity_ids\x18\x01 \x03(\x04R\tentityIds\"\xb2\x01\n" +
+	"entity_ids\x18\x01 \x03(\x04R\tentityIds\"\xd3\x01\n" +
 	"\n" +
 	"EntityMove\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x1d\n" +
@@ -1423,7 +1476,8 @@ const file_jx_client_proto_rawDesc = "" +
 	"\n" +
 	"move_speed\x18\x04 \x01(\rR\tmoveSpeed\x12\x12\n" +
 	"\x04tick\x18\x05 \x01(\x04R\x04tick\x12\x10\n" +
-	"\x03seq\x18\x06 \x01(\rR\x03seq\"\x1d\n" +
+	"\x03seq\x18\x06 \x01(\rR\x03seq\x12\x1f\n" +
+	"\x04path\x18\a \x03(\v2\v.jx.pb.Vec2R\x04path\"\x1d\n" +
 	"\aChatReq\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"N\n" +
 	"\aChatMsg\x12\x1b\n" +
@@ -1492,15 +1546,17 @@ var file_jx_client_proto_depIdxs = []int32{
 	24, // 8: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
 	23, // 9: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
 	23, // 10: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	13, // 11: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	23, // 12: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	23, // 13: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	22, // 14: jx.pb.Kick.reason:type_name -> jx.pb.Result
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	23, // 11: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	13, // 12: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
+	23, // 13: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	23, // 14: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	23, // 15: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	22, // 16: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_jx_client_proto_init() }

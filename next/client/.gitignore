@@ -4,3 +4,5 @@ android/
 export/
 *.tmp
 logs/
+# generated from the old client by tools (python tools/dev.py assets)
+assets/

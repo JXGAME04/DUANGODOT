@@ -16,6 +16,15 @@ var levels := {}          # category -> Level
 var ctx := {"sid": 0, "pid": 0, "zone": 0, "tick": 0}
 var ring: Array[String] = []
 var _file: FileAccess
+var _flush_timer := 0.0
+
+
+func _process(delta: float) -> void:
+	# flush once a second so a killed process loses at most one second of log
+	_flush_timer += delta
+	if _flush_timer >= 1.0 and _file:
+		_flush_timer = 0.0
+		_file.flush()
 
 
 func _ready() -> void:

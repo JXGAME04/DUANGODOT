@@ -2,6 +2,7 @@
 """Developer launcher for the JX NEXT test system (Windows/Linux, stdlib only).
 
   python tools/dev.py build            build C++ (Debug), Go binaries, regenerate protocol code
+  python tools/dev.py assets [ids]     export maps (default 1) + sprites from the old client into client/assets
   python tools/dev.py start            start zone + gateway, each in its own console window
   python tools/dev.py stop             stop them
   python tools/dev.py status           show what is running / listening
@@ -226,6 +227,25 @@ def cmd_client() -> None:
     subprocess.Popen([godot_exe(), "--path", os.path.join(ROOT, "client")], cwd=ROOT)
 
 
+def old_client_dir() -> str:
+    env = os.environ.get("JX_OLD_CLIENT")
+    if env:
+        return env
+    for rel in ("../bin/Client", "../../bin/Client"):
+        p = os.path.abspath(os.path.join(ROOT, rel))
+        if os.path.exists(os.path.join(p, "package.ini")):
+            return p
+    sys.exit("old client data not found (set JX_OLD_CLIENT to the folder with package.ini)")
+
+
+def cmd_assets(map_ids: list[str]) -> None:
+    """Export map bundles + sprites from the old client into client/assets (default: map 1)."""
+    subprocess.check_call(["go", "build", "-o", os.path.join(BUILD, "go") + os.sep, "./cmd/jxassets"], cwd=os.path.join(ROOT, "services"))
+    for mid in map_ids or ["1"]:
+        subprocess.check_call([go_exe("jxassets"), "-client", old_client_dir(), "export-map", mid, "-out", os.path.join(ROOT, "client", "assets")], cwd=ROOT)
+    print("assets ok")
+
+
 def godot_headless_exe() -> str:
     exe = godot_exe()
     console = exe.replace("_win64.exe", "_win64_console.exe")
@@ -244,11 +264,12 @@ def run_client_auto(account: str = "auto1", windowed: bool = False) -> int:
     except subprocess.TimeoutExpired:
         print("client auto run timed out")
         return 1
-    for line in res.stdout.splitlines():
+    out = (res.stdout or "") + (res.stderr or "")
+    for line in out.splitlines():
         if line.startswith("AUTO_") or '"cat":"auto"' in line or "SCRIPT ERROR" in line:
             print(line)
     if res.returncode != 0:
-        print(res.stderr[-2000:])
+        print(out[-2000:])
     return res.returncode
 
 
@@ -294,6 +315,8 @@ def main() -> None:
         sys.exit(cmd_smoke())
     elif cmd == "client":
         cmd_client()
+    elif cmd == "assets":
+        cmd_assets(args[1:])
     elif cmd == "e2e":
         sys.exit(cmd_e2e())
     elif cmd == "screenshot":

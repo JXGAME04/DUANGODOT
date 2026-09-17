@@ -32,6 +32,15 @@ python tools/dev.py build              # sinh proto Go, build C++ Debug, build g
 Sinh lại mã protocol sau khi sửa `proto/jx/*.proto`: `python tools/gen_proto.py` (Go + GDScript;
 C++ tự sinh khi build).
 
+## 2b. Xuất map và sprite từ client cũ (một lần, ~10 giây)
+
+```bash
+python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite -> client/assets (75 MB, không commit)
+```
+
+Cần thư mục client cũ có `package.ini` + `Data/*.pak` (mặc định `../bin/Client`, hoặc `JX_OLD_CLIENT=...`).
+Zone đọc `client/assets/maps/1` theo `zone.map_dir` trong `config/zone.json`; chi tiết ở [MAPS.md](MAPS.md).
+
 ## 3. Chạy
 
 ```bash

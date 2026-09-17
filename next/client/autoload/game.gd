@@ -29,6 +29,9 @@ var entity_id := 0
 var zone_id := 0
 var zone_name := ""
 var tick_hz := 20
+var map_id := 0          # asset bundle to draw (0 = grid)
+var scene_w := 0         # map size in scene units
+var scene_h := 0
 var last_rtt_ms := 0
 var chars: Array = []
 # entity_id -> Dictionary; the model of what the zone shows us.  Kept here (not in the scene) so
@@ -227,11 +230,15 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				zone_id = res.get_zone_id()
 				zone_name = res.get_zone_name()
 				tick_hz = res.get_tick_hz()
+				map_id = res.get_map_id()
+				scene_w = res.get_scene_w()
+				scene_h = res.get_scene_h()
 				Log.ctx["zone"] = zone_id
 				entities = {}
 				_set_state("world")
 				var info := {"zone_id": zone_id, "zone_name": zone_name, "entity_id": entity_id,
-					"x": res.get_pos().get_x(), "y": res.get_pos().get_y(), "tick_hz": tick_hz}
+					"x": res.get_pos().get_x(), "y": res.get_pos().get_y(), "tick_hz": tick_hz,
+					"map_id": map_id, "scene_w": scene_w, "scene_h": scene_h}
 				Log.info("world", "entered", info)
 				entered_world.emit(info)
 			else:
@@ -267,7 +274,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				return
 			var mv := {"id": m.get_entity_id(), "x": m.get_pos().get_x(), "y": m.get_pos().get_y(),
 				"tx": m.get_target().get_x(), "ty": m.get_target().get_y(), "speed": m.get_move_speed(),
-				"tick": m.get_tick(), "seq": m.get_seq()}
+				"tick": m.get_tick(), "seq": m.get_seq(), "path": _path_list(m.get_path())}
 			var d = entities.get(int(mv.id))
 			if d != null:
 				d.x = mv.x
@@ -275,6 +282,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d.tx = mv.tx
 				d.ty = mv.ty
 				d.speed = mv.speed
+				d.path = mv.path
 			entity_move.emit(mv)
 
 		Proto.MsgId.G2C_CHAT_MSG:
@@ -308,8 +316,15 @@ func _summary_dict(c) -> Dictionary:
 		"sex": c.get_sex(), "faction": c.get_faction(), "zone_id": c.get_zone_id()}
 
 
+func _path_list(points: Array) -> Array:
+	var out: Array = []
+	for p in points:
+		out.append([p.get_x(), p.get_y()])
+	return out
+
+
 func _entity_dict(e) -> Dictionary:
 	return {"id": e.get_entity_id(), "type": e.get_entity_type(), "name": e.get_name(),
 		"x": e.get_pos().get_x(), "y": e.get_pos().get_y(), "tx": e.get_target().get_x(), "ty": e.get_target().get_y(),
 		"speed": e.get_move_speed(), "level": e.get_level(), "series": e.get_series(), "sex": e.get_sex(),
-		"template_id": e.get_template_id()}
+		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir()}

@@ -125,6 +125,9 @@ void ZoneServer::handle_hello(Gateway& gw, const frame::View& view)
     ack.set_zone_name(cfg_.world.name);
     ack.set_tick_hz(cfg_.world.tick_hz);
     ack.set_capacity(cfg_.world.max_players);
+    ack.set_map_id(world_.map_id());
+    ack.set_scene_w(static_cast<std::uint32_t>(world_.config().width));
+    ack.set_scene_h(static_cast<std::uint32_t>(world_.config().height));
     net::send(*gw.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_HELLO_ACK), ack);
     log::info("net", "gateway ready", {log::kv("conn", gw.conn->id()), log::kv("gateway", gw.id)});
 }

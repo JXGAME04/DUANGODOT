@@ -101,7 +101,19 @@ int main(int argc, char** argv)
     w.default_speed = static_cast<std::uint32_t>(cfg.get_int("zone.default_speed", w.default_speed));
     w.max_players = static_cast<std::uint32_t>(cfg.get_int("zone.max_players", w.max_players));
     w.seed = static_cast<std::uint32_t>(cfg.get_int("zone.seed", w.seed));
+    w.map_npcs = cfg.get_bool("zone.map_npcs", true);
     const auto test_npcs = cfg.get_int("zone.test_npcs", 0);
+    const std::string map_dir = cfg.get_string("zone.map_dir", "");
+    if (!map_dir.empty()) {
+        std::string error;
+        auto map = jx::zone::MapData::load(map_dir, &error);
+        if (!map) {
+            jx::log::fatal("boot", "map bundle failed", {jx::log::kv("dir", map_dir), jx::log::kv("error", error)});
+            jx::log::shutdown();
+            return 1;
+        }
+        w.map = std::make_shared<const jx::zone::MapData>(std::move(*map));
+    }
 
     asio::io_context io;
     jx::zone::ZoneServer server(io, zc);
@@ -128,7 +140,8 @@ int main(int argc, char** argv)
         io.stop();
     });
 
-    jx::log::info("boot", "zone ready", {jx::log::kv("port", server.port()), jx::log::kv("npcs", test_npcs)});
+    jx::log::info("boot", "zone ready", {jx::log::kv("port", server.port()), jx::log::kv("test_npcs", test_npcs),
+                                         jx::log::kv("map", map_dir.empty() ? "(grid)" : map_dir), jx::log::kv("entities", server.world().entity_count())});
     io.run();
     jx::log::info("boot", "zone exit");
     jx::log::shutdown();

@@ -17,6 +17,9 @@ message ZoneHelloAck {
   string zone_name = 3;
   uint32 tick_hz = 4;
   uint32 capacity = 5;
+  uint32 map_id = 6;             // asset bundle id (client/assets/maps/<map_id>), 0 = no map
+  uint32 scene_w = 7;            // map size in scene units
+  uint32 scene_h = 8;
 }
 
 // Gateway asks the zone to spawn a player for a client session.

@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 Log="*res://autoload/log.gd"
 Net="*res://autoload/net.gd"
+Assets="*res://autoload/assets.gd"
 Game="*res://autoload/game.gd"
 
 [display]

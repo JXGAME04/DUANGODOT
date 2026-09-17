@@ -82,6 +82,9 @@ type ZoneHelloAck struct {
 	ZoneName        string                 `protobuf:"bytes,3,opt,name=zone_name,json=zoneName,proto3" json:"zone_name,omitempty"`
 	TickHz          uint32                 `protobuf:"varint,4,opt,name=tick_hz,json=tickHz,proto3" json:"tick_hz,omitempty"`
 	Capacity        uint32                 `protobuf:"varint,5,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	MapId           uint32                 `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`    // asset bundle id (client/assets/maps/<map_id>), 0 = no map
+	SceneW          uint32                 `protobuf:"varint,7,opt,name=scene_w,json=sceneW,proto3" json:"scene_w,omitempty"` // map size in scene units
+	SceneH          uint32                 `protobuf:"varint,8,opt,name=scene_h,json=sceneH,proto3" json:"scene_h,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -147,6 +150,27 @@ func (x *ZoneHelloAck) GetTickHz() uint32 {
 func (x *ZoneHelloAck) GetCapacity() uint32 {
 	if x != nil {
 		return x.Capacity
+	}
+	return 0
+}
+
+func (x *ZoneHelloAck) GetMapId() uint32 {
+	if x != nil {
+		return x.MapId
+	}
+	return 0
+}
+
+func (x *ZoneHelloAck) GetSceneW() uint32 {
+	if x != nil {
+		return x.SceneW
+	}
+	return 0
+}
+
+func (x *ZoneHelloAck) GetSceneH() uint32 {
+	if x != nil {
+		return x.SceneH
 	}
 	return 0
 }
@@ -607,13 +631,16 @@ const file_jx_internal_proto_rawDesc = "" +
 	"\tZoneHello\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x1d\n" +
 	"\n" +
-	"gateway_id\x18\x02 \x01(\tR\tgatewayId\"\xa4\x01\n" +
+	"gateway_id\x18\x02 \x01(\tR\tgatewayId\"\xed\x01\n" +
 	"\fZoneHelloAck\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x17\n" +
 	"\azone_id\x18\x02 \x01(\rR\x06zoneId\x12\x1b\n" +
 	"\tzone_name\x18\x03 \x01(\tR\bzoneName\x12\x17\n" +
 	"\atick_hz\x18\x04 \x01(\rR\x06tickHz\x12\x1a\n" +
-	"\bcapacity\x18\x05 \x01(\rR\bcapacity\"c\n" +
+	"\bcapacity\x18\x05 \x01(\rR\bcapacity\x12\x15\n" +
+	"\x06map_id\x18\x06 \x01(\rR\x05mapId\x12\x17\n" +
+	"\ascene_w\x18\a \x01(\rR\x06sceneW\x12\x17\n" +
+	"\ascene_h\x18\b \x01(\rR\x06sceneH\"c\n" +
 	"\vSessionOpen\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12\x1d\n" +
 	"\n" +

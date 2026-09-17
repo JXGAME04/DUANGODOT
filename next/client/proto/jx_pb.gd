@@ -1523,6 +1523,21 @@ class EnterWorldRes:
 		service.field = __tick_hz
 		data[__tick_hz.tag] = service
 		
+		__map_id = PBField.new("map_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __map_id
+		data[__map_id.tag] = service
+		
+		__scene_w = PBField.new("scene_w", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_w
+		data[__scene_w.tag] = service
+		
+		__scene_h = PBField.new("scene_h", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_h
+		data[__scene_h.tag] = service
+		
 	var data = {}
 	
 	var __result: PBField
@@ -1603,6 +1618,45 @@ class EnterWorldRes:
 		__tick_hz.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_tick_hz(value : int) -> void:
 		__tick_hz.value = value
+	
+	var __map_id: PBField
+	func has_map_id() -> bool:
+		if __map_id.value != null:
+			return true
+		return false
+	func get_map_id() -> int:
+		return __map_id.value
+	func clear_map_id() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__map_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_map_id(value : int) -> void:
+		__map_id.value = value
+	
+	var __scene_w: PBField
+	func has_scene_w() -> bool:
+		if __scene_w.value != null:
+			return true
+		return false
+	func get_scene_w() -> int:
+		return __scene_w.value
+	func clear_scene_w() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__scene_w.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_w(value : int) -> void:
+		__scene_w.value = value
+	
+	var __scene_h: PBField
+	func has_scene_h() -> bool:
+		if __scene_h.value != null:
+			return true
+		return false
+	func get_scene_h() -> int:
+		return __scene_h.value
+	func clear_scene_h() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__scene_h.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_h(value : int) -> void:
+		__scene_h.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -1776,6 +1830,18 @@ class EntityInfo:
 		service.field = __template_id
 		data[__template_id.tag] = service
 		
+		var __path_default: Array[Vec2] = []
+		__path = PBField.new("path", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 11, true, __path_default)
+		service = PBServiceField.new()
+		service.field = __path
+		service.func_ref = Callable(self, "add_path")
+		data[__path.tag] = service
+		
+		__dir = PBField.new("dir", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __dir
+		data[__dir.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -1909,6 +1975,30 @@ class EntityInfo:
 		__template_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_template_id(value : int) -> void:
 		__template_id.value = value
+	
+	var __path: PBField
+	func get_path() -> Array[Vec2]:
+		return __path.value
+	func clear_path() -> void:
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__path.value.clear()
+	func add_path() -> Vec2:
+		var element = Vec2.new()
+		__path.value.append(element)
+		return element
+	
+	var __dir: PBField
+	func has_dir() -> bool:
+		if __dir.value != null:
+			return true
+		return false
+	func get_dir() -> int:
+		return __dir.value
+	func clear_dir() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__dir.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_dir(value : int) -> void:
+		__dir.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -2057,6 +2147,13 @@ class EntityMove:
 		service.field = __seq
 		data[__seq.tag] = service
 		
+		var __path_default: Array[Vec2] = []
+		__path = PBField.new("path", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 7, true, __path_default)
+		service = PBServiceField.new()
+		service.field = __path
+		service.func_ref = Callable(self, "add_path")
+		data[__path.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2138,6 +2235,17 @@ class EntityMove:
 		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_seq(value : int) -> void:
 		__seq.value = value
+	
+	var __path: PBField
+	func get_path() -> Array[Vec2]:
+		return __path.value
+	func clear_path() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__path.value.clear()
+	func add_path() -> Vec2:
+		var element = Vec2.new()
+		__path.value.append(element)
+		return element
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -2660,6 +2768,21 @@ class ZoneHelloAck:
 		service.field = __capacity
 		data[__capacity.tag] = service
 		
+		__map_id = PBField.new("map_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __map_id
+		data[__map_id.tag] = service
+		
+		__scene_w = PBField.new("scene_w", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_w
+		data[__scene_w.tag] = service
+		
+		__scene_h = PBField.new("scene_h", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __scene_h
+		data[__scene_h.tag] = service
+		
 	var data = {}
 	
 	var __protocol_version: PBField
@@ -2726,6 +2849,45 @@ class ZoneHelloAck:
 		__capacity.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_capacity(value : int) -> void:
 		__capacity.value = value
+	
+	var __map_id: PBField
+	func has_map_id() -> bool:
+		if __map_id.value != null:
+			return true
+		return false
+	func get_map_id() -> int:
+		return __map_id.value
+	func clear_map_id() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__map_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_map_id(value : int) -> void:
+		__map_id.value = value
+	
+	var __scene_w: PBField
+	func has_scene_w() -> bool:
+		if __scene_w.value != null:
+			return true
+		return false
+	func get_scene_w() -> int:
+		return __scene_w.value
+	func clear_scene_w() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__scene_w.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_w(value : int) -> void:
+		__scene_w.value = value
+	
+	var __scene_h: PBField
+	func has_scene_h() -> bool:
+		if __scene_h.value != null:
+			return true
+		return false
+	func get_scene_h() -> int:
+		return __scene_h.value
+	func clear_scene_h() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__scene_h.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_scene_h(value : int) -> void:
+		__scene_h.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

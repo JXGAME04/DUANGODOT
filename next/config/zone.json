@@ -15,8 +15,11 @@
     "max_players": 2000,
     "save_interval_s": 60,
     "stats_interval_s": 10,
-    "test_npcs": 8,
-    "seed": 1
+    "test_npcs": 4,
+    "seed": 1,
+    // exported by: python tools/dev.py assets   (empty = plain 8192x8192 grid)
+    "map_dir": "client/assets/maps/1",
+    "map_npcs": true
   },
   "log": {
     "level": "info",
