@@ -234,11 +234,13 @@ TEST_CASE("gateway handshake, sessions, movement over ticks, save on close", "[z
     CHECK(save.role().position().zone_id() == cfg.world.zone_id);
     CHECK(server.session_count() == 1);
 
-    // gateway drop removes the remaining player
+    // gateway drop removes the remaining player.  The network side forgets the session at once;
+    // the world applies the removal on its own next tick (the command model of SPEC 30), so the
+    // test waits for the tick instead of assuming the two happen together.
     gw.conn->close();
     REQUIRE(gw.run_until([&] { return server.gateway_count() == 0; }));
     CHECK(server.session_count() == 0);
-    CHECK(server.world().player_count() == 0);
+    REQUIRE(gw.run_until([&] { return server.world().player_count() == 0; }));
 
     server.stop();
     io.run_for(50ms);

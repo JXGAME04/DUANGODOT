@@ -10,6 +10,8 @@ add_library(jx_zone_core STATIC
     src/ScriptFuns.cpp
     src/KNpcTemplate.cpp
     src/KSubWorld.cpp
+    src/KMapInstance.cpp
+    src/KWorldScheduler.cpp
     src/KNpcAI.cpp
     src/KGameServer.cpp
 )

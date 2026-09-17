@@ -89,6 +89,10 @@ int main(int argc, char** argv)
     zc.port = static_cast<std::uint16_t>(cfg.get_int("zone.port", zc.port));
     zc.save_interval_s = static_cast<std::uint32_t>(cfg.get_int("zone.save_interval_s", zc.save_interval_s));
     zc.stats_interval_s = static_cast<std::uint32_t>(cfg.get_int("zone.stats_interval_s", zc.stats_interval_s));
+    // MASTER SPEC 15 / 83: the number of simulation workers is configuration, not a constant in
+    // the code; 0 means "decide from hardware_concurrency and the number of maps".
+    zc.simulation_threads = static_cast<std::uint32_t>(cfg.get_int("zone.simulation_threads", 0));
+    zc.rebalance_interval_s = static_cast<std::uint32_t>(cfg.get_int("zone.rebalance_interval_s", zc.rebalance_interval_s));
     auto& w = zc.world;
     w.zone_id = static_cast<std::uint32_t>(cfg.get_int("zone.id", w.zone_id));
     w.name = cfg.get_string("zone.name", w.name);
@@ -173,6 +177,9 @@ int main(int argc, char** argv)
             jx::zone::KSubWorldConfig wc = w;
             wc.map = std::make_shared<const jx::zone::KMapData>(std::move(*map));
             wc.spawn_from_config = false;
+            // one script cache (one set of Lua states) per map instance: two workers must never
+            // run the same lua_State at the same time (MASTER SPEC 42)
+            if (!script_root.empty() && w.scripts) wc.scripts = std::make_shared<jx::zone::KScriptCache>(script_root);
             zc.worlds.push_back(std::move(wc));
         }
         jx::log::info("boot", "maps hosted", {jx::log::kv("count", zc.worlds.size())});

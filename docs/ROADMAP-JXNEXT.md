@@ -314,6 +314,15 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       tăng, mọi handle cũ thành vô hiệu ngay (bug kinh điển của server cũ: id cũ trỏ sang con quái mới).
       `KSubWorld` đã chuyển hẳn sang `EntityTable` (bỏ `unordered_map` + `IdGenerator`). 13 test riêng
       (handle, tái dùng ô, handle lạ, iterate khi đang xoá, 100k entity, kiểu move-only); ctest 109/109, e2e OK.
+- [x] **M5c — MASTER SPEC Phase C/H/I/J: map instance có chủ sở hữu, worker pool, scheduler (2026-09-17)**:
+      `KMapInstance` (một bản chạy của map, có inbox lệnh + hàng sự kiện + chủ sở hữu + chi phí tick),
+      `KWorldCommand`/`KWorldEvent` (SpawnPlayer/RemovePlayer/ClientPacket/SaveRequest ↔ SessionOpened/
+      PlayerSave/WorldChange), `KWorldScheduler` (xếp map cho worker theo chi phí đo được, dời map khỏi
+      worker nóng, có ngưỡng chống dao động). `KGameServer` viết lại theo mô hình: **luồng mạng không
+      còn sửa world** (§30) mà đẩy lệnh; mỗi tick chạy song song các map theo worker (§6/§7/§23), rồi
+      luồng server gom sự kiện (ack/save/đổi map) và gói tin gửi đi. Lua: mỗi map instance có `KScriptCache`
+      riêng và `g_ScriptContext` là `thread_local` (§42). Chạy thật: 4 map / 4 worker, tick trung bình
+      **25,1 ms → 16,0 ms**, log `zone.tick` có p95/p99 và tải từng worker. 5 test scheduler; ctest 114/114, e2e OK.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

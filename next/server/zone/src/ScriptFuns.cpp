@@ -15,7 +15,9 @@ namespace jx::zone {
 
 KScriptContext& g_ScriptContext() noexcept
 {
-    static KScriptContext ctx;
+    // MASTER SPEC 42: simulation workers run scripts at the same time, so the "who is this
+    // script running for" context belongs to the thread, never to the process.
+    static thread_local KScriptContext ctx;
     return ctx;
 }
 

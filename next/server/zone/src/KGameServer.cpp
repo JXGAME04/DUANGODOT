@@ -1,7 +1,11 @@
 #include "jx/zone/KGameServer.h"
 
+#include <algorithm>
 #include <chrono>
 
+#include <fmt/format.h>
+
+#include "jx/core/Metrics.h"
 #include "jx/internal.pb.h"
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
@@ -11,40 +15,101 @@ namespace jx::zone {
 
 using namespace std::chrono_literals;
 
-KGameServer::KGameServer(asio::io_context& io, KGameServerConfig cfg)
-    : io_(io), cfg_(std::move(cfg)), listener_(io, frame::kMaxInternalPayload), timer_(io),
-      step_(cfg_.world.tick_hz, cfg_.max_ticks_per_update)
+namespace {
+
+// How many simulation workers to start when the configuration says "decide for me" (SPEC 15):
+// leave a couple of threads for the network and the operating system, never more workers than
+// there are map instances to tick.
+unsigned auto_workers(std::size_t instances)
 {
-    // KSubWorldSet: one KSubWorld per hosted map; the first is the default
+    const unsigned hw = core::ThreadPool::hardware_threads();
+    unsigned n = hw > 3 ? hw - 2 : 1;
+    n = std::min<unsigned>(n, static_cast<unsigned>(std::max<std::size_t>(instances, 1)));
+    return std::max(1u, n);
+}
+
+} // namespace
+
+KGameServer::KGameServer(asio::io_context& io, KGameServerConfig cfg)
+    : io_(io), cfg_(std::move(cfg)), listener_(io, frame::kMaxInternalPayload),
+      scheduler_(1), clock_(core::TickRate{cfg_.world.tick_hz}),
+      fixed_(clock_, cfg_.max_ticks_per_update), profile_(core::metrics(), "zone"), timer_(io)
+{
+    // KSubWorldSet: one instance per hosted map; the first is the default one
     if (cfg_.worlds.empty()) cfg_.worlds.push_back(cfg_.world);
+    std::uint32_t instance_id = 1;
     for (const KSubWorldConfig& wc : cfg_.worlds) {
-        auto world = std::make_unique<KSubWorld>(wc);
-        if (world_by_map_.contains(world->map_id())) {
-            log::warn("boot", "map hosted twice, second copy ignored", {log::kv("map", world->map_id())});
+        auto inst = std::make_unique<KMapInstance>(instance_id, wc);
+        if (instance_by_map_.contains(inst->map_id())) {
+            log::warn("boot", "map hosted twice, second copy ignored", {log::kv("map", inst->map_id())});
             continue;
         }
-        world_by_map_[world->map_id()] = world.get();
-        worlds_.push_back(std::move(world));
+        instance_by_map_[inst->map_id()] = inst.get();
+        instance_ptrs_.push_back(inst.get());
+        instances_.push_back(std::move(inst));
+        ++instance_id;
     }
+    workers_ = cfg_.simulation_threads != 0 ? cfg_.simulation_threads : auto_workers(instances_.size());
+    scheduler_ = KWorldScheduler(workers_);
+    scheduler_.assign_all(instance_ptrs_);
+    rebuild_buckets();
+}
+
+KGameServer::~KGameServer()
+{
+    if (pool_) pool_->stop();
+}
+
+KMapInstance* KGameServer::instance_of_map(std::uint32_t map_id) noexcept
+{
+    const auto it = instance_by_map_.find(map_id);
+    return it == instance_by_map_.end() ? nullptr : it->second;
 }
 
 KSubWorld* KGameServer::world_of_map(std::uint32_t map_id) noexcept
 {
-    const auto it = world_by_map_.find(map_id);
-    return it == world_by_map_.end() ? nullptr : it->second;
+    KMapInstance* inst = instance_of_map(map_id);
+    return inst == nullptr ? nullptr : &inst->world();
 }
 
-KSubWorld* KGameServer::world_of_session(std::uint64_t sid) noexcept
+KMapInstance* KGameServer::instance_of_session(std::uint64_t sid) noexcept
 {
-    const auto it = session_world_.find(sid);
-    return it == session_world_.end() ? nullptr : it->second;
+    const auto it = session_instance_.find(sid);
+    return it == session_instance_.end() ? nullptr : it->second;
+}
+
+void KGameServer::bind_session(std::uint64_t sid, KMapInstance& target, std::uint64_t conn_id)
+{
+    session_instance_[sid] = &target;
+    session_gateway_[sid] = conn_id;
+}
+
+void KGameServer::unbind_session(std::uint64_t sid)
+{
+    session_instance_.erase(sid);
+    session_gateway_.erase(sid);
 }
 
 std::size_t KGameServer::total_entities() const noexcept
 {
     std::size_t n = 0;
-    for (const auto& w : worlds_) n += w->entity_count();
+    for (const auto& inst : instances_) n += inst->entities();
     return n;
+}
+
+std::vector<KWorkerLoad> KGameServer::worker_loads() const
+{
+    std::vector<KMapInstance*> list(instance_ptrs_);
+    return scheduler_.loads(list);
+}
+
+void KGameServer::rebuild_buckets()
+{
+    buckets_.assign(workers_, {});
+    for (KMapInstance* m : instance_ptrs_) {
+        const unsigned w = m->owner() < workers_ ? m->owner() : 0u;
+        buckets_[w].push_back(m);
+    }
 }
 
 std::error_code KGameServer::start()
@@ -53,13 +118,21 @@ std::error_code KGameServer::start()
         log::error("boot", "cannot listen", {log::kv("addr", cfg_.listen_address), log::kv("port", cfg_.port), log::kv("error", ec.message())});
         return ec;
     }
+    // the simulation pool: the only threads that ever touch world state (SPEC 2, 14)
+    core::ThreadPoolConfig pc;
+    pc.name = "sim";
+    pc.threads = workers_;
+    pool_ = std::make_unique<core::ThreadPool>(pc);
+    jobs_ = std::make_unique<core::JobSystem>(*pool_);
+
     listener_.start([this](net::Connection::Ptr c) { on_accept(std::move(c)); });
     running_ = true;
     last_update_ = steady_now();
     schedule_tick();
     log::info("boot", "zone listening", {log::kv("addr", cfg_.listen_address), log::kv("port", listener_.port()),
                                          log::kv("zone", cfg_.world.zone_id), log::kv("name", cfg_.world.name),
-                                         log::kv("tick_hz", cfg_.world.tick_hz)});
+                                         log::kv("tick_hz", cfg_.world.tick_hz), log::kv("maps", instances_.size()),
+                                         log::kv("sim_workers", workers_), log::kv("hardware_threads", core::ThreadPool::hardware_threads())});
     return {};
 }
 
@@ -75,7 +148,8 @@ void KGameServer::stop()
         if (gw.conn) links.push_back(gw.conn);
     }
     for (auto& conn : links) conn->close();
-    log::info("boot", "zone stopped", {log::kv("tick", world().tick_count()), log::kv("players", session_world_.size())});
+    if (pool_) pool_->stop();   // SPEC 87: every thread is joined, never terminated
+    log::info("boot", "zone stopped", {log::kv("tick", clock_.tick()), log::kv("players", session_instance_.size())});
 }
 
 // ---- connections ---------------------------------------------------------------------------
@@ -96,8 +170,11 @@ void KGameServer::on_close(net::Connection& conn, const std::error_code& ec)
     std::size_t dropped = 0;
     for (auto sit = session_gateway_.begin(); sit != session_gateway_.end();) {
         if (sit->second == conn.id()) {
-            if (KSubWorld* w = world_of_session(sit->first)) w->remove_player(sit->first);
-            session_world_.erase(sit->first);
+            const std::uint64_t sid = sit->first;
+            if (KMapInstance* inst = instance_of_session(sid)) {
+                inst->post(KCmdRemovePlayer{sid, false});   // the gateway is gone: nobody to save to
+            }
+            session_instance_.erase(sid);
             sit = session_gateway_.erase(sit);
             ++dropped;
         } else {
@@ -109,7 +186,6 @@ void KGameServer::on_close(net::Connection& conn, const std::error_code& ec)
                {log::kv("conn", conn.id()), log::kv("gateway", it->second.id), log::kv("players_dropped", dropped),
                 log::kv("error", ec ? ec.message() : "")});
     gateways_.erase(it);
-    flush_outbox();
 }
 
 void KGameServer::on_frame(net::Connection& conn, const frame::View& view)
@@ -131,7 +207,6 @@ void KGameServer::on_frame(net::Connection& conn, const frame::View& view)
         log::warn("net", "unknown internal message", {log::kv("conn", conn.id()), log::kv("msg", view.msg_id)});
         break;
     }
-    flush_outbox();
 }
 
 void KGameServer::handle_hello(Gateway& gw, const frame::View& view)
@@ -163,6 +238,7 @@ void KGameServer::handle_hello(Gateway& gw, const frame::View& view)
     log::info("net", "gateway ready", {log::kv("conn", gw.conn->id()), log::kv("gateway", gw.id)});
 }
 
+// The network thread validates and forwards; the world answers on its own tick (SPEC 30).
 void KGameServer::handle_session_open(Gateway& gw, const frame::View& view)
 {
     pb::SessionOpen open;
@@ -170,28 +246,17 @@ void KGameServer::handle_session_open(Gateway& gw, const frame::View& view)
         log::warn("net", "bad SessionOpen", {log::kv("conn", gw.conn->id())});
         return;
     }
-    pb::SessionOpenAck ack;
-    ack.set_sid(open.sid());
-    EntityId entity;
-    Pos pos;
     // the saved map when this zone hosts it (g_SubWorldSet.SearchWorld), else the default map
-    KSubWorld* target = open.role().has_position() ? world_of_map(open.role().position().map_id()) : nullptr;
-    if (target == nullptr) target = &world();
-    const pb::Result result = target->spawn_player(open.sid(), open.role(), entity, pos);
-    ack.set_result(result);
-    if (result == pb::RESULT_OK) {
-        session_gateway_[open.sid()] = gw.conn->id();
-        session_world_[open.sid()] = target;
-        ack.set_map_id(target->map_id());
-        ack.set_scene_w(static_cast<std::uint32_t>(target->config().width));
-        ack.set_scene_h(static_cast<std::uint32_t>(target->config().height));
-        ack.set_entity_id(entity.value);
-        ack.mutable_pos()->set_x(pos.x);
-        ack.mutable_pos()->set_y(pos.y);
-    } else {
-        log::warn("zone", "session open rejected", {log::kv("sid", open.sid()), log::kv("result", static_cast<int>(result))});
-    }
-    net::send(*gw.conn, static_cast<std::uint16_t>(pb::ZG_SESSION_OPEN_ACK), ack);
+    KMapInstance* target = open.role().has_position() ? instance_of_map(open.role().position().map_id()) : nullptr;
+    if (target == nullptr) target = instances_.front().get();
+    bind_session(open.sid(), *target, gw.conn->id());
+    KCmdSpawnPlayer cmd;
+    cmd.sid = open.sid();
+    cmd.conn_id = gw.conn->id();
+    cmd.role = open.role();
+    cmd.reason = KSpawnReason::enter_world;
+    target->post(std::move(cmd));
+    log::debug("zone", "session open queued", {log::kv("sid", open.sid()), log::kv("map", target->map_id())});
 }
 
 void KGameServer::handle_session_close(Gateway& gw, const frame::View& view)
@@ -208,10 +273,11 @@ void KGameServer::handle_session_close(Gateway& gw, const frame::View& view)
     }
     // reason: 0 client left, 1 heartbeat timeout, 2 kicked / replaced by a new login, 3 gateway shutdown
     log::info("zone", "session closed", {log::kv("sid", close.sid()), log::kv("reason", close.reason())});
-    send_save(close.sid(), true);
-    if (KSubWorld* w = world_of_session(close.sid())) w->remove_player(close.sid());
-    session_world_.erase(close.sid());
-    session_gateway_.erase(it);
+    if (KMapInstance* inst = instance_of_session(close.sid())) {
+        inst->post(KCmdRemovePlayer{close.sid(), true});   // the final PlayerSave comes back as an event
+    }
+    session_instance_.erase(close.sid());
+    // the gateway binding stays until the save event has been sent
 }
 
 void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
@@ -226,25 +292,17 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
         log::debug("zone", "packet for unknown session", {log::kv("sid", cp.sid()), log::kv("msg", cp.msg_id())});
         return;
     }
-    KSubWorld* w = world_of_session(cp.sid());
-    if (w == nullptr) return;
+    KMapInstance* inst = instance_of_session(cp.sid());
+    if (inst == nullptr) return;
     switch (cp.msg_id()) {
-    case pb::C2G_MOVE: {
-        pb::MoveReq req;
-        if (!net::parse(cp.payload(), req)) break;
-        w->move_request(cp.sid(), Pos{req.target().x(), req.target().y()}, req.seq());
-        break;
-    }
-    case pb::C2G_CHAT: {
-        pb::ChatReq req;
-        if (!net::parse(cp.payload(), req)) break;
-        w->chat(cp.sid(), req.text());
-        break;
-    }
+    case pb::C2G_MOVE:
+    case pb::C2G_CHAT:
     case pb::C2G_ATTACK: {
-        pb::AttackReq req;
-        if (!net::parse(cp.payload(), req)) break;
-        w->attack_request(cp.sid(), jx::EntityId{req.target()}, req.seq());
+        KCmdClientPacket cmd;
+        cmd.sid = cp.sid();
+        cmd.msg_id = cp.msg_id();
+        cmd.payload = cp.payload();
+        inst->post(std::move(cmd));
         break;
     }
     default:
@@ -257,9 +315,8 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
 
 void KGameServer::flush_outbox()
 {
-    for (auto& world : worlds_) {
-        if (world->outbox().empty()) continue;
-        for (Packet& p : world->take_outbox()) {
+    for (auto& inst : instances_) {
+        for (Packet& p : inst->take_outbox()) {
             // group the sessions of one packet by the gateway that owns them
             std::unordered_map<std::uint64_t, pb::ZonePacket> per_gateway;
             for (const std::uint64_t sid : p.sids) {
@@ -291,87 +348,135 @@ void KGameServer::send_to_session(std::uint64_t sid, std::uint16_t msg_id, const
     net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_PACKET), zp);
 }
 
-// KNpc::ChangeWorld between two worlds of this zone: leave the old map (despawn for its viewers),
-// tell the client which bundle to load, then spawn in the new map (its EntitySpawn follows).
-void KGameServer::process_world_changes()
+void KGameServer::send_save(const KEvPlayerSave& save)
 {
-    for (auto& source : worlds_) {
-        for (const KWorldChange& ch : source->take_world_changes()) {
-            KSubWorld* target = world_of_map(ch.map_id);
-            if (target == nullptr) {   // 不在这台服务器上: TobeExchangeServer is not there yet
-                log::warn("zone.trap", "map not hosted here, player stays", {log::kv("sid", ch.sid), log::kv("map", ch.map_id)});
-                continue;
-            }
-            if (world_of_session(ch.sid) != source.get()) continue;
-            pb::RoleData role;
-            if (!source->role_snapshot(ch.sid, role)) continue;
-            source->remove_player(ch.sid);
-            flush_outbox();   // the despawn for the old neighbours goes out before anything new
-            EntityId entity;
-            Pos pos;
-            role.mutable_position()->set_map_id(ch.map_id);
-            const Pos at = target->to_local(ch.pos);   // NewWorld passes absolute Mps coordinates
-            const pb::Result result = target->spawn_player(ch.sid, role, entity, pos, &at);
-            if (result != pb::RESULT_OK) {
-                log::error("zone.trap", "spawn in the new map failed, back to the old one", {log::kv("sid", ch.sid), log::kv("map", ch.map_id), log::kv("result", static_cast<int>(result))});
-                source->spawn_player(ch.sid, role, entity, pos);
-                continue;
-            }
-            session_world_[ch.sid] = target;
-            pb::ChangeMap change;
-            change.set_map_id(target->map_id());
-            change.mutable_pos()->set_x(pos.x);
-            change.mutable_pos()->set_y(pos.y);
-            change.set_scene_w(static_cast<std::uint32_t>(target->config().width));
-            change.set_scene_h(static_cast<std::uint32_t>(target->config().height));
-            change.set_entity_id(entity.value);
-            send_to_session(ch.sid, static_cast<std::uint16_t>(pb::G2C_CHANGE_MAP), change);   // before the spawn packets
-            log::info("zone.trap", "player changed map", {log::kv("sid", ch.sid), log::kv("from", source->map_id()), log::kv("to", target->map_id()),
-                                                         log::kv("x", pos.x), log::kv("y", pos.y), log::kv("entity", entity)});
-        }
+    const auto it = session_gateway_.find(save.sid);
+    if (it == session_gateway_.end()) return;
+    const auto git = gateways_.find(it->second);
+    if (git == gateways_.end() || !git->second.conn) return;
+    pb::PlayerSave msg;
+    msg.set_sid(save.sid);
+    msg.set_final(save.final);
+    *msg.mutable_role() = save.role;
+    net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_PLAYER_SAVE), msg);
+    if (save.final) session_gateway_.erase(save.sid);   // the session is finished with this zone
+}
+
+// Events are handled on the server thread, between the parallel tick and the packet flush, so
+// an ack or a ChangeMap always reaches the client before the spawn packets of that same tick.
+void KGameServer::process_events()
+{
+    for (auto& inst : instances_) {
+        for (KWorldEvent& ev : inst->take_events()) handle_event(*inst, ev);
     }
 }
 
-void KGameServer::send_save(std::uint64_t sid, bool final)
+void KGameServer::handle_event(KMapInstance& source, KWorldEvent& ev)
 {
-    const auto it = session_gateway_.find(sid);
-    if (it == session_gateway_.end()) return;
-    const auto git = gateways_.find(it->second);
-    if (git == gateways_.end()) return;
-    pb::PlayerSave save;
-    save.set_sid(sid);
-    save.set_final(final);
-    KSubWorld* w = world_of_session(sid);
-    if (w == nullptr || !w->role_snapshot(sid, *save.mutable_role())) return;
-    net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_PLAYER_SAVE), save);
+    std::visit(overloaded{
+                   [&](KEvSessionOpened& e) {
+                       if (e.reason == KSpawnReason::enter_world) {
+                           pb::SessionOpenAck ack;
+                           ack.set_sid(e.sid);
+                           ack.set_result(e.result);
+                           if (e.result == pb::RESULT_OK) {
+                               ack.set_map_id(e.map_id);
+                               ack.set_scene_w(e.scene_w);
+                               ack.set_scene_h(e.scene_h);
+                               ack.set_entity_id(e.entity.value);
+                               ack.mutable_pos()->set_x(e.pos.x);
+                               ack.mutable_pos()->set_y(e.pos.y);
+                           } else {
+                               log::warn("zone", "session open rejected", {log::kv("sid", e.sid), log::kv("result", static_cast<int>(e.result))});
+                               unbind_session(e.sid);
+                           }
+                           const auto git = gateways_.find(e.conn_id);
+                           if (git != gateways_.end() && git->second.conn) {
+                               net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_SESSION_OPEN_ACK), ack);
+                           }
+                       } else {   // arrived through a trap: the client must load the new bundle first
+                           if (e.result != pb::RESULT_OK) {
+                               log::error("zone.trap", "spawn in the new map failed", {log::kv("sid", e.sid), log::kv("map", e.map_id),
+                                                                                      log::kv("result", static_cast<int>(e.result))});
+                               unbind_session(e.sid);
+                               return;
+                           }
+                           pb::ChangeMap change;
+                           change.set_map_id(e.map_id);
+                           change.mutable_pos()->set_x(e.pos.x);
+                           change.mutable_pos()->set_y(e.pos.y);
+                           change.set_scene_w(e.scene_w);
+                           change.set_scene_h(e.scene_h);
+                           change.set_entity_id(e.entity.value);
+                           send_to_session(e.sid, static_cast<std::uint16_t>(pb::G2C_CHANGE_MAP), change);
+                           log::info("zone.trap", "player changed map", {log::kv("sid", e.sid), log::kv("to", e.map_id),
+                                                                        log::kv("x", e.pos.x), log::kv("y", e.pos.y), log::kv("entity", e.entity)});
+                       }
+                   },
+                   [&](KEvPlayerSave& e) { send_save(e); },
+                   [&](KEvWorldChange& e) {
+                       KMapInstance* target = instance_of_map(e.map_id);
+                       if (target == nullptr) {   // 不在这台服务器上: TobeExchangeServer is not there yet
+                           log::warn("zone.trap", "map not hosted here, player goes back", {log::kv("sid", e.sid), log::kv("map", e.map_id)});
+                           KCmdSpawnPlayer back;
+                           back.sid = e.sid;
+                           back.conn_id = session_gateway_.count(e.sid) ? session_gateway_[e.sid] : 0;
+                           back.role = e.role;
+                           back.reason = KSpawnReason::change_map;
+                           source.post(std::move(back));
+                           return;
+                       }
+                       KCmdSpawnPlayer cmd;
+                       cmd.sid = e.sid;
+                       cmd.conn_id = session_gateway_.count(e.sid) ? session_gateway_[e.sid] : 0;
+                       cmd.role = e.role;
+                       cmd.role.mutable_position()->set_map_id(e.map_id);
+                       cmd.has_at = true;
+                       cmd.at = target->world().to_local(e.pos);   // NewWorld passes absolute Mps coordinates
+                       cmd.reason = KSpawnReason::change_map;
+                       session_instance_[e.sid] = target;
+                       target->post(std::move(cmd));
+                   },
+               },
+               ev);
 }
 
 void KGameServer::send_stats()
 {
+    const auto tick_snapshot = profile_.total().snapshot();
     pb::ZoneStats st;
     st.set_zone_id(cfg_.world.zone_id);
-    st.set_tick(world().tick_count());
-    st.set_players(static_cast<std::uint32_t>(session_world_.size()));
+    st.set_tick(clock_.tick());
+    st.set_players(static_cast<std::uint32_t>(session_instance_.size()));
     st.set_entities(static_cast<std::uint32_t>(total_entities()));
-    const double avg = tick_samples_ ? tick_ms_sum_ / static_cast<double>(tick_samples_) : 0.0;
-    st.set_tick_ms_avg(static_cast<std::uint32_t>(avg));
-    st.set_tick_ms_max(static_cast<std::uint32_t>(tick_ms_max_));
+    st.set_tick_ms_avg(static_cast<std::uint32_t>(tick_snapshot.avg_ms));
+    st.set_tick_ms_max(static_cast<std::uint32_t>(tick_snapshot.max_ms));
     for (auto& [id, gw] : gateways_) {
         if (gw.ready) net::send(*gw.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_STATS), st);
     }
-    log::info("zone.tick", "stats", {log::kv("tick", world().tick_count()), log::kv("players", session_world_.size()),
-                                     log::kv("entities", total_entities()), log::kv("maps", worlds_.size()), log::kv("gateways", gateways_.size()),
-                                     log::kv("tick_ms_avg", fmt::format("{:.2f}", avg)), log::kv("tick_ms_max", fmt::format("{:.2f}", tick_ms_max_)),
-                                     log::kv("dropped", step_.dropped())});
-    tick_ms_sum_ = tick_ms_max_ = 0;
-    tick_samples_ = 0;
+    // per worker and per map numbers: which worker is hot, which map costs what (SPEC 52, 53)
+    std::string per_worker;
+    for (const KWorkerLoad& load : worker_loads()) {
+        if (!per_worker.empty()) per_worker += " ";
+        per_worker += fmt::format("w{}:{:.2f}ms/{}maps/{}p", load.worker, load.cost_ms, load.instances, load.players);
+    }
+    log::info("zone.tick", "stats",
+              {log::kv("tick", clock_.tick()), log::kv("players", session_instance_.size()),
+               log::kv("entities", total_entities()), log::kv("maps", instances_.size()), log::kv("gateways", gateways_.size()),
+               log::kv("tick_ms_avg", fmt::format("{:.2f}", tick_snapshot.avg_ms)),
+               log::kv("tick_ms_p95", fmt::format("{:.2f}", tick_snapshot.p95_ms)),
+               log::kv("tick_ms_p99", fmt::format("{:.2f}", tick_snapshot.p99_ms)),
+               log::kv("tick_ms_max", fmt::format("{:.2f}", tick_snapshot.max_ms)),
+               log::kv("sim_workers", workers_), log::kv("workers", per_worker),
+               log::kv("dropped", fixed_.dropped())});
+    profile_.total().reset();
 }
 
 // ---- tick ----------------------------------------------------------------------------------
 
 void KGameServer::schedule_tick()
 {
-    timer_.expires_after(std::chrono::duration_cast<std::chrono::steady_clock::duration>(step_.step()));
+    timer_.expires_after(std::chrono::duration_cast<std::chrono::steady_clock::duration>(clock_.rate().step()));
     timer_.async_wait([this](const std::error_code& ec) {
         if (ec || !running_) return;
         run_ticks();
@@ -382,27 +487,60 @@ void KGameServer::schedule_tick()
 void KGameServer::run_ticks()
 {
     const Nanos now = steady_now();
-    const std::uint32_t n = step_.update(now - last_update_);
+    const Nanos elapsed = now - last_update_;
     last_update_ = now;
-    for (std::uint32_t i = 0; i < n; ++i) {
-        const Nanos t0 = steady_now();
-        for (auto& w : worlds_) w->tick();
-        process_world_changes();
-        flush_outbox();
-        const double ms = static_cast<double>((steady_now() - t0).count()) / 1e6;
-        tick_ms_sum_ += ms;
-        if (ms > tick_ms_max_) tick_ms_max_ = ms;
-        ++tick_samples_;
+    const std::uint32_t due = fixed_.pending(elapsed);
+    for (std::uint32_t i = 0; i < due; ++i) {
+        clock_.advance();
+        tick_once();
+    }
+}
 
-        const std::uint64_t tick = world().tick_count();
-        if (cfg_.stats_interval_s > 0 && tick - last_stats_tick_ >= static_cast<std::uint64_t>(cfg_.stats_interval_s) * cfg_.world.tick_hz) {
-            last_stats_tick_ = tick;
-            send_stats();
+void KGameServer::tick_once()
+{
+    {
+        auto whole = profile_.whole();
+        // 1. the simulation: every worker ticks the instances it owns, in parallel.  Two workers
+        //    never touch the same instance, so no world state is shared (SPEC 6, 7, 73).
+        {
+            auto phase = profile_.phase(core::TickPhase::movement);
+            if (workers_ <= 1 || buckets_.size() <= 1) {
+                for (KMapInstance* m : instance_ptrs_) m->tick();
+            } else {
+                jobs_->parallel_for(buckets_.size(),
+                                    [this](std::size_t w) {
+                                        for (KMapInstance* m : buckets_[w]) m->tick();
+                                    },
+                                    1);
+            }
         }
-        if (cfg_.save_interval_s > 0 && tick - last_save_tick_ >= static_cast<std::uint64_t>(cfg_.save_interval_s) * cfg_.world.tick_hz) {
-            last_save_tick_ = tick;
-            for (const auto& [sid, w] : session_world_) send_save(sid, false);
+        // 2. what the worlds want from the outside: acks, saves, map transfers (server thread only)
+        {
+            auto phase = profile_.phase(core::TickPhase::entity_transfer);
+            process_events();
         }
+        // 3. the packets the worlds produced go to the gateways
+        {
+            auto phase = profile_.phase(core::TickPhase::network_send);
+            flush_outbox();
+        }
+    }
+
+    const std::uint64_t tick = clock_.tick();
+    if (cfg_.stats_interval_s > 0 && tick - last_stats_tick_ >= static_cast<std::uint64_t>(cfg_.stats_interval_s) * cfg_.world.tick_hz) {
+        last_stats_tick_ = tick;
+        send_stats();
+    }
+    if (cfg_.save_interval_s > 0 && tick - last_save_tick_ >= static_cast<std::uint64_t>(cfg_.save_interval_s) * cfg_.world.tick_hz) {
+        last_save_tick_ = tick;
+        for (const auto& [sid, inst] : session_instance_) inst->post(KCmdSaveRequest{sid, false});
+    }
+    // the scheduler may move a map to a colder worker between two ticks (SPEC 8, 9)
+    if (workers_ > 1 && cfg_.rebalance_interval_s > 0 &&
+        tick - last_rebalance_tick_ >= static_cast<std::uint64_t>(cfg_.rebalance_interval_s) * cfg_.world.tick_hz) {
+        last_rebalance_tick_ = tick;
+        auto phase = profile_.phase(core::TickPhase::metrics);
+        if (scheduler_.rebalance(instance_ptrs_) > 0) rebuild_buckets();
     }
 }
 
