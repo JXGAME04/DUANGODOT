@@ -227,15 +227,40 @@ def cmd_client() -> None:
     subprocess.Popen([godot_exe(), "--path", os.path.join(ROOT, "client")], cwd=ROOT)
 
 
+def oldgame_config() -> dict:
+    """config/oldgame.local.json (gitignored, see config/oldgame.example.json and docs/REFERENCES.md):
+    {"client": <folder with package.ini or config.ini>, "server": <folder with package.ini + Settings>}."""
+    p = os.path.join(ROOT, "config", "oldgame.local.json")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def old_client_dir() -> str:
-    env = os.environ.get("JX_OLD_CLIENT")
+    """Reference client folder; with "client_fallback" in the config the result is "ref;fallback" and
+    jxassets serves from the fallback only what the reference lacks (it reports those files)."""
+    env = os.environ.get("JX_OLD_CLIENT") or oldgame_config().get("client")
     if env:
-        return env
+        fb = oldgame_config().get("client_fallback", "")
+        return env + ";" + fb if fb and ";" not in env else env
     for rel in ("../bin/Client", "../../bin/Client"):
         p = os.path.abspath(os.path.join(ROOT, rel))
-        if os.path.exists(os.path.join(p, "package.ini")):
+        if any(os.path.exists(os.path.join(p, ini)) for ini in ("package.ini", "config.ini")):
             return p
-    sys.exit("old client data not found (set JX_OLD_CLIENT to the folder with package.ini)")
+    sys.exit("old client data not found (set JX_OLD_CLIENT or config/oldgame.local.json)")
+
+
+def old_server_dir() -> str:
+    """Old server folder (package.ini + pak/maps.pak + Settings/npcs.txt); empty = let jxassets guess."""
+    return os.environ.get("JX_OLD_SERVER") or oldgame_config().get("server", "")
+
+
+def jxassets_args() -> list[str]:
+    args = [go_exe("jxassets"), "-client", old_client_dir()]
+    if old_server_dir():
+        args += ["-server", old_server_dir()]
+    return args
 
 
 def cmd_assets(map_ids: list[str]) -> None:
@@ -243,10 +268,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     subprocess.check_call(["go", "build", "-o", os.path.join(BUILD, "go") + os.sep, "./cmd/jxassets"], cwd=os.path.join(ROOT, "services"))
     out = os.path.join(ROOT, "client", "assets")
     for mid in map_ids or ["1"]:
-        subprocess.check_call([go_exe("jxassets"), "-client", old_client_dir(), "export-map", mid, "-out", out], cwd=ROOT)
+        subprocess.check_call([*jxassets_args(), "export-map", mid, "-out", out], cwd=ROOT)
     # npc / character appearance (npcs.txt + Settings/npcres) for the npcs placed on those maps
     # plus the templates the zone's test npcs use (1000 + i, see server/zone/src/main.cpp)
-    subprocess.check_call([go_exe("jxassets"), "-client", old_client_dir(), "export-npcres", *(map_ids or ["1"]),
+    subprocess.check_call([*jxassets_args(), "export-npcres", *(map_ids or ["1"]),
                            "-templates", "1000,1001,1002,1003", "-out", out], cwd=ROOT)
     print("assets ok")
 

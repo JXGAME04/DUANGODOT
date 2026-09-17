@@ -12,3 +12,5 @@ data/
 
 # Python caches
 __pycache__/
+# machine-specific pointers to the reference game trees (docs/REFERENCES.md)
+config/*.local.json

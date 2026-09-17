@@ -12,7 +12,7 @@ python tools/dev.py assets 1 2 3    # nhiều map (id theo Settings/MapList.ini 
 
 | Thứ | Ở đâu | Ghi chú |
 |---|---|---|
-| `.pak` | `bin/Client/Data/*.pak`, thứ tự trong `package.ini` (pak đầu thắng) | header `PACK`; index `{id, offset, size, flag}`; id = hash tên file (chữ thường, byte GBK tính như *signed char*); nén UCL NRV2B (0x01/0x20), zlib cho spr "zip", `0x10` = spr nén theo frame |
+| `.pak` | `bin/Client/Data/*.pak` theo `package.ini`, hoặc `data/*.pak` theo `config.ini` `[Package]` của client 2.0 (pak đầu thắng; `-client "a;b"` = chuỗi dự phòng, xem REFERENCES.md) | header `PACK`; index `{id, offset, size, flag}`; id = hash tên file (chữ thường, byte GBK tính như *signed char*); nén UCL NRV2B (0x01/0x20), zlib cho spr "zip", `0x10` = spr nén theo frame |
 | `.spr` | trong pak | `SPRHEAD` 32 byte, bảng màu RGB 3 byte × Colors, bảng offset frame, mỗi frame `{w,h,ox,oy}` + RLE `[count][alpha][count chỉ số màu nếu alpha≠0]` |
 | `.wor` | `\maps\<GBK>\<GBK>.wor` | INI: `[MAIN] rect=l,t,r,b` = chỉ số region |
 | `Region_C.dat` | `\maps\<GBK>\<GBK>\v_YYY\XXX_Region_C.dat` | 6 phần: vật cản 16×32 int32, bẫy, NPC, obj, nền (`Ground.dat`: tile 16×16 ô + cover), vật thể (`BuildinObj.dat`) |
@@ -55,9 +55,10 @@ Object (`objects[]`, giữ đúng thứ tự trong file cũ):
 
 Hai nguồn, đều là tọa độ scene **tuyệt đối** (`KNpcSet::Add` đưa thẳng `nPositionX/Y` vào `Mps2Map`):
 
-- **Server** (`bin/Server/pak/maps.pak` → `XXX_Region_S.dat`, mục Npc_S, `KRegion::LoadServerNpc`): NPC thật
-  (người trong thành `kind` 3, quái `kind` 0 có `level`). Tên = tên template trong `npcs.txt`, hoặc tên thay thế
-  nếu tên đặt trong map có trong `Settings/npc/replacename_npc.txt` (`gNpcNameMap`). Hướng ban đầu 0 (`m_Dir = 0`).
+- **Server** (`<server>/pak/maps.pak` → `XXX_Region_S.dat`, mục Npc_S, `KRegion::LoadServerNpc`; server Linux hay
+  `bin/Server` cho cùng vị trí): NPC thật (người trong thành `kind` 3, quái `kind` 0 có `level`). Tên = tên template
+  trong `npcs.txt` **của server** (`<server>/Settings/npcs.txt`), hoặc tên thay thế nếu tên đặt trong map có trong
+  `Settings/npc/replacename_npc.txt` (`gNpcNameMap`; server Linux: `lang/vn/replacename_npc.txt`). Hướng ban đầu 0 (`m_Dir = 0`).
 - **Client** (`Region_C.dat`, mục Npc_C, `KRegion::LoadClientNpc`): thú/chim "client-only" (`client_only: true`),
   hướng đứng lấy từ khung `nCurFrame` (`GetNormalNpcStandDir` = 64·frame/tổng khung đứng).
 

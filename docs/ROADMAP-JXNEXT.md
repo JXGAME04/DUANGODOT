@@ -229,6 +229,12 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       `EntityAction`/`EntityLife`; nhịp khung như `KNpc::DoAttack/OnSpecial1(60 %)/DoHurt/DoDeath/DoRevive`, tự đi tới mục tiêu,
       tự vung tiếp; client hoạt ảnh Attack1/2, Wound, Die (giữ khung cuối), thanh máu, chọn mục tiêu bằng click; `--auto` tự
       đánh quái (`AUTO_FIGHT`). Sát thương/máu tạm (chờ Lua), quái chưa đánh trả. Chi tiết `next/docs/NPCRES.md` mục 4.
+- [x] **Hai bản tham chiếu (2026-09-17, theo yêu cầu "làm theo bản Linux và VLTK 2.0")**: `jxassets`/`dev.py assets` đọc
+      client VLTK 2.0 (`config.ini` [Package], maplist/npcs.txt trong pak) + server Linux VNG (`Settings/npcs.txt`,
+      `pak/maps.pak`, `lang/vn/replacename_npc.txt`) qua `config/oldgame.local.json`; chuỗi client dự phòng `-client "a;b"`
+      (2.0 thiếu bảng nhân vật chính/động tác/BaseValue/item res + 5 sprite map, đều được log); template = dòng server +
+      hình từ dòng client (`export.MergeAppearance`, 128 template khác res). `client/assets` xuất lại từ hai bản này.
+      Chi tiết `next/docs/REFERENCES.md`. Bản Linux còn cho: `npclevelscript/*.lua` (công thức máu/sát thương thật), cột AI.
 - [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
       `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
       bảng đối chiếu `next/docs/OLD-TO-NEW.md`.

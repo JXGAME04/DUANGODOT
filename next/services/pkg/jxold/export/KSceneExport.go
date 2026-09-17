@@ -287,7 +287,7 @@ func (e *Exporter) region(w *wor.World, r *wor.Region) *RegionFile {
 	// cover/buildin positions are absolute scene coordinates counted from region index 0,
 	// the bundle counts from the map's first region (Left, Top)
 	baseX := w.Left * wor.RegionWidth
-	baseY := w.Top * wor.RegionHeight / 2 // screen px
+	baseY := w.Top * wor.RegionHeight / 2  // screen px
 	baseYScene := w.Top * wor.RegionHeight // scene units (base lines keep the old y scale)
 	for _, c := range r.Covers {
 		id := e.spriteID(c.Image)

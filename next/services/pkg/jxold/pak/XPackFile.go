@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -169,9 +170,71 @@ func (p *File) Read(e Entry) ([]byte, error) {
 // Set is the ordered list of archives from package.ini; the first archive that has an id wins.
 type Set struct {
 	Files []*File
+	// archives from index fallbackFrom on belong to fallback folders (OpenClientSet "a;b"):
+	// every file served from them is counted in FallbackHits so an export can say what did
+	// not come from the reference client.
+	fallbackFrom int
+	FallbackHits map[string]int
+}
+
+// OpenClientSet opens the archive list of an old game folder: package.ini (JX1 clients and
+// servers) or config.ini (the VLTK 2.0 client keeps its [Package] list inside the main ini).
+// Several folders separated by ';' form a chain: the first is the reference, the others only
+// serve files the reference lacks (their hits are reported, see FallbackReport).
+func OpenClientSet(dirs string) (*Set, error) {
+	var set *Set
+	for _, dir := range strings.Split(dirs, ";") {
+		dir = strings.TrimSpace(dir)
+		if dir == "" {
+			continue
+		}
+		var last error
+		var one *Set
+		for _, ini := range []string{"package.ini", "config.ini"} {
+			p := filepath.Join(dir, ini)
+			if _, err := os.Stat(p); err != nil {
+				last = err
+				continue
+			}
+			one, last = OpenSet(p)
+			break
+		}
+		if one == nil {
+			if set != nil {
+				set.Close()
+			}
+			return nil, fmt.Errorf("pak: no package.ini or config.ini in %s (%v)", dir, last)
+		}
+		if set == nil {
+			set = one
+			set.fallbackFrom = len(set.Files)
+			continue
+		}
+		set.Files = append(set.Files, one.Files...)
+	}
+	if set == nil {
+		return nil, fmt.Errorf("pak: no client folder given")
+	}
+	return set, nil
+}
+
+// FallbackReport tells how many distinct files were served by fallback archives and lists
+// up to max of them.
+func (s *Set) FallbackReport(max int) (int, []string) {
+	names := make([]string, 0, len(s.FallbackHits))
+	for p := range s.FallbackHits {
+		names = append(names, p)
+	}
+	sort.Strings(names)
+	n := len(names)
+	if len(names) > max {
+		names = names[:max]
+	}
+	return n, names
 }
 
 // OpenSet reads a package.ini ([Package] Path=..., 0=a.pak, 1=b.pak ...) relative to its folder.
+// Only the [Package] section counts (config.ini of VLTK 2.0 carries other sections too).
 func OpenSet(iniPath string) (*Set, error) {
 	data, err := os.ReadFile(iniPath)
 	if err != nil {
@@ -179,8 +242,16 @@ func OpenSet(iniPath string) (*Set, error) {
 	}
 	dir := ""
 	var names []string
+	section := ""
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			section = strings.ToLower(line)
+			continue
+		}
+		if section != "" && section != "[package]" {
+			continue
+		}
 		k, v, ok := strings.Cut(line, "=")
 		if !ok {
 			continue
@@ -230,8 +301,22 @@ func (s *Set) Find(id uint32) (*File, Entry, bool) {
 	return nil, Entry{}, false
 }
 
-// Lookup finds by game path.
-func (s *Set) Lookup(path string) (*File, Entry, bool) { return s.Find(FileNameToID(path)) }
+// Lookup finds by game path (fallback hits are recorded, see OpenClientSet).
+func (s *Set) Lookup(path string) (*File, Entry, bool) {
+	id := FileNameToID(path)
+	for i, f := range s.Files {
+		if e, ok := f.Find(id); ok {
+			if s.fallbackFrom > 0 && i >= s.fallbackFrom {
+				if s.FallbackHits == nil {
+					s.FallbackHits = map[string]int{}
+				}
+				s.FallbackHits[NormalizePath(path)]++
+			}
+			return f, e, true
+		}
+	}
+	return nil, Entry{}, false
+}
 
 // ReadFile returns the uncompressed content of a plain file by game path.
 func (s *Set) ReadFile(path string) ([]byte, error) {

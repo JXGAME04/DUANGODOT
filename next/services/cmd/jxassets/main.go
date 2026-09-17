@@ -72,27 +72,70 @@ func findClient() string {
 		return env
 	}
 	for _, rel := range []string{"../bin/Client", "../../bin/Client", "bin/Client"} {
-		if _, err := os.Stat(filepath.Join(rel, "package.ini")); err == nil {
-			p, _ := filepath.Abs(rel)
-			return p
+		for _, ini := range []string{"package.ini", "config.ini"} {
+			if _, err := os.Stat(filepath.Join(rel, ini)); err == nil {
+				p, _ := filepath.Abs(rel)
+				return p
+			}
 		}
 	}
-	fail("old client folder not found: pass -client or set JX_OLD_CLIENT")
+	fail("old client folder not found: pass -client or set JX_OLD_CLIENT (folder with package.ini or config.ini)")
 	return ""
 }
 
+// primaryDir is the reference folder of a "reference;fallback" client chain (plain files such as
+// Settings/MapList.ini are only looked up there).
+func primaryDir(dir string) string {
+	return strings.TrimSpace(strings.Split(dir, ";")[0])
+}
+
+// reportFallback logs which files the fallback client folders had to serve.
+func reportFallback(set *pak.Set) {
+	max := 20
+	if *flagLevel == "debug" {
+		max = 1 << 20
+	}
+	if n, sample := set.FallbackReport(max); n > 0 {
+		log.Info("asset", "files served by the fallback client folder(s)", log.F("files", n), log.F("sample", text.GBKToUTF8([]byte(strings.Join(sample, " | ")))))
+	}
+}
+
 func openSet(dir string) *pak.Set {
-	set, err := pak.OpenSet(filepath.Join(dir, "package.ini"))
+	set, err := pak.OpenClientSet(dir)
 	if err != nil {
 		fail("%v", err)
 	}
 	return set
 }
 
-// mapPath resolves "<id>" through Settings/MapList.ini or passes a game path through.
-func mapPath(dir, arg string) (string, string) {
+// mapList returns Settings/MapList.ini: the plain file of a JX1 client, else the copy inside the
+// archives (\settings\maplist.ini; the VLTK 2.0 client ships no plain settings folder).
+func mapList(dir string, set *pak.Set) ([]byte, error) {
+	if data, err := os.ReadFile(filepath.Join(primaryDir(dir), "Settings", "MapList.ini")); err == nil {
+		return data, nil
+	}
+	if set != nil {
+		if data, err := set.ReadFile(gamePath(`\settings\maplist.ini`)); err == nil {
+			return data, nil
+		}
+	}
+	return nil, fmt.Errorf("no Settings/MapList.ini in %s and none in its archives", dir)
+}
+
+// mapDirPath normalises a MapList entry: newer lists (Linux server, VLTK 2.0) omit the \maps\ root
+// (`西北南区\凤翔` instead of `\maps\西北南区\凤翔`).
+func mapDirPath(p string) string {
+	q := strings.ToLower(strings.ReplaceAll(p, "/", `\`))
+	if strings.HasPrefix(q, `\maps\`) || strings.HasPrefix(q, `maps\`) {
+		return p
+	}
+	return `\maps\` + strings.TrimPrefix(p, `\`)
+}
+
+// mapPath resolves "<id>" through the map list or passes a game path through.
+func mapPath(dir string, set *pak.Set, arg string) (string, string) {
 	if id, err := strconv.Atoi(arg); err == nil {
-		data, err := os.ReadFile(filepath.Join(dir, "Settings", "MapList.ini"))
+		data, err := mapList(dir, set)
 		if err != nil {
 			fail("MapList.ini: %v", err)
 		}
@@ -101,7 +144,7 @@ func mapPath(dir, arg string) (string, string) {
 		if m == nil {
 			fail("map %d not in MapList.ini", id)
 		}
-		p := strings.TrimSpace(strings.TrimRight(string(m[1]), "\r"))
+		p := mapDirPath(strings.TrimSpace(strings.TrimRight(string(m[1]), "\r")))
 		name := ""
 		if nm := regexp.MustCompile(`(?m)^` + strconv.Itoa(id) + `_name=(.*)$`).FindSubmatch(data); nm != nil {
 			name = text.TCVN3ToUTF8([]byte(strings.TrimSpace(strings.TrimRight(string(nm[1]), "\r"))))
@@ -122,7 +165,7 @@ func findServer(clientDir string) string {
 	if env := os.Getenv("JX_OLD_SERVER"); env != "" {
 		return env
 	}
-	cand := filepath.Join(filepath.Dir(filepath.Clean(clientDir)), "Server")
+	cand := filepath.Join(filepath.Dir(filepath.Clean(primaryDir(clientDir))), "Server")
 	if _, err := os.Stat(filepath.Join(cand, "package.ini")); err == nil {
 		return cand
 	}
@@ -133,9 +176,9 @@ func findServer(clientDir string) string {
 // (Region_S.dat with the real npcs), replacename_npc.txt and the stand frame counts for the
 // facing of client-only npcs.  Returns the function that closes the server archive.
 func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func() {
-	ex.Templates = loadTemplates(set)
-	closer := func() {}
 	sdir := findServer(clientDir)
+	ex.Templates = loadTemplates(set, sdir)
+	closer := func() {}
 	if sdir == "" {
 		log.Warn("asset", "old server folder not found: map npcs come from the client archive only (pass -server)")
 	} else if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err != nil {
@@ -143,8 +186,9 @@ func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func()
 	} else {
 		ex.ServerSet = s
 		closer = s.Close
-		if data, err := os.ReadFile(filepath.Join(sdir, filepath.FromSlash(strings.ReplaceAll(npcres.ReplaceNameFile, `\`, "/")))); err == nil {
+		if data, p, err := readServerFile(sdir, npcres.ReplaceNameFile, npcres.ReplaceNameFileLang); err == nil {
 			ex.ReplaceNames = npcres.ParseReplaceNames(data)
+			log.Info("asset", "npc names replaced through", log.F("file", p))
 		} else {
 			log.Warn("asset", "replacename_npc.txt missing", log.F("error", err))
 		}
@@ -172,13 +216,44 @@ func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func()
 
 // loadTemplates reads Settings/npcs.txt from the archives (nil when it is missing) so map npcs
 // get their in-game names.
-func loadTemplates(set *pak.Set) []npcres.Template {
-	data, err := set.ReadFile(gamePath(npcres.TemplateFile))
-	if err != nil {
-		log.Warn("asset", "npcs.txt missing, map npcs keep their editor names", log.F("error", err))
-		return nil
+// loadTemplates reads npcs.txt: the old server's plain Settings/npcs.txt when a server folder is
+// known (the table the live server ran with), else the client's copy inside the archives.
+// readServerFile reads the first of the candidate files (game paths with backslashes) under
+// the old server folder.
+func readServerFile(serverDir string, candidates ...string) ([]byte, string, error) {
+	var last error
+	for _, c := range candidates {
+		p := filepath.Join(serverDir, filepath.FromSlash(strings.ReplaceAll(c, `\`, "/")))
+		data, err := os.ReadFile(p)
+		if err == nil {
+			return data, p, nil
+		}
+		last = err
 	}
-	return npcres.ParseTemplates(data)
+	return nil, "", last
+}
+
+// loadTemplates reads npcs.txt.  With a server folder the server's plain Settings/npcs.txt rules
+// (the table the live server ran with) and the client archive's own copy only supplies what the
+// client draws (export.MergeAppearance); without one the client's copy is all there is.
+func loadTemplates(set *pak.Set, serverDir string) []npcres.Template {
+	var client []npcres.Template
+	if data, err := set.ReadFile(gamePath(npcres.TemplateFile)); err == nil {
+		client = npcres.ParseTemplates(data)
+	}
+	if serverDir != "" {
+		if data, p, err := readServerFile(serverDir, `Settings\npcs.txt`); err == nil {
+			server := npcres.ParseTemplates(data)
+			merged, changed := export.MergeAppearance(server, client)
+			log.Info("asset", "npc templates from the server folder", log.F("file", p), log.F("rows", len(server)),
+				log.F("client_rows", len(client)), log.F("appearance_from_client", changed))
+			return merged
+		}
+	}
+	if client == nil {
+		log.Warn("asset", "npcs.txt missing, map npcs keep their editor names")
+	}
+	return client
 }
 
 func resolveImage(set *pak.Set, name string) (string, bool) {
@@ -273,7 +348,7 @@ func main() {
 		dir := findClient()
 		set := openSet(dir)
 		defer set.Close()
-		p, name := mapPath(dir, args[1])
+		p, name := mapPath(dir, set, args[1])
 		w, err := wor.LoadWorld(set, p)
 		if err != nil {
 			fail("%v", err)
@@ -335,13 +410,13 @@ func main() {
 		dir := findClient()
 		set := openSet(dir)
 		defer set.Close()
-		p, name := mapPath(dir, args[1])
+		p, name := mapPath(dir, set, args[1])
 		w, err := wor.LoadWorld(set, p)
 		if err != nil {
 			fail("%v", err)
 		}
 		var spawn [2]int
-		if data, err := os.ReadFile(filepath.Join(dir, "Settings", "MapList.ini")); err == nil {
+		if data, err := mapList(dir, set); err == nil {
 			if m := regexp.MustCompile(`(?m)^` + strconv.Itoa(id) + `_MapPos=(\d+),(\d+)`).FindSubmatch(data); m != nil {
 				// MapPos is in minimap pixels; keep zero so the exporter picks a walkable cell
 				_ = m
@@ -353,6 +428,7 @@ func main() {
 		if err != nil {
 			fail("%v", err)
 		}
+		reportFallback(set)
 		fmt.Printf("map %d (%s): %dx%d regions (%d with data), scene %dx%d, spawn %d,%d, npcs %d, sprites exported %d (total %d)\n",
 			info.ID, info.Name, info.RegionCols, info.RegionRows, len(info.Regions), info.SceneW, info.SceneH, info.Spawn[0], info.Spawn[1], len(info.Npcs), ex.Exported, info.Sprites)
 		fmt.Printf("written to %s\n", filepath.Join(out, "maps", strconv.Itoa(id)))
@@ -365,12 +441,12 @@ func main() {
 			out = "client/assets"
 		}
 		dir := findClient()
-		data, err := os.ReadFile(filepath.Join(dir, "Settings", "MapList.ini"))
+		set := openSet(dir)
+		defer set.Close()
+		data, err := mapList(dir, set)
 		if err != nil {
 			fail("MapList.ini: %v", err)
 		}
-		set := openSet(dir)
-		defer set.Close()
 		ex := export.New(set, out)
 		defer prepareExporter(ex, dir, set)()
 		re := regexp.MustCompile(`(?m)^(\d+)=(.*)$`)
@@ -378,7 +454,7 @@ func main() {
 		start := time.Now()
 		for _, m := range re.FindAllSubmatch(data, -1) {
 			id, _ := strconv.Atoi(string(m[1]))
-			p := strings.TrimSpace(strings.TrimRight(string(m[2]), "\r"))
+			p := mapDirPath(strings.TrimSpace(strings.TrimRight(string(m[2]), "\r")))
 			name := ""
 			if nm := regexp.MustCompile(`(?m)^` + strconv.Itoa(id) + `_name=(.*)$`).FindSubmatch(data); nm != nil {
 				name = text.TCVN3ToUTF8([]byte(strings.TrimSpace(strings.TrimRight(string(nm[1]), "\r"))))
@@ -400,6 +476,7 @@ func main() {
 			log.Info("asset", "map exported", log.F("id", id), log.F("name", name), log.F("regions", len(info.Regions)), log.F("npcs", len(info.Npcs)),
 				log.F("sprites_total", info.Sprites), log.F("ms", time.Since(t0).Milliseconds()))
 		}
+		reportFallback(set)
 		fmt.Printf("export-all: %d maps ok, %d skipped (no .wor), %d failed, %d sprites, %s\n", ok, missing, failed, ex.Exported, time.Since(start).Round(time.Second))
 
 	case "export-npcres":
@@ -415,11 +492,10 @@ func main() {
 		if err != nil {
 			fail("%v", err)
 		}
-		tplData, err := set.ReadFile(gamePath(npcres.TemplateFile))
-		if err != nil {
-			fail("npcs.txt: %v", err)
+		templates := loadTemplates(set, findServer(dir))
+		if templates == nil {
+			fail("npcs.txt: not in the server folder nor in the client archives")
 		}
-		templates := npcres.ParseTemplates(tplData)
 		player := map[string]npcres.PlayerFrames{}
 		if data, err := set.ReadFile(gamePath(npcres.PlayerBaseFile)); err == nil {
 			player = npcres.ParsePlayerBase(data)
@@ -437,7 +513,7 @@ func main() {
 			}
 		}
 		for _, arg := range ids {
-			p, _ := mapPath(dir, arg)
+			p, _ := mapPath(dir, set, arg)
 			w, err := wor.LoadWorld(set, p)
 			if err != nil {
 				fail("%v", err)
@@ -484,6 +560,7 @@ func main() {
 		if err != nil {
 			fail("%v", err)
 		}
+		reportFallback(set)
 		fmt.Printf("npcres: %d resources for %d placed npcs (%d templates), sprites exported %d\nwritten to %s\n",
 			n, len(placed), len(templates), e.Exported, filepath.Join(*flagOut, "npcres"))
 	case "npcs":
@@ -495,8 +572,8 @@ func main() {
 		dir := findClient()
 		set := openSet(dir)
 		defer set.Close()
-		templates := loadTemplates(set)
-		p, _ := mapPath(dir, args[1])
+		templates := loadTemplates(set, findServer(dir))
+		p, _ := mapPath(dir, set, args[1])
 		w, err := wor.LoadWorld(set, p)
 		if err != nil {
 			fail("%v", err)
@@ -556,7 +633,7 @@ func main() {
 		dir := findClient()
 		set := openSet(dir)
 		defer set.Close()
-		p, _ := mapPath(dir, args[1])
+		p, _ := mapPath(dir, set, args[1])
 		w, err := wor.LoadWorld(set, p)
 		if err != nil {
 			fail("%v", err)
@@ -576,8 +653,8 @@ func main() {
 		}
 		type sprView struct {
 			Width, Height, CenterX, CenterY, Frames, Directions, Interval int
-			Reserved                                                       [6]uint16
-			Frame                                                          []frameView
+			Reserved                                                      [6]uint16
+			Frame                                                         []frameView
 		}
 		headers := map[string]*sprView{}
 		sprite := func(img string) *sprView {
@@ -635,7 +712,7 @@ func main() {
 		dir := findClient()
 		set := openSet(dir)
 		defer set.Close()
-		p, _ := mapPath(dir, args[1])
+		p, _ := mapPath(dir, set, args[1])
 		w, err := wor.LoadWorld(set, p)
 		if err != nil {
 			fail("%v", err)

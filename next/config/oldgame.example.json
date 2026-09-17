@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to config/oldgame.local.json (gitignored) and point at the reference game trees on this machine; see docs/REFERENCES.md. client = folder with package.ini (JX1 client) or config.ini (VLTK 2.0 client, paks under data/). client_fallback (optional) = a second client folder that only serves files the reference lacks (jxassets reports them). server = folder with package.ini + pak/maps.pak + Settings/npcs.txt (JX1 bin/Server or the Linux server1 folder). Leave the keys empty to fall back to ../bin/Client and ../bin/Server.",
+  "client": "C:\\Users\\<you>\\Level Up Games\\Vo Lam Truyen Ky 2.0",
+  "client_fallback": "D:\\<repo>\\bin\\Client",
+  "server": "D:\\ServerLinux\\server1"
+}

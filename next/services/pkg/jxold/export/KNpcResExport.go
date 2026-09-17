@@ -49,15 +49,15 @@ type TemplateInfo struct {
 
 // ResFile is npcres/res/<name>.json: one KNpcResNode.
 type ResFile struct {
-	Name    string             `json:"name"`
-	Special bool               `json:"special"`
-	Actions []ResSprite        `json:"actions,omitempty"` // normal npc: per doing (npc_actions order)
-	Parts   []ResPart          `json:"parts,omitempty"`   // main character
-	NoHorse [][]int            `json:"no_horse,omitempty"`
-	OnHorse [][]int            `json:"on_horse,omitempty"`
-	Sort    *ResSort           `json:"sort,omitempty"`
-	Shadow  []ResSprite        `json:"shadow,omitempty"` // main character: per action
-	Equips  map[string]int     `json:"equips,omitempty"` // exported equipment per part group
+	Name    string         `json:"name"`
+	Special bool           `json:"special"`
+	Actions []ResSprite    `json:"actions,omitempty"` // normal npc: per doing (npc_actions order)
+	Parts   []ResPart      `json:"parts,omitempty"`   // main character
+	NoHorse [][]int        `json:"no_horse,omitempty"`
+	OnHorse [][]int        `json:"on_horse,omitempty"`
+	Sort    *ResSort       `json:"sort,omitempty"`
+	Shadow  []ResSprite    `json:"shadow,omitempty"` // main character: per action
+	Equips  map[string]int `json:"equips,omitempty"` // exported equipment per part group
 }
 
 // ResSprite is a sprite reference: S is the atlas id ("" when not exported yet).
@@ -96,6 +96,35 @@ type NpcResOptions struct {
 	Names  []string    // resource names (rows of 人物类型.txt)
 	Doings []int       // doings whose sprites are exported (npcres.Do*)
 	Equips map[int]int // equipment per part group for main characters (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); missing = none
+}
+
+// MergeAppearance returns the server's templates with the drawing side taken from the client's
+// own npcs.txt row of the same id: the old client resolves NpcResType/equipment/idle frame counts
+// from its own table (KNpc::Init on the client), the server's row rules the simulation (kind,
+// series, attack/hurt/death frames, life, damage, AI).  Rows the client lacks stay as they are.
+// The second result is the number of ids whose appearance differs between the two tables.
+func MergeAppearance(server, client []npcres.Template) ([]npcres.Template, int) {
+	if len(client) == 0 {
+		return server, 0
+	}
+	out := make([]npcres.Template, len(server))
+	copy(out, server)
+	changed := 0
+	for i := range out {
+		id := out[i].ID
+		if id <= 0 || id >= len(client) || client[id].Name == "" || out[i].Name == "" {
+			continue
+		}
+		c := client[id]
+		if c.ResType != out[i].ResType || c.HelmType != out[i].HelmType || c.ArmorType != out[i].ArmorType ||
+			c.WeaponType != out[i].WeaponType || c.HorseType != out[i].HorseType || c.RideHorse != out[i].RideHorse {
+			changed++
+		}
+		out[i].ResType, out[i].HelmType, out[i].ArmorType, out[i].WeaponType = c.ResType, c.HelmType, c.ArmorType, c.WeaponType
+		out[i].HorseType, out[i].RideHorse, out[i].Stature = c.HorseType, c.RideHorse, c.Stature
+		out[i].StandFrame, out[i].StandFrame1, out[i].WalkFrame, out[i].RunFrame = c.StandFrame, c.StandFrame1, c.WalkFrame, c.RunFrame
+	}
+	return out, changed
 }
 
 // NpcRes writes npcres/npcs.json and npcres/res/<name>.json plus the sprite atlases of the

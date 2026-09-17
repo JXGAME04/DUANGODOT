@@ -38,7 +38,10 @@ C++ tự sinh khi build).
 python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite -> client/assets (75 MB, không commit)
 ```
 
-Cần thư mục client cũ có `package.ini` + `Data/*.pak` (mặc định `../bin/Client`, hoặc `JX_OLD_CLIENT=...`).
+Nguồn dữ liệu: `config/oldgame.local.json` (mẫu `config/oldgame.example.json`) trỏ tới **client VLTK 2.0** (thư mục có
+`config.ini` + `data/*.pak`), client dự phòng (`bin/Client`, chỉ cấp file 2.0 thiếu) và **server Linux** (`D:\ServerLinux\server1`:
+`Settings/npcs.txt`, `pak/maps.pak`, `lang/vn/replacename_npc.txt`); không có file này thì dùng `../bin/Client` + `../bin/Server`
+(hoặc `JX_OLD_CLIENT`/`JX_OLD_SERVER`). Vai trò từng nguồn: [REFERENCES.md](REFERENCES.md).
 Zone đọc `client/assets/maps/1` theo `zone.map_dir` trong `config/zone.json`; chi tiết ở [MAPS.md](MAPS.md).
 `dev.py assets` cũng xuất sprite nhân vật/NPC vào `client/assets/npcres` (xem [NPCRES.md](NPCRES.md)); thiếu thư mục
 này client vẫn chạy nhưng vẽ nhân vật bằng vòng tròn.

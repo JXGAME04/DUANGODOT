@@ -8,6 +8,9 @@ import (
 // name -> the name the server shows (TCVN3).  A loose file of the old server folder.
 const ReplaceNameFile = `Settings\npc\replacename_npc.txt`
 
+// ReplaceNameFileLang is where the Linux (VNG) server keeps the same table, per language.
+const ReplaceNameFileLang = `lang\vn\replacename_npc.txt`
+
 // ParseReplaceNames reads replacename_npc.txt (KNpcSet::Init filling gNpcNameMap): keys keep
 // the GBK bytes of the placement name, values are UTF-8.
 func ParseReplaceNames(data []byte) map[string]string {

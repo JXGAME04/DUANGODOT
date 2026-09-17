@@ -12,8 +12,8 @@ import (
 
 // Layout constants of KNpcResNode.h / GameDataDef.h.
 const (
-	MaxBodyPart     = 5  // head, equipment, weapon, horse, mantle
-	MaxBodyPartSect = 4  // parts per group
+	MaxBodyPart     = 5 // head, equipment, weapon, horse, mantle
+	MaxBodyPartSect = 4 // parts per group
 	MaxPart         = MaxBodyPart * MaxBodyPartSect
 	NormalNpcPartNo = 5  // a normal npc has one image, kept in this slot
 	MaxSortDir      = 16 // rows of a draw-order block
@@ -96,8 +96,8 @@ type Node struct {
 	Name    string
 	Special bool // main character composed of parts (SpecialNpc) vs one image (NormalNpc)
 	ResPath string
-	Actions []SprInfo    // normal npc: per doing
-	Shadow  []SprInfo    // per doing (normal) or per action (special)
+	Actions []SprInfo // normal npc: per doing
+	Shadow  []SprInfo // per doing (normal) or per action (special)
 	Parts   [MaxPart]*Part
 	PartNum int
 	NoHorse [][]int // [equip][doing] -> action index (-1 = none)

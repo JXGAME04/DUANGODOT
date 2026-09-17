@@ -1,7 +1,10 @@
 # Sprite nhân vật / NPC (npcres)
 
 Cách game cũ vẽ nhân vật (`KNpcRes`, `KNpcResNode`, `KNpcResList`, `KNpcTemplate`) được port nguyên: bảng dữ
-liệu đọc từ `Settings/npcs.txt` + `Settings/npcres/*.txt` (trong pak `slistcache.pak`), sprite từ `spr.pak`.
+liệu đọc từ `Settings/npcs.txt` + `Settings/npcres/*.txt` (trong pak `slistcache.pak`, với client 2.0 là `slistcl.pak`),
+sprite từ `spr.pak`. Template ghép **dòng server** (mô phỏng) + **dòng client cùng id** (hình: `NpcResType`, trang bị,
+`Stature`, khung đứng/đi/chạy) như client cũ tra bảng của nó — `export.MergeAppearance`, xem [REFERENCES.md](REFERENCES.md) mục 3.
+Bảng nhân vật chính, `动作编号表.txt`, `BaseValue.ini`, `item/*Res.txt` client 2.0 không có → lấy từ client dự phòng (được log).
 
 ## 1. Xuất dữ liệu
 
