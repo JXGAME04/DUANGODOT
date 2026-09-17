@@ -66,6 +66,7 @@ var loaded_bytes := 0
 # Drop the texture cache before the renderer goes away (otherwise Godot reports leaked textures).
 func _exit_tree() -> void:
 	_sprites.clear()
+	_ui_images.clear()
 
 
 func assets_root() -> String:
@@ -131,3 +132,31 @@ func sprite(id: String) -> SpriteAtlas:
 
 func stats() -> Dictionary:
 	return {"sprites": _sprites.size(), "missing": _missing.size(), "mb": loaded_bytes / 1048576}
+
+
+# One of the old client's windows, as jxassets export-ui wrote it: assets/ui/<name>.json.
+func ui_screen(name: String):
+	return load_json("%s/ui/%s.json" % [assets_root(), name])
+
+
+# A plain picture of a window (the login backdrop is a .jpg, not a sprite), cached like a sprite.
+func ui_image(file: String) -> Texture2D:
+	if file == "":
+		return null
+	if _ui_images.has(file):
+		return _ui_images[file]
+	var path := "%s/ui/images/%s" % [assets_root(), file]
+	var img := Image.new()
+	var err := img.load(path)
+	if err != OK:
+		Log.error("asset", "ui image load failed", {"path": path, "error": error_string(err)})
+		_ui_images[file] = null
+		return null
+	var tex := ImageTexture.create_from_image(img)
+	_ui_images[file] = tex
+	loaded_bytes += img.get_data_size()
+	Log.trace("asset", "ui image loaded", {"file": file, "size": "%dx%d" % [img.get_width(), img.get_height()]})
+	return tex
+
+
+var _ui_images := {}

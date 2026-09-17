@@ -234,7 +234,9 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
         if root:
             os.environ["JX_ZONE__SCRIPT_ROOT"] = root
     zone = spawn([zone_exe(), "--config", "config/zone.json"], "jx_zone", new_console)
-    if not wait_port(17001, 20):
+    # hosting every map means reading 980 of them before the door opens: 7 s warm, near a minute
+    # from a cold file cache
+    if not wait_port(17001, 90):
         kill(zone.pid)
         sys.exit("zone did not open port 17001 (see logs/zone.log)")
     started = {"zone": zone.pid}
@@ -628,6 +630,8 @@ def cmd_test() -> int:
     rc = subprocess.call(["ctest", "--preset", f"{PRESET}-{CONFIG.lower()}"], cwd=ROOT)
     rc |= subprocess.call(["go", "test", "./..."], cwd=os.path.join(ROOT, "services"))
     rc |= subprocess.call([godot_exe(), "--headless", "--path", os.path.join(ROOT, "client"), "-s", "tests/run.gd"], cwd=ROOT)
+    # the old windows rebuilt from assets/ui: a scene, not "-s", because they need the autoloads
+    rc |= subprocess.call([godot_exe(), "--headless", "--path", os.path.join(ROOT, "client"), "tests/UiCheck.tscn"], cwd=ROOT)
     print("ALL TESTS OK" if rc == 0 else "TESTS FAILED")
     return rc
 

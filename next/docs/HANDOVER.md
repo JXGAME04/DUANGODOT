@@ -80,9 +80,9 @@ Chia theo nhóm; cột **giá** là ước lượng công sức, không phải c
 | # | Việc | Giá | Ghi chú |
 |---|---|---|---|
 | ~~U1~~ | ~~Bộ xuất bố cục UI từ `.ini` sang JSON~~ **xong** | vừa | Client JX1 có `\Ui\Ui3\登陆.ini`, `选游戏存档人物.ini`, `新建角色.ini` với toạ độ, cỡ chữ, màu, ảnh nền. |
-| U2 | Màn đăng nhập theo bản 2.0 | vừa | Client 2.0 **không** có ba tệp đó; phải lấy bố cục JX1 rồi ghép ảnh 2.0, hoặc mổ tiếp `gamecl.exe` (đang bị nén). |
-| U3 | Màn chọn nhân vật | vừa | |
-| U4 | Màn tạo nhân vật | vừa | Có sẵn các ô: tên, nam/nữ, và ngũ hành Kim/Mộc/Thuỷ/Hoả/Thổ. |
+| ~~U2~~ | ~~Màn đăng nhập theo bản 2.0~~ **xong** | vừa | Client 2.0 **không** có ba tệp đó; phải lấy bố cục JX1 rồi ghép ảnh 2.0, hoặc mổ tiếp `gamecl.exe` (đang bị nén). |
+| ~~U3~~ | ~~Màn chọn nhân vật~~ **xong** | vừa | |
+| ~~U4~~ | ~~Màn tạo nhân vật~~ **xong** | vừa | Có sẵn các ô: tên, nam/nữ, và ngũ hành Kim/Mộc/Thuỷ/Hoả/Thổ. |
 
 ### 3c. Gameplay — chủ dự án đã hoãn, chờ mổ nhị phân bản Linux
 
@@ -137,6 +137,51 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 — U2, U3, U4: ba màn của bản 2.0 dựng trong Godot
+
+`client/scenes/KUiScheme.gd` đọc `assets/ui/<tên>.json` rồi dựng đúng cửa sổ của bản cũ: nền, nút
+ba trạng thái (thường / nhấn / rê chuột), nút hai trạng thái (`Checkbox=1`), ô nhập (cỡ chữ, canh
+lề, màu chữ, màu viền, `MaxLen`, ô mật khẩu), và ô chữ. Khả vẽ 800x600 được co **một hệ số cho cả
+hai trục** rồi canh giữa — 1280x720 thành hệ số 1,2, không kéo méo.
+
+Hai điều phải theo đúng bản cũ mới khớp:
+
+- **Ảnh vẽ đúng cỡ thật, không kéo giãn theo ô `.ini`.** Bảng đăng nhập là 542x362 nằm trong cửa sổ
+  800x600; kéo nó ra 800x600 thì mọi ô lệch khỏi nhãn của nó. Lần dựng đầu sai đúng chỗ này, ảnh
+  chụp cho thấy ngay.
+- **`LoginBg=` là nền phía sau.** Màn chọn nhân vật không có ảnh riêng, nó ghi `LoginBg=Login2`,
+  tức lấy ảnh `login2` của cửa sổ `login_bg`. Thiếu bước này thì màn chọn hiện ra trống trơn.
+
+**Ảnh nhân vật.** `KUiSelPlayer::GetRoleImageName` ghép tên `<prefix>_<ngũ hành>_<giới>_<n>.spr`:
+`n=0` ảnh nhỏ, `n=1` người đứng trước, `n=2` người đứng sau. Màn tạo nhân vật đặt giới đang chọn ở
+ảnh 1 và giới kia ở ảnh 2, đổi ngũ hành thì cả hai đổi theo — đúng `KUiNewPlayer::SetPlayerImage`.
+Màn chọn nhân vật đặt mỗi nhân vật vào chỗ `Player2Pos_*` / `Player3Pos_*` của `.ini` cho.
+
+| màn | tệp | ghi chú |
+|---|---|---|
+| Đăng nhập | `scenes/UiLogin.gd` | thêm một ô **Máy chủ** ở đáy — bản cũ đọc `ServerList.ini`, ta chưa có |
+| Chọn nhân vật | `scenes/UiSelPlayer.gd` | bấm vào người để chọn; nút *Chuyển nhân vật* ẩn (dịch vụ ta không chạy) |
+| Tạo nhân vật | `scenes/UiNewPlayer.gd` (mới) | tên, nam/nữ, Kim Mộc Thuỷ Hoả Thổ |
+
+Mỗi màn vẫn có bản dự phòng bằng nút Godot thường, dùng khi chưa xuất `assets/ui` — client không
+bao giờ hiện ra màn trắng.
+
+**Xem thử và kiểm tra:**
+
+```bash
+python tools/dev.py client                       # mở client
+godot --path client -- --shot                    # chụp màn đăng nhập rồi thoát
+godot --headless --path client tests/UiCheck.tscn # 32 kiểm tra bố cục
+```
+
+`tests/UiCheck.tscn` phải là **một cảnh**, không chạy bằng `godot -s`, vì các màn này cần autoload
+(`Assets`, `Log`, `Game`) mà `-s` không nạp. Nó cũng nằm trong `dev.py test`.
+
+Đã chạy `dev.py e2e`: đăng nhập → tạo nhân vật → chọn → vào game → đi → đánh, cả TCP và WebSocket.
+
+**Sửa thêm:** `dev.py start` chờ zone 90 giây thay vì 20 — nạp 980 map lúc đĩa nguội mất gần một
+phút, trước đó bị giết oan.
 
 ### 2026-09-17 — U1: bộ xuất bố cục giao diện từ `.ini` sang JSON
 
