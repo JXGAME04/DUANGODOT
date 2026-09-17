@@ -5,6 +5,7 @@ add_library(jx_zone_core STATIC
     src/KMapData.cpp
     src/KNpcTemplate.cpp
     src/KSubWorld.cpp
+    src/KNpcAI.cpp
     src/KGameServer.cpp
 )
 add_library(jx::zone_core ALIAS jx_zone_core)

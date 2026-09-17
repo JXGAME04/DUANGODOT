@@ -2,6 +2,7 @@ package npcres
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 )
@@ -26,34 +27,47 @@ type Template struct {
 	WalkFrame   int    `json:"walk_frame"`
 	RunFrame    int    `json:"run_frame"`
 	HurtFrame   int    `json:"hurt_frame"`
-	WalkSpeed   int    `json:"walk_speed"`
+	WalkSpeed   int    `json:"walk_speed"` // scene units per logic frame (KNpc::ServeMove)
 	RunSpeed    int    `json:"run_speed"`
 	Stature     int    `json:"stature"`
 	// combat (KNpcTemplate::Init): the AttackSpeed column is the attack length in frames
 	AttackFrame int `json:"attack_frame"`
+	CastFrame   int `json:"cast_frame"` // the CastSpeed column: length of a non-melee skill
 	HitRecover  int `json:"hit_recover"`
 	ReviveFrame int `json:"revive_frame"`
 	LifeParam   int `json:"life_param"` // raw *Param columns, scaled by the level scripts in the old game
 	MinDamage   int `json:"min_damage"`
 	MaxDamage   int `json:"max_damage"`
 	Defense     int `json:"defense"`
+	// server side of the row (KNpcTemplate.cpp #ifdef _SERVER): what KNpcAI decides with
+	AIMode       int              `json:"ai_mode"`       // 1..3 active, 4..6 passive, 0 none
+	AIParam      [10]int          `json:"ai_param"`      // AIParam1..10 = m_AiParam[0..9]; AIParam10 defaults to 5
+	AIMaxTime    int              `json:"ai_max_time"`   // frames between two decisions (default 25)
+	VisionRadius int              `json:"vision_radius"` // default 40
+	ActiveRadius int              `json:"active_radius"` // default 30
+	Skills       [5]TemplateSkill `json:"skills"`        // slots 1..4 = Skill1..4 / Level1..4 (KSkillList::m_Skills); 0 unused
 }
 
-// ParseTemplates reads npcs.txt.  Missing numbers fall back to the old defaults
-// (KNpcTemplate::Init: 15 frames).
+// TemplateSkill is one of the Skill1..4 / Level1..4 pairs.  A level cell "a|b" means
+// a + b * npc level (GetNpcLevelData -> GetData of the level scripts); both cells must be
+// present or KNpcTemplate::InitNpcLevelData leaves the slot empty.
+type TemplateSkill struct {
+	ID     int     `json:"id"`
+	LevelA float64 `json:"level_a"`
+	LevelB float64 `json:"level_b"`
+}
+
+// ParseTemplates reads npcs.txt.  Numbers are read like KTabFile::GetInteger (C atoi; an
+// empty cell gives the old default, e.g. 15 frames).
 func ParseTemplates(data []byte) []Template {
 	tab := ParseTab(data)
 	out := make([]Template, 0, tab.Height())
 	num := func(row int, col string, def int) int {
 		s := tab.GetByName(row, col)
-		if s == "" {
+		if strings.TrimSpace(s) == "" {
 			return def
 		}
-		n, err := strconv.Atoi(s)
-		if err != nil {
-			return def
-		}
-		return n
+		return Atoi(s)
 	}
 	for row := 1; row <= tab.Height(); row++ {
 		t := Template{ID: row - 1}
@@ -81,13 +95,45 @@ func ParseTemplates(data []byte) []Template {
 		t.RunSpeed = num(row, "RunSpeed", 10)
 		t.Stature = num(row, "Stature", 0)
 		t.AttackFrame = num(row, "AttackSpeed", 20)
+		t.CastFrame = num(row, "CastSpeed", 20)
 		t.HitRecover = num(row, "HitRecover", 0)
 		t.ReviveFrame = num(row, "ReviveFrame", 2400)
 		t.LifeParam = num(row, "LifeParam", 1)
 		t.MinDamage = num(row, "MinDamageParam", 1)
 		t.MaxDamage = num(row, "MaxDamageParam", 3)
 		t.Defense = num(row, "DefenseParam", 0)
+		t.AIMode = num(row, "AIMode", 0)
+		for i := 0; i < 10; i++ {
+			def := 0
+			if i == 9 {
+				def = 5
+			}
+			t.AIParam[i] = num(row, "AIParam"+strconv.Itoa(i+1), def)
+		}
+		t.AIMaxTime = num(row, "AIMaxTime", 25)
+		t.VisionRadius = num(row, "VisionRadius", 40)
+		t.ActiveRadius = num(row, "ActiveRadius", 30)
+		for slot := 1; slot <= 4; slot++ {
+			id := strings.TrimSpace(tab.GetByName(row, "Skill"+strconv.Itoa(slot)))
+			level := strings.TrimSpace(tab.GetByName(row, "Level"+strconv.Itoa(slot)))
+			if id == "" || level == "" {
+				continue
+			}
+			a, b := parseLevel(level)
+			t.Skills[slot] = TemplateSkill{ID: Atoi(id), LevelA: a, LevelB: b}
+		}
 		out = append(out, t)
 	}
 	return out
+}
+
+// parseLevel splits "a|b" (GetParam of the level scripts); a lone number is "a|0".
+func parseLevel(s string) (float64, float64) {
+	parts := strings.SplitN(s, "|", 2)
+	a, _ := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+	b := 0.0
+	if len(parts) == 2 {
+		b, _ = strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	}
+	return a, b
 }

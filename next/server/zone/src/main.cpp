@@ -142,8 +142,11 @@ int main(int argc, char** argv)
     for (std::int64_t i = 0; i < test_npcs; ++i) {
         const std::int32_t dx = static_cast<std::int32_t>((i % 4) * 160) - 240;
         const std::int32_t dy = static_cast<std::int32_t>((i / 4) * 160) - 80;
-        server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
-                                 static_cast<std::uint32_t>(1000 + i), 200, jx::zone::KNpcKind::monster);   // attackable
+        const jx::EntityId id = server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
+                                                        static_cast<std::uint32_t>(1000 + i), 200, jx::zone::KNpcKind::monster);   // attackable
+        // the templates are active hunters (AIMode 1, vision 1200): passive here (AIMode 4, strike back only)
+        // so a fresh character can look around the spawn point; the real monsters keep their data
+        server.world().set_ai_mode(id, 4);
     }
 
     asio::signal_set signals(io, SIGINT, SIGTERM);

@@ -20,6 +20,16 @@ enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 
 // KNpc::m_Doing of the old game, the part the zone simulates.
 enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive };
 
+// KSkillList::m_Skills[1..4] of a npc (Skill1..4 / Level1..4 of npcs.txt) as far as KNpcAI needs it.
+struct KNpcSkillSlot {
+    int id = 0;
+    int level = 0;            // a + b * npc level (level scripts GetData); 0 = SetActiveSkill fails
+    bool known = false;       // in skills.txt; unknown skills leave m_CurrentAttackRadius alone (GetSkill == NULL)
+    int attack_radius = 0;    // KSkill::GetAttackRadius
+    bool melee = false;
+    bool target_self = false;
+};
+
 struct KNpc {
     EntityId id;
     KNpcKind kind = KNpcKind::npc;
@@ -49,6 +59,7 @@ struct KNpc {
     std::uint32_t life_max = 0;
     // KNpc::Load from the template (KNpcTemplate); the AttackSpeed column is the attack length
     std::uint32_t attack_frame = 20;
+    std::uint32_t cast_frame = 20;   // m_CastFrame: length of a non-melee skill (KNpc::DoSkill)
     std::uint32_t hurt_frame = 10;
     std::uint32_t death_frame = 15;
     std::uint32_t hit_recover = 12;
@@ -57,7 +68,31 @@ struct KNpc {
     std::uint32_t min_damage = 1;
     std::uint32_t max_damage = 3;
 
+    // KNpcAI state (server side of KNpc.h), named after the old members
+    int npc_kind = 0;                 // NPCKIND of npcs.txt (0 normal, 2 partner, 3 dialoger, 4 bird, 5 mouse); players are kind_player
+    int camp = 4;                     // m_Camp (NPCCAMP; KNpc::Init: camp_free)
+    int current_camp = 4;             // m_CurrentCamp
+    int ai_mode = 0;                  // m_AiMode (AIMode column; 0 = no ai)
+    int ai_param[11] = {};            // m_AiParam[MAX_AI_PARAM]: [0..9] = AIParam1..10, [10] = max skill radius squared
+    std::uint32_t ai_max_time = 25;   // m_AIMAXTime: ticks between two decisions
+    std::uint64_t next_ai_time = 0;   // m_NextAITime
+    int ai_add_life_time = 0;         // m_AiAddLifeTime: heals cast so far
+    EntityId people_id;               // m_nPeopleIdx: the enemy locked on, or the last one that hurt us
+    int vision_radius = 40;           // m_VisionRadius
+    int active_radius = 30;           // m_ActiveRadius
+    int current_active_radius = 30;   // m_CurrentActiveRadius
+    int current_attack_radius = 30;   // m_CurrentAttackRadius (KNpc::Init 30, then the active skill's radius)
+    int active_skill_id = 0;          // m_ActiveSkillID
+    bool active_skill_melee = false;
+    bool active_skill_self = false;
+    KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4]
+    int walk_speed = 5;               // m_WalkSpeed: scene units per frame (KNpc::ServeMove)
+    int run_speed = 10;
+
     [[nodiscard]] bool alive() const noexcept { return doing != KDoing::death && doing != KDoing::revive; }
+    // m_ProcessAI: the ai only decides while the npc stands or walks (DoSkill / DoAttack / DoHurt /
+    // DoDeath clear the flag, OnSkill / OnHurt / Revive set it again).
+    [[nodiscard]] bool process_ai() const noexcept { return doing == KDoing::stand || doing == KDoing::walk; }
     // KNpc::WaitForFrame: advances the action; true when its frames ran out (counter wraps to 0).
     bool wait_for_frame() noexcept
     {
@@ -72,9 +107,9 @@ struct KNpc {
     std::uint64_t sid = 0;         // gateway session (players only)
     std::uint64_t player_id = 0;
 
-    // simple wander behaviour for test npcs (0 = static)
+    // simple wander behaviour for test npcs without an AIMode (0 = static)
     std::int32_t wander_radius = 0;
-    Pos home;
+    Pos home;                      // m_OriginX / m_OriginY: where the npc was placed
     std::uint64_t next_wander_tick = 0;
 
     [[nodiscard]] Pos pos() const noexcept

@@ -19,6 +19,7 @@
 #include "jx/ids.hpp"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KNpcAI.h"
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcTemplate.h"
 
@@ -39,7 +40,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMapData> map;  // optional: walkability + spawn + npcs override the fields above
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
-    std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage); optional
+    std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
 };
 
 // One outgoing message for a set of sessions (fan-out happens at the gateway).
@@ -66,6 +67,10 @@ public:
     static constexpr std::int32_t kMeleeReach = 96;             // scene units, until weapons carry their range
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
                        KNpcKind kind = KNpcKind::npc);
+    // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
+    bool teleport(EntityId id, Pos p);
+    // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.
+    bool set_ai_mode(EntityId id, int mode);
 
     void tick();
     [[nodiscard]] std::uint64_t tick_count() const noexcept { return tick_; }
@@ -77,6 +82,8 @@ public:
     [[nodiscard]] std::vector<std::uint64_t> session_ids() const;
     // Copies the stored RoleData with the current position (what PlayerSave sends).
     bool role_snapshot(std::uint64_t sid, pb::RoleData& out) const;
+    // KNpcSet::GetRelation (server side): NPC_RELATION bits between two entities.
+    [[nodiscard]] int relation(const KNpc& a, const KNpc& b) const noexcept;
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     [[nodiscard]] const KMapData* map() const noexcept { return cfg_.map.get(); }
@@ -86,6 +93,8 @@ public:
     std::vector<Packet> take_outbox();
 
 private:
+    friend class KNpcAI;   // like the old KNpcAI, which is a friend of KNpc
+
     void emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     void viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const;
     void fill_info(const KNpc& e, pb::EntityInfo& out) const;
@@ -95,10 +104,13 @@ private:
     // combat (KNpc::DoAttack / OnSpecial1 / DoHurt / DoDeath / DoRevive of the old core)
     void apply_template(KNpc& e) const;
     void update_action(KNpc& e);
+    [[nodiscard]] int reach_of(const KNpc& e) const noexcept;
     [[nodiscard]] bool in_reach(const KNpc& a, const KNpc& b) const noexcept;
     void start_attack(KNpc& e, KNpc& target);
+    void begin_action(KNpc& e, KNpc& target, std::uint32_t frames);
     void approach(KNpc& e, const KNpc& target);
     void hit(KNpc& attacker, KNpc& target);
+    void heal(KNpc& e);
     void do_hurt(KNpc& e, EntityId source);
     void do_death(KNpc& e, EntityId killer);
     void do_revive(KNpc& e);
@@ -106,6 +118,13 @@ private:
     void emit_action(const KNpc& e, pb::Action action, EntityId target);
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
     void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
+    // what KNpcAI issues as SendCommand(do_walk / do_stand / do_skill) on the old server
+    KNpc* find_mutable(EntityId id);
+    bool rand_percent(int percent);   // g_RandPercent
+    int random(int n);                // g_Random: 0 .. n-1
+    void walk_to(KNpc& e, Pos dest);
+    void do_stand(KNpc& e);
+    void cast_skill(KNpc& e, KNpc& target);
 
     KSubWorldConfig cfg_;
     KRegionGrid grid_;

@@ -229,6 +229,10 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       `EntityAction`/`EntityLife`; nhịp khung như `KNpc::DoAttack/OnSpecial1(60 %)/DoHurt/DoDeath/DoRevive`, tự đi tới mục tiêu,
       tự vung tiếp; client hoạt ảnh Attack1/2, Wound, Die (giữ khung cuối), thanh máu, chọn mục tiêu bằng click; `--auto` tự
       đánh quái (`AUTO_FIGHT`). Sát thương/máu tạm (chờ Lua), quái chưa đánh trả. Chi tiết `next/docs/NPCRES.md` mục 4.
+- [x] **M3c — quái đánh trả (2026-09-17)**: `KNpcAI` port 1‑1 sáu chế độ `AIMode` (chủ động/bị động, hồi máu, bỏ chạy),
+      `KeepActiveRange/GetNearestNpc/CommonAction/FollowAttack/KeepAttackRange/Flee`, quan hệ camp `GenOneRelation`, nhịp
+      `AIMaxTime`, tốc độ `WalkSpeed`/khung, kỹ năng Skill1..4 + bán kính từ `skills.txt` (`KSkillManager.go`), AI tắt khi đang
+      vung/giật/chết; 6 test `test_KNpcAI.cpp`. Chưa: `KPathFinder`, `KMissle`, công thức hồi máu, PK. `NPCRES.md` mục 4.
 - [x] **Hai bản tham chiếu (2026-09-17, theo yêu cầu "làm theo bản Linux và VLTK 2.0")**: `jxassets`/`dev.py assets` đọc
       client VLTK 2.0 (`config.ini` [Package], maplist/npcs.txt trong pak) + server Linux VNG (`Settings/npcs.txt`,
       `pak/maps.pak`, `lang/vn/replacename_npc.txt`) qua `config/oldgame.local.json`; chuỗi client dự phòng `-client "a;b"`

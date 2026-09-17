@@ -256,6 +256,23 @@ func loadTemplates(set *pak.Set, serverDir string) []npcres.Template {
 	return client
 }
 
+// loadSkills reads skills.txt (the server folder first, then the client archives) for the
+// attack radius of the npc skills; nil when neither has it.
+func loadSkills(set *pak.Set, serverDir string) map[int]npcres.Skill {
+	if serverDir != "" {
+		if data, p, err := readServerFile(serverDir, `Settings\skills.txt`); err == nil {
+			s := npcres.ParseSkills(data)
+			log.Info("asset", "skills from the server folder", log.F("file", p), log.F("count", len(s)))
+			return s
+		}
+	}
+	if data, err := set.ReadFile(gamePath(npcres.SkillFile)); err == nil {
+		return npcres.ParseSkills(data)
+	}
+	log.Warn("asset", "skills.txt missing: npc skill radii unknown, the ai attacks at the default 30 units")
+	return nil
+}
+
 func resolveImage(set *pak.Set, name string) (string, bool) {
 	for _, prefix := range []string{"", `\spr`, `\spr\`} {
 		p := prefix + name
@@ -555,6 +572,7 @@ func main() {
 			Names:  names,
 			Doings: []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1},
 			Equips: icr.DefaultEquips(),
+			Skills: loadSkills(set, findServer(dir)),
 		}
 		n, err := e.NpcRes(list, templates, player, opt)
 		if err != nil {

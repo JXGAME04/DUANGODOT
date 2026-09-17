@@ -45,6 +45,31 @@ type TemplateInfo struct {
 	MinDamage   int `json:"min_damage"`
 	MaxDamage   int `json:"max_damage"`
 	Defense     int `json:"defense"`
+	// server side of the row (KNpcTemplate.cpp #ifdef _SERVER): what KNpcAI decides with
+	Camp         int         `json:"camp"`
+	CastFrame    int         `json:"cast_frame"`
+	WalkSpeed    int         `json:"walk_speed"`
+	RunSpeed     int         `json:"run_speed"`
+	AIMode       int         `json:"ai_mode"`
+	AIParam      [10]int     `json:"ai_param"`
+	AIMaxTime    int         `json:"ai_max_time"`
+	VisionRadius int         `json:"vision_radius"`
+	ActiveRadius int         `json:"active_radius"`
+	Skills       []SkillInfo `json:"skills"` // slots 1..4 (index 0 = Skill1); id 0 = empty
+}
+
+// SkillInfo is one skill slot of a template (Skill1..4 / Level1..4 of npcs.txt) with what the
+// ai needs from skills.txt (Known = the id exists there).
+type SkillInfo struct {
+	ID           int     `json:"id"`
+	LevelA       float64 `json:"level_a"` // level = a + b * npc level (level scripts GetData)
+	LevelB       float64 `json:"level_b"`
+	Known        bool    `json:"known"`
+	Name         string  `json:"name,omitempty"`
+	Style        int     `json:"style"`
+	AttackRadius int     `json:"attack_radius"`
+	Melee        bool    `json:"melee"`
+	TargetSelf   bool    `json:"target_self"`
 }
 
 // ResFile is npcres/res/<name>.json: one KNpcResNode.
@@ -93,9 +118,10 @@ type ResSortAct struct {
 
 // NpcResOptions selects what to export.
 type NpcResOptions struct {
-	Names  []string    // resource names (rows of 人物类型.txt)
-	Doings []int       // doings whose sprites are exported (npcres.Do*)
-	Equips map[int]int // equipment per part group for main characters (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); missing = none
+	Names  []string             // resource names (rows of 人物类型.txt)
+	Doings []int                // doings whose sprites are exported (npcres.Do*)
+	Equips map[int]int          // equipment per part group for main characters (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); missing = none
+	Skills map[int]npcres.Skill // skills.txt by id, for the attack radius of the npc skills (nil = unknown)
 }
 
 // MergeAppearance returns the server's templates with the drawing side taken from the client's
@@ -142,11 +168,22 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 		if t.ID == 0 || t.Name == "" {
 			continue
 		}
-		bundle.Templates[strconv.Itoa(t.ID)] = TemplateInfo{Name: t.Name, Res: t.ResType, Kind: t.Kind, Series: t.Series,
+		info := TemplateInfo{Name: t.Name, Res: t.ResType, Kind: t.Kind, Series: t.Series,
 			StandFrame: t.StandFrame, StandFrame1: t.StandFrame1, WalkFrame: t.WalkFrame, RunFrame: t.RunFrame, DeathFrame: t.DeathFrame,
 			Helm: t.HelmType, Armor: t.ArmorType, Weapon: t.WeaponType, Horse: t.HorseType, Ride: t.RideHorse, Stature: t.Stature,
 			AttackFrame: t.AttackFrame, HurtFrame: t.HurtFrame, HitRecover: t.HitRecover, ReviveFrame: t.ReviveFrame,
-			LifeParam: t.LifeParam, MinDamage: t.MinDamage, MaxDamage: t.MaxDamage, Defense: t.Defense}
+			LifeParam: t.LifeParam, MinDamage: t.MinDamage, MaxDamage: t.MaxDamage, Defense: t.Defense,
+			Camp: t.Camp, CastFrame: t.CastFrame, WalkSpeed: t.WalkSpeed, RunSpeed: t.RunSpeed,
+			AIMode: t.AIMode, AIParam: t.AIParam, AIMaxTime: t.AIMaxTime, VisionRadius: t.VisionRadius, ActiveRadius: t.ActiveRadius}
+		for slot := 1; slot <= 4; slot++ {
+			ts := t.Skills[slot]
+			si := SkillInfo{ID: ts.ID, LevelA: ts.LevelA, LevelB: ts.LevelB}
+			if sk, ok := opt.Skills[ts.ID]; ok && ts.ID != 0 {
+				si.Known, si.Name, si.Style, si.AttackRadius, si.Melee, si.TargetSelf = true, sk.Name, sk.Style, sk.AttackRadius, sk.IsMelee, sk.TargetSelf
+			}
+			info.Skills = append(info.Skills, si)
+		}
+		bundle.Templates[strconv.Itoa(t.ID)] = info
 	}
 	data, err := json.MarshalIndent(bundle, "", " ")
 	if err != nil {

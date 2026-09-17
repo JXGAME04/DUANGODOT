@@ -89,8 +89,38 @@ HurtFrame 12).
 
 **Tạm thời chưa 1‑1**: sát thương = ngẫu nhiên [MinDamageParam, MaxDamageParam] không qua công thức
 (AR/phòng thủ/kháng); máu quái = `LifeParam × level` (bản cũ tính bằng script `GetNpcKeyData` trong
-`npclevelscript.lua` → chờ Lua 5.4); quái chưa đánh trả (AI); người chơi 100 máu. Test: `test_KSubWorld.cpp`
+`npclevelscript.lua` → chờ Lua 5.4); người chơi 100 máu. Test: `test_KSubWorld.cpp`
 "melee attack", client `--auto` tự đi đánh quái gần nhất (`AUTO_FIGHT`).
+
+### Quái đánh trả — `KNpcAI` (port `KNpcAI.cpp` phần server, `server/zone/src/KNpcAI.cpp`)
+
+Mỗi tick, NPC có `AIMode` (cột của `npcs.txt`, dữ liệu server Linux) chạy `KNpcAI::activate` **trước** phần cập nhật khung
+(như `KNpc::Activate` → `NpcAI.Activate` khi `m_ProcessAI`), nhưng chỉ khi đang đứng/đi: đang vung, giật, chết thì AI tắt
+(`DoSkill/DoHurt/DoDeath` xoá `m_ProcessAI`, `OnSkill/OnHurt` bật lại). Quyết định cách nhau `AIMaxTime` tick (`m_NextAITime`).
+
+| Mode | Loại | Tham số `AIParam1..10` (= `m_AiParam[0..9]`; `[10]` = bán kính kỹ năng xa nhất², tính từ `skills.txt`) |
+|---|---|---|
+| 1 | chủ động | [0] tỉ lệ tuần tra khi không có địch; [1..4] tỉ lệ dùng kỹ năng 1..4; [5],[6] đứng/tuần tra khi địch xa |
+| 2 | chủ động + hồi máu | [1] % máu, [2] tỉ lệ xử lý, [3] tỉ lệ hồi máu (kỹ năng 1, tối đa [9] lần) hoặc **bỏ chạy**; [4..6] kỹ năng 2..4; [7],[8] xa |
+| 3 | chủ động + liều | như 2 nhưng [3] = tỉ lệ dùng kỹ năng 1 tấn công thay vì hồi máu |
+| 4 | bị động | chỉ đánh kẻ đã đánh mình (`m_nPeopleIdx`, đặt trong `ReceiveDamage`); [1..4] kỹ năng, [5],[6] xa |
+| 5 / 6 | bị động + hồi máu / liều | như 2 / 3 |
+
+Các hàm con đúng tên cũ: `KeepActiveRange` (xa gốc quá `ActiveRadius` → về gốc, bán kính tạm giảm một nửa), `GetNearestNpc`
+(quét ô 32 đơn vị trong `VisionRadius` theo đúng thứ tự cột/hàng/4 góc của bản cũ, quan hệ `relation_enemy` qua
+`KNpcSet::GenOneRelation` = `g_GenOneRelation`: camp `begin` chỉ bị **thú** (`camp_animal`) đánh, `dialoger` không bao giờ,
+cùng camp là đồng minh), `InEyeshot`, `CommonAction` (80 % về gốc, 20 % điểm ngẫu nhiên trong nửa `ActiveRadius`; dialoger đứng yên),
+`FollowAttack` (≤ 32 → lùi ra `MINI_ATTACK_RANGE`; ≤ bán kính kỹ năng đang chọn và thấy → `do_skill`; còn lại đi tới địch),
+`KeepAttackRange` (dùng `g_DirCos/g_DirSin` 64 hướng, bảng sinh lại trong `KMath.h`), `Flee` (đi tới `2·mình − địch`),
+`SetActiveSkill` (ô Skill1..4 có cấp; `Level` "a|b" = a + b·cấp NPC như `GetData` của level script; bán kính từ `skills.txt`).
+Lệnh `do_walk/do_stand/do_skill` = `KSubWorld::walk_to/do_stand/cast_skill`; kỹ năng cận chiến vung `AttackFrame`, kỹ năng khác
+`CastFrame`; đòn trúng ở 60 % khung nếu mục tiêu còn trong tầm + 32 (trượt thì log `swing missed`). Tốc độ quái =
+`WalkSpeed` đơn vị/khung (`ServeMove`) = `WalkSpeed × 18`/giây. Người chơi tạm ở camp `begin` (RoleData chưa mang `iteam`).
+
+Chưa 1‑1: quái đi bằng A* của map thay cho `KPathFinder::GetDir` (lách vật cản tại chỗ); hồi máu = 1/5 máu tối đa (chờ công thức
+kỹ năng); kỹ năng tầm xa vẫn trúng tức thì (chưa có `KMissle`); PK giữa người chơi chưa có (hai người chơi không bao giờ là địch).
+Test: `test_KNpcAI.cpp` (6 ca: bảng quan hệ, chủ động đuổi–đánh, bị động chỉ đánh trả, camp justice tha người mới,
+`KeepActiveRange`, bỏ chạy, thứ tự `GetNearestNpc`).
 
 ## 5. Chưa làm
 

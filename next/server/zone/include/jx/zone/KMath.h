@@ -12,6 +12,33 @@ namespace jx::zone {
 inline constexpr int kDirSin[32] = {1024, 1022, 1012, 993, 964, 925, 878, 822, 758, 687, 609, 526, 437, 344, 248, 150,
                                     50,   -50,  -150, -248, -344, -437, -526, -609, -687, -758, -822, -878, -925, -964, -993, -1012};
 
+// g_nSin / g_nCos of the old KMath (also dongle tables), x1024: the screen unit vector of direction d
+// is (g_DirCos(d), g_DirSin(d)) = (-sin(d * 5.625 deg), cos(d * 5.625 deg)) so that 0 = down,
+// 16 = left, 32 = up, 48 = right, matching g_GetDirIndex.  KNpc::ServeMove and KNpcAI::KeepAttackRange
+// use them.
+inline constexpr int kSin64[64] = {
+    1024,  1019,  1004,   980,   946,   903,   851,   792,   724,   650,   569,   483,   392,   297,   200,   100,
+       0,  -100,  -200,  -297,  -392,  -483,  -569,  -650,  -724,  -792,  -851,  -903,  -946,  -980, -1004, -1019,
+   -1024, -1019, -1004,  -980,  -946,  -903,  -851,  -792,  -724,  -650,  -569,  -483,  -392,  -297,  -200,  -100,
+       0,   100,   200,   297,   392,   483,   569,   650,   724,   792,   851,   903,   946,   980,  1004,  1019,
+};
+inline constexpr int kCos64[64] = {
+       0,  -100,  -200,  -297,  -392,  -483,  -569,  -650,  -724,  -792,  -851,  -903,  -946,  -980, -1004, -1019,
+   -1024, -1019, -1004,  -980,  -946,  -903,  -851,  -792,  -724,  -650,  -569,  -483,  -392,  -297,  -200,  -100,
+       0,   100,   200,   297,   392,   483,   569,   650,   724,   792,   851,   903,   946,   980,  1004,  1019,
+    1024,  1019,  1004,   980,   946,   903,   851,   792,   724,   650,   569,   483,   392,   297,   200,   100,
+};
+
+// g_DirSin / g_DirCos for the 64-direction system (the old ones return -1 for a bad direction).
+inline int g_DirSin(int dir) noexcept { return dir < 0 || dir >= 64 ? -1 : kSin64[dir]; }
+inline int g_DirCos(int dir) noexcept { return dir < 0 || dir >= 64 ? -1 : kCos64[dir]; }
+
+// g_GetDistance: integer Euclidean distance (truncated like the old (int)sqrt).
+inline int g_GetDistance(std::int64_t x1, std::int64_t y1, std::int64_t x2, std::int64_t y2) noexcept
+{
+    return static_cast<int>(std::sqrt(static_cast<double>((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))));
+}
+
 // g_GetDirIndex: direction 0..63 from (x1, y1) to (x2, y2) in scene units, -1 when they coincide.
 inline int g_GetDirIndex(std::int64_t x1, std::int64_t y1, std::int64_t x2, std::int64_t y2) noexcept
 {

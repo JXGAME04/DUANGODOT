@@ -56,6 +56,22 @@ public:
         }
     }
 
+    // Visits every entity filed in a cell that touches the square of half-side `radius` around p
+    // (a superset of the circle; callers measure the exact distance).
+    template <class Fn>
+    void for_each_within(Pos p, std::int32_t radius, Fn&& fn) const
+    {
+        const Cell a = cell_of(Pos{p.x - radius, p.y - radius});
+        const Cell b = cell_of(Pos{p.x + radius, p.y + radius});
+        for (std::int32_t cy = a.cy; cy <= b.cy; ++cy) {
+            for (std::int32_t cx = a.cx; cx <= b.cx; ++cx) {
+                const auto it = cells_.find(key(Cell{cx, cy}));
+                if (it == cells_.end()) continue;
+                for (const EntityId id : it->second) fn(id);
+            }
+        }
+    }
+
     // Entities that become visible when moving from 'from' to 'to' (entered) and those that stop
     // being visible (left).  The moving entity itself may appear in the lists; callers filter it.
     void view_diff(Cell from, Cell to, std::vector<EntityId>& entered, std::vector<EntityId>& left) const;

@@ -5,6 +5,7 @@
 
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
+#include "jx/zone/KNpcAI.h"
 
 namespace jx::zone {
 namespace {
@@ -55,8 +56,12 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
                 const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind);
                 if (auto it = entities_.find(id); it != entities_.end()) {
                     it->second.dir = static_cast<std::uint32_t>(n.dir & 63);
-                    it->second.level = static_cast<std::uint32_t>(n.level);
+                    it->second.level = static_cast<std::uint32_t>(std::max(1, n.level));
                     it->second.series = static_cast<std::uint32_t>(n.series);
+                    apply_template(it->second);   // skill levels depend on the level (KNpcTemplate::InitNpcLevelData)
+                    it->second.npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
+                    it->second.camp = std::clamp(n.camp, 0, camp_num - 1);
+                    it->second.current_camp = it->second.camp;
                 }
             }
             take_outbox();   // nobody is listening yet
@@ -157,6 +162,9 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     KNpc e;
     e.id = ids_.next<EntityId>();
     e.kind = KNpcKind::player;
+    e.npc_kind = kind_player;
+    e.camp = camp_begin;   // BaseInfo.iteam of the old RoleData is not carried yet: every player is a beginner
+    e.current_camp = camp_begin;
     e.name = role.name();
     e.level = role.level() == 0 ? 1u : role.level();
     e.series = role.series();
@@ -400,8 +408,10 @@ void KSubWorld::tick()
     std::vector<EntityId> moved, arrived;
     for (const EntityId id : scratch_ids_) {
         KNpc& e = entities_.at(id);
+        // KNpc::Activate: NpcAI.Activate while m_ProcessAI, then the command / status of the frame
+        if (e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
         update_action(e);
-        if (e.kind != KNpcKind::player && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
+        if (e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
         std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
         while (budget > 0 && e.moving) {
@@ -447,22 +457,63 @@ void KSubWorld::apply_template(KNpc& e) const
         return;
     }
     e.attack_frame = t->attack_frame;
+    e.cast_frame = t->cast_frame;
     e.hurt_frame = t->hurt_frame;
     e.death_frame = t->death_frame;
     e.hit_recover = t->hit_recover;
     e.revive_frame = t->revive_frame;
     e.min_damage = std::max(1u, t->min_damage);
     e.max_damage = std::max(e.min_damage, t->max_damage);
+    if (e.kind != KNpcKind::player) {
+        // the server side of KNpc::Init from the template: camp, ai and the skill list
+        e.npc_kind = t->kind;
+        e.camp = std::clamp(t->camp, 0, camp_num - 1);
+        e.current_camp = e.camp;
+        e.ai_mode = t->ai_mode;
+        for (int i = 0; i < 10; ++i) e.ai_param[i] = t->ai_param[i];
+        e.ai_max_time = std::max(1u, t->ai_max_time);
+        e.vision_radius = t->vision_radius;
+        e.active_radius = t->active_radius;
+        e.current_active_radius = e.active_radius;
+        e.walk_speed = t->walk_speed;
+        e.run_speed = t->run_speed;
+        e.speed = static_cast<std::uint32_t>(std::max(1, t->walk_speed)) * cfg_.tick_hz;   // ServeMove: WalkSpeed units per frame
+        int max_radius = 0;
+        for (int i = 1; i < 5; ++i) {
+            const KNpcTemplateSkill& s = t->skills[i];
+            KNpcSkillSlot& slot = e.skills[i];
+            slot = KNpcSkillSlot{};
+            if (s.id <= 0) continue;
+            // Level1..4 "a|b" through the level script: a + b * level, floored (GetData)
+            const int level = static_cast<int>(std::floor(s.level_a + s.level_b * static_cast<double>(e.level)));
+            if (level <= 0) continue;   // KSkillList::SetNpcSkill ignores a level of 0
+            slot.id = s.id;
+            slot.level = level;
+            slot.known = s.known;
+            slot.attack_radius = s.attack_radius;
+            slot.melee = s.melee;
+            slot.target_self = s.target_self;
+            if (s.known && s.attack_radius > max_radius) max_radius = s.attack_radius;
+        }
+        e.ai_param[KNpcAI::kMaxAiParam - 1] = max_radius * max_radius;   // KNpc::Init: the reach of the farthest skill
+    }
     // placeholder for GetNpcKeyData(series, level, "Life", params) of the level scripts
     e.life_max = std::max(10u, std::max(1u, t->life_param) * std::max(1u, e.level));
     e.life = e.life_max;
+}
+
+int KSubWorld::reach_of(const KNpc& e) const noexcept
+{
+    if (e.kind == KNpcKind::player) return kMeleeReach;
+    return std::max(e.current_attack_radius, KNpcAI::kMiniAttackRange);
 }
 
 bool KSubWorld::in_reach(const KNpc& a, const KNpc& b) const noexcept
 {
     const std::int64_t dx = a.pos().x - b.pos().x;
     const std::int64_t dy = a.pos().y - b.pos().y;
-    return dx * dx + dy * dy <= static_cast<std::int64_t>(kMeleeReach) * kMeleeReach;
+    const std::int64_t reach = reach_of(a);
+    return dx * dx + dy * dy <= reach * reach;
 }
 
 bool KSubWorld::attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq)
@@ -520,13 +571,125 @@ void KSubWorld::approach(KNpc& e, const KNpc& target)
 // KNpc::DoAttack: the swing lasts AttackFrame * 100 / (100 + attack speed) frames.
 void KSubWorld::start_attack(KNpc& e, KNpc& target)
 {
+    begin_action(e, target, std::max(1u, e.attack_frame * 100 / (100 + e.attack_speed)));
+}
+
+void KSubWorld::begin_action(KNpc& e, KNpc& target, std::uint32_t frames)
+{
     e.doing = KDoing::attack;
-    e.frame_total = std::max(1u, e.attack_frame * 100 / (100 + e.attack_speed));
+    e.frame_total = frames;
     e.frame_cur = 0;
     e.attack_target = target.id;
-    const int d = g_GetDirIndex(e.pos().x, e.pos().y, target.pos().x, target.pos().y);
-    if (d >= 0) e.dir = static_cast<std::uint32_t>(d);
+    if (target.id != e.id) {
+        const int d = g_GetDirIndex(e.pos().x, e.pos().y, target.pos().x, target.pos().y);
+        if (d >= 0) e.dir = static_cast<std::uint32_t>(d);
+    }
     emit_action(e, pb::ACTION_ATTACK, target.id);
+}
+
+// SendCommand(do_skill, skill, -1, target) -> KNpc::DoSkill on the old server: a melee skill swings
+// (DoAttack, AttackFrame), any other one casts (do_magic, CastFrame); the effect lands at 60 % of
+// the frames (OnSkill).  A cast on oneself is a heal.
+void KSubWorld::cast_skill(KNpc& e, KNpc& target)
+{
+    if (e.doing == KDoing::attack) return;   // DoSkill: already casting
+    if (e.active_skill_id == 0) return;      // nothing selected: ProcCommand finds no skill to cast
+    if (e.moving) {
+        e.set_pos(e.pos());
+        emit_move(e);
+    }
+    const std::uint32_t base = e.active_skill_melee ? e.attack_frame : e.cast_frame;
+    begin_action(e, target, std::max(1u, base * 100 / (100 + e.attack_speed)));
+}
+
+// SendCommand(do_walk) -> ProcCommand -> Goto -> NewPath + DoWalk.  The old npcs steer straight at
+// the spot (KPathFinder::GetDir, stopping when blocked); here the map's path finder walks them
+// around obstacles.  An unreachable or already reached spot ends in DoStand.
+void KSubWorld::walk_to(KNpc& e, Pos dest)
+{
+    if (e.doing == KDoing::attack) {   // DoWalk overrides a swing
+        e.doing = KDoing::stand;
+        e.frame_cur = 0;
+        e.attack_target = EntityId{};
+    }
+    dest = clamp(dest);
+    if (cfg_.map) dest = cfg_.map->nearest_walkable(dest);
+    if (dest == e.pos()) {
+        do_stand(e);
+        return;
+    }
+    if (cfg_.map) {
+        std::vector<Pos> path = cfg_.map->find_path(e.pos(), dest, 4000);
+        if (path.empty()) {
+            do_stand(e);
+            return;
+        }
+        e.set_path(std::move(path));
+    } else {
+        e.set_target(dest);
+    }
+    emit_move(e);
+}
+
+// SendCommand(do_stand) -> KNpc::DoStand
+void KSubWorld::do_stand(KNpc& e)
+{
+    if (e.doing == KDoing::attack) {
+        e.doing = KDoing::stand;
+        e.frame_cur = 0;
+        e.attack_target = EntityId{};
+    }
+    if (e.moving) {
+        e.set_pos(e.pos());
+        emit_move(e);
+    }
+}
+
+KNpc* KSubWorld::find_mutable(EntityId id)
+{
+    if (!id) return nullptr;
+    const auto it = entities_.find(id);
+    return it == entities_.end() ? nullptr : &it->second;
+}
+
+bool KSubWorld::rand_percent(int percent) { return static_cast<int>(rng_() % 100) < percent; }
+
+int KSubWorld::random(int n) { return n <= 0 ? 0 : static_cast<int>(rng_() % static_cast<std::uint32_t>(n)); }
+
+// KNpcSet::GetRelation, server side: anything but two players goes through the camp table; the
+// PK rules between players (exercise / enmity / normal PK state) are not simulated yet, so two
+// players are never enemies.
+int KSubWorld::relation(const KNpc& a, const KNpc& b) const noexcept
+{
+    if (a.id == b.id) return relation_self;
+    const int k1 = a.kind == KNpcKind::player ? kind_player : a.npc_kind;
+    const int k2 = b.kind == KNpcKind::player ? kind_player : b.npc_kind;
+    const int r = g_GenOneRelation(k1, k2, a.current_camp, b.current_camp);
+    if (k1 == kind_player && k2 == kind_player && r == relation_enemy) return relation_none;
+    return r;
+}
+
+bool KSubWorld::teleport(EntityId id, Pos p)
+{
+    KNpc* e = find_mutable(id);
+    if (e == nullptr || !e->alive()) return false;
+    p = clamp(p);
+    if (cfg_.map) p = cfg_.map->nearest_walkable(p);
+    e->set_pos(p);
+    Cell from, to;
+    if (grid_.move(id, p, from, to)) on_cell_change(*e, from, to);
+    emit_move(*e);
+    return true;
+}
+
+bool KSubWorld::set_ai_mode(EntityId id, int mode)
+{
+    KNpc* e = find_mutable(id);
+    if (e == nullptr || e->kind == KNpcKind::player) return false;
+    e->ai_mode = mode;
+    e->people_id = EntityId{};
+    e->next_ai_time = 0;
+    return true;
 }
 
 // Per tick: KNpc::OnSpecial1 / OnHurt / OnDeath / OnRevive, then keep swinging at the target.
@@ -536,9 +699,24 @@ void KSubWorld::update_action(KNpc& e)
     case KDoing::attack:
         if (e.wait_for_frame()) {
             e.doing = KDoing::stand;
+            if (e.ai_mode != 0) e.attack_target = EntityId{};   // OnSkill: the ai decides again (m_ProcessAI = 1)
         } else if (e.reach_frame(kAttackEffectPercent)) {
-            const auto it = entities_.find(e.attack_target);
-            if (it != entities_.end() && it->second.alive()) hit(e, it->second);
+            if (e.attack_target == e.id) {
+                heal(e);
+            } else {
+                const auto it = entities_.find(e.attack_target);
+                if (it != entities_.end() && it->second.alive()) {
+                    // the old melee missile only reaches so far: a target that stepped away is missed
+                    const std::int64_t dx = e.pos().x - it->second.pos().x;
+                    const std::int64_t dy = e.pos().y - it->second.pos().y;
+                    const std::int64_t reach = reach_of(e) + KNpcAI::kMiniAttackRange;
+                    if (dx * dx + dy * dy <= reach * reach) {
+                        hit(e, it->second);
+                    } else {
+                        log::trace("zone.fight", "swing missed", {log::kv("attacker", e.id), log::kv("target", it->first)});
+                    }
+                }
+            }
         }
         break;
     case KDoing::hurt:
@@ -553,7 +731,7 @@ void KSubWorld::update_action(KNpc& e)
     default:
         break;
     }
-    if (e.doing == KDoing::stand && e.attack_target.value != 0) {
+    if (e.ai_mode == 0 && e.doing == KDoing::stand && e.attack_target.value != 0) {
         const auto it = entities_.find(e.attack_target);
         if (it == entities_.end() || !it->second.alive()) {
             e.attack_target = EntityId{};   // dead or gone
@@ -576,6 +754,7 @@ void KSubWorld::hit(KNpc& attacker, KNpc& target)
     const std::uint32_t span = attacker.max_damage >= attacker.min_damage ? attacker.max_damage - attacker.min_damage + 1 : 1;
     const std::uint32_t dmg = attacker.min_damage + static_cast<std::uint32_t>(rng_() % span);
     target.life = dmg >= target.life ? 0u : target.life - dmg;
+    target.people_id = attacker.id;   // KNpc::ReceiveDamage: m_nPeopleIdx = nLauncher (passive ais strike back at it)
     log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("life", target.life)});
     emit_life(target, -static_cast<std::int32_t>(dmg), attacker.id);
     if (target.life == 0) {
@@ -583,6 +762,17 @@ void KSubWorld::hit(KNpc& attacker, KNpc& target)
     } else {
         do_hurt(target, attacker.id);
     }
+}
+
+// A heal cast on oneself (AIMode 2 / 5, skill 1).  Placeholder amount until the skill system
+// brings the real formula: a fifth of the maximum.
+void KSubWorld::heal(KNpc& e)
+{
+    if (!e.alive() || e.life >= e.life_max) return;
+    const std::uint32_t amount = std::min(std::max(1u, e.life_max / 5), e.life_max - e.life);
+    e.life += amount;
+    log::debug("zone.fight", "heal", {log::kv("entity", e.id), log::kv("amount", amount), log::kv("life", e.life)});
+    emit_life(e, static_cast<std::int32_t>(amount), e.id);
 }
 
 // KNpc::DoHurt (server side): HitRecover lowers the chance and the length of the stagger.
@@ -641,6 +831,15 @@ void KSubWorld::revive(KNpc& e)
     e.doing = KDoing::stand;
     e.frame_total = 0;
     e.frame_cur = 0;
+    // KNpc::RestoreNpcBaseInfo + the ai part of Init
+    e.people_id = EntityId{};
+    e.attack_target = EntityId{};
+    e.ai_add_life_time = 0;
+    e.current_camp = e.camp;
+    e.active_skill_id = 0;
+    e.current_attack_radius = 30;
+    e.current_active_radius = e.active_radius;
+    e.next_ai_time = 0;
     e.set_pos(e.home);
     grid_.insert(e.id, e.home);
     scratch_sids_.clear();

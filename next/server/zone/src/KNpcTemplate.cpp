@@ -31,6 +31,7 @@ std::optional<KNpcTemplateSet> KNpcTemplateSet::load(const std::string& file, st
             tpl.id = static_cast<std::uint32_t>(std::stoul(key));
             tpl.name = t.value("name", "");
             tpl.kind = t.value("kind", 0);
+            tpl.camp = t.value("camp", 4);
             tpl.series = t.value("series", 0);
             tpl.stature = t.value("stature", 0);
             tpl.stand_frame = t.value("stand_frame", 15u);
@@ -38,6 +39,7 @@ std::optional<KNpcTemplateSet> KNpcTemplateSet::load(const std::string& file, st
             tpl.walk_frame = t.value("walk_frame", 15u);
             tpl.run_frame = t.value("run_frame", 15u);
             tpl.attack_frame = t.value("attack_frame", 20u);
+            tpl.cast_frame = t.value("cast_frame", 20u);
             tpl.hurt_frame = t.value("hurt_frame", 10u);
             tpl.death_frame = t.value("death_frame", 12u);
             tpl.hit_recover = t.value("hit_recover", 0u);
@@ -46,6 +48,35 @@ std::optional<KNpcTemplateSet> KNpcTemplateSet::load(const std::string& file, st
             tpl.min_damage = t.value("min_damage", 1u);
             tpl.max_damage = t.value("max_damage", 3u);
             tpl.defense = t.value("defense", 0u);
+            tpl.walk_speed = t.value("walk_speed", 5);
+            tpl.run_speed = t.value("run_speed", 10);
+            tpl.ai_mode = t.value("ai_mode", 0);
+            if (const auto ap = t.find("ai_param"); ap != t.end() && ap->is_array()) {
+                int i = 0;
+                for (const auto& v : *ap) {
+                    if (i >= 10) break;
+                    tpl.ai_param[i++] = v.is_number() ? v.get<int>() : 0;
+                }
+            }
+            tpl.ai_max_time = t.value("ai_max_time", 25u);
+            tpl.vision_radius = t.value("vision_radius", 40);
+            tpl.active_radius = t.value("active_radius", 30);
+            if (const auto sk = t.find("skills"); sk != t.end() && sk->is_array()) {
+                int slot = 1;
+                for (const auto& s : *sk) {
+                    if (slot >= 5) break;
+                    KNpcTemplateSkill& d = tpl.skills[slot++];
+                    if (!s.is_object()) continue;
+                    d.id = s.value("id", 0);
+                    d.level_a = s.value("level_a", 0.0);
+                    d.level_b = s.value("level_b", 0.0);
+                    d.known = s.value("known", false);
+                    d.attack_radius = s.value("attack_radius", 0);
+                    d.melee = s.value("melee", false);
+                    d.target_self = s.value("target_self", false);
+                    d.style = s.value("style", 0);
+                }
+            }
             set.templates_[tpl.id] = std::move(tpl);
         }
     } catch (const std::exception& e) {
