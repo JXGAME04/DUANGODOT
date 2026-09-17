@@ -9,3 +9,6 @@ CMakeUserPresets.json
 # runtime state of the dev servers
 logs/
 data/
+
+# Python caches
+__pycache__/

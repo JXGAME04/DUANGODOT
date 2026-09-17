@@ -37,7 +37,8 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Engine/Src/XPackFile.h/.cpp`, `KPakList` (hash `FileNameToId`) | `pkg/jxold/pak/XPackFile.go` |
 | `Engine/Src/KSprite.h/.cpp`, `KDrawSprite.cpp` (RLE) | `pkg/jxold/spr/KSprite.go`, `XPackSprFrame.go` (spr nén theo frame), `KSpriteAtlas.go` (PNG) |
 | `Core/Src/KSubWorld::LoadMap`, `Scene/KScenePlaceRegionC.cpp`, `SceneDataDef.h` | `pkg/jxold/wor/KSubWorld.go` |
-| `Represent2/KRepresentShell2::CoordinateTransform` | `pkg/jxold/export/KSceneExport.go` (chiếu `y/2 − z·887/1024`) |
+| `Represent2/KRepresentShell2::CoordinateTransform`, `DrawScaleSprite` (FRAME_DRAW / REF_SPOT), `KIpotLeaf.cpp::PaintABuildinObject` | `pkg/jxold/export/KSceneExport.go` (chiếu `y/2 − z·887/1024`, vị trí vật tĩnh/động, kiểu sắp xếp `k`) |
+| `KScenePlaceRegionC::GetBuildinObjs` (header đếm point/line/tree/above) | `pkg/jxold/wor/KSubWorld.go` (`BuildinKind`); `jxassets objects <map> <x> <y>` in bản ghi thô để đối chiếu |
 | `ucl/n2b_d.c` | `pkg/jxold/nrv2b` |
 | Bảng TCVN3 (skill `vn_to_octal.py`) | `pkg/jxold/text/KTextTCVN3.go` |
 
@@ -53,5 +54,9 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Ui/UiCase/UiLogin` | `client/scenes/UiLogin.gd/.tscn` | |
 | `Ui/UiCase/UiSelPlayer`, `UiNewPlayer` | `client/scenes/UiSelPlayer.gd/.tscn` | |
 | `Ui/UiCase/UiGame` + `UiChatCentre` + `UiInformation` | `client/scenes/UiGame.gd/.tscn` | |
-| `Core/Src/Scene/KScenePlaceC.cpp` (vẽ map theo region) | `client/scenes/KScenePlaceC.gd` | |
+| `Core/Src/Scene/KScenePlaceC.cpp` (vẽ map theo region, `AddObject/MoveObject` nhân vật vào cây) | `client/scenes/KScenePlaceC.gd` | |
+| `Core/Src/Scene/KIpoTree.h/.cpp` (cây sắp xếp vật thể ↔ nhân vật, bỏ phần ánh sáng) | `client/scenes/KIpoTree.gd` | |
+| `Core/Src/Scene/KIpotBranch.h/.cpp` (nhánh = đường đáy chia cảnh, danh sách lá) | `client/scenes/KIpotBranch.gd` | |
+| `Core/Src/Scene/KIpotLeaf.h/.cpp` (lá: vật point/line, nhân vật runtime, `Clone` cắt ảnh) | `client/scenes/KIpotLeaf.gd` | |
+| `Core/Src/Scene/SceneMath.h/.cpp` (`SM_Relation_PointLine`, `SM_Relation_LineLine_CheckCut`) | `client/scenes/KSceneMath.gd` | |
 | `Core/Src/KNpc` (phía client: vẽ nhân vật) | `client/scenes/KNpc.gd` | |

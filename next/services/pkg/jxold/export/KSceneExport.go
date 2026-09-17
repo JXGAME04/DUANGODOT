@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/spr"
@@ -65,15 +64,28 @@ type Tile struct {
 	Frame  int    `json:"f"`
 }
 
-// Object is a cover or buildin object; Y sorting uses SortY (screen px, absolute).
+// Object is a cover or buildin object.  X/Y is the top-left in screen px (bundle-relative):
+// static objects are placed at the projected ImgPos1 exactly like RUIMAGE_RENDER_FLAG_FRAME_DRAW
+// (no frame offset), animated ones at oPos1 minus the sprite centre like
+// RUIMAGE_RENDER_FLAG_REF_SPOT (the client adds each frame's own offset).
+//
+// Objects of the "object" layer are sorted against the characters by the old KIpoTree rules
+// (KScenePlaceC / KIpotBranch): Kind "p" point, "l" line, "t" tree with the base line P1 -> P2
+// in scene units (y not halved), bundle-relative.  "above" objects draw over everything in
+// (P1.y, Z1) order.
 type Object struct {
-	X      int    `json:"x"` // screen px, absolute
-	Y      int    `json:"y"`
-	SortY  int    `json:"sy"`
-	Sprite string `json:"s"`
-	Frame  int    `json:"f"`
-	Frames int    `json:"n,omitempty"` // animated when > 1
-	Layer  string `json:"l"`           // "cover" | "object" | "above"
+	X       int     `json:"x"`
+	Y       int     `json:"y"`
+	Sprite  string  `json:"s"`
+	Frame   int     `json:"f"`
+	Frames  int     `json:"n,omitempty"` // animated when > 1
+	Layer   string  `json:"l"`           // "cover" | "object" | "above"
+	Kind    string  `json:"k,omitempty"` // "p" | "l" | "t" (object layer)
+	P1      []int   `json:"p1,omitempty"`
+	P2      []int   `json:"p2,omitempty"`
+	Z1      int     `json:"z1,omitempty"`  // oPos1.z (above objects)
+	Angle   float32 `json:"ang,omitempty"` // fAngleXY (tree objects)
+	Nodical float32 `json:"nod,omitempty"` // fNodicalY (tree objects)
 }
 
 // RegionFile is r<XXX>_<YYY>.json.
@@ -91,12 +103,27 @@ type Exporter struct {
 	Set      *pak.Set
 	Out      string
 	sprites  map[string]string // game path -> sprite id
+	centres  map[string][2]int // sprite id -> reference spot (CenterX, CenterY as the old renderer uses them)
 	failed   map[string]bool
+	seen     map[objectKey]bool // per map: objects already emitted by another region
 	Exported int
 }
 
 func New(set *pak.Set, out string) *Exporter {
-	return &Exporter{Set: set, Out: out, sprites: map[string]string{}, failed: map[string]bool{}}
+	return &Exporter{Set: set, Out: out, sprites: map[string]string{}, centres: map[string][2]int{}, failed: map[string]bool{}, seen: map[objectKey]bool{}}
+}
+
+// refSpot is the sprite centre KRepresentShell2::DrawScaleSprite subtracts for
+// RUIMAGE_RENDER_FLAG_REF_SPOT images: the header centre, or (160, 192) for wide sprites
+// that have none.
+func refSpot(width, centerX, centerY int) [2]int {
+	if centerX != 0 || centerY != 0 {
+		return [2]int{centerX, centerY}
+	}
+	if width > 160 {
+		return [2]int{160, 192}
+	}
+	return [2]int{0, 0}
 }
 
 // spriteID exports a sprite once and returns its id ("" when it cannot be decoded).
@@ -115,9 +142,18 @@ func (e *Exporter) spriteID(gamePath string) string {
 	}
 	id := fmt.Sprintf("%08x", entry.ID)
 	base := filepath.Join(e.Out, "sprites", id)
-	if _, err := os.Stat(base + ".json"); err == nil {
-		e.sprites[gamePath] = id
-		return id
+	if data, err := os.ReadFile(base + ".json"); err == nil {
+		// exported earlier: the atlas json keeps the header values the reference spot needs
+		var head struct {
+			Width   int `json:"width"`
+			CenterX int `json:"center_x"`
+			CenterY int `json:"center_y"`
+		}
+		if json.Unmarshal(data, &head) == nil {
+			e.centres[id] = refSpot(head.Width, head.CenterX, head.CenterY)
+			e.sprites[gamePath] = id
+			return id
+		}
 	}
 	s, err := spr.ReadFromPak(f, entry)
 	if err != nil {
@@ -130,6 +166,7 @@ func (e *Exporter) spriteID(gamePath string) string {
 		e.failed[gamePath] = true
 		return ""
 	}
+	e.centres[id] = refSpot(s.Width, s.CenterX, s.CenterY)
 	e.sprites[gamePath] = id
 	e.Exported++
 	return id
@@ -157,6 +194,7 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 		Spawn: spawn, Indoor: w.IsInDoor,
 	}
 	obstacle := make([]byte, info.CellsX*info.CellsY)
+	e.seen = map[objectKey]bool{}
 	for ry := w.Top; ry <= w.Bottom; ry++ {
 		for rx := w.Left; rx <= w.Right; rx++ {
 			r, err := wor.LoadRegion(e.Set, w, rx, ry)
@@ -227,42 +265,77 @@ func (e *Exporter) region(w *wor.World, r *wor.Region) *RegionFile {
 	// the bundle counts from the map's first region (Left, Top)
 	baseX := w.Left * wor.RegionWidth
 	baseY := w.Top * wor.RegionHeight / 2 // screen px
+	baseYScene := w.Top * wor.RegionHeight // scene units (base lines keep the old y scale)
 	for _, c := range r.Covers {
 		id := e.spriteID(c.Image)
 		if id == "" {
 			continue
 		}
-		rf.Objects = append(rf.Objects, Object{X: c.X - baseX, Y: c.Y/2 - baseY, SortY: c.Y/2 - baseY, Sprite: id, Frame: c.Frame, Layer: "cover"})
+		// KScenePlaceRegionC::PaintGroundDirect draws covers with RUIMAGE_RENDER_FLAG_FRAME_DRAW
+		rf.Objects = append(rf.Objects, Object{X: c.X - baseX, Y: c.Y/2 - baseY, Sprite: id, Frame: c.Frame, Layer: "cover"})
 	}
+	// file order is kept: the old client feeds its sorting tree region by region in this order
 	for _, b := range r.Buildins {
 		id := e.spriteID(b.Image)
 		if id == "" {
 			continue
 		}
-		// ImgPos1 is the top-left corner of the image in scene space; KRepresentShell2::
-		// CoordinateTransform projects (x, y, z) to screen as (x, y/2 - z*887/1024).
-		// Objects sort with characters by their base line (oPos1.y).
-		sx := int(b.Pos[0][0]) - baseX
-		sy := int(b.Pos[0][1])/2 - (int(b.Pos[0][2])*887)>>10 - baseY
-		sortY := int(b.OPos[0][1])/2 - baseY
-		if b.OPos[0][1] == 0 {
-			sortY = int(b.Pos[3][1])/2 - baseY
-		}
-		layer := "object"
-		if b.Order != 0 && b.Order != 0xFFFF {
-			layer = "above"
-		}
-		// Big buildings are cut into slices: every slice is one *frame* of the same sprite placed
-		// separately so y-sorting works per slice.  Only nAniSpeed > 0 means "animated"
-		// (KScenePlaceRegionC::LoadAboveGroundObjects); everything else must keep its frame.
-		frames := 0
+		o := Object{Sprite: id, Frame: b.Frame, Layer: "object"}
+		// Only nAniSpeed > 0 means "animated" (KScenePlaceRegionC::LoadAboveGroundObjects);
+		// every other object keeps its frame (big buildings are cut into slices, one frame each).
 		if b.AniSpeed > 0 && b.NumFrames > 1 {
-			frames = b.NumFrames
+			// KIpotBuildinObj::PaintABuildinObject: RUIMAGE_RENDER_FLAG_REF_SPOT at oPos1;
+			// DrawScaleSprite subtracts the sprite centre and adds the frame offset (client side)
+			o.Frames = b.NumFrames
+			c := e.centres[id]
+			o.X = int(b.OPos[0][0]) - c[0] - baseX
+			o.Y = int(b.OPos[0][1])/2 - (int(b.OPos[0][2])*887)>>10 - c[1] - baseY
+		} else {
+			// RUIMAGE_RENDER_FLAG_FRAME_DRAW: ImgPos1 is the image's top-left in scene space;
+			// KRepresentShell2::CoordinateTransform projects (x, y, z) to (x, y/2 - z*887/1024)
+			o.X = int(b.Pos[0][0]) - baseX
+			o.Y = int(b.Pos[0][1])/2 - (int(b.Pos[0][2])*887)>>10 - baseY
 		}
-		rf.Objects = append(rf.Objects, Object{X: sx, Y: sy, SortY: sortY, Sprite: id, Frame: b.Frame, Frames: frames, Layer: layer})
+		p1 := []int{int(b.OPos[0][0]) - baseX, int(b.OPos[0][1]) - baseYScene}
+		p2 := []int{int(b.OPos[1][0]) - baseX, int(b.OPos[1][1]) - baseYScene}
+		switch b.Kind {
+		case wor.KindAbove:
+			o.Layer = "above"
+			o.P1 = p1
+			o.Z1 = int(b.OPos[0][2])
+		case wor.KindLine:
+			o.Kind = "l"
+			o.P1, o.P2 = p1, p2
+		case wor.KindTree:
+			o.Kind = "t"
+			o.P1, o.P2 = p1, p2
+			o.Angle, o.Nodical = b.AngleXY, b.NodicalY
+		default:
+			o.Kind = "p"
+			o.P1 = p1
+		}
+		rf.Objects = append(rf.Objects, o)
 	}
-	sort.SliceStable(rf.Objects, func(i, j int) bool { return rf.Objects[i].SortY < rf.Objects[j].SortY })
+	// objects that straddle region borders are stored in every region they touch; the old
+	// renderer merges them (bRelateRegion), we keep the copy owned by the region that saw it first
+	uniq := rf.Objects[:0]
+	for _, o := range rf.Objects {
+		key := objectKey{o.X, o.Y, o.Sprite, o.Frame, o.Layer}
+		if e.seen[key] {
+			continue
+		}
+		e.seen[key] = true
+		uniq = append(uniq, o)
+	}
+	rf.Objects = uniq
 	return rf
+}
+
+type objectKey struct {
+	x, y   int
+	sprite string
+	frame  int
+	layer  string
 }
 
 func firstWalkable(obstacle []byte, cellsX, cellsY int) [2]int {

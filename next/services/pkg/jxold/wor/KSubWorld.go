@@ -123,8 +123,20 @@ type CoverObject struct {
 	Layer         int
 }
 
+// BuildinKind is how the old client sorts an above-ground object against the characters
+// (KBuildinObjFileHead: the records are stored point, line, tree, then above objects).
+type BuildinKind string
+
+const (
+	KindPoint BuildinKind = "point" // sorted by the foot point oPos1 (+6)
+	KindLine  BuildinKind = "line"  // sorted by the base line oPos1 -> oPos2
+	KindTree  BuildinKind = "tree"  // base line splits the scene (KIpotBranch), images cut at crossings
+	KindAbove BuildinKind = "above" // drawn over everything, ordered by oPos1.y then oPos1.z
+)
+
 // BuildinObject is a building/tree/etc. sorted with the characters (above-ground object).
 type BuildinObject struct {
+	Kind          BuildinKind
 	Props         uint32
 	Pos           [4][3]int32 // ImgPos1..4 (x, y, z)
 	Width, Height int
@@ -168,7 +180,9 @@ type Region struct {
 	Ground   []GroundNode
 	Covers   []CoverObject
 	Buildins []BuildinObject
-	HasData  bool
+	// KBuildinObjFileHead counts; Buildins is stored in this order: point, line, tree, above.
+	NumPoint, NumLine, NumTree, NumAbove int
+	HasData                              bool
 }
 
 // ParseRegion decodes a combined Region_C.dat.
@@ -280,11 +294,32 @@ func ParseRegion(x, y int, data []byte) (*Region, error) {
 	}
 	if bi := slice(sectionBuildin); len(bi) >= 16 {
 		numBios := int(binary.LittleEndian.Uint32(bi[0:]))
+		r.NumTree = int(binary.LittleEndian.Uint16(bi[4:]))
+		r.NumLine = int(binary.LittleEndian.Uint16(bi[6:]))
+		r.NumPoint = int(binary.LittleEndian.Uint16(bi[8:]))
+		r.NumAbove = int(binary.LittleEndian.Uint16(bi[10:]))
+		countsOK := r.NumPoint+r.NumLine+r.NumTree+r.NumAbove == numBios
 		const bioSize = 4 + 4*12 + 2 + 2 + resourceNameLen + 4 + 2 + 2 + 2 + 2 + 2*12 + 4 + 4 // 228
 		p := 16
 		for i := 0; i < numBios && p+bioSize <= len(bi); i++ {
 			b := bi[p:]
 			o := BuildinObject{Props: binary.LittleEndian.Uint32(b[0:])}
+			switch {
+			case countsOK && i < r.NumPoint:
+				o.Kind = KindPoint
+			case countsOK && i < r.NumPoint+r.NumLine:
+				o.Kind = KindLine
+			case countsOK && i < r.NumPoint+r.NumLine+r.NumTree:
+				o.Kind = KindTree
+			case countsOK:
+				o.Kind = KindAbove
+			case o.Props&0x0300 == 0x0100: // SPBIO_P_SORTMANNER_LINE (header counts unusable)
+				o.Kind = KindLine
+			case o.Props&0x0300 == 0x0200: // SPBIO_P_SORTMANNER_TREE
+				o.Kind = KindTree
+			default:
+				o.Kind = KindPoint
+			}
 			for k := 0; k < 4; k++ {
 				for c := 0; c < 3; c++ {
 					o.Pos[k][c] = int32(binary.LittleEndian.Uint32(b[4+k*12+c*4:]))

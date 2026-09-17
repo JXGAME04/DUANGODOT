@@ -212,8 +212,11 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       CI: C++ Win+Linux, Go Win+Linux, client headless, e2e Linux. Chi tiết: `next/docs/RUNNING.md`.
 - [x] **M2 — tài sản cũ (2026-09-17)**: `jxassets` đọc `.pak` (hash tên, UCL NRV2B, spr nén frame), `.spr` → PNG atlas,
       `.wor`/`Region_C.dat` → bundle `client/assets/maps/<id>` (map.json, obstacle.bin, region JSON); bảng TCVN3/GBK→UTF-8;
-      zone nạp lưới vật cản, A* + làm mượt, NPC từ map (63 NPC Phượng Tường); client vẽ map thật theo region, y-sort,
+      zone nạp lưới vật cản, A* + làm mượt, NPC từ map (63 NPC Phượng Tường); client vẽ map thật theo region,
       đi theo waypoints. Chi tiết: `next/docs/MAPS.md`.
+      - 2026-09-17 (sau khi so với client cũ ở lò rèn Phượng Tường): vật tĩnh đặt theo FRAME_DRAW (không cộng offset khung),
+        vật động theo REF_SPOT (oPos1 − tâm sprite), thứ tự vẽ port nguyên **cây KIpoTree/KIpotBranch/KIpotLeaf/SceneMath**
+        của game cũ thay cho y-sort; `jxassets objects` in bản ghi thô để đối chiếu.
 - [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
       `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
       bảng đối chiếu `next/docs/OLD-TO-NEW.md`.

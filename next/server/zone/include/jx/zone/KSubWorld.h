@@ -37,6 +37,7 @@ struct KSubWorldConfig {
     std::uint32_t seed = 1;              // npc wander rng
     std::shared_ptr<const KMapData> map;  // optional: walkability + spawn + npcs override the fields above
     bool map_npcs = true;                // place the npcs listed in the map bundle
+    bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
 };
 
 // One outgoing message for a set of sessions (fan-out happens at the gateway).

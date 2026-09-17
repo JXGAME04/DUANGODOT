@@ -8,7 +8,7 @@
     "tick_hz": 20,
     "width": 8192,
     "height": 8192,
-    "spawn": { "x": 4096, "y": 4096 },
+    // "spawn": { "x": 4096, "y": 4096 },   -> when set it overrides the map spawn (useful for testing a spot)
     "cell_size": 512,
     "view_cells": 1,
     "default_speed": 200,

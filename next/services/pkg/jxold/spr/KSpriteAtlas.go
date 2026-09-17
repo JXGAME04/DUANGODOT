@@ -41,11 +41,18 @@ func (s *Sprite) PackAtlas(source string) (*image.NRGBA, AtlasMeta) {
 	sort.SliceStable(order, func(a, b int) bool { return s.Frames[order[a]].Height > s.Frames[order[b]].Height })
 
 	total := 0
+	widest := 1
 	for _, f := range s.Frames {
 		total += (f.Width + 1) * (f.Height + 1)
+		if f.Width+1 > widest {
+			widest = f.Width + 1
+		}
 	}
 	maxW := 256
 	for maxW*maxW < total*3/2 && maxW < 4096 {
+		maxW *= 2
+	}
+	for maxW < widest { // a single frame may be wider than the area heuristic suggests
 		maxW *= 2
 	}
 	x, y, shelf := 0, 0, 0

@@ -33,7 +33,7 @@ func _ready() -> void:
 	add_child(_map)
 	var has_map: bool = Game.map_id > 0 and Assets.has_map(Game.map_id) and bool(_map.load_map(Game.map_id))
 	if has_map:
-		_entity_layer = _map.ysort
+		_entity_layer = _map.objects   # ordered by the old sorting tree, see KScenePlaceC
 	else:
 		_grid = Node2D.new()
 		_grid.name = "Grid"
@@ -168,6 +168,8 @@ func _add_entity(d: Dictionary) -> void:
 		_entity_layer.add_child(node)
 		_entities[id] = node
 	node.setup(d, id == Game.entity_id)
+	if _map.map_id > 0:
+		_map.add_entity(node)
 	_spawn_count += 1
 
 
@@ -180,6 +182,8 @@ func _on_despawn(ids: Array) -> void:
 	for id in ids:
 		var node: Node2D = _entities.get(int(id))
 		if node:
+			if _map.map_id > 0:
+				_map.remove_entity(node)
 			node.queue_free()
 			_entities.erase(int(id))
 

@@ -6,6 +6,9 @@ extends SceneTree
 const Proto := preload("res://proto/jx_pb.gd")
 const NetScript := preload("res://net/KProtocol.gd")   # pure framing (autoload scripts cannot be preloaded here)
 const LogScript := preload("res://autoload/KDebug.gd")
+const SceneMath := preload("res://scenes/KSceneMath.gd")
+const IpoTree := preload("res://scenes/KIpoTree.gd")
+const IpotLeaf := preload("res://scenes/KIpotLeaf.gd")
 
 var _failed := 0
 var _passed := 0
@@ -24,8 +27,89 @@ func _init() -> void:
 	test_frame_split()
 	test_log_format()
 	test_proto_round_trip()
+	test_scene_math()
+	test_ipot_order()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
+
+
+# ---- object sorting (SceneMath.cpp / KIpotBranch.cpp) ---------------------------------------
+
+func test_scene_math() -> void:
+	var a := Vector2i(0, 0)
+	var b := Vector2i(100, 0)
+	check(SceneMath.relation_point_line(Vector2i(50, -10), a, b) == SceneMath.UP, "point above the line is UP")
+	check(SceneMath.relation_point_line(Vector2i(50, 10), a, b) == SceneMath.DOWN, "point below the line is DOWN")
+	check(SceneMath.relation_point_line(Vector2i(50, 0), a, b) == SceneMath.ON, "point on the line")
+	check(SceneMath.relation_point_line(Vector2i(101, 2), a, b) == SceneMath.ON, "end point tolerance")
+	check(SceneMath.distance_point_line(Vector2i(0, 10), a, b) == 10, "distance point-line")
+	var cut := SceneMath.relation_line_line_check_cut(Vector2i(0, 10), Vector2i(100, -10), a, b)
+	check(cut.rel == SceneMath.CROSS and cut.poi == Vector2i(50, 0), "crossing lines: " + str(cut))
+	check(SceneMath.relation_line_line_check_cut(Vector2i(0, -10), Vector2i(100, -5), a, b).rel == SceneMath.UP, "line above")
+	check(SceneMath.is_line_linkable(0.5, 100.0, 0.505, 110.0) and not SceneMath.is_line_linkable(0.5, 100.0, 0.52, 100.0), "linkable lines")
+
+
+func _leaf(sort: int, p1: Vector2i, p2: Vector2i, name: String, runtime: bool = false):
+	var l = IpotLeaf.new()
+	l.type = IpotLeaf.Type.RUNTIME if runtime else IpotLeaf.Type.BUILDIN
+	l.sort = sort
+	l.line_start = p1
+	l.line_end = p2
+	l.item = name
+	l.reset()
+	return l
+
+
+func _order(tree) -> Array:
+	var out: Array = []
+	tree.paint(out)
+	var names: Array = []
+	for l in out:
+		names.append(l.item)
+	return names
+
+
+func test_ipot_order() -> void:
+	var tree = IpoTree.new()
+	tree.set_permanent_branch_pos(-2000, 2000, -1000)
+	var wall = _leaf(IpotLeaf.Sort.LINE, Vector2i(0, 100), Vector2i(200, 100), "wall")
+	var fence = _leaf(IpotLeaf.Sort.LINE, Vector2i(0, 300), Vector2i(200, 300), "fence")
+	tree.add_leaf_line(fence)
+	tree.add_leaf_line(wall)
+	for l in [_leaf(IpotLeaf.Sort.POINT, Vector2i(100, 400), Vector2i.ZERO, "front"),
+			_leaf(IpotLeaf.Sort.POINT, Vector2i(100, 50), Vector2i.ZERO, "behind"),
+			_leaf(IpotLeaf.Sort.POINT, Vector2i(100, 200), Vector2i.ZERO, "between")]:
+		tree.add_leaf_point(l)
+	check(_order(tree) == ["behind", "wall", "between", "fence", "front"], "point/line order: " + str(_order(tree)))
+	# a character walking from behind the wall to in front of it
+	var hero = _leaf(IpotLeaf.Sort.POINT, Vector2i(100, 50), Vector2i.ZERO, "hero", true)
+	tree.add_leaf_point(hero)
+	var o := _order(tree)
+	check(o.find("hero") < o.find("wall"), "hero behind the wall: " + str(o))
+	tree.pluck_rto(hero)
+	hero.position = Vector2i(100, 150)
+	tree.add_leaf_point(hero)
+	o = _order(tree)
+	check(o.find("hero") > o.find("wall") and o.find("hero") < o.find("fence") and o.count("hero") == 1, "hero in front of the wall: " + str(o))
+	tree.pluck_rto(hero)
+	check(not _order(tree).has("hero"), "plucked hero is gone")
+	# tree objects: the branch line splits the scene, a crossing object is cut in two parts
+	var t = IpoTree.new()
+	var road = _leaf(IpotLeaf.Sort.TREE, Vector2i(0, 500), Vector2i(1000, 500), "road")
+	road.nodical = 500.0
+	var cross = _leaf(IpotLeaf.Sort.TREE, Vector2i(300, 400), Vector2i(700, 600), "cross")
+	cross.angle = 0.5
+	cross.nodical = 250.0
+	t.add_branch(road)
+	t.add_branch(cross)
+	t.add_leaf_point(_leaf(IpotLeaf.Sort.POINT, Vector2i(100, 600), Vector2i.ZERO, "near"))
+	t.add_leaf_point(_leaf(IpotLeaf.Sort.POINT, Vector2i(100, 400), Vector2i.ZERO, "far"))
+	var o2 := _order(t)
+	check(o2.find("far") < o2.find("road") and o2.find("road") < o2.find("near"), "branch order: " + str(o2))
+	check(o2.count("cross") == 2 and cross.img_part and cross.end_pos == Vector2i(500, 500), "crossing tree object cut at (500,500): " + str(cross.end_pos))
+	check(o2.find("cross") < o2.find("road") and o2.rfind("cross") > o2.find("road"), "one part behind the road, one in front: " + str(o2))
+	t.fell()
+	check(_order(t).is_empty(), "felled tree is empty")
 
 
 func test_frame_vectors() -> void:

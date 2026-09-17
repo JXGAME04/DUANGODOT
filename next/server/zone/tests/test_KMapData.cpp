@@ -95,7 +95,9 @@ TEST_CASE("world with a map follows waypoints and clamps to walkable cells", "[m
     cfg.map_npcs = false;
     jx::zone::KSubWorld w(cfg);
     CHECK(w.config().width == 20 * 32);
-    CHECK(w.config().spawn_point == cfg.map->spawn);
+    // the synthetic spawn sits on the wall: the world moves it to the nearest walkable cell
+    CHECK(w.config().spawn_point == cfg.map->nearest_walkable(cfg.map->spawn));
+    CHECK(cfg.map->walkable(w.config().spawn_point));
 
     jx::pb::RoleData role;
     role.set_player_id(1);

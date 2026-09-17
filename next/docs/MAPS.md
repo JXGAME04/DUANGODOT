@@ -33,12 +33,31 @@ client/assets/
   .gdignore                    editor Godot bỏ qua thư mục (nạp lúc chạy bằng Image.load)
   maps/<id>/map.json           kích thước, spawn, danh sách region có dữ liệu, NPC (tên UTF-8, toạ độ scene)
   maps/<id>/obstacle.bin       1 byte/ô, hàng trước cột, 0 = đi được          <- zone A*, client
-  maps/<id>/rXXX_YYY.json      tiles {x,y,s,f} (px so với gốc region), objects {x,y,sy,s,f,n,l}
+  maps/<id>/rXXX_YYY.json      tiles {x,y,s,f} (px so với gốc region), objects {x,y,s,f,n,l,k,p1,p2,z1,ang,nod}
   sprites/<id8>.png/.json      atlas 1 sprite (id = hash pak), frames {x,y,w,h,ox,oy}, center, directions, interval
 ```
 
-`l` của object: `cover` (vẽ trên nền, dưới nhân vật), `object` (sắp xếp theo `sy` cùng nhân vật), `above` (trên tất cả).
-`n` > 1: vật thể có hoạt ảnh, đổi frame mỗi `interval` tick cũ (18 tick/giây).
+Object (`objects[]`, giữ đúng thứ tự trong file cũ):
+
+- `x,y`: góc trên-trái trên màn hình (px, so với gốc bundle). Vật **tĩnh** đặt đúng tại ImgPos1 chiếu xuống
+  (client cũ vẽ với cờ `RUIMAGE_RENDER_FLAG_FRAME_DRAW`: **không** cộng offset khung). Vật **động** (`n` > 1,
+  tức `nAniSpeed > 0`) đặt tại oPos1 trừ tâm sprite (`REF_SPOT`, `KRepresentShell2::DrawScaleSprite`) và client
+  cộng offset riêng của từng khung; đổi khung mỗi `interval` ms, tối thiểu 20 ms (`BuildinObjNextFrame`).
+- `l`: `cover` (vẽ trên nền, dưới nhân vật), `object` (sắp xếp cùng nhân vật bằng cây KIpoTree),
+  `above` (vẽ trên tất cả, theo `p1.y` rồi `z1` = oPos1.z).
+- `k` (chỉ lớp `object`; suy từ header `BuildinObj.dat`: point, line, tree, above): `p` xếp theo điểm chân `p1`;
+  `l` xếp theo đường đáy `p1 → p2`; `t` đường đáy chia cả cảnh (`KIpotBranch`), ảnh bị cắt tại chỗ giao.
+  `ang`/`nod` = `fAngleXY`/`fNodicalY` để gộp các vật nằm cùng một đường. `p1`, `p2` tính bằng **đơn vị scene**
+  (y chưa chia 2) so với gốc bundle.
+
+### Thứ tự vẽ (client)
+
+Client port nguyên cây sắp xếp của game cũ: `KSceneMath.gd` (`SceneMath.cpp`), `KIpotLeaf.gd`, `KIpotBranch.gd`,
+`KIpoTree.gd`. `KScenePlaceC.gd` dựng lại cây mỗi khi tập region thay đổi (đúng thứ tự cũ: vật `t` gộp theo
+đường, đường dài trước; vật `l` dài trước; vật `p` theo region; rồi nhân vật), mỗi khung ghi thứ tự duyệt cây vào
+`z_index` của các Sprite2D/nhân vật trong lớp `Objects`. Nhân vật là lá runtime (điểm chân `y + 6`), được rút ra /
+cắm lại khi di chuyển như `KScenePlaceC::MoveObject`. Vật `t` bị cắt được vẽ bằng Sprite2D phụ với
+`frame_part_texture`.
 
 ## 4. Zone dùng gì
 

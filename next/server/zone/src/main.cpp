@@ -96,6 +96,7 @@ int main(int argc, char** argv)
     w.height = static_cast<std::int32_t>(cfg.get_int("zone.height", w.height));
     w.spawn_point.x = static_cast<std::int32_t>(cfg.get_int("zone.spawn.x", w.spawn_point.x));
     w.spawn_point.y = static_cast<std::int32_t>(cfg.get_int("zone.spawn.y", w.spawn_point.y));
+    w.spawn_from_config = cfg.has("zone.spawn.x") && cfg.has("zone.spawn.y");
     w.cell_size = static_cast<std::int32_t>(cfg.get_int("zone.cell_size", w.cell_size));
     w.view_cells = static_cast<std::int32_t>(cfg.get_int("zone.view_cells", w.view_cells));
     w.default_speed = static_cast<std::uint32_t>(cfg.get_int("zone.default_speed", w.default_speed));

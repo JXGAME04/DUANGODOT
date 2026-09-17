@@ -44,7 +44,8 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
     if (cfg_.map) {
         cfg_.width = cfg_.map->scene_w;
         cfg_.height = cfg_.map->scene_h;
-        cfg_.spawn_point = cfg_.map->spawn;
+        if (!cfg_.spawn_from_config) cfg_.spawn_point = cfg_.map->spawn;
+        cfg_.spawn_point = cfg_.map->nearest_walkable(clamp(cfg_.spawn_point));
         grid_ = KRegionGrid(cfg_.cell_size, cfg_.view_cells);
         if (cfg_.map_npcs) {
             for (const KNpcPlacement& n : cfg_.map->npcs) {

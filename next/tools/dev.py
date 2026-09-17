@@ -260,7 +260,8 @@ def run_client_auto(account: str = "auto1", windowed: bool = False) -> int:
         cmd.insert(1, "--headless")
     cmd += ["--", "--auto", "--server=127.0.0.1:17100", f"--account={account}", "--password=auto"]
     try:
-        res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=60)
+        # the client logs UTF-8 (map and character names); never let the console code page break the run
+        res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     except subprocess.TimeoutExpired:
         print("client auto run timed out")
         return 1

@@ -40,6 +40,23 @@ class SpriteAtlas:
 		var f: Dictionary = frames[clampi(frame, 0, frames.size() - 1)]
 		return Vector2(f.ox, f.oy)
 
+	# The columns [x0, x1) of one frame (a tree object cut by the sorting tree), cached.
+	func frame_part_texture(frame: int, x0: int, x1: int) -> AtlasTexture:
+		if frames.is_empty():
+			return null
+		frame = clampi(frame, 0, frames.size() - 1)
+		var key := "%d:%d:%d" % [frame, x0, x1]
+		if _part_cache.has(key):
+			return _part_cache[key]
+		var f: Dictionary = frames[frame]
+		var at := AtlasTexture.new()
+		at.atlas = texture
+		at.region = Rect2(f.x + x0, f.y, maxi(x1 - x0, 0), f.h)
+		_part_cache[key] = at
+		return at
+
+	var _part_cache := {}
+
 
 var _sprites := {}          # id -> SpriteAtlas
 var _missing := {}

@@ -8,6 +8,7 @@
 //	spr    <gamepath>                decode a sprite: -out <dir> gets <name>.png + <name>.json
 //	map    <mapid | gamepath>        summary of a world: rect, regions present, images used
 //	region <mapid | gamepath> <x> <y> parsed Region_C.dat as JSON
+//	objects <mapid | gamepath> <x> <y> [text]  raw cover/buildin records + sprite headers of one region
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -23,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/export"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
@@ -130,7 +132,7 @@ func main() {
 		}
 	}
 	if len(args) < 1 {
-		fail("usage: jxassets [-client DIR] [-out PATH] list|find|cat|spr|map|region ...")
+		fail("usage: jxassets [-client DIR] [-out PATH] list|find|cat|spr|map|region|objects ...")
 	}
 	switch args[0] {
 	case "list":
@@ -282,6 +284,131 @@ func main() {
 			info.ID, info.Name, info.RegionCols, info.RegionRows, len(info.Regions), info.SceneW, info.SceneH, info.Spawn[0], info.Spawn[1], len(info.Npcs), ex.Exported, info.Sprites)
 		fmt.Printf("written to %s\n", filepath.Join(out, "maps", strconv.Itoa(id)))
 
+	case "export-all":
+		// every "<id>=<path>" of Settings/MapList.ini; sprites are shared across maps so one
+		// process with one exporter cache is much faster than one run per map
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		dir := findClient()
+		data, err := os.ReadFile(filepath.Join(dir, "Settings", "MapList.ini"))
+		if err != nil {
+			fail("MapList.ini: %v", err)
+		}
+		set := openSet(dir)
+		defer set.Close()
+		ex := export.New(set, out)
+		re := regexp.MustCompile(`(?m)^(\d+)=(.*)$`)
+		ok, missing, failed := 0, 0, 0
+		start := time.Now()
+		for _, m := range re.FindAllSubmatch(data, -1) {
+			id, _ := strconv.Atoi(string(m[1]))
+			p := strings.TrimSpace(strings.TrimRight(string(m[2]), "\r"))
+			name := ""
+			if nm := regexp.MustCompile(`(?m)^` + strconv.Itoa(id) + `_name=(.*)$`).FindSubmatch(data); nm != nil {
+				name = text.TCVN3ToUTF8([]byte(strings.TrimSpace(strings.TrimRight(string(nm[1]), "\r"))))
+			}
+			w, err := wor.LoadWorld(set, p)
+			if err != nil {
+				missing++
+				log.Warn("asset", "map skipped", log.F("id", id), log.F("name", name), log.F("path", text.GBKToUTF8([]byte(p))), log.F("error", err))
+				continue
+			}
+			t0 := time.Now()
+			info, err := ex.Map(id, name, w, [2]int{})
+			if err != nil {
+				failed++
+				log.Error("asset", "map export failed", log.F("id", id), log.F("name", name), log.F("error", err))
+				continue
+			}
+			ok++
+			log.Info("asset", "map exported", log.F("id", id), log.F("name", name), log.F("regions", len(info.Regions)), log.F("npcs", len(info.Npcs)),
+				log.F("sprites_total", info.Sprites), log.F("ms", time.Since(t0).Milliseconds()))
+		}
+		fmt.Printf("export-all: %d maps ok, %d skipped (no .wor), %d failed, %d sprites, %s\n", ok, missing, failed, ex.Exported, time.Since(start).Round(time.Second))
+
+	case "objects":
+		// objects <mapid|gamepath> <x> <y> [image-substring]: every cover / buildin record of one
+		// region together with the sprite header, for checking positions against the old renderer
+		if len(args) < 4 {
+			fail("objects <mapid|gamepath> <x> <y> [image-substring]")
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		p, _ := mapPath(dir, args[1])
+		w, err := wor.LoadWorld(set, p)
+		if err != nil {
+			fail("%v", err)
+		}
+		x, _ := strconv.Atoi(args[2])
+		y, _ := strconv.Atoi(args[3])
+		r, err := wor.LoadRegion(set, w, x, y)
+		if err != nil {
+			fail("%v", err)
+		}
+		want := ""
+		if len(args) > 4 {
+			want = args[4]
+		}
+		type frameView struct {
+			W, H, OffsetX, OffsetY int
+		}
+		type sprView struct {
+			Width, Height, CenterX, CenterY, Frames, Directions, Interval int
+			Reserved                                                       [6]uint16
+			Frame                                                          []frameView
+		}
+		headers := map[string]*sprView{}
+		sprite := func(img string) *sprView {
+			if v, ok := headers[img]; ok {
+				return v
+			}
+			var v *sprView
+			if resolved, ok := resolveImage(set, img); ok {
+				if f, entry, ok := set.Lookup(resolved); ok {
+					if s, err := spr.ReadFromPak(f, entry); err == nil {
+						v = &sprView{Width: s.Width, Height: s.Height, CenterX: s.CenterX, CenterY: s.CenterY, Frames: s.Header.Frames,
+							Directions: s.Directions, Interval: s.Interval, Reserved: s.Reserved}
+						for _, fr := range s.Frames {
+							v.Frame = append(v.Frame, frameView{fr.Width, fr.Height, fr.OffsetX, fr.OffsetY})
+						}
+					}
+				}
+			}
+			headers[img] = v
+			return v
+		}
+		type objView struct {
+			Kind   string
+			Image  string
+			Record any
+			Sprite *sprView
+		}
+		out := []objView{}
+		for _, c := range r.Covers {
+			u := text.GBKToUTF8([]byte(c.Image))
+			if want != "" && !strings.Contains(u, want) {
+				continue
+			}
+			c.Image = u
+			out = append(out, objView{Kind: "cover", Image: u, Record: c, Sprite: sprite(c.Image)})
+		}
+		for _, b := range r.Buildins {
+			u := text.GBKToUTF8([]byte(b.Image))
+			if want != "" && !strings.Contains(u, want) {
+				continue
+			}
+			img := b.Image
+			b.Image = u
+			out = append(out, objView{Kind: "buildin", Image: u, Record: b, Sprite: sprite(img)})
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", " ")
+		if err := enc.Encode(out); err != nil {
+			fail("%v", err)
+		}
 	case "region":
 		if len(args) < 4 {
 			fail("region <mapid|gamepath> <x> <y>")
