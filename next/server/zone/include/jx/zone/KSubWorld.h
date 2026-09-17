@@ -20,6 +20,7 @@
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KMapData.h"
+#include "jx/zone/KNpcTemplate.h"
 
 namespace jx::zone {
 
@@ -38,6 +39,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMapData> map;  // optional: walkability + spawn + npcs override the fields above
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
+    std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage); optional
 };
 
 // One outgoing message for a set of sessions (fan-out happens at the gateway).
@@ -56,7 +58,12 @@ public:
     pb::Result spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out);
     bool remove_player(std::uint64_t sid);
     bool move_request(std::uint64_t sid, Pos target, std::uint32_t seq);
+    bool attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq);
     bool chat(std::uint64_t sid, std::string_view text);
+
+    static constexpr std::uint32_t kAttackEffectPercent = 60;   // ATTACKACTION_EFFECT_PERCENT (KNpc.cpp)
+    static constexpr std::uint32_t kMinHurtPercent = 50;        // MIN_HURT_PERCENT (KNpc::DoHurt)
+    static constexpr std::int32_t kMeleeReach = 96;             // scene units, until weapons carry their range
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
                        KNpcKind kind = KNpcKind::npc);
 
@@ -85,6 +92,20 @@ private:
     void emit_move(const KNpc& e);
     void on_cell_change(KNpc& e, Cell from, Cell to);
     void wander(KNpc& e);
+    // combat (KNpc::DoAttack / OnSpecial1 / DoHurt / DoDeath / DoRevive of the old core)
+    void apply_template(KNpc& e) const;
+    void update_action(KNpc& e);
+    [[nodiscard]] bool in_reach(const KNpc& a, const KNpc& b) const noexcept;
+    void start_attack(KNpc& e, KNpc& target);
+    void approach(KNpc& e, const KNpc& target);
+    void hit(KNpc& attacker, KNpc& target);
+    void do_hurt(KNpc& e, EntityId source);
+    void do_death(KNpc& e, EntityId killer);
+    void do_revive(KNpc& e);
+    void revive(KNpc& e);
+    void emit_action(const KNpc& e, pb::Action action, EntityId target);
+    void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
+    void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
 
     KSubWorldConfig cfg_;
     KRegionGrid grid_;

@@ -17,6 +17,9 @@ inline constexpr std::int64_t kSub = 256;
 
 enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 };
 
+// KNpc::m_Doing of the old game, the part the zone simulates.
+enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive };
+
 struct KNpc {
     EntityId id;
     KNpcKind kind = KNpcKind::npc;
@@ -34,6 +37,37 @@ struct KNpc {
     std::uint32_t series = 0;
     std::uint32_t sex = 0;
     std::uint32_t template_id = 0;
+
+    // combat / animation state (KNpc::m_Doing, m_Frames).  One frame = one zone tick: the zone
+    // ticks at 18 Hz like the old logic loop, so the frame counts of npcs.txt keep their meaning.
+    KDoing doing = KDoing::stand;
+    std::uint32_t frame_total = 0;   // m_Frames.nTotalFrame
+    std::uint32_t frame_cur = 0;     // m_Frames.nCurrentFrame
+    EntityId attack_target;          // kept attacking until it dies or we are told to move
+    std::uint32_t approach_tries = 0;   // walks toward an out-of-reach target, a few times at most
+    std::uint32_t life = 0;
+    std::uint32_t life_max = 0;
+    // KNpc::Load from the template (KNpcTemplate); the AttackSpeed column is the attack length
+    std::uint32_t attack_frame = 20;
+    std::uint32_t hurt_frame = 10;
+    std::uint32_t death_frame = 15;
+    std::uint32_t hit_recover = 12;
+    std::uint32_t revive_frame = 2400;
+    std::uint32_t attack_speed = 0;  // m_CurrentAttackSpeed (percent)
+    std::uint32_t min_damage = 1;
+    std::uint32_t max_damage = 3;
+
+    [[nodiscard]] bool alive() const noexcept { return doing != KDoing::death && doing != KDoing::revive; }
+    // KNpc::WaitForFrame: advances the action; true when its frames ran out (counter wraps to 0).
+    bool wait_for_frame() noexcept
+    {
+        ++frame_cur;
+        if (frame_cur < frame_total) return false;
+        frame_cur = 0;
+        return true;
+    }
+    // KNpc::IsReachFrame
+    [[nodiscard]] bool reach_frame(std::uint32_t percent) const noexcept { return frame_cur == frame_total * percent / 100; }
 
     std::uint64_t sid = 0;         // gateway session (players only)
     std::uint64_t player_id = 0;

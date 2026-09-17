@@ -36,6 +36,15 @@ type TemplateInfo struct {
 	Horse       int    `json:"horse"`
 	Ride        bool   `json:"ride"`
 	Stature     int    `json:"stature"` // height of the name above the feet (KNpc::GetNpcPate)
+	// combat numbers the zone simulates with (KNpc::Load); life/damage are raw params for now
+	AttackFrame int `json:"attack_frame"`
+	HurtFrame   int `json:"hurt_frame"`
+	HitRecover  int `json:"hit_recover"`
+	ReviveFrame int `json:"revive_frame"`
+	LifeParam   int `json:"life_param"`
+	MinDamage   int `json:"min_damage"`
+	MaxDamage   int `json:"max_damage"`
+	Defense     int `json:"defense"`
 }
 
 // ResFile is npcres/res/<name>.json: one KNpcResNode.
@@ -106,7 +115,9 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 		}
 		bundle.Templates[strconv.Itoa(t.ID)] = TemplateInfo{Name: t.Name, Res: t.ResType, Kind: t.Kind, Series: t.Series,
 			StandFrame: t.StandFrame, StandFrame1: t.StandFrame1, WalkFrame: t.WalkFrame, RunFrame: t.RunFrame, DeathFrame: t.DeathFrame,
-			Helm: t.HelmType, Armor: t.ArmorType, Weapon: t.WeaponType, Horse: t.HorseType, Ride: t.RideHorse, Stature: t.Stature}
+			Helm: t.HelmType, Armor: t.ArmorType, Weapon: t.WeaponType, Horse: t.HorseType, Ride: t.RideHorse, Stature: t.Stature,
+			AttackFrame: t.AttackFrame, HurtFrame: t.HurtFrame, HitRecover: t.HitRecover, ReviveFrame: t.ReviveFrame,
+			LifeParam: t.LifeParam, MinDamage: t.MinDamage, MaxDamage: t.MaxDamage, Defense: t.Defense}
 	}
 	data, err := json.MarshalIndent(bundle, "", " ")
 	if err != nil {

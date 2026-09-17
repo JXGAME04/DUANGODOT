@@ -14,6 +14,8 @@ signal enter_failed(result: int)
 signal entity_spawn(entities: Array)
 signal entity_despawn(ids: Array)
 signal entity_move(mv: Dictionary)
+signal entity_action(a: Dictionary)
+signal entity_life(l: Dictionary)
 signal chat_msg(msg: Dictionary)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -110,6 +112,19 @@ func move_to(x: int, y: int) -> int:
 	req.set_seq(_move_seq)
 	Net.send_msg(Proto.MsgId.C2G_MOVE, req)
 	Log.trace("world", "move request", {"x": x, "y": y, "seq": _move_seq})
+	return _move_seq
+
+
+# Basic melee attack on an entity (the zone keeps swinging until it dies or we move).
+func attack(target_id: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.AttackReq.new()
+	req.set_target(target_id)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ATTACK, req)
+	Log.trace("world", "attack request", {"target": target_id, "seq": _move_seq})
 	return _move_seq
 
 
@@ -285,6 +300,33 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d.path = mv.path
 			entity_move.emit(mv)
 
+		Proto.MsgId.G2C_ENTITY_ACTION:
+			var m := Proto.EntityAction.new()
+			if not _decode(m, payload):
+				return
+			var a := {"id": m.get_entity_id(), "action": int(m.get_action()), "target": m.get_target(), "dir": m.get_dir(),
+				"frames": m.get_frames(), "x": m.get_pos().get_x(), "y": m.get_pos().get_y(), "tick": m.get_tick()}
+			var d = entities.get(int(a.id))
+			if d != null:
+				d.doing = a.action
+				d.doing_frames = a.frames
+				d.x = a.x
+				d.y = a.y
+				d.path = []
+			entity_action.emit(a)
+
+		Proto.MsgId.G2C_ENTITY_LIFE:
+			var m := Proto.EntityLife.new()
+			if not _decode(m, payload):
+				return
+			var l := {"id": m.get_entity_id(), "life": m.get_life(), "life_max": m.get_life_max(), "delta": m.get_delta(),
+				"source": m.get_source()}
+			var d = entities.get(int(l.id))
+			if d != null:
+				d.life = l.life
+				d.life_max = l.life_max
+			entity_life.emit(l)
+
 		Proto.MsgId.G2C_CHAT_MSG:
 			var m := Proto.ChatMsg.new()
 			if not _decode(m, payload):
@@ -327,4 +369,5 @@ func _entity_dict(e) -> Dictionary:
 	return {"id": e.get_entity_id(), "type": e.get_entity_type(), "name": e.get_name(),
 		"x": e.get_pos().get_x(), "y": e.get_pos().get_y(), "tx": e.get_target().get_x(), "ty": e.get_target().get_y(),
 		"speed": e.get_move_speed(), "level": e.get_level(), "series": e.get_series(), "sex": e.get_sex(),
-		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir()}
+		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir(),
+		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames()}

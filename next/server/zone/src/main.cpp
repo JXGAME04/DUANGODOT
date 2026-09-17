@@ -115,6 +115,19 @@ int main(int argc, char** argv)
         }
         w.map = std::make_shared<const jx::zone::KMapData>(std::move(*map));
     }
+    // npcs.txt numbers (exported next to the maps: client/assets/npcres/npcs.json)
+    std::string npcres_file = cfg.get_string("zone.npcres_file", "");
+    if (npcres_file.empty() && !map_dir.empty()) {
+        npcres_file = (std::filesystem::path(map_dir).parent_path().parent_path() / "npcres" / "npcs.json").string();
+    }
+    if (!npcres_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KNpcTemplateSet::load(npcres_file, &error)) {
+            w.templates = std::make_shared<const jx::zone::KNpcTemplateSet>(std::move(*t));
+        } else {
+            jx::log::warn("boot", "npc templates unavailable, default combat numbers", {jx::log::kv("file", npcres_file), jx::log::kv("error", error)});
+        }
+    }
 
     asio::io_context io;
     jx::zone::KGameServer server(io, zc);
@@ -130,7 +143,7 @@ int main(int argc, char** argv)
         const std::int32_t dx = static_cast<std::int32_t>((i % 4) * 160) - 240;
         const std::int32_t dy = static_cast<std::int32_t>((i / 4) * 160) - 80;
         server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
-                                 static_cast<std::uint32_t>(1000 + i), 200);
+                                 static_cast<std::uint32_t>(1000 + i), 200, jx::zone::KNpcKind::monster);   // attackable
     }
 
     asio::signal_set signals(io, SIGINT, SIGTERM);

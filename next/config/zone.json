@@ -5,7 +5,8 @@
     "name": "Test Field",
     "listen": "0.0.0.0",
     "port": 17001,
-    "tick_hz": 20,
+    "tick_hz": 18,                      // the old logic loop: frame counts of npcs.txt are ticks
+    // "npcres_file": "client/assets/npcres/npcs.json",   -> default: next to map_dir
     "width": 8192,
     "height": 8192,
     // "spawn": { "x": 4096, "y": 4096 },   -> when set it overrides the map spawn (useful for testing a spot)

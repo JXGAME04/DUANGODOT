@@ -61,7 +61,35 @@ Số hàng trang bị của mỗi nhóm bộ phận **không** phải 0 khi khô
   bỏ qua như code cũ. Thứ tự con của node = thứ tự vẽ.
 - Nhân vật là lá runtime của cây KIpoTree (điểm chân + 6) nên xếp đúng trước/sau nhà cửa.
 
-## 4. Chưa làm
+## 4. Đánh / bị đánh / chết (vòng combat tối giản, nhịp khung 1‑1 với `KNpc.cpp`)
+
+Zone chạy **18 tick/giây** (`zone.tick_hz`, bằng vòng lặp logic cũ) nên các cột *Frame* của `npcs.txt` là số tick.
+Zone đọc `npcres/npcs.json` (`KNpcTemplate.h/.cpp`: `attack_frame` = cột **AttackSpeed** như `KNpcTemplate::Init`,
+`hurt_frame`, `death_frame`, `hit_recover`, `revive_frame`; người chơi lấy `BaseValue.ini` [Common] AttackFrame 18 /
+HurtFrame 12).
+
+- Client click vào quái → `C2G_ATTACK{target}`. Zone (`KSubWorld::attack_request`): quái còn sống và không phải NPC
+  thành; nếu ngoài tầm (`kMeleeReach` 96 đơn vị, tạm cho tới khi vũ khí mang tầm đánh) thì **đi tới** trước
+  (`approach`, tối đa 5 lần như client cũ đi rồi mới đánh), tới nơi thì vung.
+- `start_attack` (`KNpc::DoAttack`): `frame_total = AttackFrame·100/(100+tốc độ đánh)`, quay mặt về mục tiêu
+  (`g_GetDirIndex`), gửi `EntityAction{ATTACK, frames, dir}`. Client chọn ngẫu nhiên Attack1/Attack2 (50/50) như cũ.
+- Mỗi tick (`KNpc::OnSpecial1`): hết khung → đứng và **tự vung tiếp** khi mục tiêu còn sống trong tầm; đúng khung
+  `60 %` (`ATTACKACTION_EFFECT_PERCENT`) thì trúng đòn → `EntityLife{life, delta}`.
+- Trúng đòn (`KNpc::DoHurt` phía server): HitRecover ≥ 100 → không giật; xác suất giật =
+  `50 + HitRecover·50/100 %`; số khung giật = `HurtFrame·(100−HitRecover)/100` → `EntityAction{HURT, frames, pos}`,
+  client dừng tại `pos` và chạy hoạt ảnh Wound; hết khung → đứng (`OnHurt`).
+- Chết (`KNpc::DoDeath`): `EntityAction{DEATH, DeathFrame}`; client chạy Die rồi **giữ khung cuối** (xác);
+  người chơi ngoài chế độ chiến đấu giữ 1 máu (luật cũ). Sau DeathFrame tick zone rút xác khỏi vùng nhìn
+  (`DoRevive`, `EntityDespawn`), sau `ReviveFrame` tick (mặc định 2400 ≈ 133 s) hồi sinh tại chỗ đặt với đầy máu
+  (`Revive` → `EntitySpawn`). `EntityInfo.doing/doing_frames` cho người vào sau thấy xác/đòn đang vung.
+- Đi (`C2G_MOVE`) hủy đòn đang vung; đang giật/chết không đi được.
+
+**Tạm thời chưa 1‑1**: sát thương = ngẫu nhiên [MinDamageParam, MaxDamageParam] không qua công thức
+(AR/phòng thủ/kháng); máu quái = `LifeParam × level` (bản cũ tính bằng script `GetNpcKeyData` trong
+`npclevelscript.lua` → chờ Lua 5.4); quái chưa đánh trả (AI); người chơi 100 máu. Test: `test_KSubWorld.cpp`
+"melee attack", client `--auto` tự đi đánh quái gần nhất (`AUTO_FIGHT`).
+
+## 5. Chưa làm
 
 Hoạt ảnh tấn công/bị đánh/chết/ngồi, trang bị theo `RoleData`, ngựa, phi phong, hiệu ứng trạng thái, đổi màu
 (`ChangeColor`), NPC không có trong `人物类型.txt` (một số `critter0xx`) — hiện vẽ vòng tròn; tối ưu bộ nhớ

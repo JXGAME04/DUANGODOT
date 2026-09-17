@@ -66,6 +66,20 @@ client            gateway                  zone
   |                  |<-- PlayerSave{final} ------|   persist lưu RoleData
 ```
 
+### Đánh nhau (M3b)
+
+```text
+C  → G → Z   C2G_ATTACK{target, seq}          click vào quái
+Z  → G → C   G2C_ENTITY_MOVE                   (nếu ngoài tầm: zone tự đi tới mục tiêu)
+Z  → G → C*  G2C_ENTITY_ACTION{ATTACK, frames, dir, target}   mọi người nhìn thấy, kể cả mình
+Z  → G → C*  G2C_ENTITY_LIFE{life, life_max, delta, source}   lúc đòn trúng (60 % số khung)
+Z  → G → C*  G2C_ENTITY_ACTION{HURT | DEATH, frames, pos}     mục tiêu giật / chết (giữ khung cuối)
+Z  → G → C*  G2C_ENTITY_DESPAWN ... G2C_ENTITY_SPAWN           xác biến mất sau DeathFrame, hồi sinh sau ReviveFrame
+```
+
+`EntityInfo.life/life_max/doing/doing_frames` để người vào sau thấy đúng trạng thái. Nhịp khung và luật xem
+`NPCRES.md` mục 4.
+
 ## 4. Phiên bản
 
 - `PROTOCOL_VERSION` (enum trong `msg.proto`) tăng khi thay đổi **không tương thích** (đổi khung

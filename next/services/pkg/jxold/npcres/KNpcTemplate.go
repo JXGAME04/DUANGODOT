@@ -29,6 +29,14 @@ type Template struct {
 	WalkSpeed   int    `json:"walk_speed"`
 	RunSpeed    int    `json:"run_speed"`
 	Stature     int    `json:"stature"`
+	// combat (KNpcTemplate::Init): the AttackSpeed column is the attack length in frames
+	AttackFrame int `json:"attack_frame"`
+	HitRecover  int `json:"hit_recover"`
+	ReviveFrame int `json:"revive_frame"`
+	LifeParam   int `json:"life_param"` // raw *Param columns, scaled by the level scripts in the old game
+	MinDamage   int `json:"min_damage"`
+	MaxDamage   int `json:"max_damage"`
+	Defense     int `json:"defense"`
 }
 
 // ParseTemplates reads npcs.txt.  Missing numbers fall back to the old defaults
@@ -72,6 +80,13 @@ func ParseTemplates(data []byte) []Template {
 		t.WalkSpeed = num(row, "WalkSpeed", 5)
 		t.RunSpeed = num(row, "RunSpeed", 10)
 		t.Stature = num(row, "Stature", 0)
+		t.AttackFrame = num(row, "AttackSpeed", 20)
+		t.HitRecover = num(row, "HitRecover", 0)
+		t.ReviveFrame = num(row, "ReviveFrame", 2400)
+		t.LifeParam = num(row, "LifeParam", 1)
+		t.MinDamage = num(row, "MinDamageParam", 1)
+		t.MaxDamage = num(row, "MaxDamageParam", 3)
+		t.Defense = num(row, "DefenseParam", 0)
 		out = append(out, t)
 	}
 	return out

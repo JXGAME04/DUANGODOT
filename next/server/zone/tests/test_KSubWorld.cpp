@@ -261,6 +261,94 @@ TEST_CASE("remove, chat and role snapshot", "[world]")
     CHECK(w.session_ids() == std::vector<std::uint64_t>{2});
 }
 
+TEST_CASE("melee attack: swing, hit at 60 percent, death animation, corpse gone, revive", "[world][combat]")
+{
+    Quiet q;
+    KSubWorldConfig cfg = small_world();
+    cfg.tick_hz = 18;
+    KSubWorld w(cfg);
+    EntityId hero;
+    Pos at;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{2000, 2000}), hero, at) == jx::pb::RESULT_OK);
+    const EntityId pig = w.spawn_npc("pig", Pos{2050, 2000}, 418, 0, jx::zone::KNpcKind::monster);
+    w.take_outbox();
+    auto to_hero = [](const std::vector<Packet>& out, jx::pb::MsgId id) {
+        std::vector<Packet> r;
+        for (const Packet& p : out) {
+            if (p.msg_id == id && std::find(p.sids.begin(), p.sids.end(), 7) != p.sids.end()) r.push_back(p);
+        }
+        return r;
+    };
+
+    REQUIRE(w.attack_request(7, pig, 1));
+    auto acts = to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_ACTION);
+    REQUIRE(acts.size() == 1);
+    const auto swing = decode<jx::pb::EntityAction>(acts[0]);
+    CHECK(swing.entity_id() == hero.value);
+    CHECK(swing.action() == jx::pb::ACTION_ATTACK);
+    CHECK(swing.target() == pig.value);
+    CHECK(swing.frames() == 18);   // BaseValue AttackFrame 18, attack speed 0
+    CHECK(swing.dir() == 47);      // the pig is to the right (g_GetDirIndex)
+
+    // nothing lands before frame 60% (18 * 60 / 100 = 10)
+    for (int i = 0; i < 9; ++i) w.tick();
+    CHECK(to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_LIFE).empty());
+    w.tick();
+    auto lifes = to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_LIFE);
+    REQUIRE(lifes.size() == 1);
+    const auto l = decode<jx::pb::EntityLife>(lifes[0]);
+    CHECK(l.entity_id() == pig.value);
+    CHECK(l.delta() < 0);
+    CHECK(l.life() < l.life_max());
+    CHECK(l.life_max() == 30);   // no template table: the test monster's default life
+
+    // the zone keeps swinging until the pig dies
+    bool died = false;
+    for (int guard = 0; guard < 2000 && !died; ++guard) {
+        w.tick();
+        for (const Packet& p : to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_ACTION)) {
+            if (decode<jx::pb::EntityAction>(p).action() == jx::pb::ACTION_DEATH) died = true;
+        }
+    }
+    REQUIRE(died);
+    const jx::zone::KNpc* corpse = w.find_entity(pig);
+    REQUIRE(corpse != nullptr);
+    CHECK(corpse->life == 0);
+    CHECK(corpse->doing == jx::zone::KDoing::death);
+
+    // after DeathFrame (15) ticks the corpse leaves sight; after ReviveFrame (2400) it is back with full life
+    bool gone = false;
+    for (int i = 0; i < 15 && !gone; ++i) {
+        w.tick();
+        gone = !to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_DESPAWN).empty();
+    }
+    CHECK(gone);
+    CHECK(w.find_entity(hero)->attack_target.value == 0);   // the swing ended, the dead target was dropped
+    CHECK(w.find_entity(pig)->doing == jx::zone::KDoing::revive);
+    bool back = false;
+    for (int i = 0; i < 2400 && !back; ++i) {
+        w.tick();
+        for (const Packet& p : to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_SPAWN)) {
+            const auto sp = decode<jx::pb::EntitySpawn>(p);
+            for (const auto& e : sp.entities()) {
+                if (e.entity_id() == pig.value) {
+                    back = true;
+                    CHECK(e.life() == e.life_max());
+                    CHECK(e.doing() == jx::pb::ACTION_STAND);
+                }
+            }
+        }
+    }
+    CHECK(back);
+    // walking cancels an attack; townsfolk cannot be attacked
+    REQUIRE(w.attack_request(7, pig, 2));
+    REQUIRE(w.move_request(7, Pos{2100, 2100}, 3));
+    CHECK(w.find_entity(hero)->attack_target.value == 0);
+    CHECK(w.find_entity(hero)->doing == jx::zone::KDoing::stand);
+    const EntityId smith = w.spawn_npc("smith", Pos{2010, 2000}, 199, 0, jx::zone::KNpcKind::npc);
+    CHECK_FALSE(w.attack_request(7, smith, 4));
+}
+
 TEST_CASE("wandering npcs move and are announced to viewers", "[world]")
 {
     Quiet q;

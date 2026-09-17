@@ -198,6 +198,12 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
         world_.chat(cp.sid(), req.text());
         break;
     }
+    case pb::C2G_ATTACK: {
+        pb::AttackReq req;
+        if (!net::parse(cp.payload(), req)) break;
+        world_.attack_request(cp.sid(), jx::EntityId{req.target()}, req.seq());
+        break;
+    }
     default:
         log::warn("zone", "unhandled client message", {log::kv("sid", cp.sid()), log::kv("msg", cp.msg_id())});
         break;

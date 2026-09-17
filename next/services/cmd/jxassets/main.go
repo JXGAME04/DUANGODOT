@@ -477,7 +477,7 @@ func main() {
 		}
 		opt := export.NpcResOptions{
 			Names:  names,
-			Doings: []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun},
+			Doings: []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1},
 			Equips: icr.DefaultEquips(),
 		}
 		n, err := e.NpcRes(list, templates, player, opt)

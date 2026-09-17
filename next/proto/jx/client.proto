@@ -91,6 +91,42 @@ message MoveReq {
   uint32 seq = 2;                // client sequence number, echoed in EntityMove for the own entity
 }
 
+// Basic melee attack on a target (KNpc::DoAttack).  The zone repeats the swing until the target
+// dies, the player moves or the target leaves reach.
+message AttackReq {
+  uint64 target = 1;
+  uint32 seq = 2;
+}
+
+// KNpc::m_Doing as far as clients need it.
+enum Action {
+  ACTION_STAND = 0;
+  ACTION_ATTACK = 1;             // frames = swing length in logic frames (18 Hz), dir = facing, target
+  ACTION_HURT = 2;               // frames = hurt length (KNpc::DoHurt), pos = where the entity stands
+  ACTION_DEATH = 3;              // frames = death animation; the corpse keeps the last frame until despawn
+  ACTION_REVIVE = 4;
+}
+
+// An entity started an action (old NPC_HURT_SYNC / NPC_DEATH_SYNC / skill sync).
+message EntityAction {
+  uint64 entity_id = 1;
+  Action action = 2;
+  uint64 target = 3;
+  uint32 dir = 4;
+  uint32 frames = 5;
+  Vec2 pos = 6;
+  uint64 tick = 7;
+}
+
+// Life changed (damage / heal), sent to everyone who sees the entity.
+message EntityLife {
+  uint64 entity_id = 1;
+  uint32 life = 2;
+  uint32 life_max = 3;
+  int32 delta = 4;               // negative = damage
+  uint64 source = 5;
+}
+
 message EntityInfo {
   uint64 entity_id = 1;
   EntityType entity_type = 2;
@@ -104,6 +140,10 @@ message EntityInfo {
   uint32 template_id = 10;       // npc/monster template, 0 for players
   repeated Vec2 path = 11;       // remaining waypoints after pos (server pathfinding)
   uint32 dir = 12;               // facing direction 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
+  uint32 life = 13;
+  uint32 life_max = 14;
+  Action doing = 15;             // what it is doing right now (a corpse reports ACTION_DEATH)
+  uint32 doing_frames = 16;
 }
 
 message EntitySpawn {

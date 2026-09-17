@@ -7,6 +7,7 @@ const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
+var _target: Node2D = null   # the entity the player attacks / selected
 var _camera: Camera2D
 var _map: Node2D             # MapView
 var _entity_layer: Node2D    # y-sorted parent of entity nodes (MapView.ysort or a local one)
@@ -17,6 +18,7 @@ var _chat_input: LineEdit
 var _zoom := 1.0
 var _spawn_count := 0
 var _move_count := 0
+var _action_count := 0
 var _scene_w := 8192
 var _scene_h := 8192
 
@@ -56,6 +58,8 @@ func _ready() -> void:
 	Game.entity_spawn.connect(_on_spawn)
 	Game.entity_despawn.connect(_on_despawn)
 	Game.entity_move.connect(_on_move)
+	Game.entity_action.connect(_on_action)
+	Game.entity_life.connect(_on_life)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -121,20 +125,29 @@ func _process(delta: float) -> void:
 		_map.update_view(_view_rect(), delta)
 	var own := _own()
 	var st: Dictionary = Assets.stats()
-	_hud.text = "%s  zone %d  map %d  entity %d  sid %d\npos %s  entities %d  regions %d  sprites %d (%d MB)\nrtt %d ms  fps %d" % [
+	var target_text := ""
+	if _target != null and is_instance_valid(_target):
+		target_text = "  target %s %d/%d" % [_target.display_name, _target.life, _target.life_max]
+	_hud.text = "%s  zone %d  map %d  entity %d  sid %d\npos %s  hp %d/%d%s\nentities %d  regions %d  sprites %d (%d MB)  rtt %d ms  fps %d" % [
 		Game.zone_name, Game.zone_id, Game.map_id, Game.entity_id, Game.sid,
-		str(Vector2i(own.scene_pos)) if own else "-", _entities.size(), _map.region_count(), st.sprites, st.mb,
-		Game.last_rtt_ms, Engine.get_frames_per_second()]
+		str(Vector2i(own.scene_pos)) if own else "-", own.life if own else 0, own.life_max if own else 0, target_text,
+		_entities.size(), _map.region_count(), st.sprites, st.mb, Game.last_rtt_ms, Engine.get_frames_per_second()]
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			var p := get_global_mouse_position()
-			var x := clampi(int(p.x), 0, _scene_w - 1)
-			var y := clampi(int(p.y * 2.0), 0, _scene_h - 1)
-			var seq := Game.move_to(x, y)
-			Log.debug("ui", "click move", {"x": x, "y": y, "seq": seq})
+			var hit := _entity_at(p)
+			if hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
+				_select_target(hit)
+				var aseq := Game.attack(hit.entity_id)
+				Log.debug("ui", "click attack", {"target": hit.entity_id, "name": hit.display_name, "seq": aseq})
+			else:
+				var x := clampi(int(p.x), 0, _scene_w - 1)
+				var y := clampi(int(p.y * 2.0), 0, _scene_h - 1)
+				var seq := Game.move_to(x, y)
+				Log.debug("ui", "click move", {"x": x, "y": y, "seq": seq})
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_set_zoom(_zoom * 1.15)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -150,6 +163,23 @@ func _unhandled_input(event: InputEvent) -> void:
 func _set_zoom(z: float) -> void:
 	_zoom = clampf(z, 0.25, 3.0)
 	_camera.zoom = Vector2(_zoom, _zoom)
+
+
+# The entity drawn under a world point (the one on top wins).
+func _entity_at(world: Vector2) -> Node2D:
+	var best: Node2D = null
+	for node in _entities.values():
+		if node.hit_test(node.to_local(world)) and (best == null or node.z_index > best.z_index):
+			best = node
+	return best
+
+
+func _select_target(node: Node2D) -> void:
+	if _target != null and is_instance_valid(_target) and _target != node:
+		_target.set_target(false)
+	_target = node
+	if node != null:
+		node.set_target(true)
 
 
 func _leave() -> void:
@@ -182,6 +212,8 @@ func _on_despawn(ids: Array) -> void:
 	for id in ids:
 		var node: Node2D = _entities.get(int(id))
 		if node:
+			if node == _target:
+				_target = null
 			if _map.map_id > 0:
 				_map.remove_entity(node)
 			node.queue_free()
@@ -195,6 +227,21 @@ func _on_move(mv: Dictionary) -> void:
 		_move_count += 1
 	else:
 		Log.trace("world", "move for unknown entity", {"id": mv.id})
+
+
+func _on_action(a: Dictionary) -> void:
+	_action_count += 1
+	var node: Node2D = _entities.get(int(a.id))
+	if node:
+		node.apply_action(a)
+		if node == _target and node.is_dead():
+			_select_target(null)
+
+
+func _on_life(l: Dictionary) -> void:
+	var node: Node2D = _entities.get(int(l.id))
+	if node:
+		node.set_life(l)
 
 
 func _on_chat(msg: Dictionary) -> void:
@@ -244,6 +291,7 @@ func _auto_run() -> void:
 		"rtt_ms": Game.last_rtt_ms, "regions": _map.region_count(), "sprites": Assets.stats().sprites})
 	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d" % [arrived, _entities.size(), _move_count, _map.region_count()])
 	await _save_screenshot("user://logs/auto_world.png")
+	await _auto_fight()
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout
@@ -269,6 +317,53 @@ func _auto_run() -> void:
 	Game.leave_world()
 	await get_tree().create_timer(0.3).timeout
 	get_tree().quit(0 if arrived else 1)
+
+
+# --auto: walk up to the nearest monster in sight and attack it until it dies (or 8 s pass);
+# prints AUTO_FIGHT so tools/dev.py e2e / screenshot can check the combat path end to end.
+func _auto_fight() -> void:
+	var own := _own()
+	if own == null:
+		print("AUTO_FIGHT none")
+		return
+	var best: Node2D = null
+	var best_d := 400.0
+	for node in _entities.values():
+		if node == own or not node.is_attackable():
+			continue
+		var d: float = node.scene_pos.distance_to(own.scene_pos)
+		if d < best_d:
+			best = node
+			best_d = d
+	if best == null:
+		print("AUTO_FIGHT none")
+		return
+	# stand next to it, then swing
+	var dir: Vector2 = (best.scene_pos - own.scene_pos).normalized()
+	var stand: Vector2 = best.scene_pos - dir * 48.0
+	Game.move_to(int(stand.x), int(stand.y))
+	var waited := 0.0
+	while waited < 6.0 and (own.is_moving() or own.scene_pos.distance_to(stand) > 24.0):
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	var life_before: int = best.life
+	var actions_before := _action_count
+	_select_target(best)
+	Game.attack(best.entity_id)
+	await get_tree().create_timer(0.7).timeout
+	await _save_screenshot("user://logs/auto_fight.png")
+	waited = 0.0
+	while waited < 8.0 and is_instance_valid(best) and not best.is_dead() and best.life > 0:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	var alive: bool = is_instance_valid(best)
+	var life_after: int = best.life if alive else 0
+	var dead: bool = (not alive) or best.is_dead()
+	Log.info("auto", "auto fight", {"target": best.entity_id if alive else 0, "life_before": life_before, "life_after": life_after,
+		"actions": _action_count - actions_before, "dead": dead, "own_doing": own.doing})
+	print("AUTO_FIGHT target=%d name=%s life_before=%d life_after=%d actions=%d dead=%s" % [best.entity_id if alive else 0,
+		best.display_name if alive else "?", life_before, life_after, _action_count - actions_before, dead])
+	await _save_screenshot("user://logs/auto_fight_end.png")
 
 
 # Saves the rendered frame (no-op in headless mode); used by tools/dev.py screenshot.

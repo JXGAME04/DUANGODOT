@@ -3,6 +3,7 @@
 add_library(jx_zone_core STATIC
     src/KRegion.cpp
     src/KMapData.cpp
+    src/KNpcTemplate.cpp
     src/KSubWorld.cpp
     src/KGameServer.cpp
 )

@@ -225,6 +225,10 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       - 2026-09-17 **NPC thật của thành**: đọc `Region_S.dat` từ `bin/Server/pak/maps.pak` (1409 NPC server map 1: người
         trong thành + quái có level) + 63 NPC client-only, tọa độ tuyệt đối, tên qua `replacename_npc.txt`; zone sinh theo
         `kind` (0 = quái); `jxassets npcs`. NPC không trang bị: `KItemChangeRes` (helm 18/armor 18/weapon 0).
+- [x] **M3b — đánh/bị đánh/chết (2026-09-17)**: zone 18 tick/s, `KNpcTemplate` đọc npcs.json, `C2G_ATTACK` →
+      `EntityAction`/`EntityLife`; nhịp khung như `KNpc::DoAttack/OnSpecial1(60 %)/DoHurt/DoDeath/DoRevive`, tự đi tới mục tiêu,
+      tự vung tiếp; client hoạt ảnh Attack1/2, Wound, Die (giữ khung cuối), thanh máu, chọn mục tiêu bằng click; `--auto` tự
+      đánh quái (`AUTO_FIGHT`). Sát thương/máu tạm (chờ Lua), quái chưa đánh trả. Chi tiết `next/docs/NPCRES.md` mục 4.
 - [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
       `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
       bảng đối chiếu `next/docs/OLD-TO-NEW.md`.

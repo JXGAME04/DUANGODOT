@@ -24,6 +24,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// KNpc::m_Doing as far as clients need it.
+type Action int32
+
+const (
+	Action_ACTION_STAND  Action = 0
+	Action_ACTION_ATTACK Action = 1 // frames = swing length in logic frames (18 Hz), dir = facing, target
+	Action_ACTION_HURT   Action = 2 // frames = hurt length (KNpc::DoHurt), pos = where the entity stands
+	Action_ACTION_DEATH  Action = 3 // frames = death animation; the corpse keeps the last frame until despawn
+	Action_ACTION_REVIVE Action = 4
+)
+
+// Enum value maps for Action.
+var (
+	Action_name = map[int32]string{
+		0: "ACTION_STAND",
+		1: "ACTION_ATTACK",
+		2: "ACTION_HURT",
+		3: "ACTION_DEATH",
+		4: "ACTION_REVIVE",
+	}
+	Action_value = map[string]int32{
+		"ACTION_STAND":  0,
+		"ACTION_ATTACK": 1,
+		"ACTION_HURT":   2,
+		"ACTION_DEATH":  3,
+		"ACTION_REVIVE": 4,
+	}
+)
+
+func (x Action) Enum() *Action {
+	p := new(Action)
+	*p = x
+	return p
+}
+
+func (x Action) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Action) Descriptor() protoreflect.EnumDescriptor {
+	return file_jx_client_proto_enumTypes[0].Descriptor()
+}
+
+func (Action) Type() protoreflect.EnumType {
+	return &file_jx_client_proto_enumTypes[0]
+}
+
+func (x Action) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Action.Descriptor instead.
+func (Action) EnumDescriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{0}
+}
+
 type Hello struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ProtocolVersion uint32                 `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"` // PROTOCOL_VERSION in msg.proto
@@ -814,6 +870,230 @@ func (x *MoveReq) GetSeq() uint32 {
 	return 0
 }
 
+// Basic melee attack on a target (KNpc::DoAttack).  The zone repeats the swing until the target
+// dies, the player moves or the target leaves reach.
+type AttackReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Target        uint64                 `protobuf:"varint,1,opt,name=target,proto3" json:"target,omitempty"`
+	Seq           uint32                 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttackReq) Reset() {
+	*x = AttackReq{}
+	mi := &file_jx_client_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttackReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttackReq) ProtoMessage() {}
+
+func (x *AttackReq) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttackReq.ProtoReflect.Descriptor instead.
+func (*AttackReq) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *AttackReq) GetTarget() uint64 {
+	if x != nil {
+		return x.Target
+	}
+	return 0
+}
+
+func (x *AttackReq) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+// An entity started an action (old NPC_HURT_SYNC / NPC_DEATH_SYNC / skill sync).
+type EntityAction struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	Action        Action                 `protobuf:"varint,2,opt,name=action,proto3,enum=jx.pb.Action" json:"action,omitempty"`
+	Target        uint64                 `protobuf:"varint,3,opt,name=target,proto3" json:"target,omitempty"`
+	Dir           uint32                 `protobuf:"varint,4,opt,name=dir,proto3" json:"dir,omitempty"`
+	Frames        uint32                 `protobuf:"varint,5,opt,name=frames,proto3" json:"frames,omitempty"`
+	Pos           *Vec2                  `protobuf:"bytes,6,opt,name=pos,proto3" json:"pos,omitempty"`
+	Tick          uint64                 `protobuf:"varint,7,opt,name=tick,proto3" json:"tick,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityAction) Reset() {
+	*x = EntityAction{}
+	mi := &file_jx_client_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityAction) ProtoMessage() {}
+
+func (x *EntityAction) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityAction.ProtoReflect.Descriptor instead.
+func (*EntityAction) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *EntityAction) GetEntityId() uint64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *EntityAction) GetAction() Action {
+	if x != nil {
+		return x.Action
+	}
+	return Action_ACTION_STAND
+}
+
+func (x *EntityAction) GetTarget() uint64 {
+	if x != nil {
+		return x.Target
+	}
+	return 0
+}
+
+func (x *EntityAction) GetDir() uint32 {
+	if x != nil {
+		return x.Dir
+	}
+	return 0
+}
+
+func (x *EntityAction) GetFrames() uint32 {
+	if x != nil {
+		return x.Frames
+	}
+	return 0
+}
+
+func (x *EntityAction) GetPos() *Vec2 {
+	if x != nil {
+		return x.Pos
+	}
+	return nil
+}
+
+func (x *EntityAction) GetTick() uint64 {
+	if x != nil {
+		return x.Tick
+	}
+	return 0
+}
+
+// Life changed (damage / heal), sent to everyone who sees the entity.
+type EntityLife struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	Life          uint32                 `protobuf:"varint,2,opt,name=life,proto3" json:"life,omitempty"`
+	LifeMax       uint32                 `protobuf:"varint,3,opt,name=life_max,json=lifeMax,proto3" json:"life_max,omitempty"`
+	Delta         int32                  `protobuf:"varint,4,opt,name=delta,proto3" json:"delta,omitempty"` // negative = damage
+	Source        uint64                 `protobuf:"varint,5,opt,name=source,proto3" json:"source,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityLife) Reset() {
+	*x = EntityLife{}
+	mi := &file_jx_client_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityLife) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityLife) ProtoMessage() {}
+
+func (x *EntityLife) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityLife.ProtoReflect.Descriptor instead.
+func (*EntityLife) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *EntityLife) GetEntityId() uint64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *EntityLife) GetLife() uint32 {
+	if x != nil {
+		return x.Life
+	}
+	return 0
+}
+
+func (x *EntityLife) GetLifeMax() uint32 {
+	if x != nil {
+		return x.LifeMax
+	}
+	return 0
+}
+
+func (x *EntityLife) GetDelta() int32 {
+	if x != nil {
+		return x.Delta
+	}
+	return 0
+}
+
+func (x *EntityLife) GetSource() uint64 {
+	if x != nil {
+		return x.Source
+	}
+	return 0
+}
+
 type EntityInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
@@ -828,13 +1108,17 @@ type EntityInfo struct {
 	TemplateId    uint32                 `protobuf:"varint,10,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"` // npc/monster template, 0 for players
 	Path          []*Vec2                `protobuf:"bytes,11,rep,name=path,proto3" json:"path,omitempty"`                                // remaining waypoints after pos (server pathfinding)
 	Dir           uint32                 `protobuf:"varint,12,opt,name=dir,proto3" json:"dir,omitempty"`                                 // facing direction 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
+	Life          uint32                 `protobuf:"varint,13,opt,name=life,proto3" json:"life,omitempty"`
+	LifeMax       uint32                 `protobuf:"varint,14,opt,name=life_max,json=lifeMax,proto3" json:"life_max,omitempty"`
+	Doing         Action                 `protobuf:"varint,15,opt,name=doing,proto3,enum=jx.pb.Action" json:"doing,omitempty"` // what it is doing right now (a corpse reports ACTION_DEATH)
+	DoingFrames   uint32                 `protobuf:"varint,16,opt,name=doing_frames,json=doingFrames,proto3" json:"doing_frames,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EntityInfo) Reset() {
 	*x = EntityInfo{}
-	mi := &file_jx_client_proto_msgTypes[13]
+	mi := &file_jx_client_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -846,7 +1130,7 @@ func (x *EntityInfo) String() string {
 func (*EntityInfo) ProtoMessage() {}
 
 func (x *EntityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[13]
+	mi := &file_jx_client_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -859,7 +1143,7 @@ func (x *EntityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityInfo.ProtoReflect.Descriptor instead.
 func (*EntityInfo) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{13}
+	return file_jx_client_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *EntityInfo) GetEntityId() uint64 {
@@ -946,6 +1230,34 @@ func (x *EntityInfo) GetDir() uint32 {
 	return 0
 }
 
+func (x *EntityInfo) GetLife() uint32 {
+	if x != nil {
+		return x.Life
+	}
+	return 0
+}
+
+func (x *EntityInfo) GetLifeMax() uint32 {
+	if x != nil {
+		return x.LifeMax
+	}
+	return 0
+}
+
+func (x *EntityInfo) GetDoing() Action {
+	if x != nil {
+		return x.Doing
+	}
+	return Action_ACTION_STAND
+}
+
+func (x *EntityInfo) GetDoingFrames() uint32 {
+	if x != nil {
+		return x.DoingFrames
+	}
+	return 0
+}
+
 type EntitySpawn struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Entities      []*EntityInfo          `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
@@ -955,7 +1267,7 @@ type EntitySpawn struct {
 
 func (x *EntitySpawn) Reset() {
 	*x = EntitySpawn{}
-	mi := &file_jx_client_proto_msgTypes[14]
+	mi := &file_jx_client_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -967,7 +1279,7 @@ func (x *EntitySpawn) String() string {
 func (*EntitySpawn) ProtoMessage() {}
 
 func (x *EntitySpawn) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[14]
+	mi := &file_jx_client_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -980,7 +1292,7 @@ func (x *EntitySpawn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntitySpawn.ProtoReflect.Descriptor instead.
 func (*EntitySpawn) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{14}
+	return file_jx_client_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *EntitySpawn) GetEntities() []*EntityInfo {
@@ -999,7 +1311,7 @@ type EntityDespawn struct {
 
 func (x *EntityDespawn) Reset() {
 	*x = EntityDespawn{}
-	mi := &file_jx_client_proto_msgTypes[15]
+	mi := &file_jx_client_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1011,7 +1323,7 @@ func (x *EntityDespawn) String() string {
 func (*EntityDespawn) ProtoMessage() {}
 
 func (x *EntityDespawn) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[15]
+	mi := &file_jx_client_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1024,7 +1336,7 @@ func (x *EntityDespawn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityDespawn.ProtoReflect.Descriptor instead.
 func (*EntityDespawn) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{15}
+	return file_jx_client_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *EntityDespawn) GetEntityIds() []uint64 {
@@ -1049,7 +1361,7 @@ type EntityMove struct {
 
 func (x *EntityMove) Reset() {
 	*x = EntityMove{}
-	mi := &file_jx_client_proto_msgTypes[16]
+	mi := &file_jx_client_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1061,7 +1373,7 @@ func (x *EntityMove) String() string {
 func (*EntityMove) ProtoMessage() {}
 
 func (x *EntityMove) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[16]
+	mi := &file_jx_client_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1074,7 +1386,7 @@ func (x *EntityMove) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityMove.ProtoReflect.Descriptor instead.
 func (*EntityMove) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{16}
+	return file_jx_client_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *EntityMove) GetEntityId() uint64 {
@@ -1135,7 +1447,7 @@ type ChatReq struct {
 
 func (x *ChatReq) Reset() {
 	*x = ChatReq{}
-	mi := &file_jx_client_proto_msgTypes[17]
+	mi := &file_jx_client_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1147,7 +1459,7 @@ func (x *ChatReq) String() string {
 func (*ChatReq) ProtoMessage() {}
 
 func (x *ChatReq) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[17]
+	mi := &file_jx_client_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1160,7 +1472,7 @@ func (x *ChatReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatReq.ProtoReflect.Descriptor instead.
 func (*ChatReq) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{17}
+	return file_jx_client_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ChatReq) GetText() string {
@@ -1181,7 +1493,7 @@ type ChatMsg struct {
 
 func (x *ChatMsg) Reset() {
 	*x = ChatMsg{}
-	mi := &file_jx_client_proto_msgTypes[18]
+	mi := &file_jx_client_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1193,7 +1505,7 @@ func (x *ChatMsg) String() string {
 func (*ChatMsg) ProtoMessage() {}
 
 func (x *ChatMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[18]
+	mi := &file_jx_client_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1206,7 +1518,7 @@ func (x *ChatMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatMsg.ProtoReflect.Descriptor instead.
 func (*ChatMsg) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{18}
+	return file_jx_client_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ChatMsg) GetEntityId() uint64 {
@@ -1239,7 +1551,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_jx_client_proto_msgTypes[19]
+	mi := &file_jx_client_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1251,7 +1563,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[19]
+	mi := &file_jx_client_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1264,7 +1576,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{19}
+	return file_jx_client_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Ping) GetClientMs() uint64 {
@@ -1285,7 +1597,7 @@ type Pong struct {
 
 func (x *Pong) Reset() {
 	*x = Pong{}
-	mi := &file_jx_client_proto_msgTypes[20]
+	mi := &file_jx_client_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1297,7 +1609,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[20]
+	mi := &file_jx_client_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1310,7 +1622,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{20}
+	return file_jx_client_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Pong) GetClientMs() uint64 {
@@ -1344,7 +1656,7 @@ type Kick struct {
 
 func (x *Kick) Reset() {
 	*x = Kick{}
-	mi := &file_jx_client_proto_msgTypes[21]
+	mi := &file_jx_client_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1356,7 +1668,7 @@ func (x *Kick) String() string {
 func (*Kick) ProtoMessage() {}
 
 func (x *Kick) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[21]
+	mi := &file_jx_client_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1369,7 +1681,7 @@ func (x *Kick) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kick.ProtoReflect.Descriptor instead.
 func (*Kick) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{21}
+	return file_jx_client_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Kick) GetReason() Result {
@@ -1444,7 +1756,25 @@ const file_jx_client_proto_rawDesc = "" +
 	"\rLeaveWorldReq\"@\n" +
 	"\aMoveReq\x12#\n" +
 	"\x06target\x18\x01 \x01(\v2\v.jx.pb.Vec2R\x06target\x12\x10\n" +
-	"\x03seq\x18\x02 \x01(\rR\x03seq\"\xe8\x02\n" +
+	"\x03seq\x18\x02 \x01(\rR\x03seq\"5\n" +
+	"\tAttackReq\x12\x16\n" +
+	"\x06target\x18\x01 \x01(\x04R\x06target\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\rR\x03seq\"\xc7\x01\n" +
+	"\fEntityAction\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12%\n" +
+	"\x06action\x18\x02 \x01(\x0e2\r.jx.pb.ActionR\x06action\x12\x16\n" +
+	"\x06target\x18\x03 \x01(\x04R\x06target\x12\x10\n" +
+	"\x03dir\x18\x04 \x01(\rR\x03dir\x12\x16\n" +
+	"\x06frames\x18\x05 \x01(\rR\x06frames\x12\x1d\n" +
+	"\x03pos\x18\x06 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x12\n" +
+	"\x04tick\x18\a \x01(\x04R\x04tick\"\x86\x01\n" +
+	"\n" +
+	"EntityLife\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x12\n" +
+	"\x04life\x18\x02 \x01(\rR\x04life\x12\x19\n" +
+	"\blife_max\x18\x03 \x01(\rR\alifeMax\x12\x14\n" +
+	"\x05delta\x18\x04 \x01(\x05R\x05delta\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\x04R\x06source\"\xdf\x03\n" +
 	"\n" +
 	"EntityInfo\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x122\n" +
@@ -1462,7 +1792,11 @@ const file_jx_client_proto_rawDesc = "" +
 	" \x01(\rR\n" +
 	"templateId\x12\x1f\n" +
 	"\x04path\x18\v \x03(\v2\v.jx.pb.Vec2R\x04path\x12\x10\n" +
-	"\x03dir\x18\f \x01(\rR\x03dir\"<\n" +
+	"\x03dir\x18\f \x01(\rR\x03dir\x12\x12\n" +
+	"\x04life\x18\r \x01(\rR\x04life\x12\x19\n" +
+	"\blife_max\x18\x0e \x01(\rR\alifeMax\x12#\n" +
+	"\x05doing\x18\x0f \x01(\x0e2\r.jx.pb.ActionR\x05doing\x12!\n" +
+	"\fdoing_frames\x18\x10 \x01(\rR\vdoingFrames\"<\n" +
 	"\vEntitySpawn\x12-\n" +
 	"\bentities\x18\x01 \x03(\v2\x11.jx.pb.EntityInfoR\bentities\".\n" +
 	"\rEntityDespawn\x12\x1d\n" +
@@ -1492,7 +1826,13 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04tick\x18\x03 \x01(\x04R\x04tick\"A\n" +
 	"\x04Kick\x12%\n" +
 	"\x06reason\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06reason\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04textB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"\x04text\x18\x02 \x01(\tR\x04text*c\n" +
+	"\x06Action\x12\x10\n" +
+	"\fACTION_STAND\x10\x00\x12\x11\n" +
+	"\rACTION_ATTACK\x10\x01\x12\x0f\n" +
+	"\vACTION_HURT\x10\x02\x12\x10\n" +
+	"\fACTION_DEATH\x10\x03\x12\x11\n" +
+	"\rACTION_REVIVE\x10\x04B6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_client_proto_rawDescOnce sync.Once
@@ -1506,57 +1846,65 @@ func file_jx_client_proto_rawDescGZIP() []byte {
 	return file_jx_client_proto_rawDescData
 }
 
-var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_jx_client_proto_goTypes = []any{
-	(*Hello)(nil),         // 0: jx.pb.Hello
-	(*HelloAck)(nil),      // 1: jx.pb.HelloAck
-	(*LoginReq)(nil),      // 2: jx.pb.LoginReq
-	(*LoginRes)(nil),      // 3: jx.pb.LoginRes
-	(*CharSummary)(nil),   // 4: jx.pb.CharSummary
-	(*CharListReq)(nil),   // 5: jx.pb.CharListReq
-	(*CharListRes)(nil),   // 6: jx.pb.CharListRes
-	(*CharCreateReq)(nil), // 7: jx.pb.CharCreateReq
-	(*CharCreateRes)(nil), // 8: jx.pb.CharCreateRes
-	(*EnterWorldReq)(nil), // 9: jx.pb.EnterWorldReq
-	(*EnterWorldRes)(nil), // 10: jx.pb.EnterWorldRes
-	(*LeaveWorldReq)(nil), // 11: jx.pb.LeaveWorldReq
-	(*MoveReq)(nil),       // 12: jx.pb.MoveReq
-	(*EntityInfo)(nil),    // 13: jx.pb.EntityInfo
-	(*EntitySpawn)(nil),   // 14: jx.pb.EntitySpawn
-	(*EntityDespawn)(nil), // 15: jx.pb.EntityDespawn
-	(*EntityMove)(nil),    // 16: jx.pb.EntityMove
-	(*ChatReq)(nil),       // 17: jx.pb.ChatReq
-	(*ChatMsg)(nil),       // 18: jx.pb.ChatMsg
-	(*Ping)(nil),          // 19: jx.pb.Ping
-	(*Pong)(nil),          // 20: jx.pb.Pong
-	(*Kick)(nil),          // 21: jx.pb.Kick
-	(Result)(0),           // 22: jx.pb.Result
-	(*Vec2)(nil),          // 23: jx.pb.Vec2
-	(EntityType)(0),       // 24: jx.pb.EntityType
+	(Action)(0),           // 0: jx.pb.Action
+	(*Hello)(nil),         // 1: jx.pb.Hello
+	(*HelloAck)(nil),      // 2: jx.pb.HelloAck
+	(*LoginReq)(nil),      // 3: jx.pb.LoginReq
+	(*LoginRes)(nil),      // 4: jx.pb.LoginRes
+	(*CharSummary)(nil),   // 5: jx.pb.CharSummary
+	(*CharListReq)(nil),   // 6: jx.pb.CharListReq
+	(*CharListRes)(nil),   // 7: jx.pb.CharListRes
+	(*CharCreateReq)(nil), // 8: jx.pb.CharCreateReq
+	(*CharCreateRes)(nil), // 9: jx.pb.CharCreateRes
+	(*EnterWorldReq)(nil), // 10: jx.pb.EnterWorldReq
+	(*EnterWorldRes)(nil), // 11: jx.pb.EnterWorldRes
+	(*LeaveWorldReq)(nil), // 12: jx.pb.LeaveWorldReq
+	(*MoveReq)(nil),       // 13: jx.pb.MoveReq
+	(*AttackReq)(nil),     // 14: jx.pb.AttackReq
+	(*EntityAction)(nil),  // 15: jx.pb.EntityAction
+	(*EntityLife)(nil),    // 16: jx.pb.EntityLife
+	(*EntityInfo)(nil),    // 17: jx.pb.EntityInfo
+	(*EntitySpawn)(nil),   // 18: jx.pb.EntitySpawn
+	(*EntityDespawn)(nil), // 19: jx.pb.EntityDespawn
+	(*EntityMove)(nil),    // 20: jx.pb.EntityMove
+	(*ChatReq)(nil),       // 21: jx.pb.ChatReq
+	(*ChatMsg)(nil),       // 22: jx.pb.ChatMsg
+	(*Ping)(nil),          // 23: jx.pb.Ping
+	(*Pong)(nil),          // 24: jx.pb.Pong
+	(*Kick)(nil),          // 25: jx.pb.Kick
+	(Result)(0),           // 26: jx.pb.Result
+	(*Vec2)(nil),          // 27: jx.pb.Vec2
+	(EntityType)(0),       // 28: jx.pb.EntityType
 }
 var file_jx_client_proto_depIdxs = []int32{
-	22, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
-	22, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
-	4,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
-	22, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
-	4,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
-	22, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
-	23, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
-	23, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
-	24, // 8: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
-	23, // 9: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
-	23, // 10: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	23, // 11: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
-	13, // 12: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	23, // 13: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	23, // 14: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	23, // 15: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
-	22, // 16: jx.pb.Kick.reason:type_name -> jx.pb.Result
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	26, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
+	26, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
+	5,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
+	26, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
+	5,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
+	26, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
+	27, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
+	27, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
+	0,  // 8: jx.pb.EntityAction.action:type_name -> jx.pb.Action
+	27, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
+	28, // 10: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
+	27, // 11: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
+	27, // 12: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
+	27, // 13: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	0,  // 14: jx.pb.EntityInfo.doing:type_name -> jx.pb.Action
+	17, // 15: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
+	27, // 16: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	27, // 17: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	27, // 18: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	26, // 19: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_jx_client_proto_init() }
@@ -1570,13 +1918,14 @@ func file_jx_client_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_client_proto_rawDesc), len(file_jx_client_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   22,
+			NumEnums:      1,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_jx_client_proto_goTypes,
 		DependencyIndexes: file_jx_client_proto_depIdxs,
+		EnumInfos:         file_jx_client_proto_enumTypes,
 		MessageInfos:      file_jx_client_proto_msgTypes,
 	}.Build()
 	File_jx_client_proto = out.File

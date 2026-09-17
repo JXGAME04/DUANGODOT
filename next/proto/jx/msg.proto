@@ -25,6 +25,7 @@ enum MsgId {
   C2G_PING = 1007;
   C2G_MOVE = 1101;             // (zone)
   C2G_CHAT = 1102;             // (zone)
+  C2G_ATTACK = 1103;           // (zone)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -38,6 +39,8 @@ enum MsgId {
   G2C_ENTITY_DESPAWN = 2102;
   G2C_ENTITY_MOVE = 2103;
   G2C_CHAT_MSG = 2104;
+  G2C_ENTITY_ACTION = 2105;    // attack / hurt / death / revive (old NPC_HURT_SYNC, NPC_DEATH_SYNC, skill sync)
+  G2C_ENTITY_LIFE = 2106;
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

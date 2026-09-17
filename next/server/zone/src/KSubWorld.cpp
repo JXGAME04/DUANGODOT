@@ -132,6 +132,16 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_sex(e.sex);
     out.set_template_id(e.template_id);
     out.set_dir(e.dir);
+    out.set_life(e.life);
+    out.set_life_max(e.life_max);
+    switch (e.doing) {
+    case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
+    case KDoing::hurt: out.set_doing(pb::ACTION_HURT); break;
+    case KDoing::death: out.set_doing(pb::ACTION_DEATH); break;
+    case KDoing::revive: out.set_doing(pb::ACTION_REVIVE); break;
+    default: out.set_doing(pb::ACTION_STAND); break;
+    }
+    out.set_doing_frames(e.frame_total);
     if (e.moving) {
         set_vec(out.add_path(), e.target());
         for (const Pos& p : e.path) set_vec(out.add_path(), p);
@@ -154,6 +164,16 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.sid = sid;
     e.player_id = role.player_id();
     e.speed = role.stats().move_speed() > 0 ? static_cast<std::uint32_t>(role.stats().move_speed()) : cfg_.default_speed;
+    // BaseValue.ini of the old client ([Common] AttackFrame 18, HurtFrame 12); life and damage are
+    // placeholders until the attribute system
+    e.attack_frame = 18;
+    e.hurt_frame = 12;
+    e.death_frame = 15;
+    e.hit_recover = 12;
+    e.life_max = 100;
+    e.life = e.life_max;
+    e.min_damage = 5;
+    e.max_damage = 10;
 
     Pos start = cfg_.spawn_point;
     if (role.has_position() && role.position().zone_id() == cfg_.zone_id && role.position().has_pos()) {
@@ -248,6 +268,13 @@ bool KSubWorld::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
     KNpc& e = entities_.at(pit->second);
+    // a corpse or a hit character cannot walk; walking interrupts an attack (KNpc::DoWalk)
+    if (!e.alive() || e.doing == KDoing::hurt) return false;
+    e.attack_target = EntityId{};
+    if (e.doing == KDoing::attack) {
+        e.doing = KDoing::stand;
+        e.frame_cur = 0;
+    }
     e.move_seq = seq;
     Pos dest = clamp(target);
     std::size_t waypoints = 1;
@@ -292,6 +319,7 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     e.template_id = template_id;
     e.speed = cfg_.default_speed / 2;
     e.wander_radius = wander_radius;
+    apply_template(e);
     e.home = clamp(pos);
     if (cfg_.map) e.home = cfg_.map->nearest_walkable(e.home);
     e.set_pos(e.home);
@@ -372,7 +400,8 @@ void KSubWorld::tick()
     std::vector<EntityId> moved, arrived;
     for (const EntityId id : scratch_ids_) {
         KNpc& e = entities_.at(id);
-        if (e.kind != KNpcKind::player && e.wander_radius > 0 && !e.moving && tick_ >= e.next_wander_tick) wander(e);
+        update_action(e);
+        if (e.kind != KNpcKind::player && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
         std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
         while (budget > 0 && e.moving) {
@@ -403,6 +432,257 @@ void KSubWorld::tick()
         if (grid_.move(id, e.pos(), from, to)) on_cell_change(e, from, to);
     }
     for (const EntityId id : arrived) emit_move(entities_.at(id));
+}
+
+// ---- combat ---------------------------------------------------------------------------------
+
+// KNpc::Load: the template's frame counts and (placeholder) life / damage.  Without a template
+// table the old KNpc defaults apply, with a small life so test monsters can die.
+void KSubWorld::apply_template(KNpc& e) const
+{
+    const KNpcTemplate* t = cfg_.templates ? cfg_.templates->find(e.template_id) : nullptr;
+    if (t == nullptr) {
+        e.life_max = e.kind == KNpcKind::monster ? 30u : 100u;
+        e.life = e.life_max;
+        return;
+    }
+    e.attack_frame = t->attack_frame;
+    e.hurt_frame = t->hurt_frame;
+    e.death_frame = t->death_frame;
+    e.hit_recover = t->hit_recover;
+    e.revive_frame = t->revive_frame;
+    e.min_damage = std::max(1u, t->min_damage);
+    e.max_damage = std::max(e.min_damage, t->max_damage);
+    // placeholder for GetNpcKeyData(series, level, "Life", params) of the level scripts
+    e.life_max = std::max(10u, std::max(1u, t->life_param) * std::max(1u, e.level));
+    e.life = e.life_max;
+}
+
+bool KSubWorld::in_reach(const KNpc& a, const KNpc& b) const noexcept
+{
+    const std::int64_t dx = a.pos().x - b.pos().x;
+    const std::int64_t dy = a.pos().y - b.pos().y;
+    return dx * dx + dy * dy <= static_cast<std::int64_t>(kMeleeReach) * kMeleeReach;
+}
+
+bool KSubWorld::attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq)
+{
+    const auto pit = players_.find(sid);
+    if (pit == players_.end()) return false;
+    KNpc& e = entities_.at(pit->second);
+    if (!e.alive() || e.doing == KDoing::hurt) return false;
+    const auto tit = entities_.find(target);
+    if (tit == entities_.end() || tit->first == e.id || !tit->second.alive()) return false;
+    if (tit->second.kind == KNpcKind::npc || tit->second.kind == KNpcKind::drop) return false;   // townsfolk cannot be attacked
+    log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
+    e.move_seq = seq;
+    e.attack_target = target;
+    e.approach_tries = 0;
+    if (in_reach(e, tit->second)) {
+        if (e.moving) {
+            e.set_pos(e.pos());
+            emit_move(e);
+        }
+        if (e.doing == KDoing::stand) start_attack(e, tit->second);
+    } else {
+        // like the old client: walk up to the target first, the swing starts on arrival
+        approach(e, tit->second);
+    }
+    log::trace("zone.fight", "attack request", {log::kv("entity", e.id), log::kv("target", target), log::kv("seq", seq),
+                                                 log::kv("in_reach", in_reach(e, tit->second))});
+    return true;
+}
+
+// Walks toward a target that is out of reach (KNpc::Attack -> NewPath in the old core); a
+// target that keeps running away is given up after a few tries.
+void KSubWorld::approach(KNpc& e, const KNpc& target)
+{
+    if (e.approach_tries >= 5) {
+        e.attack_target = EntityId{};
+        return;
+    }
+    ++e.approach_tries;
+    Pos dest = clamp(target.pos());
+    if (cfg_.map) {
+        dest = cfg_.map->nearest_walkable(dest);
+        std::vector<Pos> path = cfg_.map->find_path(e.pos(), dest);
+        if (path.empty()) {
+            e.attack_target = EntityId{};
+            return;
+        }
+        e.set_path(std::move(path));
+    } else {
+        e.set_target(dest);
+    }
+    emit_move(e);
+}
+
+// KNpc::DoAttack: the swing lasts AttackFrame * 100 / (100 + attack speed) frames.
+void KSubWorld::start_attack(KNpc& e, KNpc& target)
+{
+    e.doing = KDoing::attack;
+    e.frame_total = std::max(1u, e.attack_frame * 100 / (100 + e.attack_speed));
+    e.frame_cur = 0;
+    e.attack_target = target.id;
+    const int d = g_GetDirIndex(e.pos().x, e.pos().y, target.pos().x, target.pos().y);
+    if (d >= 0) e.dir = static_cast<std::uint32_t>(d);
+    emit_action(e, pb::ACTION_ATTACK, target.id);
+}
+
+// Per tick: KNpc::OnSpecial1 / OnHurt / OnDeath / OnRevive, then keep swinging at the target.
+void KSubWorld::update_action(KNpc& e)
+{
+    switch (e.doing) {
+    case KDoing::attack:
+        if (e.wait_for_frame()) {
+            e.doing = KDoing::stand;
+        } else if (e.reach_frame(kAttackEffectPercent)) {
+            const auto it = entities_.find(e.attack_target);
+            if (it != entities_.end() && it->second.alive()) hit(e, it->second);
+        }
+        break;
+    case KDoing::hurt:
+        if (e.wait_for_frame()) e.doing = KDoing::stand;
+        break;
+    case KDoing::death:
+        if (e.wait_for_frame()) do_revive(e);
+        break;
+    case KDoing::revive:
+        if (e.wait_for_frame()) revive(e);
+        break;
+    default:
+        break;
+    }
+    if (e.doing == KDoing::stand && e.attack_target.value != 0) {
+        const auto it = entities_.find(e.attack_target);
+        if (it == entities_.end() || !it->second.alive()) {
+            e.attack_target = EntityId{};   // dead or gone
+        } else if (in_reach(e, it->second)) {
+            if (e.moving) {
+                e.set_pos(e.pos());   // arrived within reach: stop and swing
+                emit_move(e);
+            }
+            start_attack(e, it->second);
+        } else if (!e.moving) {
+            approach(e, it->second);
+        }
+    }
+}
+
+// The swing lands: placeholder damage (the old formula with attack rating, defence and
+// resistances comes with the skill system), then KNpc::DoHurt or DoDeath on the target.
+void KSubWorld::hit(KNpc& attacker, KNpc& target)
+{
+    const std::uint32_t span = attacker.max_damage >= attacker.min_damage ? attacker.max_damage - attacker.min_damage + 1 : 1;
+    const std::uint32_t dmg = attacker.min_damage + static_cast<std::uint32_t>(rng_() % span);
+    target.life = dmg >= target.life ? 0u : target.life - dmg;
+    log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("life", target.life)});
+    emit_life(target, -static_cast<std::int32_t>(dmg), attacker.id);
+    if (target.life == 0) {
+        do_death(target, attacker.id);
+    } else {
+        do_hurt(target, attacker.id);
+    }
+}
+
+// KNpc::DoHurt (server side): HitRecover lowers the chance and the length of the stagger.
+void KSubWorld::do_hurt(KNpc& e, EntityId source)
+{
+    if (e.doing == KDoing::hurt || !e.alive()) return;
+    if (e.hit_recover >= 100) return;
+    const std::uint32_t chance = kMinHurtPercent + e.hit_recover * (100 - kMinHurtPercent) / 100;
+    if (rng_() % 100 >= chance) return;   // g_RandPercent
+    e.doing = KDoing::hurt;
+    e.frame_total = std::max(1u, e.hurt_frame * (100 - e.hit_recover) / 100);
+    e.frame_cur = 0;
+    if (e.moving) e.set_pos(e.pos());   // the hit interrupts walking
+    emit_action(e, pb::ACTION_HURT, source);
+}
+
+// KNpc::DoDeath: players outside fight mode keep 1 life (the old rule); npcs play the death
+// animation, then wait ReviveFrame frames out of sight and respawn at home.
+void KSubWorld::do_death(KNpc& e, EntityId killer)
+{
+    if (e.doing == KDoing::death) return;
+    if (e.kind == KNpcKind::player) {
+        e.life = 1;
+        emit_life(e, 0, killer);
+        return;
+    }
+    e.doing = KDoing::death;
+    e.frame_total = std::max(1u, e.death_frame);
+    e.frame_cur = 0;
+    e.attack_target = EntityId{};
+    if (e.moving) e.set_pos(e.pos());
+    log::debug("zone.fight", "death", {log::kv("entity", e.id), log::kv("killer", killer)});
+    emit_action(e, pb::ACTION_DEATH, killer);
+}
+
+// KNpc::DoRevive (server): the corpse leaves the region for ReviveFrame frames.
+void KSubWorld::do_revive(KNpc& e)
+{
+    e.doing = KDoing::revive;
+    e.frame_total = std::max(1u, e.revive_frame);
+    e.frame_cur = 0;
+    scratch_sids_.clear();
+    viewers_of(grid_.cell_of(e.pos()), scratch_sids_, e.id);
+    if (!scratch_sids_.empty()) {
+        pb::EntityDespawn gone;
+        gone.add_entity_ids(e.id.value);
+        emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), gone);
+    }
+    grid_.remove(e.id);
+}
+
+// KNpc::Revive: back at the home position with full life.
+void KSubWorld::revive(KNpc& e)
+{
+    e.life = e.life_max;
+    e.doing = KDoing::stand;
+    e.frame_total = 0;
+    e.frame_cur = 0;
+    e.set_pos(e.home);
+    grid_.insert(e.id, e.home);
+    scratch_sids_.clear();
+    viewers_of(grid_.cell_of(e.home), scratch_sids_, e.id);
+    if (!scratch_sids_.empty()) {
+        pb::EntitySpawn me;
+        fill_info(e, *me.add_entities());
+        emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), me);
+    }
+    log::debug("zone.fight", "revived", {log::kv("entity", e.id)});
+}
+
+void KSubWorld::broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg)
+{
+    scratch_sids_.clear();
+    viewers_of(grid_.cell_of(e.pos()), scratch_sids_, e.id);
+    if (e.kind == KNpcKind::player && e.sid != 0) scratch_sids_.push_back(e.sid);
+    if (!scratch_sids_.empty()) emit(scratch_sids_, msg_id, msg);
+}
+
+void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target)
+{
+    pb::EntityAction a;
+    a.set_entity_id(e.id.value);
+    a.set_action(action);
+    a.set_target(target.value);
+    a.set_dir(e.dir);
+    a.set_frames(e.frame_total);
+    set_vec(a.mutable_pos(), e.pos());
+    a.set_tick(tick_);
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_ACTION), a);
+}
+
+void KSubWorld::emit_life(const KNpc& e, std::int32_t delta, EntityId source)
+{
+    pb::EntityLife l;
+    l.set_entity_id(e.id.value);
+    l.set_life(e.life);
+    l.set_life_max(e.life_max);
+    l.set_delta(delta);
+    l.set_source(source.value);
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_LIFE), l);
 }
 
 bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
