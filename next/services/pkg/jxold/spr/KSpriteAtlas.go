@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -90,6 +91,11 @@ func (s *Sprite) PackAtlas(source string) (*image.NRGBA, AtlasMeta) {
 // WriteAtlas saves <base>.png and <base>.json.
 func (s *Sprite) WriteAtlas(base, source string) error {
 	img, meta := s.PackAtlas(source)
+	// the caller passes ".../sprites/<id>"; the first export of a run is the one that has to
+	// make that folder, and without this every sprite failed into a clean output directory
+	if err := os.MkdirAll(filepath.Dir(base), 0o755); err != nil {
+		return err
+	}
 	pf, err := os.Create(base + ".png")
 	if err != nil {
 		return err

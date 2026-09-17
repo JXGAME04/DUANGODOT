@@ -79,7 +79,7 @@ Chia theo nhóm; cột **giá** là ước lượng công sức, không phải c
 
 | # | Việc | Giá | Ghi chú |
 |---|---|---|---|
-| U1 | Bộ xuất bố cục UI từ `.ini` sang JSON | vừa | Client JX1 có `\Ui\Ui3\登陆.ini`, `选游戏存档人物.ini`, `新建角色.ini` với toạ độ, cỡ chữ, màu, ảnh nền. |
+| ~~U1~~ | ~~Bộ xuất bố cục UI từ `.ini` sang JSON~~ **xong** | vừa | Client JX1 có `\Ui\Ui3\登陆.ini`, `选游戏存档人物.ini`, `新建角色.ini` với toạ độ, cỡ chữ, màu, ảnh nền. |
 | U2 | Màn đăng nhập theo bản 2.0 | vừa | Client 2.0 **không** có ba tệp đó; phải lấy bố cục JX1 rồi ghép ảnh 2.0, hoặc mổ tiếp `gamecl.exe` (đang bị nén). |
 | U3 | Màn chọn nhân vật | vừa | |
 | U4 | Màn tạo nhân vật | vừa | Có sẵn các ô: tên, nam/nữ, và ngũ hành Kim/Mộc/Thuỷ/Hoả/Thổ. |
@@ -137,6 +137,44 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 — U1: bộ xuất bố cục giao diện từ `.ini` sang JSON
+
+`jxassets export-ui <scheme>` đọc một tệp `.ini` dưới `\Ui\<scheme>\` — đúng thứ mà
+`KUiLogin::LoadScheme` đọc — rồi ghi ra `client/assets/ui/<tên>.json` kèm mọi ảnh nó gọi tên. Toạ độ
+giữ nguyên như bản cũ: khả vẽ là 800x600, client tự co giãn.
+
+| màn | lấy từ | ô |
+|---|---|---:|
+| `login` | `\Ui\Ui3\登陆.ini` | 7 |
+| `login_bg` | `\Ui\Ui3\登陆过程背景窗口.ini` | 14 |
+| `select_role` | `\Ui\Ui3\选游戏存档人物.ini` | 16 |
+| `new_role` | `\Ui\Ui3\新建角色.ini` | 12 |
+
+Giữ đủ những gì bản cũ dùng: khung chữ nhật, ảnh và số khung cho từng trạng thái nút
+(`Up`/`Down`/`Over`), cỡ chữ, canh lề, màu chữ và màu viền, `MaxLen`, `Type=1` là ô mật khẩu. Mọi khoá
+khác vào `extra` nên không mất gì.
+
+Hai thứ phải làm thêm mới đủ:
+
+- **Ảnh nền `.jpg`** (`ImgType=1`): không phải `.spr` nên bộ giải mã sprite từ chối. Giờ chép nguyên
+  byte ra `client/assets/ui/images/<id>.jpg`.
+- **Ảnh nhân vật**: bản cũ không ghi tên từng ảnh mà **ghép tên**
+  (`KUiSelPlayer::GetRoleImageName`: `<PlayerImgPrefix>_<ngũ hành>_<giới>_<n>.spr`). Bộ xuất sinh đủ
+  **30** tên — 5 ngũ hành x 2 giới x 3 góc — và ghi vào `portraits` của màn.
+
+**Ảnh lấy từ bản 2.0.** Client 2.0 không có bốn tệp `.ini` này nhưng **có đủ ảnh**. Chạy với chuỗi dự
+phòng thì chỉ bốn `.ini` rơi về client JX1, còn **cả 49 ảnh đều là ảnh 2.0**:
+
+```bash
+build/go/jxassets.exe export-ui Ui3 -client "<client 2.0>;<bin/Client>" -out client/assets
+```
+
+**Lỗi bắt được nhờ test**: `WriteAtlas` không tự tạo thư mục `sprites/`, nên xuất vào một thư mục
+trống thì **mọi sprite đều hỏng lặng lẽ**. Đã sửa trong `KSpriteAtlas.go`.
+
+Ba test mới trong `KUiExport_test.go` chốt ô tài khoản ở 351,238 156x18 `MaxLen=80`, ô mật khẩu
+`Type=1`, nút Đăng nhập 3 khung 0/1/2, và đủ 30 ảnh nhân vật.
 
 ### 2026-09-17 — N1 và N2: chặn số người nhận, và vùng nhìn đúng hình màn hình
 

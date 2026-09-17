@@ -538,6 +538,48 @@ func main() {
 		reportFallback(set)
 		fmt.Printf("export-all: %d maps ok, %d skipped (no .wor), %d failed, %d sprites, %s\n", ok, missing, failed, ex.Exported, time.Since(start).Round(time.Second))
 
+	case "export-ui":
+		// export-ui [scheme]: the login, character select and character create windows of the old
+		// client, as JSON layouts plus the sprites they name.  The JX1 client keeps them under
+		// \Ui\Ui3; the VLTK 2.0 client uses ui3_800 / ui3_1024 for its in-game windows.
+		scheme := "Ui3"
+		if len(args) > 1 {
+			scheme = args[1]
+		}
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		ex := export.New(set, out)
+		defer prepareExporter(ex, dir, set)()
+		// GBK file names, written as bytes so this source stays pure ASCII.
+		screens := []struct{ name, file string }{
+			{"login", "\xb5\xc7\xc2\xbd.ini"}, // login
+			{"login_bg", "\xb5\xc7\xc2\xbd\xb9\xfd\xb3\xcc\xb1\xb3\xbe\xb0\xb4\xb0\xbf\xda.ini"}, // login background
+			{"select_role", "\xd1\xa1\xd3\xce\xcf\xb7\xb4\xe6\xb5\xb5\xc8\xcb\xce\xef.ini"},      // character select
+			{"new_role", "\xd0\xc2\xbd\xa8\xbd\xc7\xc9\xab.ini"},                                 // character create
+			{"new_role_series", "\xd0\xc2\xbd\xa8\xbd\xc7\xc9\xab\xd1\xa1\xca\xf4\xd0\xd4.ini"},  // create: the five elements
+		}
+		ok, missing := 0, 0
+		for _, sc := range screens {
+			screen, err := ex.Ui(sc.name, scheme, sc.file)
+			if err != nil {
+				missing++
+				fmt.Printf("  %-16s not in this client (%v)\n", sc.name, err)
+				continue
+			}
+			ok++
+			fmt.Printf("  %-16s %2d widgets, canvas %dx%d\n", sc.name, len(screen.Widgets), screen.Width, screen.Height)
+		}
+		reportFallback(set)
+		fmt.Printf("export-ui: %d screens, %d missing, %d sprites -> %s\n", ok, missing, ex.Exported, filepath.Join(out, "ui"))
+		if ok == 0 {
+			os.Exit(1)
+		}
+
 	case "export-npcres":
 		// export-npcres [mapid...]: appearance tables (npcs.txt, Settings/npcres) plus the sprites
 		// of the npcs placed on those maps and of the two main characters -> <out>/npcres, <out>/sprites
