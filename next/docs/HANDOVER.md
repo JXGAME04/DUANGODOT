@@ -138,6 +138,33 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-17 (khuya) — console của `jx_zone` và gateway: từng dòng, tiếng Việt, có màu
+
+Trước: console in đúng dòng JSON của tệp log — máy đọc thì tốt, người ngồi trước cửa sổ thì không.
+Giờ tách đôi, theo đúng yêu cầu "thông báo phải rõ ràng từng dòng":
+
+- **Tệp log** giữ nguyên JSON tiếng Anh (công cụ, `dev.py`, Loki… không đổi gì).
+- **Console** in mỗi sự kiện một câu: `giờ  MỨC  [mảng]  câu · trường=giá trị · …`, mức log có màu
+  (xanh / vàng / đỏ), Windows tự chuyển sang UTF‑8. Ví dụ thật:
+  `14:45:22.734 THÔNG TIN [tài khoản] Đăng nhập thành công · tài khoản=smoke1 · mã tài khoản=3001 · phiên=…`
+- Mã nguồn vẫn ghi `msg` tiếng Anh cố định; console tra **`config/log.vi.json`** — 147 câu, 12 mảng,
+  159 tên trường. C++ (`jx::log`) và Go (`pkg/log`) dùng **chung một bảng, một định dạng**.
+  Thiếu câu nào thì in tiếng Anh chứ không mất dòng. `log.lang = "en"` để xem tiếng Anh,
+  `log.console_style = "json"` khi cần nối console vào công cụ.
+- Lúc khởi động, **mỗi thiết lập đang dùng in một dòng** (sau khi gộp tệp, `JX_*`, tham số dòng
+  lệnh) thay cho một khối JSON dài; khoá có `password/secret/token` hiện `***`.
+- `python tools/check_log_catalog.py`: liệt kê câu / mảng chưa có tiếng Việt, thoát mã 1 — CI chạy
+  lệnh này, nên thêm dòng log mới là phải thêm câu của nó.
+
+Test: C++ 124/124 (Debug + Release, thêm test console), Go `pkg/log` + `pkg/config`, smoke thật trên
+cổng lệch. Tài liệu: [LOGGING.md](LOGGING.md) §1b.
+
+**CI lần đầu chạy thật** (commit `43a7d8c`): Linux GCC hỏng vì `Result.h` thiếu `<cstdint>` — MSVC
+kéo header hộ nên Windows không thấy. `tools/check_includes.py` tìm loại lỗi này trong 1 giây (theo
+chuỗi include của chính dự án), có `--fix`; nó tìm ra **48 chỗ**, đã thêm đủ, CI chạy nó trước khi
+build. Job Windows "Test (Release)" chỉ nói "exit code 8": `tools/ci_annotate.py` chạy lại test hỏng
+và biến từng `REQUIRE` hỏng thành annotation đọc được công khai.
+
 ### 2026-09-17 (tối) — M8 làm lại: luồng đăng nhập bản 2.0, khớp client thật 99,9 % điểm ảnh
 
 Phiên trước dựng ba màn từ bố cục **đoán** (nó không tìm thấy các `.ini` của 2.0). Giờ bố cục thật

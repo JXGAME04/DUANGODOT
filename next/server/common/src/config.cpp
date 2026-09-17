@@ -1,5 +1,6 @@
 #include "jx/config.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cstddef>
@@ -62,6 +63,33 @@ std::vector<std::string> split_path(std::string_view dotted_path)
         pos = dot + 1;
     }
     return keys;
+}
+
+std::vector<std::pair<std::string, std::string>> Config::flatten() const
+{
+    std::vector<std::pair<std::string, std::string>> out;
+    const nlohmann::json flat = root_.flatten();     // {"/zone/port": 17001, ...}
+    for (const auto& [pointer, value] : flat.items()) {
+        std::string key;
+        bool note = false;
+        std::size_t start = 1;                         // skip the leading '/'
+        while (start <= pointer.size()) {
+            const std::size_t end = std::min(pointer.find('/', start), pointer.size());
+            const std::string part = pointer.substr(start, end - start);
+            if (!part.empty() && part[0] == '_') note = true;
+            if (!key.empty()) key += '.';
+            key += part;
+            start = end + 1;
+        }
+        if (note || key.empty()) continue;
+        std::string lower = key;
+        std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const bool secret = lower.find("password") != std::string::npos || lower.find("secret") != std::string::npos ||
+                            lower.find("token") != std::string::npos;
+        out.emplace_back(key, secret ? std::string("***") : (value.is_string() ? value.get<std::string>() : value.dump()));
+    }
+    std::sort(out.begin(), out.end());
+    return out;
 }
 
 std::string env_key_to_path(std::string_view key, std::string_view prefix)

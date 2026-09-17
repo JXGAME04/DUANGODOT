@@ -80,11 +80,17 @@ int main(int argc, char** argv)
     lo.process = "zone";
     lo.default_level = jx::log::level_from_name(cfg.get_string("log.level", "info"));
     lo.console = cfg.get_bool("log.console", true);
+    lo.console_style = cfg.get_string("log.console_style", "text");   // "text" for a person, "json" for a pipe
+    lo.language = cfg.get_string("log.lang", "vi");                   // "vi" reads config/log.vi.json, "en" = as in the code
+    lo.catalog = cfg.get_string("log.catalog", "");
     lo.file = cfg.get_string("log.file", "");
     jx::log::init(lo);
     jx::log::set_levels(cfg.get_string("log.levels", ""));
     jx::log::info("boot", "zone starting", {jx::log::kv("version", kVersion), jx::log::kv("config", config_path.empty() ? "(defaults)" : config_path)});
-    jx::log::info("cfg", "effective config", {jx::log::kv("json", cfg.dump(-1))});
+    // one line per setting: what the zone really runs with, after the file, JX_* and --set
+    for (const auto& [key, value] : cfg.flatten()) {
+        jx::log::info("cfg", "setting", {jx::log::kv("key", key), jx::log::kv("value", value)});
+    }
 
     jx::zone::KGameServerConfig zc;
     zc.listen_address = cfg.get_string("zone.listen", zc.listen_address);

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -236,4 +237,44 @@ func (c *Config) Bool(path string, def bool) bool {
 func (c *Config) Dump() string {
 	b, _ := json.MarshalIndent(c.root, "", "  ")
 	return string(b)
+}
+
+// Flatten returns every setting as {"gateway.listen", ":17100"}, sorted by key, for a start-up log
+// a person can read line by line.  Keys that start with '_' are notes, not settings; a value whose
+// key smells of a secret (password, secret, token) is shown as "***".  Same rule as the C++ side.
+func (c *Config) Flatten() [][2]string {
+	var out [][2]string
+	var walk func(prefix string, v any)
+	walk = func(prefix string, v any) {
+		switch t := v.(type) {
+		case map[string]any:
+			for k, child := range t {
+				if strings.HasPrefix(k, "_") {
+					continue
+				}
+				key := k
+				if prefix != "" {
+					key = prefix + "." + k
+				}
+				walk(key, child)
+			}
+		case []any:
+			for i, child := range t {
+				walk(prefix+"."+strconv.Itoa(i), child)
+			}
+		default:
+			lower := strings.ToLower(prefix)
+			value := fmt.Sprint(t)
+			if s, ok := t.(string); ok {
+				value = s
+			}
+			if strings.Contains(lower, "password") || strings.Contains(lower, "secret") || strings.Contains(lower, "token") {
+				value = "***"
+			}
+			out = append(out, [2]string{prefix, value})
+		}
+	}
+	walk("", c.root)
+	sort.Slice(out, func(a, b int) bool { return out[a][0] < out[b][0] })
+	return out
 }

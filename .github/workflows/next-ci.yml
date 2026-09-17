@@ -64,6 +64,10 @@ jobs:
         run: if [ "$RUNNER_OS" = "Windows" ]; then echo "PY=python" >> "$GITHUB_ENV"; else echo "PY=python3" >> "$GITHUB_ENV"; fi
       - name: Standard headers are included where they are used
         run: $PY tools/check_includes.py
+      # the console of jx_zone and the gateway speaks Vietnamese through config/log.vi.json:
+      # a new log line has to come with its sentence
+      - name: Every log message has its sentence in the console catalogue
+        run: $PY tools/check_log_catalog.py
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
       - name: Build (Debug)

@@ -60,15 +60,23 @@ func main() {
 		Level:   log.ParseLevel(cfg.String("log.level", "info")),
 		Levels:  cfg.String("log.levels", ""),
 		Console: cfg.Bool("log.console", true),
-		File:    cfg.String("log.file", ""),
-		Process: "gateway",
+		// the console is for a person: sentences, in Vietnamese through config/log.vi.json
+		// ("text" / "vi"); "json" / "en" for a pipe or an English reader.  The file stays JSON.
+		ConsoleStyle: cfg.String("log.console_style", "text"),
+		Language:     cfg.String("log.lang", "vi"),
+		Catalog:      cfg.String("log.catalog", ""),
+		File:         cfg.String("log.file", ""),
+		Process:      "gateway",
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	defer log.Shutdown()
 	log.Info("boot", "gateway starting", log.F("version", gateway.Version), log.F("config", *cfgPath))
-	log.Info("cfg", "effective config", log.F("json", strings.ReplaceAll(cfg.Dump(), "\n", "")))
+	// one line per setting: what the gateway really runs with, after the file, JX_* and -set
+	for _, kv := range cfg.Flatten() {
+		log.Info("cfg", "setting", log.F("key", kv[0]), log.F("value", kv[1]))
+	}
 
 	store, err := persist.OpenFileStore(cfg.String("gateway.data_dir", "data/gateway"))
 	if err != nil {

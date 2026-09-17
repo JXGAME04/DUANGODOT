@@ -11,22 +11,43 @@
 #include <mutex>
 #include <shared_mutex>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 
 #include <fmt/chrono.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/async.h>
+#include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/null_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace jx::log {
 namespace {
 
+// What the text console says instead of the English of the code (config/log.<language>.json).
+struct Catalog {
+    std::unordered_map<std::string, std::string> levels, categories, fields, messages;
+    std::size_t size() const { return levels.size() + categories.size() + fields.size() + messages.size(); }
+};
+
 struct State {
-    std::shared_ptr<spdlog::logger> logger;
+    std::shared_ptr<spdlog::logger> logger;           // the file: JSON lines
+    std::shared_ptr<spdlog::logger> console;          // the console: text (or the same JSON)
+    Catalog catalog;
     Options options;
     std::shared_mutex levels_mutex;
     std::unordered_map<std::string, Level> levels;   // category -> level ("" = default)
@@ -65,6 +86,94 @@ void push_ring(State& s, const std::string& line)
     while (s.ring.size() > s.options.ring_capacity && !s.ring.empty()) {
         s.ring.pop_front();
     }
+}
+
+const std::string& translated(const std::unordered_map<std::string, std::string>& table, const std::string& key)
+{
+    const auto it = table.find(key);
+    return it != table.end() && !it->second.empty() ? it->second : key;
+}
+
+// Columns a UTF-8 string takes on screen, close enough for padding: one per code point.
+std::size_t columns(std::string_view s)
+{
+    std::size_t n = 0;
+    for (const char c : s) {
+        if ((static_cast<unsigned char>(c) & 0xC0u) != 0x80u) ++n;
+    }
+    return n;
+}
+
+std::filesystem::path find_catalog(const Options& o)
+{
+    if (!o.catalog.empty()) return o.catalog;
+    const std::filesystem::path name = std::filesystem::path("config") / ("log." + o.language + ".json");
+    std::error_code ec;
+    std::filesystem::path dir = std::filesystem::current_path(ec);
+    for (int up = 0; up < 4 && !dir.empty(); ++up) {
+        if (std::filesystem::exists(dir / name, ec)) return dir / name;
+        if (!dir.has_parent_path() || dir.parent_path() == dir) break;
+        dir = dir.parent_path();
+    }
+    return {};
+}
+
+Catalog load_catalog(const std::filesystem::path& path)
+{
+    Catalog c;
+    if (path.empty()) return c;
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return c;
+    const nlohmann::json j = nlohmann::json::parse(in, nullptr, false);
+    if (!j.is_object()) return c;
+    const auto take = [&j](const char* key, std::unordered_map<std::string, std::string>& into) {
+        const auto it = j.find(key);
+        if (it == j.end() || !it->is_object()) return;
+        for (const auto& [k, v] : it->items()) {
+            if (v.is_string()) into[k] = v.get<std::string>();
+        }
+    };
+    take("levels", c.levels);
+    take("categories", c.categories);
+    take("fields", c.fields);
+    take("messages", c.messages);
+    return c;
+}
+
+// %* of the console pattern: the level in the catalogue's words, padded so the lines align.
+class LevelLabel final : public spdlog::custom_flag_formatter {
+public:
+    explicit LevelLabel(std::unordered_map<std::string, std::string> labels) : labels_(std::move(labels)) {}
+
+    void format(const spdlog::details::log_msg& msg, const std::tm&, spdlog::memory_buf_t& dest) override
+    {
+        static constexpr const char* kNames[] = {"trace", "debug", "info", "warn", "error", "fatal", "off"};
+        static constexpr const char* kEnglish[] = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF"};
+        const int level = std::clamp(static_cast<int>(msg.level), 0, 6);
+        const auto it = labels_.find(kNames[level]);
+        const std::string label = it != labels_.end() ? it->second : std::string(kEnglish[level]);
+        dest.append(label.data(), label.data() + label.size());
+        for (std::size_t n = columns(label); n < 12; ++n) dest.push_back(' ');
+    }
+
+    std::unique_ptr<spdlog::custom_flag_formatter> clone() const override { return std::make_unique<LevelLabel>(labels_); }
+
+private:
+    std::unordered_map<std::string, std::string> labels_;
+};
+
+spdlog::level::level_enum spd_level(Level level) noexcept
+{
+    switch (level) {
+    case Level::trace: return spdlog::level::trace;
+    case Level::debug: return spdlog::level::debug;
+    case Level::info:  return spdlog::level::info;
+    case Level::warn:  return spdlog::level::warn;
+    case Level::error: return spdlog::level::err;
+    case Level::fatal: return spdlog::level::critical;
+    case Level::off:   return spdlog::level::off;
+    }
+    return spdlog::level::info;
 }
 
 std::string trim(std::string_view v)
@@ -110,9 +219,23 @@ void init(const Options& options)
     shutdown();
     s.options = options;
 
-    std::vector<spdlog::sink_ptr> sinks;
+    const bool text_console = options.console && options.console_style != "json";
+    s.catalog = text_console && options.language != "en" ? load_catalog(find_catalog(options)) : Catalog{};
+    spdlog::sink_ptr console_sink;
     if (options.console) {
-        sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+#ifdef _WIN32
+        ::SetConsoleOutputCP(CP_UTF8);     // the sentences are UTF-8; a Windows console defaults to an OEM page
+#endif
+        console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        if (text_console) {
+            auto formatter = std::make_unique<spdlog::pattern_formatter>();
+            formatter->add_flag<LevelLabel>('*', s.catalog.levels).set_pattern("%H:%M:%S.%e %^%*%$ %v");
+            console_sink->set_formatter(std::move(formatter));
+        }
+    }
+    std::vector<spdlog::sink_ptr> sinks;
+    if (console_sink && !text_console) {
+        sinks.push_back(console_sink);     // JSON on the console: the same lines as the file
     }
     if (!options.file.empty()) {
         std::filesystem::create_directories(options.file.parent_path().empty() ? std::filesystem::path(".") : options.file.parent_path());
@@ -129,12 +252,25 @@ void init(const Options& options)
         s.logger = std::make_shared<spdlog::async_logger>("jx", sinks.begin(), sinks.end(),
                                                           spdlog::thread_pool(),
                                                           spdlog::async_overflow_policy::overrun_oldest);
+        if (text_console) {
+            s.console = std::make_shared<spdlog::async_logger>("jx.console", console_sink, spdlog::thread_pool(),
+                                                               spdlog::async_overflow_policy::overrun_oldest);
+        }
     } else {
         s.logger = std::make_shared<spdlog::logger>("jx", sinks.begin(), sinks.end());
+        if (text_console) s.console = std::make_shared<spdlog::logger>("jx.console", console_sink);
     }
-    s.logger->set_pattern("%v");            // the line is already a complete JSON object
+    for (const spdlog::sink_ptr& sink : sinks) {
+        sink->set_pattern("%v");            // the line is already a complete JSON object
+    }
     s.logger->set_level(spdlog::level::trace);
     s.logger->flush_on(spdlog::level::warn);
+    if (s.console) {
+        s.console->set_level(spdlog::level::trace);
+        s.console->flush_on(spdlog::level::info);   // a person is watching: no line may wait
+        spdlog::drop("jx.console");
+        spdlog::register_logger(s.console);
+    }
     // register so the periodic flusher covers it: a killed process loses at most one second
     spdlog::drop("jx");
     spdlog::register_logger(s.logger);
@@ -155,6 +291,11 @@ void init(const Options& options)
 void shutdown()
 {
     State& s = state();
+    if (s.console) {
+        s.console->flush();
+        spdlog::drop("jx.console");
+        s.console.reset();
+    }
     if (s.logger) {
         const bool was_async = s.options.async;
         s.logger->flush();
@@ -173,6 +314,40 @@ void flush()
 {
     State& s = state();
     if (s.logger) s.logger->flush();
+    if (s.console) s.console->flush();
+}
+
+std::size_t catalog_size() noexcept
+{
+    return state().catalog.size();
+}
+
+// "[khởi động] Zone đã mở cổng, chờ gateway kết nối · cổng=17001 · phiên=42"
+std::string format_text(Level level, std::string_view category, std::string_view msg,
+                        const std::vector<Field>& fields, const Context& context)
+{
+    (void)level;
+    const Catalog& c = state().catalog;
+    // a category is translated by its first part: "zone.fight" reads as "zone" + ".fight"
+    std::string cat(category);
+    const auto dot = cat.find('.');
+    const std::string head = cat.substr(0, dot);
+    std::string shown = translated(c.categories, cat);
+    if (shown == cat && dot != std::string::npos) shown = translated(c.categories, head) + cat.substr(dot);
+    std::string line = "[" + shown + "]";
+    for (std::size_t n = columns(line); n < 14; ++n) line.push_back(' ');
+    line += translated(c.messages, std::string(msg));
+    const auto add = [&line, &c](const std::string& key, const std::string& value) {
+        line += " \xC2\xB7 ";     // a middle dot between the parts
+        line += translated(c.fields, key);
+        line += '=';
+        line += value;
+    };
+    for (const Field& f : fields) add(f.key, f.value);
+    if (context.sid)  add("sid", std::to_string(context.sid));
+    if (context.pid)  add("pid", std::to_string(context.pid));
+    if (context.zone) add("zone", std::to_string(context.zone));
+    return line;
 }
 
 std::uint64_t dropped_lines() noexcept
@@ -251,7 +426,10 @@ void write(Level level, std::string_view category, std::string_view msg, const s
 
     push_ring(s, line);
     if (s.logger) {
-        s.logger->log(level >= Level::warn ? spdlog::level::warn : spdlog::level::info, "{}", line);
+        s.logger->log(spd_level(level), "{}", line);
+    }
+    if (s.console) {
+        s.console->log(spd_level(level), "{}", format_text(level, category, msg, fields, c));
     }
 }
 

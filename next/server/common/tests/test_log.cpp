@@ -220,3 +220,46 @@ TEST_CASE("asynchronous logging keeps every line", "[log][async]")
     CHECK(count == kThreads * kLines);
     std::filesystem::remove_all(dir);
 }
+
+// The console is for a person: one sentence per line, in the catalogue's language, while the ring
+// (and the file) keep the English JSON a tool reads.
+TEST_CASE("text console speaks through the catalogue, the ring stays JSON", "[log][console]")
+{
+    const auto dir = std::filesystem::temp_directory_path() / "jx_log_console_test";
+    std::filesystem::create_directories(dir);
+    const auto catalog = dir / "log.vi.json";
+    {
+        std::ofstream out(catalog, std::ios::binary);
+        out << R"({"levels":{"info":"THÔNG TIN"},"categories":{"boot":"khởi động","zone":"zone"},)"
+            << R"("fields":{"port":"cổng","sid":"phiên"},"messages":{"zone listening":"Zone đã mở cổng, chờ gateway kết nối"}})";
+    }
+    jx::log::Options o = quiet();
+    o.console = true;          // the sink writes to this test's stdout; what matters is format_text
+    o.console_style = "text";
+    o.language = "vi";
+    o.catalog = catalog;
+    o.async = false;
+    jx::log::init(o);
+    REQUIRE(jx::log::catalog_size() == 6);
+
+    jx::log::Context ctx;
+    ctx.sid = 42;
+    const std::vector<jx::log::Field> fields{jx::log::kv("port", 17001), jx::log::kv("addr", "0.0.0.0")};
+    CHECK(jx::log::format_text(jx::log::Level::info, "boot", "zone listening", fields, ctx) ==
+          "[khởi động]   Zone đã mở cổng, chờ gateway kết nối \xC2\xB7 cổng=17001 \xC2\xB7 addr=0.0.0.0 \xC2\xB7 phiên=42");
+    // what the catalogue does not know stays English; a category is translated by its first part
+    CHECK(jx::log::format_text(jx::log::Level::warn, "zone.fight", "a brand new message", {}, jx::log::Context{}) ==
+          "[zone.fight]  a brand new message");
+
+    jx::log::info("boot", "zone listening", {jx::log::kv("port", 17001)});
+    const auto j = last_line();
+    CHECK(j["msg"] == "zone listening");     // English for the tools
+    CHECK(j["port"] == "17001");
+
+    // English console: no catalogue is read at all
+    o.language = "en";
+    jx::log::init(o);
+    CHECK(jx::log::catalog_size() == 0);
+    jx::log::shutdown();
+    std::filesystem::remove_all(dir);
+}

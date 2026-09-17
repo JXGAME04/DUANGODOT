@@ -27,6 +27,42 @@ zone theo `sid`/`pid`/`tick` mà không phải đoán.
 
 Thứ tự trường cố định như trên (C++ dùng `ordered_json`) để đọc raw bằng mắt vẫn dễ.
 
+## 1b. Màn hình console — cho người, không phải cho máy
+
+Dòng JSON ở trên đi vào **tệp log** (`log.file`). Còn **console** của `jx_zone` và gateway in cho
+người đang ngồi trước máy: mỗi sự kiện một câu, tiếng Việt, mức log có màu.
+
+```text
+14:32:05.118 THÔNG TIN    [khởi động]   jx_zone bắt đầu khởi động · phiên bản=0.4.0 · tệp cấu hình=config/zone.json
+14:32:05.119 THÔNG TIN    [cấu hình]    Thiết lập · khoá=zone.port · giá trị=17001
+14:32:05.640 THÔNG TIN    [bản đồ]      Đã nạp map · map=1 · tên=Phượng Tường · số ô=262144 · nạp (ms)=212
+14:32:05.702 THÔNG TIN    [khởi động]   Zone đã mở cổng, chờ gateway kết nối · cổng=17001
+14:32:07.330 THÔNG TIN    [tài khoản]   Đăng nhập thành công · tài khoản=test1 · mã tài khoản=12 · phiên=562949953421313
+14:32:09.004 CẢNH BÁO     [tài khoản]   Sai mật khẩu · tài khoản=test1 · số lần thử=2
+```
+
+Cách hoạt động: mã nguồn vẫn ghi `msg` tiếng Anh cố định (để tệp log và công cụ không đổi); console
+tra câu đó, tên category và tên trường trong **`config/log.vi.json`**. Câu nào bảng chưa có thì in
+nguyên tiếng Anh — không bao giờ mất dòng. C++ (`jx::log`) và Go (`pkg/log`) dùng chung một bảng và
+một định dạng, nên hai cửa sổ đặt cạnh nhau đọc như nhau.
+
+| Khoá cấu hình | Mặc định | Nghĩa |
+|---|---|---|
+| `log.console` | `true` | có in ra console hay không |
+| `log.console_style` | `"text"` | `"text"`: câu cho người đọc; `"json"`: đúng dòng JSON của tệp (khi nối console vào công cụ) |
+| `log.lang` | `"vi"` | `"vi"` đọc `config/log.vi.json`; `"en"` in như trong mã nguồn |
+| `log.catalog` | tự tìm | đường dẫn bảng dịch; bỏ trống thì tìm `config/log.<lang>.json` từ thư mục chạy trở lên |
+
+Lúc khởi động, mỗi thiết lập đang dùng được in **một dòng** (`[cấu hình] Thiết lập · khoá=… · giá trị=…`),
+sau khi đã gộp tệp cấu hình, biến môi trường `JX_*` và tham số dòng lệnh — nhìn là biết server đang
+chạy với số nào. Khoá có chữ `password`, `secret`, `token` thì giá trị hiện `***`.
+
+Thêm một dòng log mới thì thêm câu tiếng Việt của nó: `python tools/check_log_catalog.py` liệt kê
+câu và category còn thiếu (thoát mã 1), CI chạy lệnh này. Tên trường thiếu chỉ được nhắc, không chặn.
+
+Trên Windows, tiến trình tự đặt console sang UTF‑8 (`SetConsoleOutputCP(65001)`) và bật màu ANSI;
+khi console bị chuyển hướng vào tệp thì không chèn mã màu.
+
 ## 2. Mức log — dùng khi nào
 
 | Mức | Dùng cho | Bật ở production? |

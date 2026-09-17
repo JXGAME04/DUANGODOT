@@ -12,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -39,6 +40,10 @@ public:
 
     [[nodiscard]] const nlohmann::json& json() const noexcept { return root_; }
     [[nodiscard]] std::string dump(int indent = 2) const { return root_.dump(indent); }
+    // Every setting as ("zone.port", "17001"), sorted by key, for a start-up log a person can read
+    // line by line.  Keys that start with '_' are notes, not settings; a value whose key smells of
+    // a secret (password, secret, token) is shown as "***".
+    [[nodiscard]] std::vector<std::pair<std::string, std::string>> flatten() const;
 
 private:
     [[nodiscard]] const nlohmann::json* find(std::string_view dotted_path) const;

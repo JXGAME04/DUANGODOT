@@ -3,6 +3,10 @@
 // One JSON object per line, same schema as the Go services and the Godot client (docs/LOGGING.md):
 //   {"ts":"2026-09-16T08:00:00.123456Z","lvl":"info","cat":"net","proc":"zone",
 //    "sid":42,"pid":7,"zone":3,"tick":99,"msg":"connected","addr":"127.0.0.1"}
+// That is what goes to the FILE, for tools.  The CONSOLE is for the person running the server:
+//   14:32:05.123 THÔNG TIN    [khởi động] Zone đã mở cổng, chờ gateway kết nối · cổng=17001
+// one sentence per line, in the language of the catalogue (config/log.vi.json maps every English
+// `msg`, category and field name to Vietnamese; what it does not know stays English).
 // Levels are decided per category at run time (set_levels("net=trace,zone.tick=debug")), the last
 // N lines are kept in a ring buffer that is written next to the log file on fatal().
 #pragma once
@@ -39,6 +43,14 @@ Field kv(std::string_view key, const T& value)
 struct Options {
     Level default_level = Level::info;
     bool console = true;
+    // "text": readable lines (see above); "json": the same JSON lines as the file, for a console
+    // that is piped into a tool.
+    std::string console_style = "text";
+    // Language of the text console: "vi" reads the catalogue, "en" prints the messages as the code
+    // has them.  The catalogue is looked for at `catalog`, else config/log.<language>.json below
+    // the working directory and its parents.
+    std::string language = "vi";
+    std::filesystem::path catalog;
     std::filesystem::path file;                        // empty = no file sink
     std::size_t rotate_bytes = 32u * 1024u * 1024u;    // rotating file sink
     std::size_t rotate_files = 5;
@@ -87,6 +99,12 @@ struct Context {
     std::uint64_t tick = 0;
 };
 Context& context() noexcept;
+
+// The text-console form of one line (what init(console_style = "text") prints), for tests and tools.
+std::string format_text(Level level, std::string_view category, std::string_view msg,
+                        const std::vector<Field>& fields, const Context& context);
+// How many sentences / categories / field names the loaded catalogue translates (0 = none loaded).
+std::size_t catalog_size() noexcept;
 
 class ScopedContext {
 public:

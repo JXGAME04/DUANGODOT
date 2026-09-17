@@ -2,6 +2,7 @@
 // one JSON object per line, field order ts,lvl,cat,proc,sid,pid,zone,tick,msg,<fields>,
 // per-category levels resolved by longest dotted prefix, and a ring buffer of the last N
 // lines that is dumped next to the log file by Fatal.  Same behaviour as jx::log in C++.
+// The JSON goes to the file; the console prints sentences a person reads (console.go).
 package log
 
 import (
@@ -72,6 +73,9 @@ type Options struct {
 	Level        Level  // default level
 	Levels       string // "net=trace,zone.tick=debug,=warn"
 	Console      bool
+	ConsoleStyle string // "text" (default): sentences for a person; "json": the file's lines, for a pipe
+	Language     string // of the text console: "vi" (default) reads the catalogue, "en" = as in the code
+	Catalog      string // config/log.<language>.json when empty (looked for upwards from the working directory)
 	File         string // empty = no file
 	RotateBytes  int64  // 0 = 32 MiB
 	RotateFiles  int    // 0 = 5
@@ -113,6 +117,8 @@ type state struct {
 	file     *os.File
 	fileSize int64
 	console  *os.File
+	catalog  *Catalog
+	colour   bool
 }
 
 var s = &state{levels: map[string]Level{"": LevelInfo}, console: os.Stdout}
@@ -134,7 +140,18 @@ func Init(o Options) error {
 		_ = s.file.Close()
 		s.file = nil
 	}
+	if o.ConsoleStyle == "" {
+		o.ConsoleStyle = "text"
+	}
+	if o.Language == "" {
+		o.Language = "vi"
+	}
 	s.opts = o
+	s.catalog, s.colour = nil, false
+	if o.Console && o.ConsoleStyle != "json" {
+		s.catalog = LoadCatalog(o.Catalog, o.Language)
+		s.colour = prepareConsole(s.console) && isTerminal(s.console)
+	}
 	s.levels = map[string]Level{"": o.Level}
 	s.ring = make([]string, o.RingCapacity)
 	s.ringNext, s.ringLen = 0, 0
@@ -277,8 +294,11 @@ func Write(ctx context.Context, l Level, cat, msg string, fields []Field) {
 	line := format(now, l, cat, c, msg, fields)
 	pushRingLocked(line)
 	if s.opts.Console && s.console != nil {
-		_, _ = s.console.WriteString(line)
-		_, _ = s.console.WriteString("\n")
+		if s.opts.ConsoleStyle == "json" {
+			_, _ = s.console.WriteString(line + "\n")
+		} else {
+			_, _ = s.console.WriteString(FormatText(s.catalog, now, l, cat, c, msg, fields, s.colour) + "\n")
+		}
 	}
 	if s.file != nil {
 		if s.fileSize+int64(len(line))+1 > s.opts.RotateBytes {
