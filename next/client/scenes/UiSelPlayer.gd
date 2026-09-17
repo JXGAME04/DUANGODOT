@@ -41,7 +41,7 @@ func _ready() -> void:
 
 func _build_scheme() -> bool:
 	var s := KUiScheme.new()
-	if not s.build(self, "select_role"):
+	if not s.build(self, "chon-nhan-vat"):
 		return false
 	_scheme = s
 	_enter = s.widget("ok") as BaseButton
@@ -223,7 +223,7 @@ func _on_char_list(chars: Array) -> void:
 		_del.disabled = chars.is_empty()
 	if _enter != null:
 		_enter.disabled = chars.is_empty()
-	KUiScheme.shot_if_asked(self, "select_screen")
+	KUiScheme.shot_if_asked(self, "man-chon-nhan-vat")
 	if "--auto" in OS.get_cmdline_user_args():
 		if chars.size() > 0:
 			if DisplayServer.get_name() != "headless":

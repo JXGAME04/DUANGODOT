@@ -137,6 +137,8 @@ type Exporter struct {
 	// StandFrames returns the frame count of a template's stand sprite (client-only npcs face
 	// the direction their stand frame encodes); nil = face down.
 	StandFrames func(templateID int) int
+	// uiCache holds the sprites a window named, so one screen decodes each picture once.
+	uiCache map[string]*spr.Sprite
 }
 
 func New(set *pak.Set, out string) *Exporter {

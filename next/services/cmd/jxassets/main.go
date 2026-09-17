@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -538,13 +539,70 @@ func main() {
 		reportFallback(set)
 		fmt.Printf("export-all: %d maps ok, %d skipped (no .wor), %d failed, %d sprites, %s\n", ok, missing, failed, ex.Exported, time.Since(start).Round(time.Second))
 
+	case "scan-text":
+		// scan-text: the archives keep no file names, so read every entry and keep the ones that
+		// are text.  That is how a client we have no .ini list for gives up its layouts.
+		out := *flagOut
+		if out == "" {
+			out = "build/scan"
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		found := set.ScanText()
+		if err := os.MkdirAll(out, 0o755); err != nil {
+			fail("%v", err)
+		}
+		var every []string
+		for _, t := range found {
+			every = append(every, t.Paths...)
+		}
+		names := set.NameIndex(every)
+		fmt.Printf("scan-text: %d tep van ban trong %d kho, %d duong dan duoc goi ten\n", len(found), len(set.Files), len(names))
+		for _, t := range found {
+			name := names[t.ID]
+			label := fmt.Sprintf("%08x", t.ID)
+			if name != "" {
+				label = strings.NewReplacer(`\`, "_", "/", "_", ":", "_").Replace(text.GBKToUTF8([]byte(name)))
+				label = strings.TrimPrefix(label, "_")
+			}
+			if err := os.WriteFile(filepath.Join(out, label), []byte(text.GBKToUTF8(t.Body)), 0o644); err != nil {
+				fail("%v", err)
+			}
+			if *flagLevel == "debug" || t.Head != "" {
+				fmt.Printf("  %-8s %6d  %-12s %s\n", fmt.Sprintf("%08x", t.ID), t.Size,
+					text.GBKToUTF8([]byte(t.Head)), text.GBKToUTF8([]byte(name)))
+			}
+		}
+		// the names recovered, so a later run can start from a list instead of guessing
+		var lines []string
+		for _, n := range names {
+			lines = append(lines, text.GBKToUTF8([]byte(n)))
+		}
+		sort.Strings(lines)
+		if err := os.WriteFile(filepath.Join(out, "duong-dan.txt"), []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("ghi ra %s\n", out)
+
 	case "export-ui":
-		// export-ui [scheme]: the login, character select and character create windows of the old
-		// client, as JSON layouts plus the sprites they name.  The JX1 client keeps them under
-		// \Ui\Ui3; the VLTK 2.0 client uses ui3_800 / ui3_1024 for its in-game windows.
-		scheme := "Ui3"
-		if len(args) > 1 {
-			scheme = args[1]
+		// The login windows, as JSON layouts plus the pictures they name.
+		//
+		// A screen is found by WHAT ITS SECTIONS ARE CALLED, never by file name: a .pak keeps only
+		// the hash of each name, so the VLTK 2.0 client cannot be listed, and its windows have no
+		// name we could guess.  Section names are plain ASCII in every client, which also keeps
+		// GBK byte escapes out of this file.
+		//
+		// When a client carries the same window twice - the 2.0 one ships an 800x600 and a
+		// 1024x768 copy - the larger canvas wins, because that is the one it actually runs.
+		screens := []struct {
+			name, label string
+			must        []string
+		}{
+			{"dang-nhap", "Đăng nhập", []string{"main", "account", "password", "login", "cancel"}},
+			{"nen-dang-nhap", "Nền đăng nhập", []string{"init", "login", "login2", "versiontext"}},
+			{"chon-nhan-vat", "Chọn nhân vật", []string{"selrole", "player", "ok", "new", "del"}},
+			{"tao-nhan-vat", "Tạo nhân vật", []string{"newplayer", "name", "male", "female", "gold", "wood", "water", "fire", "earth"}},
 		}
 		out := *flagOut
 		if out == "" {
@@ -555,27 +613,41 @@ func main() {
 		defer set.Close()
 		ex := export.New(set, out)
 		defer prepareExporter(ex, dir, set)()
-		// GBK file names, written as bytes so this source stays pure ASCII.
-		screens := []struct{ name, file string }{
-			{"login", "\xb5\xc7\xc2\xbd.ini"}, // login
-			{"login_bg", "\xb5\xc7\xc2\xbd\xb9\xfd\xb3\xcc\xb1\xb3\xbe\xb0\xb4\xb0\xbf\xda.ini"}, // login background
-			{"select_role", "\xd1\xa1\xd3\xce\xcf\xb7\xb4\xe6\xb5\xb5\xc8\xcb\xce\xef.ini"},      // character select
-			{"new_role", "\xd0\xc2\xbd\xa8\xbd\xc7\xc9\xab.ini"},                                 // character create
-			{"new_role_series", "\xd0\xc2\xbd\xa8\xbd\xc7\xc9\xab\xd1\xa1\xca\xf4\xd0\xd4.ini"},  // create: the five elements
-		}
+
+		texts := set.ScanText()
+		fmt.Printf("doc %d tep van ban trong %d kho\n", len(texts), len(set.Files))
 		ok, missing := 0, 0
 		for _, sc := range screens {
-			screen, err := ex.Ui(sc.name, scheme, sc.file)
+			var best *pak.TextFile
+			bestArea := -1
+			for i := range texts {
+				t := &texts[i]
+				if !export.HasSections(t.Body, sc.must) {
+					continue
+				}
+				w, h := export.CanvasOf(t.Body)
+				if w*h > bestArea {
+					best, bestArea = t, w*h
+				}
+			}
+			if best == nil {
+				missing++
+				fmt.Printf("  %-14s khong co trong client nay\n", sc.name)
+				continue
+			}
+			source := fmt.Sprintf("%s#%08x", filepath.Base(best.Pak), best.ID)
+			screen, err := ex.Ui(sc.name, sc.label, source, best.Body)
 			if err != nil {
 				missing++
-				fmt.Printf("  %-16s not in this client (%v)\n", sc.name, err)
+				fmt.Printf("  %-14s %v\n", sc.name, err)
 				continue
 			}
 			ok++
-			fmt.Printf("  %-16s %2d widgets, canvas %dx%d\n", sc.name, len(screen.Widgets), screen.Width, screen.Height)
+			fmt.Printf("  %-14s %2d o, khung %dx%d, %d anh  <- %s\n",
+				sc.name, len(screen.Widgets), screen.Width, screen.Height, len(screen.Files), source)
 		}
 		reportFallback(set)
-		fmt.Printf("export-ui: %d screens, %d missing, %d sprites -> %s\n", ok, missing, ex.Exported, filepath.Join(out, "ui"))
+		fmt.Printf("export-ui: %d man, %d thieu, %d anh -> %s\n", ok, missing, ex.Exported, filepath.Join(out, "ui"))
 		if ok == 0 {
 			os.Exit(1)
 		}

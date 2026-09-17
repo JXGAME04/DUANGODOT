@@ -138,6 +138,68 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-17 — U5: mổ client 2.0 thật, và bỏ cách tra theo tên tệp
+
+**Việc trước làm sai.** Bốn màn hôm nay lấy bố cục JX1 rồi dán ảnh 2.0 — đó không phải giao diện
+2.0. Chủ dự án gửi ảnh chụp client 2.0 thật và nó khác hẳn.
+
+**Mổ nhị phân.** `gamecl.exe` và `katgame.dll` bị **UPX nén** (section tên `UPX0`/`UPX1`, entropy
+7,91; PackHeader `UPX!` ở 0x3e0: method 8 = NRV2B_LE16, 1.285.044 → 34.588.706 byte). Đó là lý do
+quét chuỗi thẳng ra rỗng. `rainbow.dll` còn sót `D:\newBuilder\projects\jxvn20\code\product\win32\server\rainbow.pdb`.
+
+**Nhưng chìa khoá không ở exe.** Kho `.pak` **không lưu tên tệp, chỉ lưu mã băm**
+(`KPakList::FileNameToId`), nên không cách nào liệt kê. Thêm `pak.Set.ScanText`: giải nén *mọi* mục
+rồi giữ mục nào là văn bản.
+
+```
+scan-text: 4130 tep van ban trong 13 kho (client 2.0), 2031 duong dan duoc goi ten
+```
+
+Ra được:
+
+- **Giao diện 2.0 là `Ui4`**, không phải `Ui3`: `\Spr\Ui4\主界面\登入界面\...`, tên có đuôi `vn`.
+- **Màn tạo nhân vật 2.0**, khung **1024x768**: 5 thẻ dọc 103x38 ở x=0, y=78/116/154/192/230
+  (`金选项vn.spr`…), nam ở −38, nữ ở +262, ô tên 436,670 `MaxLen=16`, Xác Định 562,666 62x29,
+  Huỷ 642,666, mô tả 314,30 270x38. Nền là `JX20登录1024.spr`.
+- **Bảng chữ tiếng Việt** (TCVN3) nằm trong pak: `G_STR_CANCEL → Hủy bỏ`, `G_MSG_EXCHANGE_MAINTAIN
+  → Server đang bảo trì...`.
+
+**Ba màn còn lại của bản 2.0 không phải giao diện C++ — chúng là Flash.** `update.swf` (CWS, zlib,
+giải nén 1.919.352 byte) chạy qua `flash.ocx` + `stmocx.dll`, chứa **43 ảnh (1,8 MB)**, 29 ô nhập
+chữ, 67 sprite, và đúng các ký hiệu ActionScript của ảnh chụp: `winSelectServerMain`,
+`WinChooseServer`, `btnChooseServer1/2/3`, `btnMoveServerUp/Down`, `Act_selectServer`, `Startgame`.
+Kèm `ServerListUrl=http://jx1-auto.xoyocdn.com/serverlist/jxvn20/`. Vì vậy **không tồn tại** `.ini`
+cho màn menu, chọn máy chủ và ô đăng nhập của bản 2.0.
+
+**Bỏ hẳn cách tra theo tên tệp.** Chủ dự án chê `{"login", "\xb5\xc7\xc2\xbd.ini"}` khó đọc — và
+hoá ra còn sai hướng, vì pak không có tên. Giờ mỗi màn được nhận ra bằng **chữ ký các section**:
+
+```go
+{"tao-nhan-vat", "Tạo nhân vật", []string{"newplayer", "name", "male", "female",
+                                          "gold", "wood", "water", "fire", "earth"}},
+```
+
+Client nào có hai bản cùng một màn (2.0 có bản 800x600 và 1024x768) thì **khung lớn hơn thắng**,
+vì đó là bản game thật chạy. Không còn byte escape nào trong mã nguồn.
+
+**Ảnh xuất ra tên tiếng Việt**, đặt theo ô nó thuộc về, không phải mã băm:
+
+```
+client/assets/ui/tao-nhan-vat/bo-cuc.json
+                             /the-kim.png  the-kim-nhan.png
+                             /nut-xac-dinh.png  nut-xac-dinh-nhan.png  nut-xac-dinh-re-chuot.png
+                             /vai-kim-nam-1.png  vai-thuy-nu-2.png ...
+```
+
+`files[]` trong JSON giữ bảng tra ngược `đường dẫn game cũ → tệp mới`, nên vẫn lần lại được nguồn.
+
+**Kiểm tra:** `tests/UiCheck.tscn` 41 kiểm tra (chốt khung 1024x768, 5 thẻ 103x38 đúng chỗ,
+nam −38 / nữ +262, 30 ảnh nhân vật); `KUiExport_test.go` chốt lại phía Go. Chạy thật `dev.py start`
++ client: màn tạo nhân vật lên đúng như ảnh chụp bản 2.0.
+
+**Còn lại:** ba màn Flash. Ảnh nằm trong `update.swf`, phải rút 43 ảnh đó ra rồi dựng lại bố cục
+trong Godot — bản 2.0 không có tệp bố cục cho chúng.
+
 ### 2026-09-17 — U2, U3, U4: ba màn của bản 2.0 dựng trong Godot
 
 `client/scenes/KUiScheme.gd` đọc `assets/ui/<tên>.json` rồi dựng đúng cửa sổ của bản cũ: nền, nút

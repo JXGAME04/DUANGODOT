@@ -1,30 +1,33 @@
 # KUiScheme - builds one of the old client's windows from an exported layout.
 #
-# The old client read a window out of \Ui\<scheme>\<name>.ini: one section per widget with its
-# rectangle, its sprite and the frame each state uses (KUiLogin::LoadScheme -> KWndButton::Init).
-# jxassets export-ui turned those files into assets/ui/<name>.json; this builds them.
+# The old client read a window out of an .ini: one section per widget with its rectangle, its
+# picture and the frame each state uses (KUiLogin::LoadScheme -> KWndButton::Init).  jxassets
+# export-ui turned those files into assets/ui/<man>/bo-cuc.json with one .png per state, named
+# after the widget (nut-xac-dinh.png, the-kim-nhan.png); this builds them.
 #
-# Coordinates are the old ones, on a fixed 800x600 canvas.  fit() scales that canvas to the window
-# the same way the old client did when it ran at another resolution: one factor for both axes, so
-# nothing is stretched, and centred.
+# Coordinates are the old ones, on the canvas the window declares - 800x600 for the JX1 scheme,
+# 1024x768 for the VLTK 2.0 one.  fit() scales that canvas to the window the same way the old
+# client did at another resolution: one factor for both axes, so nothing is stretched, centred.
 extends RefCounted
 
-const CANVAS := Vector2(800, 600)
+const BACKDROP_SCREEN := "nen-dang-nhap"
 
 var screen: Dictionary = {}
-var root: Control = null       # the 800x600 canvas; every widget is a child of it
+var name := ""                 # the folder the pictures live in
+var root: Control = null       # the canvas; every widget is a child of it
 var nodes: Dictionary = {}     # section name (lower case) -> Control
 var missing: Array = []        # sections whose picture could not be loaded
 
 
-# Reads assets/ui/<name>.json and builds it under `parent`.  Returns false when the layout is not
-# there, so the caller can fall back to a plain screen instead of showing nothing.
-func build(parent: Control, name: String) -> bool:
-	var data = Assets.ui_screen(name)
+# Reads assets/ui/<name>/bo-cuc.json and builds it under `parent`.  Returns false when the layout
+# is not there, so the caller can fall back to a plain screen instead of showing nothing.
+func build(parent: Control, screen_name: String) -> bool:
+	var data = Assets.ui_screen(screen_name)
 	if data == null or not (data is Dictionary):
-		Log.warn("ui", "layout missing, falling back", {"screen": name})
+		Log.warn("ui", "layout missing, falling back", {"screen": screen_name})
 		return false
 	screen = data
+	name = screen_name
 	var canvas := Vector2(float(screen.get("width", 800)), float(screen.get("height", 600)))
 	root = Control.new()
 	root.name = "Canvas"
@@ -38,11 +41,12 @@ func build(parent: Control, name: String) -> bool:
 	fit(parent)
 	if not parent.resized.is_connected(_on_parent_resized):
 		parent.resized.connect(_on_parent_resized.bind(parent))
-	Log.info("ui", "layout built", {"screen": name, "widgets": nodes.size(), "missing": missing.size()})
+	Log.info("ui", "layout built", {"screen": screen_name, "label": screen.get("label", ""),
+		"canvas": "%dx%d" % [canvas.x, canvas.y], "widgets": nodes.size(), "missing": missing.size()})
 	return true
 
 
-# Scales the 800x600 canvas into `parent` and centres it.
+# Scales the canvas into `parent` and centres it.
 func fit(parent: Control) -> void:
 	if root == null:
 		return
@@ -59,13 +63,13 @@ func _on_parent_resized(parent: Control) -> void:
 	fit(parent)
 
 
+# ---------------------------------------------------------------- screenshots
+
 # Run the client with `-- --shot` to save what a screen looks like and stop there, or
 # `-- --shot=<name>` to wait for one screen in particular:
 #   godot --path client -- --shot
-#   godot --path client -- --auto --account=... --shot=select_screen
-# The picture lands in user://logs/ui_<name>.png, which is the quickest way to compare a screen
-# with the old client side by side.
-static func shot_if_asked(node: Node, name: String) -> void:
+#   godot --path client -- --auto --account=... --shot=man-chon-nhan-vat
+static func shot_if_asked(node: Node, shot_name: String) -> void:
 	var asked := false
 	var want := ""
 	for a in OS.get_cmdline_user_args():
@@ -74,7 +78,7 @@ static func shot_if_asked(node: Node, name: String) -> void:
 		elif a.begins_with("--shot="):
 			asked = true
 			want = a.substr(7)
-	if not asked or (want != "" and want != name):
+	if not asked or (want != "" and want != shot_name):
 		return
 	if DisplayServer.get_name() == "headless":
 		node.get_tree().quit(0)
@@ -82,35 +86,35 @@ static func shot_if_asked(node: Node, name: String) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute("user://logs")
-	var path := "user://logs/ui_%s.png" % name
+	var path := "user://logs/ui_%s.png" % shot_name
 	var err := node.get_viewport().get_texture().get_image().save_png(path)
-	print("shot %s -> %s%s" % [name, ProjectSettings.globalize_path(path), "" if err == OK else " FAILED"])
+	print("shot %s -> %s%s" % [shot_name, ProjectSettings.globalize_path(path), "" if err == OK else " FAILED"])
 	node.get_tree().quit(0 if err == OK else 1)
 
 
 # ---------------------------------------------------------------- widgets
 
-func widget(name: String) -> Control:
-	return nodes.get(name, null)
+func widget(section_name: String) -> Control:
+	return nodes.get(section_name, null)
 
 
-func rect(name: String) -> Rect2:
-	var c: Control = nodes.get(name, null)
+func rect(section_name: String) -> Rect2:
+	var c: Control = nodes.get(section_name, null)
 	if c == null:
 		return Rect2()
 	return Rect2(c.position, c.size)
 
 
 # The section as the .ini had it, for the keys this builder does not turn into a node.
-func section(name: String) -> Dictionary:
+func section(want: String) -> Dictionary:
 	for w in screen.get("widgets", []):
-		if w.get("name", "") == name:
+		if w.get("name", "") == want:
 			return w
 	return {}
 
 
-func extra(name: String, key: String, def: String = "") -> String:
-	return str(section(name).get("extra", {}).get(key, def))
+func extra(want: String, key: String, def: String = "") -> String:
+	return str(section(want).get("extra", {}).get(key, def))
 
 
 # A character picture the old screen built by name: "<series>_<sex>_<n>", series metal..earth,
@@ -119,17 +123,12 @@ func portrait(series: int, sex: int, n: int) -> Texture2D:
 	const SERIES := ["metal", "wood", "water", "fire", "earth"]
 	const SEX := ["male", "female"]
 	var key := "%s_%s_%d" % [SERIES[clampi(series, 0, 4)], SEX[clampi(sex, 0, 1)], clampi(n, 0, 2)]
-	var id = screen.get("portraits", {}).get(key, "")
-	if id == "":
-		return null
-	var atlas = Assets.sprite(id)
-	if atlas == null:
-		return null
-	return atlas.frame_texture(0)
+	return Assets.ui_picture(name, str(screen.get("portraits", {}).get(key, "")))
 
 
-# LoginBg= names a picture of the login_bg window: the screen is drawn on top of it.  The select
-# screen has no background of its own and says LoginBg=Login2, so without this it comes up bare.
+# LoginBg= names a picture of the login background window: the screen is drawn on top of it.  The
+# create screen has no picture of its own and says LoginBg=Login2, so without this it comes up
+# bare - and in the 2.0 client that backdrop IS the screen.
 func _add_backdrop() -> void:
 	var widgets: Array = screen.get("widgets", [])
 	if widgets.is_empty():
@@ -137,14 +136,15 @@ func _add_backdrop() -> void:
 	var which := str(widgets[0].get("extra", {}).get("loginbg", "")).to_lower()
 	if which == "":
 		return
-	var bg = Assets.ui_screen("login_bg")
+	var bg = Assets.ui_screen(BACKDROP_SCREEN)
 	if bg == null:
 		return
 	for w in bg.get("widgets", []):
 		if str(w.get("name", "")) != which:
 			continue
-		var tex := Assets.ui_image(str(w.get("image", "")))
+		var tex := Assets.ui_picture(BACKDROP_SCREEN, str(w.get("picture", "")))
 		if tex == null:
+			missing.append(which)
 			return
 		var tr := TextureRect.new()
 		tr.name = "Backdrop"
@@ -156,16 +156,19 @@ func _add_backdrop() -> void:
 		tr.custom_minimum_size = root.size
 		root.add_child(tr)
 		return
+	missing.append(which)
 
 
 func _add_widget(w: Dictionary) -> void:
-	var name := str(w.get("name", ""))
+	var section_name := str(w.get("name", ""))
 	var r := Rect2(float(w.get("left", 0)), float(w.get("top", 0)), float(w.get("width", 0)), float(w.get("height", 0)))
 	var node: Control = null
-	var picture := _picture(w)
-	# A picture keeps its own size: the old renderer drew the sprite as it is, at the window's
-	# corner, and never stretched it into the rectangle the .ini declares.  The login panel is
-	# 542x362 inside an 800x600 window; stretching it moved every box off its label.
+	var picture := Assets.ui_picture(name, str(w.get("picture", "")))
+	if str(w.get("picture", "")) != "" and picture == null:
+		missing.append(section_name)
+	# A picture keeps its own size: the old renderer drew it as it is, at the window's corner, and
+	# never stretched it into the rectangle the .ini declares.  The JX1 login panel is 542x362
+	# inside an 800x600 window; stretching it moves every box off its label.
 	if picture != null and _is_button(w):
 		node = _make_button(w, picture)
 		r.size = picture.get_size()
@@ -182,34 +185,17 @@ func _add_widget(w: Dictionary) -> void:
 	else:
 		node = Control.new()
 		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.name = name.capitalize().replace(" ", "")
+	node.name = section_name.capitalize().replace(" ", "")
 	node.position = r.position
 	if r.size.x > 0.0 and r.size.y > 0.0:
 		node.size = r.size
 		node.custom_minimum_size = r.size
 	root.add_child(node)
-	nodes[name] = node
-
-
-func _picture(w: Dictionary) -> Texture2D:
-	var file := str(w.get("image", ""))
-	if file != "":
-		var tex := Assets.ui_image(file)
-		if tex == null:
-			missing.append(w.get("name", ""))
-		return tex
-	var id := str(w.get("sprite", ""))
-	if id == "":
-		return null
-	var atlas = Assets.sprite(id)
-	if atlas == null:
-		missing.append(w.get("name", ""))
-		return null
-	return atlas.frame_texture(_frame(w, "up", 0))
+	nodes[section_name] = node
 
 
 func _is_button(w: Dictionary) -> bool:
-	return w.has("up") or w.has("down") or w.has("over")
+	return str(w.get("pressed", "")) != "" or str(w.get("hover", "")) != "" or bool(w.get("checkbox", false))
 
 
 func _is_edit(w: Dictionary) -> bool:
@@ -217,22 +203,13 @@ func _is_edit(w: Dictionary) -> bool:
 	return int(w.get("type", 0)) > 0 or int(w.get("max_len", 0)) > 0
 
 
-func _frame(w: Dictionary, key: String, def: int) -> int:
-	return int(w.get(key, def))
-
-
 func _make_button(w: Dictionary, up: Texture2D) -> TextureButton:
 	var b := TextureButton.new()
 	b.texture_normal = up
-	var id := str(w.get("sprite", ""))
-	var atlas = Assets.sprite(id) if id != "" else null
-	if atlas != null:
-		if w.has("down"):
-			b.texture_pressed = atlas.frame_texture(_frame(w, "down", 1))
-		if w.has("over"):
-			b.texture_hover = atlas.frame_texture(_frame(w, "over", 2))
-	# Checkbox=1 in the .ini is a two-state button (Remember password, the five elements)
-	if str(w.get("extra", {}).get("checkbox", "0")) == "1":
+	b.texture_pressed = Assets.ui_picture(name, str(w.get("pressed", "")))
+	b.texture_hover = Assets.ui_picture(name, str(w.get("hover", "")))
+	# CheckBox=1 in the .ini is a two-state button (Remember password, the five elements)
+	if bool(w.get("checkbox", false)):
 		b.toggle_mode = true
 		if b.texture_pressed != null:
 			b.texture_focused = b.texture_pressed
@@ -257,6 +234,7 @@ func _make_label(w: Dictionary) -> Label:
 	if bool(w.get("multi_line", false)):
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		l.clip_text = false
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_style_text(l, w)
 	return l

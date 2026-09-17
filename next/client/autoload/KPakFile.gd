@@ -134,28 +134,30 @@ func stats() -> Dictionary:
 	return {"sprites": _sprites.size(), "missing": _missing.size(), "mb": loaded_bytes / 1048576}
 
 
-# One of the old client's windows, as jxassets export-ui wrote it: assets/ui/<name>.json.
+# One of the old client's windows, as jxassets export-ui wrote it: assets/ui/<man>/bo-cuc.json.
 func ui_screen(name: String):
-	return load_json("%s/ui/%s.json" % [assets_root(), name])
+	return load_json("%s/ui/%s/bo-cuc.json" % [assets_root(), name])
 
 
-# A plain picture of a window (the login backdrop is a .jpg, not a sprite), cached like a sprite.
-func ui_image(file: String) -> Texture2D:
+# One picture of a window: assets/ui/<man>/<tep>.  Named after the widget it belongs to, so the
+# file says what it is (nut-xac-dinh.png, the-kim-nhan.png) instead of carrying a hash.
+func ui_picture(screen: String, file: String) -> Texture2D:
 	if file == "":
 		return null
-	if _ui_images.has(file):
-		return _ui_images[file]
-	var path := "%s/ui/images/%s" % [assets_root(), file]
+	var key := screen + "/" + file
+	if _ui_images.has(key):
+		return _ui_images[key]
+	var path := "%s/ui/%s/%s" % [assets_root(), screen, file]
 	var img := Image.new()
 	var err := img.load(path)
 	if err != OK:
-		Log.error("asset", "ui image load failed", {"path": path, "error": error_string(err)})
-		_ui_images[file] = null
+		Log.error("asset", "ui picture load failed", {"path": path, "error": error_string(err)})
+		_ui_images[key] = null
 		return null
 	var tex := ImageTexture.create_from_image(img)
-	_ui_images[file] = tex
+	_ui_images[key] = tex
 	loaded_bytes += img.get_data_size()
-	Log.trace("asset", "ui image loaded", {"file": file, "size": "%dx%d" % [img.get_width(), img.get_height()]})
+	Log.trace("asset", "ui picture loaded", {"file": key, "size": "%dx%d" % [img.get_width(), img.get_height()]})
 	return tex
 
 

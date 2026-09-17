@@ -34,7 +34,7 @@ func _ready() -> void:
 		_status.text = Game.last_notice
 		Game.last_notice = ""
 	Log.info("ui", "login screen")
-	KUiScheme.shot_if_asked(self, "login_screen")
+	KUiScheme.shot_if_asked(self, "man-dang-nhap")
 	if "--auto" in args:
 		# automated end-to-end run (tests): login -> create/pick character -> enter -> move once
 		Log.info("auto", "auto login", {"server": _server.text, "account": _account.text})
@@ -45,7 +45,7 @@ func _ready() -> void:
 
 func _build_scheme() -> bool:
 	var s := KUiScheme.new()
-	if not s.build(self, "login"):
+	if not s.build(self, "dang-nhap"):
 		return false
 	_scheme = s
 	_account = s.widget("account") as LineEdit

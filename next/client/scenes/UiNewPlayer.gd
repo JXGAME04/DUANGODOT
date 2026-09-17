@@ -36,7 +36,7 @@ func _ready() -> void:
 	Game.kicked.connect(_on_kicked)
 	Log.info("ui", "new character screen")
 	_refresh()
-	KUiScheme.shot_if_asked(self, "new_role_screen")
+	KUiScheme.shot_if_asked(self, "man-tao-nhan-vat")
 	if "--auto" in OS.get_cmdline_user_args():
 		_name.text = "Auto %d" % (randi() % 100000)
 		Log.info("auto", "auto create", {"name": _name.text})
@@ -47,7 +47,7 @@ func _ready() -> void:
 
 func _build_scheme() -> bool:
 	var s := KUiScheme.new()
-	if not s.build(self, "new_role"):
+	if not s.build(self, "tao-nhan-vat"):
 		return false
 	_scheme = s
 	_name = s.widget("name") as LineEdit
