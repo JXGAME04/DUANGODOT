@@ -13,6 +13,8 @@ file cũ là *thay thế bởi ADR-xxx*, để sau này còn đọc được vì
 | [ADR-005](ADR-005-gameserver-nhieu-nhan.md) | GameServer nhiều nhân: chủ sở hữu, hàng lệnh, worker pool, scheduler | đã chốt |
 | [ADR-006](ADR-006-lua54-khong-tuong-thich-lua4.md) | Script là Lua 5.4 thật, không có lớp tương thích Lua 4 | đã chốt |
 
+Bàn giao và lịch trình tới khi hoàn thiện: [HANDOVER.md](../HANDOVER.md).
+
 Tài liệu kỹ thuật đi kèm: [PROTOCOL.md](../PROTOCOL.md), [MAPS.md](../MAPS.md),
 [NPCRES.md](../NPCRES.md), [SCRIPTS.md](../SCRIPTS.md), [RUNNING.md](../RUNNING.md),
 [TESTING.md](../TESTING.md), [LOGGING.md](../LOGGING.md), [OLD-TO-NEW.md](../OLD-TO-NEW.md),

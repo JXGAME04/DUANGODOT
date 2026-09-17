@@ -14,7 +14,8 @@ Hai nguyên tắc bắt buộc, áp dụng cho **mọi bước** trong tài li�
 
 ## 1. Mục tiêu và phạm vi
 
-- Client Godot 4.x: Windows, macOS, Linux, Android, iOS từ một codebase.
+- Client Godot 4.x: **làm bản PC trước** (Windows). Codebase giữ được khả năng xuất sang macOS,
+  Linux, Android, iOS, nhưng **chưa làm** cho tới khi bản PC chạy được (chủ dự án chốt 2026-09-17).
 - Server C++20: build và chạy trên Windows (dev) và Linux (production, Docker).
 - Giữ **luật chơi, công thức, dữ liệu, script và cảm giác 2.5D** của bản gốc; bỏ toàn bộ hạ tầng cũ
   (IOCP, DirectDraw, Berkeley DB, Lua 4.0, MSSQL/ADO, MD5, USBKey, mã hoá GBK/TCVN3).
@@ -84,7 +85,7 @@ next/
    + **Clock** và một test Catch2 "hello": log ra file JSON, test đọc lại được dòng log. → CI xanh 2 nền tảng.
 2. Chuẩn log (mục 5) viết thành `docs/LOGGING.md` + code mẫu; chuẩn test (mục 6) thành `docs/TESTING.md`.
 3. Project Godot rỗng có autoload `Log` (cùng định dạng dòng log với server) + 1 test GUT; export
-   template Windows + Android build được trong CI.
+   template Windows build được trong CI (Android để sau).
 4. **Packet recorder** cho bản cũ: chạy client/server cũ, ghi lại mọi gói tin (hex + thời gian + hướng)
    thành file `.jxrec` — đây là dữ liệu vàng để đối chiếu sau này. Bắt đầu từ Rainbow (client relay).
 5. **Exporter asset** bước đầu: đọc `.pak` và `.spr` → PNG atlas + JSON; test bằng cách xuất 3 sprite và
@@ -124,7 +125,7 @@ Tiêu chí xong tuần 1: CI xanh trên 2 nền tảng, có 1 dòng log chuẩn 
 | Đối chiếu công thức | cùng input → sát thương/exp/drop của Core cũ (chạy DLL cũ trong harness x86) và của zone mới phải bằng nhau | bước 3.1 |
 | Integration | vertical slice tự động: auth→gateway→zone→client headless, chạy trong CI bằng Docker compose | bước 2.5 |
 | Tải | bot Godot headless/C++ mô phỏng 500–2000 kết nối vào 1 zone | bước 4.2 |
-| Đa nền tảng | matrix Windows + Linux server; export Windows + Android client | tuần 1 |
+| Đa nền tảng | matrix Windows + Linux **server**; client chỉ export Windows (Android để sau) | tuần 1 |
 
 Cổng CI: build 0 cảnh báo (`/W4` mới, `-Wall -Wextra`), test xanh, sanitizer (ASan/UBSan) trên Linux, coverage
 không giảm. Không merge nếu đỏ.
@@ -158,7 +159,7 @@ Toàn bộ mục 4. Đầu ra: repo + CI + log + test + recorder + exporter sơ 
   (cùng input → cùng state hash), AOI đúng (unit).
 - 2.4 `persist` sườn: ghi/đọc `RoleData` bất đồng bộ; test crash giữa chừng không mất dữ liệu.
 - 2.5 Client Godot: login → danh sách nhân vật → vào map → đi lại → thấy NPC; overlay debug; build
-  Windows **và** Android chạy được. Test integration tự động (client headless) trong CI.
+  Windows chạy được (Android để sau). Test integration tự động (client headless) trong CI.
 Tiêu chí: một người chơi đi trong map trên PC và điện thoại, log ghép được xuyên 4 tiến trình theo `sid`.
 
 ### Giai đoạn 3 — Hệ thống gameplay (tháng 4–9)
@@ -198,7 +199,7 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
 | Sai công thức so với bản cũ | harness đối chiếu số (3.1) chạy trong CI; oracle là DLL cũ |
 | Lua 4→5 vỡ script | converter + shim + smoke test từng script, chuyển dần theo nhiệm vụ |
 | Mã hoá tiếng Việt | UTF-8 tại exporter, cấm chuỗi non-UTF-8 vào `data/` (validator) |
-| Đa nền tảng vỡ muộn | CI 2 nền tảng từ tuần 1, Android build từ giai đoạn 2 |
+| Đa nền tảng vỡ muộn | CI server Windows + Linux từ tuần 1; client giữ đủ trừu tượng để thêm Android sau |
 | Khó truy lỗi khi có nhiều tiến trình | `sid`/`tick` trong mọi dòng log, log tập trung từ giai đoạn 4 |
 | Phạm vi phình | mỗi hệ thống bám checklist handler/màn hình cũ, không thêm tính năng mới trước beta |
 
@@ -358,8 +359,16 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       chạy bộ chuyển lần hai ra **0 thay đổi**. Đoạn mở đầu Lua 4 trong `KLuaScript::init` đã xóa; có test
       khẳng định script Lua 4 **bị từ chối**. Zone nạp 555 script lúc khởi động, không một lỗi.
       Tài liệu: `next/docs/SCRIPTS.md`, ADR-006. Test: 39 test Go + 116 ctest + e2e TCP/WS xanh.
+- [x] **M5h — đo trần thật và bàn giao (2026-09-17)**: đo được **10 000 người cùng lúc** trên một zone
+      và một gateway (tick tb 8,56 ms, p99 16,78 ms, 0 ai rớt) và **13 031 người** khi bắn 20 000 bot
+      (chỗ chặn là máy test hết cổng TCP, không phải server). Dồn vào **một map**: 1 846 người còn chịu
+      được, 2 978 người thì p99 325,6 ms và **13 tick bị rớt** — trần một map là ~1 500–1 800.
+      Tra ra bản cũ giới hạn **100 người nhận mỗi gói** (`MAX_BROADCAST_COUNT`, `KRegion.h:9`) và bán kính
+      đồng bộ 40 ô (`MAX_SYNC_RANGE`) — ta đang gửi cho **tất cả**, và vùng nhìn hiện tại **nhỏ hơn màn
+      hình** nên có lúc entity hiện trên màn hình mà server chưa gửi. Bàn giao đầy đủ và lịch trình 18 mốc:
+      `next/docs/HANDOVER.md`. Phạm vi chốt lại: **làm bản PC trước, Android để sau**.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
-- [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
+- [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên **PC**
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8
 - [ ] Giai đoạn 4: 4.1 · 4.2 · 4.3 · 4.4 · 4.5
 - [ ] Giai đoạn 5: 5.1 · 5.2 · 5.3

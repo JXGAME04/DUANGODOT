@@ -14,7 +14,7 @@ Nguyên tắc: **không có phần nào được coi là xong nếu chưa có te
 | Integration | docker-compose: gateway + zone + postgres + redis | nightly / trước release | login → vào map → đánh quái → lưu DB |
 | Fuzz codec | `go test -fuzz`, test ngẫu nhiên có seed cố định (C++/GDScript) | mỗi PR (seed corpus) | byte rác không làm sập, không sinh gói quá hạn |
 | Load | tool Go bắn N client giả | trước release | 2 000 CCU/zone, p99 tick < 50 ms |
-| Multi-platform | GitHub Actions matrix | mỗi PR | Windows MSVC + Linux GCC (client: export Windows/Linux/Android) |
+| Multi-platform | GitHub Actions matrix | mỗi PR | Windows MSVC + Linux GCC (client: **chỉ Windows**, Android để sau) |
 
 ## 2. Chạy tại máy
 
