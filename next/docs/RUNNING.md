@@ -138,6 +138,24 @@ python tools/dev.py test               # ctest (C++) + go test + Godot headless
 python tools/dev.py smoke              # zone + gateway + 1 bot: đăng nhập, đi 100 đơn vị, chờ đến nơi; exit 0 = OK
 ```
 
+## 4b. Zone chạy nhiều nhân
+
+Zone là **một tiến trình** dùng nhiều nhân: mỗi map là một `KMapInstance` có **một** worker sở hữu;
+số worker lấy từ `zone.simulation_threads` (0 = tự quyết theo số nhân máy và số map), scheduler dời
+map khỏi worker nóng mỗi `zone.rebalance_interval_s` giây. Luồng mạng không sửa world, chỉ đẩy lệnh.
+Vì sao làm vậy: [adr/ADR-005](adr/ADR-005-gameserver-nhieu-nhan.md).
+
+Dòng `zone.tick` cho biết mọi thứ cần để chẩn đoán:
+
+```text
+"msg":"stats","tick":360,"players":500,"entities":3575,"awake":537,"maps":4,
+"tick_ms_avg":"14.05","tick_ms_p95":"25.17","tick_ms_p99":"28.95","sim_workers":4,
+"workers":"w0:2.79ms/1maps/500p w1:0.22ms/1maps/0p ...","busiest_map":1,
+"phases":"drain_network:6.41ms ai:0.76ms interest:0.00ms snapshot:0.00ms spatial_update:0.03ms"
+```
+
+`awake` = số entity thật sự suy nghĩ trong tick (NPC không ai nhìn thấy thì ngủ).
+
 ## 5. Log ở đâu
 
 | Tiến trình | File | Bật chi tiết |

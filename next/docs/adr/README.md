@@ -10,6 +10,7 @@ file cũ là *thay thế bởi ADR-xxx*, để sau này còn đọc được vì
 | [ADR-002](ADR-002-giao-thuc.md) | Protocol V2: khung tin, protobuf, đường truyền, phiên bản | đã chốt |
 | [ADR-003](ADR-003-du-lieu-nhan-vat.md) | `RoleData`: id, `data_version`, chuỗi di trú | đã chốt |
 | [ADR-004](ADR-004-tai-khoan-phien.md) | Tài khoản argon2id, một tài khoản một phiên, bảo vệ đường vào | đã chốt |
+| [ADR-005](ADR-005-gameserver-nhieu-nhan.md) | GameServer nhiều nhân: chủ sở hữu, hàng lệnh, worker pool, scheduler | đã chốt |
 
 Tài liệu kỹ thuật đi kèm: [PROTOCOL.md](../PROTOCOL.md), [MAPS.md](../MAPS.md),
 [NPCRES.md](../NPCRES.md), [RUNNING.md](../RUNNING.md), [TESTING.md](../TESTING.md),

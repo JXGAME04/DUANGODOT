@@ -12,7 +12,12 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 | `Core/Src/KSubWorld.h/.cpp` | `server/zone/…/KSubWorld.h`, `src/KSubWorld.cpp` (`class KSubWorld`) | spawn/remove, di chuyển theo tick, AOI, chat, outbox |
 | `Core/Src/KRegion.h/.cpp` (region 512×1024, danh sách npc) | `server/zone/…/KRegion.h/.cpp` (`class KRegionGrid`) | lưới AOI 512 ô, tầm nhìn 3×3 |
 | `KSubWorld::LoadMap` + `KRegion::LoadServerObstacle` + `KNpcFindPath` | `server/zone/…/KMapData.h/.cpp` (`class KMapData`) | `map.json`/`obstacle.bin`, A* + làm mượt |
-| `MultiServer/GameServer` (`KSwordOnLineSever`, Heaven) | `server/zone/…/KGameServer.h/.cpp`, `src/main.cpp` | nhận gateway, tick 20 Hz, PlayerSave |
+| `MultiServer/GameServer` (`KSwordOnLineSever`, Heaven) | `server/zone/…/KGameServer.h/.cpp`, `src/main.cpp` | nhận gateway, tick cố định, nhiều worker, PlayerSave |
+| (mới — MASTER SPEC) runtime nhiều nhân | `server/core` (`ServerClock`, `FixedTick`, `Result`, `CommandQueue`/`EventQueue`, `ThreadPool`, `JobSystem`, `Metrics`) | nơi duy nhất tạo thread, đo mọi pha |
+| (mới) `Npc[MAX_NPC]` + index thô | `server/entity` (`EntityHandle` index+generation, `EntityTable`) | handle cũ chết hẳn khi ô nhớ tái dùng |
+| `KSubWorld` là một map chạy trong luồng chính | `server/zone/…/KMapInstance.h/.cpp` (+ `KWorldCommand.h`) | một map instance = một chủ sở hữu, có inbox lệnh và hàng sự kiện |
+| (mới) phân map cho luồng | `server/zone/…/KWorldScheduler.h/.cpp` | đo chi phí tick, dời map khỏi worker nóng |
+| `KNpcFindPath` / `KMapData::find_path` cấp phát mỗi lần | `server/zone/…/KPathFinder.h/.cpp` | dùng lại bộ đệm, generation stamp |
 | `MultiServer/Common/SocketServer.h`, `IOCompletionPort.h` | `server/net/include/jx/net/KSocket.h` (`Connection`, `Listener`, `connect`) | Asio, khung tin `jx::frame` |
 | `Core/Src/KProtocol.h` (packet struct) | `proto/jx/*.proto` (`msg.proto` = bảng id) | protobuf 3, sinh cho C++/Go/GDScript |
 | `Engine/Src/KDebug.h` (`g_DebugLog`) | `server/common/include/jx/log.hpp` (`jx::log::info(...)`) | JSON một dòng, theo `docs/LOGGING.md` |
@@ -41,6 +46,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `MultiServer/Goddess` (DB nhân vật), `TRoleData` | `services/pkg/persist` (`FileStore`, `TRoleData.go` phiên bản + di trú; PostgreSQL sau) |
 | `MultiServer/Rainbow` (relay client ↔ server, chỗ bắt gói của bản cũ) | `services/cmd/jxrecord` + `pkg/jxrec` (proxy ghi `.jxrec`, đọc lại bằng `dump`) |
 | `MultiServer/Common/Buffer.h`, `IOBuffer.h` | `services/pkg/frame` |
+| (mới) hàng gửi cho mỗi client | `services/internal/gateway/KSendQueue.go` | bỏ gói vị trí lạc hậu thay vì ngắt người chơi |
 | `MultiServer/Common/SocketServer` + `S3Client/NetConnect` (chỉ TCP thô + xáo trộn riêng) | `services/pkg/transport` (`KListener.go` mở cửa tcp/tls/ws/wss, `KWebSocket.go` RFC 6455) |
 
 ## Tool đọc dữ liệu cũ (`services/pkg/jxold`, `cmd/jxassets`)

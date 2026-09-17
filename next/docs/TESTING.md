@@ -72,6 +72,28 @@ build/go/jxrecord dump -jx logs/old-login.jxrec
 `dir(1) | ms(4) | len(4) | bytes`. File bị cắt giữa chừng vẫn đọc được đến bản ghi cuối còn nguyên
 (recorder flush mỗi giây). Một file cho mỗi kết nối.
 
+## 3d. Test tải (MASTER SPEC 55–58)
+
+```bash
+python tools/dev.py load 500 30 hot      # 500 client dồn vào một chỗ (Tống Kim), 30 giây
+python tools/dev.py load 200 30 spread   # 200 client đi khắp map
+```
+
+Lệnh này bật server, chạy `jxbot`, rồi in **đúng những gì zone đo được**: `tick_ms_avg/p95/p99`,
+tải từng worker, chi phí từng pha của map nặng nhất, số entity đang thức. Không tuyên bố con số
+người chơi tối đa khi chưa đo (§55).
+
+Đo được trên máy 24 luồng (Phượng Tường + 3 map, 18 Hz, ngân sách 55 ms):
+
+| Kịch bản | tick avg | p95 | p99 | ghi chú |
+|---|---|---|---|---|
+| 1 người chơi, 3076 entity | 1,37 ms | 10,5 | 10,5 | 42 entity thức |
+| 200 người cùng một chỗ | 3,35 ms | 5,2 | 7,3 | |
+| 500 người cùng một chỗ | 14,05 ms | 25,2 | 29,0 | không ai rớt, 7 triệu gói hành động/29 s |
+
+Đăng nhập: mật khẩu argon2id tốn ~16 ms CPU mỗi lần **có chủ ý**, nên ~80 lượt đăng nhập/giây trên
+máy này; 500 client vào cùng lúc xếp hàng khoảng 6 giây (client thật chờ, không lỗi).
+
 ## 4. Definition of Done cho một phần việc
 
 1. Code + log theo `docs/LOGGING.md`.
