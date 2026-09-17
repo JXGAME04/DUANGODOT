@@ -198,8 +198,15 @@ jobs:
           unzip -q godot.zip
           chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
           echo "JX_GODOT=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      # No exported game data here: dev.py starts the zone on its flat test world.  A failure's
+      # log needs a login to read, so the tails go out as annotations (public through the API).
       - name: zone + gateway + bot + Godot client
-        run: python3 tools/dev.py e2e
+        run: |
+          set -o pipefail
+          python3 tools/dev.py e2e 2>&1 | tee build/e2e.log || {
+            python3 tools/ci_annotate.py --tail build/e2e.log logs/zone.log logs/gateway.log
+            exit 1
+          }
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -207,5 +214,6 @@ jobs:
           name: next-e2e-logs
           path: |
             next/logs/*.log
+            next/build/e2e.log
             next/data/**
           if-no-files-found: ignore

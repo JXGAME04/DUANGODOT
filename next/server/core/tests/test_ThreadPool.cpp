@@ -3,6 +3,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <set>
 #include <stdexcept>
 #include <thread>
@@ -35,20 +37,27 @@ TEST_CASE("tasks run on the workers, never on the caller", "[core][pool]")
     CHECK(ThreadPool::this_worker_index() == -1);   // the test thread is not a worker
 
     std::atomic<int> done{0};
+    std::atomic<int> on_caller{0};   // Catch2 assertions belong on the test thread: count here
     std::mutex mutex;
+    std::condition_variable second_worker;
     std::set<std::thread::id> threads;
     for (int i = 0; i < 200; ++i) {
         CHECK(pool.submit([&] {
             {
-                std::lock_guard lock(mutex);
+                std::unique_lock lock(mutex);
                 threads.insert(std::this_thread::get_id());
+                second_worker.notify_all();
+                // hold this worker until another one has shown up: on a busy two-core CI runner
+                // a single worker could otherwise drain all 200 tasks before the rest wake
+                second_worker.wait_for(lock, std::chrono::seconds(5), [&] { return threads.size() > 1; });
             }
-            CHECK(ThreadPool::this_worker_index() >= 0);
+            if (ThreadPool::this_worker_index() < 0) on_caller.fetch_add(1);
             done.fetch_add(1);
         }));
     }
     pool.wait_idle();
     CHECK(done.load() == 200);
+    CHECK(on_caller.load() == 0);
     CHECK(threads.size() > 1);   // the work really was spread
     CHECK(pool.completed() == 200);
     CHECK(pool.failed() == 0);

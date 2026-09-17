@@ -80,6 +80,42 @@ def save_pids(p: dict) -> None:
         json.dump(p, f)
 
 
+def strip_json_comments(text: str) -> str:
+    """The config files carry // comments (nlohmann parses them with ignore_comments); a // inside
+    a string ("ws://...") is not a comment."""
+    out, in_string, i = [], False, 0
+    while i < len(text):
+        c = text[i]
+        if in_string:
+            out.append(c)
+            if c == "\\" and i + 1 < len(text):
+                out.append(text[i + 1])
+                i += 1
+            elif c == '"':
+                in_string = False
+        elif c == '"':
+            in_string = True
+            out.append(c)
+        elif text.startswith("//", i):
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            continue
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def zone_config_string(key: str) -> str:
+    """One string value of config/zone.json's "zone" object."""
+    try:
+        with open(os.path.join(ROOT, "config", "zone.json"), encoding="utf-8") as f:
+            value = json.loads(strip_json_comments(f.read())).get("zone", {}).get(key, "")
+        return value if isinstance(value, str) else ""
+    except (OSError, ValueError):
+        return ""
+
+
 def alive(pid: int) -> bool:
     if os.name == "nt":
         # A loaded machine can refuse to start even tasklist ("the paging file is too small"):
@@ -245,6 +281,12 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
     zone_cmd = [zone_exe(), "--config", "config/zone.json"]
     if PORT_OFFSET:
         zone_cmd += ["--set", f"zone.port={ZONE_PORT}"]
+    # a checkout without the exported game data (CI, a fresh clone): the zone refuses to start
+    # with a map it cannot find, so it gets the built-in flat test world instead, and says so
+    map_dir = zone_config_string("map_dir")
+    if map_dir and "JX_ZONE__MAP_DIR" not in os.environ and not os.path.isdir(os.path.join(ROOT, map_dir)):
+        print(f"no map bundle at {map_dir}: the zone runs the flat test world (python tools/dev.py assets exports the maps)")
+        zone_cmd += ["--set", "zone.map_dir="]
     zone = spawn(zone_cmd, "jx_zone", new_console)
     # hosting every map means reading 980 of them before the door opens: 7 s warm, near a minute
     # from a cold file cache

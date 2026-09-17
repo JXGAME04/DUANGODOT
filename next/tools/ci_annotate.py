@@ -13,6 +13,9 @@ Catch2 prints `path(line): FAILED:` (MSVC style) or `path:line: FAILED:` followe
 and "with expansion:"; a test that crashed or timed out has no such line, so the tail of its
 output is reported instead.  GitHub keeps ten error annotations per step: the first ten are sent.
 Always exits 1 - it only runs when the tests have already failed.
+
+    ci_annotate.py --tail <file>...     the end of each file (a script step's output, zone.log,
+                                        gateway.log) as one annotation each, error lines first
 """
 import os
 import re
@@ -36,7 +39,27 @@ def relative(path: str) -> str:
     return "next/" + path[at + len(marker):] if at >= 0 else path
 
 
+def tails(files: list[str]) -> int:
+    """`ci_annotate.py --tail <file>...`: after a failed script step (the end-to-end run), the end of
+    each file as one annotation - a log file's error/fatal/warn lines first, else its last lines."""
+    for path in files:
+        full = path if os.path.isabs(path) else os.path.join(ROOT, path)
+        try:
+            with open(full, encoding="utf-8", errors="replace") as f:
+                lines = [l.rstrip() for l in f if l.strip()]
+        except OSError:
+            print(f"::warning title={escape(path)}::not written")
+            continue
+        loud = [l for l in lines if re.search(r'"lvl":"(error|fatal|warn)"|FAILED|Error|error:|SCRIPT ERROR', l)]
+        chosen = (loud[-12:] if loud else []) + [l for l in lines[-15:] if l not in loud[-12:]]
+        text = "\n".join(l[:300] for l in chosen)[-3500:]
+        print(f"::error title={escape(path)}::" + escape(text or "(empty)"))
+    return 1
+
+
 def main() -> int:
+    if len(sys.argv) > 2 and sys.argv[1] == "--tail":
+        return tails(sys.argv[2:])
     preset = sys.argv[1]
     run = subprocess.run(["ctest", "--preset", preset, "--rerun-failed", "--output-on-failure"],
                          cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")

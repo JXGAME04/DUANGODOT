@@ -138,6 +138,23 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-17 (khuya) — CI: hai lỗi thật đầu tiên của lần chạy đủ (5c66f1c) — đã sửa
+
+Lần CI đầu tiên chạy hết (không bị push sau huỷ) báo hai job đỏ. Log GitHub giờ **bắt buộc đăng nhập**
+mới xem được, nên đọc qua annotation (công khai qua API) — và sửa để lần sau cũng đọc được như thế.
+
+- **MSVC Test (Release)**: `test_ThreadPool.cpp` "tasks run on the workers" — `CHECK(threads.size() > 1)`
+  hỏng vì trên runner ít nhân, một worker kịp làm hết 200 tác vụ rỗng trước khi worker khác thức. Test
+  giờ giữ worker đầu lại đến khi worker thứ hai xuất hiện (condition_variable, chờ tối đa 5 s), và
+  đếm lỗi bằng atomic rồi `CHECK` trên luồng test (assert Catch2 không an toàn đa luồng). Chạy 3×2
+  cấu hình + ghim tiến trình vào **1 nhân**: đều đạt.
+- **End to end (Linux)**: zone **fatal** vì không có `client/assets/maps/1/map.json` — CI không có
+  dữ liệu game (không bao giờ có), nên job này chưa từng đạt. `dev.py start` giờ thấy thiếu bản đồ thì
+  chạy zone với `--set zone.map_dir=` (thế giới phẳng thử nghiệm) và nói rõ. Mô phỏng đúng CI tại chỗ
+  (giấu cả `client/assets` lẫn `data/`): BOT OK, CLIENT OK, CLIENT WS OK.
+- Bước e2e trong workflow ghi output ra `build/e2e.log`; khi hỏng, `ci_annotate.py --tail` in đuôi của
+  e2e.log / zone.log / gateway.log (dòng error/fatal trước) thành annotation.
+
 ### 2026-09-17 (khuya, đợt 2) — M10 xong: chữ ký 1506 hàm script, cột/khoá của 109 tệp settings
 
 Chủ dự án nhắc "làm thật kỹ". Đợt 1 mới liệt kê; đợt này đi tới **từng dòng**: chữ ký từng hàm script và
