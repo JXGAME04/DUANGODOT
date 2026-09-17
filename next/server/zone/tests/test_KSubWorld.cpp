@@ -39,6 +39,10 @@ KSubWorldConfig small_world()
     // so they pin the old one-cell square.  The default view is a rectangle derived from the
     // screen (see "the default view covers a whole client screen").
     c.view_cells = 1;
+    // ... and about WHAT a client is told, not about when: every client looks around every tick and
+    // gives an entity up the moment it leaves the view (no slack), so one tick settles everything.
+    c.interest_period = 1;
+    c.view_slack = 0;
     c.spawn_point = Pos{2000, 2000};
     c.default_speed = 200;   // 10 units per tick
     return c;
@@ -95,7 +99,11 @@ TEST_CASE("spawn sends the visible set to the newcomer and the newcomer to viewe
 
     REQUIRE(w.spawn_player(2, role(22, "B", Pos{200, 200}), eb, pb) == jx::pb::RESULT_OK);
     out = w.take_outbox();
+    // the newcomer is told at once; whoever was there notices it at their next look around
     const auto to_b = to(out, 2, jx::pb::G2C_ENTITY_SPAWN);
+    CHECK(to(out, 1, jx::pb::G2C_ENTITY_SPAWN).empty());
+    w.tick();
+    out = w.take_outbox();
     const auto to_a = to(out, 1, jx::pb::G2C_ENTITY_SPAWN);
     REQUIRE(to_b.size() == 1);
     REQUIRE(to_a.size() == 1);
@@ -231,6 +239,7 @@ TEST_CASE("remove, chat and role snapshot", "[world]")
     Pos pa, pb;
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{100, 100}), ea, pa) == jx::pb::RESULT_OK);
     REQUIRE(w.spawn_player(2, role(22, "B", Pos{200, 200}), eb, pb) == jx::pb::RESULT_OK);
+    w.tick();   // A notices B
     w.take_outbox();
 
     REQUIRE(w.chat(1, "hello"));
@@ -364,6 +373,8 @@ TEST_CASE("wandering npcs move and are announced to viewers", "[world]")
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{1000, 1000}), ea, pa) == jx::pb::RESULT_OK);
     w.take_outbox();
     const EntityId npc = w.spawn_npc("npc1", Pos{1010, 1010}, 1000, 100);
+    CHECK(w.take_outbox().empty());   // spawning sends nothing by itself ...
+    w.tick();                         // ... the client finds the npc when it looks around
     auto out = w.take_outbox();
     REQUIRE(to(out, 1, jx::pb::G2C_ENTITY_SPAWN).size() == 1);
     CHECK(decode<jx::pb::EntitySpawn>(out[0]).entities(0).entity_type() == jx::pb::ENTITY_NPC);
@@ -442,7 +453,11 @@ TEST_CASE("the default view covers a whole client screen", "[world][aoi]")
                                  Pos{s.half_x, -s.half_y}, Pos{-s.half_x, -s.half_y}}) {
             const Pos at{c.spawn_point.x + corner.x, c.spawn_point.y + corner.y};
             REQUIRE(w.spawn_player(2, role(22, "B", at), other, pother) == jx::pb::RESULT_OK);
-            const auto out = w.take_outbox();
+            auto out = w.take_outbox();
+            for (std::uint32_t i = 0; i <= c.interest_period; ++i) {   // A's next routine look
+                w.tick();
+                for (Packet& pk : w.take_outbox()) out.push_back(std::move(pk));
+            }
             // A must be told about B, and B about A: the contract is what the client receives.
             INFO("corner " << corner.x << "," << corner.y);
             CHECK_FALSE(to(out, 1, jx::pb::G2C_ENTITY_SPAWN).empty());
@@ -453,11 +468,12 @@ TEST_CASE("the default view covers a whole client screen", "[world][aoi]")
     }
 }
 
-TEST_CASE("a crowd does not make one action reach everybody", "[world][aoi]")
+TEST_CASE("nearby chat reaches exactly the clients that see the speaker", "[world][aoi]")
 {
-    // MASTER SPEC 69, and the old server's own rule (MAX_BROADCAST_COUNT = 100 in
-    // Core/Src/KRegion.h): without a cap, 1846 players in one spot produced over a million packets
-    // a second because every action reached every one of them.
+    // The old rule cut every packet to the 100 nearest sessions (MAX_BROADCAST_COUNT in
+    // Core/Src/KRegion.h).  The limit now sits on what each client KNOWS, so who hears a line of
+    // chat is not "the first 8" but precisely the clients that were sent the speaker's spawn.
+    // test_KInterest.cpp holds the traffic bound and the no-ghost guarantees.
     Quiet q;
     KSubWorldConfig c;
     c.width = 20000;
@@ -466,21 +482,28 @@ TEST_CASE("a crowd does not make one action reach everybody", "[world][aoi]")
     c.max_viewers = 8;
     KSubWorld w(c);
 
-    EntityId id;
+    EntityId id, speaker;
     Pos p;
     for (std::uint64_t sid = 1; sid <= 40; ++sid) {
         const Pos at{c.spawn_point.x + static_cast<std::int32_t>(sid), c.spawn_point.y};
         REQUIRE(w.spawn_player(sid, role(10 + sid, "P" + std::to_string(sid), at), id, p) == jx::pb::RESULT_OK);
+        if (sid == 1) speaker = id;
     }
+    for (int i = 0; i < 20; ++i) w.tick();
     w.take_outbox();
 
+    std::vector<std::uint64_t> expected;
+    for (std::uint64_t sid = 1; sid <= 40; ++sid) {
+        const jx::zone::KViewer* v = w.viewer(sid);
+        REQUIRE(v != nullptr);
+        CHECK(v->known_players <= c.max_viewers);
+        if (std::find(v->known.begin(), v->known.end(), speaker) != v->known.end()) expected.push_back(sid);
+    }
     REQUIRE(w.chat(1, "xin chao"));
     const auto out = w.take_outbox();
-    std::size_t recipients = 0;
-    for (const Packet& pk : out) {
-        if (pk.msg_id == static_cast<std::uint16_t>(jx::pb::G2C_CHAT_MSG)) recipients += pk.sids.size();
-    }
-    CHECK(recipients > 0);
-    CHECK(recipients <= static_cast<std::size_t>(c.max_viewers));
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].sids == expected);
+    CHECK(expected.size() > 1);                      // himself and his neighbours
+    CHECK(expected.size() < 40);                     // not the whole crowd
     CHECK(w.viewers_capped() > 0);
 }

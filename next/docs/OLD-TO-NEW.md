@@ -10,7 +10,8 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 | `Core/Src/KNpc.h/.cpp` (mọi nhân vật: người chơi lẫn NPC) | `server/zone/include/jx/zone/KNpc.h` (`struct KNpc`, `KNpcKind`) | vị trí fixed-point, waypoints, hướng 0..63 |
 | `Core/Src/KMath.h` (`g_GetDirIndex` 64 hướng) | `server/zone/include/jx/zone/KMath.h`, `client/scenes/KMath.gd` | bảng sin sinh lại (bản cũ đọc từ USB key) |
 | `Core/Src/KSubWorld.h/.cpp` | `server/zone/…/KSubWorld.h`, `src/KSubWorld.cpp` (`class KSubWorld`) | spawn/remove, di chuyển theo tick, AOI, chat, outbox |
-| `Core/Src/KRegion.h/.cpp` (region 512×1024, danh sách npc) | `server/zone/…/KRegion.h/.cpp` (`class KRegionGrid`) | lưới AOI 512 ô, tầm nhìn 3×3 |
+| `Core/Src/KRegion.h/.cpp` (region 512×1024, danh sách npc) | `server/zone/…/KRegion.h/.cpp` (`class KRegionGrid`) | lưới AOI ô 256, vùng nhìn chữ nhật theo màn hình; người chơi xếp riêng với NPC |
+| `KRegion::BroadCast` + `MAX_BROADCAST_COUNT` (100 người nhận mỗi gói), client tự hỏi lại npc lạ (`c2s_requestnpc`) | `server/zone/src/KInterest.cpp` (`KViewer`, `KNpc::watchers`, `KSubWorld::look_around/entity_gone`) | giới hạn 100 nằm ở điều mỗi client **biết**; cập nhật và despawn đi tới đúng những client đã được báo spawn |
 | `KSubWorld::LoadMap` + `KRegion::LoadServerObstacle` + `KNpcFindPath` | `server/zone/…/KMapData.h/.cpp` (`class KMapData`) | `map.json`/`obstacle.bin`, A* + làm mượt |
 | `MultiServer/GameServer` (`KSwordOnLineSever`, Heaven) | `server/zone/…/KGameServer.h/.cpp`, `src/main.cpp` | nhận gateway, tick cố định, nhiều worker, PlayerSave |
 | (mới — MASTER SPEC) runtime nhiều nhân | `server/core` (`ServerClock`, `FixedTick`, `Result`, `CommandQueue`/`EventQueue`, `ThreadPool`, `JobSystem`, `Metrics`) | nơi duy nhất tạo thread, đo mọi pha |

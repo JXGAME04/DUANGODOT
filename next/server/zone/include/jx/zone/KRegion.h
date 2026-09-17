@@ -65,7 +65,8 @@ public:
     }
     [[nodiscard]] std::size_t player_cells() const noexcept { return players_.size(); }
 
-    // Visits every entity in the view neighbourhood of c (including c itself).
+    // Visits every entity in the view neighbourhood of c (including c itself): players first,
+    // then everything else, cell by cell.
     template <class Fn>
     void for_each_in_view(Cell c, Fn&& fn) const
     {
@@ -73,7 +74,34 @@ public:
             for (std::int32_t cx = c.cx - view_x_; cx <= c.cx + view_x_; ++cx) {
                 const auto it = cells_.find(key(Cell{cx, cy}));
                 if (it == cells_.end()) continue;
-                for (const EntityId id : it->second) fn(id);
+                for (const EntityId id : it->second.players) fn(id);
+                for (const EntityId id : it->second.others) fn(id);
+            }
+        }
+    }
+
+    // The same, one kind at a time.  The interest management asks for them separately: in a crowd
+    // a client that already knows all the players it is allowed to know must still find a monster
+    // that appears, without walking over three thousand players to get to it.
+    template <class Fn>
+    void for_each_player_in_view(Cell c, Fn&& fn) const
+    {
+        for (std::int32_t cy = c.cy - view_y_; cy <= c.cy + view_y_; ++cy) {
+            for (std::int32_t cx = c.cx - view_x_; cx <= c.cx + view_x_; ++cx) {
+                const auto it = cells_.find(key(Cell{cx, cy}));
+                if (it == cells_.end()) continue;
+                for (const EntityId id : it->second.players) fn(id);
+            }
+        }
+    }
+    template <class Fn>
+    void for_each_other_in_view(Cell c, Fn&& fn) const
+    {
+        for (std::int32_t cy = c.cy - view_y_; cy <= c.cy + view_y_; ++cy) {
+            for (std::int32_t cx = c.cx - view_x_; cx <= c.cx + view_x_; ++cx) {
+                const auto it = cells_.find(key(Cell{cx, cy}));
+                if (it == cells_.end()) continue;
+                for (const EntityId id : it->second.others) fn(id);
             }
         }
     }
@@ -89,7 +117,21 @@ public:
             for (std::int32_t cx = a.cx; cx <= b.cx; ++cx) {
                 const auto it = cells_.find(key(Cell{cx, cy}));
                 if (it == cells_.end()) continue;
-                for (const EntityId id : it->second) fn(id);
+                for (const EntityId id : it->second.players) fn(id);
+                for (const EntityId id : it->second.others) fn(id);
+            }
+        }
+    }
+    template <class Fn>
+    void for_each_player_within(Pos p, std::int32_t radius, Fn&& fn) const
+    {
+        const Cell a = cell_of(Pos{p.x - radius, p.y - radius});
+        const Cell b = cell_of(Pos{p.x + radius, p.y + radius});
+        for (std::int32_t cy = a.cy; cy <= b.cy; ++cy) {
+            for (std::int32_t cx = a.cx; cx <= b.cx; ++cx) {
+                const auto it = cells_.find(key(Cell{cx, cy}));
+                if (it == cells_.end()) continue;
+                for (const EntityId id : it->second.players) fn(id);
             }
         }
     }
@@ -108,11 +150,19 @@ private:
     std::int32_t cell_size_;
     std::int32_t view_x_;
     std::int32_t view_y_;
+    // Players and everything else are filed apart, and each entity remembers its slot, so taking
+    // one out of a cell that holds three thousand costs the same as out of a cell that holds three.
+    struct Bucket {
+        std::vector<EntityId> players;
+        std::vector<EntityId> others;
+    };
     struct Placed {
         Cell cell;
         bool player = false;
+        std::uint32_t slot = 0;   // index in the bucket's list of its kind
     };
-    std::unordered_map<std::uint64_t, std::vector<EntityId>> cells_;
+    void file(EntityId id, Cell c, bool player);
+    std::unordered_map<std::uint64_t, Bucket> cells_;
     std::unordered_map<EntityId, Placed, IdHash> where_;
     std::unordered_map<std::uint64_t, std::uint32_t> players_;   // cell -> players standing there
 };

@@ -116,13 +116,13 @@ type Server struct {
 	// High bits the zone gave this link so its session ids cannot collide with another gateway's
 	// (ZoneHelloAck.session_prefix).  0 until the zone answers, which is before any client is let in.
 	sidPrefix atomic.Uint64
-	listeners   []transport.Listener
-	addr        atomic.Value // string: the raw TCP door
-	addrWS      atomic.Value // string: the WebSocket door
-	stopping    atomic.Bool
-	sessWG      sync.WaitGroup
-	zoneWG      sync.WaitGroup
-	acceptWG    sync.WaitGroup
+	listeners []transport.Listener
+	addr      atomic.Value // string: the raw TCP door
+	addrWS    atomic.Value // string: the WebSocket door
+	stopping  atomic.Bool
+	sessWG    sync.WaitGroup
+	zoneWG    sync.WaitGroup
+	acceptWG  sync.WaitGroup
 }
 
 func New(cfg Config, store persist.Store, authenticator auth.Authenticator) *Server {

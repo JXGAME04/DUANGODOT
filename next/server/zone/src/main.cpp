@@ -1,6 +1,7 @@
 // jx_zone - JX NEXT zone server.
 //   jx_zone [--config config/zone.json] [--port N] [--set key=value]...
 // Configuration precedence: file < environment (JX_ZONE__PORT=...) < --set / --port.
+#include <algorithm>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -107,6 +108,10 @@ int main(int argc, char** argv)
     w.view_width = static_cast<std::int32_t>(cfg.get_int("zone.view_width", w.view_width));
     w.view_height = static_cast<std::int32_t>(cfg.get_int("zone.view_height", w.view_height));
     w.max_viewers = static_cast<std::int32_t>(cfg.get_int("zone.max_viewers", w.max_viewers));
+    w.max_known_npcs = static_cast<std::int32_t>(cfg.get_int("zone.max_known_npcs", w.max_known_npcs));
+    w.interest_period = static_cast<std::uint32_t>(std::max<std::int64_t>(1, cfg.get_int("zone.interest_period", w.interest_period)));
+    w.view_slack = static_cast<std::int32_t>(cfg.get_int("zone.view_slack", w.view_slack));
+    w.spawn_budget = static_cast<std::int32_t>(cfg.get_int("zone.spawn_budget", w.spawn_budget));
     w.default_speed = static_cast<std::uint32_t>(cfg.get_int("zone.default_speed", w.default_speed));
     w.max_players = static_cast<std::uint32_t>(cfg.get_int("zone.max_players", w.max_players));
     w.seed = static_cast<std::uint32_t>(cfg.get_int("zone.seed", w.seed));

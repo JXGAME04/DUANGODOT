@@ -21,9 +21,15 @@
     "view_width": 1280,
     "view_height": 1536,
     "view_cells": 0,
-    // Toi da bao nhieu phien nhan mot goi the gioi, gan nhat truoc (0 = khong gioi han).
-    // Ban cu dung MAX_BROADCAST_COUNT = 100 trong Core/Src/KRegion.h.
+    // Moi client duoc bao ve toi da bao nhieu NGUOI CHOI KHAC, gan nhat truoc (0 = khong gioi han).
+    // Con so 100 la MAX_BROADCAST_COUNT cua ban cu (Core/Src/KRegion.h:9), nhung gio no gioi han
+    // dieu client BIET chu khong cat goi tin: goi chi di toi dung nhung client da duoc bao spawn,
+    // nen khong client nao giu "bong ma" hay thay quai dung song mai (server/zone/src/KInterest.cpp).
     "max_viewers": 100,
+    "max_known_npcs": 300,       // cung gioi han do cho npc / quai
+    "interest_period": 4,        // moi client nhin quanh lai sau bay nhieu tick (4 tick = 0,22 giay)
+    "view_slack": 1,             // entity da biet chi bi bo khi ra NGOAI vung nhin bay nhieu o
+    "spawn_budget": 48,          // moi lan nhin quanh bao them toi da bay nhieu entity: nguoi vao cho dong duoc bao dan qua vai tick
     "default_speed": 200,
     "max_players": 30000,
     "save_interval_s": 60,

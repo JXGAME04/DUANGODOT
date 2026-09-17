@@ -2,7 +2,8 @@ name: next-ci
 
 on:
   push:
-    branches: [main, master]
+    # claude/**: work branches are checked before they reach main, not after
+    branches: [main, master, "claude/**"]
     paths: ["next/**", ".github/workflows/next-ci.yml"]
   pull_request:
     paths: ["next/**", ".github/workflows/next-ci.yml"]
@@ -127,8 +128,15 @@ jobs:
           unzip -q godot.zip
           chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
           echo "JX_GODOT=$PWD/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      # A block scalar on purpose.  `run: "$JX_GODOT" --headless ...` is not YAML (a quoted scalar
+      # cannot be followed by more text), and one such line made the WHOLE workflow invalid: from
+      # M5d to U5 GitHub reported every push as failed without running a single job.
       - name: Client unit tests
-        run: "$JX_GODOT" --headless --path client -s tests/run.gd
+        run: |
+          "$JX_GODOT" --headless --path client -s tests/run.gd
+      - name: Login windows rebuilt from the exported layouts (skips itself without assets/ui)
+        run: |
+          "$JX_GODOT" --headless --path client tests/UiCheck.tscn
 
   e2e:
     name: End to end (Linux)

@@ -151,49 +151,6 @@ void KSubWorld::emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, cons
     outbox_.push_back(std::move(p));
 }
 
-const std::vector<std::uint64_t>& KSubWorld::viewers_cached(Cell c) const
-{
-    const std::uint64_t key = (static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cx)) << 32) |
-                              static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cy));
-    const auto it = viewer_cache_.find(key);
-    if (it != viewer_cache_.end()) return it->second;
-
-    // Collect who can see this cell, keeping how far away each one is so the list can be cut to
-    // the nearest ones.  MASTER SPEC 69: what a player must be told about first is what is close.
-    struct Near {
-        std::uint64_t sid;
-        std::int64_t dist2;
-    };
-    std::vector<Near> near;
-    grid_.for_each_in_view(c, [&](EntityId id) {
-        const KNpc* e = entities_.find(id);
-        if (e == nullptr || e->kind != KNpcKind::player || e->sid == 0) return;
-        const Cell oc = grid_.cell_of(e->pos());
-        const std::int64_t dx = static_cast<std::int64_t>(oc.cx) - c.cx;
-        const std::int64_t dy = static_cast<std::int64_t>(oc.cy) - c.cy;
-        near.push_back(Near{e->sid, dx * dx + dy * dy});
-    });
-
-    // A crowd would otherwise make one action reach everybody: 1846 players in one spot produced
-    // 1 058 242 packets a second, because the number of "who sees whom" pairs grows with the square
-    // of the crowd.  The old server capped it the same way (MAX_BROADCAST_COUNT = 100 in
-    // Core/Src/KRegion.h), except it kept whoever came first; keeping the nearest is strictly better.
-    const auto cap = static_cast<std::size_t>(std::max(0, cfg_.max_viewers));
-    if (cap != 0 && near.size() > cap) {
-        std::nth_element(near.begin(), near.begin() + static_cast<std::ptrdiff_t>(cap), near.end(),
-                         [](const Near& a, const Near& b) { return a.dist2 < b.dist2; });
-        near.resize(cap);
-        ++viewers_capped_;
-    }
-
-    std::vector<std::uint64_t> list;
-    list.reserve(near.size());
-    for (const Near& n : near) list.push_back(n.sid);
-    // A stable order keeps the packets a session receives reproducible between runs.
-    std::sort(list.begin(), list.end());
-    return viewer_cache_.emplace(key, std::move(list)).first->second;
-}
-
 void KSubWorld::emit_spawn(const std::vector<std::uint64_t>& sids, const pb::EntitySpawn& spawn)
 {
     if (sids.empty() || spawn.entities_size() == 0) return;
@@ -210,18 +167,6 @@ void KSubWorld::emit_spawn(const std::vector<std::uint64_t>& sids, const pb::Ent
         }
     }
     if (chunk.entities_size() > 0) emit(sids, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), chunk);
-}
-
-void KSubWorld::viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const
-{
-    std::uint64_t exclude_sid = 0;
-    if (exclude.value != 0) {
-        const KNpc* e = entities_.find(exclude);
-        if (e != nullptr) exclude_sid = e->sid;
-    }
-    for (const std::uint64_t sid : viewers_cached(c)) {
-        if (sid != exclude_sid) sids.push_back(sid);
-    }
 }
 
 void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
@@ -301,32 +246,24 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     const EntityId id = entities_.insert(std::move(e));   // the table owns the handle (SPEC 36)
     entities_.at(id).id = id;
     grid_.insert(id, start, true);   // a player keeps its neighbourhood awake (SPEC 44, 45)
-    invalidate_viewers();
     players_[sid] = id;
     roles_[sid] = role;
 
-    const KNpc& self = entities_.at(id);
-    const Cell cell = grid_.cell_of(start);
-
-    // everything the newcomer can see (including itself)
-    pb::EntitySpawn visible;
-    grid_.for_each_in_view(cell, [&](EntityId other) { fill_info(entities_.at(other), *visible.add_entities()); });
-    emit_spawn({sid}, visible);
-
-    // the newcomer for everyone already there
-    scratch_sids_.clear();
-    viewers_of(cell, scratch_sids_, id);
-    if (!scratch_sids_.empty()) {
-        pb::EntitySpawn me;
-        fill_info(self, *me.add_entities());
-        emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), me);
-    }
+    // The newcomer looks around at once: its client gets its own character first, then what is
+    // nearest, up to the budget; the rest follows over the next ticks.  Everybody already there
+    // notices the newcomer at their own next look (KInterest.cpp) - nobody is told in a burst.
+    KViewer& v = viewers_[sid];
+    v = KViewer{};
+    v.self = id;
+    look_around(sid, v);
+    // routine looks of players that arrive together are spread over the period, not all on one tick
+    v.next_look = tick_ + 1 + sid % std::max<std::uint32_t>(1, cfg_.interest_period);
 
     entity_out = id;
     pos_out = start;
     log::ScopedContext ctx(log::Context{sid, role.player_id(), cfg_.zone_id, tick_});
     log::info("zone", "player spawned", {log::kv("entity", id), log::kv("name", role.name()), log::kv("x", start.x), log::kv("y", start.y),
-                                         log::kv("visible", visible.entities_size())});
+                                         log::kv("visible", v.known.size())});
     return pb::RESULT_OK;
 }
 
@@ -335,20 +272,15 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
     const EntityId id = pit->second;
-    if (const KNpc* gone_e = entities_.find(id)) {
-        const Cell cell = grid_.cell_of(gone_e->pos());
-        scratch_sids_.clear();
-        viewers_of(cell, scratch_sids_, id);
-        if (!scratch_sids_.empty()) {
-            pb::EntityDespawn gone;
-            gone.add_entity_ids(id.value);
-            emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), gone);
-        }
+    drop_viewer(sid);   // first: a client that is leaving is not told about its own departure
+    if (KNpc* gone_e = entities_.find(id)) {
+        const std::size_t told = gone_e->watchers.size();
+        entity_gone(*gone_e);   // exactly the clients that know this player, however crowded the place
         log::ScopedContext ctx(log::Context{sid, gone_e->player_id, cfg_.zone_id, tick_});
-        log::info("zone", "player removed", {log::kv("entity", id), log::kv("x", gone_e->pos().x), log::kv("y", gone_e->pos().y)});
+        log::info("zone", "player removed", {log::kv("entity", id), log::kv("x", gone_e->pos().x), log::kv("y", gone_e->pos().y),
+                                             log::kv("told", told)});
         grid_.remove(id);
         entities_.destroy(id);
-        invalidate_viewers();
     }
     players_.erase(pit);
     roles_.erase(sid);
@@ -357,6 +289,7 @@ bool KSubWorld::remove_player(std::uint64_t sid)
 
 void KSubWorld::emit_move(const KNpc& e)
 {
+    if (e.watchers.empty()) return;   // nobody knows it: a npc wandering on an empty map costs nothing
     pb::EntityMove mv;
     mv.set_entity_id(e.id.value);
     set_vec(mv.mutable_pos(), e.pos());
@@ -368,14 +301,19 @@ void KSubWorld::emit_move(const KNpc& e)
         for (const Pos& p : e.path) set_vec(mv.add_path(), p);
     }
 
-    const Cell cell = grid_.cell_of(e.pos());
+    // everybody that knows it; the player's own client gets its copy with the sequence number
+    // of the request it answers
     scratch_sids_.clear();
-    viewers_of(cell, scratch_sids_, e.id);
+    bool to_self = false;
+    for (const std::uint64_t sid : e.watchers) {
+        if (e.sid != 0 && sid == e.sid) to_self = true;
+        else scratch_sids_.push_back(sid);
+    }
     if (!scratch_sids_.empty()) {
         mv.set_seq(0);
         emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE), mv);
     }
-    if (e.kind == KNpcKind::player && e.sid != 0) {
+    if (to_self) {
         mv.set_seq(e.move_seq);
         emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE), mv);
     }
@@ -420,11 +358,11 @@ bool KSubWorld::chat(std::uint64_t sid, std::string_view text)
     msg.set_entity_id(e.id.value);
     msg.set_name(e.name);
     msg.set_text(std::string(text));
-    scratch_sids_.clear();
-    viewers_of(grid_.cell_of(e.pos()), scratch_sids_, EntityId{});   // includes the sender
-    emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
+    // Nearby chat is heard by whoever SEES the speaker: the clients that know the character,
+    // which includes the speaker's own.
+    emit(e.watchers, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
     log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
-    log::debug("zone.chat", "chat", {log::kv("entity", e.id), log::kv("len", text.size()), log::kv("receivers", scratch_sids_.size())});
+    log::debug("zone.chat", "chat", {log::kv("entity", e.id), log::kv("len", text.size()), log::kv("receivers", e.watchers.size())});
     return true;
 }
 
@@ -446,15 +384,8 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     const EntityId id = entities_.insert(std::move(e));
     entities_.at(id).id = id;
     grid_.insert(id, home);
-
-    const KNpc& self = entities_.at(id);
-    scratch_sids_.clear();
-    viewers_of(grid_.cell_of(self.pos()), scratch_sids_, id);
-    if (!scratch_sids_.empty()) {
-        pb::EntitySpawn me;
-        fill_info(self, *me.add_entities());
-        emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), me);
-    }
+    // Nothing is sent here: the clients around notice the newcomer at their next look, which also
+    // means a script that spawns a hundred npcs at once does not flood anybody.
     return id;
 }
 
@@ -472,42 +403,6 @@ void KSubWorld::wander(KNpc& e)
     }
     e.next_wander_tick = tick_ + cfg_.tick_hz * 2 + static_cast<std::uint64_t>(rng_() % (cfg_.tick_hz * 6));
     if (e.moving) emit_move(e);
-}
-
-void KSubWorld::on_cell_change(KNpc& e, Cell from, Cell to)
-{
-    // a player that changed cell changes who sees what: the per tick answer is stale
-    if (e.kind == KNpcKind::player) invalidate_viewers();
-    grid_.view_diff(from, to, scratch_entered_, scratch_left_);
-
-    pb::EntitySpawn appear;      // what e starts to see
-    pb::EntityDespawn vanish;    // what e stops seeing
-    pb::EntitySpawn me_spawn;    // e for the players that start to see it
-    pb::EntityDespawn me_gone;
-    fill_info(e, *me_spawn.add_entities());
-    me_gone.add_entity_ids(e.id.value);
-
-    std::vector<std::uint64_t> new_viewers, old_viewers;
-    for (const EntityId other : scratch_entered_) {
-        if (other == e.id) continue;
-        const KNpc* o = entities_.find(other);
-        if (o == nullptr) continue;
-        fill_info(*o, *appear.add_entities());
-        if (o->kind == KNpcKind::player && o->sid != 0) new_viewers.push_back(o->sid);
-    }
-    for (const EntityId other : scratch_left_) {
-        if (other == e.id) continue;
-        const KNpc* o = entities_.find(other);
-        if (o == nullptr) continue;
-        vanish.add_entity_ids(other.value);
-        if (o->kind == KNpcKind::player && o->sid != 0) old_viewers.push_back(o->sid);
-    }
-    if (e.kind == KNpcKind::player && e.sid != 0) {
-        if (appear.entities_size() > 0) emit_spawn({e.sid}, appear);
-        if (vanish.entity_ids_size() > 0) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), vanish);
-    }
-    if (!new_viewers.empty()) emit(std::move(new_viewers), static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), me_spawn);
-    if (!old_viewers.empty()) emit(std::move(old_viewers), static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), me_gone);
 }
 
 void KSubWorld::tick()
@@ -534,7 +429,6 @@ void KSubWorld::tick()
     entities_.ids(scratch_ids_);
     std::sort(scratch_ids_.begin(), scratch_ids_.end());
 
-    invalidate_viewers();   // players moved last tick: recompute who sees what
     {
         auto phase = profile_->phase(core::TickPhase::spatial_update);
         build_awake_cells();
@@ -588,14 +482,18 @@ void KSubWorld::tick()
     ai_phase.reset();   // ai + movement integration end here
 
     {
-        // spatial: re-file whatever crossed a cell, which also produces the spawn / despawn
-        // packets for the players whose view changed (interest management)
+        // spatial: re-file whatever crossed a cell.  A player that did sees another part of the
+        // map now, so its client looks around this very tick; everybody else notices the mover at
+        // their own next look.  Then every client that is due looks around (KInterest.cpp).
         auto phase = profile_->phase(core::TickPhase::interest);
         for (const EntityId id : moved) {
             KNpc& e = entities_.at(id);
             Cell from, to;
-            if (grid_.move(id, e.pos(), from, to)) on_cell_change(e, from, to);
+            if (!grid_.move(id, e.pos(), from, to)) continue;
+            if (e.kind != KNpcKind::player || e.sid == 0) continue;
+            if (const auto v = viewers_.find(e.sid); v != viewers_.end()) v->second.dirty = true;
         }
+        run_interest();
     }
     {
         auto phase = profile_->phase(core::TickPhase::snapshot);
@@ -881,7 +779,16 @@ bool KSubWorld::teleport(EntityId id, Pos p)
     if (cfg_.map) p = cfg_.map->nearest_walkable(p);
     e->set_pos(p);
     Cell from, to;
-    if (grid_.move(id, p, from, to)) on_cell_change(*e, from, to);
+    if (grid_.move(id, p, from, to)) {
+        // A jump to another part of the map: whoever knew it here is told it is gone (they did not
+        // see it walk away, so a move would make it slide across their screen), and the clients
+        // around the landing place find it at their next look.  Its own client keeps its character
+        // and looks around the new place this tick.
+        entity_gone(*e, true);
+        if (e->sid != 0) {
+            if (const auto v = viewers_.find(e->sid); v != viewers_.end()) v->second.dirty = true;
+        }
+    }
     emit_move(*e);
     return true;
 }
@@ -1066,13 +973,7 @@ void KSubWorld::do_revive(KNpc& e)
     e.doing = KDoing::revive;
     e.frame_total = std::max(1u, e.revive_frame);
     e.frame_cur = 0;
-    scratch_sids_.clear();
-    viewers_of(grid_.cell_of(e.pos()), scratch_sids_, e.id);
-    if (!scratch_sids_.empty()) {
-        pb::EntityDespawn gone;
-        gone.add_entity_ids(e.id.value);
-        emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), gone);
-    }
+    entity_gone(e);   // every client that saw it die sees the corpse go
     grid_.remove(e.id);
 }
 
@@ -1093,14 +994,7 @@ void KSubWorld::revive(KNpc& e)
     e.current_active_radius = e.active_radius;
     e.next_ai_time = 0;
     e.set_pos(e.home);
-    grid_.insert(e.id, e.home);
-    scratch_sids_.clear();
-    viewers_of(grid_.cell_of(e.home), scratch_sids_, e.id);
-    if (!scratch_sids_.empty()) {
-        pb::EntitySpawn me;
-        fill_info(e, *me.add_entities());
-        emit(scratch_sids_, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), me);
-    }
+    grid_.insert(e.id, e.home);   // back in the world: the clients around find it at their next look
     log::debug("zone.fight", "revived", {log::kv("entity", e.id)});
 }
 
@@ -1175,12 +1069,10 @@ void KSubWorld::msg_to_player(std::uint64_t sid, std::string_view text)
     emit({sid}, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
 }
 
+// To every client that knows the entity - its own included, which is in the list like any other.
 void KSubWorld::broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg)
 {
-    scratch_sids_.clear();
-    viewers_of(grid_.cell_of(e.pos()), scratch_sids_, e.id);
-    if (e.kind == KNpcKind::player && e.sid != 0) scratch_sids_.push_back(e.sid);
-    if (!scratch_sids_.empty()) emit(scratch_sids_, msg_id, msg);
+    if (!e.watchers.empty()) emit(e.watchers, msg_id, msg);
 }
 
 void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target)

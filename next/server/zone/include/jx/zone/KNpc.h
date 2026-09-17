@@ -117,6 +117,9 @@ struct KNpc {
 
     std::uint64_t sid = 0;         // gateway session (players only)
     std::uint64_t player_id = 0;
+    // The sessions whose client has been sent a spawn for this entity, sorted.  Every update about
+    // it goes to exactly these, and so does its despawn (KViewer in KSubWorld.h is the other half).
+    std::vector<std::uint64_t> watchers;
 
     // simple wander behaviour for test npcs without an AIMode (0 = static)
     std::int32_t wander_radius = 0;

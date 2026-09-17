@@ -35,6 +35,11 @@ PIDS = os.path.join(BUILD, "dev-pids.json")
 EXE = ".exe" if os.name == "nt" else ""
 PRESET = os.environ.get("JX_PRESET", "windows-msvc" if os.name == "nt" else "linux-gcc")
 CONFIG = os.environ.get("JX_CONFIG", "Debug")
+# A second copy of the system on the same machine (another checkout, a worktree) moves every port
+# by this much: JX_PORT_OFFSET=1000 -> zone 18001, gateway 18100 / 18102.  Without it two
+# checkouts fight over 17001 and the second one reports a zone that "did not open its port".
+PORT_OFFSET = int(os.environ.get("JX_PORT_OFFSET", "0"))
+ZONE_PORT = 17001 + PORT_OFFSET
 
 
 def zone_exe() -> str:
@@ -122,10 +127,11 @@ def port_open(port: int, host: str = "127.0.0.1") -> bool:
         return s.connect_ex((host, port)) == 0
 
 
-def gateway_healthy(port: int = 17102) -> bool:
+def gateway_healthy(port: int = 0) -> bool:
     """GET /healthz on the gateway's WebSocket door: true only when it can take players now
     (zone link up, not shutting down)."""
     import urllib.request
+    port = port or gateway_ports(0)[1]
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=0.5) as r:
             return r.status == 200 and b'"zone_ready":true' in r.read()
@@ -133,7 +139,7 @@ def gateway_healthy(port: int = 17102) -> bool:
         return False
 
 
-def wait_healthy(seconds: float, port: int = 17102) -> bool:
+def wait_healthy(seconds: float, port: int = 0) -> bool:
     end = time.time() + seconds
     while time.time() < end:
         if gateway_healthy(port):
@@ -203,7 +209,7 @@ def cmd_build() -> None:
 
 def gateway_ports(i: int) -> tuple[int, int]:
     """TCP and WebSocket port of gateway i (0 = the one in config/gateway.json)."""
-    return 17100 + 10 * i, 17102 + 10 * i
+    return 17100 + PORT_OFFSET + 10 * i, 17102 + PORT_OFFSET + 10 * i
 
 
 def gateway_data_dir(i: int) -> str:
@@ -233,16 +239,26 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
             print("no converted scripts yet: run `python tools/dev.py lua` for the npc level data")
         if root:
             os.environ["JX_ZONE__SCRIPT_ROOT"] = root
-    zone = spawn([zone_exe(), "--config", "config/zone.json"], "jx_zone", new_console)
+    if port_open(ZONE_PORT):
+        sys.exit(f"port {ZONE_PORT} is already taken - another checkout is running its servers. "
+                 f"Stop it there (python tools/dev.py stop) or run this one with JX_PORT_OFFSET=1000.")
+    zone_cmd = [zone_exe(), "--config", "config/zone.json"]
+    if PORT_OFFSET:
+        zone_cmd += ["--set", f"zone.port={ZONE_PORT}"]
+    zone = spawn(zone_cmd, "jx_zone", new_console)
     # hosting every map means reading 980 of them before the door opens: 7 s warm, near a minute
     # from a cold file cache
-    if not wait_port(17001, 90):
+    if not wait_port(ZONE_PORT, 90):
         kill(zone.pid)
-        sys.exit("zone did not open port 17001 (see logs/zone.log)")
+        sys.exit(f"zone did not open port {ZONE_PORT} (see logs/zone.log)")
     started = {"zone": zone.pid}
     for i in range(max(1, gateways)):
         tcp, ws = gateway_ports(i)
         cmd = [go_exe("gateway"), "-config", "config/gateway.json"]
+        if PORT_OFFSET:
+            cmd += ["-set", f"gateway.listen=0.0.0.0:{tcp}",
+                    "-set", f"gateway.listen_ws=0.0.0.0:{ws}",
+                    "-set", f"gateway.zone=127.0.0.1:{ZONE_PORT}"]
         if i > 0:
             cmd += ["-set", f"gateway.id=gw{i + 1}",
                     "-set", f"gateway.listen=0.0.0.0:{tcp}",
@@ -261,10 +277,10 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
         started[f"gateway{i + 1}"] = gw.pid
     save_pids(started)
     # the gateway answers /healthz only once its zone link is up: wait for that, not just for the port
-    if port_open(17102) and not wait_healthy(20):
+    if port_open(gateway_ports(0)[1]) and not wait_healthy(20):
         print("warning: gateway is listening but the zone link is not ready (see logs/gateway.log)")
     addrs = " ".join(f"127.0.0.1:{gateway_ports(i)[0]}" for i in range(max(1, gateways)))
-    print(f"zone pid {zone.pid} :17001, {max(1, gateways)} gateway(s) - client connects to {addrs}")
+    print(f"zone pid {zone.pid} :{ZONE_PORT}, {max(1, gateways)} gateway(s) - client connects to {addrs}")
 
 
 def cmd_stop() -> None:
@@ -280,19 +296,19 @@ def cmd_status() -> None:
     pids = load_pids()
     for name, pid in pids.items():
         print(f"{name}: pid {pid} {'running' if alive(pid) else 'dead'}")
-    print(f"zone port 17001: {'open' if port_open(17001) else 'closed'}")
-    print(f"gateway port 17100: {'open' if port_open(17100) else 'closed'}")
+    print(f"zone port {ZONE_PORT}: {'open' if port_open(ZONE_PORT) else 'closed'}")
+    print(f"gateway port {gateway_ports(0)[0]}: {'open' if port_open(gateway_ports(0)[0]) else 'closed'}")
 
 
 def cmd_bots(n: int, seconds: int) -> int:
-    return subprocess.call([go_exe("jxbot"), "-gateway", "127.0.0.1:17100", "-bots", str(n), "-duration", f"{seconds}s"], cwd=ROOT)
+    return subprocess.call([go_exe("jxbot"), "-gateway", f"127.0.0.1:{gateway_ports(0)[0]}", "-bots", str(n), "-duration", f"{seconds}s"], cwd=ROOT)
 
 
 def cmd_smoke() -> int:
     cmd_stop()
     cmd_start(new_console=False)
     try:
-        rc = subprocess.call([go_exe("jxbot"), "-gateway", "127.0.0.1:17100", "-once", "-prefix", "smoke"], cwd=ROOT)
+        rc = subprocess.call([go_exe("jxbot"), "-gateway", f"127.0.0.1:{gateway_ports(0)[0]}", "-once", "-prefix", "smoke"], cwd=ROOT)
         print("SMOKE OK" if rc == 0 else f"SMOKE FAILED ({rc})")
         return rc
     finally:
@@ -378,9 +394,10 @@ def godot_headless_exe() -> str:
     return console if os.path.exists(console) else exe
 
 
-def run_client_auto(account: str = "auto1", windowed: bool = False, server: str = "127.0.0.1:17100") -> int:
+def run_client_auto(account: str = "auto1", windowed: bool = False, server: str = "") -> int:
     """Godot client: login -> character -> enter world -> move -> quit(0 on arrival).
     Headless by default; windowed=True renders and saves screenshots to user://logs/auto_*.png."""
+    server = server or f"127.0.0.1:{gateway_ports(0)[0]}"
     cmd = [godot_headless_exe(), "--path", os.path.join(ROOT, "client")]
     if not windowed:
         cmd.insert(1, "--headless")
@@ -579,13 +596,13 @@ def cmd_e2e() -> int:
     cmd_stop()
     cmd_start(new_console=False)
     try:
-        rc = subprocess.call([go_exe("jxbot"), "-gateway", "127.0.0.1:17100", "-once", "-prefix", "smoke"], cwd=ROOT)
+        rc = subprocess.call([go_exe("jxbot"), "-gateway", f"127.0.0.1:{gateway_ports(0)[0]}", "-once", "-prefix", "smoke"], cwd=ROOT)
         print("BOT OK" if rc == 0 else f"BOT FAILED ({rc})")
         rc2 = run_client_auto()
         print("CLIENT OK" if rc2 == 0 else f"CLIENT FAILED ({rc2})")
         rc3 = 0
-        if port_open(17102):   # the same client over the WebSocket door (web / mobile build)
-            rc3 = run_client_auto(account="autows", server="ws://127.0.0.1:17102/ws")
+        if port_open(gateway_ports(0)[1]):   # the same client over the WebSocket door (web / mobile build)
+            rc3 = run_client_auto(account="autows", server=f"ws://127.0.0.1:{gateway_ports(0)[1]}/ws")
             print("CLIENT WS OK" if rc3 == 0 else f"CLIENT WS FAILED ({rc3})")
         return rc or rc2 or rc3
     finally:

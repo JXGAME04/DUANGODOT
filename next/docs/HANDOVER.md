@@ -67,10 +67,10 @@ Chia theo nhóm; cột **giá** là ước lượng công sức, không phải c
 
 | # | Việc | Giá | Ghi chú |
 |---|---|---|---|
-| N1 | **Giới hạn số người nhận mỗi gói** | nhỏ | Bản cũ dùng `MAX_BROADCAST_COUNT = 100` (`KRegion.h:9`); ta đang gửi cho **tất cả**. Ước giảm ~18 lần số gói ở 1 846 người. |
-| N2 | **Vùng nhìn theo hình màn hình** | nhỏ | **Đây là lỗi**: ô 512 + `view_cells 1` chỉ bảo đảm 512 đơn vị, trong khi màn hình cần 640 ngang và 768 dọc. Có lúc entity hiện trên màn hình mà server chưa gửi. |
-| N3 | Gửi thưa dần theo khoảng cách, gộp nhiều entity một gói | vừa | Người ở xa nhận vị trí mỗi vài tick. |
-| N4 | Rải việc thoát ra nhiều tick | nhỏ | 10 000 người thoát cùng lúc làm p99 vọt lên 100 ms. |
+| ~~N1~~ | ~~Giới hạn số người nhận mỗi gói~~ **xong, và đã sửa lại** | nhỏ | Bản đầu cắt mỗi gói ở 100 phiên gần nhất → client giữ "bóng ma". Nay giới hạn nằm ở **điều mỗi client biết** (`KInterest.cpp`), xem nhật ký. |
+| ~~N2~~ | ~~Vùng nhìn theo hình màn hình~~ **xong** | nhỏ | |
+| N3 | Gửi thưa dần theo khoảng cách, gộp nhiều entity một gói | vừa | Người ở xa nhận vị trí mỗi vài tick. Đã có sẵn chỗ cắm: `KViewer` của từng client. |
+| ~~N4~~ | ~~Rải việc vào ra nhiều tick~~ **xong** | nhỏ | `spawn_budget` 48 entity mỗi lần nhìn quanh: p99 lúc người ùa vào 268 ms → 16,78 ms. |
 | N5 | Bỏ bớt gói khi tắc, rộng hơn gói vị trí | vừa | Hiện chỉ bỏ vị trí nên ở 13 878 người còn tồn 356 MB trên đường truyền. |
 | N6 | Chạy thật gateway thứ hai | nhỏ | Hạ tầng xong (`ZoneHelloAck.session_prefix`), chưa đo được vì máy test hết cổng. |
 | N7 | **Chia vùng trong một map nóng** | lớn | Giai đoạn R. Chỉ làm **sau** N1–N3, vì nút thắt hiện ở mạng. |
@@ -113,7 +113,7 @@ thu bằng cảm tính.
 
 | Mốc | Nội dung | Tuần | Nghiệm thu |
 |---|---|---:|---|
-| **M6** | N1, N2, N4 | 1 | 3 000 người **một map**: p99 < 55 ms, 0 tick bị rớt. Có test khẳng định vùng nhìn phủ hết màn hình. |
+| ~~**M6**~~ **đạt 2026‑09‑17** | N1, N2, N4 | 1 | 3 000 người **một map**: p99 < 55 ms, 0 tick bị rớt → đo được **p99 16,78 ms, 0 tick rớt**. Có test khẳng định vùng nhìn phủ hết màn hình và client không bao giờ giữ bóng ma. |
 | **M7** | N3, N5, N6 | 1–2 | 20 000 người trên hai gateway: p99 < 55 ms, tồn đọng đường truyền < 4 MB. Cần bot từ máy thứ hai. |
 | **M8** | U1–U4 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu. |
 | **M9** | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. |
@@ -137,6 +137,87 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 (chiều) — rà lại việc của phiên trước: ba lỗi thật, sửa xong cả ba
+
+Chủ dự án yêu cầu **kiểm tra lại mã đã đẩy lên trước khi làm tiếp**. Tìm ra ba lỗi, cả ba đều có
+bằng chứng đo được, không phải nhận xét về phong cách.
+
+**Lỗi 1 — CI chưa từng chạy.** `.github/workflows/next-ci.yml` dòng 131 viết
+`run: "$JX_GODOT" --headless ...`: một chuỗi trong nháy kép mà còn chữ đằng sau thì **không phải
+YAML**. Cả tệp workflow vô hiệu, nên từ M5d tới U5 (17 commit) GitHub báo mọi lần đẩy là *failed*
+mà **không chạy job nào** — build Linux/GCC, `go test -race`, fuzz, e2e đều chưa hề được kiểm.
+Các dòng "CI xanh" trong nhật ký cũ là sai. Đã sửa (block scalar), thêm bước `UiCheck`, và cho CI
+chạy cả trên nhánh `claude/**`. `gateway.go` cũng chưa `gofmt` — CI sẽ chặn đúng chỗ đó.
+
+**Lỗi 2 — N1 để lại "bóng ma".** Bản N1 cắt **mỗi gói** xuống 100 phiên gần nhất. Hậu quả, tái hiện
+bằng test mô phỏng đúng những gì client nhận (`tests/test_KInterest.cpp`), chạy trên mã cũ:
+
+```text
+người mới vào được gửi MỌI THỨ trong tầm nhìn, nhưng tin "có người mới" chỉ tới 100 phiên
+một người rời đám đông 40 người (giới hạn 8)  -> 20 client vẫn giữ bóng ma của họ
+400 tick hỗn loạn (đi, đánh, vào, ra)          -> 1 865 entity "ma" còn nằm trong các client
+gói chết / máu / chat cũng bị cắt              -> quái đứng sống mãi trên máy người ở xa
+```
+
+Bản cũ của Kingsoft sống được với luật này vì client tự hỏi lại thứ nó không biết và tự xoá thứ im
+lặng. Ta không có hai cơ chế đó, nên sửa tận gốc: **giới hạn nằm ở điều mỗi client BIẾT**.
+`KViewer` (mỗi phiên một cái) giữ danh sách entity client đã được báo spawn; mỗi entity giữ
+`watchers` = các phiên biết nó. Mọi cập nhật và gói despawn đi tới **đúng** `watchers`. Tổng lưu
+lượng vẫn bị chặn y như cũ (tổng các danh sách ≤ số người × 100) nhưng không gì có thể lệch.
+Thêm `max_known_npcs` 300, `interest_period` 4 tick, `view_slack` 1 ô (đi dọc mép ô không còn
+hiện‑mất liên tục), `spawn_budget` 48 — chính cái cuối cùng là **N4**: người bước vào chỗ đông được
+báo dần qua vài tick, gần nhất trước.
+
+**Lỗi 3 — bộ đọc `.pak` bỏ sót 10 267 tệp của client 2.0**, xem mục dưới.
+
+**Đo lại, 3 000 bot trên MỘT map, bản Release, cùng máy:**
+
+| | Trước (N1 bản đầu) | Sau |
+|---|---:|---:|
+| tick trung bình lúc đông nhất | 9,08 ms | **7,32 ms** |
+| p99 tệ nhất (kể cả lúc người ùa vào) | **268 ms** | **16,78 ms** |
+| tick dài nhất | 325 ms | **17,31 ms** |
+| tick bị rớt | 7 | **0** |
+| đăng nhập lỗi / bị đá / khung bị bỏ | 0 / 0 / 0 | 0 / 0 / 0 |
+
+Trước khi tối ưu, pha *interest* tốn 37 ms mỗi tick ở 3 000 người (benchmark ẩn `[.bench]` trong
+`test_KInterest.cpp`, có in chi phí từng pha). Ba thay đổi theo đúng số đo đưa nó về 11,9 ms:
+lưới `KRegionGrid` xếp người chơi riêng với NPC và xoá O(1) theo ô nhớ; bước "ai đã ra khỏi tầm"
+tính ô từ toạ độ thay vì tra bảng băm; client đã đầy chỉ tìm người gần hơn để đổi chỗ mỗi ~0,9 giây
+và chỉ trong bán kính cần thiết.
+
+**`dev.py` chạy song song được.** `JX_PORT_OFFSET=1000` dời mọi cổng (zone 18001, gateway
+18100/18102): hai checkout trên một máy không còn giành cổng 17001, và `start` báo rõ khi cổng đã
+bị chiếm thay vì "zone did not open port".
+
+**Test:** 123 ctest (4 test interest mới + 1 test chat viết lại), `go vet` + `go test`, Godot 262,
+e2e TCP + WebSocket — tất cả xanh.
+
+### 2026-09-17 (trưa) — kho lồng `\reslst.dat`: client 2.0 có đủ bố cục đăng nhập
+
+**Kết luận "ba màn còn lại là Flash" của mục U5 bên dưới là SAI.** `update.swf` chỉ là cửa sổ
+launcher. Màn đăng nhập của 2.0 là cửa sổ C++ như JX1; tệp bố cục của nó nằm trong một kho mà bộ
+đọc của ta không biết.
+
+Cách tìm ra: không đoán nữa mà **theo dõi chính game đang chạy**. `tools/re/filetrace.py` chạy
+`gamecl.exe` dưới debug API, đặt breakpoint trong `KPakFile::Open` của `engineFree.dll` và ghi lại
+tên từng tệp game xin mở cùng nơi nó được tìm thấy:
+
+```text
+game mở 13 tệp .pak (kho #0..#12) nhưng tìm thấy 232 tệp ở "kho #13"
+14  pak#11 size=13477978  \reslst.dat          <- nằm TRONG font.pak
+    pak#13 elem=3875       \Ui\ui3_1024\UiNewLogin\开始.ini
+```
+
+`\reslst.dat` là một tệp `PACK` hoàn chỉnh (10 267 mục: 6 738 script Lua, 1 161 `.ini`, 840 bảng
+tab) lưu thành 7 mảnh 2 MB. Cờ `0x10000000` mà mã JX1 gọi là "chỉ dùng cho sprite" thì engine 2.0
+dùng cho mọi tệp lớn. Sửa ở `pkg/jxold/pak/XPackFile.go`; `jxassets check-trace` đối chiếu với game
+thật: trước **225/490 tệp game thấy mà ta không thấy**, sau **khớp 503, thiếu 0, thừa 0**.
+
+Hệ quả ngay: client dự phòng (`bin/Client`) **không còn phải cấp tệp nào** — bảng nhân vật chính,
+bảng động tác, `BaseValue.ini`, bảng `*Res.txt` giờ đều lấy từ 2.0 thật. Chi tiết, địa chỉ trong
+nhị phân, 14 bố cục đăng nhập và nghĩa của `PositionType`: [VLTK20-CLIENT.md](VLTK20-CLIENT.md).
 
 ### 2026-09-17 — U5: mổ client 2.0 thật, và bỏ cách tra theo tên tệp
 

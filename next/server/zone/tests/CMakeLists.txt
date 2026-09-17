@@ -5,6 +5,7 @@ add_executable(jx_zone_tests
     test_KRegion.cpp
     test_KMapData.cpp
     test_KSubWorld.cpp
+    test_KInterest.cpp
     test_KGameServer.cpp
     test_KWorldScheduler.cpp
     test_KMath.cpp

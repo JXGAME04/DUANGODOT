@@ -45,12 +45,28 @@ struct KSubWorldConfig {
     // than the screen - an entity the player can see must always have been sent.
     std::int32_t view_width = 1280;
     std::int32_t view_height = 1536;
-    // At most this many sessions receive one world packet, nearest first.  A crowd otherwise makes
-    // the traffic grow with the square of the number of players: measured, 1846 players in one spot
-    // produced 1 058 242 packets a second.  The old server had the same rule, MAX_BROADCAST_COUNT
-    // in Core/Src/KRegion.h, and its number was 100.  0 = no limit.
+    // How many OTHER players one client is told about, nearest first.  A crowd otherwise makes the
+    // traffic grow with the square of the number of players: measured, 1846 players in one spot
+    // produced 1 058 242 packets a second.  The old server bounded it with MAX_BROADCAST_COUNT =
+    // 100 receivers per packet (Core/Src/KRegion.h:9); the number is kept, but it now limits what
+    // a client KNOWS instead of who a packet reaches, so no client is ever left with a ghost
+    // (see KViewer below and KInterest.cpp).  0 = no limit.
     std::int32_t max_viewers = 100;
+    // The same limit for everything that is not a player (shopkeepers, monsters, pets): how many
+    // of them one client is told about, nearest first.  A town has a few hundred.
+    std::int32_t max_known_npcs = 300;
+    // How often a client's surroundings are looked at again when nothing forced it, in ticks.
+    // Four ticks at 18 Hz is 0,22 s; the view is wider than the screen by more than anybody
+    // walks in that time, so nothing pops up inside the picture.
+    std::uint32_t interest_period = 4;
+    // An entity a client knows is only taken away once it is this many cells OUTSIDE the view.
+    // Without the slack somebody pacing along a cell edge appears and vanishes on every step.
+    std::int32_t view_slack = 1;
     std::int32_t view_cells = 0;   // derived from view_width/view_height; set only by tests
+    // How many entities one look around may add to what a client knows.  More than this waits for
+    // the next tick, nearest first: a player walking into a packed town is told about it over a
+    // few ticks instead of in one burst, and so is everybody he walks in on (N4).
+    std::int32_t spawn_budget = 48;
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
@@ -73,6 +89,22 @@ struct Packet {
     std::vector<std::uint64_t> sids;
     std::uint16_t msg_id = 0;
     std::string payload;
+};
+
+// What one client has been told about.  This is the heart of the interest management: a client
+// receives updates ONLY for the entities in `known`, and every entity in `known` is taken away
+// with a despawn when it leaves.  The old rule cut each broadcast to the 100 nearest sessions
+// (MAX_BROADCAST_COUNT in Core/Src/KRegion.h), which is cheap but forgets who was told what: a
+// client kept the ghost of a player whose departure was cut off, and saw a monster stand alive
+// whose death it never received.  The limit now sits on the client's side - how many players it is
+// told about at all - so the traffic is bounded the same way and nothing can go stale.
+struct KViewer {
+    EntityId self;
+    std::vector<EntityId> known;       // sorted by id; always holds `self` once the client has its own spawn
+    std::int32_t known_players = 0;    // how many of them are OTHER players (what max_viewers limits)
+    std::uint64_t next_look = 0;       // tick of the next routine look around
+    std::uint64_t next_swap = 0;       // a FULL client looks for nearer players to trade in only this often
+    bool dirty = true;                 // look at the next opportunity: just arrived, changed cell, or still catching up
 };
 
 class KSubWorld {
@@ -124,9 +156,14 @@ public:
     // a zone can host all 980 maps of the old game and only pay for the ones being played.
     [[nodiscard]] bool dormant() const noexcept { return dormant_; }
     [[nodiscard]] std::uint64_t idle_ticks() const noexcept { return idle_ticks_; }
-    // How many times a viewer list was cut down to max_viewers: the number that says a crowd is
-    // being protected against, and by how much.
+    // How many times a client could not be told about a player in view because it already knows
+    // max_viewers of them: the number that says a crowd is being protected against, and by how much.
     [[nodiscard]] std::uint64_t viewers_capped() const noexcept { return viewers_capped_; }
+    // Where this map's tick spends its time, phase by phase (MASTER SPEC 22, 53): what a load test
+    // and a benchmark read to say WHICH part is slow instead of guessing.
+    [[nodiscard]] core::TickProfile& profile() noexcept { return *profile_; }
+    // What the client of this session has been told about (nullptr when it is not on this map).
+    [[nodiscard]] const KViewer* viewer(std::uint64_t sid) const;
 
     [[nodiscard]] std::size_t player_count() const noexcept { return players_.size(); }
     [[nodiscard]] std::size_t entity_count() const noexcept { return entities_.size(); }
@@ -157,15 +194,15 @@ private:
     // the client protocol allows (docs/PROTOCOL.md).  This sends them in pieces that always fit.
     void emit_spawn(const std::vector<std::uint64_t>& sids, const pb::EntitySpawn& spawn);
     static constexpr int kSpawnChunk = 48;
-    void viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const;
-    // Who can see this cell, computed once per cell per tick.  With a crowd standing on the
-    // same spot (Tống Kim) the same answer was being recomputed for every single command; the
-    // cache is dropped whenever the set of players or their cells changes (MASTER SPEC 26, 96).
-    const std::vector<std::uint64_t>& viewers_cached(Cell c) const;
-    void invalidate_viewers() const noexcept { viewer_cache_.clear(); }
+    // interest management (KInterest.cpp): who is told about what
+    void run_interest();                                   // once per tick: every client that is due looks around
+    void look_around(std::uint64_t sid, KViewer& v);       // forget what left, learn what is near, within the budget
+    void entity_gone(KNpc& e, bool keep_self = false);     // it leaves the world: every client that knows it is told
+    void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
+    static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
+    static constexpr std::uint64_t kSwapEveryLooks = 4;    // ... and it looks for them every 4th routine look (about 0,9 s)
     void fill_info(const KNpc& e, pb::EntityInfo& out) const;
     void emit_move(const KNpc& e);
-    void on_cell_change(KNpc& e, Cell from, Cell to);
     void wander(KNpc& e);
     // entity sleeping (SPEC 44, 45)
     void build_awake_cells();
@@ -213,15 +250,21 @@ private:
     std::vector<Packet> outbox_;
     std::uint64_t tick_ = 0;
     std::minstd_rand rng_;
-    std::vector<EntityId> scratch_ids_, scratch_entered_, scratch_left_;
+    std::vector<EntityId> scratch_ids_;
     std::vector<std::uint64_t> scratch_sids_;
     mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
     std::vector<KWorldChange> world_changes_;
-    mutable std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> viewer_cache_;   // cell -> player sids
+    std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about
+    struct Near {                                          // a candidate of a look around
+        std::int64_t dist2;
+        EntityId id;
+    };
+    std::vector<Near> scratch_near_players_, scratch_near_npcs_, scratch_far_known_;
+    std::vector<std::uint64_t> scratch_due_;
     std::unordered_set<std::uint64_t> awake_cells_;   // cells with a player within the largest vision
     std::size_t awake_entities_ = 0;
     std::uint64_t idle_ticks_ = 0;   // consecutive ticks with no player and nothing awake
-    mutable std::uint64_t viewers_capped_ = 0;
+    std::uint64_t viewers_capped_ = 0;
     bool dormant_ = false;
     std::int32_t max_vision_ = 0;                     // largest vision radius spawned here
     // per phase cost of this map's tick (MASTER SPEC 22, 53, 96): "map.<id>.tick.<phase>"
