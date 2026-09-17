@@ -49,7 +49,15 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
         grid_ = KRegionGrid(cfg_.cell_size, cfg_.view_cells);
         if (cfg_.map_npcs) {
             for (const KNpcPlacement& n : cfg_.map->npcs) {
-                spawn_npc(n.name, n.pos, n.template_id, 0, KNpcKind::npc);
+                // NPCKIND of the old GameDataDef.h: 0 = kind_normal (a monster); everything else
+                // (partner, dialoger, bird, mouse) is a friendly npc
+                const KNpcKind kind = n.kind == 0 ? KNpcKind::monster : KNpcKind::npc;
+                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind);
+                if (auto it = entities_.find(id); it != entities_.end()) {
+                    it->second.dir = static_cast<std::uint32_t>(n.dir & 63);
+                    it->second.level = static_cast<std::uint32_t>(n.level);
+                    it->second.series = static_cast<std::uint32_t>(n.series);
+                }
             }
             take_outbox();   // nobody is listening yet
             log::info("zone", "map npcs placed", {log::kv("count", cfg_.map->npcs.size())});

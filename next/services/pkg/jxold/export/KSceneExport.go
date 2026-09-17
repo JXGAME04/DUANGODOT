@@ -54,7 +54,12 @@ type NpcInfo struct {
 	X          int    `json:"x"` // scene units
 	Y          int    `json:"y"`
 	Frame      int    `json:"frame"`
-	Kind       int    `json:"kind"`
+	Kind       int    `json:"kind"` // NPCKIND of the old GameDataDef.h: 0 monster, 3 dialoger, 4 bird, 5 mouse
+	Level      int    `json:"level,omitempty"`
+	Camp       int    `json:"camp,omitempty"`
+	Series     int    `json:"series,omitempty"`
+	Dir        int    `json:"dir,omitempty"`         // facing 0..63
+	ClientOnly bool   `json:"client_only,omitempty"` // Npc_C.dat: ambient npc the old client spawned itself
 	Script     string `json:"script,omitempty"`
 }
 
@@ -111,6 +116,13 @@ type Exporter struct {
 	Exported int
 	// Templates (npcs.txt, index = template id) gives map npcs their in-game names when set.
 	Templates []npcres.Template
+	// ServerSet is the old server's archive (Region_S.dat: the real npcs); nil = client data only.
+	ServerSet *pak.Set
+	// ReplaceNames is replacename_npc.txt (KNpcSet::Add renames placements through it).
+	ReplaceNames map[string]string
+	// StandFrames returns the frame count of a template's stand sprite (client-only npcs face
+	// the direction their stand frame encodes); nil = face down.
+	StandFrames func(templateID int) int
 }
 
 func New(set *pak.Set, out string) *Exporter {
@@ -201,6 +213,16 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 	e.seen = map[objectKey]bool{}
 	for ry := w.Top; ry <= w.Bottom; ry++ {
 		for rx := w.Left; rx <= w.Right; rx++ {
+			// the real npcs: the server archive's Region_S.dat (KRegion::LoadServerNpc)
+			if e.ServerSet != nil {
+				sr, err := wor.LoadServerRegion(e.ServerSet, w, rx, ry)
+				if err != nil {
+					return nil, fmt.Errorf("server region %d,%d: %w", rx, ry, err)
+				}
+				for _, n := range sr.Npcs {
+					info.Npcs = append(info.Npcs, e.npcInfo(w, n, false))
+				}
+			}
 			r, err := wor.LoadRegion(e.Set, w, rx, ry)
 			if err != nil {
 				return nil, fmt.Errorf("region %d,%d: %w", rx, ry, err)
@@ -228,17 +250,9 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 			if err := os.WriteFile(filepath.Join(dir, "r"+key+".json"), data, 0o644); err != nil {
 				return nil, err
 			}
+			// client-only npcs (Npc_C.dat, KRegion::LoadClientNpc): the ambient animals
 			for _, n := range r.Npcs {
-				// the map stores the editor's (Chinese) name; the game shows the template's name
-				name := text.TCVN3ToUTF8([]byte(n.Name))
-				if id := int(n.TemplateID); id > 0 && id < len(e.Templates) && e.Templates[id].Name != "" {
-					name = e.Templates[id].Name
-				}
-				info.Npcs = append(info.Npcs, NpcInfo{
-					TemplateID: int(n.TemplateID), Name: name,
-					X: (rx-w.Left)*wor.RegionWidth + int(n.X), Y: (ry-w.Top)*wor.RegionHeight + int(n.Y),
-					Frame: n.Frame, Kind: n.Kind, Script: text.GBKToUTF8([]byte(strings.TrimRight(n.Script, "\x00"))),
-				})
+				info.Npcs = append(info.Npcs, e.npcInfo(w, n, true))
 			}
 		}
 	}
@@ -338,6 +352,30 @@ func (e *Exporter) region(w *wor.World, r *wor.Region) *RegionFile {
 	}
 	rf.Objects = uniq
 	return rf
+}
+
+// npcInfo converts a placement record (KSPNpc) the way KNpcSet::Add did: the name is the
+// template's (renamed through replacename_npc.txt on the server side), positions are absolute
+// scene coordinates counted from region 0 (Mps2Map), client-only npcs face the direction their
+// stand frame encodes (KNpcRes::GetNormalNpcStandDir) while server npcs start facing down.
+func (e *Exporter) npcInfo(w *wor.World, n wor.Npc, clientOnly bool) NpcInfo {
+	name := text.TCVN3ToUTF8([]byte(n.Name))
+	if id := int(n.TemplateID); id > 0 && id < len(e.Templates) && e.Templates[id].Name != "" {
+		name = e.Templates[id].Name
+		if !clientOnly {
+			name = npcres.PlacementName(e.ReplaceNames, n.Name, name)
+		}
+	}
+	dir := 0
+	if clientOnly && e.StandFrames != nil {
+		dir = npcres.StandDir(n.Frame, e.StandFrames(int(n.TemplateID)))
+	}
+	return NpcInfo{
+		TemplateID: int(n.TemplateID), Name: name,
+		X: int(n.X) - w.Left*wor.RegionWidth, Y: int(n.Y) - w.Top*wor.RegionHeight,
+		Frame: n.Frame, Kind: n.Kind, Level: n.Level, Camp: n.Camp, Series: n.Series, Dir: dir, ClientOnly: clientOnly,
+		Script: text.GBKToUTF8([]byte(strings.TrimRight(n.Script, "\x00"))),
+	}
 }
 
 type objectKey struct {

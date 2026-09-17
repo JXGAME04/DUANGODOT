@@ -41,6 +41,7 @@ var (
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
+	flagServer = flag.String("server", "", "old server folder (package.ini + pak/maps.pak) for the server-side region files; default: the Server folder next to the client")
 )
 
 func fail(format string, args ...any) {
@@ -112,6 +113,63 @@ func mapPath(dir, arg string) (string, string) {
 
 // resolveImage finds the archive path of a sprite referenced by map data (names are stored
 // relative to the sprite root).
+// findServer returns the old server folder (package.ini + pak/maps.pak with the Region_S files):
+// -server, JX_OLD_SERVER, or the Server folder next to the client.
+func findServer(clientDir string) string {
+	if *flagServer != "" {
+		return *flagServer
+	}
+	if env := os.Getenv("JX_OLD_SERVER"); env != "" {
+		return env
+	}
+	cand := filepath.Join(filepath.Dir(filepath.Clean(clientDir)), "Server")
+	if _, err := os.Stat(filepath.Join(cand, "package.ini")); err == nil {
+		return cand
+	}
+	return ""
+}
+
+// prepareExporter wires what map npcs need: the templates (names), the old server's archive
+// (Region_S.dat with the real npcs), replacename_npc.txt and the stand frame counts for the
+// facing of client-only npcs.  Returns the function that closes the server archive.
+func prepareExporter(ex *export.Exporter, clientDir string, set *pak.Set) func() {
+	ex.Templates = loadTemplates(set)
+	closer := func() {}
+	sdir := findServer(clientDir)
+	if sdir == "" {
+		log.Warn("asset", "old server folder not found: map npcs come from the client archive only (pass -server)")
+	} else if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err != nil {
+		log.Warn("asset", "server archive unavailable", log.F("dir", sdir), log.F("error", err))
+	} else {
+		ex.ServerSet = s
+		closer = s.Close
+		if data, err := os.ReadFile(filepath.Join(sdir, filepath.FromSlash(strings.ReplaceAll(npcres.ReplaceNameFile, `\`, "/")))); err == nil {
+			ex.ReplaceNames = npcres.ParseReplaceNames(data)
+		} else {
+			log.Warn("asset", "replacename_npc.txt missing", log.F("error", err))
+		}
+	}
+	if list, err := npcres.Load(set.ReadFile); err == nil {
+		cache := map[int]int{}
+		ex.StandFrames = func(id int) int {
+			if v, ok := cache[id]; ok {
+				return v
+			}
+			frames := 0
+			if id > 0 && id < len(ex.Templates) {
+				if node, err := list.Node(ex.Templates[id].ResType); err == nil && !node.Special && npcres.DoStand < len(node.Actions) {
+					frames = node.Actions[npcres.DoStand].Frames
+				}
+			}
+			cache[id] = frames
+			return frames
+		}
+	} else {
+		log.Warn("asset", "npcres tables unavailable, client npcs face down", log.F("error", err))
+	}
+	return closer
+}
+
 // loadTemplates reads Settings/npcs.txt from the archives (nil when it is missing) so map npcs
 // get their in-game names.
 func loadTemplates(set *pak.Set) []npcres.Template {
@@ -290,7 +348,7 @@ func main() {
 			}
 		}
 		ex := export.New(set, out)
-		ex.Templates = loadTemplates(set)
+		defer prepareExporter(ex, dir, set)()
 		info, err := ex.Map(id, name, w, spawn)
 		if err != nil {
 			fail("%v", err)
@@ -314,7 +372,7 @@ func main() {
 		set := openSet(dir)
 		defer set.Close()
 		ex := export.New(set, out)
-		ex.Templates = loadTemplates(set)
+		defer prepareExporter(ex, dir, set)()
 		re := regexp.MustCompile(`(?m)^(\d+)=(.*)$`)
 		ok, missing, failed := 0, 0, 0
 		start := time.Now()
@@ -371,6 +429,13 @@ func main() {
 			ids = []string{"1"}
 		}
 		var placed []int
+		var server *pak.Set
+		if sdir := findServer(dir); sdir != "" {
+			if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err == nil {
+				server = s
+				defer server.Close()
+			}
+		}
 		for _, arg := range ids {
 			p, _ := mapPath(dir, arg)
 			w, err := wor.LoadWorld(set, p)
@@ -385,6 +450,15 @@ func main() {
 					}
 					for _, n := range r.Npcs {
 						placed = append(placed, int(n.TemplateID))
+					}
+					if server != nil {
+						sr, err := wor.LoadServerRegion(server, w, x, y)
+						if err != nil {
+							fail("server region %d,%d: %v", x, y, err)
+						}
+						for _, n := range sr.Npcs {
+							placed = append(placed, int(n.TemplateID))
+						}
 					}
 				}
 			}
@@ -412,6 +486,67 @@ func main() {
 		}
 		fmt.Printf("npcres: %d resources for %d placed npcs (%d templates), sprites exported %d\nwritten to %s\n",
 			n, len(placed), len(templates), e.Exported, filepath.Join(*flagOut, "npcres"))
+	case "npcs":
+		// npcs <mapid|gamepath> [x y]: npc placements of a map (or one region) from the server
+		// archive (Npc_S: the real npcs) and the client archive (Npc_C: client-only extras)
+		if len(args) < 2 {
+			fail("npcs <mapid|gamepath> [x y]")
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		templates := loadTemplates(set)
+		p, _ := mapPath(dir, args[1])
+		w, err := wor.LoadWorld(set, p)
+		if err != nil {
+			fail("%v", err)
+		}
+		var server *pak.Set
+		if sdir := findServer(dir); sdir != "" {
+			if s, err := pak.OpenSet(filepath.Join(sdir, "package.ini")); err == nil {
+				server = s
+				defer server.Close()
+			} else {
+				log.Warn("asset", "server archive unavailable", log.F("dir", sdir), log.F("error", err))
+			}
+		}
+		x0, y0, x1, y1 := w.Left, w.Top, w.Right, w.Bottom
+		if len(args) >= 4 {
+			x0, _ = strconv.Atoi(args[2])
+			y0, _ = strconv.Atoi(args[3])
+			x1, y1 = x0, y0
+		}
+		tplName := func(id int32) string {
+			if int(id) > 0 && int(id) < len(templates) {
+				return templates[id].Name
+			}
+			return "?"
+		}
+		total := 0
+		for y := y0; y <= y1; y++ {
+			for x := x0; x <= x1; x++ {
+				if server != nil {
+					r, err := wor.LoadServerRegion(server, w, x, y)
+					if err != nil {
+						fail("server region %d,%d: %v", x, y, err)
+					}
+					for _, n := range r.Npcs {
+						fmt.Printf("S %03d_%03d tpl=%-5d %-24s kind=%d lvl=%d frame=%d at %d,%d (%s) script=%s\n", x, y, n.TemplateID, tplName(n.TemplateID),
+							n.Kind, n.Level, n.Frame, n.X, n.Y, text.TCVN3ToUTF8([]byte(n.Name)), text.GBKToUTF8([]byte(strings.TrimRight(n.Script, "\x00"))))
+						total++
+					}
+				}
+				r, err := wor.LoadRegion(set, w, x, y)
+				if err != nil {
+					fail("region %d,%d: %v", x, y, err)
+				}
+				for _, n := range r.Npcs {
+					fmt.Printf("C %03d_%03d tpl=%-5d %-24s kind=%d lvl=%d frame=%d at %d,%d\n", x, y, n.TemplateID, tplName(n.TemplateID), n.Kind, n.Level, n.Frame, n.X, n.Y)
+					total++
+				}
+			}
+		}
+		fmt.Printf("%d npc placements\n", total)
 	case "objects":
 		// objects <mapid|gamepath> <x> <y> [image-substring]: every cover / buildin record of one
 		// region together with the sprite header, for checking positions against the old renderer

@@ -18,8 +18,13 @@ struct KNpcPlacement {
     std::string name;      // UTF-8
     Pos pos;               // scene units
     int frame = 0;
-    int kind = 0;
+    int kind = 0;          // NPCKIND of the old GameDataDef.h: 0 monster, 3 dialoger, 4 bird, 5 mouse
     std::string script;
+    int level = 0;
+    int camp = 0;
+    int series = 0;
+    int dir = 0;           // facing 0..63
+    bool client_only = false;   // Npc_C.dat ambient npc (the old client spawned it locally)
 };
 
 class KMapData {

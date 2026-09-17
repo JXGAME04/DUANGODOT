@@ -48,6 +48,25 @@ type World struct {
 func (w *World) RegionCols() int { return w.Right - w.Left + 1 }
 func (w *World) RegionRows() int { return w.Bottom - w.Top + 1 }
 
+// RegionPathServer returns the Region_S.dat game path (server archive: real npcs, traps).
+func (w *World) RegionPathServer(x, y int) string {
+	return fmt.Sprintf("%s\\v_%03d\\%03d_Region_S.dat", w.Path, y, x)
+}
+
+// LoadServerRegion reads the server-side region file (KRegion::LoadObject on the old server):
+// same layout as Region_C.dat, but the npc section holds the real npcs and the obstacle/trap
+// sections the server's copies.  A missing file yields an empty region.
+func LoadServerRegion(set *pak.Set, w *World, x, y int) (*Region, error) {
+	data, err := set.ReadFile(w.RegionPathServer(x, y))
+	if err != nil {
+		if errors.Is(err, pak.ErrNotFound) {
+			return &Region{X: x, Y: y}, nil
+		}
+		return nil, err
+	}
+	return ParseRegion(x, y, data)
+}
+
 // RegionPath returns the Region_C.dat game path for region (x, y).
 func (w *World) RegionPath(x, y int) string {
 	return fmt.Sprintf("%s\\v_%03d\\%03d_Region_C.dat", w.Path, y, x)

@@ -51,6 +51,19 @@ Object (`objects[]`, giữ đúng thứ tự trong file cũ):
   `ang`/`nod` = `fAngleXY`/`fNodicalY` để gộp các vật nằm cùng một đường. `p1`, `p2` tính bằng **đơn vị scene**
   (y chưa chia 2) so với gốc bundle.
 
+### NPC trên map (`map.json` → `npcs[]`)
+
+Hai nguồn, đều là tọa độ scene **tuyệt đối** (`KNpcSet::Add` đưa thẳng `nPositionX/Y` vào `Mps2Map`):
+
+- **Server** (`bin/Server/pak/maps.pak` → `XXX_Region_S.dat`, mục Npc_S, `KRegion::LoadServerNpc`): NPC thật
+  (người trong thành `kind` 3, quái `kind` 0 có `level`). Tên = tên template trong `npcs.txt`, hoặc tên thay thế
+  nếu tên đặt trong map có trong `Settings/npc/replacename_npc.txt` (`gNpcNameMap`). Hướng ban đầu 0 (`m_Dir = 0`).
+- **Client** (`Region_C.dat`, mục Npc_C, `KRegion::LoadClientNpc`): thú/chim "client-only" (`client_only: true`),
+  hướng đứng lấy từ khung `nCurFrame` (`GetNormalNpcStandDir` = 64·frame/tổng khung đứng).
+
+Zone hiện sinh cả hai loại (`KSubWorld` ctor: `kind` 0 → quái, còn lại → NPC). `jxassets npcs <map> [x y]` liệt kê
+để đối chiếu; `-server <thư mục>` (mặc định `../Server` cạnh client, hoặc `JX_OLD_SERVER`).
+
 ### Thứ tự vẽ (client)
 
 Client port nguyên cây sắp xếp của game cũ: `KSceneMath.gd` (`SceneMath.cpp`), `KIpotLeaf.gd`, `KIpotBranch.gd`,

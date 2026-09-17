@@ -44,6 +44,11 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
             p.pos = Pos{n.value("x", 0), n.value("y", 0)};
             p.frame = n.value("frame", 0);
             p.kind = n.value("kind", 0);
+            p.level = n.value("level", 0);
+            p.camp = n.value("camp", 0);
+            p.series = n.value("series", 0);
+            p.dir = n.value("dir", 0);
+            p.client_only = n.value("client_only", false);
             p.script = n.value("script", "");
             m.npcs.push_back(std::move(p));
         }

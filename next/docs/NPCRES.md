@@ -10,8 +10,9 @@ python tools/dev.py assets [map ids]         # export-map + export-npcres cho c�
 jxassets export-npcres 1 -templates 1000,1001 -out client/assets
 ```
 
-`export-npcres` xuất NPC được đặt trên các map (Npc_C.dat → template id) + hai nhân vật chính (`MainMan`,
-`MainLady`) + các template liệt kê ở `-templates` (zone dùng 1000..1003 cho NPC test). Chỉ sprite của các
+`export-npcres` xuất NPC được đặt trên các map (Npc_S.dat của pak server + Npc_C.dat của client → template id,
+xem MAPS.md mục NPC) + hai nhân vật chính (`MainMan`, `MainLady`) + các template liệt kê ở `-templates`
+(zone dùng 1000..1003 cho NPC test). Chỉ sprite của các
 "doing" đứng/đứng 2/đi/chạy được xuất ở giai đoạn này (`s` rỗng = chưa xuất; client vẽ vòng tròn thay).
 
 ```text

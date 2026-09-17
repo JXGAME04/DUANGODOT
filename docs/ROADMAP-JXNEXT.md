@@ -222,6 +222,9 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       (Head/Body/tay/vũ khí + bóng, thứ tự vẽ theo `贴图顺序表`), NPC một ảnh, 64 hướng (`KMath`), khung theo tick 18 Hz
       như `KNpcRes::Draw`/`KNpc::Paint`; zone gửi `dir` 0..63; tên NPC trên map lấy từ `npcs.txt`. Chi tiết `next/docs/NPCRES.md`.
       Còn lại: đánh/bị đánh/chết/ngồi, trang bị theo RoleData, ngựa, hiệu ứng, texture memory.
+      - 2026-09-17 **NPC thật của thành**: đọc `Region_S.dat` từ `bin/Server/pak/maps.pak` (1409 NPC server map 1: người
+        trong thành + quái có level) + 63 NPC client-only, tọa độ tuyệt đối, tên qua `replacename_npc.txt`; zone sinh theo
+        `kind` (0 = quái); `jxassets npcs`. NPC không trang bị: `KItemChangeRes` (helm 18/armor 18/weapon 0).
 - [x] Quy ước đặt tên (2026-09-17, theo yêu cầu): file/lớp mới **đặt theo tên mã cũ cùng chức năng** (`KNpc`, `KSubWorld`,
       `KRegion`, `KMapData`, `KGameServer`, `KSocket`, `UiLogin`, `UiSelPlayer`, `UiGame`, `KScenePlaceC`, `XPackFile`, `KSprite`…);
       bảng đối chiếu `next/docs/OLD-TO-NEW.md`.
