@@ -7,6 +7,7 @@
 // N lines are kept in a ring buffer that is written next to the log file on fatal().
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <initializer_list>

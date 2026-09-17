@@ -1,7 +1,9 @@
 #include "jx/core/ThreadPool.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <exception>
+#include <utility>
 
 #include "jx/clock.hpp"
 #include "jx/log.hpp"

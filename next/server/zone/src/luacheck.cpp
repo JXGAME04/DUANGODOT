@@ -5,6 +5,7 @@
 //   jx_luacheck <dir> [<dir>...] [--max-errors N] [--quiet]
 //
 // Exit code 0 when every file parses, 1 otherwise.
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -12,6 +13,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <system_error>
 #include <vector>
 
 extern "C" {

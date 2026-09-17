@@ -1,9 +1,11 @@
 // JobSystem: where computation runs, with a barrier at the end (MASTER SPEC 17, 18, 23).
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <numeric>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "jx/core/JobSystem.h"

@@ -2,10 +2,13 @@
 
 #include <cctype>
 #include <charconv>
+#include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+#include <system_error>
+#include <utility>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN

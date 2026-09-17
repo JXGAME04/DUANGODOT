@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "jx/entity/EntityHandle.h"
+#include <cstdint>
 
 using jx::EntityId;
 using jx::entity::generation_of;

@@ -1,6 +1,7 @@
 #include "jx/core/FixedTick.h"
 
 #include <fmt/format.h>
+#include <cstddef>
 
 namespace jx::core {
 

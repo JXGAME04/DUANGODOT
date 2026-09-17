@@ -1,6 +1,7 @@
 #include "jx/entity/EntityHandle.h"
 
 #include <fmt/format.h>
+#include <string>
 
 namespace jx::entity {
 

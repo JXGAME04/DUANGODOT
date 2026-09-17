@@ -2,6 +2,7 @@
 // on first use and kept for the life of the zone.
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_map>

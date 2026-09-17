@@ -8,6 +8,7 @@
 // same names in the metrics; a phase costing more than its share shows up immediately.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 

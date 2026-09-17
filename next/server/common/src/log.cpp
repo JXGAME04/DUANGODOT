@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <ctime>
 #include <deque>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>

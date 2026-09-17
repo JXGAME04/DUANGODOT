@@ -5,10 +5,12 @@
 // (see level_data); without the scripts the raw *Param columns serve as placeholders.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace jx::zone {
 

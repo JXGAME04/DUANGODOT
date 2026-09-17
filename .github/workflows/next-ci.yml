@@ -58,16 +58,24 @@ jobs:
           vcpkgDirectory: ${{ runner.workspace }}/vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
           vcpkgJsonGlob: "next/vcpkg.json"
+      # MSVC's headers include each other generously, libstdc++'s do not: a missing <cstdint> only
+      # shows on Linux.  This finds it in a second, on every platform, before the long build.
+      - name: Pick the python of this runner
+        run: if [ "$RUNNER_OS" = "Windows" ]; then echo "PY=python" >> "$GITHUB_ENV"; else echo "PY=python3" >> "$GITHUB_ENV"; fi
+      - name: Standard headers are included where they are used
+        run: $PY tools/check_includes.py
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
       - name: Build (Debug)
         run: cmake --build --preset ${{ matrix.preset }}-debug
+      # A failed ctest says "exit code 8" and nothing else; ci_annotate.py runs the failed tests again
+      # and turns each failing REQUIRE into an annotation on the run's summary (readable without the log).
       - name: Test (Debug)
-        run: ctest --preset ${{ matrix.preset }}-debug
+        run: ctest --preset ${{ matrix.preset }}-debug || $PY tools/ci_annotate.py ${{ matrix.preset }}-debug
       - name: Build (Release)
         run: cmake --build --preset ${{ matrix.preset }}-release
       - name: Test (Release)
-        run: ctest --preset ${{ matrix.preset }}-release
+        run: ctest --preset ${{ matrix.preset }}-release || $PY tools/ci_annotate.py ${{ matrix.preset }}-release
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

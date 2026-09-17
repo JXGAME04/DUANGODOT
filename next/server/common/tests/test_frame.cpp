@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <initializer_list>
 #include <random>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "jx/frame.hpp"

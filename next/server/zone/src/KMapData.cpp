@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <exception>
 #include <fstream>
 #include <queue>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 

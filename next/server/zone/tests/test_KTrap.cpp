@@ -5,6 +5,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "jx/client.pb.h"
 #include "jx/log.hpp"

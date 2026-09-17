@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 #include <thread>
 #include <vector>

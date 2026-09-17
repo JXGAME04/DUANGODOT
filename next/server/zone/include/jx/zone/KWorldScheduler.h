@@ -6,6 +6,7 @@
 // "one mutable entity, one owner" rule holds while the assignment changes.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 

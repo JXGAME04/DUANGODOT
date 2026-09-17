@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstddef>
 
 #include <fmt/format.h>
 
