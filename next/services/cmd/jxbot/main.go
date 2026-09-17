@@ -47,6 +47,12 @@ type bot struct {
 	entityID uint64
 	pos      *jxpb.Vec2
 	seq      uint32
+	// scenario (MASTER SPEC 56, 57, 58)
+	hot    bool // stay inside `radius` of the point where the bot entered the world
+	radius int32
+	attack bool
+	home   *jxpb.Vec2 // where the bot entered: the middle of the crowd
+	target uint64     // what it is hitting right now
 }
 
 func (b *bot) logctx() context.Context {
@@ -128,6 +134,14 @@ func (b *bot) handleWorld(f frame.Frame) error {
 			return err
 		}
 		b.st.spawns.Add(int64(len(m.Entities)))
+		if b.attack && b.target == 0 {
+			for _, e := range m.Entities {
+				if e.EntityId != b.entityID && e.EntityType == jxpb.EntityType_ENTITY_MONSTER && e.Life > 0 {
+					b.target = e.EntityId
+					break
+				}
+			}
+		}
 		log.DebugCtx(b.logctx(), "world", "spawn", log.F("count", len(m.Entities)))
 	case jxpb.MsgId_G2C_ENTITY_DESPAWN:
 		var m jxpb.EntityDespawn
@@ -219,6 +233,7 @@ func (b *bot) login(password string) error {
 	}
 	b.entityID = enter.EntityId
 	b.pos = enter.Pos
+	b.home = &jxpb.Vec2{X: enter.Pos.X, Y: enter.Pos.Y}
 	log.InfoCtx(b.logctx(), "bot", "in world", log.F("account", b.name), log.F("pid", pid), log.F("entity", b.entityID), log.F("zone", enter.ZoneName), log.F("x", enter.Pos.X), log.F("y", enter.Pos.Y))
 	return nil
 }
@@ -285,8 +300,20 @@ func (b *bot) wander() {
 				return
 			}
 		case <-moveTimer.C:
-			if err := b.move(int32(rand.Intn(801)-400), int32(rand.Intn(801)-400)); err != nil {
+			dx, dy := int32(rand.Intn(801)-400), int32(rand.Intn(801)-400)
+			if b.hot && b.home != nil {
+				// a crowd fighting over one spot: never walk further than `radius` from it
+				nx, ny := b.pos.X+dx-b.home.X, b.pos.Y+dy-b.home.Y
+				if nx*nx+ny*ny > b.radius*b.radius {
+					dx, dy = (b.home.X-b.pos.X)/2, (b.home.Y-b.pos.Y)/2
+				}
+			}
+			if err := b.move(dx, dy); err != nil {
 				return
+			}
+			if b.attack && b.target != 0 {
+				b.seq++
+				_ = b.send(jxpb.MsgId_C2G_ATTACK, &jxpb.AttackReq{Target: b.target, Seq: b.seq})
 			}
 			moveTimer.Reset(time.Duration(1000+rand.Intn(3000)) * time.Millisecond)
 		case <-chatTimer.C:
@@ -304,6 +331,9 @@ func main() {
 	password := flag.String("password", "bot", "account password")
 	duration := flag.Duration("duration", 30*time.Second, "how long to wander")
 	once := flag.Bool("once", false, "smoke test: login, move once, wait for arrival, exit")
+	scenario := flag.String("scenario", "spread", "spread = wander over the map, hot = every bot stays in one small area (MASTER SPEC 57)")
+	radius := flag.Int("radius", 600, "hot scenario: how far from the meeting point a bot may walk")
+	attack := flag.Bool("attack", false, "attack whatever comes into view (MASTER SPEC 58 scenario C/D)")
 	level := flag.String("log-level", "info", "log level")
 	flag.Parse()
 
@@ -321,7 +351,8 @@ func main() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			b := &bot{name: fmt.Sprintf("%s%d", *prefix, i+1), addr: *gw, ctx: ctx, st: st}
+			b := &bot{name: fmt.Sprintf("%s%d", *prefix, i+1), addr: *gw, ctx: ctx, st: st,
+				hot: *scenario == "hot", radius: int32(*radius), attack: *attack}
 			if err := b.connect(); err != nil {
 				log.Error("bot", "connect failed", log.F("bot", b.name), log.F("error", err))
 				failed.Add(1)

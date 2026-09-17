@@ -236,6 +236,11 @@ std::vector<Pos> KMapData::find_path(Pos from, Pos to, std::size_t max_expand) c
     return smooth(from, cells);
 }
 
+std::vector<Pos> KMapData::smooth_path(Pos from, const std::vector<Pos>& points) const
+{
+    return smooth(from, points);
+}
+
 std::vector<Pos> KMapData::smooth(Pos from, const std::vector<Pos>& points) const
 {
     std::vector<Pos> out;

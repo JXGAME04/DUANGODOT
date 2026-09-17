@@ -454,6 +454,23 @@ void KGameServer::send_stats()
     for (auto& [id, gw] : gateways_) {
         if (gw.ready) net::send(*gw.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_STATS), st);
     }
+    // per map phase costs of the busiest map: where the time goes (SPEC 51, 53, 96)
+    const KMapInstance* busiest = nullptr;
+    for (const auto& inst : instances_) {
+        if (busiest == nullptr || inst->avg_tick_ms() > busiest->avg_tick_ms()) busiest = inst.get();
+    }
+    std::string phases;
+    if (busiest != nullptr) {
+        const auto& m = core::metrics();
+        for (const core::TickPhase ph : {core::TickPhase::drain_network, core::TickPhase::ai, core::TickPhase::interest,
+                                         core::TickPhase::snapshot, core::TickPhase::spatial_update}) {
+            const auto snap = core::metrics().timing(fmt::format("map.{}.tick.{}", busiest->map_id(), core::phase_name(ph))).snapshot();
+            if (snap.count == 0) continue;
+            if (!phases.empty()) phases += " ";
+            phases += fmt::format("{}:{:.2f}ms", core::phase_name(ph), snap.avg_ms);
+        }
+        (void)m;
+    }
     // per worker and per map numbers: which worker is hot, which map costs what (SPEC 52, 53)
     std::string per_worker;
     for (const KWorkerLoad& load : worker_loads()) {
@@ -470,6 +487,7 @@ void KGameServer::send_stats()
                log::kv("tick_ms_p99", fmt::format("{:.2f}", tick_snapshot.p99_ms)),
                log::kv("tick_ms_max", fmt::format("{:.2f}", tick_snapshot.max_ms)),
                log::kv("sim_workers", workers_), log::kv("workers", per_worker),
+               log::kv("busiest_map", busiest != nullptr ? busiest->map_id() : 0u), log::kv("phases", phases),
                log::kv("dropped", fixed_.dropped())});
     profile_.total().reset();
 }

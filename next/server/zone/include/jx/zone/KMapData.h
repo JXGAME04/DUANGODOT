@@ -85,7 +85,13 @@ public:
     // Waypoints (scene units) leading from 'from' to 'to' (last element == to when reachable),
     // smoothed with line-of-sight so straight stretches are single segments.  Empty when
     // unreachable or the search budget is exhausted.
+    //
+    // This allocates working arrays the size of the map on every call: fine for a test or a one
+    // off query, far too slow inside a tick.  The simulation uses KPathFinder, which keeps its
+    // buffers between queries.
     [[nodiscard]] std::vector<Pos> find_path(Pos from, Pos to, std::size_t max_expand = 40000) const;
+    // Straight stretches become single segments (used by KPathFinder as well).
+    [[nodiscard]] std::vector<Pos> smooth_path(Pos from, const std::vector<Pos>& points) const;
 
 private:
     [[nodiscard]] std::vector<Pos> smooth(Pos from, const std::vector<Pos>& points) const;

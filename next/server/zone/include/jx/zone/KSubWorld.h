@@ -17,6 +17,7 @@
 #include "jx/client.pb.h"
 #include "jx/common.pb.h"
 #include "jx/role.pb.h"
+#include "jx/core/FixedTick.h"
 #include "jx/entity/EntityTable.h"
 #include "jx/ids.hpp"
 #include "jx/zone/KRegion.h"
@@ -24,6 +25,7 @@
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcTemplate.h"
+#include "jx/zone/KPathFinder.h"
 #include "jx/zone/KScriptCache.h"
 
 namespace jx::zone {
@@ -130,6 +132,11 @@ private:
 
     void emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     void viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const;
+    // Who can see this cell, computed once per cell per tick.  With a crowd standing on the
+    // same spot (Tống Kim) the same answer was being recomputed for every single command; the
+    // cache is dropped whenever the set of players or their cells changes (MASTER SPEC 26, 96).
+    const std::vector<std::uint64_t>& viewers_cached(Cell c) const;
+    void invalidate_viewers() const noexcept { viewer_cache_.clear(); }
     void fill_info(const KNpc& e, pb::EntityInfo& out) const;
     void emit_move(const KNpc& e);
     void on_cell_change(KNpc& e, Cell from, Cell to);
@@ -170,6 +177,7 @@ private:
 
     KSubWorldConfig cfg_;
     KRegionGrid grid_;
+    KPathFinder paths_;   // reused A* buffers: no allocation of map sized arrays in the tick
     // MASTER SPEC 5 / 36: entities live in one table that hands out handles with a generation,
     // so a stale id (a missile in flight, a target in a packet, a Lua variable) can never reach
     // the creature that took the slot.  The live entities are contiguous for the hot loops.
@@ -183,9 +191,12 @@ private:
     std::vector<std::uint64_t> scratch_sids_;
     mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
     std::vector<KWorldChange> world_changes_;
+    mutable std::unordered_map<std::uint64_t, std::vector<std::uint64_t>> viewer_cache_;   // cell -> player sids
     std::unordered_set<std::uint64_t> awake_cells_;   // cells with a player within the largest vision
     std::size_t awake_entities_ = 0;
     std::int32_t max_vision_ = 0;                     // largest vision radius spawned here
+    // per phase cost of this map's tick (MASTER SPEC 22, 53, 96): "map.<id>.tick.<phase>"
+    std::unique_ptr<core::TickProfile> profile_;
     std::unordered_map<std::uint32_t, bool> trap_warned_;   // trap ids without a script, warned once
 };
 

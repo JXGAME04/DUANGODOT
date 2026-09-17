@@ -12,6 +12,7 @@ KMapInstance::KMapInstance(std::uint32_t instance_id, KSubWorldConfig cfg)
     : instance_id_(instance_id), world_(std::move(cfg))
 {
     tick_timing_ = &core::metrics().timing(fmt::format("map.{}.tick", world_.map_id()));
+    drain_metric_ = fmt::format("map.{}.tick.drain_network", world_.map_id());
 }
 
 void KMapInstance::tick()
@@ -19,7 +20,10 @@ void KMapInstance::tick()
     const Nanos t0 = steady_now();
 
     // 1. drain the commands the outside asked for (SPEC 22 phase 1 + 2)
-    commands_ += inbox_.drain([this](KWorldCommand cmd) { apply(cmd); });
+    {
+        core::ScopedTiming t(core::metrics().timing(drain_metric_));
+        commands_ += inbox_.drain([this](KWorldCommand cmd) { apply(cmd); });
+    }
 
     // 2. simulate (movement, spatial, ai, combat, interest, snapshot - inside KSubWorld)
     world_.tick();

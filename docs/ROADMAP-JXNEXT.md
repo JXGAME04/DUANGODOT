@@ -330,6 +330,14 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       nào bị đóng băng giữa chừng. Đo thật trên 4 map / 3076 entity / 1 người chơi:
       **tick trung bình 15,98 ms → 1,37 ms**, max 626 ms → 18,4 ms, tick bị rớt 24 → 0, chỉ 42 entity thức.
       Log `zone.tick` thêm trường `awake`. Test: npc xa người chơi ngủ, lại gần thì thức.
+- [x] **M5e — MASTER SPEC 51/56–58/96: đo tải thật và tối ưu theo số đo (2026-09-17)**: `jxbot` thêm kịch bản
+      `-scenario hot` (mọi bot dồn vào một chỗ như Tống Kim) và `-attack`; `dev.py load N SEC hot|spread` chạy
+      tải rồi in đúng những gì zone đo được. Thêm đo **từng pha trong một tick của map**
+      (`drain_network/ai/interest/snapshot/spatial_update`) vào log `zone.tick`. Profiler chỉ ra chỗ nghẽn thật:
+      mỗi lần tìm đường cấp phát 3 mảng cỡ toàn bản đồ (800×1056 ô ≈ 7,6 MB/truy vấn) → tách `KPathFinder`
+      dùng lại bộ đệm và đánh dấu ô bằng generation stamp (thuật toán và kết quả **không đổi**).
+      Đo 200 bot cùng một chỗ trên Phượng Tường: **tick 11,85 → 3,35 ms**, p95 41,9 → 5,2 ms, p99 83,9 → 7,3 ms,
+      chi phí map 9,6 → 1,24 ms, pha áp lệnh 8,83 → 0,92 ms.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

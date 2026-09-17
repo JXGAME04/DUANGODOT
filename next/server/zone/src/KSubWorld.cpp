@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <cmath>
 
+#include <fmt/format.h>
+
+#include "jx/core/Metrics.h"
+
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
 #include "jx/zone/KNpcAI.h"
@@ -42,6 +46,9 @@ void set_vec(pb::Vec2* v, Pos p)
 KSubWorld::KSubWorld(KSubWorldConfig cfg)
     : cfg_(std::move(cfg)), grid_(cfg_.cell_size, cfg_.view_cells), rng_(cfg_.seed)
 {
+    paths_.reset(cfg_.map.get());
+    profile_ = std::make_unique<core::TickProfile>(
+        core::metrics(), fmt::format("map.{}", cfg_.map ? static_cast<std::uint32_t>(cfg_.map->id) : 0u));
     if (cfg_.tick_hz == 0) cfg_.tick_hz = 20;
     if (cfg_.map) {
         cfg_.width = cfg_.map->scene_w;
@@ -125,13 +132,30 @@ void KSubWorld::emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, cons
     outbox_.push_back(std::move(p));
 }
 
+const std::vector<std::uint64_t>& KSubWorld::viewers_cached(Cell c) const
+{
+    const std::uint64_t key = (static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cx)) << 32) |
+                              static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cy));
+    const auto it = viewer_cache_.find(key);
+    if (it != viewer_cache_.end()) return it->second;
+    std::vector<std::uint64_t> list;
+    grid_.for_each_in_view(c, [&](EntityId id) {
+        const KNpc* e = entities_.find(id);
+        if (e != nullptr && e->kind == KNpcKind::player && e->sid != 0) list.push_back(e->sid);
+    });
+    return viewer_cache_.emplace(key, std::move(list)).first->second;
+}
+
 void KSubWorld::viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const
 {
-    grid_.for_each_in_view(c, [&](EntityId id) {
-        if (id == exclude) return;
-        const KNpc* e = entities_.find(id);
-        if (e != nullptr && e->kind == KNpcKind::player && e->sid != 0) sids.push_back(e->sid);
-    });
+    std::uint64_t exclude_sid = 0;
+    if (exclude.value != 0) {
+        const KNpc* e = entities_.find(exclude);
+        if (e != nullptr) exclude_sid = e->sid;
+    }
+    for (const std::uint64_t sid : viewers_cached(c)) {
+        if (sid != exclude_sid) sids.push_back(sid);
+    }
 }
 
 void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
@@ -211,6 +235,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     const EntityId id = entities_.insert(std::move(e));   // the table owns the handle (SPEC 36)
     entities_.at(id).id = id;
     grid_.insert(id, start, true);   // a player keeps its neighbourhood awake (SPEC 44, 45)
+    invalidate_viewers();
     players_[sid] = id;
     roles_[sid] = role;
 
@@ -257,6 +282,7 @@ bool KSubWorld::remove_player(std::uint64_t sid)
         log::info("zone", "player removed", {log::kv("entity", id), log::kv("x", gone_e->pos().x), log::kv("y", gone_e->pos().y)});
         grid_.remove(id);
         entities_.destroy(id);
+        invalidate_viewers();
     }
     players_.erase(pit);
     roles_.erase(sid);
@@ -306,7 +332,7 @@ bool KSubWorld::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     std::size_t waypoints = 1;
     if (cfg_.map) {
         dest = cfg_.map->nearest_walkable(dest);
-        std::vector<Pos> path = cfg_.map->find_path(e.pos(), dest);
+        std::vector<Pos> path = paths_.find(e.pos(), dest);
         waypoints = path.size();
         e.set_path(std::move(path));   // empty = unreachable: stop where we are
     } else {
@@ -374,7 +400,7 @@ void KSubWorld::wander(KNpc& e)
     Pos dest = clamp(Pos{e.home.x + dx, e.home.y + dy});
     if (cfg_.map) {
         dest = cfg_.map->nearest_walkable(dest);
-        e.set_path(cfg_.map->find_path(e.pos(), dest, 2000));
+        e.set_path(paths_.find(e.pos(), dest, 2000));
     } else {
         e.set_target(dest);
     }
@@ -384,6 +410,8 @@ void KSubWorld::wander(KNpc& e)
 
 void KSubWorld::on_cell_change(KNpc& e, Cell from, Cell to)
 {
+    // a player that changed cell changes who sees what: the per tick answer is stale
+    if (e.kind == KNpcKind::player) invalidate_viewers();
     grid_.view_diff(from, to, scratch_entered_, scratch_left_);
 
     pb::EntitySpawn appear;      // what e starts to see
@@ -423,9 +451,14 @@ void KSubWorld::tick()
     entities_.ids(scratch_ids_);
     std::sort(scratch_ids_.begin(), scratch_ids_.end());
 
-    build_awake_cells();
+    invalidate_viewers();   // players moved last tick: recompute who sees what
+    {
+        auto phase = profile_->phase(core::TickPhase::spatial_update);
+        build_awake_cells();
+    }
     awake_entities_ = 0;
 
+    auto ai_phase = std::make_unique<core::ScopedTiming>(profile_->phase_timing(core::TickPhase::ai));
     std::vector<EntityId> moved, arrived;
     for (const EntityId id : scratch_ids_) {
         KNpc& e = entities_.at(id);
@@ -469,12 +502,22 @@ void KSubWorld::tick()
         }
         moved.push_back(id);
     }
-    for (const EntityId id : moved) {
-        KNpc& e = entities_.at(id);
-        Cell from, to;
-        if (grid_.move(id, e.pos(), from, to)) on_cell_change(e, from, to);
+    ai_phase.reset();   // ai + movement integration end here
+
+    {
+        // spatial: re-file whatever crossed a cell, which also produces the spawn / despawn
+        // packets for the players whose view changed (interest management)
+        auto phase = profile_->phase(core::TickPhase::interest);
+        for (const EntityId id : moved) {
+            KNpc& e = entities_.at(id);
+            Cell from, to;
+            if (grid_.move(id, e.pos(), from, to)) on_cell_change(e, from, to);
+        }
     }
-    for (const EntityId id : arrived) emit_move(entities_.at(id));
+    {
+        auto phase = profile_->phase(core::TickPhase::snapshot);
+        for (const EntityId id : arrived) emit_move(entities_.at(id));
+    }
 }
 
 // The cells that hold a player, grown by the largest vision radius in this map: everything
@@ -635,7 +678,7 @@ void KSubWorld::approach(KNpc& e, const KNpc& target)
     Pos dest = clamp(target.pos());
     if (cfg_.map) {
         dest = cfg_.map->nearest_walkable(dest);
-        std::vector<Pos> path = cfg_.map->find_path(e.pos(), dest);
+        std::vector<Pos> path = paths_.find(e.pos(), dest);
         if (path.empty()) {
             e.attack_target = EntityId{};
             return;
@@ -698,7 +741,7 @@ void KSubWorld::walk_to(KNpc& e, Pos dest)
         return;
     }
     if (cfg_.map) {
-        std::vector<Pos> path = cfg_.map->find_path(e.pos(), dest, 4000);
+        std::vector<Pos> path = paths_.find(e.pos(), dest, 4000);
         if (path.empty()) {
             do_stand(e);
             return;

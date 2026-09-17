@@ -74,6 +74,7 @@ private:
     double avg_tick_ms_ = 0;
     std::uint64_t commands_ = 0;
     core::Timing* tick_timing_ = nullptr;   // "map.<id>.tick" in the process metrics
+    std::string drain_metric_;              // "map.<id>.tick.drain_network"
 };
 
 } // namespace jx::zone

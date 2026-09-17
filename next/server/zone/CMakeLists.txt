@@ -5,6 +5,7 @@ find_package(Lua REQUIRED)   # standard Lua 5.4 (vcpkg): the old Lua 4 scripts r
 add_library(jx_zone_core STATIC
     src/KRegion.cpp
     src/KMapData.cpp
+    src/KPathFinder.cpp
     src/KLuaScript.cpp
     src/KScriptCache.cpp
     src/ScriptFuns.cpp

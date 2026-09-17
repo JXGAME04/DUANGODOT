@@ -7,6 +7,7 @@
   python tools/dev.py stop             stop them
   python tools/dev.py status           show what is running / listening
   python tools/dev.py bots [N] [SEC]   run N bots for SEC seconds against the gateway
+  python tools/dev.py load [N] [SEC] [hot|spread]   load test: N bots, then print what the zone measured
   python tools/dev.py smoke            zone + gateway + 1 bot (--once), exit 0 when the whole path works
   python tools/dev.py e2e              smoke + the Godot client headless with --auto (login, enter, move)
   python tools/dev.py screenshot       same client run with a window; saves user://logs/auto_*.png
@@ -334,6 +335,32 @@ def run_client_auto(account: str = "auto1", windowed: bool = False, server: str 
     return res.returncode
 
 
+def cmd_load(n: int, seconds: int, scenario: str = "hot") -> int:
+    """MASTER SPEC 56-58: N simulated clients, then the numbers the zone measured for that run
+    (tick average / p95 / p99, per worker load, awake entities)."""
+    cmd_stop()
+    cmd_start(new_console=False)
+    log_path = os.path.join(ROOT, "logs", "zone.log")
+    before = os.path.getsize(log_path) if os.path.exists(log_path) else 0
+    try:
+        rc = subprocess.call([go_exe("jxbot"), "-gateway", "127.0.0.1:17100", "-bots", str(n),
+                              "-duration", f"{seconds}s", "-prefix", "load", "-scenario", scenario,
+                              "-attack", "true" if scenario == "hot" else "false", "-log-level", "warn"], cwd=ROOT)
+    finally:
+        stats = []
+        if os.path.exists(log_path):
+            with open(log_path, encoding="utf-8", errors="replace") as f:
+                f.seek(before)
+                for line in f:
+                    if '"msg":"stats"' in line:
+                        stats.append(line.strip())
+        cmd_stop()
+    print(f"--- zone stats during the run ({scenario}, {n} bots, {seconds}s)")
+    for line in stats[-6:]:
+        print(line)
+    return rc
+
+
 def cmd_e2e() -> int:
     """zone + gateway + bot --once + Godot client --auto; exit 0 when both clients made it."""
     cmd_stop()
@@ -374,6 +401,10 @@ def main() -> None:
         cmd_stop()
     elif cmd == "status":
         cmd_status()
+    elif cmd == "load":
+        sys.exit(cmd_load(int(args[1]) if len(args) > 1 else 50,
+                          int(args[2]) if len(args) > 2 else 30,
+                          args[3] if len(args) > 3 else "hot"))
     elif cmd == "bots":
         sys.exit(cmd_bots(int(args[1]) if len(args) > 1 else 5, int(args[2]) if len(args) > 2 else 30))
     elif cmd == "smoke":
