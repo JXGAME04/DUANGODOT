@@ -19,18 +19,32 @@ import (
 )
 
 const (
-	MethodNone   = 0x00000000
-	MethodUCL    = 0x01000000
-	MethodBZip2  = 0x02000000
-	MethodFrame  = 0x10000000 // sprite stored frame by frame (see ReadSprite)
+	MethodNone  = 0x00000000
+	MethodUCL   = 0x01000000
+	MethodBZip2 = 0x02000000
+	// MethodFrame marks an element stored in separately compressed pieces.  The JX1 engine only
+	// used it for sprites, one piece per frame (TYPE_FRAME, Engine/Src/XPackFile.cpp:44).  The
+	// VLTK 2.0 engine uses the same bit for ANY large file, cut into 2 MB fragments
+	// (XPackList::ElemIsPackedByFragment / ElemReadFragment in engineFree.dll) - that is how its
+	// nested archive \reslst.dat is stored.  See readFragments.
+	MethodFrame  = 0x10000000
 	MethodUCL2   = 0x20000000
 	methodMask   = 0x0f000000
 	filterMask   = 0xff000000
 	sizeMask     = 0x00ffffff
 	headerSize   = 32
 	indexSize    = 16
+	fragmentSize = 12         // one row of a fragment table: offset, size, stored size | method
 	signaturePAK = 0x4b434150 // 'PACK'
 )
+
+// NestedArchive is the archive the VLTK 2.0 client keeps INSIDE its archives: a complete 'PACK'
+// file with some 10 000 entries - every window layout, every settings table, every client script
+// the game shipped with.  engineFree.dll opens it right after the archives of the package list
+// and searches it last, so a file patched into slistcl.pak or update.pak still wins.
+//
+// Missing this file is what made the 2.0 client look as if it had no login windows at all.
+const NestedArchive = `\reslst.dat`
 
 var ErrNotFound = errors.New("pak: file not found")
 
@@ -51,19 +65,23 @@ func (e Entry) Method() uint32 { return MethodOf(e.Flags) }
 // MethodOf extracts the method from a flag word (entry or per-frame).
 func MethodOf(flags uint32) uint32 { return flags & (filterMask &^ MethodFrame) }
 
-// IsFrame reports whether the entry is a frame-compressed sprite.
+// IsFrame reports whether the entry is stored in pieces: a frame-compressed sprite in a JX1
+// archive, any fragment-packed file in a VLTK 2.0 one.  Read handles both.
 func (e Entry) IsFrame() bool { return e.Flags&MethodFrame != 0 }
 
-// File is one open .pak archive.
+// File is one open .pak archive: a file on disk, or an archive held in memory because it was
+// itself an element of another archive (NestedArchive).
 type File struct {
 	Path    string
-	f       *os.File
+	r       io.ReaderAt
+	closer  io.Closer // nil for an archive held in memory
 	size    int64
 	entries []Entry // sorted by ID as stored
 	index   map[uint32]int
+	Nested  bool // true for an archive that lives inside another one
 }
 
-// Open reads the header and index of a .pak.
+// Open reads the header and index of a .pak on disk.
 func Open(path string) (*File, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -74,27 +92,43 @@ func Open(path string) (*File, error) {
 		f.Close()
 		return nil, err
 	}
-	var hdr [headerSize]byte
-	if _, err := io.ReadFull(f, hdr[:]); err != nil {
+	p, err := open(path, f, st.Size())
+	if err != nil {
 		f.Close()
+		return nil, err
+	}
+	p.closer = f
+	return p, nil
+}
+
+// OpenBytes reads an archive that is already in memory.  `name` only labels it in reports.
+func OpenBytes(name string, data []byte) (*File, error) {
+	p, err := open(name, bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	p.Nested = true
+	return p, nil
+}
+
+func open(path string, r io.ReaderAt, size int64) (*File, error) {
+	var hdr [headerSize]byte
+	if _, err := r.ReadAt(hdr[:], 0); err != nil {
 		return nil, fmt.Errorf("pak: %s: header: %w", path, err)
 	}
 	if binary.LittleEndian.Uint32(hdr[0:]) != signaturePAK {
-		f.Close()
 		return nil, fmt.Errorf("pak: %s: bad signature", path)
 	}
 	count := binary.LittleEndian.Uint32(hdr[4:])
 	indexOff := binary.LittleEndian.Uint32(hdr[8:])
-	if count == 0 || int64(indexOff)+int64(count)*indexSize > st.Size() {
-		f.Close()
+	if count == 0 || int64(indexOff)+int64(count)*indexSize > size {
 		return nil, fmt.Errorf("pak: %s: bad index", path)
 	}
 	raw := make([]byte, int(count)*indexSize)
-	if _, err := f.ReadAt(raw, int64(indexOff)); err != nil {
-		f.Close()
+	if _, err := r.ReadAt(raw, int64(indexOff)); err != nil {
 		return nil, fmt.Errorf("pak: %s: index: %w", path, err)
 	}
-	p := &File{Path: path, f: f, size: st.Size(), entries: make([]Entry, count), index: make(map[uint32]int, count)}
+	p := &File{Path: path, r: r, size: size, entries: make([]Entry, count), index: make(map[uint32]int, count)}
 	for i := range p.entries {
 		b := raw[i*indexSize:]
 		flag := binary.LittleEndian.Uint32(b[12:])
@@ -110,8 +144,13 @@ func Open(path string) (*File, error) {
 	return p, nil
 }
 
-// Close releases the file.
-func (p *File) Close() error { return p.f.Close() }
+// Close releases the file (nothing to do for an archive held in memory).
+func (p *File) Close() error {
+	if p.closer == nil {
+		return nil
+	}
+	return p.closer.Close()
+}
 
 // Entries returns the index (sorted by id).
 func (p *File) Entries() []Entry { return p.entries }
@@ -134,10 +173,62 @@ func (p *File) ReadRaw(off uint32, n uint32) ([]byte, error) {
 		return nil, fmt.Errorf("pak: read beyond end (off %d len %d)", off, n)
 	}
 	buf := make([]byte, n)
-	if _, err := p.f.ReadAt(buf, int64(off)); err != nil {
+	if _, err := p.r.ReadAt(buf, int64(off)); err != nil {
 		return nil, err
 	}
 	return buf, nil
+}
+
+// storedEnd is where the stored bytes of an element end: the start of the next element, or of the
+// index for the last one.  The 24 bit size in the flag word cannot say so for anything stored in
+// more than 16 MB, and a fragment table is found from the END of the stored bytes.
+func (p *File) storedEnd(e Entry) int64 {
+	end := p.size
+	for _, o := range p.entries {
+		if o.Offset > e.Offset && int64(o.Offset) < end {
+			end = int64(o.Offset)
+		}
+	}
+	return end
+}
+
+// readFragments reads an element the 2.0 engine cut into pieces (XPackList::ElemReadFragment):
+//
+//	u32 count | u32 tableOffset | the pieces ... | count x { u32 offset, u32 size, u32 stored|method }
+//
+// Offsets count from the start of the element.  Each piece is compressed on its own - or not at
+// all, when compressing it would not have made it smaller.  \reslst.dat is 7 pieces of 2 MB.
+func (p *File) readFragments(e Entry) ([]byte, error) {
+	head, err := p.ReadRaw(e.Offset, 8)
+	if err != nil {
+		return nil, err
+	}
+	count := binary.LittleEndian.Uint32(head[0:])
+	tableOff := binary.LittleEndian.Uint32(head[4:])
+	room := p.storedEnd(e) - int64(e.Offset)
+	if count == 0 || count > 1<<20 || int64(tableOff)+int64(count)*fragmentSize > room {
+		return nil, fmt.Errorf("pak: element %08x: not a fragment table (count %d, table at %d, %d bytes stored)", e.ID, count, tableOff, room)
+	}
+	table, err := p.ReadRaw(e.Offset+tableOff, count*fragmentSize)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, 0, e.Size)
+	for i := uint32(0); i < count; i++ {
+		row := table[i*fragmentSize:]
+		off := binary.LittleEndian.Uint32(row[0:])
+		size := binary.LittleEndian.Uint32(row[4:])
+		flag := binary.LittleEndian.Uint32(row[8:])
+		piece, err := p.Extract(e.Offset+off, flag&sizeMask, int(size), MethodOf(flag))
+		if err != nil {
+			return nil, fmt.Errorf("pak: element %08x: fragment %d of %d: %w", e.ID, i, count, err)
+		}
+		out = append(out, piece...)
+	}
+	if len(out) != int(e.Size) {
+		return nil, fmt.Errorf("pak: element %08x: fragments add up to %d bytes, the index says %d", e.ID, len(out), e.Size)
+	}
+	return out, nil
 }
 
 // Extract decompresses one block with the given method (XPackFile::ExtractRead).
@@ -159,10 +250,16 @@ func (p *File) Extract(off uint32, stored uint32, size int, method uint32) ([]by
 	}
 }
 
-// Read returns the whole uncompressed content of a plain entry.  For frame sprites use ReadSprite.
+// Read returns the whole uncompressed content of an entry.  An element stored in pieces is put
+// back together; only the JX1 frame-sprite layout, which has no fragment table, is left to
+// spr.ReadFromPak.
 func (p *File) Read(e Entry) ([]byte, error) {
 	if e.IsFrame() {
-		return nil, errors.New("pak: frame-compressed sprite, use ReadSprite")
+		data, err := p.readFragments(e)
+		if err != nil {
+			return nil, fmt.Errorf("%w (a JX1 frame sprite is read with spr.ReadFromPak)", err)
+		}
+		return data, nil
 	}
 	return p.Extract(e.Offset, e.Stored, int(e.Size), e.Method())
 }
@@ -280,7 +377,31 @@ func OpenSet(iniPath string) (*Set, error) {
 	if len(s.Files) == 0 {
 		return nil, fmt.Errorf("pak: no archives found via %s", iniPath)
 	}
+	if err := s.mountNested(); err != nil {
+		s.Close()
+		return nil, err
+	}
 	return s, nil
+}
+
+// mountNested opens NestedArchive when the set holds one and appends it as the LAST archive, the
+// way engineFree.dll does: the game opened it as archive #13 right after the 13 of the list.
+// A JX1 client has no such file, and then nothing happens.
+func (s *Set) mountNested() error {
+	f, e, ok := s.Find(FileNameToID(NestedArchive))
+	if !ok {
+		return nil
+	}
+	data, err := f.Read(e)
+	if err != nil {
+		return fmt.Errorf("pak: %s inside %s: %w", NestedArchive, f.Path, err)
+	}
+	nested, err := OpenBytes(f.Path+NestedArchive, data)
+	if err != nil {
+		return fmt.Errorf("pak: %s inside %s: %w", NestedArchive, f.Path, err)
+	}
+	s.Files = append(s.Files, nested)
+	return nil
 }
 
 // Add appends archives (lowest priority last).

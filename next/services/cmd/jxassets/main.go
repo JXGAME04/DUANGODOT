@@ -539,6 +539,62 @@ func main() {
 		reportFallback(set)
 		fmt.Printf("export-all: %d maps ok, %d skipped (no .wor), %d failed, %d sprites, %s\n", ok, missing, failed, ex.Exported, time.Since(start).Round(time.Second))
 
+	case "census":
+		// census [-out dir]: open every entry of every archive, say what it is, keep the text ones
+		out := *flagOut
+		if out == "" {
+			out = "build/census"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		cmdCensus(set, out, true)
+
+	case "check-trace":
+		// check-trace <trace.tsv>: does this reader find every file the real game found?
+		if len(args) < 2 {
+			fail("check-trace <trace.tsv>")
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		cmdCheckTrace(set, args[1])
+
+	case "cat-id":
+		// cat-id <hex id> [-out file]: one entry by its hash, for entries nobody knows the name of
+		if len(args) < 2 {
+			fail("cat-id <hex id>")
+		}
+		id64, err := strconv.ParseUint(strings.TrimPrefix(args[1], "0x"), 16, 32)
+		if err != nil {
+			fail("bad id %q: %v", args[1], err)
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		f, e, ok := set.Find(uint32(id64))
+		if !ok {
+			fail("id %08x is in none of the archives", id64)
+		}
+		data, err := f.Read(e)
+		if err != nil {
+			fail("%v", err)
+		}
+		if *flagOut != "" {
+			if err := os.WriteFile(*flagOut, data, 0o644); err != nil {
+				fail("%v", err)
+			}
+			fmt.Printf("id %08x: %d byte tu %s -> %s\n", id64, len(data), filepath.Base(f.Path), *flagOut)
+		} else {
+			os.Stdout.Write(data)
+		}
+
+	case "grep-sections":
+		// grep-sections <name>...: the text entries that carry every one of these [sections]
+		if len(args) < 2 {
+			fail("grep-sections <section>...")
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		grepSections(set, args[1:])
+
 	case "scan-text":
 		// scan-text: the archives keep no file names, so read every entry and keep the ones that
 		// are text.  That is how a client we have no .ini list for gives up its layouts.
