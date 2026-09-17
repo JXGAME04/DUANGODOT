@@ -8,7 +8,7 @@
   python tools/dev.py stop             stop them
   python tools/dev.py status           show what is running / listening
   python tools/dev.py bots [N] [SEC]   run N bots for SEC seconds against the gateway
-  python tools/dev.py load [N] [SEC] [hot|spread] [MAPS]   load test: N bots over MAPS maps, then print what the zone measured
+  python tools/dev.py load [N] [SEC] [hot|spread] [MAPS] [GATEWAYS]   load test: N bots over MAPS maps and GATEWAYS gateways
   python tools/dev.py smoke            zone + gateway + 1 bot (--once), exit 0 when the whole path works
   python tools/dev.py e2e              smoke + the Godot client headless with --auto (login, enter, move)
   python tools/dev.py screenshot       same client run with a window; saves user://logs/auto_*.png
@@ -77,8 +77,15 @@ def save_pids(p: dict) -> None:
 
 def alive(pid: int) -> bool:
     if os.name == "nt":
-        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True).stdout
-        return str(pid) in out
+        # A loaded machine can refuse to start even tasklist ("the paging file is too small"):
+        # that is not an answer about the process, so treat it as "still there" and try again.
+        for attempt in range(3):
+            try:
+                out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True).stdout
+                return str(pid) in out
+            except OSError:
+                time.sleep(0.5 * (attempt + 1))
+        return True
     try:
         os.kill(pid, 0)
         return True
@@ -156,7 +163,10 @@ def spawn(cmd: list[str], title: str, new_console: bool) -> subprocess.Popen:
         else:
             flags |= subprocess.CREATE_NO_WINDOW
         kwargs["creationflags"] = flags
-    elif new_console:
+    if not (os.name == "nt" and new_console):
+        # Without this a server that dies outside its own logging - a Go panic, an allocation the
+        # operating system refuses - leaves nothing behind at all, and a load test just reports
+        # that nobody could log in.
         kwargs["stdout"] = open(os.path.join(ROOT, "logs", title + ".console.log"), "ab")
         kwargs["stderr"] = subprocess.STDOUT
     return subprocess.Popen(cmd, **kwargs)
@@ -191,7 +201,23 @@ def cmd_build() -> None:
     print("build ok")
 
 
-def cmd_start(new_console: bool = True) -> None:
+def gateway_ports(i: int) -> tuple[int, int]:
+    """TCP and WebSocket port of gateway i (0 = the one in config/gateway.json)."""
+    return 17100 + 10 * i, 17102 + 10 * i
+
+
+def gateway_data_dir(i: int) -> str:
+    return "data/gateway" if i == 0 else f"data/gateway{i + 1}"
+
+
+def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
+    """Start the zone and `gateways` gateway processes.
+
+    Several gateways share one zone on purpose: the zone carries the simulation, a gateway carries
+    sockets, and on Windows a socket write is the expensive part (69 % of the gateway's CPU at
+    5000 players, measured with pprof).  Each one keeps its own account store, so a load test
+    copies the seeded store for the extra ones.
+    """
     for exe in (zone_exe(), go_exe("gateway")):
         if not os.path.exists(exe):
             sys.exit(f"missing {exe} - run: python tools/dev.py build")
@@ -208,20 +234,35 @@ def cmd_start(new_console: bool = True) -> None:
         if root:
             os.environ["JX_ZONE__SCRIPT_ROOT"] = root
     zone = spawn([zone_exe(), "--config", "config/zone.json"], "jx_zone", new_console)
-    if not wait_port(17001, 10):
+    if not wait_port(17001, 20):
         kill(zone.pid)
         sys.exit("zone did not open port 17001 (see logs/zone.log)")
-    gw = spawn([go_exe("gateway"), "-config", "config/gateway.json"], "jx_gateway", new_console)
-    if not wait_port(17100, 10):
-        kill(gw.pid)
-        kill(zone.pid)
-        sys.exit("gateway did not open port 17100 (see logs/gateway.log)")
-    save_pids({"zone": zone.pid, "gateway": gw.pid})
+    started = {"zone": zone.pid}
+    for i in range(max(1, gateways)):
+        tcp, ws = gateway_ports(i)
+        cmd = [go_exe("gateway"), "-config", "config/gateway.json"]
+        if i > 0:
+            cmd += ["-set", f"gateway.id=gw{i + 1}",
+                    "-set", f"gateway.listen=0.0.0.0:{tcp}",
+                    "-set", f"gateway.listen_ws=0.0.0.0:{ws}",
+                    "-set", f"gateway.data_dir={gateway_data_dir(i)}",
+                    "-set", f"gateway.pprof=",
+                    "-set", f"log.file=logs/gateway{i + 1}.log"]
+        gw = spawn(cmd, f"jx_gateway{i + 1}", new_console)
+        # a load test leaves tens of thousands of character files behind, and reading a freshly
+        # copied store cold takes a while
+        if not wait_port(tcp, 120):
+            for pid in started.values():
+                kill(pid)
+            kill(gw.pid)
+            sys.exit(f"gateway {i + 1} did not open port {tcp} (see logs/gateway.log)")
+        started[f"gateway{i + 1}"] = gw.pid
+    save_pids(started)
     # the gateway answers /healthz only once its zone link is up: wait for that, not just for the port
-    if port_open(17102) and not wait_healthy(15):
+    if port_open(17102) and not wait_healthy(20):
         print("warning: gateway is listening but the zone link is not ready (see logs/gateway.log)")
-    ws = " ws://127.0.0.1:17102/ws" if port_open(17102) else ""
-    print(f"zone pid {zone.pid} :17001, gateway pid {gw.pid} :17100 - client connects to 127.0.0.1:17100{ws}")
+    addrs = " ".join(f"127.0.0.1:{gateway_ports(i)[0]}" for i in range(max(1, gateways)))
+    print(f"zone pid {zone.pid} :17001, {max(1, gateways)} gateway(s) - client connects to {addrs}")
 
 
 def cmd_stop() -> None:
@@ -402,11 +443,18 @@ def load_maps(count: int) -> list[int]:
 LOAD_PASSWORD = "botbot"   # jxaccount enforces the old PaySys minimum of 6 characters
 
 
-def seed_accounts(n: int, maps: list[int], prefix: str = "load", password: str = LOAD_PASSWORD) -> None:
-    """Accounts + one character each, spread over `maps`.  Run with the gateway stopped."""
+def seed_accounts(n: int, maps: list[int], data_dir: str = "data/gateway", first: int = 1,
+                  prefix: str = "load", password: str = LOAD_PASSWORD) -> None:
+    """Accounts `prefix<first>`..`prefix<first+n-1>` with one character each, spread over `maps`.
+
+    One store per gateway, each holding only the accounts that gateway serves.  Copying one big
+    store instead means tens of thousands of files per extra gateway, and Windows answers
+    "insufficient system resources" while a load test is already running on the same machine.
+    Run with the gateways stopped: jxaccount writes the same files they do.
+    """
     subprocess.check_call(["go", "build", "-o", os.path.join(BUILD, "go") + os.sep, "./cmd/jxaccount"],
                           cwd=os.path.join(ROOT, "services"))
-    subprocess.check_call([go_exe("jxaccount"), "-data", "data/gateway", "-n", str(n),
+    subprocess.check_call([go_exe("jxaccount"), "-data", data_dir, "-n", str(n), "-first", str(first),
                            "-prefix", prefix, "-password", password,
                            "-maps", ",".join(str(m) for m in maps), "seed"], cwd=ROOT)
 
@@ -442,38 +490,80 @@ def show_stats(lines: list[str], title: str, gateway: list[str] | None = None) -
               f"   timeouts {int(g.get('timeouts', 0)):>5}   frames dropped {int(g.get('dropped', 0)):>5}")
 
 
-def cmd_load(n: int, seconds: int, scenario: str = "hot", map_count: int = 1) -> int:
-    """MASTER SPEC 56-58: N simulated clients, then the numbers the zone measured for that run.
+def cmd_load(n: int, seconds: int, scenario: str = "hot", map_count: int = 1, gateways: int = 1) -> int:
+    """MASTER SPEC 56-58: N simulated clients, then the numbers the zone and the gateways measured.
 
     map_count > 1 spreads the population over that many maps (the busiest ones), which is what a
     live server looks like; map_count = 1 is the worst case, everybody in one place.
+    gateways > 1 splits the sockets over several gateway processes in front of the one zone.
     """
     cmd_stop()
     maps = load_maps(map_count)
-    seed_accounts(n, maps)
-    cmd_start(new_console=False)
+    gateways = max(1, gateways)
+    share = n // gateways
+    for i in range(gateways):
+        count = share if i < gateways - 1 else n - share * (gateways - 1)
+        seed_accounts(count, maps, gateway_data_dir(i), first=1 + share * i)
+    # Host only the maps this run puts players on.  All 980 cost the zone 1,8 GB, and with the bots
+    # on the same machine that is what makes Windows say "the paging file is too small"; the number
+    # being measured is the players, not the idle maps.  `dev.py start` still hosts zone.maps.
+    os.environ["JX_ZONE__MAPS"] = ",".join(str(m) for m in maps)
+    cmd_start(new_console=False, gateways=gateways)
     log_path = os.path.join(ROOT, "logs", "zone.log")
     before = os.path.getsize(log_path) if os.path.exists(log_path) else 0
     gw_path = os.path.join(ROOT, "logs", "gateway.log")
     before_gw = os.path.getsize(gw_path) if os.path.exists(gw_path) else 0
     ramp = max(10, n // 100)   # ~100 logins a second: argon2 is deliberately expensive
+    procs, rc = [], 0
     try:
-        rc = subprocess.call([go_exe("jxbot"), "-gateway", "127.0.0.1:17100", "-bots", str(n),
-                              "-duration", f"{seconds}s", "-ramp", f"{ramp}s", "-prefix", "load",
-                              "-password", LOAD_PASSWORD,
-                              "-scenario", scenario, "-attack", "true", "-log-level", "warn"], cwd=ROOT)
+        for i in range(gateways):
+            count = share if i < gateways - 1 else n - share * (gateways - 1)
+            procs.append(spawn_retry(
+                [go_exe("jxbot"), "-gateway", f"127.0.0.1:{gateway_ports(i)[0]}", "-bots", str(count),
+                 "-first", str(1 + share * i), "-duration", f"{seconds}s", "-ramp", f"{ramp}s",
+                 "-prefix", "load", "-password", LOAD_PASSWORD, "-scenario", scenario,
+                 "-attack", "true", "-log-level", "warn"],
+                os.path.join(ROOT, "logs", f"jxbot{i + 1}.log")))
+        for p in procs:
+            rc |= p.wait()
     finally:
         stats = tail_json(log_path, before, '"cat":"zone.tick"')
-        gw = tail_json(os.path.join(ROOT, "logs", "gateway.log"), before_gw, '"cat":"gw.stats"')
+        gw = tail_json(gw_path, before_gw, '"cat":"gw.stats"')
+        for i in range(1, gateways):
+            gw += tail_json(os.path.join(ROOT, "logs", f"gateway{i + 1}.log"), 0, '"cat":"gw.stats"')
         cmd_stop()
-    show_stats(stats, f"{n} bots, {seconds}s, {scenario}, {len(maps)} map(s), ramp {ramp}s", gw)
+    show_stats(stats, f"{n} bots, {seconds}s, {scenario}, {len(maps)} map(s), "
+                      f"{gateways} gateway(s), ramp {ramp}s", gw)
+    print("  bot logs: logs/jxbot*.log")
     return rc
+
+
+def spawn_retry(cmd: list[str], log_path: str, tries: int = 5) -> subprocess.Popen:
+    """Start a process, trying again when the machine momentarily cannot start one.
+
+    A load test runs next to whatever else the machine is doing; Windows answers "the paging file
+    is too small" for a CreateProcess that succeeds a second later, and losing a five minute test
+    run to that is not a measurement.
+    """
+    last: OSError | None = None
+    for attempt in range(tries):
+        try:
+            return subprocess.Popen(cmd, cwd=ROOT, stdout=open(log_path, "wb"), stderr=subprocess.STDOUT)
+        except OSError as err:
+            last = err
+            print(f"  could not start {os.path.basename(cmd[0])}: {err}; retrying")
+            time.sleep(2 * (attempt + 1))
+    raise last if last else RuntimeError("spawn failed")
 
 
 def tail_json(path: str, offset: int, marker: str) -> list[str]:
     """The stats lines a server wrote after `offset` bytes."""
     out = []
     if os.path.exists(path):
+        # the servers truncate their log at every start, so an offset from the previous run would
+        # skip the whole file
+        if os.path.getsize(path) < offset:
+            offset = 0
         with open(path, encoding="utf-8", errors="replace") as f:
             f.seek(offset)
             for line in f:
@@ -560,7 +650,8 @@ def main() -> None:
         sys.exit(cmd_load(int(args[1]) if len(args) > 1 else 50,
                           int(args[2]) if len(args) > 2 else 30,
                           args[3] if len(args) > 3 else "hot",
-                          int(args[4]) if len(args) > 4 else 1))
+                          int(args[4]) if len(args) > 4 else 1,
+                          int(args[5]) if len(args) > 5 else 1))
     elif cmd == "bots":
         sys.exit(cmd_bots(int(args[1]) if len(args) > 1 else 5, int(args[2]) if len(args) > 2 else 30))
     elif cmd == "smoke":

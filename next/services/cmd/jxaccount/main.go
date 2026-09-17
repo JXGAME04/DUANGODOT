@@ -35,6 +35,7 @@ func main() {
 	dataDir := flag.String("data", "data/gateway", "gateway data directory (gateway.data_dir)")
 	minPassword := flag.Int("min-password", 6, "minimum password length (LOGIN_PASSWORD_MIN_LEN of the old PaySys)")
 	seedCount := flag.Int("n", 0, "seed: how many accounts")
+	seedFirst := flag.Int("first", 1, "seed: first account number (bot<first> .. bot<first+n-1>)")
 	seedPrefix := flag.String("prefix", "bot", "seed: account name prefix (bot1, bot2, ...)")
 	seedPassword := flag.String("password", "bot", "seed: the password every seeded account gets")
 	seedMaps := flag.String("maps", "", "seed: map ids to spread the characters over, e.g. 1,3,7,99 (empty = the zone's default map)")
@@ -126,7 +127,7 @@ func main() {
 			os.Exit(1)
 		}
 		cmdErr = seed(ctx, store, accounts, seedOptions{
-			count: *seedCount, prefix: *seedPrefix, password: *seedPassword,
+			count: *seedCount, first: *seedFirst, prefix: *seedPrefix, password: *seedPassword,
 			maps: ids, zoneID: uint32(*seedZone),
 		})
 	default:

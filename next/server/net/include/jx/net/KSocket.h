@@ -34,13 +34,17 @@ public:
     // Starts the read loop.  on_close is called exactly once, after the last on_frame.
     void start(FrameHandler on_frame, CloseHandler on_close);
 
-    void send(std::uint16_t msg_id, std::span<const std::uint8_t> payload, std::uint16_t flags = 0);
-    void send(std::uint16_t msg_id, std::string_view payload, std::uint16_t flags = 0)
+    void send(std::uint16_t msg_id, std::span<const std::uint8_t> payload, std::uint16_t flags = 0, bool urgent = false);
+    void send(std::uint16_t msg_id, std::string_view payload, std::uint16_t flags = 0, bool urgent = false)
     {
-        send(msg_id, frame::as_bytes(payload), flags);
+        send(msg_id, frame::as_bytes(payload), flags, urgent);
     }
     // Sends an already framed buffer (used for fan-out: encode once, send to many).
-    void send_raw(std::shared_ptr<const std::vector<std::uint8_t>> framed);
+    // `urgent` puts the frame ahead of the bulk traffic already queued: an answer a player is
+    // waiting for must not sit behind a crowd's movement (MASTER SPEC 69).  Measured at 4000
+    // players: 49 MB of world traffic queued on one zone link, and entering the world took 8
+    // seconds on average.
+    void send_raw(std::shared_ptr<const std::vector<std::uint8_t>> framed, bool urgent = false);
 
     void close();                                   // graceful: flush queue then shutdown
     [[nodiscard]] bool is_open() const noexcept { return open_; }
@@ -62,6 +66,7 @@ private:
     frame::Parser parser_;
     std::vector<std::uint8_t> read_buf_;
     std::deque<std::shared_ptr<const std::vector<std::uint8_t>>> write_queue_;
+    std::deque<std::shared_ptr<const std::vector<std::uint8_t>>> urgent_queue_;   // written first
     std::size_t queued_bytes_ = 0;
     bool writing_ = false;
     bool open_ = true;

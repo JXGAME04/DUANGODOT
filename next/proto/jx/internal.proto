@@ -20,6 +20,11 @@ message ZoneHelloAck {
   uint32 map_id = 6;             // asset bundle id (client/assets/maps/<map_id>), 0 = no map
   uint32 scene_w = 7;            // map size in scene units
   uint32 scene_h = 8;
+  // The high bits every session id of this gateway must carry.  A zone in front of several
+  // gateways would otherwise see session 1 of each of them as the same session: the second one
+  // silently replaced the first, and half the players never reached the world.  The zone hands
+  // out one prefix per gateway link.
+  uint64 session_prefix = 9;
 }
 
 // Gateway asks the zone to spawn a player for a client session.

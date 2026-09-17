@@ -165,8 +165,12 @@ func (z *zoneLink) handle(f frame.Frame) {
 		z.mu.Lock()
 		z.ack = &ack
 		z.mu.Unlock()
+		// The zone hands every gateway link its own high bits for session ids, so two gateways in
+		// front of one zone never number the same session twice.
+		z.srv.sidPrefix.Store(ack.SessionPrefix)
 		z.ready.Store(true)
-		log.Info("zone", "zone ready", log.F("zone", ack.ZoneId), log.F("name", ack.ZoneName), log.F("tick_hz", ack.TickHz), log.F("capacity", ack.Capacity))
+		log.Info("zone", "zone ready", log.F("zone", ack.ZoneId), log.F("name", ack.ZoneName), log.F("tick_hz", ack.TickHz),
+			log.F("capacity", ack.Capacity), log.F("session_prefix", ack.SessionPrefix))
 
 	case jxpb.MsgId_ZG_SESSION_OPEN_ACK:
 		var ack jxpb.SessionOpenAck

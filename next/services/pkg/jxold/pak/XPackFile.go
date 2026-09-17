@@ -190,7 +190,9 @@ func OpenClientSet(dirs string) (*Set, error) {
 		}
 		var last error
 		var one *Set
-		for _, ini := range []string{"package.ini", "config.ini"} {
+		// packageclasscial.ini is the VLTK 2.0 client's full list: config.ini names 11 archives,
+		// that one names 13 and adds res1.pak and res2.pak (2,9 GB of the client's own resources).
+		for _, ini := range []string{"package.ini", "packageclasscial.ini", "config.ini"} {
 			p := filepath.Join(dir, ini)
 			if _, err := os.Stat(p); err != nil {
 				last = err

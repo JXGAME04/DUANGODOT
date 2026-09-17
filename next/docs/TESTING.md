@@ -75,24 +75,70 @@ build/go/jxrecord dump -jx logs/old-login.jxrec
 ## 3d. Test tải (MASTER SPEC 55–58)
 
 ```bash
-python tools/dev.py load 500 30 hot      # 500 client dồn vào một chỗ (Tống Kim), 30 giây
-python tools/dev.py load 200 30 spread   # 200 client đi khắp map
+python tools/dev.py load 500  30  hot                 # 500 client dồn vào một chỗ (Tống Kim)
+python tools/dev.py load 5000 60  spread 40           # 5000 client trên 40 map đông nhất
+python tools/dev.py load 10000 120 spread 80 2        # 10 000 client, 80 map, 2 gateway trước một zone
 ```
 
-Lệnh này bật server, chạy `jxbot`, rồi in **đúng những gì zone đo được**: `tick_ms_avg/p95/p99`,
-tải từng worker, chi phí từng pha của map nặng nhất, số entity đang thức. Không tuyên bố con số
-người chơi tối đa khi chưa đo (§55).
+Lệnh này **tự chuẩn bị dữ liệu**: `jxaccount seed` tạo N tài khoản, mỗi tài khoản một nhân vật, rải đều
+trên danh sách map đông nhất (map của nhân vật nằm trong vị trí đã lưu nên zone tự đặt người chơi vào
+đúng map đó). Bot **vào dần** (`-ramp`, khoảng 100 lượt đăng nhập/giây vì argon2 cố tình đắt) và **rời
+cùng một mốc**, nếu không thì người đầu đã thoát khi người cuối mới vào và đỉnh không bao giờ đạt.
+Tất cả bot đều **đánh nhau** (`-attack`). Vật phẩm chưa có nên chưa nằm trong phép đo.
 
-Đo được trên máy 24 luồng (Phượng Tường + 3 map, 18 Hz, ngân sách 55 ms):
+Cuối mỗi lượt, lệnh in **đúng những gì zone và gateway đo được** tại ba thời điểm: lúc đông nhất, lúc
+p99 xấu nhất, và lúc kết thúc. Không tuyên bố con số người chơi tối đa khi chưa đo (§55).
 
-| Kịch bản | tick avg | p95 | p99 | ghi chú |
-|---|---|---|---|---|
-| 1 người chơi, 3076 entity | 1,37 ms | 10,5 | 10,5 | 42 entity thức |
-| 200 người cùng một chỗ | 3,35 ms | 5,2 | 7,3 | |
-| 500 người cùng một chỗ | 14,05 ms | 25,2 | 29,0 | không ai rớt, 7 triệu gói hành động/29 s |
+### Đo được trên máy 24 luồng (i7-13700K, 32 GB, 18 Hz, ngân sách 55 ms)
 
-Đăng nhập: mật khẩu argon2id tốn ~16 ms CPU mỗi lần **có chủ ý**, nên ~80 lượt đăng nhập/giây trên
-máy này; 500 client vào cùng lúc xếp hàng khoảng 6 giây (client thật chờ, không lỗi).
+| Kịch bản | người chơi | tick tb | p95 | p99 | RSS zone | rớt |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 người, 3076 entity, 4 map | 1 | 1,37 ms | 10,5 | 10,5 | | 0 |
+| 200 cùng một chỗ | 200 | 3,35 ms | 5,2 | 7,3 | | 0 |
+| 500 cùng một chỗ | 500 | 14,05 ms | 25,2 | 29,0 | | 0 |
+| **5000 trên 40 map, 1 gateway** | **5000** | **8,08 ms** | **14,68** | **19,85** | 1353 MB | **0** |
+
+Ở lượt 5000 người: 980 map và 115 734 entity trong zone, gateway đẩy 670 738 gói/giây (22,6 MB/giây),
+**không ai rớt, không ai bị đá, không gói nào bị bỏ, không lần đăng nhập nào hỏng**.
+
+### Ba chỗ nghẽn tìm được bằng đo, không phải bằng đoán
+
+1. **Mỗi gói một syscall ghi socket.** pprof chỉ ra 69 % CPU của gateway nằm trong
+   `internal/poll.(*FD).Write`. Gom lại mỗi vòng một lần ghi: 726 000 gói/giây còn ~100 000 lần ghi,
+   đúng một lần mỗi phiên mỗi tick. CPU gateway **950 → 442 giây**. Bật pprof:
+   `"gateway": { "pprof": "127.0.0.1:17199" }`.
+2. **Tra phiên bằng mutex chung.** Zone gửi một gói kèm danh sách phiên nhận; mỗi người nhận là một
+   lượt khoá — 46 triệu lượt trong hai phút. `KSessionTable` tra không khoá (mảng chia khối theo id).
+3. **Đường truyền zone → gateway tắc đầu hàng.** Đo được **49 MB** tồn đọng ở 4000 người chơi, và
+   **vào thế giới mất trung bình 8 giây**. Ba sửa: `Connection` ghi gộp nhiều khung một lần
+   (scatter/gather), gói điều khiển có hàng ưu tiên riêng (`send_urgent`), và khi một đường truyền
+   đã tồn đọng quá 4 MiB thì **bỏ gói vị trí** (chỉ vị trí, không bao giờ bỏ spawn/sát thương/chat).
+   Tồn đọng 49 MB → ~150 KB, vào thế giới 8,0 → 2,8 giây.
+
+### Hai lỗi đúng thật chỉ lộ ra ở mức này
+
+- **Hai gateway đánh trùng số phiên.** Mỗi gateway đánh số phiên từ 1, nên zone thấy phiên 1 của
+  gateway thứ hai là phiên 1 của gateway thứ nhất và **ghi đè im lặng**; đo với 10 000 client thì một nửa
+  không bao giờ vào được thế giới. Zone giờ cấp cho mỗi đường truyền một tiền tố riêng
+  (`ZoneHelloAck.session_prefix`).
+- **Bảng phiên cấp phát 1 TiB.** Sau khi id phiên mang tiền tố ở bit cao (~2⁴⁹), `KSessionTable` vẫn
+  dùng id làm chỉ số mảng: Go xin 1 TiB và gateway chết ngay ở client đầu tiên. Giờ bảng đánh chỉ số
+  theo 48 bit thấp và đối chiếu lại id đầy đủ. Cả hai đều có test.
+
+Lần đầu gateway chết **không để lại gì** vì `dev.py` không hứng stderr của server. Giờ mọi server
+ghi stderr vào `logs/<tên>.console.log`, nên một cú panic hay một lần hệ điều hành từ chối cấp phát
+đều có dấu vết.
+
+### Còn lại
+
+- **Trên 5000 người chưa đo được trên máy này.** Bot, zone và gateway chạy cùng một máy, bên cạnh
+  `GameServer` của bản cũ đang giữ 8,6 GB: ở 10 000 client, Windows từ chối tạo tiến trình mới
+  ("the paging file is too small"). Đây là giới hạn của **máy test**, không phải của server: ở 5000
+  người, gateway mới dùng ~4 nhân trong 24 và zone ~0,7 nhân. Muốn đo 10 000–20 000 thì phải bắn
+  bot từ máy khác.
+- Một map = một worker: **một map đông** vẫn bị giới hạn ở một nhân (500 người cùng chỗ = 14 ms).
+  Chia vùng cho map nóng là giai đoạn R của MASTER SPEC, chưa làm.
+- Vật phẩm chưa có nên chưa nằm trong phép đo.
 
 ## 3e. Script Lua 5.4
 

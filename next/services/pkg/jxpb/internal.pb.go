@@ -85,8 +85,13 @@ type ZoneHelloAck struct {
 	MapId           uint32                 `protobuf:"varint,6,opt,name=map_id,json=mapId,proto3" json:"map_id,omitempty"`    // asset bundle id (client/assets/maps/<map_id>), 0 = no map
 	SceneW          uint32                 `protobuf:"varint,7,opt,name=scene_w,json=sceneW,proto3" json:"scene_w,omitempty"` // map size in scene units
 	SceneH          uint32                 `protobuf:"varint,8,opt,name=scene_h,json=sceneH,proto3" json:"scene_h,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The high bits every session id of this gateway must carry.  A zone in front of several
+	// gateways would otherwise see session 1 of each of them as the same session: the second one
+	// silently replaced the first, and half the players never reached the world.  The zone hands
+	// out one prefix per gateway link.
+	SessionPrefix uint64 `protobuf:"varint,9,opt,name=session_prefix,json=sessionPrefix,proto3" json:"session_prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ZoneHelloAck) Reset() {
@@ -171,6 +176,13 @@ func (x *ZoneHelloAck) GetSceneW() uint32 {
 func (x *ZoneHelloAck) GetSceneH() uint32 {
 	if x != nil {
 		return x.SceneH
+	}
+	return 0
+}
+
+func (x *ZoneHelloAck) GetSessionPrefix() uint64 {
+	if x != nil {
+		return x.SessionPrefix
 	}
 	return 0
 }
@@ -655,7 +667,7 @@ const file_jx_internal_proto_rawDesc = "" +
 	"\tZoneHello\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x1d\n" +
 	"\n" +
-	"gateway_id\x18\x02 \x01(\tR\tgatewayId\"\xed\x01\n" +
+	"gateway_id\x18\x02 \x01(\tR\tgatewayId\"\x94\x02\n" +
 	"\fZoneHelloAck\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\x17\n" +
 	"\azone_id\x18\x02 \x01(\rR\x06zoneId\x12\x1b\n" +
@@ -664,7 +676,8 @@ const file_jx_internal_proto_rawDesc = "" +
 	"\bcapacity\x18\x05 \x01(\rR\bcapacity\x12\x15\n" +
 	"\x06map_id\x18\x06 \x01(\rR\x05mapId\x12\x17\n" +
 	"\ascene_w\x18\a \x01(\rR\x06sceneW\x12\x17\n" +
-	"\ascene_h\x18\b \x01(\rR\x06sceneH\"c\n" +
+	"\ascene_h\x18\b \x01(\rR\x06sceneH\x12%\n" +
+	"\x0esession_prefix\x18\t \x01(\x04R\rsessionPrefix\"c\n" +
 	"\vSessionOpen\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12\x1d\n" +
 	"\n" +

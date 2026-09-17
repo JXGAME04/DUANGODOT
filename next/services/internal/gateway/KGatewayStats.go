@@ -50,7 +50,7 @@ func (s *Server) Snapshot() Snapshot {
 		Connects: st.Connects.Load(), Disconnects: st.Disconnects.Load(), Logins: st.Logins.Load(), LoginFails: st.LoginFails.Load(),
 		Kicks: st.Kicks.Load(), RateKicks: st.RateKicks.Load(), Timeouts: st.Timeouts.Load(), Replaced: st.Replaced.Load(), Dropped: st.Dropped.Load(),
 		FramesIn: st.FramesIn.Load(), FramesOut: st.FramesOut.Load(), BytesIn: st.BytesIn.Load(), BytesOut: st.BytesOut.Load(),
-		Writes: st.Writes.Load(),
+		Writes:      st.Writes.Load(),
 		ZonePackets: st.ZonePackets.Load(), ZoneFanout: st.ZoneFanout.Load(),
 	}
 }

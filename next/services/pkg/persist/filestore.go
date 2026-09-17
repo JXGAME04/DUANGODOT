@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"sync"
@@ -67,24 +68,58 @@ func OpenFileStore(dir string) (*FileStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	migrated := 0
+	// Reading and decoding the character files one at a time took 31 seconds for the 11 461 files
+	// a 10 000 player load test leaves behind.  The files are independent, so they are read on every
+	// core and only the bookkeeping happens in order.
+	names := make([]string, 0, len(entries))
 	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
-			continue
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".json" {
+			names = append(names, e.Name())
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, "chars", e.Name()))
-		if err != nil {
-			return nil, err
-		}
-		role := &jxpb.RoleData{}
-		if err := protojson.Unmarshal(raw, role); err != nil {
-			return nil, fmt.Errorf("persist: %s: %w", e.Name(), err)
+	}
+	roles := make([]*jxpb.RoleData, len(names))
+	errs := make([]error, len(names))
+	// A handful of readers is enough to hide the I/O wait, and Windows answers "insufficient
+	// system resources" when a loaded machine is asked for two dozen concurrent file reads.
+	workers := runtime.NumCPU()
+	if workers > 8 {
+		workers = 8
+	}
+	if workers > len(names) {
+		workers = len(names)
+	}
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func(from int) {
+			defer wg.Done()
+			for i := from; i < len(names); i += workers {
+				raw, err := readWithRetry(filepath.Join(dir, "chars", names[i]))
+				if err != nil {
+					errs[i] = err
+					continue
+				}
+				role := &jxpb.RoleData{}
+				if err := protojson.Unmarshal(raw, role); err != nil {
+					errs[i] = fmt.Errorf("persist: %s: %w", names[i], err)
+					continue
+				}
+				roles[i] = role
+			}
+		}(w)
+	}
+	wg.Wait()
+
+	migrated := 0
+	for i, role := range roles {
+		if errs[i] != nil {
+			return nil, errs[i]
 		}
 		// an old record is upgraded once, here, and written back; a newer one stops the server
 		// instead of being loaded half understood
 		changed, err := MigrateRole(role)
 		if err != nil {
-			return nil, fmt.Errorf("persist: %s: %w", e.Name(), err)
+			return nil, fmt.Errorf("persist: %s: %w", names[i], err)
 		}
 		if changed {
 			if err := s.saveCharLocked(role); err != nil {
@@ -104,6 +139,25 @@ func OpenFileStore(dir string) (*FileStore, error) {
 	s.flushDone = make(chan struct{})
 	go s.flushLoop(200 * time.Millisecond)
 	return s, nil
+}
+
+// readWithRetry reads a file, waiting and trying again when the operating system says it is out
+// of resources.  A machine running a load test next to the server hits this: Windows answers
+// ERROR_NO_SYSTEM_RESOURCES for a read that would succeed a moment later, and one such read must
+// not stop a gateway from starting.
+func readWithRetry(path string) ([]byte, error) {
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		var raw []byte
+		if raw, err = os.ReadFile(path); err == nil {
+			return raw, nil
+		}
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			return nil, err
+		}
+		time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
+	}
+	return nil, err
 }
 
 func (s *FileStore) flushLoop(every time.Duration) {

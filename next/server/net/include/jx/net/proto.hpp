@@ -33,6 +33,13 @@ inline void send(Connection& c, std::uint16_t msg_id, const Msg& msg)
     c.send_raw(frame_of(msg_id, msg));
 }
 
+// An answer or a control message: it goes ahead of the bulk world traffic already queued.
+template <class Msg>
+inline void send_urgent(Connection& c, std::uint16_t msg_id, const Msg& msg)
+{
+    c.send_raw(frame_of(msg_id, msg), true);
+}
+
 template <class Msg>
 inline bool parse(const frame::View& view, Msg& out)
 {

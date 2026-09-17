@@ -106,11 +106,16 @@ type Server struct {
 
 	stats Stats
 
-	mu          sync.RWMutex
-	sessions    map[uint64]*session
+	mu sync.RWMutex
+	// sessions is read millions of times a second by the zone link's fanout, so it is lock free
+	// (see KSessionTable); everything below still lives under mu.
+	sessions    KSessionTable
 	online      map[uint64]*session // account id -> the one session logged in with it (iClientID of the old PaySys)
 	pendingSave map[uint64]struct{} // sids that left the zone and whose final PlayerSave has not arrived yet
 	nextSID     atomic.Uint64
+	// High bits the zone gave this link so its session ids cannot collide with another gateway's
+	// (ZoneHelloAck.session_prefix).  0 until the zone answers, which is before any client is let in.
+	sidPrefix atomic.Uint64
 	listeners   []transport.Listener
 	addr        atomic.Value // string: the raw TCP door
 	addrWS      atomic.Value // string: the WebSocket door
@@ -122,7 +127,7 @@ type Server struct {
 
 func New(cfg Config, store persist.Store, authenticator auth.Authenticator) *Server {
 	cfg.defaults()
-	s := &Server{cfg: cfg, store: store, auth: authenticator, sessions: map[uint64]*session{}, online: map[uint64]*session{}, pendingSave: map[uint64]struct{}{}}
+	s := &Server{cfg: cfg, store: store, auth: authenticator, online: map[uint64]*session{}, pendingSave: map[uint64]struct{}{}}
 	s.zone = newZoneLink(s, cfg.ZoneAddr)
 	return s
 }
@@ -143,11 +148,7 @@ func (s *Server) AddrWS() string {
 func (s *Server) ZoneReady() bool { return s.zone.ready.Load() }
 
 // SessionCount returns the number of connected clients.
-func (s *Server) SessionCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.sessions)
-}
+func (s *Server) SessionCount() int { return s.sessions.len() }
 
 // OnlineCount returns the number of accounts logged in.
 func (s *Server) OnlineCount() int {
@@ -257,19 +258,15 @@ func (s *Server) accept(ctx context.Context, l transport.Listener) {
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
-		sid := s.nextSID.Add(1)
+		sid := s.sidPrefix.Load() | s.nextSID.Add(1)
 		sess := newSession(s, sid, conn)
 		sess.kind = l.Kind()
-		s.mu.Lock()
-		s.sessions[sid] = sess
-		s.mu.Unlock()
+		s.sessions.put(sid, sess)
 		s.sessWG.Add(1)
 		go func() {
 			defer s.sessWG.Done()
 			sess.run()
-			s.mu.Lock()
-			delete(s.sessions, sid)
-			s.mu.Unlock()
+			s.sessions.remove(sid)
 		}()
 	}
 }
@@ -279,11 +276,7 @@ func (s *Server) accept(ctx context.Context, l transport.Listener) {
 func (s *Server) shutdown() {
 	s.stopping.Store(true)
 	var list []*session
-	s.mu.RLock()
-	for _, sess := range s.sessions {
-		list = append(list, sess)
-	}
-	s.mu.RUnlock()
+	s.sessions.each(func(sess *session) { list = append(list, sess) })
 	log.Info("boot", "shutting down", log.F("sessions", len(list)), log.F("online", s.OnlineCount()))
 	for _, sess := range list {
 		sess.shutdown()
@@ -311,19 +304,11 @@ func (s *Server) shutdown() {
 	}
 }
 
-func (s *Server) session(sid uint64) *session {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.sessions[sid]
-}
+func (s *Server) session(sid uint64) *session { return s.sessions.get(sid) }
 
 func (s *Server) eachSession(fn func(*session)) {
-	s.mu.RLock()
-	list := make([]*session, 0, len(s.sessions))
-	for _, sess := range s.sessions {
-		list = append(list, sess)
-	}
-	s.mu.RUnlock()
+	list := make([]*session, 0, s.sessions.len()+8)
+	s.sessions.each(func(sess *session) { list = append(list, sess) })
 	for _, sess := range list {
 		fn(sess)
 	}

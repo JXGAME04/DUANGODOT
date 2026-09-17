@@ -25,6 +25,7 @@ import (
 
 type seedOptions struct {
 	count    int
+	first    int // first account number, so two stores can hold two halves of one population
 	prefix   string
 	password string
 	maps     []uint32
@@ -76,7 +77,7 @@ func seed(ctx context.Context, store persist.Store, accounts *auth.S3PAccount, o
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
-				name := fmt.Sprintf("%s%d", opt.prefix, i+1)
+				name := fmt.Sprintf("%s%d", opt.prefix, opt.first+i)
 				err := seedOne(ctx, store, accounts, opt, name, opt.maps[i%len(opt.maps)])
 				switch {
 				case err == nil:

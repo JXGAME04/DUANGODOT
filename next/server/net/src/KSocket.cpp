@@ -70,24 +70,28 @@ void Connection::do_read()
     });
 }
 
-void Connection::send(std::uint16_t msg_id, std::span<const std::uint8_t> payload, std::uint16_t flags)
+void Connection::send(std::uint16_t msg_id, std::span<const std::uint8_t> payload, std::uint16_t flags, bool urgent)
 {
     auto buf = std::make_shared<std::vector<std::uint8_t>>();
     frame::encode(*buf, msg_id, payload, flags);
-    send_raw(std::move(buf));
+    send_raw(std::move(buf), urgent);
 }
 
-void Connection::send_raw(std::shared_ptr<const std::vector<std::uint8_t>> framed)
+void Connection::send_raw(std::shared_ptr<const std::vector<std::uint8_t>> framed, bool urgent)
 {
     if (!open_ || closing_) return;
     queued_bytes_ += framed->size();
-    write_queue_.push_back(std::move(framed));
+    (urgent ? urgent_queue_ : write_queue_).push_back(std::move(framed));
     if (!writing_) do_write();
 }
 
+// How much one scatter/gather write may carry.  Big enough that a tick's worth of world traffic
+// goes out at once, small enough that a new control packet never waits long behind it.
+constexpr std::size_t kWriteBatchBytes = 256 * 1024;
+
 void Connection::do_write()
 {
-    if (write_queue_.empty()) {
+    if (write_queue_.empty() && urgent_queue_.empty()) {
         writing_ = false;
         if (closing_) {
             std::error_code ec;
@@ -98,16 +102,37 @@ void Connection::do_write()
     }
     writing_ = true;
     auto self = shared_from_this();
-    auto buf = write_queue_.front();
-    asio::async_write(socket_, asio::buffer(*buf), [this, self, buf](const std::error_code& ec, std::size_t n) {
+    // Write everything that is waiting in one go.  One async_write per frame means one WSASend
+    // per frame, and the zone -> gateway link carries hundreds of thousands of frames a second at
+    // 10 000 players; the acks a player is waiting for then queue behind all of them.  Asio takes
+    // a buffer sequence, so this stays a single scatter/gather write.
+    auto batch = std::make_shared<std::vector<std::shared_ptr<const std::vector<std::uint8_t>>>>();
+    std::vector<asio::const_buffer> views;
+    std::size_t bytes = 0;
+    // the urgent queue empties first and completely: it only ever holds acks and control frames
+    auto take = [&](std::deque<std::shared_ptr<const std::vector<std::uint8_t>>>& q) {
+        std::size_t taken = 0;
+        for (auto& item : q) {
+            if (!batch->empty() && bytes + item->size() > kWriteBatchBytes) break;
+            bytes += item->size();
+            views.emplace_back(item->data(), item->size());
+            batch->push_back(item);
+            ++taken;
+        }
+        return taken;
+    };
+    const std::size_t from_urgent = take(urgent_queue_);
+    const std::size_t from_bulk = take(write_queue_);
+    asio::async_write(socket_, views, [this, self, batch, bytes, from_urgent, from_bulk](const std::error_code& ec, std::size_t n) {
         if (ec) {
             fail(ec);
             return;
         }
         bytes_out += n;
-        ++frames_out;
-        queued_bytes_ -= buf->size();
-        write_queue_.pop_front();
+        frames_out += batch->size();
+        queued_bytes_ -= bytes;
+        urgent_queue_.erase(urgent_queue_.begin(), urgent_queue_.begin() + static_cast<std::ptrdiff_t>(from_urgent));
+        write_queue_.erase(write_queue_.begin(), write_queue_.begin() + static_cast<std::ptrdiff_t>(from_bulk));
         do_write();
     });
 }
@@ -127,6 +152,7 @@ void Connection::fail(const std::error_code& ec)
     std::error_code ignore;
     socket_.close(ignore);
     write_queue_.clear();
+    urgent_queue_.clear();
     queued_bytes_ = 0;
     if (ec && ec != asio::error::eof && ec != asio::error::operation_aborted) {
         log::debug("net", "connection closed", {log::kv("conn", id_), log::kv("remote", remote_), log::kv("error", ec.message())});

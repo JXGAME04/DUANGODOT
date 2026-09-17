@@ -39,6 +39,8 @@ type stats struct {
 	spawns, despawns, moves, chats, pongs atomic.Int64
 	actions, lifes                        atomic.Int64
 	errors                                atomic.Int64
+	// how long the server took to put a bot in the world: the number a real player feels
+	enters, enterMs, enterMaxMs atomic.Int64
 }
 
 type bot struct {
@@ -274,8 +276,20 @@ func (b *bot) login(password string) error {
 		return err
 	}
 	var enter jxpb.EnterWorldRes
-	if err := b.expect(jxpb.MsgId_G2C_ENTER_WORLD_RES, &enter, 10*time.Second); err != nil {
+	// 30 seconds, like the other steps: a short timeout here turns "the server was slow" into
+	// "the client gave up" and hides how slow it really was.  The wait is measured instead.
+	enterStart := time.Now()
+	if err := b.expect(jxpb.MsgId_G2C_ENTER_WORLD_RES, &enter, 30*time.Second); err != nil {
 		return err
+	}
+	b.st.enterMs.Add(time.Since(enterStart).Milliseconds())
+	b.st.enters.Add(1)
+	for {
+		worst := b.st.enterMaxMs.Load()
+		ms := time.Since(enterStart).Milliseconds()
+		if ms <= worst || b.st.enterMaxMs.CompareAndSwap(worst, ms) {
+			break
+		}
 	}
 	if enter.Result != jxpb.Result_RESULT_OK {
 		return fmt.Errorf("enter world: %v", enter.Result)
@@ -401,6 +415,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *duration+*ramp+60*time.Second)
 	defer cancel()
 	st := &stats{}
+	leaveAt := time.Now().Add(*ramp + *duration)
 	var wg sync.WaitGroup
 	failed := atomic.Int64{}
 	start := time.Now()
@@ -446,7 +461,10 @@ func main() {
 				time.Sleep(200 * time.Millisecond)
 				return
 			}
-			wctx, wcancel := context.WithTimeout(ctx, *duration)
+			// Everyone leaves at the same moment, so the whole population really is online
+			// together for `duration`.  Giving each bot its own timer instead means the first ones
+			// have already gone when the last ones arrive, and the peak is never reached.
+			wctx, wcancel := context.WithDeadline(ctx, leaveAt)
 			b.ctx = wctx
 			b.wander()
 			wcancel()
@@ -461,6 +479,12 @@ func main() {
 	log.Info("bot", "client cost", log.F("heap_mb", mem.HeapAlloc/(1024*1024)),
 		log.F("sys_mb", mem.Sys/(1024*1024)), log.F("goroutines", runtime.NumGoroutine()),
 		log.F("gc", mem.NumGC))
+	avgEnter := int64(0)
+	if c := st.enters.Load(); c > 0 {
+		avgEnter = st.enterMs.Load() / c
+	}
+	log.Info("bot", "enter world", log.F("entered", st.enters.Load()),
+		log.F("avg_ms", avgEnter), log.F("max_ms", st.enterMaxMs.Load()))
 	log.Info("bot", "summary", log.F("bots", *n), log.F("failed", failed.Load()), log.F("spawns", st.spawns.Load()), log.F("despawns", st.despawns.Load()),
 		log.F("moves", st.moves.Load()), log.F("chats", st.chats.Load()), log.F("pongs", st.pongs.Load()),
 		log.F("actions", st.actions.Load()), log.F("lifes", st.lifes.Load()), log.F("errors", st.errors.Load()),

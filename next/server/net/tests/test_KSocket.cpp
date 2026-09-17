@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -171,4 +172,43 @@ TEST_CASE("oversized frame closes the connection with an error", "[net]")
     REQUIRE(run_until(io, [&] { return closed; }));
     CHECK(close_ec == std::errc::bad_message);
     CHECK(!server_side->is_open());
+}
+
+TEST_CASE("an urgent frame overtakes the bulk traffic already queued", "[net]")
+{
+    // The zone -> gateway link carries hundreds of thousands of world frames a second.  The ack a
+    // player waits for to enter the world must not queue behind them: measured at 4000 players,
+    // that wait was 8 seconds on average (see docs/TESTING.md 3d).
+    Quiet quiet;
+    asio::io_context io;
+    jx::net::Listener listener(io, jx::frame::kMaxClientPayload);
+    REQUIRE(!listener.open("127.0.0.1", 0));
+
+    std::vector<std::uint16_t> order;
+    jx::net::Connection::Ptr server_side;
+    listener.start([&](jx::net::Connection::Ptr c) {
+        server_side = c;
+        c->start([&](jx::net::Connection&, const jx::frame::View& v) { order.push_back(v.msg_id); },
+                 [](jx::net::Connection&, const std::error_code&) {});
+    });
+
+    constexpr int kBulk = 1000;          // ~1 MB, several writes worth
+    constexpr std::uint16_t kUrgentId = 9999;
+    jx::net::Connection::Ptr client;
+    jx::net::connect(io, "127.0.0.1", listener.port(), jx::frame::kMaxClientPayload, [&](const std::error_code& ec, jx::net::Connection::Ptr c) {
+        REQUIRE(!ec);
+        client = c;
+        client->start([](jx::net::Connection&, const jx::frame::View&) {}, [](jx::net::Connection&, const std::error_code&) {});
+        const std::string payload(1000, 'w');
+        for (int i = 0; i < kBulk; ++i) client->send(1, payload);
+        client->send(kUrgentId, "ack", 0, /*urgent=*/true);
+    });
+
+    REQUIRE(run_until(io, [&] { return order.size() == kBulk + 1; }));
+    const auto at = std::find(order.begin(), order.end(), kUrgentId);
+    REQUIRE(at != order.end());
+    const auto position = static_cast<int>(at - order.begin());
+    // It cannot jump the write already in flight, but it must not wait for the whole backlog.
+    CHECK(position < kBulk / 2);
+    CHECK(order.back() == 1);
 }

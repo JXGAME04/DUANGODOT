@@ -235,8 +235,15 @@ void KGameServer::handle_hello(Gateway& gw, const frame::View& view)
     ack.set_map_id(world().map_id());
     ack.set_scene_w(static_cast<std::uint32_t>(world().config().width));
     ack.set_scene_h(static_cast<std::uint32_t>(world().config().height));
-    net::send(*gw.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_HELLO_ACK), ack);
-    log::info("net", "gateway ready", {log::kv("conn", gw.conn->id()), log::kv("gateway", gw.id)});
+    // Every gateway numbers its sessions from 1.  With more than one in front of this zone their
+    // ids collide and the second gateway's session 1 quietly replaces the first one's: measured
+    // with two gateways and 10 000 clients, half of them never reached the world.  Each link gets
+    // its own high 16 bits here, so a session id is unique across the whole zone.
+    const std::uint64_t prefix = (gw.conn->id() & 0xffffULL) << 48;
+    ack.set_session_prefix(prefix);
+    net::send_urgent(*gw.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_HELLO_ACK), ack);
+    log::info("net", "gateway ready", {log::kv("conn", gw.conn->id()), log::kv("gateway", gw.id),
+                                       log::kv("session_prefix", prefix)});
 }
 
 // The network thread validates and forwards; the world answers on its own tick (SPEC 30).
@@ -325,9 +332,17 @@ void KGameServer::flush_outbox()
                 if (it == session_gateway_.end()) continue;
                 per_gateway[it->second].add_sids(sid);
             }
+            const bool movement = p.msg_id == static_cast<std::uint16_t>(pb::G2C_ENTITY_MOVE);
             for (auto& [conn_id, zp] : per_gateway) {
                 const auto git = gateways_.find(conn_id);
                 if (git == gateways_.end() || !git->second.conn) continue;
+                // MASTER SPEC 69/70 on the zone side of the link: when a gateway is already this
+                // far behind, a position from this tick would arrive after the next one anyway,
+                // so it is dropped instead of growing the backlog.  Nothing else is ever dropped.
+                if (movement && git->second.conn->queued_bytes() > kLinkBacklogLimit) {
+                    ++link_dropped_;
+                    continue;
+                }
                 zp.set_msg_id(p.msg_id);
                 zp.set_payload(p.payload);
                 net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_PACKET), zp);
@@ -359,7 +374,7 @@ void KGameServer::send_save(const KEvPlayerSave& save)
     msg.set_sid(save.sid);
     msg.set_final(save.final);
     *msg.mutable_role() = save.role;
-    net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_PLAYER_SAVE), msg);
+    net::send_urgent(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_PLAYER_SAVE), msg);
     if (save.final) session_gateway_.erase(save.sid);   // the session is finished with this zone
 }
 
@@ -393,7 +408,7 @@ void KGameServer::handle_event(KMapInstance& source, KWorldEvent& ev)
                            }
                            const auto git = gateways_.find(e.conn_id);
                            if (git != gateways_.end() && git->second.conn) {
-                               net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_SESSION_OPEN_ACK), ack);
+                               net::send_urgent(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_SESSION_OPEN_ACK), ack);
                            }
                        } else {   // arrived through a trap: the client must load the new bundle first
                            if (e.result != pb::RESULT_OK) {
@@ -481,6 +496,12 @@ void KGameServer::send_stats()
     std::size_t awake = 0;
     for (const auto& inst : instances_) awake += inst->world().awake_entities();
     const ProcessUsage usage = process_usage();   // what this many players actually cost (SPEC 55)
+    // How much the gateway links are behind: an ack queued behind a megabyte of world traffic is
+    // an ack the player waits for, so this is the number that explains a slow "enter world".
+    std::size_t link_queued = 0;
+    for (const auto& [conn_id, gw] : gateways_) {
+        if (gw.conn) link_queued = std::max(link_queued, gw.conn->queued_bytes());
+    }
     log::info("zone.tick", "stats",
               {log::kv("tick", clock_.tick()), log::kv("players", session_instance_.size()),
                log::kv("entities", total_entities()), log::kv("awake", awake), log::kv("maps", instances_.size()), log::kv("gateways", gateways_.size()),
@@ -491,6 +512,7 @@ void KGameServer::send_stats()
                log::kv("sim_workers", workers_), log::kv("workers", per_worker),
                log::kv("busiest_map", busiest != nullptr ? busiest->map_id() : 0u), log::kv("phases", phases),
                log::kv("dropped", fixed_.dropped()),
+               log::kv("link_kb", link_queued / 1024), log::kv("link_dropped", link_dropped_),
                log::kv("rss_mb", usage.rss_bytes / (1024 * 1024)),
                log::kv("peak_rss_mb", usage.peak_rss_bytes / (1024 * 1024)),
                log::kv("cpu_s", fmt::format("{:.1f}", static_cast<double>(usage.cpu_ms) / 1000.0))});

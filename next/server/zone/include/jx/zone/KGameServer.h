@@ -124,6 +124,10 @@ private:
     std::unordered_map<std::uint64_t, std::uint64_t> session_gateway_;  // sid -> connection id
     bool running_ = false;
     std::uint64_t last_stats_tick_ = 0;
+    // How far a gateway link may fall behind before the zone stops sending it positions.  4 MiB
+    // is about two seconds of a busy link, which is already far more than a position is worth.
+    static constexpr std::size_t kLinkBacklogLimit = 4 * 1024 * 1024;
+    std::uint64_t link_dropped_ = 0;   // positions dropped because a link was behind
     std::uint64_t last_save_tick_ = 0;
     std::uint64_t last_rebalance_tick_ = 0;
 };

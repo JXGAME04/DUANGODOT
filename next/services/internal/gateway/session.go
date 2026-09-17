@@ -124,7 +124,9 @@ func (s *session) run() {
 	log.InfoCtx(s.logCtx(), "net", "client connected", log.F("remote", s.remote), log.F("transport", s.kind))
 	go s.writer()
 
-	r := frame.NewReader(s.conn, frame.MaxClientPayload)
+	// 4 KiB, not the 64 KiB a server-to-server link deserves: a client sends small commands, and
+	// this buffer is per connection, so it is 320 MB of the gateway's memory at 5000 players.
+	r := frame.NewReaderSize(s.conn, frame.MaxClientPayload, clientReadBuffer)
 	for {
 		timeout := s.readTimeout()
 		_ = s.conn.SetReadDeadline(time.Now().Add(timeout))
@@ -163,6 +165,10 @@ func (s *session) run() {
 // batch as a stream and never sees the difference; on WebSocket one batch is one message, which
 // has to stay well under the client's inbound buffer (1 MiB in KSocketClient.gd).
 const maxWriteBatch = 64 * 1024
+
+// clientReadBuffer is what one client connection holds for reading.  Frames bigger than this
+// still arrive: the buffer only decides how often the socket is read.
+const clientReadBuffer = 4 * 1024
 
 func (s *session) writer() {
 	var batch [][]byte
