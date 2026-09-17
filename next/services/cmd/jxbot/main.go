@@ -30,6 +30,7 @@ import (
 
 type stats struct {
 	spawns, despawns, moves, chats, pongs atomic.Int64
+	actions, lifes                        atomic.Int64
 	errors                                atomic.Int64
 }
 
@@ -71,6 +72,24 @@ func (b *bot) send(id jxpb.MsgId, m proto.Message) error {
 // connect dials the gateway over whichever transport the address names: "host:port" (raw TCP),
 // "tls://host:port", "ws://host:port/ws" or "wss://host:port/ws".
 func (b *bot) connect() error {
+	// A load test opens hundreds of connections at once; the listen backlog of the operating
+	// system can refuse a few of them, exactly as it would for real players arriving together.
+	// A client retries instead of giving up (MASTER SPEC 58 scenario E).
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		if err = b.dial(); err == nil {
+			return b.startReader()
+		}
+		select {
+		case <-b.ctx.Done():
+			return b.ctx.Err()
+		case <-time.After(time.Duration(50+attempt*150) * time.Millisecond):
+		}
+	}
+	return err
+}
+
+func (b *bot) dial() error {
 	var c net.Conn
 	var err error
 	switch {
@@ -88,7 +107,11 @@ func (b *bot) connect() error {
 		return err
 	}
 	b.conn = c
-	b.r = frame.NewReader(c, frame.MaxClientPayload)
+	return nil
+}
+
+func (b *bot) startReader() error {
+	b.r = frame.NewReader(b.conn, frame.MaxClientPayload)
 	b.frames = make(chan frame.Frame, 1024)
 	b.readEr = make(chan error, 1)
 	go func() {
@@ -168,12 +191,27 @@ func (b *bot) handleWorld(f frame.Frame) error {
 		log.DebugCtx(b.logctx(), "world", "chat", log.F("from", m.Name), log.F("text", m.Text))
 	case jxpb.MsgId_G2C_PONG:
 		b.st.pongs.Add(1)
+	case jxpb.MsgId_G2C_ENTITY_ACTION:
+		// attack / hurt / death: counted, never logged per message - a load client must be able
+		// to swallow what it asks for (SPEC 56)
+		b.st.actions.Add(1)
+	case jxpb.MsgId_G2C_ENTITY_LIFE:
+		b.st.lifes.Add(1)
+	case jxpb.MsgId_G2C_CHANGE_MAP:
+		var m jxpb.ChangeMap
+		if err := proto.Unmarshal(f.Payload, &m); err != nil {
+			return err
+		}
+		b.entityID = m.EntityId
+		b.pos = m.Pos
+		b.home = &jxpb.Vec2{X: m.Pos.X, Y: m.Pos.Y}
+		b.target = 0
 	case jxpb.MsgId_G2C_KICK:
 		var k jxpb.Kick
 		_ = proto.Unmarshal(f.Payload, &k)
 		return fmt.Errorf("kicked: %v %s", k.Reason, k.Text)
 	default:
-		log.WarnCtx(b.logctx(), "net", "unexpected message", log.F("msg", f.MsgID))
+		log.DebugCtx(b.logctx(), "net", "unexpected message", log.F("msg", f.MsgID))
 	}
 	return nil
 }
@@ -184,7 +222,7 @@ func (b *bot) login(password string) error {
 		return err
 	}
 	var hello jxpb.HelloAck
-	if err := b.expect(jxpb.MsgId_G2C_HELLO_ACK, &hello, 5*time.Second); err != nil {
+	if err := b.expect(jxpb.MsgId_G2C_HELLO_ACK, &hello, 30*time.Second); err != nil {
 		return err
 	}
 	b.sid = hello.Sid
@@ -192,7 +230,9 @@ func (b *bot) login(password string) error {
 		return err
 	}
 	var login jxpb.LoginRes
-	if err := b.expect(jxpb.MsgId_G2C_LOGIN_RES, &login, 5*time.Second); err != nil {
+	// the password check is argon2id (~16 ms of CPU each, on purpose): when hundreds of clients
+	// arrive together they queue, and a real client waits instead of giving up (SPEC 58 case E)
+	if err := b.expect(jxpb.MsgId_G2C_LOGIN_RES, &login, 60*time.Second); err != nil {
 		return err
 	}
 	if login.Result != jxpb.Result_RESULT_OK {
@@ -202,7 +242,7 @@ func (b *bot) login(password string) error {
 		return err
 	}
 	var list jxpb.CharListRes
-	if err := b.expect(jxpb.MsgId_G2C_CHAR_LIST_RES, &list, 5*time.Second); err != nil {
+	if err := b.expect(jxpb.MsgId_G2C_CHAR_LIST_RES, &list, 30*time.Second); err != nil {
 		return err
 	}
 	var pid uint64
@@ -213,7 +253,7 @@ func (b *bot) login(password string) error {
 			return err
 		}
 		var created jxpb.CharCreateRes
-		if err := b.expect(jxpb.MsgId_G2C_CHAR_CREATE_RES, &created, 5*time.Second); err != nil {
+		if err := b.expect(jxpb.MsgId_G2C_CHAR_CREATE_RES, &created, 30*time.Second); err != nil {
 			return err
 		}
 		if created.Result != jxpb.Result_RESULT_OK {
@@ -388,7 +428,8 @@ func main() {
 	wg.Wait()
 
 	log.Info("bot", "summary", log.F("bots", *n), log.F("failed", failed.Load()), log.F("spawns", st.spawns.Load()), log.F("despawns", st.despawns.Load()),
-		log.F("moves", st.moves.Load()), log.F("chats", st.chats.Load()), log.F("pongs", st.pongs.Load()), log.F("errors", st.errors.Load()),
+		log.F("moves", st.moves.Load()), log.F("chats", st.chats.Load()), log.F("pongs", st.pongs.Load()),
+		log.F("actions", st.actions.Load()), log.F("lifes", st.lifes.Load()), log.F("errors", st.errors.Load()),
 		log.F("elapsed_s", fmt.Sprintf("%.1f", time.Since(start).Seconds())))
 	if failed.Load() > 0 || st.errors.Load() > 0 {
 		os.Exit(1)

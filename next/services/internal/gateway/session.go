@@ -71,8 +71,9 @@ type session struct {
 	sid    uint64
 	conn   net.Conn
 	remote string
-	kind   string // transport the client came in on: tcp, tls, ws, wss
-	out    chan []byte
+	kind   string        // transport the client came in on: tcp, tls, ws, wss
+	out    *KSendQueue   // SPEC 31 / 70: drops obsolete movement instead of the player
+	wake   chan struct{} // "there is something in the queue"
 	done   chan struct{}
 
 	mu          sync.Mutex
@@ -92,7 +93,7 @@ type session struct {
 
 func newSession(srv *Server, sid uint64, conn net.Conn) *session {
 	return &session{srv: srv, sid: sid, conn: conn, remote: conn.RemoteAddr().String(), kind: "tcp",
-		out: make(chan []byte, srv.cfg.OutQueue), done: make(chan struct{}),
+		out: newSendQueue(srv.cfg.OutQueue), wake: make(chan struct{}, 1), done: make(chan struct{}),
 		bucket: newBucket(srv.cfg.RateMsgs, srv.cfg.RateBurst, time.Now())}
 }
 
@@ -160,8 +161,11 @@ func (s *session) run() {
 
 func (s *session) writer() {
 	for {
-		select {
-		case b := <-s.out:
+		for {
+			b, ok := s.out.pop()
+			if !ok {
+				break
+			}
 			_ = s.conn.SetWriteDeadline(time.Now().Add(s.srv.cfg.WriteTimeout))
 			if _, err := s.conn.Write(b); err != nil {
 				s.close("write failed: " + err.Error())
@@ -169,6 +173,9 @@ func (s *session) writer() {
 			}
 			s.srv.stats.FramesOut.Add(1)
 			s.srv.stats.BytesOut.Add(uint64(len(b)))
+		}
+		select {
+		case <-s.wake:
 		case <-s.done:
 			return
 		}
@@ -187,14 +194,25 @@ func (s *session) close(reason string) {
 	})
 }
 
-func (s *session) sendRaw(b []byte) {
+// sendRaw queues one already encoded frame.  entity != 0 marks a position update that a newer
+// one may replace (SPEC 70: drop what is obsolete, never the player).
+func (s *session) sendRaw(b []byte) { s.sendFrame(0, 0, b) }
+
+func (s *session) sendFrame(msgID uint16, entity uint64, b []byte) {
 	select {
-	case s.out <- b:
 	case <-s.done:
+		return
 	default:
+	}
+	if !s.out.push(msgID, droppableEntity(msgID, entity), b) {
 		s.srv.stats.Dropped.Add(1)
-		log.WarnCtx(s.logCtx(), "net", "client too slow, dropping", log.F("queued", len(s.out)))
+		log.WarnCtx(s.logCtx(), "net", "send queue full of state the client needs", log.F("queued", s.out.len()))
 		s.close("slow consumer")
+		return
+	}
+	select {
+	case s.wake <- struct{}{}:
+	default:
 	}
 }
 
@@ -205,7 +223,7 @@ func (s *session) send(id jxpb.MsgId, m proto.Message) {
 		return
 	}
 	log.TraceCtx(s.logCtx(), "net.send", "to client", log.F("msg", int32(id)), log.F("bytes", len(payload)))
-	s.sendRaw(frame.Encode(uint16(id), 0, payload))
+	s.sendFrame(uint16(id), 0, frame.Encode(uint16(id), 0, payload))
 }
 
 // kick tells the client why and closes shortly after.  The zone is told "kicked" unless a
@@ -244,7 +262,7 @@ func (s *session) shutdown() {
 // drain waits until queued frames were handed to the socket (bounded).
 func (s *session) drain(max time.Duration) {
 	deadline := time.Now().Add(max)
-	for len(s.out) > 0 && time.Now().Before(deadline) {
+	for s.out.len() > 0 && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	time.Sleep(20 * time.Millisecond)

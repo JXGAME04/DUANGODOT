@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"runtime"
 	"sync"
 	"time"
 
@@ -19,6 +20,11 @@ import (
 type S3PAccount struct {
 	store persist.Store
 	opt   Options
+	// MASTER SPEC 58 scenario E (login storm): argon2id costs 19 MiB and ~16 ms of CPU per
+	// check.  Letting a thousand logins hash at once eats the memory and every core, and the
+	// listener then refuses new connections.  This lets a bounded number through at a time;
+	// the rest wait a few milliseconds instead of failing.
+	hashSlots chan struct{}
 
 	mu    sync.Mutex
 	fails map[string]*failState // normalized account name -> wrong password bookkeeping
@@ -34,9 +40,23 @@ type failState struct {
 // builds (persist.Account.Password) so the store never keeps one.
 func New(store persist.Store, opt Options) *S3PAccount {
 	opt.defaults()
-	a := &S3PAccount{store: store, opt: opt, fails: map[string]*failState{}}
+	slots := opt.HashConcurrency
+	if slots <= 0 {
+		slots = runtime.NumCPU() / 2
+		if slots < 2 {
+			slots = 2
+		}
+	}
+	a := &S3PAccount{store: store, opt: opt, fails: map[string]*failState{}, hashSlots: make(chan struct{}, slots)}
 	a.migrateClearText(context.Background())
 	return a
+}
+
+// hash runs one password operation, bounded by the number of slots.
+func (a *S3PAccount) hash(fn func()) {
+	a.hashSlots <- struct{}{}
+	defer func() { <-a.hashSlots }()
+	fn()
 }
 
 // Mode implements Authenticator.
@@ -83,7 +103,9 @@ func (a *S3PAccount) Register(ctx context.Context, account, password string) (*p
 	if len(password) < a.opt.MinPassword {
 		return nil, ErrWeakPassword
 	}
-	h, err := HashPassword(password)
+	var h string
+	var err error
+	a.hash(func() { h, err = HashPassword(password) })
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +126,8 @@ func (a *S3PAccount) SetPassword(ctx context.Context, account, password string) 
 	if err != nil {
 		return err
 	}
-	h, err := HashPassword(password)
+	var h string
+	a.hash(func() { h, err = HashPassword(password) })
 	if err != nil {
 		return err
 	}
@@ -144,7 +167,9 @@ func (a *S3PAccount) Login(ctx context.Context, account, password, remote string
 	case err != nil:
 		return nil, err
 	}
-	if !VerifyPassword(acc.PasswordHash, password) {
+	ok := false
+	a.hash(func() { ok = VerifyPassword(acc.PasswordHash, password) })
+	if !ok {
 		a.fail(key, now)
 		log.Warn("auth", "wrong password", log.F("account", account), log.F("remote", remote))
 		return nil, ErrAccountOrPassword

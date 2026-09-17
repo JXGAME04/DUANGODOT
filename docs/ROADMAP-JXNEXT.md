@@ -338,6 +338,15 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       dùng lại bộ đệm và đánh dấu ô bằng generation stamp (thuật toán và kết quả **không đổi**).
       Đo 200 bot cùng một chỗ trên Phượng Tường: **tick 11,85 → 3,35 ms**, p95 41,9 → 5,2 ms, p99 83,9 → 7,3 ms,
       chi phí map 9,6 → 1,24 ms, pha áp lệnh 8,83 → 0,92 ms.
+- [x] **M5f — MASTER SPEC 58/70/34: chịu được 500 người cùng một chỗ (2026-09-17)**: chạy tải thật rồi sửa đúng
+      chỗ nghẽn. (1) `KSendQueue` cho mỗi phiên: vị trí mới của một entity **thay thế** vị trí cũ chưa gửi, hàng
+      đầy thì bỏ gói di chuyển cũ nhất — không bao giờ bỏ spawn/despawn/sát thương/chat và không đá người chơi
+      vì đường truyền chậm (§70). (2) Giới hạn số phép băm argon2 chạy song song (§58 case E: 500 client đăng nhập
+      cùng lúc không còn ăn hết CPU và RAM). (3) `accounts.json` không còn được ghi lại trong mỗi lần đăng nhập
+      (538 KB × mỗi login) mà gộp lại ghi mỗi 200 ms, `Close/Flush` ghi ngay (§34). (4) Gói spawn của vùng đông
+      được chia nhỏ 48 entity để không vượt giới hạn 64 KiB. (5) `jxbot` xử lý đủ loại gói và chờ như client thật.
+      **Kết quả 500 bot cùng một chỗ trên Phượng Tường**: không ai rớt (errors 0), tick trung bình 14,05 ms,
+      p95 25,2 ms, p99 29,0 ms trong ngân sách 55 ms; 7 triệu gói hành động + 2,6 triệu gói di chuyển trong 29 giây.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

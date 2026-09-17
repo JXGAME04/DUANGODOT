@@ -25,6 +25,15 @@ type FileStore struct {
 	dir string
 	mu  sync.Mutex
 	db  fileDB
+	// MASTER SPEC 34 / 48: accounts.json holds every account, so rewriting it inside a login
+	// (to record the login time) costs O(all accounts) of IO while a mutex is held - with a few
+	// thousand accounts that is what made a login storm time out.  Changes are marked dirty and
+	// written by a background flusher; Close and Flush write immediately.  A crash can lose at
+	// most one flush interval of account metadata; characters have their own files and are
+	// written through as before.
+	dirty     bool
+	flushStop chan struct{}
+	flushDone chan struct{}
 	// player id -> role (cache of chars/*.json)
 	chars map[uint64]*jxpb.RoleData
 	names map[string]uint64 // normalized character name -> player id
@@ -91,7 +100,48 @@ func OpenFileStore(dir string) (*FileStore, error) {
 	}
 	log.Info("db", "file store opened", log.F("dir", dir), log.F("accounts", len(s.db.Accounts)), log.F("chars", len(s.chars)),
 		log.F("role_version", CurrentRoleVersion), log.F("migrated", migrated))
+	s.flushStop = make(chan struct{})
+	s.flushDone = make(chan struct{})
+	go s.flushLoop(200 * time.Millisecond)
 	return s, nil
+}
+
+func (s *FileStore) flushLoop(every time.Duration) {
+	defer close(s.flushDone)
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-s.flushStop:
+			return
+		case <-t.C:
+			if err := s.Flush(); err != nil {
+				log.Error("db", "account flush failed", log.F("error", err))
+			}
+		}
+	}
+}
+
+// Flush writes the account file now when something changed.
+func (s *FileStore) Flush() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.flushLocked()
+}
+
+func (s *FileStore) flushLocked() error {
+	if !s.dirty {
+		return nil
+	}
+	data, err := json.MarshalIndent(&s.db, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := writeAtomic(s.accountsPath(), data); err != nil {
+		return err
+	}
+	s.dirty = false
+	return nil
 }
 
 func (s *FileStore) accountsPath() string { return filepath.Join(s.dir, "accounts.json") }
@@ -107,12 +157,10 @@ func writeAtomic(path string, data []byte) error {
 	return os.Rename(tmp, path)
 }
 
+// saveAccountsLocked marks the account file for the next flush instead of rewriting it here.
 func (s *FileStore) saveAccountsLocked() error {
-	data, err := json.MarshalIndent(&s.db, "", "  ")
-	if err != nil {
-		return err
-	}
-	return writeAtomic(s.accountsPath(), data)
+	s.dirty = true
+	return nil
 }
 
 func (s *FileStore) saveCharLocked(role *jxpb.RoleData) error {
@@ -313,5 +361,12 @@ func (s *FileStore) SaveCharacter(_ context.Context, role *jxpb.RoleData) error 
 	return nil
 }
 
-// Close implements Store.
-func (s *FileStore) Close() error { return nil }
+// Close implements Store: stops the flusher and writes whatever is still pending.
+func (s *FileStore) Close() error {
+	if s.flushStop != nil {
+		close(s.flushStop)
+		<-s.flushDone
+		s.flushStop = nil
+	}
+	return s.Flush()
+}

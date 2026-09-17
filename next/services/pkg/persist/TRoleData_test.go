@@ -91,6 +91,9 @@ func TestStoreMigratesOnOpenAndWritesBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := s.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	role, err := s.Character(context.Background(), 7)
 	if err != nil || role.DataVersion != CurrentRoleVersion || role.Stats.HpMax != 100 || role.Level != 12 {
 		t.Fatalf("not migrated: %v %+v", err, role)

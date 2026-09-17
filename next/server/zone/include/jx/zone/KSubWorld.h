@@ -131,6 +131,10 @@ private:
     friend class KNpcAI;   // like the old KNpcAI, which is a friend of KNpc
 
     void emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
+    // A crowded spot can put hundreds of entities in one EntitySpawn, which would pass the 64 KiB
+    // the client protocol allows (docs/PROTOCOL.md).  This sends them in pieces that always fit.
+    void emit_spawn(const std::vector<std::uint64_t>& sids, const pb::EntitySpawn& spawn);
+    static constexpr int kSpawnChunk = 48;
     void viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const;
     // Who can see this cell, computed once per cell per tick.  With a crowd standing on the
     // same spot (Tống Kim) the same answer was being recomputed for every single command; the

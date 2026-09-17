@@ -38,7 +38,10 @@ type Options struct {
 	MaxFails     int           // wrong passwords per account before it is locked (0 = 5)
 	LockFor      time.Duration // how long the account stays locked (0 = 60 s)
 	MinGameTime  time.Duration // an account with less game time left than this cannot log in (old: 1800 s); applies when ExpiresAtMs != 0
-	Now          func() time.Time
+	// How many password hashes may run at the same time (0 = half the cores, at least 2).
+	// Bounds the memory and the CPU a login storm can take (SPEC 58 scenario E).
+	HashConcurrency int
+	Now             func() time.Time
 }
 
 func (o *Options) defaults() {

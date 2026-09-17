@@ -146,6 +146,24 @@ const std::vector<std::uint64_t>& KSubWorld::viewers_cached(Cell c) const
     return viewer_cache_.emplace(key, std::move(list)).first->second;
 }
 
+void KSubWorld::emit_spawn(const std::vector<std::uint64_t>& sids, const pb::EntitySpawn& spawn)
+{
+    if (sids.empty() || spawn.entities_size() == 0) return;
+    if (spawn.entities_size() <= kSpawnChunk) {
+        emit(sids, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), spawn);
+        return;
+    }
+    pb::EntitySpawn chunk;
+    for (int i = 0; i < spawn.entities_size(); ++i) {
+        *chunk.add_entities() = spawn.entities(i);
+        if (chunk.entities_size() == kSpawnChunk) {
+            emit(sids, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), chunk);
+            chunk.clear_entities();
+        }
+    }
+    if (chunk.entities_size() > 0) emit(sids, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), chunk);
+}
+
 void KSubWorld::viewers_of(Cell c, std::vector<std::uint64_t>& sids, EntityId exclude) const
 {
     std::uint64_t exclude_sid = 0;
@@ -245,7 +263,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     // everything the newcomer can see (including itself)
     pb::EntitySpawn visible;
     grid_.for_each_in_view(cell, [&](EntityId other) { fill_info(entities_.at(other), *visible.add_entities()); });
-    emit({sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), visible);
+    emit_spawn({sid}, visible);
 
     // the newcomer for everyone already there
     scratch_sids_.clear();
@@ -437,7 +455,7 @@ void KSubWorld::on_cell_change(KNpc& e, Cell from, Cell to)
         if (o->kind == KNpcKind::player && o->sid != 0) old_viewers.push_back(o->sid);
     }
     if (e.kind == KNpcKind::player && e.sid != 0) {
-        if (appear.entities_size() > 0) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), appear);
+        if (appear.entities_size() > 0) emit_spawn({e.sid}, appear);
         if (vanish.entity_ids_size() > 0) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), vanish);
     }
     if (!new_viewers.empty()) emit(std::move(new_viewers), static_cast<std::uint16_t>(pb::G2C_ENTITY_SPAWN), me_spawn);

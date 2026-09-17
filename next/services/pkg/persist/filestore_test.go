@@ -69,7 +69,10 @@ func TestFileStoreRoundTrip(t *testing.T) {
 		t.Fatal("save with another account accepted")
 	}
 
-	// reopen from disk
+	// reopen from disk (a real shutdown flushes; the test does the same)
+	if err := s.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	s2, err := OpenFileStore(dir)
 	if err != nil {
 		t.Fatal(err)
