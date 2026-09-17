@@ -166,6 +166,23 @@ xem và cắt danh sách xuống `max_viewers` (mặc định **100**, đúng co
 Số gói giảm **5,3 lần**, băng thông giảm **3,8 lần**, p99 tốt hơn **3,4 lần** — trong khi vùng nhìn mới
 còn **rộng hơn** cũ (1792 đơn vị so với 1536). Đó là giá trị của N1.
 
+**3 000 người trên một map** — trường hợp trước đây vỡ hẳn:
+
+| | Trước | Sau |
+|---|---:|---:|
+| người vào được | 2 978 | **3 000** |
+| chi phí worker giữ map | 28,38 ms | **6,15 ms** |
+| tick lúc đông nhất | 41,45 ms | **9,08 ms** |
+| **lúc ổn định**: tb / p95 / p99 | — | **7,80 / 10,49 / 14,68 ms** |
+| tick bị rớt | 13 | **7** |
+
+Số lần cắt danh sách người xem: **55 520** và vẫn tăng — cơ chế chặn chạy liên tục.
+
+**M6 mới đạt một nửa.** Lúc ổn định thì p99 14,68 ms, thừa ngân sách. Nhưng **lúc người chơi ùa
+vào** (100 người mỗi giây) thì p99 lên 268 ms và 7 tick bị rớt: mỗi người vào phải nhận toàn bộ
+những ai đang thấy, và phải được báo cho tất cả. Đó đúng là **N4** — rải việc vào và ra ra nhiều tick,
+chưa làm.
+
 Thêm ba test: vùng nhìn mặc định phủ hết bốn góc màn hình của cả hai loại client; đám đông không làm
 một hành động đến được tất cả; các test cơ chế qua biên ô giờ ghim `view_cells = 1` vì chúng nói về cơ
 chế chứ không về độ rộng. **119 ctest xanh.**
