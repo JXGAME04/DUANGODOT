@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"sync"
@@ -162,6 +163,7 @@ func (s *Server) Run(ctx context.Context) error {
 	listeners, err := transport.Listen(transport.Options{
 		TCP: s.cfg.Listen, WS: s.cfg.ListenWS, WSPath: s.cfg.WSPath,
 		CertFile: s.cfg.CertFile, KeyFile: s.cfg.KeyFile,
+		Status: s.health,
 	})
 	if err != nil {
 		log.Error("boot", "cannot listen", log.F("tcp", s.cfg.Listen), log.F("ws", s.cfg.ListenWS), log.F("error", err))
@@ -213,6 +215,30 @@ func (s *Server) Run(ctx context.Context) error {
 	s.zoneWG.Wait()
 	log.Info("boot", "gateway stopped")
 	return nil
+}
+
+// health answers GET /healthz: ready means the gateway can take players right now (the zone
+// link is up and it is not shutting down).  tools/dev.py waits for it instead of guessing.
+func (s *Server) health() (bool, []byte) {
+	snap := s.Snapshot()
+	ready := snap.ZoneReady && !s.stopping.Load()
+	body, err := json.Marshal(struct {
+		Status    string `json:"status"`
+		Version   string `json:"version"`
+		Gateway   string `json:"gateway"`
+		Auth      string `json:"auth_mode"`
+		ZoneReady bool   `json:"zone_ready"`
+		Sessions  int    `json:"sessions"`
+		Online    int    `json:"online"`
+		Stopping  bool   `json:"stopping"`
+	}{
+		Status: map[bool]string{true: "ok", false: "unavailable"}[ready], Version: Version, Gateway: s.cfg.ID,
+		Auth: s.auth.Mode(), ZoneReady: snap.ZoneReady, Sessions: snap.Sessions, Online: snap.Online, Stopping: s.stopping.Load(),
+	})
+	if err != nil {
+		return ready, []byte(`{"status":"error"}`)
+	}
+	return ready, body
 }
 
 // accept runs one door until it closes.

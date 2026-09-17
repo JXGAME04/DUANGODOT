@@ -113,6 +113,26 @@ def port_open(port: int, host: str = "127.0.0.1") -> bool:
         return s.connect_ex((host, port)) == 0
 
 
+def gateway_healthy(port: int = 17102) -> bool:
+    """GET /healthz on the gateway's WebSocket door: true only when it can take players now
+    (zone link up, not shutting down)."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=0.5) as r:
+            return r.status == 200 and b'"zone_ready":true' in r.read()
+    except Exception:
+        return False
+
+
+def wait_healthy(seconds: float, port: int = 17102) -> bool:
+    end = time.time() + seconds
+    while time.time() < end:
+        if gateway_healthy(port):
+            return True
+        time.sleep(0.2)
+    return False
+
+
 def wait_port(port: int, seconds: float) -> bool:
     end = time.time() + seconds
     while time.time() < end:
@@ -191,6 +211,9 @@ def cmd_start(new_console: bool = True) -> None:
         kill(zone.pid)
         sys.exit("gateway did not open port 17100 (see logs/gateway.log)")
     save_pids({"zone": zone.pid, "gateway": gw.pid})
+    # the gateway answers /healthz only once its zone link is up: wait for that, not just for the port
+    if port_open(17102) and not wait_healthy(15):
+        print("warning: gateway is listening but the zone link is not ready (see logs/gateway.log)")
     ws = " ws://127.0.0.1:17102/ws" if port_open(17102) else ""
     print(f"zone pid {zone.pid} :17001, gateway pid {gw.pid} :17100 - client connects to 127.0.0.1:17100{ws}")
 

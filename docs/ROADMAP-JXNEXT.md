@@ -286,7 +286,16 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       msg id, `-hex`). Không hiểu nội dung nên ghi được **cả bản cũ** (luồng riêng của Rainbow/Bishop) lẫn
       Protocol V2. Đã ghi thật một phiên bot: 19 bản ghi, 1230 byte, dump ra đúng chuỗi Hello → Login →
       CharCreate → EnterWorld → Move. Test: 4 test `KPacketRecord_test.go`. `docs/TESTING.md` mục 3c.
-- [ ] Còn lại của tuần 1 (mục 4): ADR.
+- [x] **M4f — ADR (2026-09-17, tuần 1 mục 4.8)**: `next/docs/adr/` — ADR-001 kiến trúc (C++ zone / Go services /
+      Godot client / Lua 5.4), ADR-002 Protocol V2 (khung tin, protobuf, đường truyền, phiên bản),
+      ADR-003 dữ liệu nhân vật (`RoleData`, id, `data_version`, di trú), ADR-004 tài khoản và phiên
+      (argon2id, một tài khoản một phiên, timeout/giới hạn gói, tắt êm). Mỗi ADR: bối cảnh, quyết định,
+      phương án đã cân nhắc, hệ quả.
+- [x] **M4g — `/healthz` (2026-09-17)**: cổng WebSocket trả lời `GET /healthz` bằng JSON
+      (`zone_ready`, `sessions`, `online`, `stopping`; `503` khi chưa sẵn sàng hoặc đang tắt) —
+      `dev.py start` chờ tín hiệu này nên `e2e` hết lỗi chập chờn "zone chưa sẵn sàng" (3 lần chạy liên tiếp đều xanh);
+      cũng là chỗ để cân bằng tải và giám sát cắm vào (giai đoạn 4.1). Test `KHealth_test.go`.
+- [x] Tuần 1 (mục 4) đã xong toàn bộ.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

@@ -51,6 +51,9 @@ tách địa chỉ, `KSocketClient.gd` chọn `StreamPeerTCP` / `StreamPeerTLS` 
 đường đang dùng. Bot: `jxbot -gateway ws://127.0.0.1:17102/ws`. Chứng chỉ tự ký khi thử: client chạy
 với `--tls-insecure` (hoặc `JX_TLS_INSECURE=1`), bot tự bỏ kiểm tra cho `tls://`/`wss://`.
 
+Cổng WebSocket còn trả lời `GET /healthz` (JSON: `zone_ready`, `sessions`, `online`, `stopping`;
+`503` khi chưa sẵn sàng) cho cân bằng tải, giám sát và `tools/dev.py`.
+
 Bản cũ chỉ có một cổng TCP thô với lớp xáo trộn riêng, nên client web/mobile của lộ trình không thể
 kết nối; đây là lý do phần này làm sớm.
 

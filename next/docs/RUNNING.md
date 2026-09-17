@@ -89,6 +89,15 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=127.0.0.1" -addex
 `python tools/dev.py e2e` chạy client tự động **hai lần**: một qua TCP, một qua WebSocket
 (`transport=tcp` / `transport=ws` trong dòng `AUTO_RESULT`).
 
+**Kiểm tra sức khoẻ**: cổng WebSocket trả lời `GET /healthz` — `200` kèm JSON khi gateway *thật sự*
+nhận được người chơi (đã nối zone, chưa tắt), `503` khi chưa sẵn sàng hoặc đang tắt. `dev.py start`
+chờ đúng tín hiệu này thay vì chỉ chờ cổng mở.
+
+```bash
+curl -s http://127.0.0.1:17102/healthz
+{"status":"ok","version":"0.2.0","gateway":"gw1","auth_mode":"dev","zone_ready":true,"sessions":0,"online":0,"stopping":false}
+```
+
 ## 3b. Tài khoản
 
 Mật khẩu **luôn** được băm bằng argon2id (`services/pkg/auth/password.go`); file

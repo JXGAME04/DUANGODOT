@@ -19,6 +19,10 @@ type Options struct {
 	CertFile   string // PEM certificate; set both Cert and Key to serve TLS on both doors
 	KeyFile    string
 	MaxMessage int // largest WebSocket message (0 = DefaultMaxMessage)
+	// Status answers GET /healthz on the WebSocket door: ready decides 200 or 503, body is the
+	// JSON shown.  Monitoring, load balancers and tools/dev.py use it to wait for a server that
+	// is really able to take players (the old cluster had no such thing).
+	Status func() (ready bool, body []byte)
 }
 
 // Listener is one accepting door.  Kind is "tcp", "tls", "ws" or "wss" and appears in the log.
@@ -124,11 +128,23 @@ func newWSListener(ln net.Listener, kind string, o Options) *wsListener {
 			_ = c.Close()
 		}
 	})
-	// anything else on this port gets a plain answer instead of a hang (health checks, browsers)
+	// a load balancer, a monitor or tools/dev.py asks here whether the server can take players
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		ready, body := true, []byte(`{"status":"ok"}`)
+		if o.Status != nil {
+			ready, body = o.Status()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if !ready {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		_, _ = w.Write(append(body, '\n'))
+	})
+	// anything else on this port gets a plain answer instead of a hang (browsers, probes)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("jx gateway: websocket endpoint is " + path + "\n"))
+		_, _ = w.Write([]byte("jx gateway: websocket endpoint is " + path + ", health is /healthz\n"))
 	})
 	l.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
