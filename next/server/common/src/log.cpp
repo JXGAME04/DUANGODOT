@@ -153,7 +153,7 @@ public:
         const auto it = labels_.find(kNames[level]);
         const std::string label = it != labels_.end() ? it->second : std::string(kEnglish[level]);
         dest.append(label.data(), label.data() + label.size());
-        for (std::size_t n = columns(label); n < 12; ++n) dest.push_back(' ');
+        for (std::size_t n = columns(label); n < 12u; ++n) dest.push_back(' ');
     }
 
     std::unique_ptr<spdlog::custom_flag_formatter> clone() const override { return std::make_unique<LevelLabel>(labels_); }
@@ -335,7 +335,7 @@ std::string format_text(Level level, std::string_view category, std::string_view
     std::string shown = translated(c.categories, cat);
     if (shown == cat && dot != std::string::npos) shown = translated(c.categories, head) + cat.substr(dot);
     std::string line = "[" + shown + "]";
-    for (std::size_t n = columns(line); n < 14; ++n) line.push_back(' ');
+    for (std::size_t n = columns(line); n < 14u; ++n) line.push_back(' ');
     line += translated(c.messages, std::string(msg));
     const auto add = [&line, &c](const std::string& key, const std::string& value) {
         line += " \xC2\xB7 ";     // a middle dot between the parts
