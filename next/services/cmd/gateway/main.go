@@ -103,6 +103,10 @@ func main() {
 	srv := gateway.New(gateway.Config{
 		ID:                   cfg.String("gateway.id", "gw1"),
 		Listen:               cfg.String("gateway.listen", ":17100"),
+		ListenWS:             cfg.String("gateway.listen_ws", ""),
+		WSPath:               cfg.String("gateway.ws_path", "/ws"),
+		CertFile:             cfg.String("gateway.tls_cert", ""),
+		KeyFile:              cfg.String("gateway.tls_key", ""),
 		ZoneAddr:             cfg.String("gateway.zone", "127.0.0.1:17001"),
 		MaxChars:             int(cfg.Int("gateway.max_chars", 3)),
 		IdleTimeout:          time.Duration(cfg.Int("gateway.idle_timeout_s", 300)) * time.Second,

@@ -135,7 +135,7 @@ func TestLockAfterFailedLogins(t *testing.T) {
 	s := openStore(t)
 	now := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 	opt := DevOptions()
-	opt.MaxFails, opt.LockFor = 3, 30 * time.Second
+	opt.MaxFails, opt.LockFor = 3, 30*time.Second
 	opt.Now = func() time.Time { return now }
 	a := New(s, opt)
 	ctx := context.Background()

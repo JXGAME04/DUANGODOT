@@ -191,7 +191,8 @@ def cmd_start(new_console: bool = True) -> None:
         kill(zone.pid)
         sys.exit("gateway did not open port 17100 (see logs/gateway.log)")
     save_pids({"zone": zone.pid, "gateway": gw.pid})
-    print(f"zone pid {zone.pid} :17001, gateway pid {gw.pid} :17100 - client connects to 127.0.0.1:17100")
+    ws = " ws://127.0.0.1:17102/ws" if port_open(17102) else ""
+    print(f"zone pid {zone.pid} :17001, gateway pid {gw.pid} :17100 - client connects to 127.0.0.1:17100{ws}")
 
 
 def cmd_stop() -> None:
@@ -288,13 +289,13 @@ def godot_headless_exe() -> str:
     return console if os.path.exists(console) else exe
 
 
-def run_client_auto(account: str = "auto1", windowed: bool = False) -> int:
+def run_client_auto(account: str = "auto1", windowed: bool = False, server: str = "127.0.0.1:17100") -> int:
     """Godot client: login -> character -> enter world -> move -> quit(0 on arrival).
     Headless by default; windowed=True renders and saves screenshots to user://logs/auto_*.png."""
     cmd = [godot_headless_exe(), "--path", os.path.join(ROOT, "client")]
     if not windowed:
         cmd.insert(1, "--headless")
-    cmd += ["--", "--auto", "--server=127.0.0.1:17100", f"--account={account}", "--password=auto"]
+    cmd += ["--", "--auto", f"--server={server}", f"--account={account}", "--password=auto"]
     try:
         # the client logs UTF-8 (map and character names); never let the console code page break the run
         res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
@@ -319,7 +320,11 @@ def cmd_e2e() -> int:
         print("BOT OK" if rc == 0 else f"BOT FAILED ({rc})")
         rc2 = run_client_auto()
         print("CLIENT OK" if rc2 == 0 else f"CLIENT FAILED ({rc2})")
-        return rc or rc2
+        rc3 = 0
+        if port_open(17102):   # the same client over the WebSocket door (web / mobile build)
+            rc3 = run_client_auto(account="autows", server="ws://127.0.0.1:17102/ws")
+            print("CLIENT WS OK" if rc3 == 0 else f"CLIENT WS FAILED ({rc3})")
+        return rc or rc2 or rc3
     finally:
         cmd_stop()
 

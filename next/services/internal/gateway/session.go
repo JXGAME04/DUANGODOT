@@ -71,6 +71,7 @@ type session struct {
 	sid    uint64
 	conn   net.Conn
 	remote string
+	kind   string // transport the client came in on: tcp, tls, ws, wss
 	out    chan []byte
 	done   chan struct{}
 
@@ -90,7 +91,8 @@ type session struct {
 }
 
 func newSession(srv *Server, sid uint64, conn net.Conn) *session {
-	return &session{srv: srv, sid: sid, conn: conn, remote: conn.RemoteAddr().String(), out: make(chan []byte, srv.cfg.OutQueue), done: make(chan struct{}),
+	return &session{srv: srv, sid: sid, conn: conn, remote: conn.RemoteAddr().String(), kind: "tcp",
+		out: make(chan []byte, srv.cfg.OutQueue), done: make(chan struct{}),
 		bucket: newBucket(srv.cfg.RateMsgs, srv.cfg.RateBurst, time.Now())}
 }
 
@@ -118,7 +120,7 @@ func (s *session) run() {
 		_ = tc.SetNoDelay(true)
 	}
 	s.srv.stats.Connects.Add(1)
-	log.InfoCtx(s.logCtx(), "net", "client connected", log.F("remote", s.remote))
+	log.InfoCtx(s.logCtx(), "net", "client connected", log.F("remote", s.remote), log.F("transport", s.kind))
 	go s.writer()
 
 	r := frame.NewReader(s.conn, frame.MaxClientPayload)

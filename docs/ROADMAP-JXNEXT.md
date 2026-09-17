@@ -272,6 +272,14 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       Go `FuzzParser`/`FuzzReader` (21 triệu lượt không lỗi, CI chạy 30 s mỗi PR), C++ `[fuzz]` 500 vòng seed cố định,
       GDScript `test_frame_fuzz` 300 vòng; `KGarbage_test.go`: 40 kết nối bắn id/payload ngẫu nhiên vào gateway,
       phiên đang chơi vẫn ping/đi lại bình thường và mọi kết nối rác bị đóng. `docs/TESTING.md` mục 3b.
+- [x] **M4d — đường truyền TLS + WebSocket (2026-09-17, quyết định mục 2 "Mạng")**: `services/pkg/transport`
+      (`KListener.go` mở nhiều cửa, `KWebSocket.go` tự cài RFC 6455 — bắt tay, message nhị phân, phân mảnh,
+      ping/pong, close, **không phụ thuộc thư viện ngoài**); gateway mở đồng thời TCP 17100 và WebSocket 17102,
+      TLS chung cho cả hai qua `gateway.tls_cert/tls_key`. Client Godot: `KNetAddress.gd` + `KSocketClient.gd` chọn
+      `StreamPeerTCP`/`StreamPeerTLS`/`WebSocketPeer` theo địa chỉ (`tls://`, `ws://`, `wss://`), HUD hiện đường đang
+      dùng; `jxbot -gateway ws://...`. Test: 8 test transport (bắt tay, phân mảnh, ping, frame không mask, quá cỡ,
+      TLS/wss tự ký), 1 test gateway qua WebSocket, 10 test địa chỉ ở client; `dev.py e2e` chạy client qua **cả hai**
+      đường. `docs/PROTOCOL.md` mục 1b, `RUNNING.md` mục 3a.
 - [ ] Còn lại của tuần 1 (mục 4): bộ ghi packet trên hệ thống cũ (Rainbow), ADR.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android

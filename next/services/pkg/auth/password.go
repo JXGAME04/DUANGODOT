@@ -12,7 +12,9 @@ import (
 )
 
 // Password hashing: argon2id in the PHC string format
-//   $argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>
+//
+//	$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>
+//
 // (OWASP 2024 parameters: 19 MiB, 2 passes, 1 lane).  The old game stored the MD5 of the
 // password (KSG_PASSWORD) which is not acceptable today; there is no compatibility to keep
 // because accounts are not migrated from the old database.

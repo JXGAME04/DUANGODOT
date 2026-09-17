@@ -2,7 +2,11 @@
   // JX NEXT gateway.  Override with JX_GATEWAY__LISTEN=... or -set gateway.listen=...
   "gateway": {
     "id": "gw1",
-    "listen": "0.0.0.0:17100",
+    "listen": "0.0.0.0:17100",       // raw TCP: client PC, jxbot
+    "listen_ws": "0.0.0.0:17102",    // WebSocket for web/mobile ("" = tat)
+    "ws_path": "/ws",
+    "tls_cert": "",                  // dat ca hai de bat TLS (tcp -> tls, ws -> wss)
+    "tls_key": "",
     "zone": "127.0.0.1:17001",
     "max_chars": 3,
     "data_dir": "data/gateway",

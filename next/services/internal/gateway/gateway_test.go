@@ -124,6 +124,7 @@ type testClient struct {
 	t    *testing.T
 	conn net.Conn
 	r    *frame.Reader
+	acct string // account of the last login; the character is named after it (names are unique)
 }
 
 // dialRaw opens a plain connection without the test helpers (used by the garbage test).
@@ -229,6 +230,9 @@ func (c *testClient) login(account, password string) (*jxpb.HelloAck, *jxpb.Logi
 	c.send(jxpb.MsgId_C2G_LOGIN, &jxpb.LoginReq{Account: account, Password: password})
 	var login jxpb.LoginRes
 	c.expect(jxpb.MsgId_G2C_LOGIN_RES, &login)
+	if login.Result == jxpb.Result_RESULT_OK {
+		c.acct = account
+	}
 	return &hello, &login
 }
 
@@ -242,7 +246,11 @@ func (c *testClient) enter() *jxpb.EnterWorldRes {
 	if len(list.Chars) > 0 {
 		pid = list.Chars[0].PlayerId
 	} else {
-		c.send(jxpb.MsgId_C2G_CHAR_CREATE, &jxpb.CharCreateReq{Name: "Hero", Series: 1})
+		name := "Hero"
+		if c.acct != "" {
+			name = c.acct
+		}
+		c.send(jxpb.MsgId_C2G_CHAR_CREATE, &jxpb.CharCreateReq{Name: name, Series: 1})
 		var created jxpb.CharCreateRes
 		c.expect(jxpb.MsgId_G2C_CHAR_CREATE_RES, &created)
 		if created.Result != jxpb.Result_RESULT_OK {

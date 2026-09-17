@@ -18,13 +18,20 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/auth"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/persist"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/transport"
 )
 
 const Version = "0.2.0"
 
 type Config struct {
-	ID           string        // gateway id sent to the zone
-	Listen       string        // client listen address, e.g. ":17100"
+	ID       string // gateway id sent to the zone
+	Listen   string // raw TCP address for the PC client and bots, e.g. ":17100" ("" = closed)
+	ListenWS string // WebSocket address for web / mobile clients, e.g. ":17102" ("" = closed)
+	WSPath   string // WebSocket path ("" = "/ws")
+	// TLS for both doors (tcp -> tls, ws -> wss).  Empty = plain, which is what a LAN dev
+	// machine uses; a public server must set both.
+	CertFile     string
+	KeyFile      string
 	ZoneAddr     string        // "127.0.0.1:17001"
 	MaxChars     int           // characters per account (MAX_PLAYER_PER_ACCOUNT of the old client: 3)
 	IdleTimeout  time.Duration // read timeout in the lobby (0 = 5 min)
@@ -49,7 +56,7 @@ func (c *Config) defaults() {
 	if c.ID == "" {
 		c.ID = "gw1"
 	}
-	if c.Listen == "" {
+	if c.Listen == "" && c.ListenWS == "" {
 		c.Listen = ":17100"
 	}
 	if c.ZoneAddr == "" {
@@ -100,14 +107,16 @@ type Server struct {
 
 	mu          sync.RWMutex
 	sessions    map[uint64]*session
-	online      map[uint64]*session   // account id -> the one session logged in with it (iClientID of the old PaySys)
-	pendingSave map[uint64]struct{}   // sids that left the zone and whose final PlayerSave has not arrived yet
+	online      map[uint64]*session // account id -> the one session logged in with it (iClientID of the old PaySys)
+	pendingSave map[uint64]struct{} // sids that left the zone and whose final PlayerSave has not arrived yet
 	nextSID     atomic.Uint64
-	ln          net.Listener
-	addr        atomic.Value // string
+	listeners   []transport.Listener
+	addr        atomic.Value // string: the raw TCP door
+	addrWS      atomic.Value // string: the WebSocket door
 	stopping    atomic.Bool
 	sessWG      sync.WaitGroup
 	zoneWG      sync.WaitGroup
+	acceptWG    sync.WaitGroup
 }
 
 func New(cfg Config, store persist.Store, authenticator auth.Authenticator) *Server {
@@ -117,9 +126,15 @@ func New(cfg Config, store persist.Store, authenticator auth.Authenticator) *Ser
 	return s
 }
 
-// Addr is the bound client address (valid after Run started listening).
+// Addr is the bound raw TCP address (valid after Run started listening).
 func (s *Server) Addr() string {
 	v, _ := s.addr.Load().(string)
+	return v
+}
+
+// AddrWS is the bound WebSocket address, "" when that door is closed.
+func (s *Server) AddrWS() string {
+	v, _ := s.addrWS.Load().(string)
 	return v
 }
 
@@ -140,18 +155,30 @@ func (s *Server) OnlineCount() int {
 	return len(s.online)
 }
 
-// Run listens for clients and keeps the zone link alive until ctx is cancelled, then kicks
-// every client, tells the zone, waits for the final saves and returns.
+// Run opens every configured door (raw TCP, TLS, WebSocket), keeps the zone link alive until
+// ctx is cancelled, then kicks every client, tells the zone, waits for the final saves and
+// returns.
 func (s *Server) Run(ctx context.Context) error {
-	ln, err := net.Listen("tcp", s.cfg.Listen)
+	listeners, err := transport.Listen(transport.Options{
+		TCP: s.cfg.Listen, WS: s.cfg.ListenWS, WSPath: s.cfg.WSPath,
+		CertFile: s.cfg.CertFile, KeyFile: s.cfg.KeyFile,
+	})
 	if err != nil {
-		log.Error("boot", "cannot listen", log.F("addr", s.cfg.Listen), log.F("error", err))
+		log.Error("boot", "cannot listen", log.F("tcp", s.cfg.Listen), log.F("ws", s.cfg.ListenWS), log.F("error", err))
 		return err
 	}
-	s.ln = ln
-	s.addr.Store(ln.Addr().String())
-	log.Info("boot", "gateway listening", log.F("addr", ln.Addr().String()), log.F("zone", s.cfg.ZoneAddr), log.F("id", s.cfg.ID),
-		log.F("auth", s.auth.Mode()), log.F("heartbeat_s", s.cfg.HeartbeatTimeout.Seconds()), log.F("rate_msgs", s.cfg.RateMsgs))
+	s.listeners = listeners
+	for _, l := range listeners {
+		switch l.Kind() {
+		case "tcp", "tls":
+			s.addr.Store(l.Addr().String())
+		case "ws", "wss":
+			s.addrWS.Store(l.Addr().String())
+		}
+		log.Info("boot", "gateway listening", log.F("addr", l.Addr().String()), log.F("kind", l.Kind()),
+			log.F("zone", s.cfg.ZoneAddr), log.F("id", s.cfg.ID), log.F("auth", s.auth.Mode()),
+			log.F("heartbeat_s", s.cfg.HeartbeatTimeout.Seconds()), log.F("rate_msgs", s.cfg.RateMsgs))
+	}
 
 	// the zone link outlives ctx: the final saves of the kicked players travel over it
 	zctx, zcancel := context.WithCancel(context.Background())
@@ -164,28 +191,49 @@ func (s *Server) Run(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		_ = ln.Close()
+		for _, l := range listeners {
+			_ = l.Close()
+		}
 	}()
 	if s.cfg.StatsInterval > 0 {
 		go s.reportStats(ctx, s.cfg.StatsInterval)
 	}
 
+	for _, l := range listeners {
+		s.acceptWG.Add(1)
+		go func(l transport.Listener) {
+			defer s.acceptWG.Done()
+			s.accept(ctx, l)
+		}(l)
+	}
+	s.acceptWG.Wait()
+
+	s.shutdown()
+	zcancel()
+	s.zoneWG.Wait()
+	log.Info("boot", "gateway stopped")
+	return nil
+}
+
+// accept runs one door until it closes.
+func (s *Server) accept(ctx context.Context, l transport.Listener) {
 	for {
-		conn, err := ln.Accept()
+		conn, err := l.Accept()
 		if err != nil {
-			if ctx.Err() != nil {
-				break
+			if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
+				return
 			}
 			var ne net.Error
 			if errors.As(err, &ne) && ne.Timeout() {
 				continue
 			}
-			log.Warn("net", "accept failed", log.F("error", err))
+			log.Warn("net", "accept failed", log.F("kind", l.Kind()), log.F("error", err))
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 		sid := s.nextSID.Add(1)
 		sess := newSession(s, sid, conn)
+		sess.kind = l.Kind()
 		s.mu.Lock()
 		s.sessions[sid] = sess
 		s.mu.Unlock()
@@ -198,12 +246,6 @@ func (s *Server) Run(ctx context.Context) error {
 			s.mu.Unlock()
 		}()
 	}
-
-	s.shutdown()
-	zcancel()
-	s.zoneWG.Wait()
-	log.Info("boot", "gateway stopped")
-	return nil
 }
 
 // shutdown kicks every client (the zone gets SessionClose reason 3 for the ones in the

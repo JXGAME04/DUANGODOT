@@ -63,6 +63,32 @@ Client: nhập máy chủ `127.0.0.1:17100`, tài khoản bất kỳ (tự tạo
 lần sau) → tạo nhân vật → **Vào game** → click chuột trái để đi, Enter để chat, cuộn chuột để zoom,
 Esc để về màn chọn nhân vật. Mở nhiều client cùng lúc để thấy nhau.
 
+## 3a. Đường truyền: TCP, TLS, WebSocket
+
+Gateway mở sẵn hai cửa: **17100** (TCP thô, client PC và bot) và **17102** (WebSocket, cho bản web /
+mobile sau này) — cùng một giao thức. Ở màn đăng nhập gõ:
+
+| Gõ vào ô "Máy chủ" | Đường |
+|---|---|
+| `127.0.0.1:17100` | TCP thô (mặc định) |
+| `ws://127.0.0.1:17102/ws` | WebSocket |
+| `tls://host:17100`, `wss://host:17102/ws` | khi máy chủ có chứng chỉ |
+
+```bash
+build/go/jxbot -gateway ws://127.0.0.1:17102/ws -bots 3 -duration 30s
+```
+
+Bật TLS: đặt `gateway.tls_cert` + `gateway.tls_key` (PEM) trong `config/gateway.json`; cổng 17100 thành
+`tls://`, 17102 thành `wss://`. Chứng chỉ tự ký thì client chạy thêm `-- --tls-insecure` (hoặc đặt biến
+môi trường `JX_TLS_INSECURE=1`) vì mặc định client **có** kiểm tra chứng chỉ. Tạo chứng chỉ thử:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1" -keyout data/dev-key.pem -out data/dev-cert.pem
+```
+
+`python tools/dev.py e2e` chạy client tự động **hai lần**: một qua TCP, một qua WebSocket
+(`transport=tcp` / `transport=ws` trong dòng `AUTO_RESULT`).
+
 ## 3b. Tài khoản
 
 Mật khẩu **luôn** được băm bằng argon2id (`services/pkg/auth/password.go`); file

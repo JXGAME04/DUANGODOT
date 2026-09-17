@@ -40,6 +40,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 | `Bishop/LoginDef.h` (`LOGIN_R_*`), `S3Client/Login/Login.cpp`, `Ui/UiCase/UiConnectInfo.cpp` (`CI_MI_*`) | `proto/jx/common.proto` (`Result`), `client/net/KLogin.gd` (`result_text`, `session_ends`) |
 | `MultiServer/Goddess` (DB nhân vật) | `services/pkg/persist` (`FileStore`; PostgreSQL sau) |
 | `MultiServer/Common/Buffer.h`, `IOBuffer.h` | `services/pkg/frame` |
+| `MultiServer/Common/SocketServer` + `S3Client/NetConnect` (chỉ TCP thô + xáo trộn riêng) | `services/pkg/transport` (`KListener.go` mở cửa tcp/tls/ws/wss, `KWebSocket.go` RFC 6455) |
 
 ## Tool đọc dữ liệu cũ (`services/pkg/jxold`, `cmd/jxassets`)
 
@@ -64,7 +65,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`K
 
 | Mã cũ | Mới | Singleton |
 |---|---|---|
-| `S3Client/NetConnect` (`KNetConnectAgent`) | `client/autoload/KSocketClient.gd` | `Net` |
+| `S3Client/NetConnect` (`KNetConnectAgent`) | `client/autoload/KSocketClient.gd` (tcp/tls/ws/wss), `client/net/KNetAddress.gd` | `Net` |
 | `Core/Src/KProtocolProcess.cpp` (xử lý packet client) | `client/autoload/KProtocolProcess.gd` | `Game` |
 | `Engine/Src/KPakFile`, `KImageRes` (nạp tài nguyên) | `client/autoload/KPakFile.gd` | `Assets` |
 | `Engine/Src/KDebug` | `client/autoload/KDebug.gd` | `Log` |

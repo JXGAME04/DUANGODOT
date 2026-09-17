@@ -31,6 +31,29 @@ encode(msg=0x1234, flags=3, payload="")   -> 04 00 00 00 34 12 03 00
 
 Test: `server/common/tests/test_frame.cpp`, `services/pkg/frame/frame_test.go`, `client/tests/test_net.gd`.
 
+## 1b. Đường truyền (transport)
+
+Cùng một dòng khung tin ở mục 1, chạy trên bốn đường; mọi thứ phía trên (khung tin, protobuf,
+trạng thái phiên) **giống hệt nhau**, chỉ khác cách mở kết nối:
+
+| Địa chỉ client nhập | Đường | Dùng cho | Cổng dev |
+|---|---|---|---|
+| `host:port` hoặc `tcp://host:port` | TCP thô | client PC, bot, LAN | 17100 |
+| `tls://host:port` | TCP trong TLS 1.2+ | server công khai | 17100 (khi bật chứng chỉ) |
+| `ws://host:port/ws` | WebSocket (RFC 6455) | bản web, mobile, sau proxy công ty | 17102 |
+| `wss://host:port/ws` | WebSocket trong TLS | như trên, công khai | 17102 (khi bật chứng chỉ) |
+
+Server: `services/pkg/transport` (`KListener.go` mở cửa, `KWebSocket.go` bắt tay + khung RFC 6455,
+chỉ message nhị phân, ping/pong, close; không extension/nén). Gateway mở cả hai cửa cùng lúc
+(`gateway.listen`, `gateway.listen_ws`), TLS bật khi có `gateway.tls_cert` + `gateway.tls_key` và áp
+cho **cả hai**. Mỗi message WebSocket mang đúng một khung tin. Client: `client/net/KNetAddress.gd`
+tách địa chỉ, `KSocketClient.gd` chọn `StreamPeerTCP` / `StreamPeerTLS` / `WebSocketPeer`; HUD hiện
+đường đang dùng. Bot: `jxbot -gateway ws://127.0.0.1:17102/ws`. Chứng chỉ tự ký khi thử: client chạy
+với `--tls-insecure` (hoặc `JX_TLS_INSECURE=1`), bot tự bỏ kiểm tra cho `tls://`/`wss://`.
+
+Bản cũ chỉ có một cổng TCP thô với lớp xáo trộn riêng, nên client web/mobile của lộ trình không thể
+kết nối; đây là lý do phần này làm sớm.
+
 ## 2. Các họ message và dải id
 
 | Dải | Hướng | File |

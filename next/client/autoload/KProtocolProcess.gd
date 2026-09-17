@@ -69,16 +69,17 @@ func _set_state(s: String) -> void:
 
 # ---- requests ----------------------------------------------------------------------------
 
+# server is what the player typed: "host:port", "tls://host:port" or "ws(s)://host:port/ws".
 func login(server: String, account: String, password: String) -> void:
-	var parts := server.split(":")
-	host = parts[0] if parts.size() > 0 and parts[0] != "" else "127.0.0.1"
-	port = int(parts[1]) if parts.size() > 1 else 17100
+	var a := Net.parse_address(server)
+	host = a["host"]
+	port = a["port"]
 	_account = account
 	_password = password
 	_set_state("connecting")
-	if Net.connect_to(host, port) != OK:
+	if Net.connect_to(server) != OK:
 		_set_state("offline")
-		login_result.emit(false, "Không kết nối được tới %s:%d" % [host, port])
+		login_result.emit(false, "Không kết nối được tới %s" % server)
 
 
 func request_char_list() -> void:

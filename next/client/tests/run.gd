@@ -6,6 +6,7 @@ extends SceneTree
 const Proto := preload("res://proto/jx_pb.gd")
 const NetScript := preload("res://net/KProtocol.gd")   # pure framing (autoload scripts cannot be preloaded here)
 const KLogin := preload("res://net/KLogin.gd")
+const NetAddress := preload("res://net/KNetAddress.gd")
 const LogScript := preload("res://autoload/KDebug.gd")
 const SceneMath := preload("res://scenes/KSceneMath.gd")
 const IpoTree := preload("res://scenes/KIpoTree.gd")
@@ -32,6 +33,7 @@ func _init() -> void:
 	test_log_format()
 	test_proto_round_trip()
 	test_login_text()
+	test_net_address()
 	test_scene_math()
 	test_ipot_order()
 	test_kmath_direction()
@@ -244,6 +246,30 @@ func test_log_format() -> void:
 	lg.set_levels("net=trace, zone.tick=debug, =warn")
 	check(lg.effective_level("net.recv") == LogScript.Level.TRACE and lg.effective_level("zone.tick.ai") == LogScript.Level.DEBUG and lg.effective_level("zone") == LogScript.Level.WARN, "level prefix rules")
 	lg.free()
+
+
+# ---- gateway address (KNetAddress.gd: tcp / tls / ws / wss) ----------------------------------
+
+func test_net_address() -> void:
+	var a := NetAddress.parse("127.0.0.1:17100")
+	check(a["scheme"] == "tcp" and a["host"] == "127.0.0.1" and a["port"] == 17100, "plain host:port is tcp")
+	a = NetAddress.parse("  example.com  ")
+	check(a["scheme"] == "tcp" and a["host"] == "example.com" and a["port"] == 17100, "default port")
+	a = NetAddress.parse("tls://game.example.com:17101")
+	check(a["scheme"] == "tls" and a["port"] == 17101 and NetAddress.is_tls(a) and not NetAddress.is_websocket(a), "tls url")
+	a = NetAddress.parse("ws://127.0.0.1:17102/ws")
+	check(a["scheme"] == "ws" and a["path"] == "/ws" and NetAddress.is_websocket(a) and not NetAddress.is_tls(a), "ws url")
+	check(NetAddress.url(a) == "ws://127.0.0.1:17102/ws", "url round trip: %s" % NetAddress.url(a))
+	a = NetAddress.parse("WSS://Game.Example.com:443/socket")
+	check(a["scheme"] == "wss" and a["path"] == "/socket" and NetAddress.is_websocket(a) and NetAddress.is_tls(a), "wss url, scheme is case-insensitive")
+	a = NetAddress.parse("ws://host/")
+	check(a["port"] == 17100 and a["path"] == "/", "path without a port")
+	a = NetAddress.parse("[::1]:17100")
+	check(a["host"] == "[::1]" and a["port"] == 17100, "ipv6 in brackets: %s" % a["host"])
+	a = NetAddress.parse("host:abc")
+	check(a["host"] == "host" and a["port"] == 17100, "a bad port falls back to the default")
+	a = NetAddress.parse("")
+	check(a["host"] == "127.0.0.1" and a["port"] == 17100, "empty address")
 
 
 # ---- login results (KLogin.gd, old LOGIN_R_* -> CI_MI_* messages) ----------------------------

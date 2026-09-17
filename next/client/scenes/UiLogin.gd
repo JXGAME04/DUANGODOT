@@ -46,7 +46,7 @@ func _build_ui() -> void:
 	title.add_theme_font_size_override("font_size", 36)
 	box.add_child(title)
 
-	_server = _field(box, "Máy chủ (host:port)", "127.0.0.1:17100")
+	_server = _field(box, "Máy chủ (host:port, tls://, ws://)", "127.0.0.1:17100")
 	_account = _field(box, "Tài khoản", "test1")
 	_password = _field(box, "Mật khẩu", "test")
 	_password.secret = true

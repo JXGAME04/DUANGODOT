@@ -158,8 +158,8 @@ func _process(delta: float) -> void:
 	var target_text := ""
 	if _target != null and is_instance_valid(_target):
 		target_text = "  target %s %d/%d" % [_target.display_name, _target.life, _target.life_max]
-	_hud.text = "%s  zone %d  map %d  entity %d  sid %d\npos %s  hp %d/%d%s\nentities %d  regions %d  sprites %d (%d MB)  rtt %d ms  fps %d" % [
-		Game.zone_name, Game.zone_id, Game.map_id, Game.entity_id, Game.sid,
+	_hud.text = "%s  zone %d  map %d  entity %d  sid %d (%s)\npos %s  hp %d/%d%s\nentities %d  regions %d  sprites %d (%d MB)  rtt %d ms  fps %d" % [
+		Game.zone_name, Game.zone_id, Game.map_id, Game.entity_id, Game.sid, Net.transport,
 		str(Vector2i(own.scene_pos)) if own else "-", own.life if own else 0, own.life_max if own else 0, target_text,
 		_entities.size(), _map.region_count(), st.sprites, st.mb, Game.last_rtt_ms, Engine.get_frames_per_second()]
 
@@ -324,7 +324,7 @@ func _auto_run() -> void:
 		arrived = own != null and _move_count > 0 and not own.is_moving() and own.scene_pos.distance_to(from) > 8.0
 	Log.info("auto", "auto result", {"arrived": arrived, "entities": _entities.size(), "spawns": _spawn_count, "moves": _move_count,
 		"rtt_ms": Game.last_rtt_ms, "regions": _map.region_count(), "sprites": Assets.stats().sprites})
-	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d" % [arrived, _entities.size(), _move_count, _map.region_count()])
+	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d transport=%s" % [arrived, _entities.size(), _move_count, _map.region_count(), Net.transport])
 	await _save_screenshot("user://logs/auto_world.png")
 	await _auto_fight()
 	# stability probe: two frames half a second apart while idle must be (almost) identical

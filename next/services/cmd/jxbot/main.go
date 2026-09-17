@@ -25,6 +25,7 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/frame"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/transport"
 )
 
 type stats struct {
@@ -61,9 +62,22 @@ func (b *bot) send(id jxpb.MsgId, m proto.Message) error {
 	return frame.Write(b.conn, uint16(id), 0, payload)
 }
 
+// connect dials the gateway over whichever transport the address names: "host:port" (raw TCP),
+// "tls://host:port", "ws://host:port/ws" or "wss://host:port/ws".
 func (b *bot) connect() error {
-	d := net.Dialer{Timeout: 5 * time.Second}
-	c, err := d.DialContext(b.ctx, "tcp", b.addr)
+	var c net.Conn
+	var err error
+	switch {
+	case strings.HasPrefix(b.addr, "ws://"):
+		c, err = transport.DialWebSocket(b.addr, 5*time.Second)
+	case strings.HasPrefix(b.addr, "wss://"):
+		c, err = transport.DialWebSocketInsecure(b.addr, 5*time.Second)
+	case strings.HasPrefix(b.addr, "tls://"):
+		c, err = transport.DialTLSInsecure(strings.TrimPrefix(b.addr, "tls://"), 5*time.Second)
+	default:
+		d := net.Dialer{Timeout: 5 * time.Second}
+		c, err = d.DialContext(b.ctx, "tcp", strings.TrimPrefix(b.addr, "tcp://"))
+	}
 	if err != nil {
 		return err
 	}
@@ -284,7 +298,7 @@ func (b *bot) wander() {
 }
 
 func main() {
-	gw := flag.String("gateway", "127.0.0.1:17100", "gateway address")
+	gw := flag.String("gateway", "127.0.0.1:17100", "gateway address: host:port, tls://host:port or ws(s)://host:port/ws")
 	n := flag.Int("bots", 1, "number of bots")
 	prefix := flag.String("prefix", "bot", "account name prefix")
 	password := flag.String("password", "bot", "account password")
