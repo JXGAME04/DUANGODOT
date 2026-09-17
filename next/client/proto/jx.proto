@@ -59,6 +59,9 @@ message CharCreateReq {
   string name = 1;
   uint32 series = 2;
   uint32 sex = 3;
+  // The starting village the player picked (KUiSelNativePlace): the Id of Settings/NativePlaceList.ini,
+  // which is the map id of the village (53 Ba Lang Huyen, 20 Giang Tan Thon...).  0 = not chosen.
+  uint32 native_place = 4;
 }
 
 message CharCreateRes {
@@ -262,6 +265,11 @@ message ZoneHelloAck {
   uint32 map_id = 6;             // asset bundle id (client/assets/maps/<map_id>), 0 = no map
   uint32 scene_w = 7;            // map size in scene units
   uint32 scene_h = 8;
+  // The high bits every session id of this gateway must carry.  A zone in front of several
+  // gateways would otherwise see session 1 of each of them as the same session: the second one
+  // silently replaced the first, and half the players never reached the world.  The zone hands
+  // out one prefix per gateway link.
+  uint64 session_prefix = 9;
 }
 
 // Gateway asks the zone to spawn a player for a client session.
@@ -425,5 +433,8 @@ message RoleData {
   // being silently downgraded.  See docs/ADR-003-role-data.md.
   uint32 data_version = 15;
   bool fight_mode = 16;     // KNpc::SetFightMode: in/out of combat stance (city gate traps)
+  // Where the character was born (CharCreateReq.native_place, KRoleChiefInfo.NativePlaceId of the
+  // old game): the map id of the starting village, the character's home for the revive rules.
+  uint32 native_place = 17;
 }
 

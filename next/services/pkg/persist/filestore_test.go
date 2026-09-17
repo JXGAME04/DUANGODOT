@@ -44,17 +44,17 @@ func TestFileStoreRoundTrip(t *testing.T) {
 		t.Fatalf("Accounts: %+v", list)
 	}
 
-	role, err := s.CreateCharacter(ctx, acc.ID, "Đại Hiệp", 1, 0)
-	if err != nil || role.PlayerId != 1 || role.Name != "Đại Hiệp" || role.Level != 1 || role.Stats.MoveSpeed != 200 {
+	role, err := s.CreateCharacter(ctx, acc.ID, NewCharacter{Name: "ĐạiHiệp", Series: 1, Sex: 0})
+	if err != nil || role.PlayerId != 1 || role.Name != "ĐạiHiệp" || role.Level != 1 || role.Stats.MoveSpeed != 200 {
 		t.Fatalf("CreateCharacter: %v %+v", err, role)
 	}
-	if _, err := s.CreateCharacter(ctx, acc.ID, "đại hiệp", 1, 0); err != ErrExists {
+	if _, err := s.CreateCharacter(ctx, acc.ID, NewCharacter{Name: "đạihiệp", Series: 1, Sex: 0}); err != ErrExists {
 		t.Fatal("duplicate name (case-insensitive) accepted")
 	}
-	if _, err := s.CreateCharacter(ctx, acc.ID, "x", 1, 0); err != ErrInvalidName {
+	if _, err := s.CreateCharacter(ctx, acc.ID, NewCharacter{Name: "x", Series: 1, Sex: 0}); err != ErrInvalidName {
 		t.Fatal("short name accepted")
 	}
-	if _, err := s.CreateCharacter(ctx, 999, "Nobody", 1, 0); err != ErrNotFound {
+	if _, err := s.CreateCharacter(ctx, 999, NewCharacter{Name: "Nobody", Series: 1, Sex: 0}); err != ErrNotFound {
 		t.Fatal("unknown account accepted")
 	}
 
@@ -78,13 +78,13 @@ func TestFileStoreRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	chars, err := s2.Characters(ctx, acc.ID)
-	if err != nil || len(chars) != 1 || chars[0].Level != 7 || chars[0].Name != "Đại Hiệp" {
+	if err != nil || len(chars) != 1 || chars[0].Level != 7 || chars[0].Name != "ĐạiHiệp" {
 		t.Fatalf("Characters after reopen: %v %+v", err, chars)
 	}
 	if reopened, err := s2.Account(ctx, "tester"); err != nil || !reopened.Frozen || reopened.PasswordHash != "$hash" {
 		t.Fatalf("account fields after reopen: %v %+v", err, reopened)
 	}
-	if _, err := s2.CreateCharacter(ctx, acc.ID, "Second", 2, 1); err != nil {
+	if _, err := s2.CreateCharacter(ctx, acc.ID, NewCharacter{Name: "Second", Series: 2, Sex: 1}); err != nil {
 		t.Fatal(err)
 	}
 	chars, _ = s2.Characters(ctx, acc.ID)
@@ -97,8 +97,9 @@ func TestFileStoreRoundTrip(t *testing.T) {
 }
 
 func TestValidateName(t *testing.T) {
-	good := []string{"Ab", "Đại Hiệp", "Tiểu Long Nữ", "abcdefghijklmnop"}
-	bad := []string{"", "a", " ab", "ab ", "abcdefghijklmnopq", "a\tb", "\xff\xfe", "a\x00b"}
+	good := []string{"Ab", "ĐạiHiệp", "TiểuLongNữ", "abcdefghijklmnop"}
+	// a blank anywhere is refused, like KUiNewPlayer::GetInputInfo did (sentence 17 of the login flow)
+	bad := []string{"", "a", " ab", "ab ", "Tiểu Long Nữ", "a b", "abcdefghijklmnopq", "a\tb", "\xff\xfe", "a\x00b"}
 	for _, n := range good {
 		if err := ValidateName(n); err != nil {
 			t.Errorf("%q rejected", n)
@@ -108,5 +109,22 @@ func TestValidateName(t *testing.T) {
 		if err := ValidateName(n); err == nil {
 			t.Errorf("%q accepted", n)
 		}
+	}
+}
+
+// What a player may choose: five elements, two sexes, Kim for men only and Thủy for women only.
+func TestNewCharacterChoice(t *testing.T) {
+	for _, c := range []NewCharacter{{Name: "KimNam", Series: 0, Sex: 0}, {Name: "ThủyNữ", Series: 2, Sex: 1}, {Name: "HỏaNữ", Series: 3, Sex: 1, NativePlace: 53}} {
+		if err := c.Validate(); err != nil {
+			t.Errorf("%+v refused: %v", c, err)
+		}
+	}
+	for _, c := range []NewCharacter{{Name: "KimNữ", Series: 0, Sex: 1}, {Name: "ThủyNam", Series: 2, Sex: 0}, {Name: "HệLạ", Series: 5}, {Name: "GiớiLạ", Series: 1, Sex: 2}} {
+		if err := c.Validate(); err != ErrInvalidChoice {
+			t.Errorf("%+v: %v, want ErrInvalidChoice", c, err)
+		}
+	}
+	if err := (NewCharacter{Name: "Có Trắng"}).Validate(); err != ErrInvalidName {
+		t.Errorf("a name with a blank: %v", err)
 	}
 }

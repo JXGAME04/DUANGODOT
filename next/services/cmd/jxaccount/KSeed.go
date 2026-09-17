@@ -144,7 +144,7 @@ func seedOne(ctx context.Context, store persist.Store, accounts *auth.S3PAccount
 		}
 		return errAlreadySeeded
 	}
-	role, err := store.CreateCharacter(ctx, acc.ID, characterName(name), 0, 0)
+	role, err := store.CreateCharacter(ctx, acc.ID, persist.NewCharacter{Name: characterName(name)})
 	if err != nil {
 		return err
 	}

@@ -201,7 +201,10 @@
     "zone_fanout": "gói zone nhân ra",
     "zone_ready": "zone sẵn sàng",
     "zone_reason": "lý do từ zone",
-    "key": "khoá"
+    "key": "khoá",
+    "series": "hệ",
+    "sex": "giới tính",
+    "native_place": "tân thủ thôn"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -318,6 +321,8 @@
     "replacing session of account": "Đăng nhập mới thay thế phiên cũ của tài khoản",
     "characters failed": "Không đọc được danh sách nhân vật",
     "create character failed": "Tạo nhân vật thất bại",
+    "character name refused": "Từ chối tên nhân vật (quá ngắn / quá dài, có khoảng trắng hoặc ký tự lạ)",
+    "character choice refused": "Từ chối lựa chọn nhân vật (hệ / giới tính không hợp lệ: Kim chỉ nam, Thủy chỉ nữ)",
     "enter world while zone unavailable": "Người chơi xin vào game trong lúc zone chưa sẵn sàng",
     "session open sent": "Đã gửi yêu cầu vào game cho zone",
     "entered world": "Nhân vật đã vào thế giới",

@@ -525,10 +525,15 @@ func (s *session) onCharCreate(f frame.Frame) bool {
 		s.send(jxpb.MsgId_G2C_CHAR_CREATE_RES, &jxpb.CharCreateRes{Result: jxpb.Result_RESULT_FULL})
 		return true
 	}
-	role, err := s.srv.store.CreateCharacter(ctx, acc.ID, req.Name, req.Series, req.Sex)
+	role, err := s.srv.store.CreateCharacter(ctx, acc.ID, persist.NewCharacter{
+		Name: req.Name, Series: req.Series, Sex: req.Sex, NativePlace: req.NativePlace})
 	switch {
 	case errors.Is(err, persist.ErrInvalidName):
+		log.WarnCtx(s.logCtx(), "db", "character name refused", log.F("name", req.Name))
 		s.send(jxpb.MsgId_G2C_CHAR_CREATE_RES, &jxpb.CharCreateRes{Result: jxpb.Result_RESULT_INVALID_NAME})
+	case errors.Is(err, persist.ErrInvalidChoice):
+		log.WarnCtx(s.logCtx(), "db", "character choice refused", log.F("series", req.Series), log.F("sex", req.Sex))
+		s.send(jxpb.MsgId_G2C_CHAR_CREATE_RES, &jxpb.CharCreateRes{Result: jxpb.Result_RESULT_BAD_REQUEST})
 	case errors.Is(err, persist.ErrExists):
 		s.send(jxpb.MsgId_G2C_CHAR_CREATE_RES, &jxpb.CharCreateRes{Result: jxpb.Result_RESULT_ALREADY_EXISTS})
 	case err != nil:

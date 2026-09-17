@@ -260,7 +260,7 @@ func (b *bot) login(password string) error {
 	if len(list.Chars) > 0 {
 		pid = list.Chars[0].PlayerId
 	} else {
-		if err := b.send(jxpb.MsgId_C2G_CHAR_CREATE, &jxpb.CharCreateReq{Name: strings.Title(b.name), Series: uint32(rand.Intn(5)), Sex: uint32(rand.Intn(2))}); err != nil {
+		if err := b.send(jxpb.MsgId_C2G_CHAR_CREATE, newCharacterReq(strings.Title(b.name), uint32(rand.Intn(5)), uint32(rand.Intn(2)))); err != nil {
 			return err
 		}
 		var created jxpb.CharCreateRes
@@ -492,4 +492,16 @@ func main() {
 	if failed.Load() > 0 || st.errors.Load() > 0 {
 		os.Exit(1)
 	}
+}
+
+// newCharacterReq makes the choice a player could make: Kim is for men only, Thủy for women only
+// (KUiNewPlayer::UpdateProperty), and the gateway refuses anything else.
+func newCharacterReq(name string, series, sex uint32) *jxpb.CharCreateReq {
+	switch series {
+	case 0:
+		sex = 0
+	case 2:
+		sex = 1
+	}
+	return &jxpb.CharCreateReq{Name: name, Series: series, Sex: sex, NativePlace: 53}
 }

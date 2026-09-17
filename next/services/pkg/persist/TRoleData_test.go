@@ -59,7 +59,7 @@ func TestNewerRecordIsRefused(t *testing.T) {
 	}
 	ctx := context.Background()
 	acc, _ := s.CreateAccount(ctx, "owner", "$h")
-	role, err := s.CreateCharacter(ctx, acc.ID, "Hiệp Khách", 1, 0)
+	role, err := s.CreateCharacter(ctx, acc.ID, NewCharacter{Name: "HiệpKhách", Series: 1, Sex: 0})
 	if err != nil {
 		t.Fatal(err)
 	}

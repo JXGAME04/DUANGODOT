@@ -49,13 +49,49 @@ type Store interface {
 	Accounts(ctx context.Context) ([]*Account, error)
 	Characters(ctx context.Context, accountID uint64) ([]*jxpb.RoleData, error)
 	Character(ctx context.Context, playerID uint64) (*jxpb.RoleData, error)
-	CreateCharacter(ctx context.Context, accountID uint64, name string, series, sex uint32) (*jxpb.RoleData, error)
+	CreateCharacter(ctx context.Context, accountID uint64, c NewCharacter) (*jxpb.RoleData, error)
 	SaveCharacter(ctx context.Context, role *jxpb.RoleData) error
 	Close() error
 }
 
-// ValidateName checks a character name: valid UTF-8, 2..16 runes, printable, no leading or
-// trailing spaces.  Vietnamese names with diacritics are fine.
+// NewCharacter is what a player chooses in the create window (KUiNewPlayer, after
+// KUiSelNativePlace): KRoleChiefInfo of the old game.
+type NewCharacter struct {
+	Name        string
+	Series      uint32 // 0 Kim, 1 Mộc, 2 Thủy, 3 Hỏa, 4 Thổ
+	Sex         uint32 // 0 nam, 1 nữ
+	NativePlace uint32 // map id of the starting village (Settings/NativePlaceList.ini), 0 = not chosen
+}
+
+// ErrInvalidChoice: an element or a sex the game does not have, or a pair it does not allow.
+var ErrInvalidChoice = errors.New("persist: invalid character choice")
+
+const (
+	seriesMetal = 0
+	seriesWater = 2
+	seriesCount = 5
+)
+
+// Validate checks the choice the way KUiNewPlayer::UpdateProperty made it: five elements, two
+// sexes, Kim only for men and Thủy only for women.  The window enforces this too, but a window is
+// not a rule - a rewritten client must not be able to make a character the game never had.
+func (c NewCharacter) Validate() error {
+	if err := ValidateName(c.Name); err != nil {
+		return err
+	}
+	if c.Series >= seriesCount || c.Sex > 1 {
+		return ErrInvalidChoice
+	}
+	if (c.Series == seriesMetal && c.Sex != 0) || (c.Series == seriesWater && c.Sex != 1) {
+		return ErrInvalidChoice
+	}
+	return nil
+}
+
+// ValidateName checks a character name: valid UTF-8, 2..16 runes, printable, and no blank anywhere
+// (KUiNewPlayer::GetInputInfo refused every character up to 0x20 - sentence 17 of the login flow).
+// A name with a space reads like two words in chat, breaks "/command name" and lets "Admin " pass
+// for "Admin".  Vietnamese names with diacritics are fine.
 func ValidateName(name string) error {
 	if !utf8.ValidString(name) {
 		return ErrInvalidName
@@ -64,11 +100,8 @@ func ValidateName(name string) error {
 	if n < 2 || n > 16 {
 		return ErrInvalidName
 	}
-	if strings.TrimSpace(name) != name {
-		return ErrInvalidName
-	}
 	for _, r := range name {
-		if !unicode.IsPrint(r) || unicode.IsControl(r) {
+		if !unicode.IsPrint(r) || unicode.IsControl(r) || unicode.IsSpace(r) {
 			return ErrInvalidName
 		}
 	}

@@ -55,4 +55,7 @@ message RoleData {
   // being silently downgraded.  See docs/ADR-003-role-data.md.
   uint32 data_version = 15;
   bool fight_mode = 16;     // KNpc::SetFightMode: in/out of combat stance (city gate traps)
+  // Where the character was born (CharCreateReq.native_place, KRoleChiefInfo.NativePlaceId of the
+  // old game): the map id of the starting village, the character's home for the revive rules.
+  uint32 native_place = 17;
 }

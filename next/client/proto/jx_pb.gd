@@ -1349,6 +1349,11 @@ class CharCreateReq:
 		service.field = __sex
 		data[__sex.tag] = service
 		
+		__native_place = PBField.new("native_place", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __native_place
+		data[__native_place.tag] = service
+		
 	var data = {}
 	
 	var __name: PBField
@@ -1389,6 +1394,19 @@ class CharCreateReq:
 		__sex.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_sex(value : int) -> void:
 		__sex.value = value
+	
+	var __native_place: PBField
+	func has_native_place() -> bool:
+		if __native_place.value != null:
+			return true
+		return false
+	func get_native_place() -> int:
+		return __native_place.value
+	func clear_native_place() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__native_place.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_native_place(value : int) -> void:
+		__native_place.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -3365,6 +3383,11 @@ class ZoneHelloAck:
 		service.field = __scene_h
 		data[__scene_h.tag] = service
 		
+		__session_prefix = PBField.new("session_prefix", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __session_prefix
+		data[__session_prefix.tag] = service
+		
 	var data = {}
 	
 	var __protocol_version: PBField
@@ -3470,6 +3493,19 @@ class ZoneHelloAck:
 		__scene_h.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_scene_h(value : int) -> void:
 		__scene_h.value = value
+	
+	var __session_prefix: PBField
+	func has_session_prefix() -> bool:
+		if __session_prefix.value != null:
+			return true
+		return false
+	func get_session_prefix() -> int:
+		return __session_prefix.value
+	func clear_session_prefix() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__session_prefix.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_session_prefix(value : int) -> void:
+		__session_prefix.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -4736,6 +4772,11 @@ class RoleData:
 		service.field = __fight_mode
 		data[__fight_mode.tag] = service
 		
+		__native_place = PBField.new("native_place", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 17, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __native_place
+		data[__native_place.tag] = service
+		
 	var data = {}
 	
 	var __player_id: PBField
@@ -4945,6 +4986,19 @@ class RoleData:
 		__fight_mode.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
 	func set_fight_mode(value : bool) -> void:
 		__fight_mode.value = value
+	
+	var __native_place: PBField
+	func has_native_place() -> bool:
+		if __native_place.value != null:
+			return true
+		return false
+	func get_native_place() -> int:
+		return __native_place.value
+	func clear_native_place() -> void:
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__native_place.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_native_place(value : int) -> void:
+		__native_place.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

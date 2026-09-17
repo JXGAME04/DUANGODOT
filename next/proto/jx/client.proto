@@ -59,6 +59,9 @@ message CharCreateReq {
   string name = 1;
   uint32 series = 2;
   uint32 sex = 3;
+  // The starting village the player picked (KUiSelNativePlace): the Id of Settings/NativePlaceList.ini,
+  // which is the map id of the village (53 Ba Lang Huyen, 20 Giang Tan Thon...).  0 = not chosen.
+  uint32 native_place = 4;
 }
 
 message CharCreateRes {

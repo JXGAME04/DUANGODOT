@@ -204,6 +204,13 @@ client 2.0 (chúng mặc định client nào cũng có `package.ini`). Giờ m�
 `oldgame.ClientJX1()` / `ClientVLTK20()` / `ServerJX1()` — nói rõ loại thư mục mình cần, tự tìm qua
 biến môi trường, `config/oldgame.local.json`, `bin/`, và bỏ qua nếu không có.
 
+**Phía server của luồng tạo nhân vật** (commit kế tiếp): `CharCreateReq.native_place` +
+`RoleData.native_place` (mã map của tân thủ thôn đã chọn); kho dữ liệu nhận một giá trị
+`persist.NewCharacter` và **tự kiểm tra lựa chọn như game gốc**: 5 hệ, 2 giới, Kim chỉ nam, Thủy chỉ
+nữ — cửa sổ có chặn thì server vẫn phải chặn, vì client viết lại được. Tên nhân vật **không được có
+khoảng trắng** ở bất kỳ đâu (đúng `KUiNewPlayer::GetInputInfo`, câu thông báo 17). `jxbot` tạo nhân
+vật theo đúng luật đó.
+
 Xem ảnh: `python tools/dev.py assets` rồi
 `godot --path client --resolution 1024x768 res://scenes/UiShell.tscn -- --shot=chon-may-chu`
 (các tên khác: `bat-dau`, `dang-nhap`, `thong-bao-ket-noi`, `chon-nhan-vat`, `chon-tan-thu-thon`,

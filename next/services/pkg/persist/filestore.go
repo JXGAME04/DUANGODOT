@@ -362,10 +362,11 @@ func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.
 }
 
 // CreateCharacter implements Store.
-func (s *FileStore) CreateCharacter(_ context.Context, accountID uint64, name string, series, sex uint32) (*jxpb.RoleData, error) {
-	if err := ValidateName(name); err != nil {
+func (s *FileStore) CreateCharacter(_ context.Context, accountID uint64, c NewCharacter) (*jxpb.RoleData, error) {
+	if err := c.Validate(); err != nil {
 		return nil, err
 	}
+	name := c.Name
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a := s.accountByIDLocked(accountID)
@@ -375,7 +376,8 @@ func (s *FileStore) CreateCharacter(_ context.Context, accountID uint64, name st
 	if _, taken := s.names[NormalizeName(name)]; taken {
 		return nil, ErrExists
 	}
-	role := NewRole(s.db.NextPlayer, accountID, name, series, sex)
+	role := NewRole(s.db.NextPlayer, accountID, name, c.Series, c.Sex)
+	role.NativePlace = c.NativePlace
 	s.db.NextPlayer++
 	if err := s.saveCharLocked(role); err != nil {
 		return nil, err
@@ -386,7 +388,8 @@ func (s *FileStore) CreateCharacter(_ context.Context, accountID uint64, name st
 	}
 	s.chars[role.PlayerId] = role
 	s.names[NormalizeName(name)] = role.PlayerId
-	log.Info("db", "character created", log.F("account_id", accountID), log.F("pid", role.PlayerId), log.F("name", name))
+	log.Info("db", "character created", log.F("account_id", accountID), log.F("pid", role.PlayerId), log.F("name", name),
+		log.F("series", c.Series), log.F("sex", c.Sex), log.F("native_place", c.NativePlace))
 	return proto.Clone(role).(*jxpb.RoleData), nil
 }
 

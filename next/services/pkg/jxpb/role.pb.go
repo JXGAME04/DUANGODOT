@@ -304,8 +304,11 @@ type RoleData struct {
 	// Shape of this record.  persist.CurrentRoleVersion is what the running server writes; an
 	// older record is upgraded on load (persist.MigrateRole), a newer one is refused instead of
 	// being silently downgraded.  See docs/ADR-003-role-data.md.
-	DataVersion   uint32 `protobuf:"varint,15,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
-	FightMode     bool   `protobuf:"varint,16,opt,name=fight_mode,json=fightMode,proto3" json:"fight_mode,omitempty"` // KNpc::SetFightMode: in/out of combat stance (city gate traps)
+	DataVersion uint32 `protobuf:"varint,15,opt,name=data_version,json=dataVersion,proto3" json:"data_version,omitempty"`
+	FightMode   bool   `protobuf:"varint,16,opt,name=fight_mode,json=fightMode,proto3" json:"fight_mode,omitempty"` // KNpc::SetFightMode: in/out of combat stance (city gate traps)
+	// Where the character was born (CharCreateReq.native_place, KRoleChiefInfo.NativePlaceId of the
+	// old game): the map id of the starting village, the character's home for the revive rules.
+	NativePlace   uint32 `protobuf:"varint,17,opt,name=native_place,json=nativePlace,proto3" json:"native_place,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -452,6 +455,13 @@ func (x *RoleData) GetFightMode() bool {
 	return false
 }
 
+func (x *RoleData) GetNativePlace() uint32 {
+	if x != nil {
+		return x.NativePlace
+	}
+	return 0
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -482,7 +492,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"templateId\x12\x14\n" +
 	"\x05count\x18\x03 \x01(\rR\x05count\x12\x12\n" +
 	"\x04slot\x18\x04 \x01(\rR\x04slot\x12\x1c\n" +
-	"\tcontainer\x18\x05 \x01(\rR\tcontainer\"\xf0\x03\n" +
+	"\tcontainer\x18\x05 \x01(\rR\tcontainer\"\x93\x04\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -502,7 +512,8 @@ const file_jx_role_proto_rawDesc = "" +
 	"\vplay_time_s\x18\x0e \x01(\x04R\tplayTimeS\x12!\n" +
 	"\fdata_version\x18\x0f \x01(\rR\vdataVersion\x12\x1d\n" +
 	"\n" +
-	"fight_mode\x18\x10 \x01(\bR\tfightModeB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"fight_mode\x18\x10 \x01(\bR\tfightMode\x12!\n" +
+	"\fnative_place\x18\x11 \x01(\rR\vnativePlaceB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once

@@ -533,10 +533,13 @@ func (x *CharListRes) GetMaxChars() uint32 {
 }
 
 type CharCreateReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Series        uint32                 `protobuf:"varint,2,opt,name=series,proto3" json:"series,omitempty"`
-	Sex           uint32                 `protobuf:"varint,3,opt,name=sex,proto3" json:"sex,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Name   string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Series uint32                 `protobuf:"varint,2,opt,name=series,proto3" json:"series,omitempty"`
+	Sex    uint32                 `protobuf:"varint,3,opt,name=sex,proto3" json:"sex,omitempty"`
+	// The starting village the player picked (KUiSelNativePlace): the Id of Settings/NativePlaceList.ini,
+	// which is the map id of the village (53 Ba Lang Huyen, 20 Giang Tan Thon...).  0 = not chosen.
+	NativePlace   uint32 `protobuf:"varint,4,opt,name=native_place,json=nativePlace,proto3" json:"native_place,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -588,6 +591,13 @@ func (x *CharCreateReq) GetSeries() uint32 {
 func (x *CharCreateReq) GetSex() uint32 {
 	if x != nil {
 		return x.Sex
+	}
+	return 0
+}
+
+func (x *CharCreateReq) GetNativePlace() uint32 {
+	if x != nil {
+		return x.NativePlace
 	}
 	return 0
 }
@@ -1831,11 +1841,12 @@ const file_jx_client_proto_rawDesc = "" +
 	"\vCharListRes\x12%\n" +
 	"\x06result\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06result\x12(\n" +
 	"\x05chars\x18\x02 \x03(\v2\x12.jx.pb.CharSummaryR\x05chars\x12\x1b\n" +
-	"\tmax_chars\x18\x03 \x01(\rR\bmaxChars\"M\n" +
+	"\tmax_chars\x18\x03 \x01(\rR\bmaxChars\"p\n" +
 	"\rCharCreateReq\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06series\x18\x02 \x01(\rR\x06series\x12\x10\n" +
-	"\x03sex\x18\x03 \x01(\rR\x03sex\"d\n" +
+	"\x03sex\x18\x03 \x01(\rR\x03sex\x12!\n" +
+	"\fnative_place\x18\x04 \x01(\rR\vnativePlace\"d\n" +
 	"\rCharCreateRes\x12%\n" +
 	"\x06result\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06result\x12,\n" +
 	"\asummary\x18\x02 \x01(\v2\x12.jx.pb.CharSummaryR\asummary\",\n" +
