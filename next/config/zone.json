@@ -17,7 +17,7 @@
     "cell_size": 512,
     "view_cells": 1,
     "default_speed": 200,
-    "max_players": 20000,
+    "max_players": 30000,
     "save_interval_s": 60,
     "stats_interval_s": 10,
     "test_npcs": 4,

@@ -97,9 +97,19 @@ p99 xấu nhất, và lúc kết thúc. Không tuyên bố con số người ch�
 | 200 cùng một chỗ | 200 | 3,35 ms | 5,2 | 7,3 | | 0 |
 | 500 cùng một chỗ | 500 | 14,05 ms | 25,2 | 29,0 | | 0 |
 | **5000 trên 40 map, 1 gateway** | **5000** | **8,08 ms** | **14,68** | **19,85** | 1353 MB | **0** |
+| **10 000 trên 80 map, 1 gateway** | **9 995** | **8,56 ms** | **16,78** | **16,78** | 1374 MB | **0** |
 
 Ở lượt 5000 người: 980 map và 115 734 entity trong zone, gateway đẩy 670 738 gói/giây (22,6 MB/giây),
 **không ai rớt, không ai bị đá, không gói nào bị bỏ, không lần đăng nhập nào hỏng**.
+
+Ở lượt **10 000 người trên một zone và một gateway**: cả 10 000 đều vào được thế giới (0 hỏng),
+98 351 entity, gateway đẩy **1 526 124 gói/giây (53,2 MB/giây)** qua 240 506 lần ghi socket; bot nhận
+93 triệu gói hành động và 36 triệu gói di chuyển trong 220 giây. **0 bị đá, 0 timeout, 2 khung bị bỏ.**
+Vào thế giới trung bình 1,9 giây (trước khi sửa ba chỗ nghẽn dưới đây là 8,0 giây).
+
+Một điểm phải nói rõ: **lúc 10 000 người thoát cùng một lúc**, tick vọt lên 22,6 ms trung bình và
+p99 100,7 ms — vượt ngân sách 55 ms trong vài tick. Đó là kịch bản test (mọi bot rời cùng một mốc),
+không phải của người chơi thật, nhưng rời thế giới hàng loạt vẫn là việc cần rải ra nhiều tick — chưa làm.
 
 ### Ba chỗ nghẽn tìm được bằng đo, không phải bằng đoán
 
