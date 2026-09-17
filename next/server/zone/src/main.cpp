@@ -119,6 +119,9 @@ int main(int argc, char** argv)
     }
 
     asio::signal_set signals(io, SIGINT, SIGTERM);
+#ifdef _WIN32
+    signals.add(SIGBREAK);   // console window closed / taskkill without /F
+#endif
     signals.async_wait([&](const std::error_code&, int sig) {
         jx::log::info("boot", "signal received", {jx::log::kv("signal", sig)});
         server.stop();

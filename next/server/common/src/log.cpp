@@ -123,6 +123,10 @@ void init(const Options& options)
     s.logger->set_pattern("%v");            // the line is already a complete JSON object
     s.logger->set_level(spdlog::level::trace);
     s.logger->flush_on(spdlog::level::warn);
+    // register so the periodic flusher covers it: a killed process loses at most one second
+    spdlog::drop("jx");
+    spdlog::register_logger(s.logger);
+    spdlog::flush_every(std::chrono::seconds(1));
 
     {
         std::unique_lock lock(s.levels_mutex);
@@ -141,6 +145,7 @@ void shutdown()
     State& s = state();
     if (s.logger) {
         s.logger->flush();
+        spdlog::drop("jx");
         s.logger.reset();
     }
     s.initialised = false;

@@ -70,8 +70,10 @@ void ZoneServer::on_close(net::Connection& conn, const std::error_code& ec)
             ++sit;
         }
     }
-    log::warn("net", "gateway disconnected", {log::kv("conn", conn.id()), log::kv("gateway", it->second.id),
-                                              log::kv("players_dropped", dropped), log::kv("error", ec ? ec.message() : "")});
+    // a link that never completed the handshake is usually a port probe (tools/dev.py), not a gateway
+    log::write(it->second.ready ? log::Level::warn : log::Level::debug, "net", "gateway disconnected",
+               {log::kv("conn", conn.id()), log::kv("gateway", it->second.id), log::kv("players_dropped", dropped),
+                log::kv("error", ec ? ec.message() : "")});
     gateways_.erase(it);
     flush_outbox();
 }

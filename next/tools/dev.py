@@ -84,13 +84,26 @@ def alive(pid: int) -> bool:
 
 
 def kill(pid: int) -> None:
+    """Graceful first (the servers flush logs and save players on SIGTERM/SIGBREAK), force after 5 s."""
     if os.name == "nt":
-        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+        if not ctrl_break(pid):
+            subprocess.run(["taskkill", "/PID", str(pid), "/T"], capture_output=True)   # WM_CLOSE fallback
     else:
         try:
             os.kill(pid, 15)
         except OSError:
             pass
+    end = time.time() + 5
+    while time.time() < end and alive(pid):
+        time.sleep(0.1)
+    if alive(pid):
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+        else:
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
 
 
 def port_open(port: int, host: str = "127.0.0.1") -> bool:
@@ -109,14 +122,43 @@ def wait_port(port: int, seconds: float) -> bool:
 
 
 def spawn(cmd: list[str], title: str, new_console: bool) -> subprocess.Popen:
+    """Starts a server.  On Windows the child gets its own process group (and its own console,
+    visible or hidden) so stop can deliver CTRL_BREAK for a graceful shutdown."""
     kwargs = {"cwd": ROOT}
-    if new_console and os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
-        cmd = ["cmd", "/c", f"title {title} && " + subprocess.list2cmdline(cmd)]
+    if os.name == "nt":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        if new_console:
+            flags |= subprocess.CREATE_NEW_CONSOLE
+            cmd = ["cmd", "/c", f"title {title} && " + subprocess.list2cmdline(cmd)]
+        else:
+            flags |= subprocess.CREATE_NO_WINDOW
+        kwargs["creationflags"] = flags
     elif new_console:
         kwargs["stdout"] = open(os.path.join(ROOT, "logs", title + ".console.log"), "ab")
         kwargs["stderr"] = subprocess.STDOUT
     return subprocess.Popen(cmd, **kwargs)
+
+
+# Runs in a helper process without a console: attach to the target console and send CTRL_BREAK to
+# its process group (jx_zone handles SIGBREAK, the Go gateway handles it as os.Interrupt).
+_CTRL_BREAK_HELPER = """
+import ctypes, sys
+k = ctypes.windll.kernel32
+pid = int(sys.argv[1])
+k.FreeConsole()
+if not k.AttachConsole(pid):
+    sys.exit(2)
+k.SetConsoleCtrlHandler(None, True)
+ok = k.GenerateConsoleCtrlEvent(1, pid)
+k.FreeConsole()
+sys.exit(0 if ok else 3)
+"""
+
+
+def ctrl_break(pid: int) -> bool:
+    res = subprocess.run([sys.executable, "-c", _CTRL_BREAK_HELPER, str(pid)],
+                         creationflags=subprocess.CREATE_NO_WINDOW, capture_output=True)
+    return res.returncode == 0
 
 
 def cmd_build() -> None:
