@@ -1,0 +1,1507 @@
+name	va	args	gettop	player	pushes	returns	size
+AbradeEquipments	08107AA0	1:number	1	1	number,number	1	349
+Achievement_Achieve	081EA5B0	?:number	1	1	number	0	459
+Achievement_GetData	081EA2B0	?:number	1	1	number	0	1227
+Achievement_IsAchieved	081EA440	?:number	1	1	number	0	827
+Achievement_IsRewarded	081EA380	?:number	1	1	number	0	1019
+Achievement_Reward	081EA500	?:number	1	1	number	0	635
+Achievement_SetData	081EA660	?:number	1	1		0	283
+ActorQuit	0810BE70		1	1	number,number	1	133
+Add120SkillExp	0811C710	1:number	1	1	number,number,number	1	194
+AddArenaCredits	08107F40	1:number	1	1	number,number,number,number	1	357
+AddBotCode	0814E9C0	1:string	1	0	number,number	1	122
+AddBoxMoney	08118FE0	1:number	0	1		0	120
+AddBreakPoint	080FC160		0	0			27
+AddClothesItem	0811EB10	1:string 2:number	1	1	number,number,number,number,number,number,number	1	1787
+AddContribution	0811A850	1:number 2:number	1	1	number,number,number,number	1	361
+AddCumulateOffer	08113F20	1:number	1	1	number,number	1	154
+AddDex	08119FC0	1:number	1	1		0	126
+AddDiceItemInfo	081C1A10	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:number 9:number	1	0	number	1	560
+AddEnergy	08107CF0	1:number	1	1	number,number,number,number	1	325
+AddEng	0811A040	1:number	1	1		0	126
+AddEventItem	0811DF90	1:number	1	1	number,number,number	1	582
+AddExp	0811A140	1:string 2:string 3:number 4:string	1	1		0	882
+AddExpInMap	08106AE0	1:number 2:number 3:number	1	0	number,table,number,nil,number,number,number	2	1661
+AddExtPoint	0810FBE0	1:number 2:number	1	1	number	1	192
+AddExtPointForGS	0810FB20	1:number 2:number	1	1	number	1	192
+AddGlobalCountNews	081258E0	1:number 2:number	1	0	number,number,number,number,number	4	963
+AddGlobalNews	08125A90	1:number	1	0	number,number,number,number,number	4	531
+AddGlobalTimeNews	081255F0	1:number 2:number 3:number 4:number 5:number 6:number	1	0	number,number,number,number,number	4	1715
+AddGoldItem	0811F210	1:string 2:number	1	1	number,number,number,number	1	27
+AddItem	08120D30	1:number	1	1	number,number,number,number,number,number,number,number	1	739
+AddItemByIndex	08115050	1:number	1	1	number	1	160
+AddItemEx	08120470	1:string	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	2299
+AddItemForAutoHang	081263E0		0	1	number,number,number,number	1	313
+AddItemIntoEquipmentBox	08120D10	1:number	1	1	number,number,number,number,number,number,number,number	1	736
+AddItemNoStack	08120CF0	1:number	1	1	number,number,number,number,number,number,number,number	1	736
+AddLeadExp	0810FF50	1:number	1	1		0	118
+AddLoaclTimeNews	08125020	1:string 2:number 3:number 4:number 5:number 6:number	1	0		0	2899
+AddLocalCountNews	08125310	1:number 2:number 3:number 4:number 5:number 6:number	1	0	number,number,number,number,number	4	2451
+AddLocalNews	081254B0	1:number 2:number 3:number 4:number 5:number 6:number	1	0	number,number,number,number,number	4	2035
+AddLocalTimeNews	08125020	1:string 2:number 3:number 4:number 5:number 6:number	1	0		0	2899
+AddMSPlayer	081366A0	1:number 2:number 3:number	1	1	number	1	3013
+AddMagic	0812C430	1:number 2:number	1	1	string,number	1	2274
+AddMagicPoint	0810FE50	1:number	1	1	number	1	248
+AddMapTrap	08102700	1:number 2:number 3:number 4:number 5:number	1	0	number,number,number,nil	2	812
+AddMaxResist	08108DE0	1:number 2:number 3:number 4:number	1	1	number,number,number	1	950
+AddMoneyObj	08129810	1:number	1	1		0	850
+AddNote	08124DC0	1:number 2:number	1	1		0	596
+AddNpc	0811BB10	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:string 9:number	1	1	number,number,number,number	1	2187
+AddNpcEx	0811BF40	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:string 9:number	1	1	number,number,number	1	1115
+AddNpcSkillState	081260E0	1:number 2:number 3:number 4:number 5:number	1	1	number,number,number,number,number,number,number,number,number,number	1	1081
+AddObstacleObj	081054A0	1:number 2:number 3:number 4:number	1	0		0	772
+AddOwnExp	081126C0	1:number	1	1		0	129
+AddPlatinaItem	0811F1F0	1:string 2:number	1	1	number,number,number,number	1	27
+AddPlayerEvent	0810C510	1:number	1	1	number,number	1	202
+AddProp	0810FD60	1:number	0	1	number	1	236
+AddPvPKilledNum	08117640	1:number	1	1	number,number	1	216
+AddQualityItem	081206A0	1:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1875
+AddRepute	08117290	1:number	1	1	number,number,number	1	936
+AddRespect	081081A0	1:string 2:number 3:number 4:number 5:string 6:string 7:string	1	1	number,number,number,number,nil,number	1	996
+AddShop2Stores	08122B00	1:number 2:string 3:number 4:number 5:string 6:number	1	1		0	505
+AddSkillExp	08129DC0	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number	1	886
+AddSkillState	08126240	1:number 2:number 3:number 4:number 5:number	1	1	number,number,number,number,number,number,number	1	729
+AddSomeObj	08115700	1:number	1	1		0	557
+AddStackItem	0811FA10	1:string 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	2657
+AddStatData	080FF550	1:number 2:number	1	0	number,number,string	1	1504
+AddStation	0812D2B0	1:number	0	1		0	261
+AddStrg	08119F40	1:number	1	1		0	126
+AddTempItem	08120840	1:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1459
+AddTempMagic	0812C1B0	1:number 2:number	1	1	string,number	1	2386
+AddTermini	0812D110	1:number	0	1		0	410
+AddTicket	08104360	1:number 2:number	1	0	number,number	1	182
+AddTimer	08100D40	1:string 2:string 3:number	1	0	number,number,number,number	1	430
+AddTongExp	08105300	1:number 2:number 3:number 4:number	1	0		0	1188
+AddTongMTask	0812DA20	1:number 2:string	1	1	number,number,number,number	1	1967
+AddTongMoney	0811ADD0	1:string 2:number	1	1	string	1	413
+AddTongWeek	08113D70	1:number	1	1	number,number	1	154
+AddTotalOffer	081140D0	1:number	1	1	number,number	1	154
+AddVerGoldItem	0811DC90	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number	1	1350
+AddVerItem	081209C0	1:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number	1	1075
+AddVit	08119EC0	1:number	1	1		0	126
+AddWeekGoalOffer	0811A700	1:number	1	1	number,number	1	170
+AddWeeklyOffer	08114280	1:number	1	1	number,number	1	154
+AppendString	0812FCD0	1:string 2:string 3:string	1	1	number,number,number,number	1	1867
+ApplyDelDungeonMap	08126EC0	1:number 2:number	1	0		0	135
+ApplyDungeonMap	08126F50	1:number	1	0	number,number	1	139
+ApplyItemDice	081C1C40	1:number 2:number 3:number 4:string 5:string 6:string 7:number	1	0	number	1	483
+AppointChallenger	0812CD00	1:string 2:string	1	0		0	200
+AppointViceroy	0812CDD0	1:number 2:string	1	1	number,number,number	1	1242
+AroundFillString	0812DDE0	1:number 2:string	1	0		0	1007
+AskClientForNumber	08115CA0	1:string 2:string 3:number 4:number 5:string ?:number	1	1	number,number,nil,number,number	1	1977
+AskClientForString	08115E90	1:string 2:string 3:number 4:number 5:string ?:number	1	1	number,number,nil,number,number	1	1481
+AskRelayForAuctionStatus	08113610	1:string	1	1	number,nil	1	282
+AskRelayForKillerStatus	08113A30	1:string	1	1	number,nil	1	234
+AttachActor	0810BFF0	1:string	1	1	number,number,number,number	1	306
+AttackNpc	08117F80	1:number ?:number	1	1		0	579
+AutoStackItem	0811DB60	1:number	0	1	number	1	158
+BT_BroadAllLadder	081C6640		0	1		0	95
+BT_BroadBattleDesc	081C5DD0		0	1		0	95
+BT_BroadGameData	081C6580		0	1		0	95
+BT_BroadGameDataToAll	081C64B0		0	0		0	202
+BT_BroadSelf	081C65E0		0	1		0	95
+BT_BroadView	081C6880		0	1		0	95
+BT_ChangeMiniMap	081C63F0	1:number 2:string	1	1		0	191
+BT_ClearBattle	081C6740		0	0		0	134
+BT_ClearPlayerData	081C6050		0	1		0	130
+BT_GetBattleName	081C5760		0	0	string,string	1	91
+BT_GetBattleParam	081C69B0	1:number	0	0	string,string	1	913
+BT_GetData	081C67D0	1:number	1	1	number	1	168
+BT_GetGameData	081C6230	1:number	1	0	number	1	161
+BT_GetLadderInfo	081C59D0	1:number 2:number	1	0		2	928
+BT_GetTopTenInfo	081C57C0	1:number 2:number	1	0	string,number	2	286
+BT_GetTypeBonus	081C58E0	1:number 2:number	0	0	number,number	1	234
+BT_LeaveBattle	081C62E0		0	1		0	94
+BT_ReportResult	081C5CE0	1:number	1	0		0	144
+BT_SendLadderNo	081C55D0	1:number 2:? ?:number	1	0	string,string	1	491
+BT_SendMemberCount	081C52F0	1:number 2:number 3:? ?:number	1	0	string,string	1	1227
+BT_SetBattleLevelDesc	081C5F10	1:string	1	0		0	110
+BT_SetBattleName	081C5F80	1:string	1	0		0	110
+BT_SetData	081C68E0	1:number 2:number	1	1		0	206
+BT_SetGameData	081C60E0	1:number 2:number	1	0		0	178
+BT_SetMissionDesc	081C5EA0	1:string	1	0		0	110
+BT_SetMissionName	081C5E30	1:string	1	0		0	110
+BT_SetRestTime	081C61A0	1:number	1	0		0	138
+BT_SetType2Task	081C6340	1:number 2:number	1	0		0	170
+BT_SetTypeBonus	081C5120	1:number 2:number 3:number	1	0		0	449
+BT_SetView	081C5220	1:number 2:number	1	0		0	193
+BT_SortLadder	081C66A0		0	1	number	1	158
+BT_SortWorldLadder	081C5B60	1:number 2:number	1	0		0	528
+BT_UpdateMemberCount	081C6AE0		0	0		0	609
+BT_ViewBattleStart	081C5FF0		0	1		0	95
+BindItem	08127870	1:number	1	1	number	1	207
+BotStopValidateClient	0814E680		0	0	number	1	54
+BotValidateClient	0814E790	1:number 2:number 3:number	1	0	number,number	1	225
+BuildATeam	08123680	1:string 2:number 3:? ?:number	1	0	number	0	422
+C_Random	08105C30	1:number 2:number	1	0	number,number,number,number	3	761
+CalcAutoHangPlayerCount	081012E0	1:number 2:number 3:number	1	0	number,number	1	233
+CalcEnhanceExp	081093D0	1:number	1	0	number,number	1	202
+CalcEquiproomItemCount	0810D580	1:number 2:number 3:number 4:number	1	1	number,number	1	312
+CalcEquiproomItemCountEx	0810D3F0	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number	1	388
+CalcFreeItemCellCount	0810CA20		0	1	number,number	1	113
+CalcItemCount	0810D840	1:number 2:number 3:number 4:number 5:number	1	1	number,number	1	342
+CallPlayerFunction	08129580	1:number 2:string	1	1	number	1	646
+Cancel	080FBA40		0	0		0	7
+CancelStall	08107A10		0	1		0	50
+CancelTrade	08118C90		0	1		0	41
+CastSkill	0812B570	1:number 2:number 3:number 4:number	1	1	number,number	1	586
+ChangeNpcFeature	08130E20	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:number	1	1		0	2678
+ChangeOwnFeature	08131350	1:number 2:number 3:number 4:number 5:number 6:number 7:number	1	1		0	2902
+ChangeTeamFeature	08103630	1:number 2:number 3:number	1	0	number	1	453
+ChatRoom_AddTime	08109EA0	1:string	1	1	number	1	235
+ChatRoom_ChangePassword	08109770	1:string 2:string	1	1	number	1	2075
+ChatRoom_CloseRoom	081096A0	1:string 2:string	1	1		0	2228
+ChatRoom_CreateRoom	08109D70	1:string 2:string	1	1	number	1	539
+ChatRoom_EnterRoom	08109C40	1:string 2:string	1	1	number	1	843
+ChatRoom_FindRoom	08109F90	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number	1	1425
+ChatRoom_KickOut	08109870	1:string 2:string	1	1	number	1	1819
+ChatRoom_LeaveRoom	08109B70	1:string 2:string	1	1	number	1	1051
+ChatRoom_Prevent	08109A70	1:string 2:string	1	1	number	1	1307
+ChatRoom_UnPrevent	08109970	1:string 2:string	1	1	number	1	1563
+CheckGlobalTradeFlag	081086F0		0	1	number,number	1	109
+CheckPlayerFlag	0810B6B0	1:number	1	1	number	1	162
+CheckStoreBoxState	0810EDA0	1:number 2:number	1	1	number	1	737
+CheckTicket	0811CD70	1:number 2:number 3:number	1	1	number,number,number,number,number,number,number,number,number,number	3	1590
+Clear120SkillExpLimit	08114B10		0	1	number,number	1	121
+ClearBotCode	0814E990		0	0	number	1	42
+ClearFactionRecord	0811A480		0	1		0	50
+ClearMapNpc	08102E90	1:number	1	0		0	111
+ClearMapNpcWithName	08102DF0	1:number 2:string	1	0		0	160
+ClearMapObj	08102B40	1:number	1	0		0	121
+ClearMapTrap	08102AC0	1:number	1	0		0	121
+ClearNpcDamageState	080FC0D0	1:number	0	0		0	106
+ClearObstacleObj	081213C0	1:number 2:number 3:number	1	1		0	598
+ClearProgressBarEvent	080FC410	1:number 2:number	1	0	number	1	182
+ClearScriptAnswers	08124FE0		0	1		0	52
+ClearSomeObj	08121210		0	1		0	418
+CloseGlbMission	08131D70	1:number	1	0		0	3076
+CloseMission	081327E0	1:number	1	0		0	2979
+CloseShop	081114F0		0	1		0	99
+CloseTask	081747D0	1:string 2:number 3:number	1	1	number,number,number,number,number,number,number,number,string,nil,string,nil,nil,string,nil	1	1970
+CompoundCryolite_Pendant	0825EA37		0	0			442
+CompoundGold_EnhanceItem	0825EB51		0	0			160
+ConsumeEquiproomItem	0810CEF0	1:number 2:number 3:number 4:number 5:number	1	1	number,number,table,number,number	1	501
+ConsumeEquiproomItemEx	0810CD40	1:number 2:number 3:number 4:number 5:number 6:number 7:number	1	1	number,number,number,number,table,number,number	1	933
+ConsumeItem	0810D6C0	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number	1	726
+CountFreeRoomByWH	0810C790	1:number 2:number 3:number	1	1	number,number,number,number,number,number,number,number	3	656
+CreateBiaoChe	0810E9A0	1:number 2:number 3:number 4:string 5:number	1	1	nil,number,number,number,number	1	609
+CreateChannel	081045A0	1:string 2:number	1	0	number	1	224
+CreateStores	08122CD0		0	1		0	41
+CreateTong	0811B020		1	1		0	184
+DRS	08120E70	1:string	1	0		0	76
+DbgPoint	08100110	1:number	1	0		0	87
+Death	08117E00	1:number	1	1	number	1	374
+DegradePlatinaItem	0811E1E0	1:number 2:number 3:number 4:number	1	1	nil,number,number,nil,number,number,nil,number,number,string,nil,table,number,nil	6	1755
+DelBreakPoint	080FC140		0	0			27
+DelCommonItem	0811D4C0	1:number 2:number 3:number	1	1	number	1	541
+DelItem	0811D5D0	1:number	1	1		0	269
+DelItemEx	0811D3B0	1:number	1	1		0	269
+DelMSPlayer	081372A0	1:number 2:number 3:number	1	1	number	1	2988
+DelMagic	0811C7E0	1:number	1	1	number,number,number,number,number,number	1	1144
+DelMapTrap	08102600	1:number 2:number 3:number 4:number 5:number	1	0	number,number,number,number,nil	2	1068
+DelNpc	08107460	1:number ?:?	1	1	number,number,number,number,number	1	1506
+DelObject	08106900	?:?	1	0		0	164
+DelStationList	08110F50		0	1		0	97
+DelTimer	08100CA0	1:number	1	0	number,number	1	145
+DeleteBiaoChe	0812D620	1:number 2:number	1	1	number,number,number,number,number,number	1	1858
+DeleteChannel	08104560	1:string	1	0		0	54
+Describe	081242A0	1:number 2:number 3:? ?:string	1	1	number,number	0	2765
+DetachActor	0810BF70		1	1	number,number	1	113
+DiceLootItem	081C14F0	1:number	1	1	number,string,number,number,number	2	927
+DisableTeamChangeCamp	0810F170	1:number	0	1		0	120
+DisabledChatCity	08130670	1:number	1	1	number,number,number	1	250
+DisabledChatWorld	08130770	1:number	1	1	number,number,number	1	250
+DisabledStall	08130980	1:number	1	1	number,number,number	1	250
+DisabledTeam	08126590	1:number	1	1	number,number,number	1	250
+DisabledUseHeart	08130870	1:number	1	1	number,number,number	1	258
+DisabledUseTownP	08130A80	1:number	1	1	number,number,number	1	258
+DoMarry	081053A0	1:number 2:number 3:number 4:number	1	0		0	1028
+DoRelayScript	08120E70	1:string	1	0		0	76
+DoSth	08118CC0	1:number 2:number 4:number	1	1		1	400
+DropItem	081200B0	1:string 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	2474
+DropItemEx	0811FD70	1:string 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	2540
+DynamicExecute	081300B0	1:string 2:string	1	0	number,number	1	875
+DynamicExecuteByPlayer	0812FE80	1:string 2:string 3:string	1	1	number,number,number,number	1	1435
+EH_SetCurDurability	0810EFB0	1:number 2:number	1	1		0	209
+Earn	08118970	1:number	0	1	number,number,number	1	662
+EnchaseItem	08116CF0		0	1		0	96
+EnterChannel	081044C0	1:number 2:string	1	0		0	133
+ExeScript	080FB850		0	0		1	10
+FadeInMusic	080FB880		0	0		0	7
+FadeOutMusic	080FB890		0	0		0	7
+FantasyGoldEquip	08116E30		0	1		0	103
+FileName2Id	08100E80	1:string	1	0	number,number	1	110
+File_Create	0814A120	1:string	0	0	number,number,number	1	640
+FindFreeRoomByWH	0810C8E0	1:number 2:number	1	1	number,number,number,number,number,number	3	320
+FindSpecItemParam2	0811CC60	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number	3	1862
+FirstTask	08174E30	1:string 2:number 3:number	1	1	string,nil,nil,number,nil,number,string,nil,number,number	2	1330
+ForbidChangePK	0810F590	1:number	1	1		0	120
+ForbidEnmity	0810B0F0	1:number	1	1		0	120
+ForbitAura	08111560	1:number	0	1		0	272
+ForbitSkill	08121620	1:number	1	1		0	157
+ForbitStamina	0810CCC0	1:number	0	1		0	114
+ForbitSyncAura	0810CC10	1:number	0	1		0	290
+ForbitSyncName	08103CF0	1:number 2:number	1	0	number,number	1	591
+ForbitTalk	0810CB70	1:number	0	1		0	159
+ForbitTrade	08111600	1:number	0	1		0	112
+ForceLeaveTong	0810FA40		0	1	number	1	75
+ForceTransferTax	08121990	1:number	1	1		0	267
+FormatTime2Date	081022B0	1:number	1	0	number,number	1	250
+FormatTime2Number	081023B0	1:number	1	0	number,number	1	290
+FormatTime2String	08106720	1:string 2:number	1	0	string,string	1	309
+FoundryItem	08116EA0	1:number	1	1		0	597
+GMCancleBoxPassword	0810EC80		0	1	number,number	1	97
+GMLockBox	0810EC10		0	1	number,number	1	97
+GMMsg2Player	081153E0	1:string 2:string	1	1		0	159
+GMSetBoxPassword	0810ECF0	1:number	1	1	number,number	1	163
+GMTongAddMember	08128300	1:string	1	1	number	1	415
+GMTongDismiss	08104D40	1:string	1	0		0	54
+GMTongSetAddTime	08104D80	1:number 2:number 3:number 4:string 5:string	1	0		0	210
+GMTongSetExp	08104E60	1:number 2:string	1	0		0	106
+GMTongSetLevel	08104ED0	1:number 2:string	1	0		0	106
+GMTongSetMaster	08104F40	1:string 2:string	1	0		0	86
+GMUnlockBox	0810EBA0		0	1	number,number	1	97
+Get120SkillEnhanceExpRate	08109F40		0	1	number	1	75
+GetAccLeftTime	0810BDE0		0	1	number,number	1	137
+GetAccount	0810F6A0		0	1	string	1	99
+GetAccrueSeries	080FC590	1:number	1	0	number,number,number	1	369
+GetAllCitySummary	08116240		0	1	number,number,nil,number,number	1	537
+GetAllClothesEquipment	0810D050		0	1	table,number,number	1	149
+GetAllEquipValue	08108520		0	1	nil,number	1	100
+GetAllEquipment	0810D0F0		0	1	table,number	1	118
+GetAllSkillCurInc	0811C320		0	1	number,number	1	123
+GetArenaBothSides	08104680	1:string 2:number 3:number	1	0	string,string,string,string,number,nil,number,table,number,number,nil,number,table,number,number,nil,number,number	2	1527
+GetArenaCityArea	080FDFF0	1:number	1	0	number,number,number,number	1	279
+GetArenaCredits	08108040		0	1	number	1	101
+GetArenaInfoByCity	08121D00	1:number	1	0	string,string,string,string,string,string	1	2480
+GetArenaLevel	08104640		0	0	number	1	64
+GetArenaSchedule	08122000	1:string	1	1	string,string,string,string	1	2046
+GetArenaTargetCity	080FBE20		0	0	number,number	1	73
+GetArenaTotalLevel	08129510		0	0	number	1	110
+GetArenaTotalLevelByCity	0812B880	1:number	1	0	number	1	167
+GetAroundNpcList	0810E740	1:number 2:number	1	1	table,number,number,nil,number	2	411
+GetAroundPlayerList	0810E530	1:number 2:number	1	1	table,number,number,nil,number	2	411
+GetAutoHangExpValue	080FE1D0	1:number	1	0	number,number	1	153
+GetBiaoChePos	0812D3C0	1:number 2:number	1	1	number,number,number,number,number,number,number,number	3	1948
+GetBit	080FEBA0	1:number 2:number	0	0	number	1	131
+GetBitTask	081090A0	1:number 2:number 3:number	1	1	number	1	246
+GetBotDeleteAccountFlag	0814E730		0	0	number	1	34
+GetBotPunishFlag	0814E760		0	0	number	1	34
+GetBoxLockState	0810EB40		0	1	number,number,number	1	193
+GetBoxMoney	08111670		0	1	number,number	1	89
+GetByte	080FEA20	1:number 2:number	0	0	number	1	152
+GetCamp	08114650		0	1	number,nil	1	107
+GetCash	081116D0		0	1	number,number	1	89
+GetCashCoin	08118800		0	1	number,number	1	105
+GetChoose	08129C30	1:number 2:number	1	0	string,string	1	394
+GetChooseCount	0812AA00	1:number	1	0	number,number	1	310
+GetCity	080FB860		0	0		0	7
+GetCityArea	08115C30		0	1	number	1	112
+GetCityAreaName	080FFEB0	1:number	1	0	string,string	1	135
+GetCityCount	080FBC30		0	0	number	1	48
+GetCityOwner	080FFF40	1:number	1	0	string,string,string,string	2	250
+GetCitySummary	081223C0	1:string	1	1	string,string	1	1086
+GetCityWarBothSides	080FFDA0	1:number	1	0	string,string,string,string,string,string	2	407
+GetCityWarTongCamp	081228C0	1:string	1	0	nil,number	1	122
+GetColdR	08113B20	1:number	0	1	nil,number,number,number	1	314
+GetConquerSeries	080FC600	1:number	1	0	number,number	1	257
+GetContribution	0811A950		0	1	number,number	1	105
+GetCumulateOffer	08113FC0		0	1	number,number	1	105
+GetCurCamp	081146C0		0	1	number,nil	1	107
+GetCurDurability	080FD550	1:number	1	0	number	1	108
+GetCurEquipWishValue	080FCE00	1:number	1	0	number	1	120
+GetCurServerTime	08103800		0	0	number	1	69
+GetCurrentMagicLevel	0811C3A0	1:number 2:number	1	1	number,number,number,number	1	657
+GetCurrentTime	08103A80		0	0	number	1	53
+GetCurrentTong	0811AD30		0	1	number	1	85
+GetDefend	08112090		0	1	number,nil	1	107
+GetDelDupedAllInOne	080FBB70		0	0	number	1	34
+GetDelayCatchTime	0814E6C0		0	0	number	1	34
+GetDex	08111960	1:number	0	1	number,number,nil	1	196
+GetDiceIncome	080FBE70		0	0	number	1	34
+GetDisabledFuncFlag	08126520		0	1	number,number	1	105
+GetDupedDealLevel	080FBBA0		0	0	number	1	44
+GetDynamicShopID	08129240	1:string	1	1	number,number	1	422
+GetEnergy	08107DE0		0	1	number	1	85
+GetEng	08111A30	1:number	0	1	number,number,nil	1	196
+GetEnhanceExpRate	081094A0		0	0	number	1	47
+GetEquipMaxStoneNum	080FC800	1:number	1	0	number	1	120
+GetEventTask	081742C0	1:number 2:number	1	0	string,nil,nil,string,number	1	494
+GetEventTaskCount	08174430	1:number	1	0	number	1	126
+GetExp	08117860		0	1	number,nil	1	83
+GetExpPercent	08121090		0	1	number,number	1	106
+GetExtPoint	0810FA90	1:number	1	1	number	1	136
+GetFaction	0811A5D0		0	1	string,string	1	127
+GetFactionNumber	08113C60		0	1	number,number	1	98
+GetFailedItem	08113340	1:number	1	1		0	217
+GetFeeType	0811B460		0	1	number,number	1	110
+GetFightState	081113C0		0	1	number,number	1	154
+GetFireR	081130A0	1:number	0	1	nil,number,number,number	1	314
+GetFirstPlayerAtSW	08107680	1:number ?:?	1	1	number,number,number,number	1	962
+GetFirstPlayerAtServer	08101CF0		0	0	number	1	46
+GetFusionInEquipInfo	0810A6F0	1:string 2:number 3:number	1	1	table,number,number,number,number,number,number,number,number	1	1194
+GetGameTime	0810F3A0		0	1	number	1	90
+GetGateWayClientID	080FBC60		0	0	number	1	34
+GetGiveItemUnit	08114E60	1:number	1	1	number	1	143
+GetGiveItemUnitWithPos	08114D90	1:number	1	1	number,number	2	202
+GetGlbMissionV	080FD6C0	1:number 2:number	1	0	number	1	295
+GetGlbValue	080FE270	1:number	1	0	number	1	121
+GetGlobalTradeFlag	080FBB40		0	0	number	1	34
+GetGlodEqIndex	080FEF90	1:number	1	0	number,number,number	1	27
+GetGoldCoinCount	08117790		0	1	number,number,nil	1	291
+GetIP	0810F710		0	1	string	1	130
+GetInfo	0810F7A0		0	1	string	1	382
+GetIsCheckNpcBarrier	080FBC90		0	0	number	1	34
+GetItemAllParams	08102D20	1:number	1	0	table,number	1	195
+GetItemBTLMaxStackCount	08127B70	1:number 2:number	1	0	number,number,number,number,number,nil	1	427
+GetItemBTLName	08127A70	1:number 2:number	1	0	string,string,number,number,number,number,number,number,nil	1	683
+GetItemBelong	080FEC30	1:number	1	0	number	1	130
+GetItemBillType	0810DD30	1:number 2:number 3:number 4:string 5:number	1	1	number,number,number	0	1294
+GetItemBindState	080FE790	1:number	1	0	number	1	130
+GetItemCmd	0811DAA0	1:number	1	0	string	1	185
+GetItemCount	0811D6E0	1:number	1	1	number,number,number	1	334
+GetItemCountEx	0811D830	1:number	1	1	number,number,number	1	334
+GetItemDiceItemInfo	081C04A0	1:number	1	0	string,number,number,number,number,number,number	8	265
+GetItemDicePlayerList	081C0380	1:number	1	0	table	1	282
+GetItemDiceRollInfo	081C0B80	1:number	1	0	table,number,number,number,number,number,number,table,number,string,number,number,number,number,number,number,number,number,number,number,number,number,table,number,string,number,number,number,number,number	2	1106
+GetItemDiceState	081C05B0	1:number	1	0	number	1	121
+GetItemExchangeValue	080FCF90	1:number 2:number 3:number	1	0	number	0	527
+GetItemFortuneValue	080FCF00	1:number 2:number 3:number	1	0	number,number	0	671
+GetItemGenTime	080FE820	1:number	1	0	number	1	127
+GetItemHeight	080FED90	1:number	1	0	number,number	1	140
+GetItemIndexBydwID	081017C0	1:number	1	0	number	1	112
+GetItemLevel	080FF0D0	1:number	1	0	number,number	1	143
+GetItemLife	0811CB00	1:number	1	1	number,number,number	1	344
+GetItemMagicAttrib	080FD7F0	1:number 2:number	1	0	number,number,number,number	4	295
+GetItemMagicDesc	0811E5B0	1:number 2:number 3:number 4:number	1	0	string,nil,table,number,nil	6	779
+GetItemMagicLevel	08100430	1:number 2:number	1	0	number,nil	1	234
+GetItemMaxStackCount	080FD1A0	1:number	1	0	number,number,number,number	1	372
+GetItemName	081005D0	1:number	1	0	nil,string	1	134
+GetItemParam	080FECC0	1:number 2:number	1	0	number,number,number,number	1	348
+GetItemPrice	08127C60	1:number	1	0	number,number,nil	1	187
+GetItemProp	080FF260	1:number	1	0	number,number,number,number,number,number,number	6	250
+GetItemQuality	080FEFB0	1:number	1	0	number,number	1	143
+GetItemSeries	080FF040	1:number	1	0	number,number	1	143
+GetItemStackCount	080FD250	1:number	1	0	number,number	1	196
+GetItemValue	080FC670	1:number	0	0	number	1	145
+GetItemWidth	080FEE20	1:number	1	0	number,number	1	140
+GetJoinTongTime	08121100		0	1	number,number	1	113
+GetLastAddFaction	0811A4C0		0	1	string,string	1	127
+GetLastBreakTime	080FCCF0	1:number	1	0	number	1	131
+GetLastDamageNpc	0810C0B0		0	1	number,number	1	114
+GetLastDiagNpc	0810C5E0		0	1	number,number	1	146
+GetLastDlgNpc	0810C5E0		0	1	number,number	1	146
+GetLastExchangeTime	0810B9E0		0	1	number,nil	1	107
+GetLastFactionNumber	0810E6D0	1:number 2:number	1	1	number,number,table,number,number,nil,number	2	523
+GetLastLogoutTime	0810B870		0	1	number,nil	1	107
+GetLastOfflineTime	0810B970		0	1	number,nil	1	107
+GetLeadExp	08111D90		0	1	number,nil	1	99
+GetLeadLevel	08111D20		0	1	number,nil	1	99
+GetLevel	081111E0		0	1	number	1	112
+GetLevelExp	08101110	1:number 2:number	1	0	number,number	1	251
+GetLevelUpExp	08108830	1:number 2:number	1	1	number,number,number,number,number,number	1	826
+GetLife	081124D0	1:number	0	1	nil,number,number	1	226
+GetLightR	08112E00	1:number	0	1	nil,number,number,number	1	314
+GetLocalDate	0812A140	1:number	1	0	string,string,number,number	1	950
+GetLocalTime	08103850		0	0	number	1	69
+GetLoginTime	0810B760		0	1	number,number	1	113
+GetLogoutRV	081104A0		0	1	number	1	88
+GetLoop	080FBDF0		0	0	number	1	34
+GetLucky	08111B80	1:number	0	1	number,number,nil	1	212
+GetMSIdxGroup	08135CF0	1:number 2:number	1	1	number,number	1	2924
+GetMSPlayerCount	081351F0	1:number 2:number 3:number	1	0	number,number,number,number,number	2	2822
+GetMSRestTime	081361C0	1:number 2:number 3:number	1	1	number	1	2961
+GetMagicPoint	0810FE10		0	1	number	1	60
+GetMana	08112270	1:number	0	1	nil,number,number	1	242
+GetMapDropRateFile	080FFBF0	1:number	1	0	string	1	128
+GetMapInfoFile	081024E0	1:number	1	0	string,string	1	157
+GetMapNpcWithName	08102BC0	1:number 2:string	1	0	table,number	1	316
+GetMapParam	080FE390	1:number 2:number 3:number	1	0	number,number,number	1	658
+GetMapPlayerList	08106C80	1:number 2:number 3:number	1	0	table,number,nil,number,number,number	2	1245
+GetMapTrapCount	08102A30	1:number	1	0	number	1	140
+GetMapType	080FE5A0	1:number	1	0	number	1	130
+GetMaskFeature	080FDDC0	1:number	1	0	number,number,number	1	295
+GetMateName	08110340		0	1	string	1	118
+GetMaxDurability	080FD5C0	1:number	1	0	number	1	108
+GetMaxEquipWishValue	080FCD80	1:number	1	0	number	1	120
+GetMaxResist	08108C00	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number	1	1430
+GetMissionS	08107160	1:number	1	0	string,string	1	188
+GetMissionV	081072F0	1:number 2:number	1	0	number	1	367
+GetName	08111E70		0	1	string,nil	1	83
+GetNewBulletin	08123830	?:number	1	1		0	483
+GetNextItemIndexInRoom	0810D270	1:number 2:number 3:number 4:number 5:number 6:number	0	1	number,number,number	2	380
+GetNextPlayer	08135760	1:number 2:number 3:number	1	0	number,number,number,number,number,number	2	2803
+GetNextPlayerAtSW	081075D0	1:number ?:?	1	1	number,number,number,number,number	1	1138
+GetNextPlayerAtServer	08101D20		0	0	number	1	46
+GetNpcAroundNpcList	08104A20	1:string 2:number 3:number	1	0	table,number,number,nil,number,number	2	599
+GetNpcAroundPlayerList	08104870	1:string 2:number 3:number	1	0	table,number,number,nil,number,table,number,number,nil,number,number	2	1031
+GetNpcCurCamp	0811B260	1:number	0	0	number	1	121
+GetNpcCurLife	080FBFF0	1:number	1	0	number	1	104
+GetNpcCurMaxLife	080FBF70	1:number	1	0	number	1	120
+GetNpcDropRateFile	080FFC70	1:number	1	0	string	1	128
+GetNpcExpRate	081C0B50		0	0	number	1	34
+GetNpcFightState	080FD9B0	1:number	1	0	number	1	133
+GetNpcFreeCount	080FBDC0		0	0	number	1	44
+GetNpcId	080FD920	1:number	1	0	number,number	1	277
+GetNpcIdx	08110300		0	1	number	1	60
+GetNpcKind	080FDA40	1:number	1	0	number	1	141
+GetNpcLife	08117EF0	1:number	0	1	number	1	134
+GetNpcName	08100040	1:number	0	0	string,string	1	136
+GetNpcParam	081C0A00	1:number 2:number	1	0	number,number	1	323
+GetNpcPos	081293F0	1:number	1	0	number,number,number,number	3	286
+GetNpcPowerType	08120D50	1:number	1	0	number,number	1	163
+GetNpcScript	080FFCF0	1:number	1	0	string,number	2	169
+GetNpcSeries	080FE080	1:number	0	0	number,number	1	135
+GetNpcSettingIdx	080FDE50	1:number	1	0	number,number	1	151
+GetNpcTimer	08100170	1:number	1	0	nil,number	1	163
+GetNpcTong	0811A9C0	1:number	1	0	string,number	2	228
+GetOnlineCommissionStatus	081091A0	1:number 2:number	1	1	number	1	547
+GetOrgMaxDurability	08104FA0	1:number	1	0	number	1	116
+GetPK	081103C0	1:number	1	1	number	1	224
+GetPMParam	0812AD90	1:number 2:number 3:number 4:number 5:number	1	1	number	1	2346
+GetPartnerBagLevel	081143F0		0	1	number,number	1	113
+GetPayTicket	080FD3B0	1:number	1	0	number,number,number,number	2	524
+GetPayTicketCount	080FBBD0		0	0	number	1	44
+GetPhyR	081128B0	1:number	0	1	nil,number,number,number	1	314
+GetPkReduceState	081094D0		0	1	number,number,number,number	4	157
+GetPlatinaEquipIndex	080FEF70	1:number	1	0	number,number,number	1	27
+GetPlatinaLevel	08100520	1:number	1	0	nil,number	1	161
+GetPlayerClientIP	08127EE0		0	1	string,nil	1	199
+GetPlayerCount	080FBCC0		0	0	number	1	34
+GetPlayerEnteringTrap	08111370		0	1	number	1	67
+GetPlayerFeature	080FDC80	1:number	1	0	number,number,number,number,number	5	320
+GetPlayerFortuneRank	0810AB50		0	1	number	1	74
+GetPlayerMagicAttrib	08119060		0	1	table,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number,string,number		2978
+GetPlayerRev	08114730		0	1	number,number	2	86
+GetPoisonCount	0810AE70		0	1	number	1	79
+GetPoisonR	08112B50	1:number	0	1	nil,number,number,number	1	314
+GetPos	08129140		0	1	number,number,number	3	243
+GetPotionCount	0810AE70		0	1	number	1	79
+GetPrice2Station	08106620	1:number 2:number	0	0	number	1	126
+GetPrice2WayPoint	081066A0	1:number 2:number	0	0	number	1	126
+GetProductLanguge	080FFB90		0	0	string,number	2	84
+GetProductRegion	080FFB30		0	0	string,number	2	84
+GetProgressBarMaskEvent	080FBAF0		0	0	number	1	67
+GetProp	0810F9F0		0	1	number	1	72
+GetProtectTime	0810E460		0	1	number	1	74
+GetPtMagicAttrExValue	08101070	1:number 2:number	1	0	number,number,number	1	411
+GetPunish	0810F400		0	1	number	1	103
+GetPvPKilledNum	08117720		0	1	number,number	1	105
+GetQAnswer	08129FF0	1:number	1	0	number,number	1	326
+GetQBeginTime	0812A500	1:number	1	0	number,number	1	310
+GetQEndTime	0812A640	1:number	1	0	number,number	1	310
+GetQuestion	0812A8C0	1:number	1	0	string,string	1	312
+GetQuestionPrice	0812A3C0	1:number	1	0	number,number	1	310
+GetQuestionTip	0812A780	1:number	1	0	string,string	1	312
+GetRank	08110A70		0	1	number	1	104
+GetRanking	08107920		1	1	number	1	290
+GetRefuseLoginCount	0814EA40		0	1	number,number	1	94
+GetRefuseLoginFlag	0814EAA0		0	1	number,number	1	94
+GetRelaxTime	081110C0		0	1	number	1	96
+GetRepairDurPrice	08127D20	1:number	1	0	number,number	1	153
+GetRepute	08117230		0	1	number	1	88
+GetRespect	08129790		0	1	number	1	118
+GetRestAP	08111CC0		0	1	number,nil	1	83
+GetRestSP	08111C60		0	1	number,nil	1	83
+GetRestTime	08116370		0	1	number,number,nil,number,number	1	233
+GetRetScoreForGoldCoin	081185B0		0	1	number	1	106
+GetRideState	08111730		0	1	number,number	1	114
+GetRoleCreateDate	0810C2F0		0	1	number,number	1	226
+GetRoleCreateTime	0810C210		0	1	string,string	1	224
+GetRoleCreateTimeData	0810C1A0		0	1	number,number	1	109
+GetRoleDataTransMark	0810C130		0	1	number,number	1	106
+GetRoleEquipValue	08108590		0	1	number,table,number,table,number,string,number,number,number,number	2	461
+GetRoomItems	0810D170	1:number	0	1	table,number	1	251
+GetSaleMoney	08113420	1:number	1	1		0	217
+GetSeries	08111F30		0	1	number,nil	1	107
+GetServerDate	0812A280	1:number	1	0	string,number,number	1	630
+GetServerName	08106510		0	0	string,string	1	103
+GetServiceMatchID	081065F0		0	0	number	1	44
+GetSex	08112020		0	1	number,nil	1	107
+GetSignCodeSyncTime	0814E6F0		0	0	number	1	57
+GetSignUpTongName	0812C690	1:string 2:string	1	0	string,number	1	1848
+GetSkillCount	0811C510	1:number	1	1	number,number,number	1	289
+GetSkillExp	0812AB40	1:number 2:number 3:number 4:number	1	1	number,number,number	1	2335
+GetSkillId	08114A30	1:number	1	1	number,number,number	1	345
+GetSkillMaxLevel	080FDAD0	1:number	1	0	number,number	1	155
+GetSkillMaxLevelAddons	08108B20		0	1	number	1	74
+GetSkillName	08129B70	1:number 2:number	1	0	string,string,string,string	1	586
+GetSkillNextExp	0812AC50	1:number 2:number 3:number 4:number 5:number	1	1	number,number	1	2345
+GetSkillState	08125CB0	1:number	1	1	number,number	1	180
+GetStallState	08107A50		0	1	number	1	74
+GetStallTotal	080FBD70		0	0	number	1	71
+GetStallTotalTax	080FBD20		0	0	number	1	71
+GetStamina	08112170	1:number	0	1	nil,number,number	1	242
+GetStarLevel	080FCE80	1:number	1	0	number	1	120
+GetStarStoneOnEquip	080FCA40	1:number 2:number	1	0	number,number		266
+GetStation	08110DB0	1:number 2:number	1	1	number,number,number	1	408
+GetStationCount	08110EF0		0	1	number	1	88
+GetStationName	08110BD0	1:number 2:number	1	1	string,string,number,number,number,number,number,number	1	888
+GetStationPos	08106070	1:number	0	0	number,number,number	3	478
+GetStoneLevelOnEquip	080FC980	1:number 2:number	1	0	number,number,number	0	458
+GetStrg	08111890	1:number	0	1	number,number,nil	1	196
+GetStringTask	081166E0	1:number	0	1	string,nil	1	156
+GetSwitch	08102F00	1:string	1	0	number	1	116
+GetTask	08116890	1:number	0	1	number,nil	1	148
+GetTaskEventID	08174230	1:number 2:number	1	0	number,nil,string,nil,nil,string,number	1	638
+GetTaskMoney	08101270	2:number	1	0		0	110
+GetTaskStatus	08175090	1:string 2:number 3:number	1	1	nil,number,string,nil,number,number	2	722
+GetTaskTemp	08123A20	?:number	1	1	number,nil	1	162
+GetTaxCollected	08121AA0	1:number	1	0	number,number	1	162
+GetTeam	08115630		0	1	nil,number	1	93
+GetTeamMember	08115530	1:number	1	1	number,nil,number	1	349
+GetTeamSize	08115480	1:number	1	1	number,number,nil,number	1	525
+GetTerminiFState	08110910	1:number	1	1	number	1	200
+GetTicket	080FD490	1:number	1	0	number,number	1	300
+GetTicketCount	080FBC00		0	0	number	1	44
+GetTimerId	08116400		0	1	number,number	1	89
+GetTireTime	08111120		0	1	number	1	96
+GetTiredDegree	08111180		0	1	number	1	96
+GetTmpCamp	0810BB70	1:number	1	1	number	1	178
+GetTmpValue	08174F40	1:string 2:number 3:number	1	1	nil,number,nil,number,string,nil,number,number	2	1058
+GetTong	0811AAB0		0	1	string,number	2	127
+GetTongCamp	08114560		0	1	number	1	72
+GetTongFigure	081145B0		0	1	number	1	72
+GetTongLogData	08190BB0		0	0	table,number,number,number,string,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number		2171
+GetTongMTask	0812DC60	1:number 2:string	1	1	number,number	1	1391
+GetTongMaster	081144F0		0	1	string,number	1	184
+GetTongMemberCount	0811AC80	1:number	1	1	number	1	165
+GetTongMemberID	08114600		0	1	number	1	77
+GetTongName	0811AB30		0	1	string,number	2	156
+GetTongTitle	0811AF00		0	1	string	1	109
+GetTongWeek	08113E10		0	1	number,number	1	105
+GetTotalItemCount	0811D980		0	0	number	1	54
+GetTotalMagicLevel	08127DC0	1:number	1	0	number,number	1	153
+GetTotalOffer	08114170		0	1	number,number	1	105
+GetTotalSkill	0811C5D0		0	1	number	1	97
+GetTradeTotal	080FBCF0		0	0	number	1	34
+GetTripMode	080FBAC0		0	0	number	1	44
+GetUUID	08111E00		0	1	number,nil	1	99
+GetVit	081117B0	1:number	0	1	number,number,nil	1	212
+GetWayPoint	08110CC0	1:number 2:number	1	1	number,number,number,number,number,number	1	648
+GetWayPointName	08110AE0	1:number 2:number	1	1	string,string,string,string,number,number,number,number,number,number	1	1128
+GetWayPointPos	08105F30	1:number	0	0	number,number,number	3	310
+GetWeekGoalOffer	08114390		0	1	number,number	1	89
+GetWeeklyOffer	08114320		0	1	number,number	1	105
+GetWharf	08106310	1:number 2:number	0	0	number	1	196
+GetWharfCount	08106460	1:number	1	0	number,string,string	1	279
+GetWharfName	08106250	1:number 2:number	0	0	string,number	1	388
+GetWharfPos	08105D30	1:number	0	0	number,number,number	3	505
+GetWharfPrice	081063E0	1:number 2:number	0	0	number	1	126
+GetWorldPos	08128F30		0	1	number,number,number,number,number,number	3	379
+GiveItemUI	0812BBA0	1:number 2:number 3:string 4:string 5:number 6:string 7:number	1	1		0	2864
+HandItemIdx	081150F0		0	1	number	1	79
+HaveBeginWar	08104770	1:string 2:number 3:number	1	0	number,nil,number,table,number,number,nil,number,table,number,number,nil,number,number	2	1287
+HaveCommonItem	0811D140	1:number 2:number 3:number	1	1	number,number,number,number	1	614
+HaveItem	0811D250	1:number	1	1	number,number,number	1	342
+HaveMagic	0811C930	1:number	1	1	number,number,number,number,number,number	1	808
+HideNpc	08106FC0	1:number 2:number	1	0		0	413
+IL	0812E1D0	1:number 2:string 3:number	1	0	number,number	1	2253
+ITEM_Abrade2BrokenEquip	08154CB0	1:number 2:number 3:string 4:number 5:number 6:number	1	1	number,number,number,number,number,table,string,number,number,number,number,number,number,number,number,number	1	1635
+ITEM_BrokenEquip2Normal	08154B80	1:number 2:number 3:string 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number,table,string,number,number,number,number,number,number,number,number,number	1	1939
+ITEM_CalcItemValue	081553F0	1:number 2:string 3:number 4:number 5:number 6:number 7:number 8:number 9:? 10:? 11:string ?:number	1	0	number,number,number,number	1	2419
+ITEM_DropRateItem	08154DE0	1:number 2:number 3:string 4:number 5:number 6:number	1	1	number,number,table,string,number,number,number,number,number,number,number,number,number	1	1331
+ITEM_ExportShop	08154440		0	0		0	22
+ITEM_GetExpiredTime	08154540	1:number	1	0	number,number	1	162
+ITEM_GetImmediaItemIndex	08155320	1:number	0	1	number,number	1	208
+ITEM_GetItemExParam	081547D0	1:number 2:number	1	0	number,number,number,number	1	434
+ITEM_GetItemInfo	081550F0	1:number	0	0	table,string,number,number,number,number,number,number,number,number,number	1	547
+ITEM_GetItemRandSeed	081548E0	1:number	1	0	number,number	1	162
+ITEM_GetItemVersion	08154990	1:number	1	0	number,number	1	151
+ITEM_GetLatestItemVersion	081542C0		0	0	number	1	34
+ITEM_GetLeftUsageTime	081545F0	1:number	1	0	number,number	1	162
+ITEM_SetExpiredTime	08154A30	1:number 2:number 3:string 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,table,string,number,number,number,number,number,number,number,number	1	2196
+ITEM_SetExpiredTime2	08154460	1:number 2:number	1	0	number,number,number,number	1	386
+ITEM_SetItemExParam	081546A0	1:number 2:number 3:number	1	0	number,number,number,number,number,number	1	738
+ITEM_SetLeftUsageTime	08154FD0	1:number 2:number	1	1	number,number,table,string,number,number,number,number,number,number,number,number,number	1	835
+ITEM_TransferItemValue	08155BB0	1:number 2:? ?:number	1	0	number,number	1	435
+Include	08123B60	1:string 2:number 3:? ?:string	1	1	number,number	0	2557
+IncludeLib	0812E1D0	1:number 2:string 3:number	1	0	number,number	1	2253
+IncreasePoisonCount	0810B170		0	1	number	1	176
+IncreasePotionCount	0810B170		0	1	number	1	176
+IniFile_GetData	0814ABD0	1:string 2:string 3:string	1	0	string,string	1	798
+IniFile_Load	0814AFB0	1:string 2:string	1	0	number,number	1	138
+IniFile_Save	0814B160	1:string 2:string	1	0	number,number	1	224
+IniFile_SetData	0814AAF0	1:string 2:string 3:string 4:string	1	0	string,string	1	1022
+IniFile_UnLoad	0814B0E0	1:string	1	0	number,number	1	113
+InlayStarStone	0810A2C0	1:number 2:number 3:number 4:number	1	1	number,number	1	609
+IsArenaBegin	08101620	1:number	1	0	number,number,number,string,number	1	528
+IsBiaoCheAlive	0812D860	1:number 2:string	1	1	number,number,number,number,number,number	1	1915
+IsCaptain	08115690		0	1	number,number	1	105
+IsDeath	0810AC70		0	1	number	1	137
+IsDisabledChatCity	0812EEE0		0	1	number,number	1	105
+IsDisabledChatWorld	081264B0		0	1	number,number	1	105
+IsDisabledStall	0812EE70		0	1	number,number	1	105
+IsDisabledTeam	0812EF50		0	1	number,number	1	105
+IsDisabledUseHeart	0812ED70		0	1	number,number	1	113
+IsDisabledUseTownP	0812EDF0		0	1	number,number	1	113
+IsExpSkill	0812CF30	1:number	1	1	number,number,number	1	890
+IsForbidChangePK	0810F540		0	1	number	1	72
+IsGSHaveFreeMap	081270D0		0	0	number	1	46
+IsHide	0810AD00	1:number	1	1	number	1	292
+IsItemStackable	080FD320	1:number	1	0	number,number,number,number,number,number	2	668
+IsMyItem	0811B4D0	1:number 2:number 3:number 4:number	1	1	number,number,number	1	434
+IsNpcFeatureChanged	08103530	1:number	1	0	number,number	1	138
+IsNpcHide	08106EC0	1:number 2:number	1	0	number	1	669
+IsOpeningModule	08127940	1:number	1	0	number,number	1	291
+IsOwnFeatureChanged	0810CAA0		0	1	number,number	1	121
+IsSeriesAccrue	08100EF0	1:number 2:number	1	0	number,number,number,number,number,number,number	1	795
+IsSeriesConquer	08100FB0	1:number 2:number	1	0	number,number,number,number,number	1	603
+IsSigningUp	08115930	1:number	1	1	number,number,number,number	1	880
+IsSpectator	0810BF00		1	1	number,number	1	105
+IsTongWarMap	080FE700	1:number	1	0	number	1	135
+JoinMission	08137E40	1:number 2:number 3:number	1	1		0	2941
+KickOutAccount	08118490	1:string	1	1	number	1	394
+KickOutPlayer	08118370	1:string	1	1	number	1	682
+KickOutSelf	081182C0		0	1		0	174
+KillNpc	08117E00	1:number	1	1	number	1	374
+KillNpcWithIdx	081181D0	1:number 2:number	1	1		0	414
+KillPlayer	08117BC0		0	1		1	279
+LGM_ApplyAddMember	0815C720	1:userdata 2:number 3:string	1	0	number,number	1	1115
+LGM_ApplyRemoveMember	0815BAD0	1:number 2:string 3:string 4:number 5:number 6:number 7:string	1	0	number,number,number,number	1	1515
+LGM_CreateMemberObj	0815D0F0		0	0	number	1	278
+LGM_FreeMemberObj	0815C5C0	1:userdata	1	0	number,number	1	162
+LGM_SetMemberInfo	0815CCA0	1:number 2:string 3:number 4:string 5:string	1	0	number,number,number,number,number	1	1382
+LG_AddMemberToObj	0815DC80	1:userdata 2:userdata	1	0	number,number	1	275
+LG_ApplyAddLeague	0815D210	1:userdata 2:number 3:string	1	0	number,number,number	1	1620
+LG_ApplyAppendLeagueTask	0815C3B0	1:number 2:string 3:number 4:number 5:number 6:string	1	0	number,number	1	27
+LG_ApplyAppendMemberTask	0815C0A0	1:number 2:string 3:string 4:number 5:number 6:number 7:string	1	0	number,number	1	27
+LG_ApplyDoScript	0815B700	1:number 2:string 3:string 4:number 5:number 6:number 7:string 8:string	1	0	number,number,number,number,number,number	1	2450
+LG_ApplyRemoveLeague	0815CED0	1:number 2:string 3:number 4:string	1	0	number,number,number	1	822
+LG_ApplySetLeagueTask	0815C3D0	1:number 2:string 3:number 4:number 5:number 6:string	1	0	number,number	1	27
+LG_ApplySetMemberTask	0815C0C0	1:number 2:string 3:string 4:number 5:number 6:number 7:string	1	0	number,number	1	27
+LG_CreateLeagueObj	0815D740		0	0	number	1	292
+LG_FreeLeagueObj	0815C670	1:userdata	1	0	number,number	1	162
+LG_GetFirstLeague	0815B640	1:number	1	0	number	1	191
+LG_GetLeagueCreateTime	0815DEF0	1:number 2:string 3:string 4:number	1	0	number,number,number,number,number	1	1075
+LG_GetLeagueInfo	0815C500	1:userdata	1	0	string,number,number,string,number,number	3	180
+LG_GetLeagueObj	0815E020	1:number 2:string 3:string 4:number	1	0	number,number,number	1	771
+LG_GetLeagueObjByRole	0815DE40	1:number 2:string	1	0	number	1	161
+LG_GetLeagueTask	0815E330	1:number 2:string 3:number	1	0	number,number	1	435
+LG_GetMemberCount	0815B5D0	1:userdata	1	0	number,number	1	97
+LG_GetMemberInfo	0815C3F0	1:userdata 2:number	1	0	string,number,string,number	2	265
+LG_GetMemberJoinTime	0815E4F0	1:number 2:string 3:string	1	0	number,number	1	602
+LG_GetMemberObj	0815DAC0	1:userdata 2:userdata	1	0	number,number,number	1	723
+LG_GetMemberTask	0815E120	1:number 2:string 3:string 4:number	1	0	number,number	1	515
+LG_GetNextLeague	0815D870	1:userdata 2:userdata	1	0	number,number,number,number	1	1315
+LG_SetLeagueInfo	0815CB90	1:number 2:string 3:number 4:string 5:string	1	0	number,number,number,number,number,number,number	1	1654
+Ladder_ClearLadder	08159A80	1:number	0	0		0	160
+Ladder_GetLadderInfo	08159BD0	1:number 2:string 3:number 4:number 5:number 6:number	1	0	string,number,number,number	4	827
+Ladder_NewLadder	08159D40	1:number 2:string 3:number 4:number 5:number 6:number	1	0		0	459
+LeaveChannel	08104420	1:number 2:string	1	0		0	133
+LeaveTeam	08121060	?:?	1	1		1	45
+LeftFillString	0812F460	1:string 2:string	1	0	number,number	1	2576
+LeftTrimString	081290B0		0	1	number,number,number	3	387
+LoadMap	081013D0	1:number 2:number	1	0	number	1	293
+LoadScript	08105020	1:number 2:string	1	0	number	1	326
+LoginDelaySync	0810E1B0	1:number	1	1		0	142
+Lottery_CheckPrize	08103220	1:string 2:number	1	0	number,number,number,number,number,number	1	521
+Lottery_DrawCurrentIssue	081033B0	1:string	1	0	number,number	1	121
+Lottery_GenerateItem	0810C680	1:number 2:number 3:number	1	1	number,number,number,number,number,number,number,number,number,number	3	928
+Lottery_GetDesc	08103120	1:string 2:number	1	0	string,string	1	241
+Lottery_GetLatestPrizeInfo	0812B930	1:number 2:number 3:string 4:string 5:number 6:string 7:number	1	1	number,number,table,string,table,number	1	2729
+Lottery_StartNewIssue	08103430	1:string	1	0	number,number	1	121
+Lottery_UpdateIssue	081034B0	1:string	1	0	number,number	1	121
+Lottery_WriteLog	081030A0	1:string 2:string	1	0		0	120
+MSDIdx2PIdx	08137970	1:number 2:number 3:number	1	1	number	1	3000
+MagicAttrib2Str	08127E60	1:number	1	0	string,string	1	123
+MakeDateTime	081038A0	1:number	1	0	number,number	1	533
+MakeEnemy	080FB870		0	0		0	7
+Mantle	08118F70		0	1	number,number	1	105
+Message	08106830	1:string	0	0		0	37
+MoveTongExp	0811ABD0	1:number 2:string 3:string	1	1	number	1	341
+Msg2Faction	08120EC0	1:number 2:string 3:string	1	1		0	461
+Msg2GM	0810F920	1:string 2:number	1	1		0	194
+Msg2IP	081051E0	1:number 2:number 3:number 4:number	1	0		0	1476
+Msg2MSAll	08134280	1:number 2:string 3:number	1	0		0	2920
+Msg2MSGroup	08134C60	1:number 2:number 3:number	1	0	number	1	2862
+Msg2MSPlayer	08133810	1:number 2:string 3:number	1	0		0	2832
+Msg2Map	08105080	1:number 2:string	1	0		0	230
+Msg2Player	081171B0	1:string	1	1		0	116
+Msg2Region	080FB820		0	0		0	7
+Msg2SubWorld	08105170	1:string	1	0		0	97
+Msg2Team	081152C0	1:string	1	1		0	282
+Msg2Tong	08120E00	1:number 2:string	1	0		0	106
+NPCINFO_AddBlueNpc	081C25F0	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:string 9:number	1	1	number,number	1	1018
+NPCINFO_GetLevel	081C0970	1:number 2:number	1	0	number,number,number,number	1	467
+NPCINFO_GetName	081C25E0	1:number	0	0	string,string	1	148
+NPCINFO_GetNpcCurrentLife	081C06B0	1:number	0	0	number	1	114
+NPCINFO_GetNpcCurrentMana	081C0630	1:number	0	0	number	1	114
+NPCINFO_GetNpcCurrentMaxLife	081C07C0	1:number	0	0	number	1	132
+NPCINFO_GetNpcCurrentMaxMana	081C0730	1:number	0	0	number	1	132
+NPCINFO_GetSeries	081C08E0	1:number 2:number	1	0	number,number,number,number,number,number	1	611
+NPCINFO_GetTemplateId	081C0850	1:number 2:number	1	0	number,number,number,number,number,number,number,number	1	755
+NPCINFO_SetMaxLife	081C1070	1:number	0	1		0	141
+NPCINFO_SetMaxMana	081C0FE0	1:number	0	1		0	141
+NPCINFO_SetNpcCurrentLife	081C0070	1:number 2:number	0	0		0	171
+NPCINFO_SetNpcCurrentMana	081BFFC0	1:number 2:number	0	0		0	171
+NPCINFO_SetNpcCurrentMaxLife	081C01C0	1:number 2:number	0	0		0	155
+NPCINFO_SetNpcCurrentMaxMana	081C0120	1:number 2:number	0	0		0	155
+NW_Abdicate	08128000	1:number	1	0	number	1	253
+NW_AwardEmperor	08128060	1:number	1	0		0	157
+NW_CheckText	08126DA0	1:string	1	0	number	1	104
+NW_CloseCongratulation	08127FB0		0	0		0	78
+NW_Dismiss	08126A40	1:string 2:number	1	1	number,number,number,number	0	594
+NW_EmperorHistory	08127180	1:number 2:number	1	1	string,number,string,string,number,number,number,number,number,number	8	1446
+NW_EmperorHistoryCount	08127100	1:number	1	0	number	1	116
+NW_Enthrone	08126860	1:string 2:number	1	1	number,number,number,number,number,number	1	1074
+NW_ForbidChat	08128550	1:string 2:number	1	0		0	230
+NW_GetDuty	081173F0		0	1	number,number	1	584
+NW_GetEmperorName	081000D0		0	0	string	1	32
+NW_GetNationTitle	081000F0		0	0	string	1	32
+NW_GetRemark	080FBEA0		0	0	number,number	2	106
+NW_GetSealInfo	081016F0	1:number	1	0	string,number	1	320
+NW_GetTask	08126D20	1:number	1	0	number	1	117
+NW_InEmperorTong	08117380		0	1	number,number,number	1	696
+NW_Instate	08126B50	1:string 2:number	1	1	number,number	0	322
+NW_IsEmperor	081175D0		0	1	number	1	104
+NW_Levy	08128640	1:number 2:number	1	0		0	231
+NW_OpenCongratulation	08128100	1:string 2:number	1	0		0	237
+NW_OwnSeal	08126C50	1:string	1	0		0	66
+NW_RemarkEmperor	081284A0	1:string 2:number	1	0		0	406
+NW_SetNationTitle	081281F0	1:string	0	1	number,number	1	264
+NW_SetTask	08126CA0	1:number 2:number	1	0		0	126
+NewItemEx	081205C0	1:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	2099
+NewWorld	0811B690	1:number 2:number 3:number	1	1	number	1	681
+NextTask	08174D40	1:string 2:number 3:number	1	1	string,nil,nil,string,nil,nil,number,nil,number,string,nil,number,number	2	1570
+NoChoice	081170B0		0	1		0	69
+NotifyArenaResult	08122800	1:number 2:number	1	0		0	180
+NotifyWarResult	08122940	1:number 2:number	1	0		0	188
+NpcCastSkill	0812B3A0	1:number 2:number 3:number 4:number 5:number	1	1	number,number	1	1050
+NpcChat	0812E5A0	1:number 2:string 3:number	1	0		1	1330
+NpcDialog	081744B0	?:?	1	1	number,number,number,number,number,number	1	115
+NpcDropMoney	0811D9C0	1:number 2:number 3:number	0	0		0	223
+NpcIdx2PIdx	081058B0	1:string 2:number 3:number 4:number 5:? ?:number	1	0	number,number	1	889
+NpcName2Replace	081006D0	1:string	0	0	string,string	1	99
+NpcNewWorld	0811B590	1:number 2:number 3:number 4:number	1	0	number	1	242
+NpcSetHide	08101C10	1:number 2:number	1	0	number,number	1	270
+NpcWalk	08118E50	1:number 2:number 3:number	1	0	number,number	1	276
+NumOfSignUpTongs	080FDEF0	1:number	1	0	number	1	244
+Number2Int	080FE900	1:number	0	0	number	1	80
+Number2UInt	080FE8A0	1:number	0	0	number	1	85
+OB_Append	080FF710	1:number 2:number	1	0	number,number,string	1	1056
+OB_Clear	080FC360	1:number	1	0		0	161
+OB_Copy	080FF870	1:number 2:number	1	0	number,string	1	704
+OB_Create	08130230		0	0	number,number	1	491
+OB_IsEmpty	080FC280	1:number	1	0	number,number	1	210
+OB_PopByte	08128E30	1:number	1	0	nil,number	1	246
+OB_PopDouble	08100220	1:number	1	0	nil,number	1	243
+OB_PopInt	08128D30	1:number	1	0	nil,number	1	245
+OB_PopString	08100320	1:number 2:number	1	0	nil,string,number,nil	1	506
+OB_PushByte	0812F2D0	1:number 2:string	1	0	number,number,number,number,number	1	2534
+OB_PushDouble	0812F150	1:number 2:string	1	0	number,number,number,number,number,number,number,number	1	2288
+OB_PushInt	0812EFC0	1:number 2:string	1	0	number,number,number,number,number,number,number,number,number	1	2097
+OB_PushString	08130B90	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:number	1	1	number,number,number	1	2414
+OB_Release	08130440	1:number	1	1	number,number,number,number,number	1	810
+ObjName2Relace	08100660	1:string	0	0	string,string	1	99
+OfflineLive	08103020	1:string 2:string	1	0		0	248
+OpenAllTask	081137C0		0	1		0	104
+OpenBox	081299F0		0	1		0	370
+OpenCardBack	080FB810		0	0		0	7
+OpenCityManageUI	08115A40	1:number	1	1	number	1	608
+OpenCreateTask	081139E0		0	1		0	74
+OpenDice	081148A0	1:number	1	1		0	389
+OpenGlbMission	08131890	1:number	1	0		0	3041
+OpenHelp	08116490	1:number	1	1		0	200
+OpenMission	081332F0	1:number 2:number 3:number	1	0		0	2944
+OpenOwnTask	08113730		0	1		0	135
+OpenProgressBar	081082D0	1:string 2:number 3:number 4:number 5:string 6:string 7:string	1	1	number,nil,number	1	692
+OpenStoreBox	0810EE70	1:number 2:number	1	1		0	529
+OpenStores	08122AD0		0	1		0	41
+OpenSubmitAuction	081135C0		0	1		0	74
+OpenTongCamp	08114470		0	1		0	127
+OpenTongZhaoMu	0811AF70		0	1		0	168
+OpenWatchGameInputDlg	081C1890	1:number	1	1		0	146
+OutputMonsterPos	08128730	1:number 2:number	1	1	number,number,nil,number	1	1781
+PARTNER_AddDefenceAptitude	0816EAE0	1:number 2:number	1	1	number,number,number,number,number,number,number,number,table,number,number,table,number,number,number,number,number	2	2164
+PARTNER_AddEmotionDegree	0816CDD0	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	2172
+PARTNER_AddExp	0816DE60	1:number 2:number	1	1	number,number,number,number,number,number,number,number,number,number,number	5	930
+PARTNER_AddFightPartner	0816C400	1:number 2:number 3:number 4:number 5:number 6:number 7:number 8:number 9:number	1	1	number,number,number,string,string	1	908
+PARTNER_AddHitTargetRateAptitude	0816EC00	1:number 2:number	1	1	number,number,number,number,number,number,table,number,number,table,number,number,number,number,number,number	2	2148
+PARTNER_AddLifeAptitude	0816EE40	1:number 2:number	1	1	number,number,table,number,number,table,number,number,number,number,number,number,number,number,number,number	2	2118
+PARTNER_AddLuckAptitude	0816E8A0	1:number 2:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,table,number,number	1	2173
+PARTNER_AddSkill	0816D9D0	1:number 2:number 3:number 4:number 5:number	1	1	number,number,number,number,number	1	707
+PARTNER_AddSpeedAptitude	0816E9C0	1:number 2:number	1	1	number,number,number,number,number,number,number,number,number,number,table,number,number,table,number,number,number	1	2179
+PARTNER_AddState	0816D240	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number	1	1036
+PARTNER_AddStrengthAptitude	0816ED20	1:number 2:number	1	1	number,number,number,number,table,number,number,table,number,number,number,number,number,number,number,number	2	2135
+PARTNER_CallOutCurPartner	0816C160	1:number	1	1	number,number,number	1	220
+PARTNER_ChangeCharacter	0816F370	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number	1	1794
+PARTNER_ChangeFeature	0816E710	1:number 2:number	1	1	number,number	1	394
+PARTNER_ChangeFeatureOfPeriod	0816E570	1:number 2:number	1	1	number,number	1	412
+PARTNER_Count	0816BF50		0	1	number,number	1	115
+PARTNER_GetAllSkill	0816EF60	1:number 2:number	1	1	table,number,number,table,number,number,number,number,number,number,number,number,number,number,number,number,number,number	2	2101
+PARTNER_GetAptitudes	0816E450	1:number 2:number	1	1	number,number,number,number,number,number,number,number,number	1	700
+PARTNER_GetAttribs	0816E330	1:number 2:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	988
+PARTNER_GetAttribsInc	0816E210	1:number 2:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1276
+PARTNER_GetBirthday	0816F480	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number,number,number,number	1	1522
+PARTNER_GetCharacter	0816F560	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number,number,number	1	1298
+PARTNER_GetCurPartner	0816BFD0		0	1	number,number,number	2	140
+PARTNER_GetEmotionDegree	0816C940	1:number	1	1	number,number	1	202
+PARTNER_GetEndure	0816C790	1:number	1	1	number,number	1	216
+PARTNER_GetEssentialFeatureID	0816DBC0	1:number	1	1	number,number	1	211
+PARTNER_GetExp	0816DFD0	1:number	1	1	number,number,number,number,number,number,number,number	5	562
+PARTNER_GetGenData	0816F640	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number	1	1074
+PARTNER_GetLevel	0816DD80	1:number	1	1	number,number	1	211
+PARTNER_GetName	0816C6C0	1:number	1	1	string,string	1	204
+PARTNER_GetResists	0816E0A0	1:number	1	1	number,number,number,number,number,number	5	354
+PARTNER_GetSeries	0816DCA0	1:number	1	1	number,number	1	211
+PARTNER_GetSettingIdx	0816C870	1:number	1	1	number,number	1	205
+PARTNER_GetSkillInfo	0816F1F0	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number,number	2	2022
+PARTNER_GetTaskValue	0816CBA0	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number	1	2164
+PARTNER_LevelUp	0816CA10	1:number 2:string 3:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number,number	1	2040
+PARTNER_ReGenAttribsInc	0816D900	1:number 2:number 3:number 4:number 5:number	1	1	number,number,number,number,number,number,number	1	915
+PARTNER_RemoveAllSkill	0816D650	1:number 2:number 3:number 4:number 5:number	1	1	number,number,number,number,number,number,number,number,number	1	1603
+PARTNER_RemovePartner	0816C320	1:number	1	1	number,number,number	1	212
+PARTNER_RemoveSkill	0816FE40	1:number 2:number 3:number	1	1	number,number,number	1	543
+PARTNER_SetAttribs	0816FA80	1:number 2:number 3:number 4:number 5:number 6:number 7:number	1	1	number,number	1	947
+PARTNER_SetCallOutSwitch	0816C060	1:number	1	1	number,number,number,number,number	1	476
+PARTNER_SetCurPartner	0816C240	1:number	1	1	number,number,number,number,number,number	1	436
+PARTNER_SetEmotionDegree	0816CF60	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number,number,number,number	1	1772
+PARTNER_SetName	0816D0F0	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number,number	1	1372
+PARTNER_SetResists	0816F870	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number	1	514
+PARTNER_SetStandbySkill	0816F710	1:number 2:number 3:number 4:number 5:number 6:number	1	1	number,number,number,number,number,number	1	866
+PARTNER_SetTaskValue	0816D4C0	1:number 2:number 3:number	1	1	number,number,number	1	396
+PET_AddAttrib	081D6950	1:number 2:number	1	1		0	203
+PET_AddUpgradePoint	081D7040	1:number	1	1		0	149
+PET_ClearAttrib	081D6D20		0	1		0	57
+PET_ClearSkill	081D6CE0		0	1		0	57
+PET_Create	081D6F00	1:number 2:string	1	1		0	191
+PET_Delete	081D6D60		0	1		0	87
+PET_GetAttrib	081D64F0	1:number	1	1	number	1	146
+PET_GetDex	081D6430		0	1	number	1	96
+PET_GetEng	081D6370		0	1	number	1	96
+PET_GetFeatureId	081D61C0		0	1	number,number	1	98
+PET_GetGrownPoint	081D5FE0		0	1	number	1	74
+PET_GetLevel	081D60E0		0	1	number,number	1	98
+PET_GetLife	081D6310		0	1	number	1	96
+PET_GetMana	081D62B0		0	1	number	1	96
+PET_GetName	081D7180		0	1	string	1	74
+PET_GetSkill	081D6B80		1	1	number	1	146
+PET_GetStr	081D6490		0	1	number	1	96
+PET_GetTamePoint	081D5F90		0	1	number	1	74
+PET_GetUpgradePoint	081D6150		0	1	number,number	1	98
+PET_GetVit	081D63D0		0	1	number	1	96
+PET_IsCreate	081D6080		0	1	number	1	88
+PET_IsSummon	081D6030		0	1	number	1	74
+PET_SetAttrib	081D6A20	1:number 2:number	1	1		0	183
+PET_SetDex	081D6810	1:number	1	1		0	155
+PET_SetEng	081D66D0	1:number	1	1		0	155
+PET_SetFeatureId	081D6E60	1:number	1	1		0	147
+PET_SetGrownPoint	081D6230	1:number	1	1		0	124
+PET_SetLevel	081D6DC0	1:number	1	1		0	147
+PET_SetLife	081D6630	1:number	1	1		0	155
+PET_SetMana	081D6590	1:number	1	1		0	155
+PET_SetName	081D6FC0	1:string	1	1		0	122
+PET_SetSkill	081D6C20	2:number	1	1		0	183
+PET_SetStr	081D68B0	1:number	1	1		0	155
+PET_SetTamePoint	081D5F10	1:number	1	1		0	124
+PET_SetUpgradePoint	081D70E0	1:number	1	1		0	149
+PET_SetVit	081D6770	1:number	1	1		0	155
+PET_Summon	081D6B30		0	1		1	65
+PET_UnSummon	081D6AE0		0	1		1	65
+PIdx2MSDIdx	08136D90	1:number 2:number 3:number	1	1	number	1	3004
+PIdx2NpcIdx	080FD630	1:number	0	0	number,number	1	141
+Pay	08118A90	1:number	0	1	number,number,number	1	374
+PayCoin	08118720	1:number	1	1	number,number,number	1	213
+PayExtPoint	0810FCA0	1:number 2:number	1	1	number	1	184
+PayRetScoreForGoldCoin	08118620	1:number	1	1	number,number,number,number	1	469
+PlayMusic	0810E8E0	1:string	1	1		0	187
+PopString	080FFB00		0	0	string	1	48
+PreApplyDungeonMap	08126FE0	1:number 2:number 3:number	1	0	number	1	286
+PrePay	08118870	1:number	0	1	number,number,number	1	248
+PreviewPlatinaFromGold	0811E8C0	1:number	1	0	table,number,nil	6	443
+PreviewPlatinaUpgrade	0811E6F0	1:number	1	0	table,number,nil	6	459
+PrintLuaStack	08104240	1:number 2:number	1	0	number,number	1	470
+Prise	08124950	1:number 2:number ?:string	1	1	number	0	1732
+PushString	0812FDA0	1:string 2:string 3:string	1	1	number,number,number,number	1	1659
+PutMessage	08116F80	1:number	1	1		0	373
+QueryAuctionItemInfo	08113500		0	1		0	183
+QueryMapTrap	081028C0	1:number 2:number 3:number	1	0	number,number,nil	2	364
+QueryRoleName	0810AA50	1:string	1	1	number,number,number	1	330
+QueryTongName	0810A1A0	1:number 2:number 3:number 4:number	1	1	number,number,number,number	1	897
+QueryWiseMan	08113830	1:string 2:string 3:number	1	1		0	506
+QueryWiseManForSB	0811A270	1:string 2:string 3:number 4:string	1	1		0	578
+ReduceArenaCredits	08107E40	1:number	1	1	number,number,number,number,number,number,number	1	613
+ReduceEnergy	08107C00	1:number	1	1	number,number,number,number,number,number,number	1	565
+ReduceOwnExp	08112630	1:number	1	1		0	136
+ReduceRespect	0812CFE0	1:number	1	1	number,number,number	1	714
+ReloadSkill	08104C40		0	0		0	55
+RemoteExecute	08100740	1:number 2:string 3:number 4:string 5:number	1	0	number,number,number,number	1	1201
+RemoveAllPlayerEvent	0810C3E0		0	1	number	1	87
+RemoveItemByIndex	08114F80	1:number	1	1	number	1	206
+RemoveNpcSkillState	08105700	1:number 2:number	1	0		0	164
+RemoveOpenCardUiItem	080FB800		0	0		0	7
+RemovePlayerEvent	0810C440	1:number	1	1	number,number	1	194
+RemoveSkillState	08110140	1:number	1	1		0	142
+RenameRole	0810A9C0	1:string	1	1	number,number,number,number	1	474
+RenameTong	0810A010	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number	1	1297
+Repair_Open	08116460		1	1		0	38
+ReplaceString	0812EB20	1:string 2:string	1	1	number,number	1	705
+RestoreCamp	0811B0E0		0	1		0	62
+RestoreLife	08112480		0	1		0	79
+RestoreMana	08112430		0	1		0	79
+RestoreNpcFeature	081035C0	1:number	1	0		0	109
+RestoreOwnFeature	0810CB20		0	1		1	77
+RestoreStamina	081123E0		0	1		0	66
+ResumeTimer	08100B60	1:number	1	0	number,number	1	145
+ReturnDungenonMap	08126E10	1:number 2:number	1	0	number,number	1	172
+ReturnFromPortal	081178C0		0	1		0	55
+RevID2WXY	08114790	1:number 2:number	1	1	number,number,number	3	268
+RevivalAllNpc	08107130		0	0		0	45
+RightFillString	0812E080	1:number 2:string	1	0		0	335
+RollItem	081C16D0	1:number	1	1		0	447
+RollbackSkill	0811C640	1:number	1	1	number,number,number,number	1	402
+RunGlbMission	08132380	1:number	1	0		0	3017
+RunMission	08132E50	1:number 2:string 3:number	1	0		0	3102
+STAT_CleanGoodsSaleNum	08177050		0	0	number	1	101
+STAT_GetGoodsCount	08176B10		0	0	number	1	34
+STAT_GetGoodsName	08176D50	1:number	1	0	string,string	1	171
+STAT_GetGoodsSaleNum	081770C0		0	0	number	1	99
+STAT_SearchGoodsSaledItem	08176B40	1:number 2:number 3:number	1	0	number,string,number,number,string,number,string,string	3	699
+ST_CheckLockState	081C1490	1:number	1	1	number,number,string,number,number,number	2	1023
+ST_CheckTextFilter	081C2AD0	1:string 2:number 3:number	1	0	number,number,number,number,number,number,number,string,number,number	3	1512
+ST_DoTransLife	081C2990		0	1	number	1	90
+ST_GetDamageCounter	081C1330		0	1	number	1	79
+ST_GetOffliveState	081C29F0		0	1	number,number	1	105
+ST_GetTransLifeCount	081C1100		0	1	number	1	81
+ST_IncreaseDamageCounter	081C1380	1:number	0	1		0	123
+ST_IsTransLife	081C1160		0	1	number	1	87
+ST_LevelUp	081C2A60	1:number	0	1		0	106
+ST_SetPlayerGameTime	081C1240	1:number	0	1		0	100
+ST_SetTransLifeCount	081C2900	1:number	1	1	number	1	234
+ST_StartDamageCounter	081C12F0		0	1		0	64
+ST_StopDamageCounter	081C12B0		0	1		0	64
+ST_SyncMiniMapObj	081C1930	1:number 2:number	1	1		0	209
+ST_UseCurCampTeam	081C11C0	1:number	0	1		0	114
+Sale	08122D00	1:string 2:number 3:number 4:string 5:string	1	1	number	1	1223
+SaveMaskFeature	08115140	1:string 2:number	1	1	number	0	666
+SaveNow	08111ED0		0	1		0	48
+SaveQuickly	08111F00		0	1		0	48
+SaveSDB2Relay	08105960	1:string 2:number 3:number 4:number 5:? ?:number	1	0	number	0	713
+Say	08123C90	1:string 2:number 3:? ?:string	1	1	number,number	0	2643
+SearchPlayer	081020A0	1:string	1	0	number,number	1	113
+SearchPlayerByNameID	08102120	1:number	1	0	number,number	1	137
+SelectTaskAward	08174530	1:number 2:number 3:number	1	1	nil,number,number,number,number,number,number,number,number,number,string,nil	1	2067
+SelectTaskFinish	081745E0	1:number 2:number 3:number	1	1	nil,number,number,number,number,number,number,number,number,number,string,nil,string	1	2034
+SelectTaskStart	08174690	1:number 2:number 3:number	1	1	nil,number,number,number,number,number,number,number,number,number,string,nil,string,nil,nil	1	2004
+SendScriptData	0810B220	1:number 2:number	1	1	number,number,number	1	387
+SendSpreaderCDKey	081C24E0	1:string	1	1	number,number	1	256
+SendTaskOrder	08117100	1:string	1	1		1	161
+Set120SkillID	08114B90	1:number	1	1	number,number,number	1	210
+SetAForbitSkill	08121580	1:number 2:number	1	1		0	150
+SetArenaCredits	0812B6D0	1:number	1	1	number,number	1	234
+SetAutoHangFreeFlag	080FE110	1:number 2:number	1	0	number,number	1	186
+SetAutoHangMapFlag	08126690	1:number	1	1	number,number,number	1	242
+SetBit	080FEAC0	1:number 2:number 3:number	0	0	number,number	1	355
+SetBitTask	08108F10	1:number 2:number 3:number 4:number	1	1	number,number	1	646
+SetByte	080FE950	1:number 2:number 3:number	0	0	number	1	206
+SetCamp	0811B2E0	1:number	0	1		0	131
+SetChatFlag	08111460	1:number	1	1		0	139
+SetColdR	08113B20	1:number	0	1	nil,number,number,number	1	314
+SetCouldDisbandTong	081BFED0	1:number	1	0		0	76
+SetCouldKickTong	081BFF20	1:number	1	0		0	76
+SetCouldQuitTong	081BFF70	1:number	1	0		0	76
+SetCreateTeam	08120FC0	1:number	0	1		0	205
+SetCumulateOffer	08113E80	1:number	1	1	number,number	1	154
+SetCurCamp	0811B1D0	1:number	0	1		0	131
+SetCurDurability	0810F090	1:number 2:number	1	1		0	215
+SetDeathPunish_PK10	08110680	1:number	0	1		0	114
+SetDeathReliveFlag	08110600	1:number	0	1		0	121
+SetDeathScript	08110700	1:string	0	1		0	136
+SetDeathType	08110580	1:number	0	1		0	114
+SetDebugOut	080FD140	1:number	1	0		0	95
+SetDelDupedAllInOne	08101F40	1:number	1	0	number,number	1	177
+SetDelayCatchTime	0814E880	1:number	1	0	number,number	1	121
+SetDisabledFuncFlag	08126790	1:number	1	1	number,number,number	1	202
+SetDupedDealLevel	08102000	1:string	1	0	number,number,number	1	273
+SetEnergy	08107B30	1:number	1	1	number,number	1	205
+SetEquipWishValue	080FCC20	1:number 2:number	1	0	number,number	1	339
+SetFaction	0811A540	1:string	0	1	number,string,string	1	271
+SetFightState	08117A10	1:number	0	1		0	419
+SetFireR	08112F40	1:number 2:number	0	1		0	339
+SetFusionIsSmelted	0810A610	1:string 2:number 3:number	1	1	number,table,number,number,number,number,number,number,number,number	1	1418
+SetFusionMagicSeed	0810A530	1:string 2:number 3:number	1	1	number,number,table,number,number,number,number,number,number,number,number	1	1642
+SetGlbMissionV	080FD740	1:number 2:number	1	0		0	167
+SetGlbValue	080FE2F0	1:number 2:number	1	0		0	153
+SetGlobalTradeFlag	08108760	1:number	1	1		0	204
+SetHide	0810AD80	1:number	1	1		0	164
+SetHighLightPos	0810DFA0	1:number 2:number 3:number 4:string 5:number	1	1		0	670
+SetImmedSkill	08114C70	1:number 2:number	1	1		0	279
+SetIsCheckNpcBarrier	08118C40	1:number	0	0		0	72
+SetItemBindState	08127630	1:number 2:number	1	1	number	1	246
+SetItemExchangeValue	08101B20	1:number 2:number	1	0	number,number	1	510
+SetItemFortuneValue	08101A30	1:number 2:number	1	0	number,number	1	750
+SetItemMagicLevel	080FD020	1:number 2:number 3:number	1	0		0	383
+SetItemNewFeature	080FDBC0	1:number 2:number	1	0		0	183
+SetItemStackCount	0810D9A0	1:number 2:number 3:number 4:string 5:number	1	1	number,number,number,number,number,number	1	2206
+SetJoinTongTime	08121180	1:number	1	1		0	137
+SetLastBreakTime	080FCB50	1:number 2:number	1	0	number,number,number	1	547
+SetLastFactionNumber	0810E4B0	1:number	1	1		0	126
+SetLastLogoutTime	0810B7E0	1:number	1	1		0	135
+SetLastOfflineTime	0810B8E0	1:number	1	1		0	135
+SetLightR	08112C90	1:number 2:number	0	1	nil	0	363
+SetLogoutRV	08110500	1:number	0	1		0	125
+SetLucky	08111B00	1:number	1	1		0	117
+SetMangonelParam	081217E0	1:number 2:number 3:number 4:number	1	0		0	249
+SetMapParam	080FE480	1:number 2:number 3:number	1	0	number,number	1	418
+SetMapType	080FE630	1:number 2:number	1	0	number	1	203
+SetMaxDurability	0810F1F0	1:number 2:number	1	1		0	217
+SetMaxResist	08108CD0	1:number 2:number 3:number 4:number	1	1	number,number,number,number	1	1222
+SetMissionS	08107220	1:number 2:string	1	0		0	207
+SetMissionV	08107390	1:number 2:number	1	0		0	207
+SetMissleStep	080FDB70	1:number	0	0		0	74
+SetMoveSpeed	081216C0	1:number 2:number 3:number 4:number	1	1		0	537
+SetNpcAI	08103F40	1:number 2:number ?:number	1	0	number,number,number,number,number	1	1238
+SetNpcActiveRegion	08104110	1:number 2:number	1	0	number,number,number,number,number	1	774
+SetNpcAuraSkill	081057B0	1:number 2:number 3:number	0	0	number	1	245
+SetNpcCurCamp	0811B120	1:number 2:number	0	0		0	161
+SetNpcCurLife	080FC060	1:number 2:number	1	0		0	105
+SetNpcDeathScript	08101500	1:number 2:string 3:number	1	0	number,number,number,string,number	1	816
+SetNpcExpRate	081C0AE0	1:number	1	0	number	0	99
+SetNpcFightState	08117940	1:number 2:number	1	0		0	201
+SetNpcKind	08103DA0	1:number 2:number	1	0	number,number	1	415
+SetNpcParam	081C0260	1:number 2:number 3:number	1	0	table	1	570
+SetNpcPos	0811B830	1:number 2:number 3:number	1	0		0	265
+SetNpcScript	08101500	1:number 2:string 3:number	1	0	number,number,number,string,number	1	816
+SetNpcTimer	080FC180	1:number 2:number	1	0	number,number,number	1	466
+SetOnlineCommissionStatus	08109230	1:number 2:number	1	1		0	403
+SetPK	08110420	1:number	1	1		0	128
+SetPKFlag	0810F610	1:number	1	1		0	132
+SetPMParam	0812AFA0	1:number 2:number 3:number 4:number 5:number	1	1	number,number	1	2074
+SetPartnerBagLevel	0811A7B0	1:number 2:number	1	1	number,number,number,number,number,number	1	521
+SetPhyR	08112750	1:number 2:number	0	1		0	339
+SetPkReduceState	08109570	1:string 2:string 3:number 4:number	1	1		0	2230
+SetPlatinaMagicIndex	080FC710	1:number 2:number 3:number	1	0	number	1	360
+SetPlayerEnteringTrap	081112F0	1:number	0	1		0	118
+SetPlayerFlag	0810B5D0	1:number 2:number	1	1	number,number	1	386
+SetPlayerFortuneRank	0810ABA0	1:number	1	1	number	1	193
+SetPlayerLog	08111250	1:number	0	1		0	156
+SetPoisonCount	0810AEC0	1:number	0	1		0	134
+SetPoisonR	081129F0	1:number 2:number	0	1		0	339
+SetPos	0811B940	1:number 2:number	1	1		0	327
+SetPotionCount	0810AEC0	1:number	0	1		0	134
+SetProgressBarEvent	080FC4D0	1:number 2:number	1	0	number	1	182
+SetPropState	081069B0	1:number	1	0		0	130
+SetProtectTime	0810E3E0	1:number	1	1		0	126
+SetPunish	0810F470	1:number	1	1	number	1	280
+SetRandSeed	0811DC00	1:number 2:number 3:number 4:number	1	1	number,number,number,number,number,number,number,number	1	1494
+SetRank	081109E0	1:number	0	1		0	137
+SetRefuseLogin	0814EB00	1:number	1	1	number,number,number	1	194
+SetRelaxTime	08110FC0	1:number	0	1		0	118
+SetRespect	081080B0	1:number	1	1	number,number	1	234
+SetRevPos	0811B370	1:number 2:number	1	1	number,number	1	350
+SetSeries	0811A0C0	1:number	0	1		0	122
+SetSex	08116560	1:number	1	1		0	144
+SetSiegeVoitureParam	081218E0	1:number 2:number	1	1		0	443
+SetSignCodeSyncTime	0814E900	1:number	1	0	number,number	1	129
+SetSkillLevel	0812C430	1:number 2:number	1	1	string,number	1	2274
+SetSkillMaxLevelAddons	08108B70	1:number	1	1		0	137
+SetSpecItemParam	080FF360	1:number 2:number 3:number	1	0	number,number,number,number,number	1	1879
+SetStatData	080FF480	1:number 2:number	1	0	number,number,string	1	1712
+SetStoneLevelOnEquip	080FC880	1:number 2:number 3:number	1	0	number,number,number,number	0	714
+SetStringTask	081165F0	1:number 2:string	0	1	string,nil	1	396
+SetSwitch	08102F80	1:string 2:number	1	0		0	146
+SetTask	08116780	1:number 2:number	0	1		0	272
+SetTaskStatus	08174B70	1:string 2:number 3:number	1	1	number,number,string,nil,string,nil,nil,string,nil,nil,number,nil,number,string,nil,number	1	2001
+SetTaskTemp	08123950	?:number	1	0		0	195
+SetTempRevPos	08110790	1:number 2:number 3:number	1	1	number	1	584
+SetTimer	08122A30	1:number 2:number	1	1		0	157
+SetTireTime	08111040	1:number	0	1		0	118
+SetTmpCamp	0810BA50	1:number 2:number	1	1	number,number,number,number	1	466
+SetTmpValue	081749F0	1:string 2:string 3:number	1	1	number,number,number,number,string,nil,string,nil,nil,string,nil,nil,number,nil,number	1	1978
+SetTongMTask	08128A20	1:number 2:number	1	1	number,number,nil,number	1	1029
+SetTongWeek	08113CD0	1:number	1	1	number,number	1	154
+SetTotalOffer	08114030	1:number	1	1	number,number	1	154
+SetUiGiveItemMoreConfirmMsg	0810AF50	1:string	1	1		0	206
+SetUiGiveItemMsg	0810B020	1:string	1	1		0	206
+SetWeekGoalOffer	0811A650	1:number	1	1	number,number	1	170
+SetWeeklyOffer	081141E0	1:number	1	1	number,number	1	154
+SetWorldName	0812B7C0	1:number 2:string	1	0	number,number	1	359
+ShowLadder	081101D0	1:number ?:number	1	1		0	304
+SmeltEquip	0810A8D0	1:string 2:number 3:number	1	1	number,number,number,number,number	1	714
+SmeltItem	08116D50	1:number	1	1		0	327
+StackExp	08108980	1:number 2:number	1	1	number,number,number,number	1	490
+StarLevelUp	0810A430	1:number 2:number	1	1	number	1	241
+StartBotDeleteAccount	0814EBD0	1:number	1	0		0	84
+StartBotPunish	0814EC30	1:number	1	0		0	84
+StartGlbMSTimer	08138340	1:number 2:number 3:number	1	0		0	2654
+StartMissionTimer	08138840	1:number 2:number 3:number	1	0		0	1374
+StartPoisonCounter	0810B1E0		0	1		0	64
+StartPotionCounter	0810B1E0		0	1		0	64
+StartTask	081748E0	1:string 2:string 3:number	1	1	number,number,number,number,number,number,string,nil,string,nil,nil,string,nil,nil,number	1	1980
+StopGlbMSTimer	08133D80	1:number 2:number	1	0		0	2917
+StopMissionTimer	08134720	1:number 2:number 3:number	1	0		0	2895
+StopNpcAction	08118DD0	1:number	1	0		1	128
+StopPoisonCounter	0810AE30		0	1		0	64
+StopPotionCounter	0810AE30		0	1		0	64
+StopTimer	08122A00		0	1		0	45
+String2Id	08104BD0	1:string	1	0	number	1	167
+SubWorldID2Idx	08102580	1:number	1	0	number	1	115
+SubWorldIdx2ID	081077D0	1:number ?:?	1	1	number,number	1	626
+SubWorldIdx2MapCopy	08107740	1:number ?:?	1	1	number,number,number	1	770
+SubWorldName	08174390	1:number	1	0	nil,string,number	1	286
+SuspendTimer	08100C00	1:number	1	0	number,number	1	145
+SwearBrother	0812C860	1:string 2:string	1	0	number	1	1384
+SyncBiaoCheDeathInfoToRelay	08104C80	1:number	1	0	number,number	1	184
+SyncCitySummary	081160A0	?:number	1	1	number,number,nil,number,number	1	953
+SyncClothesItemPreView	0811EA80		0	1	number,number	1	133
+SyncIsCheckNpcBarrier	08118C10		0	1		0	41
+SyncItem	08114EF0	1:number	1	1		0	142
+SyncNpc	08103ED0	1:number	1	0		0	111
+SyncTaskValue	0810E350	1:number	1	1		0	141
+SyncTaskValueMore	0810E240	1:number 2:number 3:number	1	1	number	1	413
+SyncWorkshopList	0811AD90		0	1		0	50
+TM_GetRestCount	081C21A0	1:string 2:number 3:number 4:number	1	1	number,nil,number,nil,number,number,number	1	1088
+TM_GetRestTime	081C2260	1:string 2:number 3:number 4:number	1	1	number,nil,number,number,number	1	896
+TM_GetTimerCount	081C2130		1	1	number	1	105
+TM_HasTimer	081C1E30	1:number	1	1	number,number,number,number,number,number,number,number,number	1	873
+TM_IsTimerSuspending	081C1EF0	1:number	1	1	number,number,number,number,number,number,number	1	681
+TM_ResumeTimer	081C1FB0	1:number	1	1	number,number,number,number,number	1	489
+TM_SetTimer	081C23C0	1:string 2:number 3:number 4:number	1	1	number,number,number	1	544
+TM_StopTimer	081C2330	1:string 2:number 3:number 4:number	1	1	number,number,number	1	688
+TM_SuspendTimer	081C2070	1:number	1	1	number,number,number	1	297
+TONGM_ApplyAddOffer	08198720	3:number	0	0	number,number	1	219
+TONGM_ApplyAddOfferEx	081909D0	2:number 3:number	0	0	number,number	1	210
+TONGM_ApplyAddRight	08198600	3:number	0	0	number,number,number,number	1	507
+TONGM_ApplyAddTaskValue	081989A0	3:number 4:number	0	0	number,number	1	251
+TONGM_ApplyAddUTaskValue	081988A0	3:number 4:number	0	0	number,number	1	251
+TONGM_ApplyDelRight	081984E0	3:number	0	0	number,number,number,number,number,number	1	795
+TONGM_ApplySetLWeekGoalOffer	08199740	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1633
+TONGM_ApplySetLWeeklyOffer	08199B20	3:number	0	0	number,number,number,number,number,number,number,number	1	641
+TONGM_ApplySetLastOnlineDate	08199360	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1922
+TONGM_ApplySetRetireDate	08198F80	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1922
+TONGM_ApplySetTaskValue	08198AA0	3:number 4:number	0	0	number,number	1	251
+TONGM_CheckRight	081983B0	3:number	0	0	number,number	1	299
+TONGM_GetFigure	08199EC0	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1821
+TONGM_GetJoinDay	0819A520	1:string	1	0	number,number,number,number,number,number,string,number,number	3	1641
+TONGM_GetJoinTime	0819A660	1:string	1	0	number,number,string,number,number	3	1321
+TONGM_GetLWeekGoalOffer	081998C0	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1249
+TONGM_GetLWeeklyOffer	08199CA0		0	0	number,number,number,number	1	257
+TONGM_GetLastOnlineDate	081994E0	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1923
+TONGM_GetMoney	0819A3E0	1:string	1	0	number,number,number,number,number,number,number,number,number,number,string,number,number	3	1804
+TONGM_GetName	08198D60		0	0	string,string	1	83
+TONGM_GetOffer	08198800	3:number 4:number	0	0	number,number,number,number	1	411
+TONGM_GetOnline	08199DB0		0	0	number,number	1	97
+TONGM_GetRetireDate	08199100	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1923
+TONGM_GetSex	0819A000	3:number	1	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1817
+TONGM_GetTaskValue	08198C80	3:number	0	0	number,number	1	219
+TONGM_GetUTaskValue	08198BA0	3:number	0	0	number,number	1	219
+TONGM_IsExist	08198350		0	0	number,number	1	81
+TONG_AddTaskTemp	0818B280	2:number 3:number	0	0	number,number	1	194
+TONG_ApplyAddBuildFund	08194650	2:number	0	0	number,number	1	178
+TONG_ApplyAddDay	081959D0	2:number	0	0	number,number	1	178
+TONG_ApplyAddEventRecord	0818BFE0	2:number 3:number	1	0	number,number,number,number,number,number,number,number	1	1006
+TONG_ApplyAddHistoryRecord	0818C090	2:number 3:number	1	0	number,number,number,number,number,number	1	830
+TONG_ApplyAddLWeekGoalValue	08195010	2:number	0	0	number,number	1	178
+TONG_ApplyAddMoney	0818BE50	2:number	0	0	number,number	1	390
+TONG_ApplyAddPerStandFund	08193150	2:number	0	0	number,number	1	178
+TONG_ApplyAddStoredBuildFund	08195A90	2:number	0	0	number,number	1	178
+TONG_ApplyAddStoredOffer	08195C10	2:number	0	0	number,number	1	178
+TONG_ApplyAddTaskValue	08196450	1:number 2:number 3:number	1	0	number,number,number,number,number,number,number,number	1	1841
+TONG_ApplyAddTotalBuildFund	08194B90	2:number	0	0	number,number	1	178
+TONG_ApplyAddUTaskValue	0818AD50	1:number 2:number 3:number	1	0	number,number,number,number,number,number	1	706
+TONG_ApplyAddWarBuildFund	08194410	2:number	0	0	number,number	1	178
+TONG_ApplyAddWeek	08195910	2:number	0	0	number,number	1	178
+TONG_ApplyAddWeekBuildFund	08194D10	2:number	0	0	number,number	1	178
+TONG_ApplyAddWeekGoalValue	08195550	2:number	0	0	number,number	1	178
+TONG_ApplyCreatMap	081905C0	2:number	0	0	number,number	1	170
+TONG_ApplyDegrade	0818FCC0		0	0	number,number,number,number	1	498
+TONG_ApplyDeleteMap	08190720		0	0	number,number	1	114
+TONG_ApplyDeleteMember	08190510	2:number	0	0	number,number	1	170
+TONG_ApplyInit	0818FAC0		0	0	number,number	1	114
+TONG_ApplyKickMember	08190310	2:number 3:number	1	0	number,number,number,number	1	682
+TONG_ApplyMaintain	0818FE40		0	0	number,number	1	114
+TONG_ApplySetAnnouncement	0818C140	2:number 3:number	1	0	number,number,number,number	1	654
+TONG_ApplySetBuildFund	08192CD0	2:number	0	0	number,number	1	178
+TONG_ApplySetCurWeekGoalLevel	08191AD0	2:number	0	0	number,number	1	178
+TONG_ApplySetDay	081926D0	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalEvent	08192010	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalLevel	08191F50	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalPlayer	08191DD0	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalPricePlayer	08191B90	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalPriceTong	08191C50	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalTotal	08191E90	2:number	0	0	number,number	1	178
+TONG_ApplySetLWeekGoalValue	08191D10	2:number	0	0	number,number	1	178
+TONG_ApplySetMaintainFund	08192850	2:number	0	0	number,number	1	178
+TONG_ApplySetMoney	0818FA10	2:number	0	0	number,number	1	162
+TONG_ApplySetOccupyCityDay	08192D90	2:number	0	0	number,number	1	178
+TONG_ApplySetPauseState	081929D0	2:number	0	0	number,number	1	178
+TONG_ApplySetPerStandFund	081917D0	2:number	0	0	number,number	1	178
+TONG_ApplySetStoredBuildFund	08192790	2:number	0	0	number,number	1	178
+TONG_ApplySetStoredOffer	08192910	2:number	0	0	number,number	1	178
+TONG_ApplySetStunt	081908F0	2:number 3:number	0	0	number,number,number,number,number	1	434
+TONG_ApplySetTaskValue	0818AE40	1:number 2:number 3:number	1	0	number,number,number,number	1	466
+TONG_ApplySetTongMap	08190670	2:number	0	0	number,number	1	170
+TONG_ApplySetTongMapBan	0818AF30	1:number 2:number	1	0	number,number	1	226
+TONG_ApplySetTotalBuildFund	08191890	2:number	0	0	number,number	1	178
+TONG_ApplySetWarBuildFund	08192A90	2:number	0	0	number,number	1	178
+TONG_ApplySetWeek	08192610	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekBuildFund	08191A10	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekBuildUpper	08191950	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalEvent	08192550	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalLevel	08192490	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalPlayer	08192310	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalPricePlayer	081920D0	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalPriceTong	08192190	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalTotal	081923D0	2:number	0	0	number,number	1	178
+TONG_ApplySetWeekGoalValue	08192250	2:number	0	0	number,number	1	178
+TONG_ApplyUpgrade	0818FB40		0	0	number,number,number,number,number,number	1	882
+TONG_ApplyWeeklyMaintain	0818FEC0		0	0	number,number	1	114
+TONG_ChangeAllMemberFeature	081907A0	2:number 3:number	1	0	number,number,number,number	1	321
+TONG_ContributeOffer	081968C0	1:number 2:number 3:number	1	0	number,number	1	705
+TONG_DistributeOfferToGroup	08197F70	1:number 2:string 3:number	1	0	number,number,number,number	1	1073
+TONG_DistributeOfferToMember	08197A70	1:number 2:number 3:number	1	0	number,number,number,number,string,nil	1	1277
+TONG_GetBuildFund	0818D560		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetBuildLevel	0818D600		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetCredit	0818C7B0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1652
+TONG_GetCurCamp	0818C670		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1652
+TONG_GetCurWeekGoalLevel	0818F2C0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1717
+TONG_GetDay	0818DEC0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetExp	0818C8F0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1652
+TONG_GetExpLevel	0818CA30		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1659
+TONG_GetFirstMember	08197880	1:number 2:number 3:number	1	0	number,number,number,number,number,number,string,nil	1	1773
+TONG_GetFirstTong	0818A680		0	0	number	1	59
+TONG_GetLWeekGoalEvent	0818EA00		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetLWeekGoalLevel	0818EB40		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetLWeekGoalPlayer	0818EDC0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetLWeekGoalPricePlayer	0818F180		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetLWeekGoalPriceTong	0818F040		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetLWeekGoalTotal	0818EC80		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetLWeekGoalValue	0818EF00		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetMaintainFund	0818DC40		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetMaster	08197EC0		0	0	string,nil	1	173
+TONG_GetMemberCount	0818FF40	2:number	1	0	number,number,number,number,number,number	1	563
+TONG_GetMoney	0818F900	2:number	0	0	number,number,number,number	1	434
+TONG_GetName	0818AC80	1:number	1	0	string,string	1	194
+TONG_GetNextMember	08197C10	2:number 3:number	0	0	number,number,string,nil	1	861
+TONG_GetNextTong	0818B4C0	1:number	1	0	number,number	1	219
+TONG_GetOccupyCityDay	0818D380		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetOnlineCount	0818FFF0	2:number	1	0	number,number,number,number	1	387
+TONG_GetPauseState	0818D9C0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetPerStandFund	0818F860	2:number	0	0	number,number,number,number,number,number	1	594
+TONG_GetPremium	0818D740		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetSelfCamp	0818C530		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1685
+TONG_GetStandFund	0818CF10		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1713
+TONG_GetStoredBuildFund	0818DD80		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetStoredOffer	0818DB00		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetTaskTemp	08190260	2:number	0	0	number,number	1	162
+TONG_GetTaskValue	081900A0	2:number	0	0	number,number	1	211
+TONG_GetTongByRoleName	0819A700	1:string	1	0	string,number,number	3	1161
+TONG_GetTongCount	0818A6C0		0	0	number	1	47
+TONG_GetTongMap	0818D060		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetTongMapBan	0818D240		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetTongMapTemplate	0818D1A0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetTotalBuildFund	0818F680	2:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number	1	1074
+TONG_GetUTaskValue	08190180	2:number	0	0	number,number	1	211
+TONG_GetUnionID	0818CBF0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1713
+TONG_GetWarBuildFund	0818D920		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWarState	0818CD30		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1713
+TONG_GetWeek	0818E000		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekBuildFund	0818F400	2:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1714
+TONG_GetWeekBuildUpper	0818F540	2:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1394
+TONG_GetWeekGoalEvent	0818E140		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekGoalLevel	0818E280		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekGoalPlayer	0818E500		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekGoalPricePlayer	0818E8C0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekGoalPriceTong	0818E780		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekGoalTotal	0818E3C0		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_GetWeekGoalValue	0818E640		0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1709
+TONG_IsExist	08190890		0	0	number,number	1	81
+TONG_Name2ID	0818B600	1:string	1	0	number,number	1	114
+TONG_SetTaskTemp	0818B350	2:number 3:number	0	0	number,number	1	194
+TONG_WriteLog	0818B5A0	1:string	1	0		0	88
+TRepair	08123000	1:string	1	1	number	1	455
+TWS_ApplyAdd	0818BCE0	1:number	1	0	number,number	1	354
+TWS_ApplyAddDayOutput	08196FA0	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1821
+TWS_ApplyAddTaskValue	0818A810	1:number 2:number 3:number 4:number	1	0	number,number,number,number,number,number,number,number,number	1	1122
+TWS_ApplyAddUTaskValue	0818A6F0	1:number 2:number 3:number 4:number	1	0	number,number,number,number,number,number,number,number,number,number,number	1	1410
+TWS_ApplyClose	0818BAA0	1:number	1	0	number,number,number,number,number,number,number,number	1	930
+TWS_ApplyDegrade	08196540	1:number 2:number 3:number	1	0	number,number,number,number,number,number	1	1601
+TWS_ApplyMaintain	0818B9E0	1:number	1	0	number,number,number,number,number,number,number,number,number,number	1	1122
+TWS_ApplyOpen	0818BB60	1:number	1	0	number,number,number,number,number,number	1	738
+TWS_ApplyRemove	0818BC20	1:number	1	0	number,number,number,number	1	546
+TWS_ApplySetDayOutput	08197160	3:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1741
+TWS_ApplySetTaskValue	0818AA20	1:number 2:number 3:number 4:number	1	0	number,number,number,number,number	1	594
+TWS_ApplySetUseLevel	0818A930	1:number 2:number 3:number 4:number	1	0	number,number,number,number,number,number,number	1	834
+TWS_ApplySetUseLevelSet	0818AB40	1:number 2:number 3:number	1	0	number,number,number	1	306
+TWS_ApplyUpgrade	08196700	1:number 2:number 3:number	1	0	number,number,number,number	1	1153
+TWS_ApplyUse	0818B7F0	1:number 2:number 3:string 4:string	1	0	number,number,number,number,number,number,number,number,number,number,number,number	1	1618
+TWS_GetBuildingNpc	08196DF0		0	0	number,number	1	97
+TWS_GetDayOutput	08197240	2:number	0	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1725
+TWS_GetFirstWorkshop	08190AB0	2:number	1	0	number,number	1	243
+TWS_GetLevel	081976A0	1:number 2:number 3:number	1	0	number,number,number,number,number,number,number,number,number,number,number,number	1	1845
+TWS_GetNextWorkshop	0818C200	2:number 3:number	1	0	number,number	1	462
+TWS_GetTaskValue	08196CA0	3:number	0	0	number,number,number,number,number	1	433
+TWS_GetType	081977E0	1:number 2:number 3:number	1	0	number,number,number,number,number,number,number,number	1	1835
+TWS_GetUTaskValue	08196BF0	3:number	0	0	number,number,number,number,number,number	1	609
+TWS_GetUseLevel	08197560	1:number 2:number 3:number	1	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1841
+TWS_GetUseLevelSet	08197420	1:number 2:number 3:number	1	0	number,number,number,number,number,number,number,number,number,number,number,number,number,number,number,number	1	1765
+TWS_GetWorkshopCount	0818C3D0	2:number	1	0	number,number	1	350
+TWS_IsExist	08196B90		0	0	number,number	1	81
+TWS_IsOpen	08196D50		0	0	number,number,number,number	1	257
+TWS_SetBuildingNpc	0818B150	3:number	0	0	number,number	1	130
+TabFile_GetCell	0814A740	1:string 2:string 3:string 4:string	1	0	string,string,number,number,number,string,string	1	1966
+TabFile_GetColCount	0814A5E0	1:string 2:string 3:string 4:string	1	0	number,number,number,number,string,string,number,number,number,string,string	1	2318
+TabFile_GetRowCount	0814A690	1:string 2:string 3:string 4:string	1	0	number,number,string,string,number,number,number,string,string	1	2142
+TabFile_Load	0814AEF0	1:string 2:string 3:number	1	0	number,number,number	1	330
+TabFile_Save	0814A3A0	1:string	1	0	number,number	1	121
+TabFile_Search	0814A960	1:string 2:string 3:string 4:string	1	0	number,number,number,string,string	1	1422
+TabFile_SetCell	0814A420	1:string 2:string 3:string 4:string	1	0	number,number,number,number,number,number,number,string,string,number,number,number,string,string	1	2392
+TabFile_UnLoad	0814B040	1:string	1	0	number,number,number	1	273
+TableSDD_Close	081C2B30	1:string 2:number 3:number	1	0	number,number,number,number,number,number,string,number,number	3	1416
+TableSDD_GetHeight	081C30C0	1:string	1	0	number,number	1	120
+TableSDD_GetValue	081C2FD0	1:string 2:number	1	0	string,number,number	3	232
+TableSDD_Open	081C2C20	1:string 2:number 3:number	1	0	number,number,number,number,string,number,number	3	1176
+TableSDD_Search	081C2D10	1:string 2:number 3:number	1	0	number,number,string,number,number	3	936
+TableSDD_SetValue	081C3140	1:string 2:number 3:string 4:number 5:number	1	0	number,number	1	831
+Talk	08116930	1:number 2:string 3:? ?:string	1	1		0	1056
+TaskAward	08175370	1:string 2:number 3:number	1	0	string,nil,number,number	2	418
+TaskAwardMatrix	08175480	1:string	1	0	number,number	2	146
+TaskCondition	081756D0	1:string 2:number 3:number	1	0	string,nil,number,number	2	418
+TaskConditionMatrix	081757E0	1:string	1	0	number,number	2	146
+TaskEntity	08175520	1:string 2:number 3:number	1	0	string,nil,number,number	2	418
+TaskEntityMatrix	08175630	1:string	1	0	number,number	2	146
+TaskEvent	08175880	1:string 2:number 3:number	1	0	string,nil,number,number	2	418
+TaskEventMatrix	08175990	1:string	1	0	number,number	2	146
+TaskId	08175A30	1:string 2:number 3:number	1	0	string,nil,number,number	2	418
+TaskIdMatrix	08175B40	1:string	1	0	number,number	2	146
+TaskName	08174CB0	1:string 2:number 3:number	1	1	string,nil,string,nil,nil,string,nil,nil,number,nil,number,string,nil,number,number	2	1714
+TaskNo	08174740	1:number 2:number 3:number	1	1	nil,number,number,number,number,number,number,number,number,number,string,nil,string,nil,nil	1	1987
+TaskTalk	081751C0	1:string 2:number 3:number	1	0	string,nil,number,number	2	418
+TaskTalkMatrix	081752D0	1:string	1	0	number,number	2	146
+TaskTip	08122730	1:string	1	1		1	206
+TellPos	0810DE10	1:number 2:number 3:number 4:string 5:number	1	1		0	1070
+TestScript	08129390	1:string	1	0		0	86
+ThrowAllItem	0810BC30		0	1	number,number	1	569
+Time2Tm	081021B0	1:number	1	0	table,number,number	1	253
+TimerFuncForAutoHang	0812F640	1:number 2:string 3:string	1	1	number,number,number,number	1	2561
+Title_ActiveTitle	081596F0	1:number	0	1	number,number	1	163
+Title_AddTitle	081597A0	1:number 2:number 3:number	1	1		0	896
+Title_GetActiveTitle	081594A0		0	1	number	1	72
+Title_GetTitleInfo	08159380	1:number	0	1	number,number,number	2	360
+Title_GetTitleName	081594F0	1:number	0	0	string,string	1	164
+Title_GetTitleTab	08159620		0	1	table,number	1	198
+Title_RemoveTitle	081595A0	1:number	0	1		0	114
+Tm2Time	08103AC0	1:number 2:number 3:number 4:number 5:number 6:number	1	0	number,number,number	1	1151
+TongClaimWar	08127590	1:number 2:number	1	1	number,number	1	406
+TrimString	080FF630	1:number 2:number	1	0	number,number,string	1	1280
+TripC_Apply	0810B3F0	1:string 2:number 3:number 4:number 5:number	1	1	number,number	1	470
+TripC_GetServerCount	08101E50		0	0	number	1	46
+TripC_GetServerName	08101DA0	1:number	1	0	string,nil		165
+TripC_Kick	08101D50	1:string	1	0		0	80
+TripS_Return	0810B3B0		0	1		0	60
+UnBindItem	08127730	1:number 2:number	1	1	number,number	1	527
+UnMarry	0810FFD0	1:number	1	1		0	510
+UnSmeltEquip	0810A7E0	1:string 2:number 3:number	1	1	number,number,number,number,number,number	1	954
+UnSmeltIsBind	080FF160	1:number	1	0	number,number,number,number,number,number,number,number,number,number,number,number	6	506
+UpdateSDBRecord	08101830	1:string 2:number 3:number 4:number	1	0		0	336
+UpdateSkill	08114A10		0	1		0	21
+UpgradePlatinaFromGoldItem	0811E480	1:number 2:number 3:number 4:number	1	1	nil,number,number,string,nil,table,number,nil	6	1083
+UpgradePlatinaItem	0811E350	1:number 2:number 3:number 4:number	1	1	nil,number,number,nil,number,number,string,nil,table,number,nil	6	1387
+UseSilver	0810F2D0	1:number 2:number 3:number	1	1		0	207
+UseTownPortal	08117900		0	1		0	55
+WriteCompoundLog	081231D0	1:string	1	1		0	167
+WriteGoldLog	081234A0	1:string 2:number 3:number 4:number 5:number	1	0		0	474
+WriteLog	081237D0	1:string	1	0		0	86
+WriteSaleLog	08123280	1:string	1	1		0	108
+WriteStatLog	081232F0	1:string 2:number 3:number 4:number 5:number 6:number 7:string 8:string	1	1		0	906
+WriteYunBiaoLog	08123130	1:string	1	0		0	151
+_ALERT	0823DF60	1:string	0	0		0	72
+_ERRORMESSAGE	0823F910	1:string ?:?	0	0	value	0	1019
+abs	08241000	1:number	0	0	number	1	51
+acos	08241660	1:number	0	0	number	1	63
+appendto	08240080	1:string	0	0	nil,string,number	3	345
+ascii	08241830	1:string 2:number?	0	0	number,number	1	262
+asin	082416A0	1:number	0	0	number	1	63
+assert	0823DC00	1:?	0	0		0	116
+atan	08241620	1:number	0	0	number	1	63
+atan2	082415C0	1:number 2:number	0	0	number	1	89
+call	0823E940	1:? 2:? 4:? ?:?	1	0	value,value,nil,value,string,value,string,string,string,string	1	925
+ceil	08240FB0	1:number	0	0	number	1	78
+clock	0823F8E0		0	0	number	1	45
+closefile	08240E00		0	0	nil,string,number	3	214
+collectgarbage	0823E8F0	1:number?	0	0		0	71
+copytagmethods	0823E870	1:number 2:number	0	0	number	1	118
+cos	08241720	1:number	0	0	number	1	63
+curpack	0823D220		0	0	number	1	31
+date	08240710		0	0	string	1	435
+debug	0823F840		0	0		0	153
+deg	08240F20	1:number	0	0	number	1	55
+dofile	0823E810	1:number 2:number	1	0	nil,string,number	2	591
+dostring	0823E770	1:number 2:number	1	0	nil,string,number	2	751
+error	0823DBC0	?:?	0	0		0	62
+execute	0823F7F0	1:string	0	0	number	1	71
+exit	0823F7C0		0	0		0	46
+exp	08241360	1:number	0	0	number	1	57
+floor	08240F60	1:number	0	0	number	1	78
+flush	08240BB0	1:?	0	0			212
+foreach	0823E510	1:? 2:? ?:?	0	0	nil,value,value,value	1	227
+foreachi	0823D5C0	1:? 2:? ?:?	0	0	value,number	1	242
+foreachvar	0823E510	1:? 2:? ?:?	0	0	nil,value,value,value	1	227
+format	08242D40	1:string ?:string	0	0	value	1	1484
+frexp	082414F0	1:number	0	0	number,number	2	79
+gcinfo	0823E6A0		0	0	number,number	2	73
+getenv	0823F770	1:string	0	0	string	1	65
+getglobal	0823E370	1:string	0	0		1	57
+getinfo	0823F160	1:number	0	0	table,string,value,value,nil	1	688
+getlocal	0823F410	1:number 2:number	0	0	string,value,nil	2	263
+getn	0823D2C0	1:?	0	0	number	1	79
+gettagmethod	0823E100	1:number 2:string	0	0		1	157
+globals	0823E630	1:?	0	0	value	1	98
+gsub	08242590	1:string 2:string 3:number? 4:number?	1	0	value,number,nil,number,number,number,number	2	2592
+ldexp	08241480	1:number 2:number	0	0	number	1	102
+log	082413E0	1:number	0	0	number	1	57
+log10	082413A0	1:number	0	0	number	1	57
+max	08241080	1:number ?:number	1	0	number	1	106
+min	082410F0	1:number ?:number	1	0	number	1	112
+mod	08241540	1:number 2:number	0	0	number,number	1	217
+newtag	0823E600		0	0	number	1	47
+next	0823E4B0	1:?	0	0	nil	1	96
+nextvar	0823E4B0	1:?	0	0	nil	1	96
+openfile	0823FFC0	1:string 2:string	0	0	nil,string,number	3	308
+print	0823E3B0	1:? ?:string	1	0	value,value,nil	1	352
+rad	08240EE0	1:number	0	0	number	1	55
+random	08241160	1:number 2:number	1	0	number,number,number,number	1	569
+randomseed	08241040	1:number	0	0		0	56
+rawget	0823E320	1:? 2:?	0	0		1	77
+rawgetglobal	0823E320	1:? 2:?	0	0		1	77
+rawgettable	0823E320	1:? 2:?	0	0		1	77
+rawset	0823DB60	1:? 2:? 3:?	0	0		1	93
+rawsetglobal	0823DB60	1:? 2:? 3:?	0	0		1	93
+rawsettable	0823DB60	1:? 2:? 3:?	0	0		1	93
+read	082408D0	1:? ?:number	1	0	string,number,lstring		948
+readfrom	08240320	1:string ?:?	1	0	lstring,lstring,lstring,string	1	1737
+remove	0823F730	1:string	0	0	nil,string,number	3	188
+rename	0823F6D0	1:string 2:string	0	0	nil,string,number	3	220
+seek	08240C90	3:number?	0	0	number	1	363
+setbreakpointhook	0823EEF0		0	0		1	38
+setcallhook	0823EF50		0	0		1	38
+setglobal	0823DF10	1:string 2:?	0	0		0	70
+setlinehook	0823EF20		0	0		1	38
+setlocal	0823ED10	1:number 2:number 3:?	0	0	string	1	184
+setlocale	0823F5A0	1:string	0	0	string,nil,string,number	3	303
+settag	0823E2B0	1:? 2:number	0	0	value	1	108
+settagmethod	0823E1A0	1:number 2:string 3:?	0	0	value	1	257
+sin	08241760	1:number	0	0	number	1	63
+sort	0823DAD0	1:? 2:?	0	0		0	137
+sqrt	08241420	1:number	0	0	number	1	89
+strbyte	08241830	1:string 2:number?	0	0	number,number	1	262
+strchar	08241B30	?:number	1	0		1	262
+strfind	08242A10	1:string 2:string 3:number? ?:string	1	0	nil,number,number,number,number,value	2	2300
+strlen	082418F0	1:string	0	0	number	1	70
+strlower	08241D00	1:string	0	0		1	190
+strrep	08241A60	1:string 2:number	0	0		1	194
+strsub	08241DC0	1:string 2:number 3:number?	0	0	string,lstring	1	397
+strupper	08241C40	1:string	0	0		1	190
+tag	0823DD10	1:?	0	0	number	1	71
+tan	082416E0	1:number	0	0	number	1	63
+tinsert	0823D490	1:? 2:number ?:?	1	0	string,number,value,value,number	1	546
+tmpname	0823F570		0	0	string	1	40
+tonumber	0823DFB0	1:number 2:number?	0	0	nil,number,number	1	335
+tostring	0823DD60	1:userdata	0	0	string,string	1	260
+tremove	0823D360	1:? 2:number?	0	0	string,number,nil	1	298
+type	0823DC80	1:?	0	0	string	1	77
+unpack	080FF9E0	1:? 2:number	1	0	string	1	336
+usepack	0823D240	1:number	0	0	number	1	126
+write	08240340	?:?	1	0	lstring,lstring,lstring,string	1	1411
+writeto	08240300	1:string ?:?	1	0	lstring,lstring,lstring,string	1	1740

@@ -137,21 +137,48 @@ class Elf:
             out.append((i, self.dynstr(name), value, size, info, shndx))
         return out
 
+    def jmprel_tables(self):
+        """[(va, entries)] of every table of R_386_JMP_SLOT relocations in the file: the one the
+        dynamic section names, and any other run of them - a protector that rewrote the dynamic
+        section leaves the program's original .rel.plt behind, and its symbol indices still count
+        into the symbol table the protector kept (checked on jx_linux_y: strtol, sprintf, strncpy,
+        strtod, __cxa_atexit all land where their callers expect them)."""
+        dyn = self.dyn()
+        out = []
+        if dyn.get("JMPREL"):
+            out.append((dyn["JMPREL"], dyn.get("PLTRELSZ", 0) // 8))
+        for s in self.segments:
+            if not s["flags"] & 1:
+                continue
+            blob = self.d[s["off"]:s["off"] + s["filesz"]]
+            for align in (0, 4):
+                start = n = 0
+                for at in range(align, len(blob) - 8, 8):
+                    r_offset, r_info = struct.unpack_from("<II", blob, at)
+                    if r_info & 0xFF == 7 and self.is_mapped(r_offset):
+                        if not n:
+                            start = at
+                        n += 1
+                    else:
+                        if n >= 8 and all(s["va"] + start != va for va, _c in out):
+                            out.append((s["va"] + start, n))
+                        n = 0
+        return out
+
     def plt(self):
         """{address of the PLT stub: imported name}.  A stub is `jmp [GOT slot]`; the slot is named
-        by the JMPREL relocation that fills it."""
+        by the JMPREL relocation that fills it (see jmprel_tables)."""
         if self._plt is None:
             self._plt = {}
-            dyn = self.dyn()
             syms = {i: name for i, name, *_ in self.symbols()}
             slots = {}
-            if dyn.get("JMPREL"):
-                for i in range(0, dyn.get("PLTRELSZ", 0), 8):
-                    o = self.off(dyn["JMPREL"] + i)
+            for table, count in self.jmprel_tables():
+                for i in range(count):
+                    o = self.off(table + 8 * i)
                     if o is None:
                         break
                     r_offset, r_info = struct.unpack_from("<II", self.d, o)
-                    slots[r_offset] = syms.get(r_info >> 8, "?")
+                    slots.setdefault(r_offset, syms.get(r_info >> 8, "?"))
             for s in self.segments:
                 if not s["flags"] & 1:
                     continue
@@ -197,7 +224,9 @@ class Elf:
             value &= 0xFFFFFFFF
             if value in plt:
                 notes.append(plt[value] + "@plt")
-            elif not self.is_code(value) and self.is_mapped(value):
+            elif self.is_mapped(value) and not ins.mnemonic.startswith("j") and ins.mnemonic != "call":
+                # .rodata shares the r-x segment with .text in these binaries: a string is
+                # whatever reads as one, not "an address outside the code"
                 t = self.text_at(value)
                 if t:
                     notes.append('"' + t[:70].replace("\n", "\\n") + '"')

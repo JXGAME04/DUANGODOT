@@ -117,7 +117,7 @@ thu bằng cảm tính.
 | **M7** | N3, N5, N6 | 1–2 | 20 000 người trên hai gateway: p99 < 55 ms, tồn đọng đường truyền < 4 MB. Cần bot từ máy thứ hai. |
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. |
-| **M10** *(đang làm)* | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | **Liệt kê xong**: 1506 hàm script (game) + 438 (gateway) + 102 tệp settings, phân loại + định vị, công cụ `re_elf.py`, [LINUX-SERVER.md]. Còn: chữ ký từng hàm theo hệ (làm cùng M11–M13). |
+| ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
 | **M11** | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
@@ -138,7 +138,41 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
-### 2026-09-17 (khuya) — M10: mổ nhị phân server Linux — bộ hàm script + hệ settings
+### 2026-09-17 (khuya, đợt 2) — M10 xong: chữ ký 1506 hàm script, cột/khoá của 109 tệp settings
+
+Chủ dự án nhắc "làm thật kỹ". Đợt 1 mới liệt kê; đợt này đi tới **từng dòng**: chữ ký từng hàm script và
+từng cột/khoá mà mã đọc của từng tệp settings — bằng máy, kiểm lại bằng tay, sửa cả một chỗ đợt 1 viết sai.
+Chi tiết ở [LINUX-SERVER.md](LINUX-SERVER.md) §5–§6; công cụ `next/tools/re/`.
+
+- **Sửa sai đợt 1**: §5 cũ nói "hàm script không nhận `lua_State*`, nhận số trực tiếp" — **sai**. Đọc thân
+  hàm: `int f(lua_State* L)` với Lua 4.0 liên kết tĩnh (`lua_gettop 0x8232490`, `lua_tonumber 0x82338B0`,
+  `lua_pushnumber 0x8232D40`…; `GetPlayerIndex 0x8107860` đọc global `"PlayerIndex"`). Đúng như `Script.cpp`
+  của JX1. Ví dụ `GetLevel` giải mã lại từng lệnh trong tài liệu.
+- **`re_luasig.py`** → [`linux/jx_linux_luasig.tsv`](linux/jx_linux_luasig.tsv): 1506 hàm, mỗi hàm: đối
+  số đọc ở chỉ số nào/kiểu gì, có xem `lua_gettop` (đối số tuỳ chọn), có cần nhân vật, đẩy gì, trả mấy giá
+  trị. **1149** hàm đối số cố định, 894 có `gettop`, 711 cần nhân vật, **1496/1506** biết số trả về. Theo
+  được hàm bọc (tail-jump, gọi thường với `L`) và khối GCC đặt sau epilogue (`SetPos(x,y)`, `GetPos()→3`,
+  `GetTask(id)→số|nil`).
+- **`re_calls.py`**: đồ thị gọi hàm đi theo từng hàm (quét tuyến tính lạc nhịp ở dữ liệu), theo dõi hằng
+  qua thanh ghi / stack / `[esp+N]`, hiểu `this`, thành viên `this+off`, bảng trên stack, tail-call, khối sau
+  `ret` sớm, cất/khôi phục thanh ghi. 6027 hàm, 35 074 lời gọi, cache 10 giây.
+- **`re_tables.py`** → [`linux/jx_settings_cot.md`](linux/jx_settings_cot.md): **109 tệp nạp thật, 104 nối
+  được với 736 cột/khoá mã đọc**, còn 6 lượt đọc ở 5 hàm chưa nối (từ 1094 lúc đầu). Ghi rõ tệp đọc theo
+  chỉ số cột (không có tên cột trong mã) và tệp được **ghi**. Kiểm chứng với tệp thật: `logset.ini` chỉ có
+  `[LogSet]` — báo cáo cũng vậy; `[ENCHASER]`, `[Coin]`… về đúng `gamesetting.ini` (116 khoá). `Skills.txt`
+  60 cột, `NpcS.txt` 94, `AbradeRate.ini` 75.
+- **Hai lớp tệp đặt tên đủ** (đối chiếu header cũ `KTabFile.h`/`KITabFile.h`/`KIniFile.h`, đọc từng thân
+  hàm): `KTabFile` 0x20 byte, `Load/GetInteger/GetFloat/GetString` theo tên cột, theo tên dòng, theo chỉ số,
+  `FindRow/FindColumn/Str2Col`, ctor/dtor; `KIniFile` `Load/GetInteger/GetString/GetInteger2/WriteInteger/
+  WriteString/Save`. Đợt 1 tưởng `0x0821F7C0` là `GetFloat` — thực ra là `WriteInteger`.
+- **PLT gốc có tên**: lớp bảo vệ viết lại DYNAMIC, nhưng `.rel.plt` gốc còn ở `0x0804A654` (183 mục) và chỉ
+  số symbol vẫn khớp — kiểm bằng 5 stub đã biết chức năng (`strtol`, `sprintf`, `strncpy`, `strtod`,
+  `__cxa_atexit`): cả 5 đúng. `dis` giờ chú thích `strtol@plt`.
+
+Cách kiểm nhanh một dòng bất kỳ: `python tools/re/re_luasig.py D:/ServerLinux/server1/jx_linux_y sig <tên>`
+rồi `re_elf.py dis <va>` đọc đối chiếu.
+
+### 2026-09-17 (khuya) — M10 đợt 1: mổ nhị phân server Linux — bộ hàm script + hệ settings
 
 Chủ dự án giao: "mổ nhị phân `D:\ServerLinux` lấy toàn bộ settings và script, chính xác từng dòng".
 Đợt này làm phần **liệt kê + phân loại + định vị** (bản đồ để M11–M13 hiện thực từng hệ). Tất cả đọc
@@ -154,8 +188,8 @@ thẳng từ nhị phân, không đoán. Chi tiết: [LINUX-SERVER.md](LINUX-SER
   mới đăng ký **3** hàm — khoảng cách đó là M11–M13.
 - **Hệ settings: 102 tệp** trong `\settings\` (+ 62 đường dẫn script). Đã ghi ra tệp, đã chỉ tệp nào
   cho hệ nào. Tìm nơi đọc + cột đọc bằng `xrefstr`/`func` (ví dụ `gamesetting.ini` @0x805EA59).
-- **Quy ước gọi**: hàm nhận đối số nguyên/thực trực tiếp (KGLua bọc), y như bindings Lua4 của JX1 —
-  nên zone mới đăng ký cùng tên, cùng số. Mẫu chữ ký `GetLevel` đọc bằng disassembly ở tài liệu.
+- ~~**Quy ước gọi**: hàm nhận đối số nguyên/thực trực tiếp~~ — **sai, đã sửa ở đợt 2** (là `int f(lua_State*)`,
+  API Lua 4.0).
 
 Dữ liệu kèm theo (text, ~100 KB): `docs/linux/jx_linux_luaapi.txt`, `s3relay_luaapi.txt`,
 `jx_linux_luaapi_nhom.txt`, `jx_settings_files.txt`.
