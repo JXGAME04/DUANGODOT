@@ -347,6 +347,17 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       được chia nhỏ 48 entity để không vượt giới hạn 64 KiB. (5) `jxbot` xử lý đủ loại gói và chờ như client thật.
       **Kết quả 500 bot cùng một chỗ trên Phượng Tường**: không ai rớt (errors 0), tick trung bình 14,05 ms,
       p95 25,2 ms, p99 29,0 ms trong ngân sách 55 ms; 7 triệu gói hành động + 2,6 triệu gói di chuyển trong 29 giây.
+- [x] **M5g — script Lua 5.4 thật, bỏ lớp tương thích Lua 4 (2026-09-17)**: bộ chuyển `services/pkg/jxlua`
+      (+ CLI `jxlua`, `python tools/dev.py lua`) đọc **7 663 file** của hai cây tham chiếu và viết lại **34 418 chỗ**
+      thành Lua 5.4: `%upvalue`, `getn`→`#`, `strfind/format`→`string.*`, `floor/mod`→`math.*` (`mod`→`fmod`,
+      **không** phải `%`), `for k,v in t`→`pairs`, `arg`→`table.pack`, `call/dostring/getglobal`, `io.*`.
+      Chuyển theo **byte**, không chuyển mã: cây script trộn GBK và TCVN3 trong cùng file. Năm khác biệt chỉ đọc
+      `Sources/Library/LuaLib/src` mới biết đều đã xử: Lua 4 **không có chú thích dài** (llex.c:297), không có
+      toán tử `%`, `in` **không phải từ khoá** (lparser.c:875), escape lạ bỏ dấu `\` (llex.c:267), bảng là
+      `{mảng ; khoá}`. Công cụ `jx_luacheck` nạp cả 7 663 file bằng chính Lua 5.4 của zone: **0 file lỗi**;
+      chạy bộ chuyển lần hai ra **0 thay đổi**. Đoạn mở đầu Lua 4 trong `KLuaScript::init` đã xóa; có test
+      khẳng định script Lua 4 **bị từ chối**. Zone nạp 555 script lúc khởi động, không một lỗi.
+      Tài liệu: `next/docs/SCRIPTS.md`, ADR-006. Test: 39 test Go + 116 ctest + e2e TCP/WS xanh.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

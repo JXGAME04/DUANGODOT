@@ -21,17 +21,6 @@ extern "C" {
 namespace jx::zone {
 namespace {
 
-// What Lua 4.0 had as globals and Lua 5 moved into libraries: the old scripts call these bare.
-constexpr const char* kLua4Prelude = R"lua(
-getn = function(t) return #t end
-floor = math.floor ceil = math.ceil sqrt = math.sqrt abs = math.abs min = math.min max = math.max
-mod = math.fmod random = math.random randomseed = math.randomseed
-strfind = string.find strsub = string.sub strlen = string.len strlower = string.lower strupper = string.upper
-strrep = string.rep strbyte = string.byte strchar = string.char format = string.format gsub = string.gsub
-tinsert = table.insert tremove = table.remove sort = table.sort
-IncludeLib = function(name) end
-)lua";
-
 constexpr const char* kSelfKey = "jx.KLuaScript";
 
 KLuaScript* self_of(lua_State* L)
@@ -70,6 +59,14 @@ int l_print(lua_State* L)
     return 0;
 }
 
+// IncludeLib(name): the old engine's C library loader.  The libraries it named are built into the
+// zone, so the call is accepted and does nothing.
+int l_include_lib(lua_State* L)
+{
+    luaL_optstring(L, 1, "");
+    return 0;
+}
+
 } // namespace
 
 KLuaScript::KLuaScript() = default;
@@ -92,12 +89,9 @@ bool KLuaScript::init(const std::string& root)
     lua_setglobal(L_, "Include");
     lua_pushcfunction(L_, l_print);
     lua_setglobal(L_, "print");
+    lua_pushcfunction(L_, l_include_lib);
+    lua_setglobal(L_, "IncludeLib");
     RegisterGameScriptFuns(L_);   // KLuaScript::RegisterFunctions(GameScriptFuns)
-    if (luaL_dostring(L_, kLua4Prelude) != LUA_OK) {
-        log::error("lua", "prelude failed", {log::kv("error", lua_tostring(L_, -1))});
-        lua_pop(L_, 1);
-        return false;
-    }
     return true;
 }
 

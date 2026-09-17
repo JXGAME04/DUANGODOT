@@ -1,6 +1,7 @@
 // KLuaScript of the old engine (Engine/Src/KLuaScript.h) on standard Lua 5.4: one interpreter
-// state per script file, Load / Include / CallFunction.  The old scripts are Lua 4.0 and run
-// unchanged thanks to a small compatibility prelude (getn, strfind, floor, mod ... as globals).
+// state per script file, Load / Include / CallFunction.  There is no Lua 4 compatibility layer:
+// the scripts themselves are real Lua 5.4, converted once by `python tools/dev.py lua`
+// (services/pkg/jxlua).  See docs/SCRIPTS.md.
 #pragma once
 
 #include <filesystem>
@@ -22,8 +23,8 @@ public:
     KLuaScript(const KLuaScript&) = delete;
     KLuaScript& operator=(const KLuaScript&) = delete;
 
-    // KLuaScript::Init: a fresh state with the standard libraries, the Lua 4 prelude and the
-    // engine functions (Include, print).  `root` is the old server folder that holds `script\`.
+    // KLuaScript::Init: a fresh state with the standard libraries and the engine functions
+    // (Include, IncludeLib, print).  `root` is the folder that holds `script\`.
     bool init(const std::string& root);
     // KLuaScript::Load: runs the file (its functions become globals of this state).  Game paths
     // look like `\script\npclevelscript\animal.lua` and are resolved under root, lower-cased.

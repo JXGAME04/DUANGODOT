@@ -29,28 +29,30 @@ struct Quiet {
     }
 };
 
-// A tiny level script in the dialect of the old ones (Lua 4 builtins as globals, Include, "a|b"
-// parameter cells, GetNpcLevelData / GetNpcKeyData).
+// A tiny level script shaped like the converted ones: real Lua 5.4 (string.find, math.floor, #),
+// Include, "a|b" parameter cells, GetNpcLevelData / GetNpcKeyData.  This is what
+// services/pkg/jxlua produces from the old Lua 4 sources.
 constexpr const char* kLevelScript = R"lua(
 Include("\\script\\npclevelscript\\lib.lua");
+IncludeLib("Core");
 
 function GetParam(strParam, index)
 nLastBegin = 1
 for i=1, index - 1 do
-nBegin = strfind(strParam, "|", nLastBegin)
+nBegin = string.find(strParam, "|", nLastBegin)
 nLastBegin = nBegin + 1
 end;
-strnum = strsub(strParam, nLastBegin)
-nEnd = strfind(strnum, "|")
+strnum = string.sub(strParam, nLastBegin)
+nEnd = string.find(strnum, "|")
 if nEnd == nil then
 return strnum
 end
-return strsub(strnum,1,nEnd -1);
+return string.sub(strnum,1,nEnd -1);
 end;
 
 function GetData(Level, Param1, Param2)
 result = Param2 * Level + Param1;
-return floor(result);
+return math.floor(result);
 end;
 
 function GetNpcLevelData(Series, Level, StyleName, ParamStr)
@@ -70,7 +72,7 @@ if (StyleName == "Life") then
 return 4*Quadratic(Level, Param1, Param2, Param3);
 end;
 if (StyleName == "Exp") then
-return floor(getn({1,2,3}) * Level * 1.5);
+return math.floor(#({1,2,3}) * Level * 1.5);
 end;
 print("fallthrough", StyleName);
 result = Param1 * Level * Level + Param2 * Level + Param3;
@@ -81,11 +83,17 @@ end;
 constexpr const char* kLib = R"lua(
 --二次函数，取整y=ax^2+bx+c
 function Quadratic(x,a,b,c)
-	return floor(a*x*x+b*x+c);
+	return math.floor(a*x*x+b*x+c);
 end;
 )lua";
 
-// Writes the two scripts under <tmp>/script/npclevelscript and returns the root.
+// Untouched Lua 4: %upvalue does not parse, and getn is not a global of Lua 5.4.
+constexpr const char* kLua4 = R"lua(
+local tb = {1,2}
+function Count() return getn(%tb) end
+)lua";
+
+// Writes the scripts under <tmp>/script/npclevelscript and returns the root.
 std::string make_scripts()
 {
     const std::filesystem::path root = std::filesystem::temp_directory_path() / "jxnext_lua_test";
@@ -93,7 +101,15 @@ std::string make_scripts()
     std::ofstream(root / "script" / "npclevelscript" / "npclevelscript.lua") << kLevelScript;
     std::ofstream(root / "script" / "npclevelscript" / "lib.lua") << kLib;
     std::ofstream(root / "script" / "npclevelscript" / "broken.lua") << "function ( oops";
+    std::ofstream(root / "script" / "npclevelscript" / "lua4.lua") << kLua4;
     return root.generic_string();
+}
+
+// The converted tree, when `python tools/dev.py lua` has been run on this machine.
+std::string converted_root(const char* name)
+{
+    const std::filesystem::path p = std::filesystem::path(JX_NEXT_DIR) / "data" / "script" / name;
+    return p.generic_string();
 }
 
 } // namespace
@@ -104,7 +120,7 @@ TEST_CASE("game paths resolve under the script root, lower-cased", "[lua]")
     CHECK(KLuaScript::resolve("/srv", "script/x.lua") == "/srv/script/x.lua");
 }
 
-TEST_CASE("a Lua 4 level script runs on Lua 5.4 with the prelude and Include", "[lua]")
+TEST_CASE("a converted level script runs on plain Lua 5.4 with Include", "[lua]")
 {
     Quiet q;
     const std::string root = make_scripts();
@@ -129,6 +145,19 @@ TEST_CASE("a Lua 4 level script runs on Lua 5.4 with the prelude and Include", "
     REQUIRE(bad.init(root));
     CHECK_FALSE(bad.load(R"(\script\npclevelscript\broken.lua)"));
     CHECK_FALSE(bad.load(R"(\script\npclevelscript\missing.lua)"));
+}
+
+TEST_CASE("an unconverted Lua 4 script is rejected: there is no compatibility layer", "[lua]")
+{
+    Quiet q;
+    const std::string root = make_scripts();
+    KLuaScript s;
+    REQUIRE(s.init(root));
+    CHECK_FALSE(s.load(R"(\script\npclevelscript\lua4.lua)"));   // %upvalue does not parse
+    CHECK_FALSE(s.has_function("getn"));
+    CHECK_FALSE(s.has_function("strfind"));
+    CHECK_FALSE(s.has_function("floor"));
+    CHECK(s.has_function("IncludeLib"));   // the engine's own function, kept as a no-op
 }
 
 TEST_CASE("the script cache loads once and remembers failures", "[lua]")
@@ -192,12 +221,12 @@ TEST_CASE("level_data follows KNpcTemplate::InitNpcLevelData", "[lua][template]"
     CHECK(KNpcTemplateSet::level_data(t, 10, 0, &cache).life_max == 492);
 }
 
-TEST_CASE("the real level scripts of the Linux server run when present", "[lua][data]")
+TEST_CASE("the converted level scripts of the reference server run when present", "[lua][data]")
 {
     Quiet q;
-    const std::string root = "D:/ServerLinux/server1";
+    const std::string root = converted_root("server1");
     if (!std::filesystem::exists(root + "/script/npclevelscript/animal.lua")) {
-        SUCCEED("Linux server scripts not on this machine");
+        SUCCEED("no converted scripts here: run python tools/dev.py lua");
         return;
     }
     KScriptCache cache(root);

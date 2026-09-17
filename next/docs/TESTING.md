@@ -94,6 +94,22 @@ người chơi tối đa khi chưa đo (§55).
 Đăng nhập: mật khẩu argon2id tốn ~16 ms CPU mỗi lần **có chủ ý**, nên ~80 lượt đăng nhập/giây trên
 máy này; 500 client vào cùng lúc xếp hàng khoảng 6 giây (client thật chờ, không lỗi).
 
+## 3e. Script Lua 5.4
+
+Không còn lớp tương thích Lua 4: script phải là Lua 5.4 thật ([SCRIPTS.md](SCRIPTS.md),
+[ADR-006](adr/ADR-006-lua54-khong-tuong-thich-lua4.md)). Ba lớp kiểm:
+
+```bash
+python tools/dev.py lua                    # chuyển + nạp thử toàn bộ cây bằng Lua 5.4
+build/go/jxlua check -in data/script/server1/script    # chạy lại phải ra 0 thay đổi
+```
+
+| Nơi | Test | Khẳng định |
+|---|---|---|
+| Go | `pkg/jxlua/KLuaConvert_test.go` | 39 test, mỗi phép biến đổi một test, ví dụ lấy từ dòng thật của script gốc |
+| C++ | `test_KLuaScript.cpp` `[lua]` | script đã chuyển chạy; script Lua 4 **bị từ chối**; `getn`/`strfind`/`floor` không còn |
+| Cây thật | `jx_luacheck` | 7 663 file, 22,6 MB, **0 file lỗi cú pháp** |
+
 ## 4. Definition of Done cho một phần việc
 
 1. Code + log theo `docs/LOGGING.md`.

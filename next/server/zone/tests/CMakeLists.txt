@@ -13,4 +13,6 @@ add_executable(jx_zone_tests
     test_KTrap.cpp
 )
 target_link_libraries(jx_zone_tests PRIVATE jx::zone_core Catch2::Catch2WithMain jx_warnings)
+# so a test can look for the converted script tree in data/, wherever the build directory is
+target_compile_definitions(jx_zone_tests PRIVATE JX_NEXT_DIR="${CMAKE_SOURCE_DIR}")
 catch_discover_tests(jx_zone_tests)

@@ -28,6 +28,12 @@ add_executable(jx_zone src/main.cpp)
 target_link_libraries(jx_zone PRIVATE jx::zone_core jx_warnings)
 set_target_properties(jx_zone PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/$<CONFIG>)
 
+# jx_luacheck - parses a whole script tree with the zone's own Lua 5.4 (see docs/SCRIPTS.md)
+add_executable(jx_luacheck src/luacheck.cpp)
+target_include_directories(jx_luacheck PRIVATE ${LUA_INCLUDE_DIR})
+target_link_libraries(jx_luacheck PRIVATE jx_warnings ${LUA_LIBRARIES})
+set_target_properties(jx_luacheck PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/$<CONFIG>)
+
 if(JX_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

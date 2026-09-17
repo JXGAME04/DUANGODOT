@@ -50,6 +50,17 @@ Zone đọc `client/assets/maps/1` theo `zone.map_dir` trong `config/zone.json`;
 `dev.py assets` cũng xuất sprite nhân vật/NPC vào `client/assets/npcres` (xem [NPCRES.md](NPCRES.md)); thiếu thư mục
 này client vẫn chạy nhưng vẽ nhân vật bằng vòng tròn.
 
+## 2c. Chuyển script sang Lua 5.4 (một lần, ~3 giây)
+
+```bash
+python tools/dev.py lua                # 7 663 script Lua 4 -> Lua 5.4 trong data/script (không commit), rồi nạp thử tất cả
+```
+
+Zone chạy **Lua 5.4 thuần**, không còn lớp tương thích Lua 4, nên script chưa chuyển sẽ bị từ chối
+(`script failed` trong log). Lệnh trên đọc các thư mục tham chiếu trong `config/oldgame.local.json`, ghi bản đã
+chuyển vào `data/script/<tên>/script/…`, rồi bắt `jx_luacheck` nạp toàn bộ bằng chính Lua 5.4 mà zone nhúng.
+`dev.py start` tự đặt `JX_ZONE__SCRIPT_ROOT` vào đó. Chi tiết: [SCRIPTS.md](SCRIPTS.md).
+
 ## 3. Chạy
 
 ```bash

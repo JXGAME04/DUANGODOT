@@ -3,6 +3,7 @@
 
   python tools/dev.py build            build C++ (Debug), Go binaries, regenerate protocol code
   python tools/dev.py assets [ids]     export maps (default 1) + sprites from the old client into client/assets
+  python tools/dev.py lua              convert the old Lua 4 scripts to Lua 5.4 into data/script, then parse them all
   python tools/dev.py start            start zone + gateway, each in its own console window
   python tools/dev.py stop             stop them
   python tools/dev.py status           show what is running / listening
@@ -199,9 +200,13 @@ def cmd_start(new_console: bool = True) -> None:
     if any(alive(p) for p in pids.values()):
         print("already running:", pids)
         return
-    # the npc level scripts (Lua) live in the old server folder of config/oldgame.local.json
-    if "JX_ZONE__SCRIPT_ROOT" not in os.environ and old_server_dir():
-        os.environ["JX_ZONE__SCRIPT_ROOT"] = old_server_dir()
+    # the npc level scripts (Lua) come from data/script, converted to Lua 5.4 by `dev.py lua`
+    if "JX_ZONE__SCRIPT_ROOT" not in os.environ:
+        root = lua_script_root()
+        if not root:
+            print("no converted scripts yet: run `python tools/dev.py lua` for the npc level data")
+        if root:
+            os.environ["JX_ZONE__SCRIPT_ROOT"] = root
     zone = spawn([zone_exe(), "--config", "config/zone.json"], "jx_zone", new_console)
     if not wait_port(17001, 10):
         kill(zone.pid)
@@ -277,6 +282,23 @@ def old_client_dir() -> str:
         if any(os.path.exists(os.path.join(p, ini)) for ini in ("package.ini", "config.ini")):
             return p
     sys.exit("old client data not found (set JX_OLD_CLIENT or config/oldgame.local.json)")
+
+
+LUA_ROOT_NAMES = ["server1", "binserver", "extra1", "extra2"]
+
+
+def lua_script_root() -> str:
+    """The converted Lua 5.4 tree the zone runs, "a;b" in the same order as old_server_dir().
+
+    Empty when `python tools/dev.py lua` has not been run yet, and then the zone falls back to the
+    raw Lua 4 trees, which no longer load: the compatibility layer is gone on purpose.
+    """
+    roots = []
+    for name in LUA_ROOT_NAMES:
+        p = os.path.join(ROOT, "data", "script", name)
+        if os.path.isdir(os.path.join(p, "script")):
+            roots.append(p)
+    return ";".join(roots)
 
 
 def old_server_dir() -> str:
@@ -379,6 +401,40 @@ def cmd_e2e() -> int:
         cmd_stop()
 
 
+def cmd_lua() -> int:
+    """Convert every old Lua 4 script into real Lua 5.4 under data/script, then parse them all.
+
+    One converted folder per reference root, so KScriptCache keeps the same fallback order it has
+    for the raw trees.  data/ is gitignored: the converted scripts are generated, like the assets.
+    """
+    subprocess.check_call(["go", "build", "-o", os.path.join(BUILD, "go") + os.sep, "./cmd/jxlua"],
+                          cwd=os.path.join(ROOT, "services"))
+    roots = [r for r in old_server_dir().split(";") if r]
+    if not roots:
+        sys.exit("no reference server folder: set config/oldgame.local.json (see docs/REFERENCES.md)")
+    out_roots = []
+    for src, name in zip(roots, LUA_ROOT_NAMES):
+        src_script = os.path.join(src, "script")
+        if not os.path.isdir(src_script):
+            print(f"  {src}: no script folder, skipped")
+            continue
+        out = os.path.join(ROOT, "data", "script", name)
+        print(f"== {src_script} -> data/script/{name}/script")
+        rc = subprocess.call([go_exe("jxlua"), "convert", "-in", src_script,
+                              "-out", os.path.join(out, "script"), "-quiet",
+                              "-report", os.path.join(out, "convert-report.json")], cwd=ROOT)
+        if rc != 0:
+            print("  some files need a human: see convert-report.json")
+        out_roots.append(os.path.join(out, "script"))
+    if not out_roots:
+        sys.exit("nothing to convert")
+    check = os.path.join(BUILD, PRESET, "bin", CONFIG, "jx_luacheck" + (".exe" if os.name == "nt" else ""))
+    if not os.path.exists(check):
+        print(f"skipping the Lua 5.4 parse check: {check} is not built yet")
+        return 0
+    return subprocess.call([check, *out_roots, "--max-errors", "20"], cwd=ROOT)
+
+
 def cmd_test() -> int:
     rc = subprocess.call(["ctest", "--preset", f"{PRESET}-{CONFIG.lower()}"], cwd=ROOT)
     rc |= subprocess.call(["go", "test", "./..."], cwd=os.path.join(ROOT, "services"))
@@ -413,6 +469,8 @@ def main() -> None:
         cmd_client()
     elif cmd == "assets":
         cmd_assets(args[1:])
+    elif cmd == "lua":
+        sys.exit(cmd_lua())
     elif cmd == "e2e":
         sys.exit(cmd_e2e())
     elif cmd == "screenshot":
