@@ -2,6 +2,8 @@
 
 #include <filesystem>
 #include <fstream>
+#include <thread>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
@@ -174,5 +176,47 @@ TEST_CASE("fatal writes the log file and dumps the ring next to it", "[log]")
         CHECK(nlohmann::json::parse(last).at("lvl") == "fatal");
         CHECK(nlohmann::json::parse(last).at("port") == "16666");
     }
+    std::filesystem::remove_all(dir);
+}
+
+// MASTER SPEC 49: a simulation worker hands the line to a logging thread instead of writing the
+// file itself.  Every line must still reach the file, and the process must survive many threads
+// logging at once.
+TEST_CASE("asynchronous logging keeps every line", "[log][async]")
+{
+    const auto dir = std::filesystem::temp_directory_path() / "jxnext-test-log-async";
+    std::filesystem::remove_all(dir);
+
+    auto o = quiet();
+    o.file = dir / "async.log";
+    o.async = true;
+    o.async_queue = 8192;
+    jx::log::init(o);
+
+    constexpr int kThreads = 4;
+    constexpr int kLines = 500;
+    std::vector<std::thread> threads;
+    threads.reserve(kThreads);
+    for (int t = 0; t < kThreads; ++t) {
+        threads.emplace_back([t] {
+            for (int i = 0; i < kLines; ++i) {
+                jx::log::warn("worker", "line", {jx::log::kv("thread", t), jx::log::kv("i", i)});
+            }
+        });
+    }
+    for (auto& th : threads) th.join();
+    jx::log::flush();
+    jx::log::shutdown();
+
+    REQUIRE(std::filesystem::exists(dir / "async.log"));
+    std::size_t count = 0;
+    {
+        std::ifstream in(dir / "async.log");
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty()) ++count;
+        }
+    }
+    CHECK(count == kThreads * kLines);
     std::filesystem::remove_all(dir);
 }

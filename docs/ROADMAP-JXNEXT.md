@@ -296,6 +296,17 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       `dev.py start` chờ tín hiệu này nên `e2e` hết lỗi chập chờn "zone chưa sẵn sàng" (3 lần chạy liên tiếp đều xanh);
       cũng là chỗ để cân bằng tải và giám sát cắm vào (giai đoạn 4.1). Test `KHealth_test.go`.
 - [x] Tuần 1 (mục 4) đã xong toàn bộ.
+- [x] **M5a — MASTER SPEC Phase A: nền runtime nhiều nhân (2026-09-17)**: thư viện mới `server/core` (`jx::core`) —
+      `ServerClock`/`ServerTick`/`TickRate` (mọi thứ trong gameplay tính bằng tick, §21/§59/§61), `FixedTick`
+      (chạy đúng số tick từ thời gian thật, chống spiral, enum 15 phase của §22 + `TickProfile` đo từng phase),
+      `Result`/`Status`/`ErrorCode` (lỗi là giá trị, không ném ngoại lệ qua biên thread, §79/§88),
+      `CommandQueue`/`EventQueue` (nhiều người ghi, một chủ sở hữu đọc — cách duy nhất để thread khác tác động
+      vào state, §19/§30/§73), `ThreadPool` (nơi **duy nhất** tạo thread, số luồng từ cấu hình/`hardware_concurrency`,
+      không pin core, join sạch, nuốt exception — §2/§14/§15/§16/§87/§88), `JobSystem` (`parallel_for`/`run_all`,
+      mỗi lệnh là một barrier §23, luồng gọi cũng làm việc, pool dừng thì chạy tại chỗ thay vì treo),
+      `Metrics` (counter/gauge/timing histogram → avg/P50/P95/P99/max, JSON, §51/§52/§53/§96). Log chuyển sang
+      **bất đồng bộ** (§49): worker chỉ đẩy dòng vào hàng đợi, một luồng ghi file, tắt máy thì xả hết hàng đợi.
+      28 test mới, ctest 96/96. Chưa đụng gameplay đa luồng (đúng Phase A).
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8

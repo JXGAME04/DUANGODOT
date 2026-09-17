@@ -43,6 +43,11 @@ struct Options {
     std::size_t rotate_files = 5;
     std::size_t ring_capacity = 10000;                 // lines kept for crash dumps
     std::string process;                               // "zone", "tool", ... -> "proc" field
+    // MASTER SPEC 49: a simulation worker must never write a file synchronously.  With async
+    // the formatted line is handed to a logging thread; the queue is bounded, and a full queue
+    // overwrites the oldest line instead of blocking the tick (the count is logged on shutdown).
+    bool async = true;
+    std::size_t async_queue = 16384;
 };
 
 void init(const Options& options);
@@ -66,6 +71,9 @@ inline void warn (std::string_view cat, std::string_view msg, std::initializer_l
 inline void error(std::string_view cat, std::string_view msg, std::initializer_list<Field> f = {}) { write(Level::error, cat, msg, f); }
 // fatal also flushes and dumps the ring buffer (<file>.crash.log next to the log file, or cwd).
 void fatal(std::string_view cat, std::string_view msg, std::initializer_list<Field> f = {});
+
+// How many lines the async queue had to drop because it was full (0 in normal operation).
+std::uint64_t dropped_lines() noexcept;
 
 std::vector<std::string> ring_snapshot();
 void dump_ring(const std::filesystem::path& path);

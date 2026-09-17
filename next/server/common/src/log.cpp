@@ -14,6 +14,7 @@
 
 #include <fmt/chrono.h>
 #include <nlohmann/json.hpp>
+#include <spdlog/async.h>
 #include <spdlog/sinks/null_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -119,7 +120,16 @@ void init(const Options& options)
     if (sinks.empty()) {
         sinks.push_back(std::make_shared<spdlog::sinks::null_sink_mt>());
     }
-    s.logger = std::make_shared<spdlog::logger>("jx", sinks.begin(), sinks.end());
+    if (options.async) {
+        // one background thread drains the queue; overrun_oldest keeps a stalled disk from
+        // blocking a simulation worker (MASTER SPEC 49, 70)
+        spdlog::init_thread_pool(options.async_queue == 0 ? 16384 : options.async_queue, 1);
+        s.logger = std::make_shared<spdlog::async_logger>("jx", sinks.begin(), sinks.end(),
+                                                          spdlog::thread_pool(),
+                                                          spdlog::async_overflow_policy::overrun_oldest);
+    } else {
+        s.logger = std::make_shared<spdlog::logger>("jx", sinks.begin(), sinks.end());
+    }
     s.logger->set_pattern("%v");            // the line is already a complete JSON object
     s.logger->set_level(spdlog::level::trace);
     s.logger->flush_on(spdlog::level::warn);
@@ -144,9 +154,15 @@ void shutdown()
 {
     State& s = state();
     if (s.logger) {
+        const bool was_async = s.options.async;
         s.logger->flush();
         spdlog::drop("jx");
         s.logger.reset();
+        if (was_async) {
+            // the logging thread owns the queue: stopping it drains what is still in flight,
+            // so no line written before shutdown is lost (MASTER SPEC 49, 86)
+            spdlog::shutdown();
+        }
     }
     s.initialised = false;
 }
@@ -155,6 +171,12 @@ void flush()
 {
     State& s = state();
     if (s.logger) s.logger->flush();
+}
+
+std::uint64_t dropped_lines() noexcept
+{
+    const auto pool = spdlog::thread_pool();
+    return pool ? static_cast<std::uint64_t>(pool->overrun_counter()) : 0;
 }
 
 void set_level(std::string_view category, Level level)
