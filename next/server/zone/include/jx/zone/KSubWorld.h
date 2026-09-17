@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <google/protobuf/message_lite.h>
@@ -99,6 +100,9 @@ public:
 
     void tick();
     [[nodiscard]] std::uint64_t tick_count() const noexcept { return tick_; }
+    // How many entities actually thought during the last tick (MASTER SPEC 44, 45): the rest were
+    // asleep because no player was near.  The difference is the CPU a crowded map gets back.
+    [[nodiscard]] std::size_t awake_entities() const noexcept { return awake_entities_; }
 
     [[nodiscard]] std::size_t player_count() const noexcept { return players_.size(); }
     [[nodiscard]] std::size_t entity_count() const noexcept { return entities_.size(); }
@@ -130,6 +134,10 @@ private:
     void emit_move(const KNpc& e);
     void on_cell_change(KNpc& e, Cell from, Cell to);
     void wander(KNpc& e);
+    // entity sleeping (SPEC 44, 45)
+    void build_awake_cells();
+    [[nodiscard]] std::int32_t awake_radius_cells() const noexcept;
+    [[nodiscard]] bool is_awake(const KNpc& e) const;
     // combat (KNpc::DoAttack / OnSpecial1 / DoHurt / DoDeath / DoRevive of the old core)
     void apply_template(KNpc& e) const;
     void update_action(KNpc& e);
@@ -175,6 +183,9 @@ private:
     std::vector<std::uint64_t> scratch_sids_;
     mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
     std::vector<KWorldChange> world_changes_;
+    std::unordered_set<std::uint64_t> awake_cells_;   // cells with a player within the largest vision
+    std::size_t awake_entities_ = 0;
+    std::int32_t max_vision_ = 0;                     // largest vision radius spawned here
     std::unordered_map<std::uint32_t, bool> trap_warned_;   // trap ids without a script, warned once
 };
 

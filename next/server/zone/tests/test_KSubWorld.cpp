@@ -374,3 +374,36 @@ TEST_CASE("wandering npcs move and are announced to viewers", "[world]")
     CHECK(std::abs(p.x - 1010) <= 100);
     CHECK(std::abs(p.y - 1010) <= 100);
 }
+
+// MASTER SPEC 44 / 45: a npc nobody can see does not think.  This is what lets a map hold
+// thousands of creatures without paying for all of them every tick.
+TEST_CASE("npcs far from every player sleep, and wake up when one comes near", "[world][sleep]")
+{
+    Quiet q;
+    KSubWorld w(small_world());
+    // one crowd near the spawn point, one far away in the corner
+    std::vector<EntityId> near_ids, far_ids;
+    for (int i = 0; i < 20; ++i) {
+        near_ids.push_back(w.spawn_npc("near" + std::to_string(i), Pos{2000 + i * 8, 2000}, 0, 100, jx::zone::KNpcKind::monster));
+        far_ids.push_back(w.spawn_npc("far" + std::to_string(i), Pos{100 + i * 8, 3900}, 0, 100, jx::zone::KNpcKind::monster));
+    }
+    w.tick();
+    CHECK(w.awake_entities() == 0);   // no player in the map at all: nobody thinks
+
+    EntityId hero;
+    Pos at;
+    REQUIRE(w.spawn_player(1, role(11, "Hero", Pos{2000, 2000}), hero, at) == jx::pb::RESULT_OK);
+    w.tick();
+    const std::size_t awake_near = w.awake_entities();
+    CHECK(awake_near >= 21);                       // the player and the crowd around it
+    CHECK(awake_near < 41);                        // but not the far crowd
+    CHECK(w.entity_count() == 41);
+
+    // walking over to the far corner wakes that crowd and lets the first one fall asleep
+    REQUIRE(w.teleport(hero, Pos{150, 3900}));
+    w.tick();
+    w.tick();
+    const std::size_t awake_far = w.awake_entities();
+    CHECK(awake_far >= 2);
+    CHECK(awake_far < 41);
+}

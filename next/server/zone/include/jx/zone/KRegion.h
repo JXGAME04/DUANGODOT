@@ -38,10 +38,23 @@ public:
     [[nodiscard]] std::size_t size() const noexcept { return where_.size(); }
     [[nodiscard]] bool contains(EntityId id) const { return where_.contains(id); }
 
-    void insert(EntityId id, Pos p);
+    // `player` marks an entity that makes its neighbourhood interesting: the world keeps the
+    // areas around players awake and lets the rest sleep (MASTER SPEC 44, 45).
+    void insert(EntityId id, Pos p, bool player = false);
     void remove(EntityId id);
     // Re-files id under the cell of p.  Returns true when the cell changed (from/to filled).
     bool move(EntityId id, Pos p, Cell& from, Cell& to);
+
+    // How many players stand in this cell, and where they are: the caller builds its awake set.
+    [[nodiscard]] std::size_t players_in(Cell c) const;
+    template <class Fn>
+    void for_each_player_cell(Fn&& fn) const
+    {
+        for (const auto& [k, count] : players_) {
+            if (count > 0) fn(Cell{static_cast<std::int32_t>(k >> 32), static_cast<std::int32_t>(k & 0xFFFFFFFFull)});
+        }
+    }
+    [[nodiscard]] std::size_t player_cells() const noexcept { return players_.size(); }
 
     // Visits every entity in the view neighbourhood of c (including c itself).
     template <class Fn>
@@ -85,8 +98,13 @@ private:
 
     std::int32_t cell_size_;
     std::int32_t view_;
+    struct Placed {
+        Cell cell;
+        bool player = false;
+    };
     std::unordered_map<std::uint64_t, std::vector<EntityId>> cells_;
-    std::unordered_map<EntityId, Cell, IdHash> where_;
+    std::unordered_map<EntityId, Placed, IdHash> where_;
+    std::unordered_map<std::uint64_t, std::uint32_t> players_;   // cell -> players standing there
 };
 
 } // namespace jx::zone

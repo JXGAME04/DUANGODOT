@@ -21,26 +21,32 @@ Cell KRegionGrid::cell_of(Pos p) const noexcept
 const Cell* KRegionGrid::cell_of(EntityId id) const
 {
     const auto it = where_.find(id);
-    return it == where_.end() ? nullptr : &it->second;
+    return it == where_.end() ? nullptr : &it->second.cell;
 }
 
-void KRegionGrid::insert(EntityId id, Pos p)
+void KRegionGrid::insert(EntityId id, Pos p, bool player)
 {
     remove(id);
     const Cell c = cell_of(p);
     cells_[key(c)].push_back(id);
-    where_[id] = c;
+    where_[id] = Placed{c, player};
+    if (player) ++players_[key(c)];
 }
 
 void KRegionGrid::remove(EntityId id)
 {
     const auto it = where_.find(id);
     if (it == where_.end()) return;
-    const auto bucket = cells_.find(key(it->second));
+    const Cell c = it->second.cell;
+    const auto bucket = cells_.find(key(c));
     if (bucket != cells_.end()) {
         auto& v = bucket->second;
         v.erase(std::remove(v.begin(), v.end(), id), v.end());
         if (v.empty()) cells_.erase(bucket);
+    }
+    if (it->second.player) {
+        const auto pit = players_.find(key(c));
+        if (pit != players_.end() && --pit->second == 0) players_.erase(pit);
     }
     where_.erase(it);
 }
@@ -53,13 +59,21 @@ bool KRegionGrid::move(EntityId id, Pos p, Cell& from, Cell& to)
         from = to = cell_of(p);
         return false;
     }
-    from = it->second;
+    from = it->second.cell;
     to = cell_of(p);
     if (from == to) return false;
+    const bool player = it->second.player;
     remove(id);
     cells_[key(to)].push_back(id);
-    where_[id] = to;
+    where_[id] = Placed{to, player};
+    if (player) ++players_[key(to)];
     return true;
+}
+
+std::size_t KRegionGrid::players_in(Cell c) const
+{
+    const auto it = players_.find(key(c));
+    return it == players_.end() ? 0u : it->second;
 }
 
 void KRegionGrid::view_diff(Cell from, Cell to, std::vector<EntityId>& entered, std::vector<EntityId>& left) const

@@ -460,9 +460,11 @@ void KGameServer::send_stats()
         if (!per_worker.empty()) per_worker += " ";
         per_worker += fmt::format("w{}:{:.2f}ms/{}maps/{}p", load.worker, load.cost_ms, load.instances, load.players);
     }
+    std::size_t awake = 0;
+    for (const auto& inst : instances_) awake += inst->world().awake_entities();
     log::info("zone.tick", "stats",
               {log::kv("tick", clock_.tick()), log::kv("players", session_instance_.size()),
-               log::kv("entities", total_entities()), log::kv("maps", instances_.size()), log::kv("gateways", gateways_.size()),
+               log::kv("entities", total_entities()), log::kv("awake", awake), log::kv("maps", instances_.size()), log::kv("gateways", gateways_.size()),
                log::kv("tick_ms_avg", fmt::format("{:.2f}", tick_snapshot.avg_ms)),
                log::kv("tick_ms_p95", fmt::format("{:.2f}", tick_snapshot.p95_ms)),
                log::kv("tick_ms_p99", fmt::format("{:.2f}", tick_snapshot.p99_ms)),

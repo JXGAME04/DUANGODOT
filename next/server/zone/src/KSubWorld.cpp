@@ -210,7 +210,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.set_pos(start);
     const EntityId id = entities_.insert(std::move(e));   // the table owns the handle (SPEC 36)
     entities_.at(id).id = id;
-    grid_.insert(id, start);
+    grid_.insert(id, start, true);   // a player keeps its neighbourhood awake (SPEC 44, 45)
     players_[sid] = id;
     roles_[sid] = role;
 
@@ -350,6 +350,7 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     e.set_pos(e.home);
     e.next_wander_tick = tick_ + static_cast<std::uint64_t>(rng_() % (cfg_.tick_hz * 5 + 1));
     const Pos home = e.home;
+    max_vision_ = std::max(max_vision_, e.vision_radius);
     const EntityId id = entities_.insert(std::move(e));
     entities_.at(id).id = id;
     grid_.insert(id, home);
@@ -422,18 +423,28 @@ void KSubWorld::tick()
     entities_.ids(scratch_ids_);
     std::sort(scratch_ids_.begin(), scratch_ids_.end());
 
+    build_awake_cells();
+    awake_entities_ = 0;
+
     std::vector<EntityId> moved, arrived;
     for (const EntityId id : scratch_ids_) {
         KNpc& e = entities_.at(id);
+        // MASTER SPEC 44 / 45: a npc nobody can see does not think.  It keeps its state (and its
+        // regeneration), but the ai and the wandering - the expensive parts - are skipped until a
+        // player comes near again.  A npc that is busy (moving, fighting, hurt, dead) stays awake
+        // so nothing can freeze half way through an action.
+        const bool awake = is_awake(e);
+        if (awake) ++awake_entities_;
         // KNpc::Activate: m_LoopFrames++, ProcessState every GAME_UPDATE_TIME frames, then NpcAI.Activate
         // while m_ProcessAI, then the command / status of the frame
         ++e.loop_frames;
-        if (e.loop_frames % kGameUpdateTime == 0) process_state(e);
+        const std::uint64_t state_every = awake ? kGameUpdateTime : kGameUpdateTime * 8;   // dormant: rarely
+        if (e.loop_frames % state_every == 0) process_state(e);
         // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
         if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
-        if (e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
+        if (awake && e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
         update_action(e);
-        if (e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
+        if (awake && e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
         std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
         while (budget > 0 && e.moving) {
@@ -464,6 +475,46 @@ void KSubWorld::tick()
         if (grid_.move(id, e.pos(), from, to)) on_cell_change(e, from, to);
     }
     for (const EntityId id : arrived) emit_move(entities_.at(id));
+}
+
+// The cells that hold a player, grown by the largest vision radius in this map: everything
+// inside stays awake, everything outside sleeps (MASTER SPEC 44, 45).
+void KSubWorld::build_awake_cells()
+{
+    awake_cells_.clear();
+    const std::int32_t reach = awake_radius_cells();
+    grid_.for_each_player_cell([&](Cell c) {
+        for (std::int32_t cy = c.cy - reach; cy <= c.cy + reach; ++cy) {
+            for (std::int32_t cx = c.cx - reach; cx <= c.cx + reach; ++cx) {
+                awake_cells_.insert((static_cast<std::uint64_t>(static_cast<std::uint32_t>(cx)) << 32) |
+                                    static_cast<std::uint64_t>(static_cast<std::uint32_t>(cy)));
+            }
+        }
+    });
+}
+
+std::int32_t KSubWorld::awake_radius_cells() const noexcept
+{
+    const std::int32_t by_vision = (max_vision_ + cfg_.cell_size - 1) / std::max(1, cfg_.cell_size);
+    return std::max(cfg_.view_cells + 1, by_vision);
+}
+
+bool KSubWorld::is_awake(const KNpc& e) const
+{
+    if (e.kind == KNpcKind::player) return true;
+    // busy npcs never fall asleep mid action
+    if (e.moving || e.doing != KDoing::stand || e.attack_target.value != 0) return true;
+    // nor does one that still has to walk back home (KNpcAI::KeepActiveRange)
+    const int radius = e.current_active_radius > 0 ? e.current_active_radius : e.active_radius;
+    if (radius > 0) {
+        const std::int64_t dx = e.pos().x - e.home.x;
+        const std::int64_t dy = e.pos().y - e.home.y;
+        if (dx * dx + dy * dy > static_cast<std::int64_t>(radius) * radius) return true;
+    }
+    if (awake_cells_.empty()) return false;
+    const Cell c = grid_.cell_of(e.pos());
+    return awake_cells_.contains((static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cx)) << 32) |
+                                 static_cast<std::uint64_t>(static_cast<std::uint32_t>(c.cy)));
 }
 
 // ---- combat ---------------------------------------------------------------------------------

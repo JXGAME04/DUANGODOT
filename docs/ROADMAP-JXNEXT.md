@@ -323,6 +323,13 @@ Tiêu chí: checklist 86 handler + 49 màn hình cũ được tích hết, repla
       luồng server gom sự kiện (ack/save/đổi map) và gói tin gửi đi. Lua: mỗi map instance có `KScriptCache`
       riêng và `g_ScriptContext` là `thread_local` (§42). Chạy thật: 4 map / 4 worker, tick trung bình
       **25,1 ms → 16,0 ms**, log `zone.tick` có p95/p99 và tải từng worker. 5 test scheduler; ctest 114/114, e2e OK.
+- [x] **M5d — MASTER SPEC 44/45: ngân sách AI và entity ngủ (2026-09-17)**: lưới không gian đếm người chơi theo
+      ô (`KRegionGrid::for_each_player_cell`), mỗi tick `KSubWorld` dựng tập ô "thức" = ô có người chơi nở rộng
+      theo tầm nhìn AI lớn nhất của map. NPC ngoài vùng đó **không chạy AI, không đi lang thang** và chỉ hồi máu
+      thưa hơn 8 lần; NPC đang bận (đang đi, đang đánh, bị thương, chưa về nhà) luôn thức nên không có hành động
+      nào bị đóng băng giữa chừng. Đo thật trên 4 map / 3076 entity / 1 người chơi:
+      **tick trung bình 15,98 ms → 1,37 ms**, max 626 ms → 18,4 ms, tick bị rớt 24 → 0, chỉ 42 entity thức.
+      Log `zone.tick` thêm trường `awake`. Test: npc xa người chơi ngủ, lại gần thì thức.
 - [ ] Giai đoạn 1: 1.1 · 1.2 · 1.3 · 1.4 · 1.5 (kế tiếp: hoạt ảnh đánh/chết + trang bị, minimap, bẫy/cổng, NPC từ script)
 - [ ] Giai đoạn 2: 2.1 · 2.2 · 2.3 · 2.4 · 2.5 — vertical slice trên PC + Android
 - [ ] Giai đoạn 3: 3.1 · 3.2 · 3.3 · 3.4 · 3.5 · 3.6 · 3.7 · 3.8
