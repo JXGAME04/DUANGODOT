@@ -138,6 +138,13 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-18 (tối) — CI: thêm 4 chỗ `-Werror=sign-conversion` (KItem.cpp) + KSocket; MSVC bật `/w44365` để bắt tại chỗ
+
+Run #76/#77 vẫn đỏ: `equipment_[d]`/`equipment_[detail]` với `int` (KItem.cpp 105/108/109/250) và
+`Listener::port()` trả `int` vào `uint16_t`. Máy này không có GCC, nên bật **`/w44365`** (signed/unsigned
+mismatch, tương đương `-Wsign-conversion`) + `/external:W0` cho MSVC trong `CMakeLists.txt`: build tại chỗ
+giờ đỏ đúng những chỗ CI Linux đỏ. ctest 145/145 Release + Debug sau khi sửa.
+
 ### 2026-09-18 (tối) — chú thích vật phẩm dựng lại từng dòng theo **nhị phân client 2.0** (mở UPX `gamecl.exe`); sửa bộ đọc bảng: ô trống = mặc định của server
 
 Chủ dự án: "Thiếu hệ item và các dòng chưa nằm giữa"; "hình ảnh phải lấy đúng chuẩn bản 2.0 còn code thì bản

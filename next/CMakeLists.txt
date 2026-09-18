@@ -15,7 +15,9 @@ option(JX_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 # One interface target carries the warning policy so every module gets the same flags.
 add_library(jx_warnings INTERFACE)
 if(MSVC)
-    target_compile_options(jx_warnings INTERFACE /W4 /permissive- /utf-8 /Zc:__cplusplus /EHsc)
+    # /w44365 is MSVC's signed / unsigned conversion warning (off at /W4): the same class GCC's
+    # -Wsign-conversion catches on the Linux CI, so a subscript by an int fails here first
+    target_compile_options(jx_warnings INTERFACE /W4 /w44365 /permissive- /utf-8 /Zc:__cplusplus /EHsc /external:anglebrackets /external:W0)
     target_compile_definitions(jx_warnings INTERFACE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
     if(JX_WARNINGS_AS_ERRORS)
         target_compile_options(jx_warnings INTERFACE /WX)

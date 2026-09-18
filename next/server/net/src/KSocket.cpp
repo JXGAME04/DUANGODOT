@@ -217,7 +217,7 @@ std::uint16_t Listener::port() const
 {
     std::error_code ec;
     const auto ep = acceptor_.local_endpoint(ec);
-    return ec ? 0 : ep.port();
+    return ec ? std::uint16_t{0} : ep.port();
 }
 
 // ---- connect -----------------------------------------------------------------------------

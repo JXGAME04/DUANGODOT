@@ -101,7 +101,7 @@ bool KItemTemplateSet::load(const std::string& path, std::string* error)
     static const char* const kTables[equip_detailnum] = {"meleeweapon", "rangeweapon", "armor", "ring", "amulet", "boot",
                                                          "belt", "helm", "cuff", "pendant", "horse", "mask", "mantle", "signet", "shipin"};
     if (const auto eq = j.find("equipment"); eq != j.end()) {
-        for (int d = 0; d < equip_detailnum; ++d) {
+        for (std::size_t d = 0; d < equip_detailnum; ++d) {
             equipment_[d].clear();
             const auto it = eq->find(kTables[d]);
             if (it == eq->end()) continue;
@@ -247,7 +247,7 @@ const KMagicLimit* KItemTemplateSet::magic_limit(int type) const
 const KItemTemplate* KItemTemplateSet::equipment(int detail, int particular, int level) const
 {
     if (detail < 0 || detail >= equip_detailnum) return nullptr;
-    const auto& rows = equipment_[detail];
+    const auto& rows = equipment_[static_cast<std::size_t>(detail)];
     const int i = detail == equip_mask ? particular : particular * 10 + level - 1;
     if (i < 0 || static_cast<std::size_t>(i) >= rows.size()) return nullptr;
     return &rows[static_cast<std::size_t>(i)];
