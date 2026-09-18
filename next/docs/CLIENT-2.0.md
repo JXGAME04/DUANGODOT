@@ -206,6 +206,23 @@ quick_right_clicked`; ô `accept_free`), `KUiGameWindows` (`_quick_key`, `_quick
 ô 0 → `auto_quick.png`, phím 1 dùng thuốc → `AUTO_QUICK item=3 name=Kim Sáng Dược (tiểu) count=1 assigned=true count_after=-1 slot0=0 (thuốc dùng hết, ô tự xoá theo op 0xe)`. Chưa: kéo vật ra khỏi ô bằng tay (2.0: thả ô → tay), thông báo trùng loại (`[0x9c00d8]`),
 genre 0x9e, `ShortcutEatMedicine` (`0x00439DB0`: 0 → `0x005A5B40`, 1 → `0x005A5B30` — MouseWheel của autoexec), chú thích ô.
 
+### 7.3 Cập nhật và vẽ ô của thanh dưới — `KUiPlayerBar::UpdateData 0x00474350`, `KWndObjectBox::PaintWindow 0x004606E0` (M12 lát B4c-2, đã đọc từng dòng)
+
+`KUiPlayerBar` (đối tượng 0xac10 byte, ctor `0x00474D50`, bảng ảo `0x790374`: [1] `UpdateData 0x00474350`, [4] `WndProc 0x00476170`, [6] `0x00474470` chọn câu
+gợi ý theo giờ (`0x004730D0(n)`: chuỗi `+0x8c4c + n·32` → ô chữ `+0x686c`), [8]/[9] hiện/ẩn; tạo ở `0x00475525`).
+
+| Địa chỉ | Làm gì | Client mới |
+|---|---|---|
+| `0x00474350` | **`UpdateData`**: `GetGameData(0x3e9)` (0xcc byte, tên nhân vật → `+0x8d94`) → `0x004732B0` (`GetGameData(0x3ea)` 0x58 byte máu/nội lực/thể lực → `+0x8db8..+0x8dcc`, 17 nút `GetGameData(0x407)`, `0x005B9210`/`0x004C59F0` → hai số cho `0x00473430`); `GetGameData(0x3ec)` (9 ô nhanh + 2 kỹ năng chuột `{genre, id}`) → mỗi ô `KWndObjectBox::SetObject 0x0045DDB0(genre, id, 0, 0)` (ghi `+0x4b0/+0x4b4/+0x4c0/+0x4c4`; nếu chú thích đang mở trên ô này (`0x0044E530`) → `ShowObjectTip 0x0044EBC0` lại) | `_refresh_quick`, `_refresh_mouse_skills` |
+| `0x004606E0` | **`KWndObjectBox::PaintWindow`**: nền cửa sổ `0x0046D180`; có đối tượng (`+0x4b0`) → `GetGameData(0x7d8, &{genre, id, …})` = cờ trạng thái; cờ kiểu ô (`+4` & 0x400/0x2000) và bit 1/2/4 → màu nền `0x80f428/42c/430/434` vẽ hình chữ nhật (`0x9bb0e0` +0x4c); `+0x4d8` (kiểu vẽ 1..0x30) → cờ; **`0x005B8FE0(genre, id, x, y, w, h, −1, cờ)`** vẽ đối tượng; bit 8 / 0x10 / 0x20 → `0x0045FF20(x, y, w, h, kind)` vẽ **hai khung viền** màu `0x0045F120(+0x494, kind)` (kind 0x10 → `+0xc`, 0x20 → `+0x14`, khác → `+0`) nhân độ sáng `+0x4e0` % | ô vật phẩm của túi đã có viền/nền theo `KUiItemView`; ô kỹ năng: không có lớp phủ |
+| `GetGameData 0x7d8` (`0x00662F6D`, dải 0x7d1..0x7e2 → `0x00662B50`, bảng `0x663624`) | **chỉ vật phẩm**: genre 5 (bảng vật `[0x1f179a4]` bước 0x74c), 0xb/0xf/0x10 (kho/ghép); `[vật+8]` 1..5 → bit 8/0x10/0x20 (viền theo chất lượng), `0x0060F3F0(list, vật)` dùng được → bit 1 else bit 2; rồi `0x00662AA0` chép tên. **Genre 4 (kỹ năng) → 0**: không viền, không phủ | không port gì cho kỹ năng |
+| `0x005B8FE0` → `0x00670130(genre, id, x, y, w, h, −1, cờ)` | bộ vẽ đối tượng: genre 3..16 bảng `0x670b40`; **genre 4** (`0x00670955`): cấp = `0x006233B0(sổ, id, 1)` (≥ 1), `KSkill* 0x0042BB20(id, cấp)` (bộ đệm `0x3a681c`, else `0x006053E0` tạo); nếu có npc mình và `[npc+0x1050] ≥ 0`: `còn = max(NextCastTime 0x006235F0, khung hiện [0x1f178c4 + +0x1050·0x138 + 0x50]) − khung hiện`, `tổng = 0x00623620` → `KSkill::vtable[24](x, y, w, h, còn, tổng)`; id −1 → vẽ `icon_sk_ty_ap.spr` | `KWndObjContainer` vẽ ảnh; hồi chiêu: xem dưới |
+| `KSkill::Draw 0x007039D0` (bảng ảo lớp con `0x7b549c`, ô 24; lớp gốc `0x7b4fcc` ô 24 = rỗng `0x5b0a96`) | chép `SkillIcon (+0x64)` vào struct vẽ (`+0xe8`), đặt (x, y), khung 0, gọi bộ vẽ sprite (`0x1f16e80` +0x4c, (1, &struct, 3, 1)); **hai tham số hồi chiêu bị bỏ qua** → bản 2.0 này không vẽ hồi chiêu trên ô kỹ năng (thanh dưới, cây) | không có lớp phủ hồi chiêu (đúng như 2.0) |
+| `WndProc 0x00476170` + `KWndObjectBox` rê chuột | rê lên ô có đối tượng → `ShowObjectTip 0x0044EBC0` (`SetObject` cũng gọi khi chú thích đang mở trên ô); kỹ năng → §10, vật phẩm → chú thích vật | `UiPlayerBar.quick_hovered / mouse_skill_hovered` → `KUiGameWindows._on_quick_hovered` (vật → `_on_item_hovered`, kỹ năng → `_show_skill_tip`), ô kỹ năng chuột → `_show_skill_tip` |
+
+`--auto` rê lên ô kỹ năng chuột trái → `auto_bar_tip.png` (`AUTO_BAR_TIP skill=53 lines=16 (auto_bar_tip.png: chú thích Công kích vật lý với cấp, phạm vi, độ chính xác, sát thương, cấp kế)`). Chưa: câu gợi ý theo giờ `+0x8c4c` (`0x00474470`), 17 nút `GetGameData(0x407)`,
+`0x004732B0`/`0x00473430` (số cho thanh trên đã lấy đường khác), viền chất lượng vật trên ô nhanh (`GetGameData 0x7d8` bit 8/0x10/0x20).
+
 ## 8. Cây chọn kỹ năng cho chuột — `KUiSkillTree` (`技能选择树.ini`, M12 lát B4b-3, đã đọc từng dòng `gamecl.exe`)
 
 Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `LeftBtnPos=760,650` (vị trí ô thấp nhất bên trái), `RightBtnPos=710,450`,

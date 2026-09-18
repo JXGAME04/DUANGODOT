@@ -173,6 +173,8 @@ func _build_bars() -> void:
 		player_bar.quick_clicked.connect(_quick_key)
 		player_bar.quick_put.connect(_quick_put)
 		player_bar.quick_right_clicked.connect(_quick_clear)
+		player_bar.quick_hovered.connect(_on_quick_hovered)
+		player_bar.mouse_skill_hovered.connect(func(_right: bool, obj): _show_skill_tip(int(obj.id) if obj != null else 0))
 		Game.items_changed.connect(_refresh_quick)
 		Game.item_changed.connect(func(_item): _refresh_quick())
 		Game.item_removed.connect(func(_id): _refresh_quick())
@@ -381,6 +383,19 @@ func _on_tree_hovered(skill_id: int) -> void:
 
 func _on_skill_hovered(skill) -> void:
 	_show_skill_tip(int(skill.id) if skill != null else 0)
+
+
+# a quick box under the mouse (KWndObjectBox -> ShowObjectTip 0x0044EBC0): an item's tip or a skill's, nothing when empty
+func _on_quick_hovered(slot: int, obj) -> void:
+	if obj == null:
+		hover.hide_lines()
+		_tip_skill = 0
+		return
+	var s: Dictionary = quick.slot(slot)
+	if int(s.genre) == KUiShortcutItem.GENRE_SKILL:
+		_show_skill_tip(int(s.id))
+	else:
+		_on_item_hovered(Game.items.get(int(obj.id)))
 
 
 # the tip of a skill (ShowObjectTip 0x0044EBC0 genre 4 -> KSkill::GetDesc 0x006FBC90): the static part at once, the level

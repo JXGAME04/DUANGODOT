@@ -675,6 +675,15 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_skill_tree.png")
 			print("AUTO_SKILL_TREE entries=%d rows=%d ids=%s key_q=%d key_w=%d mouse=%d/%d weapon=%d" % [tree._entries.size(), tree._rows, str(tree_ids), int(_windows.shortcuts.slot(0).id), int(_windows.shortcuts.slot(1).id), Game.left_skill, Game.right_skill, Game.weapon_attack_skill()])
 			tree.hide()
+		# the tip of the left mouse skill box (the mouse over ImediaLeftSkill -> ShowObjectTip): asked, then photographed
+		if _windows.player_bar != null and Game.left_skill > 0:
+			_windows.player_bar.mouse_skill_hovered.emit(false, {"id": Game.left_skill})
+			await get_tree().create_timer(0.6).timeout
+			_windows.player_bar.mouse_skill_hovered.emit(false, {"id": Game.left_skill})
+			await get_tree().create_timer(0.2).timeout
+			await _save_screenshot("user://logs/auto_bar_tip.png")
+			print("AUTO_BAR_TIP skill=%d lines=%d" % [Game.left_skill, _windows.skill_tip_text(Game.left_skill).split("\n").size()])
+			_windows.player_bar.mouse_skill_hovered.emit(false, null)
 		# the quick slots: the first medicine of the bag goes to cell 0 (a drop from the cursor), key 1 uses it
 		# (ShortcutUseItem(0) -> UseItem), the bar is photographed with the cell filled
 		var quick_item := {}

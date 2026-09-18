@@ -25,6 +25,8 @@ signal mouse_skill_clicked(right: bool)   # a click on ImediaLeftSkill / ImediaR
 signal quick_clicked(slot: int)           # a left click on a filled quick box, nothing on the cursor (msg 0x513 -> ShortcutUseItem)
 signal quick_put(slot: int)               # a left click on a quick box with something on the cursor (msg 0x511 -> 0x00472E70)
 signal quick_right_clicked(slot: int)     # a right click on a filled quick box (the new client clears it)
+signal quick_hovered(slot: int, obj)      # the mouse over a quick box: its object dict or null (the box's object tip)
+signal mouse_skill_hovered(right: bool, obj)   # the mouse over ImediaLeftSkill / ImediaRightSkill
 
 var chat_input: LineEdit = null
 var _quick: Array = []        # the nine KWndObjContainer
@@ -69,6 +71,7 @@ func load_scheme(screen: Vector2i) -> bool:
 			box.object_clicked.connect(func(_o): quick_clicked.emit(slot_index))
 			box.put_requested.connect(func(_x, _y): quick_put.emit(slot_index))
 			box.object_right_clicked.connect(func(_o): quick_right_clicked.emit(slot_index))
+			box.hovered.connect(func(o): quick_hovered.emit(slot_index, o))
 			_quick.append(box)
 		else:
 			box.queue_free()
@@ -110,6 +113,7 @@ func _skill_box(ini: KUiScheme, section: String, right: bool) -> KWndObjContaine
 	box.init_from(ini, section)
 	box.object_clicked.connect(func(_o): mouse_skill_clicked.emit(right))
 	box.put_requested.connect(func(_x, _y): mouse_skill_clicked.emit(right))
+	box.hovered.connect(func(o): mouse_skill_hovered.emit(right, o))
 	return box
 
 
