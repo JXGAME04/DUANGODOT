@@ -688,7 +688,7 @@ dữ liệu + luật, phần cần thế giới đưa vào qua `KSkillListHost`)
 | `0x0808AA38` | **ReceiveDamage, ô 16/17 `addskillexp1/2`** của `pDamage`: `v0 > 0`, `g_Random(100) ≤ 59` (6/10); `v2 & 2` → nạn nhân là người chơi (hoặc kẻ đánh là đồng hành) → **sổ nạn nhân**; không → kẻ đánh loại 1/2 → sổ kẻ đánh; `AddSkillExp(list, &attrib, 0)` |
 | `0x0807F341` | `KNpc::ClearAttrib`, phần sổ: ô 1..79 có id, `+0x18 > +4` → `UpdateEnhance(i, +0x18, +4)`, `+0x18 = +4` |
 | `0x08108B70`/`0x08108B20` | Lua `SetSkillMaxLevelAddons(n)` (`n ≤ 99` → `Player+0x8600`) / `Get…` |
-| `0x0830CA14 + 4k` | bảng 5 cấp nhân vật cần cho cấp kỹ năng vượt MaxLevel khi chuyển sinh — `.bss`, không tìm được nơi ghi (khối cấu hình `0x0830CA00..`); zone: `kRebornSkillLevelNeed = 0` |
+| `0x0830CA14 + 4k` | 5 ô `.bss` `0x0830CA18..0x0830CA28` (`AddSkillPoint 0x080BD922`: `k = cấp mới − MaxLevel`, `k−1 ≤ 4` → `cấp nhân vật < [0x830CA14 + 4k]` → từ chối). **Đã kiểm 2026-09-18**: không hàm nào ghi khối `0x0830CA08..0x0830CA28` (`xref` chỉ có 4 hàm đọc `0x080C4220/0x080C42A0/0x080C43A0/0x080C4420` dùng `0x830CA08/10/14/0C` làm sàn kháng, `re_elf xref` quét cả hằng tức thời) → bằng 0 trên máy chủ này; zone: `kRebornSkillLevelNeed = 0` là đúng |
 
 ### 15.4 API script (tất cả `GetPlayerIndex(L)` trước; tên kỹ năng → `KTabFile::GetInteger(Skills.txt, tên, "SkillId")`)
 
@@ -696,7 +696,7 @@ dữ liệu + luật, phần cần thế giới đưa vào qua `KSkillListHost`)
 
 ### 15.5 Sai khác có chủ ý của zone
 
-(1) `KSkillListHost` thay `g_SkillManager`/`Npc[]`; (2) bảng chuyển sinh `0x0830CA14` = 0; (3) thông báo chuỗi
+(1) `KSkillListHost` thay `g_SkillManager`/`Npc[]`; (2) bảng chuyển sinh `0x0830CA14` = 0 (đúng nhị phân: không nơi ghi); (3) thông báo chuỗi
 `[0x978a290]`/`[0x978a118]`/`[0x978a120]`/`[0x978a124]` (bảng ngôn ngữ, chưa trích) thay bằng cờ `level_up` của
 `G2C_SKILL_LEVEL` và log `skill points refused` (client 2.0 tự hiện chữ — B4); (4) gói 0x5e/0x63/0xdd → `G2C_SKILL_LEVEL`,
 `G2C_SKILL_FORBID`, (0xdd chưa gửi); (5) `UpdateSkill()` gửi lại sổ; (6) `HaveMagic` trả cấp khi có (đuôi chưa đọc);
@@ -718,7 +718,7 @@ mỗi khung `ProcessCommand` → `CastSkill` (kiểm + trừ phí + gói 0x5a) �
 |---|---|
 | `0x080DD130` | **`NpcSkillCommand(this, playerIdx, pMsg)`** (ô 80 của ctor `0x080DA560`): gói `{byte 80, int A, int id, int B, int sync}`; `id−1 ≤ 0x7cf` và `≠ 2000`; **`0x080A79B0(Player, 80, sync)`** ≠ 0; instance cấp 1 (`table[id][1]`/`InstanceSkill`); **`vtable+0x4c IsAura == 0`**; `A ≥ 0`; `0x080AEBC0(Player, 1)`; chỉ số npc 1..max; `B ≥ 0` → `SendCommand(npc, 5, id, B, A, 0, 0x12)`; `B == −1` → `idx = 0x080B12C0(Player, A)` (id npc → chỉ số) > 0 → `SendCommand(npc, 5, id, −1, idx, 0, 0x12)`. Ô lệnh `+8` = B (y hoặc −1), `+0xc` = A (x hoặc chỉ số) — thứ tự x/y của gói cũ chưa đối chiếu với client; zone nhận `{skill_id, target, x, y}` tường minh |
 | `0x080A79B0` | kiểm đồng bộ gói: bảng hằng theo loại gói `[0x8BAEF00 + loại·4]` (khởi tạo lần đầu 6 hằng), có hằng và `sync ≠ 0` → `(Player+0x3b8 ^ Player+0x3bc ^ sync) % hằng == 0`; không hằng → 1. Chống gian lận của giao thức cũ — zone không cần |
-| `0x080AEBC0` | `(Player, n)` → `0x081D0C00(Player+0x86e0, n, Player)` — bộ đếm/thống kê theo hành vi (1 khi xin thi triển, 10 khi mất máu); chưa đọc, zone bỏ |
+| `0x080AEBC0` | `(Player, n)` → **`0x081D0C00(Player+0x86e0, n, Player)`: bộ phát sự kiện script của người chơi** — `n ≤ 16`; duyệt `std::map` ở `Player+0x86e0` (mỗi nút: `+0x14` id script, `+0x18` mặt nạ bit sự kiện); nút có bit `n` → chạy script (`0x080ACB10(player, …)`, `0x804E4B0([0x82E8CAC], id)`). Mã đã thấy: 1 xin thi triển, 3 lên ngựa, 9 đổi chế độ chiến, 10 mất máu, 11 chết, 12 xin hồi sinh. Zone chưa có bảng đăng ký script theo sự kiện (M13 script) |
 | `0x0809B750` | **`KNpc::SendCommand(this, cmd, id, p2, p3, p4, p5)`** — chỉ nhận `cmd == 5` (do_skill): `FindSame(+0x248, id) ≠ 0`; `+0x171c` (đầy) == 0; ô 24 byte tại `+0x169c + 24·[+0x1718]` = `{5, id, p2, p3, p4, p5}`; `+0x1718 = (+1) % 5`; bằng `+0x1714` → `+0x171c = 1` → 1 |
 | `0x0809B510` | mỗi khung: ô lệnh đang chờ `+0x14 (p5) −−`, về 0 → gỡ (dồn vòng) — p5 = 0x12 = 18 khung sống |
 | `0x0809B4B0` | bỏ lệnh đầu: đầy → `+0x1714 = (+1) % 5, +0x171c = 0`; không đầy và `+0x1714 ≠ +0x1718` → `+0x1714 = (+1) % 5` |

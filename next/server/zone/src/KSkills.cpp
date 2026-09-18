@@ -568,9 +568,9 @@ bool KSubWorld::cast_skill_request(std::uint64_t sid, int skill_id, int p1, int 
 
 namespace {
 // 0x0830CA14 + k x 4, k = 1..5: the character level a reborn character needs for the k-th skill
-// level above the row's MaxLevel (KPlayer::AddSkillPoint 0x080BD8D0).  The table lives in .bss and
-// is filled from the settings at start; its numbers were not found in the binary - 0 means no
-// further requirement, as for a character that was never reborn.
+// level above the row's MaxLevel (KPlayer::AddSkillPoint 0x080BD922).  The five cells lie in .bss
+// (0x0830CA18..0x0830CA28) and nothing in the binary writes them - the neighbours 0x0830CA08..14 are
+// read as the resistance floors only - so they are 0 on this server: no further requirement.
 constexpr std::array<int, 6> kRebornSkillLevelNeed{0, 0, 0, 0, 0, 0};
 } // namespace
 
