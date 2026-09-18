@@ -12,7 +12,9 @@
 #include <vector>
 
 #include "jx/log.hpp"
+#include "jx/client.pb.h"
 #include "jx/msg.pb.h"
+#include "jx/zone/KFaction.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KScriptCache.h"
@@ -133,6 +135,8 @@ jx::pb::RoleData role(std::uint64_t pid, const std::string& name, Pos at, std::v
     r.mutable_stats()->set_mp_max(50);
     r.mutable_stats()->set_mp(50);
     r.set_fight_mode(true);
+    r.set_faction(-1);        // persist.NewRole: no faction yet (the proto's 0 would be Shaolin)
+    r.set_faction_last(-1);
     r.mutable_position()->set_zone_id(1);
     r.mutable_position()->mutable_pos()->set_x(at.x);
     r.mutable_position()->mutable_pos()->set_y(at.y);
@@ -832,4 +836,221 @@ TEST_CASE("a horse and the skills: mounting breaks the hiding, HorseLimit 1 / 2,
     a.h->cur.frozen_action = true;
     a.w.set_horse(*a.h, 1);
     CHECK(a.h->horse == 0);
+}
+
+namespace {
+
+// the three factions the faction tests use: Shaolin (metal, C_JUSTICE), Tang Men (wood, C_BALANCE), Wudu (wood, C_EVIL)
+std::shared_ptr<const jx::zone::KFaction> faction_table()
+{
+    auto t = std::make_shared<jx::zone::KFaction>();
+    t->set(0, 0, 1, "shaolin", "Thieu Lam phai");
+    t->set(2, 1, 3, "tangmen", "Duong Mon");
+    t->set(3, 1, 2, "wudu", "Ngu Doc Giao");
+    t->set_names("Moi nhap giang ho ", "giang ho hiep khach");
+    t->set_skills(0, {14, 8, 10});
+    return t;
+}
+
+template <typename Msg>
+std::vector<Msg> faction_packets(std::vector<Packet> all, jx::pb::MsgId id)
+{
+    std::vector<Msg> out;
+    for (const Packet& pk : all) {
+        if (pk.msg_id != static_cast<std::uint16_t>(id)) continue;
+        Msg m;
+        REQUIRE(m.ParseFromString(pk.payload));
+        out.push_back(m);
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("KFaction: the table of 0x08060C70 and the record of KPlayer+0x59cc", "[faction]")
+{
+    Quiet q;
+    const auto t = faction_table();
+    // 0x08060C00: the exact code name; a series above 4 (unsigned) or an empty name refuses
+    CHECK(t->id_by_name(0, "shaolin") == 0);
+    CHECK(t->id_by_name(4, "wudu") == 3);
+    CHECK(t->id_by_name(0, "Shaolin") == -1);
+    CHECK(t->id_by_name(0, "") == -1);
+    CHECK(t->id_by_name(5, "shaolin") == -1);
+    CHECK(t->id_by_name(-1, "shaolin") == -1);
+    // 0x08060BB0: the entry with that index AND that series
+    CHECK(t->allows(0, 0));
+    CHECK_FALSE(t->allows(1, 0));
+    CHECK(t->allows(1, 2));
+    CHECK_FALSE(t->allows(0, 11));
+    // an entry the file never named keeps the ctor's index / series 0 / camp 1
+    REQUIRE(t->entry(1) != nullptr);
+    CHECK(t->entry(1)->camp == 1);
+    CHECK(t->entry(1)->name.empty());
+    CHECK(t->entry(11) == nullptr);
+    REQUIRE(t->skills(0) != nullptr);
+    CHECK(t->skills(0)->size() == 3);
+    CHECK(t->skills(2) == nullptr);
+
+    jx::zone::KPlayerFaction r;
+    CHECK((r.current == -1 && r.first == -1 && r.last == -1 && r.count == 0));
+    // 0x080C2610 / 0x080C2680: never joined -> C_BEGIN and ""
+    CHECK(r.camp(t.get()) == 0);
+    CHECK(r.name(t.get()).empty());
+    CHECK(r.last_name(t.get()).empty());
+    // 0x080C26F0: a wood character cannot join Shaolin; a metal one can
+    CHECK_FALSE(r.add(*t, 1, 0));
+    CHECK(r.count == 0);
+    CHECK(r.add(*t, 0, 0));
+    CHECK((r.current == 0 && r.first == 0 && r.last == 0 && r.count == 1));
+    CHECK(r.camp(t.get()) == 1);
+    CHECK(r.name(t.get()) == "shaolin");
+    // 0x080C25F0: leaving keeps the count and the last; the name becomes G_FACTION_OLD, the camp C_FREE
+    r.clear_current();
+    CHECK((r.current == -1 && r.last == 0 && r.count == 1));
+    CHECK(r.camp(t.get()) == 4);
+    CHECK(r.name(t.get()) == "giang ho hiep khach");
+    CHECK(r.last_name(t.get()) == "shaolin");
+    // a second faction: the first stays, the last moves, the count grows (a wood character this time)
+    jx::zone::KPlayerFaction w;
+    CHECK(w.add(*t, 1, 2));
+    CHECK(w.add(*t, 1, 3));
+    CHECK((w.current == 3 && w.first == 2 && w.last == 3 && w.count == 2));
+    CHECK(w.camp(t.get()) == 2);
+    CHECK(w.last_name(t.get()) == "wudu");
+    // 0x080C25C0
+    w.reset();
+    CHECK((w.current == -1 && w.first == -1 && w.last == -1 && w.count == 0));
+    // without a table nothing has a name or a faction camp
+    CHECK(r.name(nullptr).empty());
+    CHECK(r.camp(nullptr) == 4);
+
+    // faction.json of jxassets export-faction
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "jx_faction_test";
+    std::filesystem::create_directories(dir);
+    const std::string file = (dir / "faction.json").string();
+    {
+        std::ofstream out(file, std::ios::binary);
+        out << R"({"source":"x","factions":[{"index":0,"series":0,"camp":1,"name":"shaolin","show_name":"Thieu Lam phai"},)"
+               R"({"index":2,"series":1,"camp":3,"name":"tangmen","show_name":"Duong Mon"}],"new_name":"Moi nhap giang ho ",)"
+               R"("old_name":"giang ho hiep khach","skills":{"0":[14,8],"2":[45]}})";
+    }
+    std::string error;
+    auto loaded = jx::zone::KFaction::load(file, &error);
+    REQUIRE(loaded.has_value());
+    CHECK(loaded->id_by_name(0, "shaolin") == 0);
+    CHECK(loaded->id_by_name(0, "tangmen") == 2);
+    CHECK(loaded->entry(2)->camp == 3);
+    CHECK(loaded->entry(2)->show_name == "Duong Mon");
+    CHECK(loaded->old_name() == "giang ho hiep khach");
+    REQUIRE(loaded->skills(2) != nullptr);
+    CHECK(loaded->skills(2)->at(0) == 45);
+    CHECK_FALSE(jx::zone::KFaction::load((dir / "missing.json").string(), &error).has_value());
+    std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("SetFaction / ClearFaction / the camps / AddMagic through the script api", "[faction]")
+{
+    Quiet q;
+    KSubWorldConfig cfg = small_world();
+    cfg.faction = faction_table();
+    KSubWorld w(cfg);
+    EntityId hero;
+    Pos at;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{2000, 2000}, {1, 1101}), hero, at) == jx::pb::RESULT_OK);
+    KNpc* h = w.mutable_entity(hero);
+    REQUIRE(h != nullptr);
+    CHECK(h->player.faction.current == -1);
+    w.take_outbox();
+    // KPlayer::SetFaction 0x080AEEC0: the record, the camp of the faction (0x0807B7B0 -> the 0x59 packet), the 0x7b packet
+    REQUIRE(w.chat(7, "?gm ds SetFaction(\"shaolin\")"));
+    CHECK(h->player.faction.current == 0);
+    CHECK(h->player.faction.count == 1);
+    CHECK(h->camp == 1);
+    auto out = w.take_outbox();
+    auto camps = faction_packets<jx::pb::EntityCamp>(out, jx::pb::G2C_ENTITY_CAMP);
+    REQUIRE(camps.size() == 1);
+    CHECK(camps[0].entity_id() == hero.value);
+    CHECK(camps[0].camp() == 1);
+    auto fs = faction_packets<jx::pb::PlayerFaction>(out, jx::pb::G2C_PLAYER_FACTION);
+    REQUIRE(fs.size() == 1);
+    CHECK((fs[0].camp() == 1 && fs[0].faction() == 0 && fs[0].faction_last() == 0 && fs[0].faction_count() == 1));
+    // the login sync carries the record too (0x080A9750 +0xb0e / +0xb12)
+    w.send_player_attrib(7);
+    auto attribs = faction_packets<jx::pb::PlayerAttribSync>(w.take_outbox(), jx::pb::G2C_PLAYER_ATTRIB);
+    REQUIRE(attribs.size() == 1);
+    CHECK((attribs[0].faction() == 0 && attribs[0].faction_last() == 0));
+    // a wood faction refuses a metal character (0x08060BB0): the record does not move, nothing is sent
+    REQUIRE(w.chat(7, "?gm ds SetFaction(\"tangmen\")"));
+    CHECK(h->player.faction.current == 0);
+    CHECK(h->player.faction.count == 1);
+    CHECK(faction_packets<jx::pb::PlayerFaction>(w.take_outbox(), jx::pb::G2C_PLAYER_FACTION).empty());
+    // GetFaction / GetFactionNumber / GetLastFactionNumber / GetLastAddFaction / GetCamp, read back through SetCamp
+    REQUIRE(w.chat(7, "?gm ds if GetFaction() == \"shaolin\" and GetFactionNumber() == 0 and GetLastFactionNumber() == 0 and GetLastAddFaction() == \"shaolin\" and GetCamp() == 1 then SetCurCamp(5) end"));
+    CHECK(h->current_camp == 5);
+    CHECK(h->camp == 1);
+    auto cur = faction_packets<jx::pb::EntityCamp>(w.take_outbox(), jx::pb::G2C_ENTITY_CAMP);
+    REQUIRE(cur.size() == 1);
+    CHECK((cur[0].camp() == 1 && cur[0].current_camp() == 5));
+    REQUIRE(w.chat(7, "?gm ds if GetCurCamp() == 5 then SetCamp(2) end"));
+    CHECK(h->camp == 2);
+    // a negative camp is ignored (0x0811B31D)
+    REQUIRE(w.chat(7, "?gm ds SetCamp(-1)"));
+    CHECK(h->camp == 2);
+    // the record survives a save and a load (LoadFrom 0x080C1A62: current, last, count; the first is not kept)
+    jx::pb::RoleData saved;
+    h->player.save_to(*h, saved);
+    CHECK((saved.faction() == 0 && saved.faction_last() == 0 && saved.faction_count() == 1));
+    // KPlayer::ClearFaction 0x080AEDE0: SetFaction("") - the current -1, the camp C_FREE, the 0x7c packet; the name
+    // of a character that left is G_FACTION_OLD
+    REQUIRE(w.chat(7, "?gm ds SetFaction(\"\")"));
+    CHECK(h->player.faction.current == -1);
+    CHECK(h->player.faction.last == 0);
+    CHECK(h->player.faction.count == 1);
+    CHECK(h->camp == 4);
+    fs = faction_packets<jx::pb::PlayerFaction>(w.take_outbox(), jx::pb::G2C_PLAYER_FACTION);
+    REQUIRE(fs.size() == 1);
+    CHECK((fs[0].camp() == 4 && fs[0].faction() == -1 && fs[0].faction_last() == 0 && fs[0].faction_count() == 1));
+    REQUIRE(w.chat(7, "?gm ds if GetFaction() == \"giang ho hiep khach\" and GetFactionNumber() == -1 then SetCamp(6) end"));
+    CHECK(h->camp == 6);
+    // SetLastFactionNumber / ClearFactionRecord
+    REQUIRE(w.chat(7, "?gm ds SetLastFactionNumber(3)"));
+    CHECK(h->player.faction.last == 3);
+    REQUIRE(w.chat(7, "?gm ds ClearFactionRecord()"));
+    CHECK((h->player.faction.current == -1 && h->player.faction.last == -1 && h->player.faction.count == 0));
+    REQUIRE(w.chat(7, "?gm ds if GetFaction() == \"\" then SetCamp(0) end"));
+    CHECK(h->camp == 0);
+    // joining again counts again
+    REQUIRE(w.chat(7, "?gm ds SetFaction(\"shaolin\")"));
+    CHECK((h->player.faction.current == 0 && h->player.faction.first == 0 && h->player.faction.count == 1));
+    w.take_outbox();
+    // AddMagic 0x0812C430: the skill at level 0 (a level above 1 needs an instance; 1102 has none at 70)
+    CHECK(h->skill_list.find_same(1102) == 0);
+    REQUIRE(w.chat(7, "?gm ds AddMagic(1102)"));
+    CHECK(h->skill_list.find_same(1102) != 0);
+    CHECK(h->skill_list.get_level(1102) == 0);
+    auto levels = faction_packets<jx::pb::SkillLevelSync>(w.take_outbox(), jx::pb::G2C_SKILL_LEVEL);
+    REQUIRE(levels.size() == 1);
+    CHECK(levels[0].skill_id() == 1102);
+    REQUIRE(w.chat(7, "?gm ds AddMagic(1103, 70)"));
+    CHECK(h->skill_list.find_same(1103) == 0);
+    REQUIRE(w.chat(7, "?gm ds AddMagic(1103, 1)"));
+    CHECK(h->skill_list.get_level(1103) == 1);
+    REQUIRE(w.chat(7, "?gm ds AddMagic(0)"));
+    CHECK(faction_packets<jx::pb::SkillLevelSync>(w.take_outbox(), jx::pb::G2C_SKILL_LEVEL).size() == 1);
+}
+
+TEST_CASE("SetFaction without a table: refused, logged", "[faction]")
+{
+    Quiet q;
+    KSubWorldConfig cfg = small_world();
+    KSubWorld w(cfg);
+    EntityId hero;
+    Pos at;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{2000, 2000}, {1}), hero, at) == jx::pb::RESULT_OK);
+    KNpc* h = w.mutable_entity(hero);
+    w.take_outbox();
+    REQUIRE(w.chat(7, "?gm ds SetFaction(\"shaolin\")"));
+    CHECK(h->player.faction.current == -1);
+    CHECK(faction_packets<jx::pb::PlayerFaction>(w.take_outbox(), jx::pb::G2C_PLAYER_FACTION).empty());
 }

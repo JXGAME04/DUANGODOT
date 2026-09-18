@@ -78,6 +78,10 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     revive_x = role.revive_pos().x();
     revive_y = role.revive_pos().y();
     revive_ref = static_cast<int>(role.revive_ref());
+    faction.current = role.faction();
+    faction.last = role.faction_last();
+    faction.count = static_cast<int>(role.faction_count());
+    faction.first = -1;
     // m_LifeMax straight from the role data (TRoleData+0xeb), the stamina from the tables, the
     // mana from the role data; a player has no natural life / mana replenish of its own
     npc.base.life_max = std::max(1, s.hp_max());
@@ -128,6 +132,9 @@ void KPlayer::save_to(const KNpc& npc, pb::RoleData& role) const
     role.mutable_revive_pos()->set_x(revive_x);
     role.mutable_revive_pos()->set_y(revive_y);
     role.set_revive_ref(static_cast<std::uint32_t>(std::max(0, revive_ref)));
+    role.set_faction(faction.current);
+    role.set_faction_last(faction.last);
+    role.set_faction_count(static_cast<std::uint32_t>(std::max(0, faction.count)));
 }
 
 void KPlayer::lose_exp(std::int64_t loss) noexcept

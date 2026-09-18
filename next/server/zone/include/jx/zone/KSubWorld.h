@@ -25,6 +25,7 @@
 #include "jx/zone/KItem.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
+#include "jx/zone/KFaction.h"
 #include "jx/zone/KRevivePos.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KObj.h"
@@ -120,6 +121,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
+    std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -483,6 +485,15 @@ public:
     void set_horse(KNpc& e, int n);
     // the ride toggle 0x080AEFA0 (C2G_RIDE): true when the state changed
     bool ride_request(std::uint64_t sid, bool on, std::uint32_t seq);
+    // KPlayer::SetFaction 0x080AEEC0 (docs §16.7): the faction named `name` joined - its camp on the npc, the 0x7b packet;
+    // false when the table has no such name or refuses the character's series
+    bool set_faction(KNpc& e, std::string_view name);
+    // KPlayer::ClearFaction 0x080AEDE0: the current faction becomes -1, the camp C_FREE, the 0x7c packet
+    void clear_faction(KNpc& e);
+    // KNpc::SetCamp 0x0807B7B0 / SetCurrentCamp 0x0807B850: m_Camp / m_CurrentCamp and the 0x59 / 0x58 packet around
+    void set_camp(KNpc& e, int camp);
+    void set_current_camp(KNpc& e, int camp);
+    [[nodiscard]] const KFaction* faction_table() const noexcept { return cfg_.faction.get(); }
     // KSubWorldSet 0x080F6D20: the revive / reference point `ref` of `map` in absolute Mps (revivepos.ini), nothing
     // without the table or the point
     [[nodiscard]] std::optional<Pos> revive_point(std::uint32_t map, int ref) const noexcept;
@@ -623,6 +634,8 @@ private:
     void emit_action(const KNpc& e, pb::Action action, EntityId target, int skill_id = 0, int skill_level = 0, Pos aim = Pos{});
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
     void emit_ride(const KNpc& e);
+    void emit_camp(const KNpc& e);
+    void emit_player_faction(const KNpc& e);
     // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
     void recalc_player(KNpc& e);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)

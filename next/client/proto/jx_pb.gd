@@ -1095,7 +1095,7 @@ class CharSummary:
 		service.field = __sex
 		data[__sex.tag] = service
 		
-		__faction = PBField.new("faction", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		__faction = PBField.new("faction", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
 		service = PBServiceField.new()
 		service.field = __faction
 		data[__faction.tag] = service
@@ -1181,7 +1181,7 @@ class CharSummary:
 		return __faction.value
 	func clear_faction() -> void:
 		data[6].state = PB_SERVICE_STATE.UNFILLED
-		__faction.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+		__faction.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_faction(value : int) -> void:
 		__faction.value = value
 	
@@ -5260,6 +5260,16 @@ class PlayerAttribSync:
 		service.field = __seq
 		data[__seq.tag] = service
 		
+		__faction = PBField.new("faction", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 36, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __faction
+		data[__faction.tag] = service
+		
+		__faction_last = PBField.new("faction_last", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 37, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __faction_last
+		data[__faction_last.tag] = service
+		
 	var data = {}
 	
 	var __level: PBField
@@ -5716,6 +5726,214 @@ class PlayerAttribSync:
 		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_seq(value : int) -> void:
 		__seq.value = value
+	
+	var __faction: PBField
+	func has_faction() -> bool:
+		if __faction.value != null:
+			return true
+		return false
+	func get_faction() -> int:
+		return __faction.value
+	func clear_faction() -> void:
+		data[36].state = PB_SERVICE_STATE.UNFILLED
+		__faction.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_faction(value : int) -> void:
+		__faction.value = value
+	
+	var __faction_last: PBField
+	func has_faction_last() -> bool:
+		if __faction_last.value != null:
+			return true
+		return false
+	func get_faction_last() -> int:
+		return __faction_last.value
+	func clear_faction_last() -> void:
+		data[37].state = PB_SERVICE_STATE.UNFILLED
+		__faction_last.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_faction_last(value : int) -> void:
+		__faction_last.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class EntityCamp:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__camp = PBField.new("camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __camp
+		data[__camp.tag] = service
+		
+		__current_camp = PBField.new("current_camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __current_camp
+		data[__current_camp.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __camp: PBField
+	func has_camp() -> bool:
+		if __camp.value != null:
+			return true
+		return false
+	func get_camp() -> int:
+		return __camp.value
+	func clear_camp() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_camp(value : int) -> void:
+		__camp.value = value
+	
+	var __current_camp: PBField
+	func has_current_camp() -> bool:
+		if __current_camp.value != null:
+			return true
+		return false
+	func get_current_camp() -> int:
+		return __current_camp.value
+	func clear_current_camp() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__current_camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_current_camp(value : int) -> void:
+		__current_camp.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class PlayerFaction:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__camp = PBField.new("camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __camp
+		data[__camp.tag] = service
+		
+		__faction = PBField.new("faction", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __faction
+		data[__faction.tag] = service
+		
+		__faction_last = PBField.new("faction_last", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __faction_last
+		data[__faction_last.tag] = service
+		
+		__faction_count = PBField.new("faction_count", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __faction_count
+		data[__faction_count.tag] = service
+		
+	var data = {}
+	
+	var __camp: PBField
+	func has_camp() -> bool:
+		if __camp.value != null:
+			return true
+		return false
+	func get_camp() -> int:
+		return __camp.value
+	func clear_camp() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_camp(value : int) -> void:
+		__camp.value = value
+	
+	var __faction: PBField
+	func has_faction() -> bool:
+		if __faction.value != null:
+			return true
+		return false
+	func get_faction() -> int:
+		return __faction.value
+	func clear_faction() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__faction.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_faction(value : int) -> void:
+		__faction.value = value
+	
+	var __faction_last: PBField
+	func has_faction_last() -> bool:
+		if __faction_last.value != null:
+			return true
+		return false
+	func get_faction_last() -> int:
+		return __faction_last.value
+	func clear_faction_last() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__faction_last.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_faction_last(value : int) -> void:
+		__faction_last.value = value
+	
+	var __faction_count: PBField
+	func has_faction_count() -> bool:
+		if __faction_count.value != null:
+			return true
+		return false
+	func get_faction_count() -> int:
+		return __faction_count.value
+	func clear_faction_count() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__faction_count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_faction_count(value : int) -> void:
+		__faction_count.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -7237,6 +7455,8 @@ enum MsgId {
 	G2C_SKILL_LEVEL = 2117,
 	G2C_SKILL_FORBID = 2118,
 	G2C_ENTITY_RIDE = 2119,
+	G2C_ENTITY_CAMP = 2120,
+	G2C_PLAYER_FACTION = 2121,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,
@@ -8237,7 +8457,7 @@ class RoleData:
 		service.field = __sex
 		data[__sex.tag] = service
 		
-		__faction = PBField.new("faction", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		__faction = PBField.new("faction", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
 		service = PBServiceField.new()
 		service.field = __faction
 		data[__faction.tag] = service
@@ -8328,6 +8548,16 @@ class RoleData:
 		service = PBServiceField.new()
 		service.field = __revive_ref
 		data[__revive_ref.tag] = service
+		
+		__faction_last = PBField.new("faction_last", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 25, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __faction_last
+		data[__faction_last.tag] = service
+		
+		__faction_count = PBField.new("faction_count", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 26, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __faction_count
+		data[__faction_count.tag] = service
 		
 	var data = {}
 	
@@ -8431,7 +8661,7 @@ class RoleData:
 		return __faction.value
 	func clear_faction() -> void:
 		data[8].state = PB_SERVICE_STATE.UNFILLED
-		__faction.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+		__faction.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_faction(value : int) -> void:
 		__faction.value = value
 	
@@ -8641,6 +8871,32 @@ class RoleData:
 		__revive_ref.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_revive_ref(value : int) -> void:
 		__revive_ref.value = value
+	
+	var __faction_last: PBField
+	func has_faction_last() -> bool:
+		if __faction_last.value != null:
+			return true
+		return false
+	func get_faction_last() -> int:
+		return __faction_last.value
+	func clear_faction_last() -> void:
+		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__faction_last.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_faction_last(value : int) -> void:
+		__faction_last.value = value
+	
+	var __faction_count: PBField
+	func has_faction_count() -> bool:
+		if __faction_count.value != null:
+			return true
+		return false
+	func get_faction_count() -> int:
+		return __faction_count.value
+	func clear_faction_count() -> void:
+		data[26].state = PB_SERVICE_STATE.UNFILLED
+		__faction_count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_faction_count(value : int) -> void:
+		__faction_count.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

@@ -87,7 +87,7 @@ message RoleData {
   uint64 exp = 5;
   uint32 series = 6;        // five elements (metal, wood, water, fire, earth) as in the old game
   uint32 sex = 7;
-  uint32 faction = 8;
+  int32 faction = 8;        // KPlayerFaction::m_nCurFaction (KPlayer+0x59cc; cFaction of the DB record): 0..10, -1 = none
   RolePosition position = 9;
   RoleStats stats = 10;
   repeated ItemData items = 11;   // (RoleItem, the placeholder that stood here, was never written by anyone)
@@ -113,4 +113,9 @@ message RoleData {
   // the id of the revive point (KPlayer+0x14: the Bishop's irevivalx of a fresh character = one of its village's ids in
   // revivepos.ini, or SetRevPos(map, ref) later); the zone resolves it through revive_pos.json; 0 = none
   uint32 revive_ref = 24;
+  // KPlayerFaction (Core/Src/KPlayerFaction.h; KPlayer+0x59cc..+0x59d8 of jx_linux_y): the faction last added (m_nLastAddFaction,
+  // +0x59d4, the one the client's skill book shows the branches of) and how many times a faction was joined (m_nAddTimes,
+  // +0x59d8: 0 = never, the name of a character without faction depends on it); m_nFirstAddFaction is not saved (LoadFrom 0x080C1A62)
+  int32 faction_last = 25;
+  uint32 faction_count = 26;
 }

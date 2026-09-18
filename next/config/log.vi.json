@@ -288,7 +288,9 @@
     "child": "kỹ năng con",
     "style": "kiểu",
     "forbid": "khoá",
-    "held": "đang giữ"
+    "held": "đang giữ",
+    "faction": "môn phái",
+    "camp": "phe"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -567,6 +569,12 @@
     "skill cast refused": "KNpc::CastSkill từ chối thi triển (hết hồi chiêu chưa, mục tiêu, phí, kiểu 1)",
     "skill cast": "Bắt đầu hành động thi triển kỹ năng (bắn ở 60 % số khung)",
     "weapon skill table loaded": "Đã nạp bảng vũ khí → kỹ năng vật lý",
-    "no weapon skill table": "Không có bảng vũ khí → kỹ năng vật lý (dùng đánh thường 1/2)"
+    "no weapon skill table": "Không có bảng vũ khí → kỹ năng vật lý (dùng đánh thường 1/2)",
+    "faction table loaded": "Đã nạp bảng môn phái (门派设定.ini: 11 môn phái, ngũ hành, phe, tên)",
+    "no faction table": "Không có bảng môn phái (faction.json) - không gia nhập môn phái được",
+    "faction joined": "Người chơi gia nhập môn phái (KPlayer::SetFaction: phe theo môn phái, gói 0x7b)",
+    "faction left": "Người chơi rời môn phái (KPlayer::ClearFaction: phe C_FREE, gói 0x7c)",
+    "faction refused": "SetFaction bị từ chối: tên không có trong bảng hoặc ngũ hành nhân vật không hợp môn phái",
+    "skill added": "AddMagic: đã thêm kỹ năng vào sổ (gói 0x5e)"
   }
 }

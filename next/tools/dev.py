@@ -481,6 +481,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:
         print("export-revive-pos: no settings/revivepos.ini in the reference server folder - characters start at the map's spawn point")
+    # the eleven factions (settings/faction/门派设定.ini + factionskill.txt): SetFaction of the script api, the
+    # camp of a member, the branch pages of the client's skill book
+    if subprocess.call([*jxassets_args(), "export-faction", "-out", out], cwd=ROOT) != 0:
+        print("export-faction: no settings/faction/门派设定.ini in the reference server folder - no faction can be joined")
     print("assets ok")
 
 

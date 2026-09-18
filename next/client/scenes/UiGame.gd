@@ -585,16 +585,41 @@ func _auto_skills() -> void:
 	var placed := 0
 	var pick := 0
 	# a fresh character holds only the plain attacks and the common skills, which the book does not place: the
-	# development server hands it the Shaolin fist column of skillui.txt (SetSkillLevel of the script api)
+	# development server makes it a Shaolin disciple (SetFaction of the script api, like the faction npc's script) and
+	# hands it every Shaolin skill at level 0 (AddMagic, the way faction_def.lua AddFacSkill does) - the three branch
+	# pages of the book (Quyền / Bổng / Đao) then have their skills
 	var before := Game.skills.size()
 	# the fist skills ask for level 10 (ReqLevel): AddExp of the script api lifts the character there first - one
 	# level per call (KPlayer::AddExp caps the gain at the next level's need), so nine calls from level 1
 	for _i in 9:
 		Game.chat("?gm ds AddExp(20000, 1)")
-	for id in [14, 8, 15, 16, 20, 21, 271, 273]:
-		Game.chat("?gm ds SetSkillLevel(%d, 1)" % id)
+	# the faction of the character's own series (0x08060BB0 refuses any other): Shaolin for the metal characters --auto makes
+	var own_series: int = int(Game.chars[0].series) if not Game.chars.is_empty() else 0
+	var fac_name := "shaolin"
+	var fac_id := 0
+	var ftab = Assets.load_json("%s/faction.json" % Assets.assets_root())
+	if ftab is Dictionary:
+		for e in ftab.get("factions", []):
+			if int(e.get("series", -1)) == own_series and str(e.get("name", "")) != "":
+				fac_name = str(e.name)
+				fac_id = int(e.get("index", 0))
+				break
+	# the skills come the way the faction npc's script hands them out (script/global/pgaming/npc/chuongmoncacphai/
+	# thieulam.lua: SetFaction + AddMagic(10) on joining, then add_sl(stage) of script/global/skills_table.lua after
+	# each rank quest: stage 10 = the entry skills, 20 = the level-10 quest, ... 90 = the high secrets): a level-10
+	# character has done the first quest, so stage 20; nothing of the flat factionskill.txt list (that is the leave list)
+	var add_functions := {"shaolin": "add_sl", "tianwang": "add_tw", "tangmen": "add_tm", "wudu": "add_wu", "emei": "add_em",
+		"cuiyan": "add_cy", "tianren": "add_tr", "gaibang": "add_gb", "wudang": "add_wd", "kunlun": "add_kl", "huashan": "add_hs"}
+	Game.chat("?gm ds SetFaction(\"%s\")" % fac_name)
+	# the nine AddExp above land one at a time: level 10 first, then the stage of a disciple who did the level-10 quest
+	var lifted := 0.0
+	while lifted < 3.0 and int(Game.player_attrib.get("level", 1)) < 10:
+		await get_tree().create_timer(0.25).timeout
+		lifted += 0.25
+	var stage := 20 if int(Game.player_attrib.get("level", 1)) >= 10 else 10
+	Game.chat("?gm ds Include(\"\\\\script\\\\global\\\\skills_table.lua\") %s(%d)" % [add_functions.get(fac_name, "add_sl"), stage])
 	var waited := 0.0
-	while waited < 3.0 and (Game.skills.size() < before + 8 or int(Game.player_attrib.get("level", 1)) < 10):
+	while waited < 4.0 and (Game.skills.size() < before + 1 or int(Game.player_attrib.get("level", 1)) < 10 or Game.faction_last != fac_id):
 		await get_tree().create_timer(0.25).timeout
 		waited += 0.25
 	if _windows != null and _windows.ready_ok:
@@ -603,15 +628,26 @@ func _auto_skills() -> void:
 		for id in Game.skills:
 			if int(id) <= 2:
 				continue
-			if _windows.skills_window._place.has(int(id)):
+			var branches: Array = _windows.skills_window.branches_of(int(id))
+			if not branches.is_empty():
 				placed += 1
-				if pick == 0:
+				if pick == 0 and branches.has(0):
 					pick = int(id)
 		await _save_screenshot("user://logs/auto_skills.png")
+		# the second branch page (Bổng Pháp for a Shaolin), then back
+		if _windows.skills_window.branch_titles()[1] != "":
+			_windows.skills_window._on_page_button(true, 1)
+			await get_tree().create_timer(0.3).timeout
+			await _save_screenshot("user://logs/auto_skills_2.png")
+			_windows.skills_window._on_page_button(true, 0)
 		_windows.skills_window.hide_window()
 	var cast_told := false
 	if pick != 0:
 		Game.left_skill = pick
+		# the faction hands its skills out at level 0 (AddMagic): a point from the book's add button (C2G_ADD_SKILL_POINT)
+		# makes the pick castable, the way a player does it
+		Game.add_skill_point(pick)
+		await get_tree().create_timer(0.5).timeout
 		var own := _own()
 		var best: Node2D = null
 		var best_d := 400.0
@@ -642,8 +678,9 @@ func _auto_skills() -> void:
 			await get_tree().create_timer(1.0).timeout
 			cast_told = _action_count > actions_before
 			await _save_screenshot("user://logs/auto_cast.png")
-	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told})
-	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s" % [Game.skills.size(), placed, pick, cast_told])
+	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]
+	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told, "faction": Game.faction_last, "branches": titles})
+	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s faction=%d branches=%s" % [Game.skills.size(), placed, pick, cast_told, Game.faction_last, "|".join(titles)])
 
 
 # Saves the rendered frame (no-op in headless mode); used by tools/dev.py screenshot.

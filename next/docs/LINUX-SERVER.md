@@ -910,3 +910,47 @@ triển thay cho (−1, idx); (3) gói 0x58 (camp hiện tại) chưa ra client;
 
 Sai khác có chủ ý: (1) không có bảng ngựa `KItemSet+0x80` → mọi ngựa mặc vào là cưỡi được; (2) đổi trạng thái gửi `G2C_ENTITY_RIDE`
 ngay và tính lại thuộc tính ngay; (3) sự kiện script 3, gói 0x9c, ngồi, `0x08078E00` chưa có; client chưa vẽ ngựa (B4).
+
+### 16.7 Môn phái — `KFaction` (`g_Faction 0x830BEC0`, `门派设定.ini`), sổ môn phái `KPlayer+0x59cc`, `SetFaction`, gói 0x7b/0x7c/0x59/0x58 (M12 lát B4b-1, đã kiểm từng dòng)
+
+Tệp: `\settings\faction\门派设定.ini` (**thiếu trong `server1/settings/faction`**, có trong `D:\ServerLinux\Patch\settings\faction\`
+với tên GBK đọc thành cp1252 `ÃÅÅÉÉè¶¨.ini`; `jxassets export-faction` tìm cả hai tên qua chuỗi `server1;Patch` trong
+`config/oldgame.local.json`) và `factionskill.txt` (`FactionId, SkillId` — chỉ script `script/global/factionskill.lua` đọc, C++ không).
+Script gia nhập (`script/global/pgaming/npc/chuongmoncacphai/thieulam.lua` `defection_complete`): `SetRevPos(103,51)`,
+`SetTask(7,10*256)`, **`SetFaction("shaolin")`** (tên mã `Name`, không phải `ShowName`), `SetCamp(1)`, `SetCurCamp(1)`, `SetRank(1)`,
+`AddMagic(10)`, rồi sau mỗi nhiệm vụ thăng cấp `add_sl(bậc)` của `script/global/skills_table.lua` (mỗi phái một hàm: `add_tw add_sl add_tm
+add_wu add_em add_cy add_tr add_gb add_wd add_kl add_hs`; `add_misc(bit)` kỹ năng chung 210/400/397). **`add_sl(bậc)`** (dòng 439): bậc ≥ 10 →
+14, 10 (nhập môn); ≥ 20 (nhiệm vụ cấp 10) → 8, 4, 6 (ba nhánh Quyền/Bổng/Đao); ≥ 30 → 15; ≥ 40 → 16; ≥ 50 → 20; ≥ 60 → 271, 11, 19; ≥ 70 (hồi sư)
+→ 273, 21 (trấn phái); ≥ 90 → `AddMagic(318,1)`, 319, 321 ("Cao" — 高级绝学, chỉ ở nhiệm vụ 90); mỗi kỹ năng chỉ khi `HaveMagic(id) == -1`.
+Vậy nhân vật mới **không** có ô "Cao"; `factionskill.txt` (`G_FactionSkill` của `factionskill.lua`) là danh sách phẳng để gỡ khi rời phái, không
+phải thứ tự phát. `faction_def.lua` `AddFacSkill(nFacId, nLv)`: với mỗi kỹ năng của `tbSkills[fac][lv]` (`tbSkillID` — Thiếu Lâm chỉ có `[10] = {14, 10}`),
+`HaveMagic(id) == -1` → `AddMagic(id, lv)`. Zone chạy được `Include("\\script\\global\\skills_table.lua")` rồi `add_sl(20)` (cây script đã chuyển
+`data/script/server1`); `--auto` của client làm đúng thế.
+
+| Địa chỉ | Nhị phân làm gì | Zone |
+|---|---|---|
+| `0x08060C70` | **`KFactionSet::Init`** (gọi từ `0x0805EA10` "Initting g_Faction"): 11 mục 0xcc byte tại `g_Faction`: `+0 = i`, `+4 = 0` (ngũ hành), `+8 = 1` (phe C_JUSTICE), `+0xc` `Name[64]`, `+0x4c` `ShowName[128]`; `KIniFile::Load("\settings\faction\门派设定.ini")` thất bại → 0; mỗi mục `i` (`sprintf("%d")`): `Name`, `ShowName`, `Series` so `S_GOLD S_WOOD S_WATER S_FIRE S_EARTH` → 0..4 (không khớp giữ 0), `Camp` so `C_BEGIN C_JUSTICE C_EVIL C_BALANCE C_FREE C_ANIMAL C_EVENT` → 0..6 (không khớp giữ 1) | `KFaction::load(faction.json)`; Go `jxold/player/KFaction.go` `ParseFaction` (+ `[Name] New/Old`) |
+| `0x08060C00` | `FindByName(g, ngũ hành, tên)`: ngũ hành > 4 (so **không dấu** → âm cũng thôi) hay tên rỗng → −1; `strcmp(tên, mục+0xc)` bằng → chỉ số | `KFaction::id_by_name(series, name)` |
+| `0x08060BB0` | `Allows(g, ngũ hành, chỉ số)`: ngũ hành ≤ 4, chỉ số ≤ 10 và có mục `+0 == chỉ số && +4 == ngũ hành` | `KFaction::allows` — **nhân vật khác ngũ hành với môn phái thì không vào được** |
+| `0x080C2590` / `0x080C25C0` | `KPlayerFaction` ctor (gọi từ `KPlayer` ctor `0x080BC423`) / `ClearFactionRecord`: `+0 hiện tại = −1`, `+4 đầu tiên = −1`, `+8 sau cùng = −1`, `+0xc số lần = 0` | `KPlayerFaction{-1,-1,-1,0}`, `reset()` |
+| `0x080C25F0` | `ClearFaction`: chỉ `+0 = −1` (số lần và sau cùng giữ) | `clear_current()` |
+| `0x080C26F0` | `Add(rec, ngũ hành, chỉ số)`: `Allows` sai → 0; `+0 = chỉ số`, `+0xc += 1`, lần đầu → `+4 = chỉ số`; `+8 = chỉ số`; 1 | `KPlayerFaction::add` |
+| `0x080C2750` | `Add(rec, ngũ hành, tên)` = `FindByName` rồi `Add` | `KSubWorld::set_faction` |
+| `0x080C2610` | `Camp(rec)`: hiện tại 0..10 → `mục+8` (âm → 0); hiện tại −1 → số lần ≠ 0 ? **4 (C_FREE)** : **0 (C_BEGIN)** | `KPlayerFaction::camp` |
+| `0x080C2680` / `0x080C27B0` | `Name(rec, buf, n)` / `LastName`: hiện tại (sau cùng) 0..10 → `Name` của mục; −1 → số lần ≠ 0 ? chuỗi `G_FACTION_OLD` (`[0x978a0b0]`, bảng chuỗi toàn cục `0x0817F0B0` — **tệp bảng chuỗi không có trong dữ liệu**; zone lấy `[Name] Old` của ini, cùng nghĩa) : "" | `name()` / `last_name()` |
+| `0x080AEEC0` | **`KPlayer::SetFaction(player, tên)`**: `0x080C2750(rec, npc+0x28 ngũ hành, tên)` → 0 → thôi; `SetCamp(npc, Camp(rec))` (`0x0807B7B0`); **gói 0x7b** `0x080A8880` | `set_faction(e, name)` |
+| `0x080AEDE0` | **`KPlayer::ClearFaction`**: `0x080C25F0`; `SetCamp(npc, 4)`; **gói 0x7c** 1 byte cho người chơi | `clear_faction(e)` |
+| `0x080A8880` | **gói 0x7b** 8 byte `{0x7b, byte phe npc+0x21c, byte +0x59cc hiện tại, byte +0x59d4 sau cùng, dword +0x59d8 số lần}` cho người chơi (`0x080A8400`) | `G2C_PLAYER_FACTION {camp, faction, faction_last, faction_count}` (xoá = cùng gói với −1) |
+| `0x0807B7B0` | **`KNpc::SetCamp(npc, phe)`**: `+0x21c = phe`; npc người chơi → `0x081621B0(Player+0x8078, phe, +0x220)` (danh sách móc, gọi `vtable[0](obj, 1, &out)` từng mục — không có gì cho zone); **gói 0x59** 6 byte `{0x59, dword id npc, byte phe}` quanh 100 ô (`0x0807A870`) | `set_camp(e, camp)` → `G2C_ENTITY_CAMP {entity_id, camp, current_camp}` |
+| `0x0807B850` | `KNpc::SetCurrentCamp`: `+0x220`, gói 0x58 (đã dùng ở §16.5) | `set_current_camp` |
+| `0x080C1A62` (trong `LoadFrom 0x080C16D0`) | từ bản ghi DB: `+0x59cc = int8 [rec+0x66]`, `+0x59d4 = int8 [rec+0x65]`, `+0x59d8 = int [rec+0x6b]`; `+0x59d0` (đầu tiên) **không nạp** | `KPlayer::load_from`: `RoleData.faction / faction_last / faction_count` (persist v4: bản ghi cũ 0 → −1) |
+| `0x080B23B9` (`SaveTo 0x080B22B0`) | ghi `byte hiện tại`, `byte sau cùng`, `word số lần` | `save_to` |
+| `0x080A9750` (+0xb0e/+0xb12; gọi từ `0x080AE090`) | đồng bộ lúc vào game mang hiện tại + sau cùng | `PlayerAttribSync.faction / faction_last` |
+| `0x0811A540` | Lua **`SetFaction(tên)`** → 1/0: không người chơi → 0; tên rỗng → `ClearFaction` → 1; else `KPlayer::SetFaction` | `l_SetFaction` |
+| `0x0811A5D0` / `0x08113C60` / `0x0811A4C0` / `0x0810E6D0` / `0x0810E4B0` / `0x0811A480` | Lua `GetFaction()` (tên hiện tại, "" không người chơi) / `GetFactionNumber()` (`+0x59cc`, −1) / `GetLastAddFaction()` (tên sau cùng) / `GetLastFactionNumber()` (`+0x59d4`; **có tham số → −1**) / `SetLastFactionNumber(n)` / `ClearFactionRecord()` | cùng tên |
+| `0x0811B2E0` / `0x0811B1D0` / `0x08114650` / `0x081146C0` | Lua `SetCamp(n)` (n ≥ 0 → `SetCamp`) / `SetCurCamp(n)` / `GetCamp()` (`+0x21c`, nil không người chơi) / `GetCurCamp()` (`+0x220`) | cùng tên |
+| `0x0812C430` | Lua **`AddMagic(id|tên [, cấp])`**: ≥ 1 tham số + người chơi; tên → `SkillId` của dòng (`0x830ae00`); cấp mặc định 0; cấp > 1 → id 1..1999 và cấp ≤ 63 và phiên bản (id, cấp) tồn tại (`0x0812C620`: cache `0x8bc99e0` hay `InstanceSkill`); `KSkillList::Add(npc+0x248, id, cấp, 0,0,0,0)` `0x080E5420` → **gói 0x5e** 15 byte `{0x5e, id, cấp đang giữ `0x080E43F0`, Player+0x5928 điểm còn, word 0}`; không trả gì | `l_AddMagic` |
+| client `0x00651280` (ô 0x7c của bảng `0x0065AEE0` = gói **0x7b**, bảng lệch một) / `0x006511B0` (gói 0x7c) / `0x006500C0` (gói 0x59) | xem `CLIENT-2.0.md` §6 | |
+
+Chưa: `SetRank` (`0x081109E0`, danh hiệu `factiontitle.txt`), `Msg2Faction`, `0x081621B0` (danh sách móc `+0x8078`), gia nhập qua NPC
+(script `thieulam.lua` cần `SetTask`/`AddNote`/`SetRank`…), "門派多修" (client có UI, `jx_linux_y` không có).

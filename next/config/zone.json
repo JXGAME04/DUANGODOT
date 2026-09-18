@@ -57,6 +57,9 @@
     // settings/revivepos.ini of the old server (jxassets export-revive-pos): the revive / reference points of every
     // map - where a new character is born in its village, where the revive and SetRevPos go; missing = spawn points
     "revive_pos_file": "client/assets/revive_pos.json",
+    // settings/faction/门派设定.ini + factionskill.txt of the old server (jxassets export-faction): the eleven factions -
+    // SetFaction of the script api, the camp of a member, the branch pages of the client's skill book; missing = no faction
+    "faction_file": "client/assets/faction.json",
     // settings/skills.txt of the old server (jxassets export-skills): every skill's row for KSkillManager;
     // the numbers of each level are computed by the converted skill scripts (dev.py lua) when first used
     "skills_file": "client/assets/skills.json",

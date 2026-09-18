@@ -205,6 +205,17 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no revive point table", {jx::log::kv("file", revive_file), jx::log::kv("error", error)});
         }
     }
+    // the eleven factions (jxassets export-faction): SetFaction of the script api, the camp of a member (docs §16.7)
+    const std::string faction_file = cfg.get_string("zone.faction_file", "client/assets/faction.json");
+    if (!faction_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KFaction::load(faction_file, &error)) {
+            w.faction = std::make_shared<const jx::zone::KFaction>(std::move(*t));
+            jx::log::info("boot", "faction table loaded", {jx::log::kv("file", faction_file)});
+        } else {
+            jx::log::warn("boot", "no faction table", {jx::log::kv("file", faction_file), jx::log::kv("error", error)});
+        }
+    }
     // the missile table (jxassets export-missles): the rows of settings\missles.txt the skills fire
     const std::string missles_file = cfg.get_string("zone.missles_file", "client/assets/missles.json");
     if (!missles_file.empty()) {

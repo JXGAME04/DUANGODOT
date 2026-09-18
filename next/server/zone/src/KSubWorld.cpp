@@ -1187,6 +1187,8 @@ void KSubWorld::send_player_attrib(std::uint64_t sid, std::uint32_t seq)
     out.set_run_speed(c.run_speed);
     out.set_attack_speed(c.attack_speed_v());
     out.set_cast_speed(c.cast_speed_v());
+    out.set_faction(p.faction.current);        // the login sync 0x080A9750 +0xb0e / +0xb12
+    out.set_faction_last(p.faction.last);
     out.set_seq(seq);
     emit({sid}, static_cast<std::uint16_t>(pb::G2C_PLAYER_ATTRIB), out);
 }
@@ -1477,6 +1479,78 @@ void KSubWorld::emit_ride(const KNpc& e)
     r.set_entity_id(e.id.value);
     r.set_riding(e.horse != 0);
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_RIDE), r);
+}
+
+// the 0x59 packet of KNpc::SetCamp 0x0807B7B0 {npc id, camp} / the 0x58 one of SetCurrentCamp 0x0807B850, to the
+// clients around (0x0807A870 with 6 bytes, a radius of 100)
+void KSubWorld::emit_camp(const KNpc& e)
+{
+    pb::EntityCamp c;
+    c.set_entity_id(e.id.value);
+    c.set_camp(e.camp);
+    c.set_current_camp(e.current_camp);
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_CAMP), c);
+}
+
+// the 0x7b packet of 0x080A8880 {camp, current faction, last added, times joined} to the player itself; the 0x7c one
+// of ClearFaction carries nothing (the client sets its current faction to -1 and the camp to C_FREE): the same
+// message with a current of -1 says the same
+void KSubWorld::emit_player_faction(const KNpc& e)
+{
+    if (e.sid == 0) return;
+    pb::PlayerFaction f;
+    f.set_camp(e.camp);
+    f.set_faction(e.player.faction.current);
+    f.set_faction_last(e.player.faction.last);
+    f.set_faction_count(static_cast<std::uint32_t>(std::max(0, e.player.faction.count)));
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_PLAYER_FACTION), f);
+}
+
+// KNpc::SetCamp 0x0807B7B0: m_Camp = camp; a player's hook list +0x8078 (nothing here); the 0x59 packet around
+void KSubWorld::set_camp(KNpc& e, int camp)
+{
+    e.camp = camp;
+    emit_camp(e);
+}
+
+// KNpc::SetCurrentCamp 0x0807B850: m_CurrentCamp = camp; the 0x58 packet around
+void KSubWorld::set_current_camp(KNpc& e, int camp)
+{
+    e.current_camp = camp;
+    emit_camp(e);
+}
+
+// KPlayer::SetFaction 0x080AEEC0: FindByName(series of the npc, name) -> KPlayerFaction::Add (refused when the
+// faction's series is not the character's) -> SetCamp(the record's camp) -> the 0x7b packet (0x080A8880)
+bool KSubWorld::set_faction(KNpc& e, std::string_view name)
+{
+    if (e.kind != KNpcKind::player || !e.player.loaded) return false;
+    const KFaction* table = cfg_.faction.get();
+    if (table == nullptr) {
+        log::warn("zone.player", "no faction table", {log::kv("entity", e.id), log::kv("name", std::string(name))});
+        return false;
+    }
+    const int index = table->id_by_name(static_cast<int>(e.series), name);
+    if (index < 0 || !e.player.faction.add(*table, static_cast<int>(e.series), index)) {
+        log::info("zone.player", "faction refused", {log::kv("entity", e.id), log::kv("name", std::string(name)), log::kv("faction", index), log::kv("series", e.series)});
+        return false;
+    }
+    set_camp(e, e.player.faction.camp(table));
+    emit_player_faction(e);
+    log::info("zone.player", "faction joined", {log::kv("entity", e.id), log::kv("name", std::string(name)), log::kv("faction", index),
+                                                log::kv("camp", e.camp), log::kv("count", e.player.faction.count)});
+    return true;
+}
+
+// KPlayer::ClearFaction 0x080AEDE0: the current faction -1 (the count and the last stay), SetCamp(4 = C_FREE), the
+// 0x7c packet
+void KSubWorld::clear_faction(KNpc& e)
+{
+    if (e.kind != KNpcKind::player || !e.player.loaded) return;
+    e.player.faction.clear_current();
+    set_camp(e, KFaction::kCampFree);
+    emit_player_faction(e);
+    log::info("zone.player", "faction left", {log::kv("entity", e.id), log::kv("count", e.player.faction.count)});
 }
 
 // KNpc::SetHorse 0x0807D520: byte +0x1479 (frozen_action) set -> nothing; +0x199c = n; a player's event script 3

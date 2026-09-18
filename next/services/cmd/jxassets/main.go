@@ -46,6 +46,7 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/wor"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 var (
@@ -164,6 +165,20 @@ func findClient() string {
 	}
 	fail("old client folder not found: pass -client or set JX_OLD_CLIENT (folder with package.ini or config.ini)")
 	return ""
+}
+
+// gbkAsLatin1 is the file name a Windows extraction gave a GBK named file: every byte of the GBK
+// encoding read as one cp1252 / Latin-1 letter ("门派设定" -> "ÃÅÅÉÉè¶¨").
+func gbkAsLatin1(s string) string {
+	raw, err := simplifiedchinese.GBK.NewEncoder().Bytes([]byte(s))
+	if err != nil {
+		return s
+	}
+	out := make([]rune, 0, len(raw))
+	for _, b := range raw {
+		out = append(out, rune(b))
+	}
+	return string(out)
 }
 
 // primaryDir is the reference folder of a "reference;fallback" client chain (plain files such as
@@ -1029,6 +1044,53 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-revive-pos: diem hoi sinh %s (%d map) -> %s\n", file, len(table.Maps), p)
+
+	case "export-faction":
+		// \settings\faction\门派设定.ini of the old server: the eleven factions the way
+		// KFactionSet::Init 0x08060C70 of jx_linux_y reads them (Name / ShowName / Series / Camp per
+		// "%d" section) plus factionskill.txt (the flat FactionId -> SkillId list its scripts load)
+		// -> <out>/faction.json for the zone's KFaction (SetFaction of the script api, the camp of a
+		// member, GetFaction) and for the client's skill book (the branch pages of the faction)
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		// the file name is Chinese: on a Windows extraction it may carry the GBK bytes as cp1252 letters
+		mojibake := gbkAsLatin1("门派设定") + ".ini"
+		data, file, err := readServerFile(sdir, "settings/faction/门派设定.ini", "Settings/faction/门派设定.ini",
+			"settings/faction/"+mojibake, "Settings/faction/"+mojibake, "settings/faction/faction.ini")
+		if err != nil {
+			fail("no settings/faction/门派设定.ini under %s: %v", sdir, err)
+		}
+		table := player.ParseFaction(data)
+		table.Source = file
+		if skills, sfile, err := readServerFile(sdir, "settings/faction/factionskill.txt", "Settings/faction/factionskill.txt"); err == nil {
+			table.AddSkills(skills)
+			fmt.Printf("export-faction: danh sach ky nang mon phai %s\n", sfile)
+		} else {
+			fmt.Printf("export-faction: khong co settings/faction/factionskill.txt (%v) - khong co danh sach ky nang\n", err)
+		}
+		p := filepath.Join(out, "faction.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		named := 0
+		for _, e := range table.Factions {
+			if e.Name != "" {
+				named++
+			}
+		}
+		fmt.Printf("export-faction: mon phai %s (%d/%d co ten) -> %s\n", file, named, len(table.Factions), p)
 
 	case "export-weapon-skill":
 		// \settings\武器物理攻击对照表.txt of the old server (DetailType, ParticularType, PhysicsSkillID),

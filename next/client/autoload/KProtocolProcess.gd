@@ -22,6 +22,10 @@ signal entity_action(a: Dictionary)
 signal map_changed(info: Dictionary)   # the zone moved us to another map bundle
 signal entity_life(l: Dictionary)
 signal entity_ride(r: Dictionary)   # G2C_ENTITY_RIDE: a npc mounted or dismounted (drawn from B4 on)
+signal entity_camp(c: Dictionary)   # G2C_ENTITY_CAMP: a npc's camp changed (the 0x59 / 0x58 packets)
+# G2C_PLAYER_FACTION (the 0x7b / 0x7c packets) or the login sync moved the character's faction record: the skill book
+# shows the branch pages of the faction last joined (GDI 0x413 reads PlayerData+0x12080)
+signal faction_changed
 signal chat_msg(msg: Dictionary)
 # items (M11): the bag model below changed; `items_changed` after the whole list, `item_changed`
 # for one item (added, moved, a stack changed), `item_removed`, `item_result` when a request
@@ -81,6 +85,12 @@ var player_attrib := {}
 # The skill book (KSkillList of the zone, s2c_synccurplayerskill of the old client): skill_id -> {id, level,
 # current_level, exp_percent (0..1024), max_level, req_level, forbidden, cool_down_left, only_inc}
 var skills := {}
+# KPlayerFaction of the character (PlayerData+0x12078 current, +0x12080 last added, +0x12084 times joined of the 2.0
+# client): -1 = none; camp = m_Camp of the player's npc (C_FREE 4 after leaving)
+var faction := -1
+var faction_last := -1
+var faction_count := 0
+var camp := 0
 var skills_forbidden := false
 # the two mouse skills of the old client (KPlayer::m_nLeftSkillID / m_nRightSkillID, GOI_SET_IMMDIA_SKILL):
 # 0 = the plain attack of the weapon (C2G_ATTACK)
@@ -602,6 +612,32 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d.riding = m.get_riding()
 			entity_ride.emit({"id": m.get_entity_id(), "riding": m.get_riding()})
 
+		Proto.MsgId.G2C_ENTITY_CAMP:
+			# the 0x59 handler (slot 0x5a of the 2.0 client): the npc's camp; the player's own npc too
+			var m := Proto.EntityCamp.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null:
+				d.camp = m.get_camp()
+				d.current_camp = m.get_current_camp()
+			if int(m.get_entity_id()) == entity_id:
+				camp = m.get_camp()
+			entity_camp.emit({"id": m.get_entity_id(), "camp": m.get_camp(), "current_camp": m.get_current_camp()})
+
+		Proto.MsgId.G2C_PLAYER_FACTION:
+			# the 0x7b handler 0x00651280: camp, current (+0x12078), last added (+0x12080), count (+0x12084), then the UI
+			# is told; the 0x7c one (0x006511B0) leaves the current at -1 and the camp at 4 - the same message says so
+			var m := Proto.PlayerFaction.new()
+			if not _decode(m, payload):
+				return
+			camp = m.get_camp()
+			faction = m.get_faction()
+			faction_last = m.get_faction_last()
+			faction_count = m.get_faction_count()
+			Log.info("net", "faction", {"faction": faction, "last": faction_last, "count": faction_count, "camp": camp})
+			faction_changed.emit()
+
 		Proto.MsgId.G2C_CHAT_MSG:
 			var m := Proto.ChatMsg.new()
 			if not _decode(m, payload):
@@ -713,9 +749,14 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.PlayerAttribSync.new()
 			if not _decode(m, payload):
 				return
+			# the login sync of the old game carried the faction record too (0x080A9750 +0xb0e / +0xb12)
+			var faction_was := faction_last
+			faction = m.get_faction()
+			faction_last = m.get_faction_last()
 			player_attrib = {
 				"level": m.get_level(), "exp": m.get_exp(), "next_level_exp": m.get_next_level_exp(),
 				"attribute_point": m.get_attribute_point(), "skill_point": m.get_skill_point(),
+				"faction": m.get_faction(), "faction_last": m.get_faction_last(),
 				"strength": m.get_strength(), "dexterity": m.get_dexterity(), "vitality": m.get_vitality(),
 				"energy": m.get_energy(), "lucky": m.get_lucky(),
 				"cur_strength": m.get_cur_strength(), "cur_dexterity": m.get_cur_dexterity(),

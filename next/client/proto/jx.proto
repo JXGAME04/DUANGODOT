@@ -43,7 +43,7 @@ message CharSummary {
   uint32 level = 3;
   uint32 series = 4;
   uint32 sex = 5;
-  uint32 faction = 6;
+  int32 faction = 6;          // KPlayerFaction::m_nCurFaction: 0..10, -1 = none
   uint32 zone_id = 7;
 }
 
@@ -391,6 +391,25 @@ message PlayerAttribSync {       // G2C_PLAYER_ATTRIB
   int32 attack_speed = 33;
   int32 cast_speed = 34;
   uint32 seq = 35;               // the AddPointReq.seq this answers, 0 otherwise
+  int32 faction = 36;            // the login sync 0x080A9750 (+0xb0e / +0xb12): the current faction and the one last added, -1 = none
+  int32 faction_last = 37;
+}
+
+// KNpc::SetCamp 0x0807B7B0 (the 0x59 packet of the old game): a npc's camp (m_Camp) changed - a player joined or left a faction
+message EntityCamp {             // G2C_ENTITY_CAMP
+  uint64 entity_id = 1;
+  int32 camp = 2;               // m_Camp (+0x21c; the 0x59 packet)
+  int32 current_camp = 3;       // m_CurrentCamp (+0x220; SetCurrentCamp 0x0807B850, the 0x58 packet)
+}
+
+// KPlayer::SetFaction 0x080AEEC0 (the 0x7b packet: camp, current faction, last added, times joined) and KPlayer::ClearFaction
+// 0x080AEDE0 (the 0x7c packet: the current faction becomes -1, the camp 4 = C_FREE); the client's skill book takes the branch
+// pages of faction_last (GDI 0x413 reads PlayerData+0x12080)
+message PlayerFaction {          // G2C_PLAYER_FACTION
+  int32 camp = 1;
+  int32 faction = 2;             // -1 = none
+  int32 faction_last = 3;
+  uint32 faction_count = 4;
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
@@ -610,6 +629,8 @@ enum MsgId {
   G2C_SKILL_LEVEL = 2117;      // one skill's level / experience / the skill points left (the 0x5e packet)
   G2C_SKILL_FORBID = 2118;     // a skill (or all) locked or freed (the 0x63 packet)
   G2C_ENTITY_RIDE = 2119;      // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
+  G2C_ENTITY_CAMP = 2120;      // a npc's camp changed (the 0x59 packet)
+  G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;
@@ -709,7 +730,7 @@ message RoleData {
   uint64 exp = 5;
   uint32 series = 6;        // five elements (metal, wood, water, fire, earth) as in the old game
   uint32 sex = 7;
-  uint32 faction = 8;
+  int32 faction = 8;        // KPlayerFaction::m_nCurFaction (KPlayer+0x59cc; cFaction of the DB record): 0..10, -1 = none
   RolePosition position = 9;
   RoleStats stats = 10;
   repeated ItemData items = 11;   // (RoleItem, the placeholder that stood here, was never written by anyone)
@@ -735,5 +756,10 @@ message RoleData {
   // the id of the revive point (KPlayer+0x14: the Bishop's irevivalx of a fresh character = one of its village's ids in
   // revivepos.ini, or SetRevPos(map, ref) later); the zone resolves it through revive_pos.json; 0 = none
   uint32 revive_ref = 24;
+  // KPlayerFaction (Core/Src/KPlayerFaction.h; KPlayer+0x59cc..+0x59d8 of jx_linux_y): the faction last added (m_nLastAddFaction,
+  // +0x59d4, the one the client's skill book shows the branches of) and how many times a faction was joined (m_nAddTimes,
+  // +0x59d8: 0 = never, the name of a character without faction depends on it); m_nFirstAddFaction is not saved (LoadFrom 0x080C1A62)
+  int32 faction_last = 25;
+  uint32 faction_count = 26;
 }
 

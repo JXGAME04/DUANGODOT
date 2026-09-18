@@ -38,6 +38,7 @@ func _init() -> void:
 	test_ipot_order()
 	test_kmath_direction()
 	test_npcres_tables()
+	test_skill_book_layout()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -312,3 +313,21 @@ func test_proto_round_trip() -> void:
 	check(spawn2.from_bytes(spawn.to_bytes()) == Proto.PB_ERR.NO_ERRORS, "EntitySpawn from_bytes")
 	var ents: Array = spawn2.get_entities()
 	check(ents.size() == 1 and ents[0].get_entity_id() == 77 and ents[0].get_name() == "Đại Hiệp" and ents[0].get_pos().get_x() == -5 and ents[0].get_pos().get_y() == 4096, "EntitySpawn round trip (UTF-8, negative int32)")
+
+
+# ---- the skill book (UiSkills.gd; gamecl.exe 2.0 KUiSkills, docs/CLIENT-2.0.md §6) --------------------------
+func test_skill_book_layout() -> void:
+	var UiSkills = load("res://ui/uicase/KUiSkillsLayout.gd")   # the numbers UiSkills.gd draws with
+	# 0x00494AAF: the three branch buttons 103 px apart from [FightBtn] Left=8; the fourth slot is where the file
+	# puts [CommonBtn] (Left=317)
+	check(UiSkills.branch_button_x(8, 0) == 8 and UiSkills.branch_button_x(8, 1) == 111 and UiSkills.branch_button_x(8, 2) == 214, "branch buttons 103 px apart")
+	check(UiSkills.branch_button_x(8, 3) == 317, "the fourth slot is the common button's")
+	# 0x00493982: box index = slot * 10 + tier
+	check(UiSkills.box_index(0, 0) == 0 and UiSkills.box_index(2, 9) == 29 and UiSkills.box_index(1, 3) == 13, "box index")
+	# 0x00493A40: the common page fills column by column - the three slots of tier 0, then tier 1
+	var order := []
+	for n in 5:
+		order.append(UiSkills.common_fill_index(n))
+	check(order == [0, 10, 20, 1, 11], "common fill order %s" % [order])
+	check(UiSkills.BRANCHES == 3 and UiSkills.TIER_COLS == 10 and UiSkills.SLOT_ROWS == 3, "three pages of 3 x 10")
+	check(UiSkills.ROW_PITCH == 58 and UiSkills.ROW_PITCH_COMMON == 61 and UiSkills.COL_PITCH == 51, "row / column pitches")

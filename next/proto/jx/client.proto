@@ -44,7 +44,7 @@ message CharSummary {
   uint32 level = 3;
   uint32 series = 4;
   uint32 sex = 5;
-  uint32 faction = 6;
+  int32 faction = 6;          // KPlayerFaction::m_nCurFaction: 0..10, -1 = none
   uint32 zone_id = 7;
 }
 
@@ -392,6 +392,25 @@ message PlayerAttribSync {       // G2C_PLAYER_ATTRIB
   int32 attack_speed = 33;
   int32 cast_speed = 34;
   uint32 seq = 35;               // the AddPointReq.seq this answers, 0 otherwise
+  int32 faction = 36;            // the login sync 0x080A9750 (+0xb0e / +0xb12): the current faction and the one last added, -1 = none
+  int32 faction_last = 37;
+}
+
+// KNpc::SetCamp 0x0807B7B0 (the 0x59 packet of the old game): a npc's camp (m_Camp) changed - a player joined or left a faction
+message EntityCamp {             // G2C_ENTITY_CAMP
+  uint64 entity_id = 1;
+  int32 camp = 2;               // m_Camp (+0x21c; the 0x59 packet)
+  int32 current_camp = 3;       // m_CurrentCamp (+0x220; SetCurrentCamp 0x0807B850, the 0x58 packet)
+}
+
+// KPlayer::SetFaction 0x080AEEC0 (the 0x7b packet: camp, current faction, last added, times joined) and KPlayer::ClearFaction
+// 0x080AEDE0 (the 0x7c packet: the current faction becomes -1, the camp 4 = C_FREE); the client's skill book takes the branch
+// pages of faction_last (GDI 0x413 reads PlayerData+0x12080)
+message PlayerFaction {          // G2C_PLAYER_FACTION
+  int32 camp = 1;
+  int32 faction = 2;             // -1 = none
+  int32 faction_last = 3;
+  uint32 faction_count = 4;
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).

@@ -402,6 +402,8 @@ func NewRole(playerID, accountID uint64, name string, series, sex, nativePlace u
 		NativePlace: nativePlace,
 		ReviveMap:   nativePlace,
 		ReviveRef:   revivalID(nativePlace), // irevivalx of the Bishop: the point of the village
+		Faction:     -1,                     // KPlayerFaction 0x080C2590: no faction yet, none joined
+		FactionLast: -1,
 		Stats:       &jxpb.RoleStats{Hp: 100, HpMax: 100, Mp: 50, MpMax: 50, Stamina: 100, StaminaMax: 100, Strength: 10, Dexterity: 10, Vitality: 10, Energy: 10, MoveSpeed: 200},
 		CreatedAtMs: uint64(now),
 		DataVersion: CurrentRoleVersion,

@@ -180,6 +180,25 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   Client: `UiSkills.gd` (phím K), `KProtocolProcess.skills/cast_skill/add_skill_point/left_skill/right_skill`, click trái quái =
   kỹ năng trái (không có → đánh thường), click phải = kỹ năng phải (quái hay chỗ); `--auto` `_auto_skills` (xin 8 kỹ năng Thiếu Lâm
   qua `SetSkillLevel`, chụp `auto_skills.png`, thi triển, `auto_cast.png`, `AUTO_SKILLS`). Godot 262/262, Go test.
+- **M12 lát B4b-1 (xong 2026-09-18)**: **sổ kỹ năng 2.0 đúng ba đường phái + môn phái của zone** (`CLIENT-2.0.md` §6, `LINUX-SERVER.md`
+  §16.7). Chủ dự án: "Thiếu Lâm có 3 đường Quyền – Bổng – Đao, UI 2.0 phải hiện đủ". Mổ lại `gamecl.exe`: `KUiSkills` ctor
+  `0x004953C0` tạo **ba `KUiFightSkill`** (0x2c600 byte) + ba nút từ `[FightBtn]` cách 0x67 = 103 px (`0x00494940`), `Init
+  0x00494EF0` gán `pages[i].SetBranch(i)`; `UpdateData 0x004947C0` lấy tên nhánh (GDI 0x413 = ô tên 16 byte của `skillui.txt`
+  theo `PlayerData+0x12080` = môn phái gia nhập sau cùng), nhánh thiếu → ẩn nút, `CommonBtn` dời vào chỗ trống; pad `0x004938E0`
+  tra GDI 0x414 với `id·10 + nhánh của trang` → ô `[ô·10 + bậc]` (3 hàng = 3 ô của bậc, 10 cột = 10 bậc; bộ nạp `0x00607860`
+  chỉ đọc 10 bậc, lặp id trong cùng nhánh → dừng nạp); trang thông dụng `0x00493A40` điền theo cột kỹ năng không nhánh nào
+  đặt. Zone: `KFaction` (`门派设定.ini` `0x08060C70`, tìm tên `0x08060C00`, ngũ hành phải khớp `0x08060BB0`), `KPlayerFaction`
+  (`KPlayer+0x59cc`: hiện tại/đầu/sau cùng/số lần), `SetFaction 0x080AEEC0` (phe theo môn phái + gói 0x7b), `ClearFaction`
+  `0x080AEDE0` (phe 4, gói 0x7c), `SetCamp 0x0807B7B0` (gói 0x59), Lua `SetFaction/GetFaction/GetFactionNumber/
+  GetLastAddFaction/GetLastFactionNumber/SetLastFactionNumber/ClearFactionRecord/SetCamp/SetCurCamp/GetCamp/GetCurCamp/AddMagic`
+  (`0x0812C430`), `RoleData.faction/faction_last/faction_count` (persist v4: bản ghi cũ 0 → −1), `PlayerAttribSync.faction`.
+  Client: `UiSkills.gd` viết lại (3 trang nhánh + thông dụng, `KUiSkillsLayout.gd` có test), `Game.faction/faction_last/camp`,
+  `--auto` làm đệ tử môn phái cùng ngũ hành (`SetFaction` rồi `Include("\\script\\global\\skills_table.lua")` + `add_sl(20)` —
+  đúng cách script NPC phát kỹ năng theo bậc nhiệm vụ; chủ dự án đã bắt lỗi bản đầu phát cả `factionskill.txt` nên có cả ô "Cao"), chụp `auto_skills.png`
+  (Quyền) / `auto_skills_2.png` (Bổng). Go: `KSkillUi.go` (place theo nhánh, 10 bậc, `titles`), `KFaction.go` +
+  `jxassets export-faction` (tệp ini **thiếu ở `server1/settings/faction`**, lấy từ `D:\ServerLinux\Patch\settings\faction`
+  qua chuỗi `server1;Patch` trong `config/oldgame.local.json` — nhờ chủ dự án chép vào server1). Kiểm: ctest 217/217, Go xanh,
+  Godot 268/268, e2e `AUTO_SKILLS held=12 placed=5 pick=14 cast=true faction=0 branches=Quyền Pháp|Bổng Pháp|Đao Pháp (đệ tử mới bậc 20: 14, 8 trang Quyền; 10, 4 Bổng; 10, 6 Đao — không có ô "Cao")`.
 - **M12 lát B3c-6 (xong 2026-09-18)**: **ngựa** (`LINUX-SERVER.md` §16.6): `KNpc::SetHorse 0x0807D520` (`frozen_action` khoá, `+0x199c`,
   lên ngựa vỡ ẩn thân), mặc ô 10 `0x081FE752` → 1 (qua bảng ngựa `0x080688B0` — zone chưa có, mọi ngựa cưỡi được), cởi `0x08200311`
   → 0, `LoadFrom 0x080C1F83`, `ReCalcEquip 0x080AF4EA` chỉ tính ngựa khi cưỡi, lên/xuống theo gói `0x080AEFA0` (ngồi/`0x08078E00`/
@@ -203,7 +222,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 
 | Việc | Cách làm (đã biết địa chỉ / nguồn) |
 |---|---|
-| **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; cần bảng `武器物理攻击对照表.txt` → kỹ năng đánh theo vũ khí, thay `swing_skill` tạm) và kỹ năng tạo npc `0x080E8770` (**xong B3c-5**, §16.5), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3a xong 2026-09-18** (sổ `KSkillList` + điểm/kinh nghiệm kỹ năng + Lua; §15). **B3b xong 2026-09-18** (đường lệnh thi triển + `CanCastSkill` + bảng vũ khí + kỹ năng khởi đầu; §16). **B3c-0 xong 2026-09-18** (ẩn thân `[hide]` 200: `SetHide 0x0807FF80`, `IsInvisibleTo 0x08079200`, vỡ `0x0807D4C0`; §16.1). **B3c-1 xong 2026-09-18** (thân pháp style 1 sáu dạng; §16.2). **B3c-2 xong 2026-09-18** (mòn đồ `0x08201940` + `AbradeRate.ini`; §16.3; còn: bảng phế phẩm `g_ItemGenerator+0x1e88` của `0x08067540`, cấp ngọc bội `+0x344` trong bộ sinh). **B3c-6 xong 2026-09-18** (ngựa `0x0807D520`, `+0x199c`, mặc/cởi/lên/xuống, `HorseLimit`, cột hồi chiêu ngựa; §16.6 — còn bảng ngựa `KItemSet+0x80`, ngồi, gói 0x9c, client vẽ ngựa B4). **B3c**: mượn dáng 186 `0x08099170`, gói 0x85/aura `0x080873B0`, `NpcSetHide` (chờ quy ước chỉ số npc của API script), `0x080B12C0`, kỹ năng tạo npc `0x080E8770` + đếm `Player+0x7db0`, đồng hành (loại 2, `npc+0x1698`), **B3c-3 xong 2026-09-18** (chết/hồi sinh thường; §16.4) — còn PK: `0x0807A350`, bảng bảo hộ `Player+0x809c`, điểm PK `Player+0x5a50` (`0x080C3930`), phạt `0x080B9FA0` (nhà tù, rơi đồ, `0x08256EE0`/`0x8BB2A34`), đấu trường `Player+0x384`, hồi sinh tại chỗ `0x080B2790`; `Player+0x5994` = tông (hạng `0x080CC620`), bảng chuyển sinh `0x0830CA14` (**đã kiểm**: không nơi ghi → 0), `0x080AEBC0`/`0x081D0C00` (**đã đọc**: bộ phát sự kiện script `Player+0x86e0`, mã 1/3/9/10/11/12 — cần bảng đăng ký script, M13). **Dữ liệu cần xin chủ dự án**: `settings/武器物理攻击对照表.txt` (vũ khí → kỹ năng vật lý; máy này chỉ có `clientweaponskill.txt`). **B4a xong 2026-09-18** (sổ kỹ năng 2.0 `技能主窗口.ini` + trang chiến đấu 10 bậc × 3 ô theo `gamecl.exe 0x00494030`, `skillui.txt`, biểu tượng, thi triển bằng chuột trái/phải, cộng điểm; `CLIENT-2.0.md` §6). **B4** còn: thanh nhân vật 2.0 (`玩家信息主界面.ini`) với hai ô kỹ năng chuột + ô thuốc nhanh, cây chọn kỹ năng `技能选择树.ini`, F1..F11, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng), hoạt hình cưỡi ngựa, chú thích kỹ năng. **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
+| **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; cần bảng `武器物理攻击对照表.txt` → kỹ năng đánh theo vũ khí, thay `swing_skill` tạm) và kỹ năng tạo npc `0x080E8770` (**xong B3c-5**, §16.5), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3a xong 2026-09-18** (sổ `KSkillList` + điểm/kinh nghiệm kỹ năng + Lua; §15). **B3b xong 2026-09-18** (đường lệnh thi triển + `CanCastSkill` + bảng vũ khí + kỹ năng khởi đầu; §16). **B3c-0 xong 2026-09-18** (ẩn thân `[hide]` 200: `SetHide 0x0807FF80`, `IsInvisibleTo 0x08079200`, vỡ `0x0807D4C0`; §16.1). **B3c-1 xong 2026-09-18** (thân pháp style 1 sáu dạng; §16.2). **B3c-2 xong 2026-09-18** (mòn đồ `0x08201940` + `AbradeRate.ini`; §16.3; còn: bảng phế phẩm `g_ItemGenerator+0x1e88` của `0x08067540`, cấp ngọc bội `+0x344` trong bộ sinh). **B3c-6 xong 2026-09-18** (ngựa `0x0807D520`, `+0x199c`, mặc/cởi/lên/xuống, `HorseLimit`, cột hồi chiêu ngựa; §16.6 — còn bảng ngựa `KItemSet+0x80`, ngồi, gói 0x9c, client vẽ ngựa B4). **B3c**: mượn dáng 186 `0x08099170`, gói 0x85/aura `0x080873B0`, `NpcSetHide` (chờ quy ước chỉ số npc của API script), `0x080B12C0`, kỹ năng tạo npc `0x080E8770` + đếm `Player+0x7db0`, đồng hành (loại 2, `npc+0x1698`), **B3c-3 xong 2026-09-18** (chết/hồi sinh thường; §16.4) — còn PK: `0x0807A350`, bảng bảo hộ `Player+0x809c`, điểm PK `Player+0x5a50` (`0x080C3930`), phạt `0x080B9FA0` (nhà tù, rơi đồ, `0x08256EE0`/`0x8BB2A34`), đấu trường `Player+0x384`, hồi sinh tại chỗ `0x080B2790`; `Player+0x5994` = tông (hạng `0x080CC620`), bảng chuyển sinh `0x0830CA14` (**đã kiểm**: không nơi ghi → 0), `0x080AEBC0`/`0x081D0C00` (**đã đọc**: bộ phát sự kiện script `Player+0x86e0`, mã 1/3/9/10/11/12 — cần bảng đăng ký script, M13). **Dữ liệu cần xin chủ dự án**: `settings/武器物理攻击对照表.txt` (vũ khí → kỹ năng vật lý; máy này chỉ có `clientweaponskill.txt`). **B4a xong 2026-09-18** (sổ kỹ năng 2.0 `技能主窗口.ini` + trang chiến đấu 10 bậc × 3 ô theo `gamecl.exe 0x00494030`, `skillui.txt`, biểu tượng, thi triển bằng chuột trái/phải, cộng điểm; `CLIENT-2.0.md` §6). **B4b-1 xong 2026-09-18** (sổ kỹ năng ba trang nhánh Quyền/Bổng/Đao + trang thông dụng theo `gamecl.exe 0x004953C0/0x00494EF0/0x004947C0/0x00493A40`; môn phái zone `KFaction`/`KPlayerFaction`, Lua `SetFaction`/`AddMagic`/`SetCamp`…, gói 0x7b/0x7c/0x59/0x58; §16.7, `CLIENT-2.0.md` §6). **B4** còn: gói vào/ra chiến đấu của client (`SetFightMode 0x08079B30`: người gọi `0x080B59D0` lưu vị trí + `+0x34 = 1800` rồi rời chiến, `0x080AD960` quay lại — đọc dở), thanh nhân vật 2.0 (`玩家信息主界面.ini`) với hai ô kỹ năng chuột + ô thuốc nhanh, cây chọn kỹ năng `技能选择树.ini`, F1..F11, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng), hoạt hình cưỡi ngựa, chú thích kỹ năng. **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
 | **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); hằng PK `[0x8BADF50]` = `PKRate.ini rate` 20 (đã tìm: `KNpcSet::Init 0x080A0810`, §16.4; `pk_damage_percent`); `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ngồi (`m_Doing 8`) và chạy (`0x12`, thưởng `+0x14b0`, thể lực `[0x8BADF80..]`) chưa có trạng thái trong zone. |
 | Trạng thái (độc / băng / choáng / thuốc) | `KNpc::ProcessState 0x0808B610` (§9), trang trạng thái `KNpc+0x234` (20 ô × 16 byte), `ReCalcStateEffect 0x0807D270` (áp lại với dấu âm), `+0x1bc..+0x1fc` các bộ đếm. Zone mới có `life_state/mana_state` và ô giữ chỗ `poison/freeze/stun_state`. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
@@ -217,6 +236,15 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 
 ### 0.5 Lỗi đã mắc — để phiên sau tránh
 
+- **Sổ kỹ năng B4a làm sai 3 hàng**: đã xem 3 hàng của trang chiến đấu là 3 ô con của mỗi bậc và bỏ qua cột nhánh của
+  `skillui.txt` (`PlaceOf` giữ chỗ đầu tiên), nên nhân vật Thiếu Lâm chỉ thấy một trang lẫn lộn. Thật ra `KUiSkills` có **ba
+  trang, mỗi trang một nhánh** (`0x004953C0` `__ehvec_ctor(…, 0x2c600, 3)`, `0x00494EF0` `SetBranch(i)`), GDI 0x414 tra
+  `id·10 + nhánh`. Bài học: khi thấy `__ehvec_ctor` với số phần tử 3 hay vòng `cmp esi, 3` trong ctor/Init, đọc hết ctor + Init
+  + UpdateData của cửa sổ trước khi vẽ; đối chiếu với lời chủ dự án về game thật.
+- **Sửa nhầm tệp proto sinh ra**: `client/proto/jx.proto` là tệp gộp do `tools/gen_proto.py` sinh; nguồn là `proto/jx/*.proto`
+  (`client.proto`, `role.proto`, `msg.proto`, …). Sửa nguồn rồi `python tools/gen_proto.py --go --gd`; C++ pb sinh khi build CMake.
+- **Tra chuỗi trong nhị phân bằng heredoc Bash**: `"\\settings\\…".encode("gbk")` bị rút dấu `\` → không tìm thấy; tìm bằng
+  phần tên Trung Quốc thôi (`"门派设定.ini".encode("gbk")`) hoặc viết script bằng Write.
 - **Công cụ Bash ở máy này rút `\\` thành `\` và ăn `\N`, `\x`, `\u` trong heredoc** → patch Python bị
   `AssertionError` hoặc ghi sai chuỗi (`"\\n"` thành xuống dòng thật trong `.gd`). Cách đúng: viết tệp
   patch bằng công cụ **Write** rồi `python patch.py`; console cp1252 → `sys.stdout.reconfigure(encoding="utf-8")`.
@@ -492,6 +520,40 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 16) — M12 lát B4b-1: sổ kỹ năng 2.0 ba đường phái (Quyền / Bổng / Đao) + môn phái của zone
+
+- **Chủ dự án**: "UI phần kỹ năng còn thiếu — Thiếu Lâm có 3 đường quyền – bổng – đao, bản 2.0 hiển thị đủ 3 đường, mổ kỹ UI làm lại cho giống".
+- **Mổ `gamecl.exe` 2.0** (`CLIENT-2.0.md` §6 viết lại): `KUiSkills` ctor `0x004953C0` = ba `KUiFightSkill` 0x2c600 byte + ba nút 0x9a0; `Init 0x00494EF0`
+  (`AddPage`, `SetBranch(i)` `0x00494470` → pad `+0x17874`); `LoadScheme 0x00494940` (nút i = `[FightBtn]` tại x + 0x67·i); `UpdateData 0x004947C0`
+  (GDI 0x413 tên nhánh của `PlayerData+0x12080`, ẩn nút thiếu, dời `CommonBtn`, trang mặc định); `WndProc 0x00494D10`; `KUiFightSkill` ctor `0x00494FC0`
+  (10 tiêu đề cột, 30 nền, 9 vạch, pad `0x00494DA0`); pad `UpdateData 0x004938E0` (GDI 0x414 `id·10 + nhánh`, ô `[ô·10 + bậc]`); trang thông dụng
+  `0x00494540` / `0x00493A40` (hàng 0x3d, điền theo cột); bộ nạp `skillui.txt 0x00607860` đọc lại từng dòng: **map id → nhánh → {ô, bậc}**, chỉ 10 bậc,
+  dừng nạp khi lặp id trong nhánh / môn phái ≥ 11; `GetBranchTitle 0x00604A60`; Lua `Open("skills")` `0x0042EF50` (bảng tên `0x80dae8`) → `0x004955B0`;
+  gói 0x7b → handler `0x00651280` (bảng handler `0x0065AEE0` lệch một: ô 0x5a = gói 0x59 `0x006500C0`), gói 0x7c `0x006511B0`. Cửa sổ "門派多修"
+  (`mutiple_faction\*.ini`, `MutipleFaction*` Lua, GDI 0x3f5 `0x00641E90`) thuộc cửa sổ nhân vật `Open("status")`, `jx_linux_y` không có → không port.
+- **Mổ `jx_linux_y`** (`LINUX-SERVER.md` §16.7): `KFactionSet::Init 0x08060C70` (`门派设定.ini` 11 mục: Name/ShowName/Series/Camp), `FindByName 0x08060C00`,
+  `Allows 0x08060BB0` (ngũ hành phải khớp), sổ `KPlayer+0x59cc` (`0x080C2590/25C0/25F0/26F0/2610/2680/27B0`), `KPlayer::SetFaction 0x080AEEC0` /
+  `ClearFaction 0x080AEDE0`, gói 0x7b `0x080A8880` {phe, hiện tại, sau cùng, số lần}, `KNpc::SetCamp 0x0807B7B0` (gói 0x59), `LoadFrom 0x080C1A62`
+  (int8 hiện tại/sau cùng, int số lần; đầu tiên không nạp), `SaveTo 0x080B23B9`, đồng bộ vào game `0x080A9750` (+0xb0e/+0xb12); Lua `SetFaction 0x0811A540`,
+  `GetFaction 0x0811A5D0`, `GetFactionNumber 0x08113C60`, `GetLastAddFaction 0x0811A4C0`, `GetLastFactionNumber 0x0810E6D0`, `SetLastFactionNumber 0x0810E4B0`,
+  `ClearFactionRecord 0x0811A480`, `SetCamp 0x0811B2E0`, `SetCurCamp 0x0811B1D0`, `GetCamp 0x08114650`, `GetCurCamp 0x081146C0`, `AddMagic 0x0812C430`
+  (cấp > 1 cần phiên bản kỹ năng; gói 0x5e). Script gia nhập `thieulam.lua`: `SetFaction("shaolin")` (tên mã), `SetCamp(1)`, `AddMagic`, `add_sl(cấp)`.
+- **Zone**: `KFaction.h/.cpp` (`KFaction` từ `faction.json`, `KPlayerFaction` trong `KPlayer`), `KSubWorld::set_faction/clear_faction/set_camp/set_current_camp`
+  + `emit_camp`/`emit_player_faction`, 12 hàm Lua mới, `zone.faction_file`, `PlayerAttribSync.faction/faction_last`, proto `EntityCamp` (2120) /
+  `PlayerFaction` (2121), `RoleData.faction` (int32, −1) + `faction_last` + `faction_count`, persist v4 (bản ghi cũ 0 → −1), `NewRole` −1.
+- **Go**: `KSkillUi.go` viết lại (10 bậc, `Place[id][nhánh]`, `Titles`, `Truncated`), `KFaction.go` (+ `factionskill.txt`), `jxassets export-faction`
+  (tên GBK đọc thành cp1252 `ÃÅÅÉÉè¶¨.ini` cũng tìm), `dev.py assets` bước mới.
+- **Client**: `UiSkills.gd` viết lại + `KUiSkillsLayout.gd` (số đo, test headless), `KProtocolProcess` (`faction/faction_last/faction_count/camp`, `faction_changed`,
+  `G2C_PLAYER_FACTION`, `G2C_ENTITY_CAMP`), `--auto`: `SetFaction` môn phái cùng ngũ hành rồi **phát kỹ năng đúng như script server**:
+  `Include("\\script\\global\\skills_table.lua")` + `add_sl(20)` (`add_sl(bậc)`: 10 = nhập môn 14/10, 20 = nhiệm vụ cấp 10 → 8/4/6 ba nhánh,
+  30 → 15, 40 → 16, 50 → 20, 60 → 271/11/19, 70 = hồi sư → 273/21 trấn phái, 90 → 318/319/321 "Cao" cấp 1; mỗi phái một hàm `add_tw/add_tm/…`)
+  → cộng một điểm cho kỹ năng chọn (`C2G_ADD_SKILL_POINT`) rồi thi triển; chụp `auto_skills.png` (trang Quyền) và `auto_skills_2.png` (trang Bổng).
+  Chủ dự án bắt lỗi bản đầu (phát cả `factionskill.txt` một lượt nên kỹ năng "Cao" 318 có ngay) — `factionskill.txt` chỉ là danh sách gỡ khi rời phái.
+- **Kiểm**: ctest 217/217; Go `go test ./...` xanh; Godot 268/268; e2e cổng 18001/18100: `AUTO_SKILLS held=12 placed=5 pick=14 cast=true faction=0 branches=Quyền Pháp|Bổng Pháp|Đao Pháp (đệ tử mới bậc 20: 14, 8 trang Quyền; 10, 4 Bổng; 10, 6 Đao — không có ô "Cao")`.
+- **Dữ liệu**: `settings/faction/门派设定.ini` không có trong `server1` (có trong `Patch`, cùng nội dung `faction_def.lua`) — chủ dự án nên chép vào
+  `server1/settings/faction/`; bảng chuỗi toàn cục (`G_FACTION_NEW/OLD`) cũng không có → zone lấy `[Name] New/Old` của ini.
+- commit: `JX NEXT: M12 lat B4b-1 - so ky nang 2.0 ba duong phai + mon phai zone` (nhánh, `safe/jxnext-2026-09-17`, `main`).
 
 ### 2026-09-18 (phiên tiếp theo, phần 15) — M12 lát B4a: sổ kỹ năng client theo bản 2.0, thi triển bằng chuột
 

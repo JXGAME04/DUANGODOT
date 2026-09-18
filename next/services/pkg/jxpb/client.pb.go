@@ -408,7 +408,7 @@ type CharSummary struct {
 	Level         uint32                 `protobuf:"varint,3,opt,name=level,proto3" json:"level,omitempty"`
 	Series        uint32                 `protobuf:"varint,4,opt,name=series,proto3" json:"series,omitempty"`
 	Sex           uint32                 `protobuf:"varint,5,opt,name=sex,proto3" json:"sex,omitempty"`
-	Faction       uint32                 `protobuf:"varint,6,opt,name=faction,proto3" json:"faction,omitempty"`
+	Faction       int32                  `protobuf:"varint,6,opt,name=faction,proto3" json:"faction,omitempty"` // KPlayerFaction::m_nCurFaction: 0..10, -1 = none
 	ZoneId        uint32                 `protobuf:"varint,7,opt,name=zone_id,json=zoneId,proto3" json:"zone_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -479,7 +479,7 @@ func (x *CharSummary) GetSex() uint32 {
 	return 0
 }
 
-func (x *CharSummary) GetFaction() uint32 {
+func (x *CharSummary) GetFaction() int32 {
 	if x != nil {
 		return x.Faction
 	}
@@ -3167,7 +3167,9 @@ type PlayerAttribSync struct {
 	RunSpeed       int32                  `protobuf:"varint,32,opt,name=run_speed,json=runSpeed,proto3" json:"run_speed,omitempty"`
 	AttackSpeed    int32                  `protobuf:"varint,33,opt,name=attack_speed,json=attackSpeed,proto3" json:"attack_speed,omitempty"`
 	CastSpeed      int32                  `protobuf:"varint,34,opt,name=cast_speed,json=castSpeed,proto3" json:"cast_speed,omitempty"`
-	Seq            uint32                 `protobuf:"varint,35,opt,name=seq,proto3" json:"seq,omitempty"` // the AddPointReq.seq this answers, 0 otherwise
+	Seq            uint32                 `protobuf:"varint,35,opt,name=seq,proto3" json:"seq,omitempty"`         // the AddPointReq.seq this answers, 0 otherwise
+	Faction        int32                  `protobuf:"varint,36,opt,name=faction,proto3" json:"faction,omitempty"` // the login sync 0x080A9750 (+0xb0e / +0xb12): the current faction and the one last added, -1 = none
+	FactionLast    int32                  `protobuf:"varint,37,opt,name=faction_last,json=factionLast,proto3" json:"faction_last,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -3447,6 +3449,152 @@ func (x *PlayerAttribSync) GetSeq() uint32 {
 	return 0
 }
 
+func (x *PlayerAttribSync) GetFaction() int32 {
+	if x != nil {
+		return x.Faction
+	}
+	return 0
+}
+
+func (x *PlayerAttribSync) GetFactionLast() int32 {
+	if x != nil {
+		return x.FactionLast
+	}
+	return 0
+}
+
+// KNpc::SetCamp 0x0807B7B0 (the 0x59 packet of the old game): a npc's camp (m_Camp) changed - a player joined or left a faction
+type EntityCamp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	Camp          int32                  `protobuf:"varint,2,opt,name=camp,proto3" json:"camp,omitempty"`                                  // m_Camp (+0x21c; the 0x59 packet)
+	CurrentCamp   int32                  `protobuf:"varint,3,opt,name=current_camp,json=currentCamp,proto3" json:"current_camp,omitempty"` // m_CurrentCamp (+0x220; SetCurrentCamp 0x0807B850, the 0x58 packet)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityCamp) Reset() {
+	*x = EntityCamp{}
+	mi := &file_jx_client_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityCamp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityCamp) ProtoMessage() {}
+
+func (x *EntityCamp) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityCamp.ProtoReflect.Descriptor instead.
+func (*EntityCamp) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *EntityCamp) GetEntityId() uint64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *EntityCamp) GetCamp() int32 {
+	if x != nil {
+		return x.Camp
+	}
+	return 0
+}
+
+func (x *EntityCamp) GetCurrentCamp() int32 {
+	if x != nil {
+		return x.CurrentCamp
+	}
+	return 0
+}
+
+// KPlayer::SetFaction 0x080AEEC0 (the 0x7b packet: camp, current faction, last added, times joined) and KPlayer::ClearFaction
+// 0x080AEDE0 (the 0x7c packet: the current faction becomes -1, the camp 4 = C_FREE); the client's skill book takes the branch
+// pages of faction_last (GDI 0x413 reads PlayerData+0x12080)
+type PlayerFaction struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Camp          int32                  `protobuf:"varint,1,opt,name=camp,proto3" json:"camp,omitempty"`
+	Faction       int32                  `protobuf:"varint,2,opt,name=faction,proto3" json:"faction,omitempty"` // -1 = none
+	FactionLast   int32                  `protobuf:"varint,3,opt,name=faction_last,json=factionLast,proto3" json:"faction_last,omitempty"`
+	FactionCount  uint32                 `protobuf:"varint,4,opt,name=faction_count,json=factionCount,proto3" json:"faction_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlayerFaction) Reset() {
+	*x = PlayerFaction{}
+	mi := &file_jx_client_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlayerFaction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlayerFaction) ProtoMessage() {}
+
+func (x *PlayerFaction) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlayerFaction.ProtoReflect.Descriptor instead.
+func (*PlayerFaction) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *PlayerFaction) GetCamp() int32 {
+	if x != nil {
+		return x.Camp
+	}
+	return 0
+}
+
+func (x *PlayerFaction) GetFaction() int32 {
+	if x != nil {
+		return x.Faction
+	}
+	return 0
+}
+
+func (x *PlayerFaction) GetFactionLast() int32 {
+	if x != nil {
+		return x.FactionLast
+	}
+	return 0
+}
+
+func (x *PlayerFaction) GetFactionCount() uint32 {
+	if x != nil {
+		return x.FactionCount
+	}
+	return 0
+}
+
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
 // The client drops every entity, loads the bundle and waits for the EntitySpawn of the new
 // surroundings (which includes the player itself).
@@ -3463,7 +3611,7 @@ type ChangeMap struct {
 
 func (x *ChangeMap) Reset() {
 	*x = ChangeMap{}
-	mi := &file_jx_client_proto_msgTypes[45]
+	mi := &file_jx_client_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3475,7 +3623,7 @@ func (x *ChangeMap) String() string {
 func (*ChangeMap) ProtoMessage() {}
 
 func (x *ChangeMap) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[45]
+	mi := &file_jx_client_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3488,7 +3636,7 @@ func (x *ChangeMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeMap.ProtoReflect.Descriptor instead.
 func (*ChangeMap) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{45}
+	return file_jx_client_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ChangeMap) GetMapId() uint32 {
@@ -3537,7 +3685,7 @@ type ChatMsg struct {
 
 func (x *ChatMsg) Reset() {
 	*x = ChatMsg{}
-	mi := &file_jx_client_proto_msgTypes[46]
+	mi := &file_jx_client_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3549,7 +3697,7 @@ func (x *ChatMsg) String() string {
 func (*ChatMsg) ProtoMessage() {}
 
 func (x *ChatMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[46]
+	mi := &file_jx_client_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3562,7 +3710,7 @@ func (x *ChatMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatMsg.ProtoReflect.Descriptor instead.
 func (*ChatMsg) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{46}
+	return file_jx_client_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ChatMsg) GetEntityId() uint64 {
@@ -3595,7 +3743,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_jx_client_proto_msgTypes[47]
+	mi := &file_jx_client_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3607,7 +3755,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[47]
+	mi := &file_jx_client_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3620,7 +3768,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{47}
+	return file_jx_client_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *Ping) GetClientMs() uint64 {
@@ -3641,7 +3789,7 @@ type Pong struct {
 
 func (x *Pong) Reset() {
 	*x = Pong{}
-	mi := &file_jx_client_proto_msgTypes[48]
+	mi := &file_jx_client_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3653,7 +3801,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[48]
+	mi := &file_jx_client_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3666,7 +3814,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{48}
+	return file_jx_client_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *Pong) GetClientMs() uint64 {
@@ -3700,7 +3848,7 @@ type Kick struct {
 
 func (x *Kick) Reset() {
 	*x = Kick{}
-	mi := &file_jx_client_proto_msgTypes[49]
+	mi := &file_jx_client_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3712,7 +3860,7 @@ func (x *Kick) String() string {
 func (*Kick) ProtoMessage() {}
 
 func (x *Kick) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[49]
+	mi := &file_jx_client_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3725,7 +3873,7 @@ func (x *Kick) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kick.ProtoReflect.Descriptor instead.
 func (*Kick) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{49}
+	return file_jx_client_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *Kick) GetReason() Result {
@@ -3774,7 +3922,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x05level\x18\x03 \x01(\rR\x05level\x12\x16\n" +
 	"\x06series\x18\x04 \x01(\rR\x06series\x12\x10\n" +
 	"\x03sex\x18\x05 \x01(\rR\x03sex\x12\x18\n" +
-	"\afaction\x18\x06 \x01(\rR\afaction\x12\x17\n" +
+	"\afaction\x18\x06 \x01(\x05R\afaction\x12\x17\n" +
 	"\azone_id\x18\a \x01(\rR\x06zoneId\"\r\n" +
 	"\vCharListReq\"{\n" +
 	"\vCharListRes\x12%\n" +
@@ -3993,7 +4141,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"forbid_all\x18\x02 \x01(\bR\tforbidAll\"D\n" +
 	"\x0fSkillForbidSync\x12\x19\n" +
 	"\bskill_id\x18\x01 \x01(\rR\askillId\x12\x16\n" +
-	"\x06forbid\x18\x02 \x01(\bR\x06forbid\"\xaa\b\n" +
+	"\x06forbid\x18\x02 \x01(\bR\x06forbid\"\xe7\b\n" +
 	"\x10PlayerAttribSync\x12\x14\n" +
 	"\x05level\x18\x01 \x01(\rR\x05level\x12\x10\n" +
 	"\x03exp\x18\x02 \x01(\x04R\x03exp\x12$\n" +
@@ -4039,7 +4187,19 @@ const file_jx_client_proto_rawDesc = "" +
 	"\fattack_speed\x18! \x01(\x05R\vattackSpeed\x12\x1d\n" +
 	"\n" +
 	"cast_speed\x18\" \x01(\x05R\tcastSpeed\x12\x10\n" +
-	"\x03seq\x18# \x01(\rR\x03seq\"\x90\x01\n" +
+	"\x03seq\x18# \x01(\rR\x03seq\x12\x18\n" +
+	"\afaction\x18$ \x01(\x05R\afaction\x12!\n" +
+	"\ffaction_last\x18% \x01(\x05R\vfactionLast\"`\n" +
+	"\n" +
+	"EntityCamp\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x12\n" +
+	"\x04camp\x18\x02 \x01(\x05R\x04camp\x12!\n" +
+	"\fcurrent_camp\x18\x03 \x01(\x05R\vcurrentCamp\"\x85\x01\n" +
+	"\rPlayerFaction\x12\x12\n" +
+	"\x04camp\x18\x01 \x01(\x05R\x04camp\x12\x18\n" +
+	"\afaction\x18\x02 \x01(\x05R\afaction\x12!\n" +
+	"\ffaction_last\x18\x03 \x01(\x05R\vfactionLast\x12#\n" +
+	"\rfaction_count\x18\x04 \x01(\rR\ffactionCount\"\x90\x01\n" +
 	"\tChangeMap\x12\x15\n" +
 	"\x06map_id\x18\x01 \x01(\rR\x05mapId\x12\x1d\n" +
 	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x17\n" +
@@ -4085,7 +4245,7 @@ func file_jx_client_proto_rawDescGZIP() []byte {
 }
 
 var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
+var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_jx_client_proto_goTypes = []any{
 	(Action)(0),              // 0: jx.pb.Action
 	(PlayerAttribute)(0),     // 1: jx.pb.PlayerAttribute
@@ -4134,48 +4294,50 @@ var file_jx_client_proto_goTypes = []any{
 	(*SkillListSync)(nil),    // 44: jx.pb.SkillListSync
 	(*SkillForbidSync)(nil),  // 45: jx.pb.SkillForbidSync
 	(*PlayerAttribSync)(nil), // 46: jx.pb.PlayerAttribSync
-	(*ChangeMap)(nil),        // 47: jx.pb.ChangeMap
-	(*ChatMsg)(nil),          // 48: jx.pb.ChatMsg
-	(*Ping)(nil),             // 49: jx.pb.Ping
-	(*Pong)(nil),             // 50: jx.pb.Pong
-	(*Kick)(nil),             // 51: jx.pb.Kick
-	(Result)(0),              // 52: jx.pb.Result
-	(*Vec2)(nil),             // 53: jx.pb.Vec2
-	(EntityType)(0),          // 54: jx.pb.EntityType
-	(*ItemMagic)(nil),        // 55: jx.pb.ItemMagic
+	(*EntityCamp)(nil),       // 47: jx.pb.EntityCamp
+	(*PlayerFaction)(nil),    // 48: jx.pb.PlayerFaction
+	(*ChangeMap)(nil),        // 49: jx.pb.ChangeMap
+	(*ChatMsg)(nil),          // 50: jx.pb.ChatMsg
+	(*Ping)(nil),             // 51: jx.pb.Ping
+	(*Pong)(nil),             // 52: jx.pb.Pong
+	(*Kick)(nil),             // 53: jx.pb.Kick
+	(Result)(0),              // 54: jx.pb.Result
+	(*Vec2)(nil),             // 55: jx.pb.Vec2
+	(EntityType)(0),          // 56: jx.pb.EntityType
+	(*ItemMagic)(nil),        // 57: jx.pb.ItemMagic
 }
 var file_jx_client_proto_depIdxs = []int32{
-	52, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
-	52, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
+	54, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
+	54, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
 	6,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
-	52, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
+	54, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
 	6,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
-	52, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
-	53, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
-	53, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
+	54, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
+	55, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
+	55, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
 	0,  // 8: jx.pb.EntityAction.action:type_name -> jx.pb.Action
-	53, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
-	53, // 10: jx.pb.EntityAction.aim:type_name -> jx.pb.Vec2
-	54, // 11: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
-	53, // 12: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
-	53, // 13: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	53, // 14: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	55, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
+	55, // 10: jx.pb.EntityAction.aim:type_name -> jx.pb.Vec2
+	56, // 11: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
+	55, // 12: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
+	55, // 13: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
+	55, // 14: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
 	0,  // 15: jx.pb.EntityInfo.doing:type_name -> jx.pb.Action
 	18, // 16: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	53, // 17: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	53, // 18: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	53, // 19: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	55, // 17: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	55, // 18: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	55, // 19: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
 	23, // 20: jx.pb.EntityMoves.moves:type_name -> jx.pb.EntityMove
-	55, // 21: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
-	55, // 22: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
-	55, // 23: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
+	57, // 21: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
+	57, // 22: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
+	57, // 23: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
 	26, // 24: jx.pb.InventorySync.items:type_name -> jx.pb.ItemView
 	26, // 25: jx.pb.ItemAdd.item:type_name -> jx.pb.ItemView
-	52, // 26: jx.pb.ItemResult.result:type_name -> jx.pb.Result
+	54, // 26: jx.pb.ItemResult.result:type_name -> jx.pb.Result
 	1,  // 27: jx.pb.AddPointReq.attribute:type_name -> jx.pb.PlayerAttribute
 	43, // 28: jx.pb.SkillListSync.skills:type_name -> jx.pb.SkillEntry
-	53, // 29: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
-	52, // 30: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	55, // 29: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
+	54, // 30: jx.pb.Kick.reason:type_name -> jx.pb.Result
 	31, // [31:31] is the sub-list for method output_type
 	31, // [31:31] is the sub-list for method input_type
 	31, // [31:31] is the sub-list for extension type_name
@@ -4196,7 +4358,7 @@ func file_jx_client_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_client_proto_rawDesc), len(file_jx_client_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   50,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

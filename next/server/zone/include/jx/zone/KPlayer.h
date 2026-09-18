@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "jx/ids.hpp"
+#include "jx/zone/KFaction.h"
 
 namespace jx::pb {
 class RoleData;
@@ -48,6 +49,9 @@ struct KPlayer {
     int revive_x = 0;
     int revive_y = 0;
     int revive_ref = 0;        // +0x14
+    // KPlayerFaction at +0x59cc: the current faction, the first and last joined, how many times (docs §16.7); LoadFrom
+    // 0x080C1A62 reads current / last / count from the record, the first stays -1
+    KPlayerFaction faction;
     // KPlayer+0x7d30..+0x7dbc: the npcs its create-npc skills (style 4, 0x080E8770) made - three records of 36 bytes at
     // +0x7d38 on a free list (+0x7da4: nodes 2 and 1, so two at most) and a used list (+0x7db0, count +0x7db8); the
     // ctor 0x080BC1F0 sets +0x7d30 = +0x7d34 = 2 free.  The skill fills one {time = nValue[2] of the attribute, the

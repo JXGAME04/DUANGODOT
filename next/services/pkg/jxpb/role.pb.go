@@ -586,7 +586,7 @@ type RoleData struct {
 	Exp         uint64                 `protobuf:"varint,5,opt,name=exp,proto3" json:"exp,omitempty"`
 	Series      uint32                 `protobuf:"varint,6,opt,name=series,proto3" json:"series,omitempty"` // five elements (metal, wood, water, fire, earth) as in the old game
 	Sex         uint32                 `protobuf:"varint,7,opt,name=sex,proto3" json:"sex,omitempty"`
-	Faction     uint32                 `protobuf:"varint,8,opt,name=faction,proto3" json:"faction,omitempty"`
+	Faction     int32                  `protobuf:"varint,8,opt,name=faction,proto3" json:"faction,omitempty"` // KPlayerFaction::m_nCurFaction (KPlayer+0x59cc; cFaction of the DB record): 0..10, -1 = none
 	Position    *RolePosition          `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
 	Stats       *RoleStats             `protobuf:"bytes,10,opt,name=stats,proto3" json:"stats,omitempty"`
 	Items       []*ItemData            `protobuf:"bytes,11,rep,name=items,proto3" json:"items,omitempty"` // (RoleItem, the placeholder that stood here, was never written by anyone)
@@ -611,7 +611,12 @@ type RoleData struct {
 	RevivePos *Vec2  `protobuf:"bytes,23,opt,name=revive_pos,json=revivePos,proto3" json:"revive_pos,omitempty"`
 	// the id of the revive point (KPlayer+0x14: the Bishop's irevivalx of a fresh character = one of its village's ids in
 	// revivepos.ini, or SetRevPos(map, ref) later); the zone resolves it through revive_pos.json; 0 = none
-	ReviveRef     uint32 `protobuf:"varint,24,opt,name=revive_ref,json=reviveRef,proto3" json:"revive_ref,omitempty"`
+	ReviveRef uint32 `protobuf:"varint,24,opt,name=revive_ref,json=reviveRef,proto3" json:"revive_ref,omitempty"`
+	// KPlayerFaction (Core/Src/KPlayerFaction.h; KPlayer+0x59cc..+0x59d8 of jx_linux_y): the faction last added (m_nLastAddFaction,
+	// +0x59d4, the one the client's skill book shows the branches of) and how many times a faction was joined (m_nAddTimes,
+	// +0x59d8: 0 = never, the name of a character without faction depends on it); m_nFirstAddFaction is not saved (LoadFrom 0x080C1A62)
+	FactionLast   int32  `protobuf:"varint,25,opt,name=faction_last,json=factionLast,proto3" json:"faction_last,omitempty"`
+	FactionCount  uint32 `protobuf:"varint,26,opt,name=faction_count,json=factionCount,proto3" json:"faction_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -695,7 +700,7 @@ func (x *RoleData) GetSex() uint32 {
 	return 0
 }
 
-func (x *RoleData) GetFaction() uint32 {
+func (x *RoleData) GetFaction() int32 {
 	if x != nil {
 		return x.Faction
 	}
@@ -814,6 +819,20 @@ func (x *RoleData) GetReviveRef() uint32 {
 	return 0
 }
 
+func (x *RoleData) GetFactionLast() int32 {
+	if x != nil {
+		return x.FactionLast
+	}
+	return 0
+}
+
+func (x *RoleData) GetFactionCount() uint32 {
+	if x != nil {
+		return x.FactionCount
+	}
+	return 0
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -877,7 +896,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +
-	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xfe\x05\n" +
+	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xc6\x06\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -887,7 +906,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\x03exp\x18\x05 \x01(\x04R\x03exp\x12\x16\n" +
 	"\x06series\x18\x06 \x01(\rR\x06series\x12\x10\n" +
 	"\x03sex\x18\a \x01(\rR\x03sex\x12\x18\n" +
-	"\afaction\x18\b \x01(\rR\afaction\x12/\n" +
+	"\afaction\x18\b \x01(\x05R\afaction\x12/\n" +
 	"\bposition\x18\t \x01(\v2\x13.jx.pb.RolePositionR\bposition\x12&\n" +
 	"\x05stats\x18\n" +
 	" \x01(\v2\x10.jx.pb.RoleStatsR\x05stats\x12%\n" +
@@ -910,7 +929,9 @@ const file_jx_role_proto_rawDesc = "" +
 	"\n" +
 	"revive_pos\x18\x17 \x01(\v2\v.jx.pb.Vec2R\trevivePos\x12\x1d\n" +
 	"\n" +
-	"revive_ref\x18\x18 \x01(\rR\treviveRefB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"revive_ref\x18\x18 \x01(\rR\treviveRef\x12!\n" +
+	"\ffaction_last\x18\x19 \x01(\x05R\vfactionLast\x12#\n" +
+	"\rfaction_count\x18\x1a \x01(\rR\ffactionCountB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once

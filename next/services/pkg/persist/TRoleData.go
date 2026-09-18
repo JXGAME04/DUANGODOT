@@ -19,7 +19,7 @@ import (
 //     or repairing existing values, does.
 //
 // See docs/ADR-003-role-data.md.
-const CurrentRoleVersion uint32 = 3
+const CurrentRoleVersion uint32 = 4
 
 // ErrNewerData is returned when a record was written by a newer server.
 var ErrNewerData = fmt.Errorf("persist: character was written by a newer server (data_version > %d)", CurrentRoleVersion)
@@ -98,6 +98,16 @@ var roleMigrations = []roleMigration{
 			s.Hp, s.Mp, s.Stamina = s.HpMax, s.MpMax, s.StaminaMax
 			s.AttributePoint = int32(t.AttributePoint + 5*(level-1))
 			s.SkillPoint = int32(t.SkillPoint + (level - 1))
+		},
+	},
+	{
+		version: 4,
+		what:    "the faction record: the unused faction field read 0 (Shaolin) for every character - a character that never joined carries -1 (KPlayerFaction 0x080C2590)",
+		apply: func(r *jxpb.RoleData) {
+			if r.FactionCount == 0 {
+				r.Faction = -1
+				r.FactionLast = -1
+			}
 		},
 	},
 }

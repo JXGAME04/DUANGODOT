@@ -753,6 +753,153 @@ int l_AddExp(lua_State* L)
     return 0;
 }
 
+// ---- factions (docs/LINUX-SERVER.md §16.7; KFaction.h) ----
+
+// SetFaction(name) -> 1 / 0: 0x0811A540 - no player -> 0; an empty name -> KPlayer::ClearFaction 0x080AEDE0 (1);
+// else KPlayer::SetFaction 0x080AEEC0
+int l_SetFaction(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetFaction");
+    if (p == nullptr) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    const char* name = lua_tostring(L, 1);
+    KSubWorld* w = g_ScriptContext().world;
+    if (name == nullptr || *name == '\0') {
+        w->clear_faction(*p);
+        lua_pushnumber(L, 1);
+        return 1;
+    }
+    lua_pushnumber(L, w->set_faction(*p, name) ? 1 : 0);
+    return 1;
+}
+
+// GetFaction() -> the code name of the current faction (0x0811A5D0 -> 0x080ABB70 -> 0x080C2680): "" without a
+// player or a faction, the [Name] Old string (G_FACTION_OLD) for a character that left
+int l_GetFaction(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetFaction");
+    if (p == nullptr) {
+        lua_pushstring(L, "");
+        return 1;
+    }
+    lua_pushstring(L, p->player.faction.name(g_ScriptContext().world->faction_table()).c_str());
+    return 1;
+}
+
+// GetFactionNumber() -> the current faction's index, -1 without one (0x08113C60 reads +0x59cc)
+int l_GetFactionNumber(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetFactionNumber");
+    lua_pushnumber(L, p == nullptr ? -1 : p->player.faction.current);
+    return 1;
+}
+
+// GetLastAddFaction() -> the code name of the faction last joined (0x0811A4C0 -> 0x080ABB50 -> 0x080C27B0)
+int l_GetLastAddFaction(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetLastAddFaction");
+    if (p == nullptr) {
+        lua_pushstring(L, "");
+        return 1;
+    }
+    lua_pushstring(L, p->player.faction.last_name(g_ScriptContext().world->faction_table()).c_str());
+    return 1;
+}
+
+// GetLastFactionNumber() -> the index of the faction last joined (+0x59d4); -1 with any argument or no player (0x0810E6D0)
+int l_GetLastFactionNumber(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetLastFactionNumber");
+    if (lua_gettop(L) != 0 || p == nullptr) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    lua_pushnumber(L, p->player.faction.last);
+    return 1;
+}
+
+// SetLastFactionNumber(n): +0x59d4 = n (0x0810E4B0); nothing without an argument or a player
+int l_SetLastFactionNumber(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetLastFactionNumber");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.faction.last = static_cast<int>(lua_tonumber(L, 1));
+    return 0;
+}
+
+// ClearFactionRecord(): the whole record back to the ctor's -1 / -1 / -1 / 0 (0x0811A480 -> 0x080C25C0); no packet
+int l_ClearFactionRecord(lua_State* L)
+{
+    KNpc* p = player_of(L, "ClearFactionRecord");
+    if (p == nullptr) return 0;
+    p->player.faction.reset();
+    return 0;
+}
+
+// SetCamp(n): n >= 0 -> KNpc::SetCamp 0x0807B7B0 on the player's npc (0x0811B2E0); SetCurCamp(n) -> SetCurrentCamp
+// 0x0807B850 (0x0811B1D0); GetCamp() / GetCurCamp() -> +0x21c / +0x220, nil without a player (0x08114650 / 0x081146C0)
+int l_SetCamp(lua_State* L)
+{
+    const int camp = static_cast<int>(lua_tonumber(L, 1));
+    KNpc* p = camp >= 0 ? player_of(L, "SetCamp") : nullptr;
+    if (p != nullptr) g_ScriptContext().world->set_camp(*p, camp);
+    return 0;
+}
+
+int l_SetCurCamp(lua_State* L)
+{
+    const int camp = static_cast<int>(lua_tonumber(L, 1));
+    KNpc* p = camp >= 0 ? player_of(L, "SetCurCamp") : nullptr;
+    if (p != nullptr) g_ScriptContext().world->set_current_camp(*p, camp);
+    return 0;
+}
+
+int l_GetCamp(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetCamp");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, p->camp);
+    return 1;
+}
+
+int l_GetCurCamp(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetCurCamp");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, p->current_camp);
+    return 1;
+}
+
+// AddMagic(id | name [, level = 0]): 0x0812C430 - at least one argument and a player; an unknown name (SkillId of
+// the row) -> nothing; a level above 1 needs a skill id 1..1999 and a level <= 63 whose instance exists (0x0812C620);
+// then KSkillList::Add(id, level, 0, 0, 0, 0) and the 0x5e packet {id, the level held, the skill points left}
+int l_AddMagic(lua_State* L)
+{
+    KNpc* p = player_of(L, "AddMagic");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = skill_id_arg(L, 1);
+    if (id <= 0) return 0;
+    int level = lua_gettop(L) >= 2 ? static_cast<int>(lua_tonumber(L, 2)) : 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (level > 1) {
+        if (id > 0x7cf || level > 0x3f) return 0;
+        if (w->skills() == nullptr || w->skills()->get(id, level) == nullptr) return 0;
+    }
+    KSkillListHost host = w->skill_host(*p);
+    if (p->skill_list.add(id, level, 0, 0, 0, host) == 0) return 0;
+    log::debug("lua", "skill added", {log::kv("entity", p->id), log::kv("skill", id), log::kv("level", level)});
+    w->send_skill_level(p->sid, id, p->skill_list.get_level(id), 0);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -770,6 +917,10 @@ const luaL_Reg kGameScriptFuns[] = {
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},
     {"KillPlayer", l_KillPlayer},         {"GetRideState", l_GetRideState},   {"AddExp", l_AddExp},
+    {"SetFaction", l_SetFaction},         {"GetFaction", l_GetFaction},       {"GetFactionNumber", l_GetFactionNumber},
+    {"GetLastAddFaction", l_GetLastAddFaction}, {"GetLastFactionNumber", l_GetLastFactionNumber}, {"SetLastFactionNumber", l_SetLastFactionNumber},
+    {"ClearFactionRecord", l_ClearFactionRecord}, {"SetCamp", l_SetCamp},        {"SetCurCamp", l_SetCurCamp},
+    {"GetCamp", l_GetCamp},               {"GetCurCamp", l_GetCurCamp},       {"AddMagic", l_AddMagic},
     {nullptr, nullptr},
 };
 
