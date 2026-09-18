@@ -41,6 +41,7 @@ func _init() -> void:
 	test_skill_book_layout()
 	test_part_math()
 	test_skill_tree_layout()
+	test_state_math()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -373,3 +374,14 @@ func test_skill_tree_layout() -> void:
 	# GDI 0x3f7 / 0x3f8: what each side lists
 	check(T.listed(0, false, false) and T.listed(7, false, false) and not T.listed(13, false, false) and not T.listed(0, true, false), "left list")
 	check(T.listed(2, false, true) and T.listed(14, false, true) and not T.listed(7, false, true) and not T.listed(3, true, true), "right list")
+
+
+# ---- the skill state list (KUiStateMath.gd; gamecl.exe 2.0 KUiSkillState 0x0041F460 / 0x0041D720) ----------
+func test_state_math() -> void:
+	var M = load("res://ui/KUiStateMath.gd")
+	check(M.time_text(0) == "N/A" and M.time_text(-5) == "N/A", "no time")
+	check(M.time_text(59) == "59s" and M.time_text(60) == "1m" and M.time_text(3599) == "59m", "seconds and minutes")
+	check(M.time_text(3600) == "1h" and M.time_text(356399) == "98h" and M.time_text(356400) == "4d", "hours and days")
+	check(M.time_text(3725, true) == "01h:02m:05s", "long form")
+	check(M.slot_pos(3, false) == Vector2i(72, 0) and M.slot_pos(9, true) == Vector2i(216, 36), "slots 24 px apart, debuffs at y 36")
+	check(M.seconds_left(18) == 1 and M.seconds_left(19) == 2 and M.seconds_left(-1) == -1 and M.seconds_left(0) == 0, "frames to seconds")

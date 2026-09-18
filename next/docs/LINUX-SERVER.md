@@ -966,3 +966,14 @@ chiến đấu), **khôi phục lúc vào game** `0x080B5DF0` (`Player+0x8074 = 
 (về chỗ đã lưu, `SetFightMode(1)`), `0x080DD37D` (một lệnh con của handler `0x080DBA90` → `UseTownPortal`), `0x081EAA80` (đồng hành chép trạng thái
 chủ), `0x08050580` (khôi phục `+0x1690`). Vậy client 2.0 không có nút/gói "vào chiến đấu"; `--auto` của zone dùng `SetFightState(1)` qua GM đúng như
 bẫy cổng. Chưa port: thổ địa phù (`+0x34` đếm lùi ở đâu tiêu — đọc tiếp khi làm vật phẩm), `+0x8074`.
+
+### 16.9 Gói trạng thái 0x87 — `SetStateSkillEffect 0x08086892` / `RemoveStateSkillEffect 0x0807D40A` (M12 lát B4b-4, đã kiểm)
+
+Sau khi nút trạng thái mới đầy (`0x08086870` xoá 20 ô, rồi điền), chỉ khi npc là người chơi (`+0x24 == 1`, `0x08086902`): gói `{byte 0x87; word cỡ =
+0x153 − (0x14 − n)·16 = 19 + n·16; dword id npc; dword kỹ năng (`[ebp+0x10]`); dword cấp (`[ebp+0x14]`); dword thời gian khung (`[ebp+0x20]`); byte a9
+(`[ebp+0x34]`); memcpy n × 16 byte trạng thái (`[ebp+0x18]`, n = `[ebp+0x1c]`)}` → `0x080A8400(người chơi, buf, cỡ)`. Các nhánh gặp nút cũ (`0x08086730`:
+`time == 0`, cùng cấp, cấp thấp hơn, làm mới) trả về trước — **không gửi**. `RemoveStateSkillEffect` với `bNotify` (`0x0807D40A`): gói rỗng `{0x87, 0x13,
+id npc, kỹ năng, cấp 0x3f, thời gian 0, byte 0}` cho người chơi, và cho chủ của đồng hành (`+0x1698`, `0x0807D457`). Client: ô 0x88 của bảng handler
+`0x006526E0` → `KNpc::SetStateSkillEffect 0x005EDFC0` phía client, sổ trạng thái nuôi `KUiSkillState` (`CLIENT-2.0.md` §9).
+Zone: `KSubWorld::emit_state` (`G2C_ENTITY_STATE 2122`: `entity_id, skill_id, level, time, special_id, removed, states[]`), gọi sau `push_back` nút mới và trong
+`remove_state_skill_effect(notify)`; giá trị gửi là giá trị kỹ năng áp (nút giữ bản âm). Chưa: đồng hành.

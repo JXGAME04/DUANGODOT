@@ -508,19 +508,20 @@ int KSubWorld::set_state_skill_effect(KNpc& t, EntityId launcher, int skill_id, 
         node.states[static_cast<std::size_t>(i)] = negated(states[i]);
     }
     t.state_skills.push_back(node);
+    if (t.kind == KNpcKind::player) emit_state(t, node, false);   // 0x08086892: the 0x87 packet to the player's client
     log::debug("zone.fight", "state added", {log::kv("entity", t.id), log::kv("launcher", launcher), log::kv("skill", skill_id), log::kv("level", level), log::kv("frames", time), log::kv("states", n)});
     return 0;
 }
 
 void KSubWorld::remove_state_skill_effect(KNpc& t, int skill_id, bool notify)
 {
-    (void)notify;   // 0x0807D3A1: the player / partner is sent the packet 0x87 without states (B4)
     if (skill_id <= 0) return;
     for (auto it = t.state_skills.begin(); it != t.state_skills.end(); ++it) {
         if (it->skill_id != skill_id) continue;
         for (const KMagicAttrib& m : it->states) {
             if (m.type != 0) modify_attrib(t, t.id, m, true);
         }
+        if (notify && t.kind == KNpcKind::player) emit_state(t, *it, true);   // 0x0807D40A: the empty 0x87 packet (level 63, time 0)
         t.state_skills.erase(it);
         t.state_flag = 2;
         log::debug("zone.fight", "state removed", {log::kv("entity", t.id), log::kv("skill", skill_id)});

@@ -72,7 +72,7 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	_hud = Label.new()
-	_hud.position = Vector2(8, 30)   # below the 2.0 top bar (顶部控制条.ini, 27 px)
+	_hud.position = Vector2(8, 104)   # below the 2.0 top bar (27 px) and the skill state list (146,28 240x72)
 	_hud.add_theme_color_override("font_color", Color.WHITE)
 	_hud.add_theme_color_override("font_shadow_color", Color.BLACK)
 	_hud.add_theme_constant_override("shadow_offset_x", 1)
@@ -596,8 +596,10 @@ func _auto_skills() -> void:
 	var before := Game.skills.size()
 	# the fist skills ask for level 10 (ReqLevel): AddExp of the script api lifts the character there first - one
 	# level per call (KPlayer::AddExp caps the gain at the next level's need), so nine calls from level 1
-	for _i in 9:
-		Game.chat("?gm ds AddExp(20000, 1)")
+	# AddExp(exp, npcLevel): the level-difference rule of a kill shrinks the gain of a high character over a level-1 npc, so a
+	# high npc level and a large sum - one level per call (capped at the next level's need), enough calls for level 20
+	for _i in 22:
+		Game.chat("?gm ds AddExp(2000000, 60)")
 	# the faction of the character's own series (0x08060BB0 refuses any other): Shaolin for the metal characters --auto makes
 	var own_series: int = int(Game.chars[0].series) if not Game.chars.is_empty() else 0
 	var fac_name := "shaolin"
@@ -618,10 +620,12 @@ func _auto_skills() -> void:
 	Game.chat("?gm ds SetFaction(\"%s\")" % fac_name)
 	# the nine AddExp above land one at a time: level 10 first, then the stage of a disciple who did the level-10 quest
 	var lifted := 0.0
-	while lifted < 3.0 and int(Game.player_attrib.get("level", 1)) < 10:
+	while lifted < 4.0 and int(Game.player_attrib.get("level", 1)) < 20:
 		await get_tree().create_timer(0.25).timeout
 		lifted += 0.25
-	var stage := 20 if int(Game.player_attrib.get("level", 1)) >= 10 else 10
+	# the rank quests come every ten levels (thieulam.lua): stage 10 + 10 per ten levels, up to 60
+	@warning_ignore("integer_division")
+	var stage: int = clampi(10 + 10 * (int(Game.player_attrib.get("level", 1)) / 10), 10, 60)
 	Game.chat("?gm ds Include(\"\\\\script\\\\global\\\\skills_table.lua\") %s(%d)" % [add_functions.get(fac_name, "add_sl"), stage])
 	var waited := 0.0
 	while waited < 4.0 and (Game.skills.size() < before + 1 or int(Game.player_attrib.get("level", 1)) < 10 or Game.faction_last != fac_id):
@@ -653,6 +657,19 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_skill_tree.png")
 			print("AUTO_SKILL_TREE entries=%d rows=%d" % [_windows.skill_tree._entries.size(), _windows.skill_tree._rows])
 			_windows.skill_tree.hide()
+		# a state on the character: Bất Động Minh Vương (15, stage 30) cast on oneself puts its icon in the state list (the
+		# 0x87 packet); the fight stance first, like the gate trap does
+		if Game.skills.has(15) and _windows.state_window != null:
+			Game.chat("?gm ds SetFightState(1)")
+			Game.add_skill_point(15)
+			await get_tree().create_timer(0.4).timeout
+			Game.cast_skill(15, Game.entity_id)
+			var buffed := 0.0
+			while buffed < 2.0 and not Game.states.has(15):
+				await get_tree().create_timer(0.25).timeout
+				buffed += 0.25
+			await _save_screenshot("user://logs/auto_state.png")
+			print("AUTO_STATE held=%d has15=%s" % [Game.states.size(), Game.states.has(15)])
 	var cast_told := false
 	if pick != 0:
 		Game.left_skill = pick

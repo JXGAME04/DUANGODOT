@@ -636,6 +636,8 @@ private:
     void emit_ride(const KNpc& e);
     void emit_camp(const KNpc& e);
     void emit_player_faction(const KNpc& e);
+    // the 0x87 packet of SetStateSkillEffect 0x08086892 / RemoveStateSkillEffect 0x0807D40A to the player's client
+    void emit_state(const KNpc& e, const KStateNode& node, bool removed);
     // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
     void recalc_player(KNpc& e);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)

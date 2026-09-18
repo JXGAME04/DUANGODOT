@@ -413,6 +413,27 @@ message PlayerFaction {          // G2C_PLAYER_FACTION
   uint32 faction_count = 4;
 }
 
+// one attribute a skill's state applies (KMagicAttrib: id + three values) - the 16 byte cells of the 0x87 packet
+message StateAttrib {
+  int32 type = 1;
+  int32 v0 = 2;
+  int32 v1 = 3;
+  int32 v2 = 4;
+}
+
+// KNpc::SetStateSkillEffect 0x08086260 (the 0x87 packet, to the player itself: {npc id, skill, level, time, byte, n x
+// state cells}) and RemoveStateSkillEffect 0x0807D310 (the same with level 63, time 0 and no cells = removed): a timed
+// state of a skill on the character - the skill state list of the 2.0 client (技能状态列表.ini) shows its icon and time
+message EntityState {            // G2C_ENTITY_STATE
+  uint64 entity_id = 1;
+  uint32 skill_id = 2;
+  uint32 level = 3;
+  int32 time = 4;                // frames left (18 a second), -1 = until removed
+  uint32 special_id = 5;         // KSkill::StateSpecialId
+  bool removed = 6;
+  repeated StateAttrib states = 7;
+}
+
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
 // The client drops every entity, loads the bundle and waits for the EntitySpawn of the new
 // surroundings (which includes the player itself).
@@ -632,6 +653,7 @@ enum MsgId {
   G2C_ENTITY_RIDE = 2119;      // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
   G2C_ENTITY_CAMP = 2120;      // a npc's camp changed (the 0x59 packet)
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
+  G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

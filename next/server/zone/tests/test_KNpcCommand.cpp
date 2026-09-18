@@ -1054,3 +1054,55 @@ TEST_CASE("SetFaction without a table: refused, logged", "[faction]")
     CHECK(h->player.faction.current == -1);
     CHECK(faction_packets<jx::pb::PlayerFaction>(w.take_outbox(), jx::pb::G2C_PLAYER_FACTION).empty());
 }
+
+TEST_CASE("the 0x87 packet: a skill's state on a player goes to its client, its removal too", "[state]")
+{
+    Quiet q;
+    KSubWorldConfig cfg = small_world();
+    KSubWorld w(cfg);
+    EntityId hero;
+    Pos at;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{2000, 2000}, {1, 1101}), hero, at) == jx::pb::RESULT_OK);
+    KNpc* h = w.mutable_entity(hero);
+    REQUIRE(h != nullptr);
+    w.take_outbox();
+    // a state of skill 1101 level 1 for 36 frames with two attributes (SetStateSkillEffect 0x08086260, a new node)
+    std::array<KMagicAttrib, 2> states{};
+    states[0].type = 1;
+    states[0].value = {5, 0, 0};
+    states[1].type = 2;
+    states[1].value = {-3, 1, 0};
+    REQUIRE(w.set_state_skill_effect(*h, hero, 1101, 1, states.data(), 2, 36, 0, false, 0, false, 0) == 0);
+    auto out = faction_packets<jx::pb::EntityState>(w.take_outbox(), jx::pb::G2C_ENTITY_STATE);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].entity_id() == hero.value);
+    CHECK(out[0].skill_id() == 1101);
+    CHECK(out[0].level() == 1);
+    CHECK(out[0].time() == 36);
+    CHECK_FALSE(out[0].removed());
+    REQUIRE(out[0].states_size() == 2);
+    CHECK((out[0].states(0).type() == 1 && out[0].states(0).v0() == 5));
+    CHECK((out[0].states(1).type() == 2 && out[0].states(1).v0() == -3 && out[0].states(1).v1() == 1));
+    // the same skill again while the node lives: no new packet (0x08086730 returns before 0x08086892)
+    REQUIRE(w.set_state_skill_effect(*h, hero, 1101, 1, states.data(), 2, 36, 0, false, 0, false, 0) == 36);
+    CHECK(faction_packets<jx::pb::EntityState>(w.take_outbox(), jx::pb::G2C_ENTITY_STATE).empty());
+    // RemoveStateSkillEffect with notify: the empty packet (level 63 / time 0 of the binary = removed here)
+    w.remove_state_skill_effect(*h, 1101, true);
+    out = faction_packets<jx::pb::EntityState>(w.take_outbox(), jx::pb::G2C_ENTITY_STATE);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].removed());
+    CHECK(out[0].skill_id() == 1101);
+    CHECK(out[0].states_size() == 0);
+    // without notify (0x0807D310(npc, id, 0) of a cast) nothing is sent
+    REQUIRE(w.set_state_skill_effect(*h, hero, 1101, 1, states.data(), 2, 36, 0, false, 0, false, 0) == 0);
+    w.take_outbox();
+    w.remove_state_skill_effect(*h, 1101, false);
+    CHECK(faction_packets<jx::pb::EntityState>(w.take_outbox(), jx::pb::G2C_ENTITY_STATE).empty());
+    // a monster's state is nobody's packet (0x08086902: only a player's npc)
+    EntityId pig = w.spawn_npc("pig", Pos{2050, 2000}, 418, 0, KNpcKind::monster);
+    KNpc* p = w.mutable_entity(pig);
+    REQUIRE(p != nullptr);
+    w.take_outbox();
+    REQUIRE(w.set_state_skill_effect(*p, hero, 1101, 1, states.data(), 2, 36, 0, false, 0, false, 0) == 0);
+    CHECK(faction_packets<jx::pb::EntityState>(w.take_outbox(), jx::pb::G2C_ENTITY_STATE).empty());
+}

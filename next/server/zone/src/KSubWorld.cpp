@@ -1507,6 +1507,31 @@ void KSubWorld::emit_player_faction(const KNpc& e)
     emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_PLAYER_FACTION), f);
 }
 
+// the 0x87 packet {0x87, size, npc id, skill, level, time, byte a9, n x 16 byte states} of 0x08086892 (only a player's npc,
+// 0x08086902) to that player (0x080A8400); the removal 0x0807D40A sends it with level 0x3f, time 0 and no cells
+void KSubWorld::emit_state(const KNpc& e, const KStateNode& node, bool removed)
+{
+    if (e.sid == 0) return;
+    pb::EntityState s;
+    s.set_entity_id(e.id.value);
+    s.set_skill_id(static_cast<std::uint32_t>(std::max(0, node.skill_id)));
+    s.set_level(static_cast<std::uint32_t>(std::max(0, node.level)));
+    s.set_time(removed ? 0 : node.left_time);
+    s.set_special_id(static_cast<std::uint32_t>(std::max(0, node.special_id)));
+    s.set_removed(removed);
+    if (!removed) {
+        for (const KMagicAttrib& m : node.states) {
+            if (m.type == 0) continue;
+            pb::StateAttrib* a = s.add_states();
+            a->set_type(m.type);
+            a->set_v0(-m.value[0]);   // the node keeps the negated values: the client gets what the skill applied
+            a->set_v1(-m.value[1]);
+            a->set_v2(-m.value[2]);
+        }
+    }
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_STATE), s);
+}
+
 // KNpc::SetCamp 0x0807B7B0: m_Camp = camp; a player's hook list +0x8078 (nothing here); the 0x59 packet around
 void KSubWorld::set_camp(KNpc& e, int camp)
 {

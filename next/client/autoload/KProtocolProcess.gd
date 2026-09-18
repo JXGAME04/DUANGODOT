@@ -26,6 +26,8 @@ signal entity_camp(c: Dictionary)   # G2C_ENTITY_CAMP: a npc's camp changed (the
 # G2C_PLAYER_FACTION (the 0x7b / 0x7c packets) or the login sync moved the character's faction record: the skill book
 # shows the branch pages of the faction last joined (GDI 0x413 reads PlayerData+0x12080)
 signal faction_changed
+# G2C_ENTITY_STATE (the 0x87 packet): a skill's timed state came or went on the character - the state list of the 2.0 client
+signal state_changed(skill_id: int)
 signal chat_msg(msg: Dictionary)
 # items (M11): the bag model below changed; `items_changed` after the whole list, `item_changed`
 # for one item (added, moved, a stack changed), `item_removed`, `item_result` when a request
@@ -91,6 +93,9 @@ var faction := -1
 var faction_last := -1
 var faction_count := 0
 var camp := 0
+# the character's own skill states (KNpc::m_StateSkillList of the client): skill id -> {level, time (frames), until_ms,
+# special_id, states}
+var states := {}
 var skills_forbidden := false
 # the two mouse skills of the old client (KPlayer::m_nLeftSkillID / m_nRightSkillID, GOI_SET_IMMDIA_SKILL):
 # 0 = the plain attack of the weapon (C2G_ATTACK)
@@ -637,6 +642,24 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			faction_count = m.get_faction_count()
 			Log.info("net", "faction", {"faction": faction, "last": faction_last, "count": faction_count, "camp": camp})
 			faction_changed.emit()
+
+		Proto.MsgId.G2C_ENTITY_STATE:
+			# the 0x87 handler of the 2.0 client (0x006526E0 -> KNpc::SetStateSkillEffect 0x005EDFC0): the character's own states
+			var m := Proto.EntityState.new()
+			if not _decode(m, payload):
+				return
+			var sid := int(m.get_skill_id())
+			if m.get_removed() or int(m.get_entity_id()) != entity_id:
+				states.erase(sid)
+			else:
+				var list := []
+				for a in m.get_states():
+					list.append({"type": a.get_type(), "v0": a.get_v0(), "v1": a.get_v1(), "v2": a.get_v2()})
+				var frames := int(m.get_time())
+				states[sid] = {"level": m.get_level(), "time": frames, "special_id": m.get_special_id(),
+					"until_ms": Time.get_ticks_msec() + (frames * 1000 / 18 if frames >= 0 else 0), "states": list}
+			Log.debug("net", "skill state", {"skill": sid, "level": m.get_level(), "frames": m.get_time(), "removed": m.get_removed(), "held": states.size()})
+			state_changed.emit(sid)
 
 		Proto.MsgId.G2C_CHAT_MSG:
 			var m := Proto.ChatMsg.new()

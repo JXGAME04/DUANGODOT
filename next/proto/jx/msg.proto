@@ -67,6 +67,7 @@ enum MsgId {
   G2C_ENTITY_RIDE = 2119;      // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
   G2C_ENTITY_CAMP = 2120;      // a npc's camp changed (the 0x59 packet)
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
+  G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

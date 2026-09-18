@@ -5974,6 +5974,260 @@ class PlayerFaction:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class StateAttrib:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__type = PBField.new("type", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __type
+		data[__type.tag] = service
+		
+		__v0 = PBField.new("v0", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __v0
+		data[__v0.tag] = service
+		
+		__v1 = PBField.new("v1", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __v1
+		data[__v1.tag] = service
+		
+		__v2 = PBField.new("v2", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __v2
+		data[__v2.tag] = service
+		
+	var data = {}
+	
+	var __type: PBField
+	func has_type() -> bool:
+		if __type.value != null:
+			return true
+		return false
+	func get_type() -> int:
+		return __type.value
+	func clear_type() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__type.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_type(value : int) -> void:
+		__type.value = value
+	
+	var __v0: PBField
+	func has_v0() -> bool:
+		if __v0.value != null:
+			return true
+		return false
+	func get_v0() -> int:
+		return __v0.value
+	func clear_v0() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__v0.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_v0(value : int) -> void:
+		__v0.value = value
+	
+	var __v1: PBField
+	func has_v1() -> bool:
+		if __v1.value != null:
+			return true
+		return false
+	func get_v1() -> int:
+		return __v1.value
+	func clear_v1() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__v1.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_v1(value : int) -> void:
+		__v1.value = value
+	
+	var __v2: PBField
+	func has_v2() -> bool:
+		if __v2.value != null:
+			return true
+		return false
+	func get_v2() -> int:
+		return __v2.value
+	func clear_v2() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__v2.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_v2(value : int) -> void:
+		__v2.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class EntityState:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__time = PBField.new("time", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __time
+		data[__time.tag] = service
+		
+		__special_id = PBField.new("special_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __special_id
+		data[__special_id.tag] = service
+		
+		__removed = PBField.new("removed", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __removed
+		data[__removed.tag] = service
+		
+		var __states_default: Array[StateAttrib] = []
+		__states = PBField.new("states", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 7, true, __states_default)
+		service = PBServiceField.new()
+		service.field = __states
+		service.func_ref = Callable(self, "add_states")
+		data[__states.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __time: PBField
+	func has_time() -> bool:
+		if __time.value != null:
+			return true
+		return false
+	func get_time() -> int:
+		return __time.value
+	func clear_time() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__time.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_time(value : int) -> void:
+		__time.value = value
+	
+	var __special_id: PBField
+	func has_special_id() -> bool:
+		if __special_id.value != null:
+			return true
+		return false
+	func get_special_id() -> int:
+		return __special_id.value
+	func clear_special_id() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__special_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_special_id(value : int) -> void:
+		__special_id.value = value
+	
+	var __removed: PBField
+	func has_removed() -> bool:
+		if __removed.value != null:
+			return true
+		return false
+	func get_removed() -> bool:
+		return __removed.value
+	func clear_removed() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__removed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_removed(value : bool) -> void:
+		__removed.value = value
+	
+	var __states: PBField
+	func get_states() -> Array[StateAttrib]:
+		return __states.value
+	func clear_states() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__states.value.clear()
+	func add_states() -> StateAttrib:
+		var element = StateAttrib.new()
+		__states.value.append(element)
+		return element
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class ChangeMap:
 	extends RefCounted
 	func _init():
@@ -7475,6 +7729,7 @@ enum MsgId {
 	G2C_ENTITY_RIDE = 2119,
 	G2C_ENTITY_CAMP = 2120,
 	G2C_PLAYER_FACTION = 2121,
+	G2C_ENTITY_STATE = 2122,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

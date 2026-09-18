@@ -15,6 +15,7 @@ const UiMouseHover := preload("res://ui/uicase/UiMouseHover.gd")
 const UiControlBar := preload("res://ui/uicase/UiControlBar.gd")
 const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
+const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
@@ -28,6 +29,7 @@ var top_bar: UiControlBar = null
 var tool_bar: UiControlBar = null
 var player_bar: UiPlayerBar = null
 var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
+var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
 var ready_ok := false
@@ -156,6 +158,15 @@ func _build_bars() -> void:
 		tool_bar = null
 	else:
 		tool_bar.command.connect(_on_bar_command)
+	state_window = UiSkillState.new()
+	_canvas.add_child(state_window)
+	if not state_window.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiSkillState.SCHEME})
+		state_window.queue_free()
+		state_window = null
+	else:
+		Game.state_changed.connect(func(_id): state_window.refresh())
+		state_window.state_hovered.connect(_on_state_hovered)
 
 
 # the Lua Open([[x]]) / Switch([[x]]) a tool bar button runs (0x0044B250..): the windows this client has
@@ -200,6 +211,14 @@ func _on_skill_clicked(skill_id: int, right: bool) -> void:
 		Game.left_skill = skill_id
 	Log.info("ui", "mouse skill", {"skill": skill_id, "button": "right" if right else "left"})
 	_refresh_mouse_skills()
+
+
+# the tip of a state icon: "name\ndesc\ntime" (0x0041ECE4)
+func _on_state_hovered(text: String) -> void:
+	if text == "":
+		hover.hide_lines()
+	else:
+		hover.show_text(text + "\n", _canvas.get_local_mouse_position())
 
 
 func _on_tree_hovered(skill_id: int) -> void:

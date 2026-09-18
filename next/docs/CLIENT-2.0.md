@@ -182,3 +182,24 @@ Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `Left
 Client mới: `client/ui/uicase/UiSkillTree.gd` + `client/ui/KUiSkillTreeLayout.gd` (xếp/hit/danh sách, test headless `test_skill_tree_layout`),
 `KUiGameWindows.skill_tree` (bấm ô kỹ năng chuột của thanh dưới → `toggle_for`, chọn → `_on_skill_clicked`, rê → chú thích), `--auto` chụp
 `auto_skill_tree.png`. Chưa: phím tắt F1..F11 (`[ShortSkill]`, `ShortcutSkill(%d)`), `+0x110` của kỹ năng, `RightBtnPos`.
+
+## 9. Danh sách trạng thái kỹ năng — `KUiSkillState` (`技能状态列表.ini`, gói 0x87; M12 lát B4b-4, đã đọc từng dòng)
+
+Tệp `\Ui\ui3_1024\技能状态列表.ini` (`trang-thai-ky-nang`): `[Main]` (146,28) 240×72 không ảnh; `[BuffImage]` 24×24 `Trans=1`; `[txtBuffTime]` (0,21) 24×12
+`Font=12 HAlign=1 Color=55,231,63`; `[DebuffImage]` / `[txtDebuffTime]` như trên; `[BuffList]` `BuffCount=225`, mỗi mục `Buff_%d_ID` (id kỹ năng),
+`Buff_%d_Name`, `Buff_%d_Image` (`\spr\Ui\状态图标\*.spr` — bộ xuất đã ghi `bufflist-buff-N-image.png`), `Buff_%d_Desc`, `Buff_%d_IsDebuff` (tuỳ), `Buff_%d_Level` (tuỳ).
+
+| Địa chỉ | Làm gì | Client mới / zone |
+|---|---|---|
+| `0x0041F460` | **`KUiSkillState::LoadScheme`**: `Main`; vòng `i = 0..9` (bước 0x18 = 24 px): `BuffImage[i]` (`+0xf60 + i·0x554`) `SetPosition(24·i, 0)` + `txtBuffTime[i]` (`+0x44a8 + i·0x598`) con, ẩn; `DebuffImage[i]` (`+0x7c98`) `SetPosition(24·i, 0x24)` + `txtDebuffTime[i]` (`+0xb1e0`), ẩn; rồi `0x0041EFF0(ini, "BuffList", map +0x554)` | `UiSkillState.load_scheme` (`KUiStateMath.slot_pos`) |
+| `0x0041EFF0` | **bảng `[BuffList]`**: `BuffCount`; mỗi `k`: `Buff_%d_ID` > 0 → bản ghi 0xc8 byte `{Level (mặc định −1), IsDebuff, Name, Image, Desc}` vào map theo id (`0x0041E900`) | `_table[id] = [{level, debuff, name, desc, image}]` |
+| `0x0041EA60` | **cập nhật** (mỗi khung thứ 9, `[0x822e10] % 9`): `OperationRequest(0x8c, &buf, 0)` → danh sách trạng thái của nhân vật; với mỗi trạng thái: tìm map theo id kỹ năng (`+0x10`), mục có `Level == −1` hay `== cấp (+0x14)`; `IsDebuff` (`+0xd4`) → hàng debuff, else hàng buff (tối đa 10 mỗi hàng); `SetImage` (`0x004580A0`), chữ thời gian `0x0041D720`, chú thích `"%s\n%s\n%s"` (tên, mô tả, thời gian) | `refresh()` |
+| `0x0041D720` | **chữ thời gian** `(giây, buf, n, dài)`: ≤ 0 → `"N/A"`; dạng dài → `"%02dh:%02dm:%02ds"`; < 60 → `"%ds"`; < 3600 → `"%dm"`; < 356400 (0x57030) → `"%dh"`; else ngày | `KUiStateMath.time_text` (test headless) |
+| `0x006526E0` (ô 0x88 của bảng handler = **gói 0x87**) | `{0x87, word cỡ = 19 + n·16, dword id npc, dword kỹ năng, dword cấp, dword thời gian, dword +0x13, byte +0x17, n × 16 byte trạng thái}` (n = 10 − (0xb8 − cỡ)/16) → `KNpc::SetStateSkillEffect 0x005EDFC0(npc, kỹ năng, cấp, &trạng thái, n, thời gian, 0, +0x13, 0, 0, +0x17)` (bên client: hiệu ứng + sổ trạng thái) | `G2C_ENTITY_STATE` → `Game.states[id] = {level, time (khung), until_ms, special_id, states}`, tín hiệu `state_changed` |
+| server `0x08086892` (trong `SetStateSkillEffect 0x08086260`) | gói 0x87 dựng sau khi nút mới đầy (`byte 0x87; word 0x153 − (0x14 − n)·16; id npc; kỹ năng; cấp; thời gian; byte a9; memcpy n·16 trạng thái`), chỉ khi npc là người chơi (`+0x24 == 1`, `0x08086902`) → `0x080A8400(người chơi, buf, cỡ)`; các nhánh làm mới nút cũ **không** gửi | `KSubWorld::emit_state(e, node, false)` sau `push_back` |
+| server `0x0807D40A` (trong `RemoveStateSkillEffect 0x0807D310`) | gói 0x87 rỗng `{0x87, 0x13, id npc, kỹ năng, cấp 0x3f, thời gian 0, byte 0}` cho người chơi (và chủ của đồng hành `+0x1698`) khi `bNotify` | `emit_state(e, node, true)` khi `notify` (`removed = true`) |
+
+Client mới: `client/ui/uicase/UiSkillState.gd` (dưới thanh trên, 10 buff + 10 debuff, thời gian đếm lùi từ `until_ms` = khung/18 s, chú thích),
+`client/ui/KUiStateMath.gd`, `KUiGameWindows.state_window`, `KProtocolProcess.states / state_changed`; zone `emit_state` (`KSubWorld.cpp`), proto
+`EntityState` / `StateAttrib` (2122); `--auto` (đệ tử cấp 20, `add_sl(30)`) thi triển Bất Động Minh Vương (15) lên mình → `auto_state.png`. Chưa: đồng hành
+(`+0x1698`), hiệu ứng hình ảnh trạng thái trên npc (client `0x005EDFC0`), `+0x13/+0x17` của gói (a9).

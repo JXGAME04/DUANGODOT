@@ -128,6 +128,7 @@ const (
 	MsgId_G2C_ENTITY_RIDE     MsgId = 2119 // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
 	MsgId_G2C_ENTITY_CAMP     MsgId = 2120 // a npc's camp changed (the 0x59 packet)
 	MsgId_G2C_PLAYER_FACTION  MsgId = 2121 // the character's faction record (the 0x7b packet; 0x7c = cleared)
+	MsgId_G2C_ENTITY_STATE    MsgId = 2122 // a skill's timed state on the character (the 0x87 packet; empty = removed)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -193,6 +194,7 @@ var (
 		2119: "G2C_ENTITY_RIDE",
 		2120: "G2C_ENTITY_CAMP",
 		2121: "G2C_PLAYER_FACTION",
+		2122: "G2C_ENTITY_STATE",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -254,6 +256,7 @@ var (
 		"G2C_ENTITY_RIDE":     2119,
 		"G2C_ENTITY_CAMP":     2120,
 		"G2C_PLAYER_FACTION":  2121,
+		"G2C_ENTITY_STATE":    2122,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
 		"GZ_SESSION_OPEN":     9003,
@@ -300,7 +303,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xc8\t\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xdf\t\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -353,7 +356,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x10G2C_SKILL_FORBID\x10\xc6\x10\x12\x14\n" +
 	"\x0fG2C_ENTITY_RIDE\x10\xc7\x10\x12\x14\n" +
 	"\x0fG2C_ENTITY_CAMP\x10\xc8\x10\x12\x17\n" +
-	"\x12G2C_PLAYER_FACTION\x10\xc9\x10\x12\x12\n" +
+	"\x12G2C_PLAYER_FACTION\x10\xc9\x10\x12\x15\n" +
+	"\x10G2C_ENTITY_STATE\x10\xca\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +
