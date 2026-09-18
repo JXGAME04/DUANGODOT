@@ -1,6 +1,7 @@
 #include "jx/zone/KPlayer.h"
 
 #include <algorithm>
+#include <cstdlib>
 
 #include "jx/role.pb.h"
 #include "jx/zone/KItem.h"
@@ -168,6 +169,42 @@ void KPlayer::set_npc_physics_damage(KNpc& npc, const KItemList* items) const no
     npc.cur.physics_damage.value[2] = d.second;
 }
 
+int KPlayer::calc_exp(int exp, int player_level, int npc_level) noexcept
+{
+    if (player_level > 99) return npc_level <= 89 ? 1 : std::max(1, exp);
+    const int d = player_level - npc_level;
+    int out;
+    if (d < -54) {
+        out = d < -69 ? exp : exp * (-19 * d - 1030) / 300;
+    } else {
+        const int a = std::abs(d);
+        if (a <= 5) out = exp;
+        else if (a <= 15) out = exp * (25 - a) / 20;
+        else out = exp / 2;
+    }
+    return std::max(1, out);
+}
+
+int KPlayer::add_exp(KNpc& npc, int add, int npc_level, const KPlayerSet& tables, const KItemList* items, int (*rand)(void*, int), void* rand_ctx)
+{
+    // 0x080B00C0
+    if (add <= 0 || !npc.alive()) return 0;
+    add = calc_exp(add, static_cast<int>(npc.level), npc_level);
+    add = add > 5'000'000 ? add / 100 * (100 + exp_enhance_percent2) : (100 + exp_enhance_percent2) * add / 100;
+    // 0x080AF640: x (100 + p) / 100 (through /100 first above 999 999) plus lo + rand(hi - lo)
+    std::int64_t gain = add > 999'999 ? static_cast<std::int64_t>(add / 100) * (100 + exp_enhance_percent)
+                                      : static_cast<std::int64_t>(add) * (100 + exp_enhance_percent) / 100;
+    if (exp_enhance_hi > exp_enhance_lo && rand) gain += exp_enhance_lo + rand(rand_ctx, exp_enhance_hi - exp_enhance_lo);
+    else gain += exp_enhance_lo;
+    // 0x080AFEA0: a character of level 200 gains nothing; otherwise up to the next level's need
+    if (gain <= 0) return 0;
+    if (npc.level > static_cast<std::uint32_t>(kMaxLevel - 1)) return 0;
+    if (next_level_exp <= 0) next_level_exp = tables.level_exp(static_cast<int>(npc.level), reborn);
+    exp = std::min<std::int64_t>(exp + gain, next_level_exp);
+    if (next_level_exp > 0 && exp >= next_level_exp) return level_up(npc, true, tables, items) ? 1 : 0;
+    return 0;
+}
+
 void KPlayer::updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tables, const KItemList* items)
 {
     // 0x080AF550
@@ -177,6 +214,7 @@ void KPlayer::updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tab
     cur_vitality = vitality;
     cur_energy = energy;
     cur_lucky = lucky;
+    exp_enhance_lo = exp_enhance_hi = exp_enhance_percent = exp_enhance_percent2 = 0;   // Player+0xc8..+0xd4
     // KNpc::ReCalcStateEffect (0x0807D270): the states are not in the zone yet
     // KPlayer::ReCalcEquip (0x080AF3E0): every worn piece, base attributes then magic with the
     // awake suffixes (KItemList::GetEquipEnhance)

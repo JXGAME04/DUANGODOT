@@ -1,5 +1,7 @@
 #include "jx/zone/KMapInstance.h"
 
+#include <algorithm>
+
 #include <fmt/format.h>
 
 #include "jx/client.pb.h"
@@ -130,6 +132,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         pb::PickUpReq req;
         if (!req.ParseFromString(cmd.payload)) break;
         world_.pick_up_request(cmd.sid, EntityId{req.entity_id()}, req.seq());
+        break;
+    }
+    case pb::C2G_ADD_POINT: {
+        pb::AddPointReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.add_point_request(cmd.sid, static_cast<int>(req.attribute()), static_cast<int>(std::min<std::uint32_t>(req.points(), 1000u)), req.seq());
         break;
     }
     default:

@@ -466,6 +466,23 @@ func _check_item_windows() -> void:
 	check(st.slots["Weapon"].position == Vector2(195, 125) and st.slots["Weapon"].size == Vector2(56, 108), "the weapon slot at 195,125 (56x108)")
 	check(st.slots["Weapon"].objects.size() == 1 and int(st.slots["Weapon"].objects[0].id) == 4 and st.slots["Cap"].objects.is_empty(), "the worn sword shows in the weapon slot, the cap slot is empty")
 	check(st._attrib_texts["Name"].text == "Kiếm Khách" and st._attrib_texts["Level"].text == "9" and st._attrib_texts["Life"].text == "120/300", "name, level and life fill the attribute page")
+	check(st._add_buttons["AddStrength"].disabled, "no points known yet: the [+] buttons are off")
+	# the zone's numbers (G2C_PLAYER_ATTRIB) fill the page the way KUiStatus::UpdateData did
+	Game.player_attrib = {"level": 12, "exp": 350, "next_level_exp": 1100, "attribute_point": 3, "skill_point": 1,
+		"strength": 35, "dexterity": 25, "vitality": 25, "energy": 15, "lucky": 0,
+		"cur_strength": 45, "cur_dexterity": 25, "cur_vitality": 25, "cur_energy": 15, "cur_lucky": 0,
+		"life": 200, "life_max": 254, "mana": 16, "mana_max": 16, "stamina": 180, "stamina_max": 180,
+		"attack_rating": 72, "defend": 18, "min_damage": 19, "max_damage": 27,
+		"fire_resist": -3, "cold_resist": 0, "poison_resist": 3, "light_resist": 0, "physics_resist": 0,
+		"walk_speed": 5, "run_speed": 10, "attack_speed": 0, "cast_speed": 0, "seq": 0}
+	Game.player_attrib_changed.emit(Game.player_attrib)
+	check(st._attrib_texts["Strength"].text == "45(35)" and st._attrib_texts["Dexterity"].text == "25" and st._attrib_texts["Level"].text == "12", "a point moved by equipment shows as current(base), a plain one alone")
+	check(st._attrib_texts["Exp"].text == "350/1100" and st._attrib_texts["LeftDamage"].text == "19-27" and st._attrib_texts["RemainPoint"].text == "3" and st._attrib_texts["ResistFire"].text == "-3", "experience, damage, points left and the resistances")
+	check(not st._add_buttons["AddVitality"].disabled, "points left: the [+] buttons are on")
+	Game.player_attrib.attribute_point = 0
+	Game.player_attrib_changed.emit(Game.player_attrib)
+	check(st._add_buttons["AddVitality"].disabled, "no points left: off again")
+	Game.player_attrib = {}
 	st._on_page_button(true, UiStatus.PAGE_EQUIP)
 	check(st.page == UiStatus.PAGE_EQUIP and st._equip_page.visible and st._page_buttons[1].is_checked() and not st._page_buttons[0].is_checked(), "the equipment tab shows its page")
 	st._on_page_button(true, 2)

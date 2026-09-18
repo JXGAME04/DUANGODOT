@@ -36,6 +36,13 @@ struct KPlayer {
     std::int64_t next_level_exp = 0;   // m_nNextLevelExp +0x5964: what the current level needs to become the next
     int reborn = 0;            // +0x86b8 (<= 7): the experience table and the resistance floor
     bool loaded = false;       // LoadFrom ran (a player's npc; false for every other npc)
+    // what the exp bonuses of equipment / states left here (expenhance_v 175 -> a random range
+    // +0xc8..+0xcc, expenhance_p 176 -> +0xd0, add120skillexpenhance_p 206 -> +0xd4); cleared by
+    // UpdataCurData like the binary does
+    int exp_enhance_lo = 0;
+    int exp_enhance_hi = 0;
+    int exp_enhance_percent = 0;
+    int exp_enhance_percent2 = 0;
 
     // KPlayer::LoadFrom (0x080C16D0), the attribute part, in the binary's order: the points,
     // SetNpcPhysicsDamage (base) / SetNpcAttackRating / SetNpcDefence, the experience and the
@@ -58,6 +65,16 @@ struct KPlayer {
     void set_npc_physics_damage(KNpc& npc, const KItemList* items) const noexcept;
     // 0x080AF550: KNpc::ClearAttrib, current points = base, ReCalcStateEffect, ReCalcEquip
     void updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tables, const KItemList* items);
+    // KPlayer::CalcExp (0x080A7C80): what a kill is worth by the level difference.  Within five
+    // levels all of it; 6..15 apart x (25 - |d|) / 20; farther x 1/2; a monster 55..69 levels
+    // above gives (-19 d - 1030) / 300, farther above all of it; a character of level 100 and up
+    // gets 1 from anything below level 90.  Never less than 1.
+    [[nodiscard]] static int calc_exp(int exp, int player_level, int npc_level) noexcept;
+    // KPlayer::AddExp (0x080B00C0) + its core (0x080AFEA0): nothing when dead or at level 200,
+    // CalcExp, the percent bonuses, the random range bonus (rand(n) = 0..n-1), then exp += it up
+    // to the next level's need, a level up when reached (the leftover is lost, as in the old
+    // game).  Returns the levels gained (0 or 1).
+    int add_exp(KNpc& npc, int exp, int npc_level, const KPlayerSet& tables, const KItemList* items, int (*rand)(void*, int), void* rand_ctx);
     // 0x080AF800: one level up (true) or down (false): exp 0, +-5 attribute points, +-1 skill
     // point, the level tables, UpdataCurData, life / mana / stamina filled.  Returns false when
     // the level cannot move (1 or 200).

@@ -162,6 +162,11 @@ public:
     bool item_equip_request(std::uint64_t sid, std::uint32_t id, int part, std::uint32_t seq);
     bool item_unequip_request(std::uint64_t sid, int part, std::uint32_t seq);
     bool item_use_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
+    // C2G_ADD_POINT: KPlayer::AddBaseStrength / Dexterity / Vitality / Engergy with the check
+    // against m_nAttributePoint; answered with G2C_PLAYER_ATTRIB either way
+    bool add_point_request(std::uint64_t sid, int attribute, int points, std::uint32_t seq);
+    // G2C_PLAYER_ATTRIB: the character's own numbers to its client
+    void send_player_attrib(std::uint64_t sid, std::uint32_t seq = 0);
     bool item_drop_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
     // KPlayer::ServerPickUpItem: the thing on the ground goes into the bag (or the purse)
     bool pick_up_request(std::uint64_t sid, EntityId object, std::uint32_t seq);
@@ -316,6 +321,10 @@ private:
     void revive(KNpc& e);
     void emit_action(const KNpc& e, pb::Action action, EntityId target);
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
+    // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
+    void recalc_player(KNpc& e);
+    // the experience of a dead npc to the players in its damage records (0x0809BDD0)
+    void share_experience(KNpc& dead);
     void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     // what KNpcAI issues as SendCommand(do_walk / do_stand / do_skill) on the old server
     KNpc* find_mutable(EntityId id);

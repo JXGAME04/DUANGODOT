@@ -6,8 +6,9 @@
 # [Female] backdrop of the character's sex, with the labels [TitleText_N] of the layout.  A click
 # on a worn piece lifts it onto the cursor (it can then be put in the bag), a click with a piece
 # on the cursor asks the zone to wear it there (C2G_ITEM_EQUIP), a double click or a right click
-# takes it off (C2G_ITEM_UNEQUIP).  The attribute page shows what the client knows of its
-# character so far (name, level, life); the numbers of the attribute system come with M12.
+# takes it off (C2G_ITEM_UNEQUIP).  The attribute page shows the character's numbers as the
+# zone last sent them (G2C_PLAYER_ATTRIB: Game.player_attrib) the way KUiStatus::UpdateData
+# did, and the four [+] buttons spend a point each while points are left (C2G_ADD_POINT).
 extends "res://ui/elem/KWndShowAnimate.gd"
 
 const KWndText := preload("res://ui/elem/KWndText.gd")
@@ -48,6 +49,7 @@ var _male: KWndImage = null
 var _female: KWndImage = null
 var _equip_texts := {}
 var _attrib_texts := {}
+var _add_buttons := {}
 var _screen := Vector2i(1024, 768)
 
 
@@ -161,12 +163,21 @@ func _build_attrib_page() -> bool:
 		_attrib_page.add_child(t)
 		t.init_from(ini, section)
 		_attrib_texts[section] = t
+	var attributes := {"AddStrength": 0, "AddDexterity": 1, "AddVitality": 2, "AddEnergy": 3}
 	for section in ["AddStrength", "AddVitality", "AddDexterity", "AddEnergy"]:
 		var b := KWndButton.new()
 		_attrib_page.add_child(b)
 		b.init_from(ini, section)
 		b.enable(false)
+		b.clicked.connect(_on_add_point.bind(int(attributes[section])))
+		_add_buttons[section] = b
+	Game.player_attrib_changed.connect(func(_a): _fill_attribs())
 	return true
+
+
+func _on_add_point(attribute: int) -> void:
+	if int(Game.player_attrib.get("attribute_point", 0)) > 0:
+		Game.add_point(attribute, 1)
 
 
 func open_window() -> void:
@@ -230,16 +241,48 @@ func refresh() -> void:
 	_fill_attribs()
 
 
+# KUiStatus::UpdateData of the 2.0 client: a point shows as "base" when nothing changes it and
+# as "current(base)" when equipment, a skill or a state moved it; the damage as "min-max".
+static func point_text(base: int, cur: int) -> String:
+	return str(base) if cur == base else "%d(%d)" % [cur, base]
+
+
 func _fill_attribs() -> void:
 	var me = Game.entities.get(Game.entity_id)
+	var a: Dictionary = Game.player_attrib
 	var v := {}
 	if me != null:
 		v["Name"] = str(me.get("name", ""))
 		v["Level"] = str(int(me.get("level", 1)))
 		v["Life"] = "%d/%d" % [int(me.get("life", 0)), int(me.get("life_max", 0))]
 		v["MoveSpeed"] = str(int(me.get("speed", 0)))
+	if not a.is_empty():
+		v["Level"] = str(int(a.level))
+		v["Life"] = "%d/%d" % [int(a.life), int(a.life_max)]
+		v["Mana"] = "%d/%d" % [int(a.mana), int(a.mana_max)]
+		v["Stamina"] = "%d/%d" % [int(a.stamina), int(a.stamina_max)]
+		v["Strength"] = point_text(int(a.strength), int(a.cur_strength))
+		v["Dexterity"] = point_text(int(a.dexterity), int(a.cur_dexterity))
+		v["Vitality"] = point_text(int(a.vitality), int(a.cur_vitality))
+		v["Energy"] = point_text(int(a.energy), int(a.cur_energy))
+		v["Luck"] = point_text(int(a.lucky), int(a.cur_lucky))
+		v["Exp"] = "%d/%d" % [int(a.exp), int(a.next_level_exp)]
+		v["LeftDamage"] = "%d-%d" % [int(a.min_damage), int(a.max_damage)]
+		v["RightDamage"] = "%d-%d" % [int(a.min_damage), int(a.max_damage)]
+		v["Attack"] = str(int(a.attack_rating))
+		v["Defense"] = str(int(a.defend))
+		v["AttackSpeed"] = str(int(a.attack_speed))
+		v["RemainPoint"] = str(int(a.attribute_point))
+		v["ResistPhy"] = str(int(a.physics_resist))
+		v["ResistCold"] = str(int(a.cold_resist))
+		v["ResistLighting"] = str(int(a.light_resist))
+		v["ResistFire"] = str(int(a.fire_resist))
+		v["ResistPoison"] = str(int(a.poison_resist))
 	for section in _attrib_texts:
 		_attrib_texts[section].text = str(v.get(section, "-"))
+	var can_add: bool = not a.is_empty() and int(a.get("attribute_point", 0)) > 0
+	for section in _add_buttons:
+		_add_buttons[section].enable(can_add)
 
 
 func set_hand(cells: Vector2i) -> void:

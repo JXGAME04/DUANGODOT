@@ -4070,6 +4070,753 @@ class MoneySync:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+enum PlayerAttribute {
+	ATTRIB_STRENGTH = 0,
+	ATTRIB_DEXTERITY = 1,
+	ATTRIB_VITALITY = 2,
+	ATTRIB_ENERGY = 3
+}
+
+class AddPointReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__attribute = PBField.new("attribute", PB_DATA_TYPE.ENUM, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM])
+		service = PBServiceField.new()
+		service.field = __attribute
+		data[__attribute.tag] = service
+		
+		__points = PBField.new("points", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __points
+		data[__points.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __attribute: PBField
+	func has_attribute() -> bool:
+		if __attribute.value != null:
+			return true
+		return false
+	func get_attribute():
+		return __attribute.value
+	func clear_attribute() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__attribute.value = DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM]
+	func set_attribute(value) -> void:
+		__attribute.value = value
+	
+	var __points: PBField
+	func has_points() -> bool:
+		if __points.value != null:
+			return true
+		return false
+	func get_points() -> int:
+		return __points.value
+	func clear_points() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__points.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_points(value : int) -> void:
+		__points.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class PlayerAttribSync:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__exp = PBField.new("exp", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __exp
+		data[__exp.tag] = service
+		
+		__next_level_exp = PBField.new("next_level_exp", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __next_level_exp
+		data[__next_level_exp.tag] = service
+		
+		__attribute_point = PBField.new("attribute_point", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __attribute_point
+		data[__attribute_point.tag] = service
+		
+		__skill_point = PBField.new("skill_point", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_point
+		data[__skill_point.tag] = service
+		
+		__strength = PBField.new("strength", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __strength
+		data[__strength.tag] = service
+		
+		__dexterity = PBField.new("dexterity", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __dexterity
+		data[__dexterity.tag] = service
+		
+		__vitality = PBField.new("vitality", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __vitality
+		data[__vitality.tag] = service
+		
+		__energy = PBField.new("energy", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __energy
+		data[__energy.tag] = service
+		
+		__lucky = PBField.new("lucky", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __lucky
+		data[__lucky.tag] = service
+		
+		__cur_strength = PBField.new("cur_strength", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 11, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cur_strength
+		data[__cur_strength.tag] = service
+		
+		__cur_dexterity = PBField.new("cur_dexterity", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cur_dexterity
+		data[__cur_dexterity.tag] = service
+		
+		__cur_vitality = PBField.new("cur_vitality", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 13, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cur_vitality
+		data[__cur_vitality.tag] = service
+		
+		__cur_energy = PBField.new("cur_energy", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 14, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cur_energy
+		data[__cur_energy.tag] = service
+		
+		__cur_lucky = PBField.new("cur_lucky", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 15, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cur_lucky
+		data[__cur_lucky.tag] = service
+		
+		__life = PBField.new("life", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 16, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __life
+		data[__life.tag] = service
+		
+		__life_max = PBField.new("life_max", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 17, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __life_max
+		data[__life_max.tag] = service
+		
+		__mana = PBField.new("mana", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 18, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __mana
+		data[__mana.tag] = service
+		
+		__mana_max = PBField.new("mana_max", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 19, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __mana_max
+		data[__mana_max.tag] = service
+		
+		__stamina = PBField.new("stamina", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 20, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __stamina
+		data[__stamina.tag] = service
+		
+		__stamina_max = PBField.new("stamina_max", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 21, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __stamina_max
+		data[__stamina_max.tag] = service
+		
+		__attack_rating = PBField.new("attack_rating", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 22, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __attack_rating
+		data[__attack_rating.tag] = service
+		
+		__defend = PBField.new("defend", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 23, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __defend
+		data[__defend.tag] = service
+		
+		__min_damage = PBField.new("min_damage", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 24, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __min_damage
+		data[__min_damage.tag] = service
+		
+		__max_damage = PBField.new("max_damage", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 25, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __max_damage
+		data[__max_damage.tag] = service
+		
+		__fire_resist = PBField.new("fire_resist", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 26, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __fire_resist
+		data[__fire_resist.tag] = service
+		
+		__cold_resist = PBField.new("cold_resist", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 27, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cold_resist
+		data[__cold_resist.tag] = service
+		
+		__poison_resist = PBField.new("poison_resist", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 28, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __poison_resist
+		data[__poison_resist.tag] = service
+		
+		__light_resist = PBField.new("light_resist", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 29, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __light_resist
+		data[__light_resist.tag] = service
+		
+		__physics_resist = PBField.new("physics_resist", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 30, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __physics_resist
+		data[__physics_resist.tag] = service
+		
+		__walk_speed = PBField.new("walk_speed", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 31, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __walk_speed
+		data[__walk_speed.tag] = service
+		
+		__run_speed = PBField.new("run_speed", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 32, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __run_speed
+		data[__run_speed.tag] = service
+		
+		__attack_speed = PBField.new("attack_speed", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 33, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __attack_speed
+		data[__attack_speed.tag] = service
+		
+		__cast_speed = PBField.new("cast_speed", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 34, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __cast_speed
+		data[__cast_speed.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 35, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __exp: PBField
+	func has_exp() -> bool:
+		if __exp.value != null:
+			return true
+		return false
+	func get_exp() -> int:
+		return __exp.value
+	func clear_exp() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__exp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_exp(value : int) -> void:
+		__exp.value = value
+	
+	var __next_level_exp: PBField
+	func has_next_level_exp() -> bool:
+		if __next_level_exp.value != null:
+			return true
+		return false
+	func get_next_level_exp() -> int:
+		return __next_level_exp.value
+	func clear_next_level_exp() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__next_level_exp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_next_level_exp(value : int) -> void:
+		__next_level_exp.value = value
+	
+	var __attribute_point: PBField
+	func has_attribute_point() -> bool:
+		if __attribute_point.value != null:
+			return true
+		return false
+	func get_attribute_point() -> int:
+		return __attribute_point.value
+	func clear_attribute_point() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__attribute_point.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_attribute_point(value : int) -> void:
+		__attribute_point.value = value
+	
+	var __skill_point: PBField
+	func has_skill_point() -> bool:
+		if __skill_point.value != null:
+			return true
+		return false
+	func get_skill_point() -> int:
+		return __skill_point.value
+	func clear_skill_point() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__skill_point.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_point(value : int) -> void:
+		__skill_point.value = value
+	
+	var __strength: PBField
+	func has_strength() -> bool:
+		if __strength.value != null:
+			return true
+		return false
+	func get_strength() -> int:
+		return __strength.value
+	func clear_strength() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__strength.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_strength(value : int) -> void:
+		__strength.value = value
+	
+	var __dexterity: PBField
+	func has_dexterity() -> bool:
+		if __dexterity.value != null:
+			return true
+		return false
+	func get_dexterity() -> int:
+		return __dexterity.value
+	func clear_dexterity() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__dexterity.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_dexterity(value : int) -> void:
+		__dexterity.value = value
+	
+	var __vitality: PBField
+	func has_vitality() -> bool:
+		if __vitality.value != null:
+			return true
+		return false
+	func get_vitality() -> int:
+		return __vitality.value
+	func clear_vitality() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__vitality.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_vitality(value : int) -> void:
+		__vitality.value = value
+	
+	var __energy: PBField
+	func has_energy() -> bool:
+		if __energy.value != null:
+			return true
+		return false
+	func get_energy() -> int:
+		return __energy.value
+	func clear_energy() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__energy.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_energy(value : int) -> void:
+		__energy.value = value
+	
+	var __lucky: PBField
+	func has_lucky() -> bool:
+		if __lucky.value != null:
+			return true
+		return false
+	func get_lucky() -> int:
+		return __lucky.value
+	func clear_lucky() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__lucky.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_lucky(value : int) -> void:
+		__lucky.value = value
+	
+	var __cur_strength: PBField
+	func has_cur_strength() -> bool:
+		if __cur_strength.value != null:
+			return true
+		return false
+	func get_cur_strength() -> int:
+		return __cur_strength.value
+	func clear_cur_strength() -> void:
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__cur_strength.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cur_strength(value : int) -> void:
+		__cur_strength.value = value
+	
+	var __cur_dexterity: PBField
+	func has_cur_dexterity() -> bool:
+		if __cur_dexterity.value != null:
+			return true
+		return false
+	func get_cur_dexterity() -> int:
+		return __cur_dexterity.value
+	func clear_cur_dexterity() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__cur_dexterity.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cur_dexterity(value : int) -> void:
+		__cur_dexterity.value = value
+	
+	var __cur_vitality: PBField
+	func has_cur_vitality() -> bool:
+		if __cur_vitality.value != null:
+			return true
+		return false
+	func get_cur_vitality() -> int:
+		return __cur_vitality.value
+	func clear_cur_vitality() -> void:
+		data[13].state = PB_SERVICE_STATE.UNFILLED
+		__cur_vitality.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cur_vitality(value : int) -> void:
+		__cur_vitality.value = value
+	
+	var __cur_energy: PBField
+	func has_cur_energy() -> bool:
+		if __cur_energy.value != null:
+			return true
+		return false
+	func get_cur_energy() -> int:
+		return __cur_energy.value
+	func clear_cur_energy() -> void:
+		data[14].state = PB_SERVICE_STATE.UNFILLED
+		__cur_energy.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cur_energy(value : int) -> void:
+		__cur_energy.value = value
+	
+	var __cur_lucky: PBField
+	func has_cur_lucky() -> bool:
+		if __cur_lucky.value != null:
+			return true
+		return false
+	func get_cur_lucky() -> int:
+		return __cur_lucky.value
+	func clear_cur_lucky() -> void:
+		data[15].state = PB_SERVICE_STATE.UNFILLED
+		__cur_lucky.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cur_lucky(value : int) -> void:
+		__cur_lucky.value = value
+	
+	var __life: PBField
+	func has_life() -> bool:
+		if __life.value != null:
+			return true
+		return false
+	func get_life() -> int:
+		return __life.value
+	func clear_life() -> void:
+		data[16].state = PB_SERVICE_STATE.UNFILLED
+		__life.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_life(value : int) -> void:
+		__life.value = value
+	
+	var __life_max: PBField
+	func has_life_max() -> bool:
+		if __life_max.value != null:
+			return true
+		return false
+	func get_life_max() -> int:
+		return __life_max.value
+	func clear_life_max() -> void:
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__life_max.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_life_max(value : int) -> void:
+		__life_max.value = value
+	
+	var __mana: PBField
+	func has_mana() -> bool:
+		if __mana.value != null:
+			return true
+		return false
+	func get_mana() -> int:
+		return __mana.value
+	func clear_mana() -> void:
+		data[18].state = PB_SERVICE_STATE.UNFILLED
+		__mana.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_mana(value : int) -> void:
+		__mana.value = value
+	
+	var __mana_max: PBField
+	func has_mana_max() -> bool:
+		if __mana_max.value != null:
+			return true
+		return false
+	func get_mana_max() -> int:
+		return __mana_max.value
+	func clear_mana_max() -> void:
+		data[19].state = PB_SERVICE_STATE.UNFILLED
+		__mana_max.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_mana_max(value : int) -> void:
+		__mana_max.value = value
+	
+	var __stamina: PBField
+	func has_stamina() -> bool:
+		if __stamina.value != null:
+			return true
+		return false
+	func get_stamina() -> int:
+		return __stamina.value
+	func clear_stamina() -> void:
+		data[20].state = PB_SERVICE_STATE.UNFILLED
+		__stamina.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_stamina(value : int) -> void:
+		__stamina.value = value
+	
+	var __stamina_max: PBField
+	func has_stamina_max() -> bool:
+		if __stamina_max.value != null:
+			return true
+		return false
+	func get_stamina_max() -> int:
+		return __stamina_max.value
+	func clear_stamina_max() -> void:
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__stamina_max.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_stamina_max(value : int) -> void:
+		__stamina_max.value = value
+	
+	var __attack_rating: PBField
+	func has_attack_rating() -> bool:
+		if __attack_rating.value != null:
+			return true
+		return false
+	func get_attack_rating() -> int:
+		return __attack_rating.value
+	func clear_attack_rating() -> void:
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__attack_rating.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_attack_rating(value : int) -> void:
+		__attack_rating.value = value
+	
+	var __defend: PBField
+	func has_defend() -> bool:
+		if __defend.value != null:
+			return true
+		return false
+	func get_defend() -> int:
+		return __defend.value
+	func clear_defend() -> void:
+		data[23].state = PB_SERVICE_STATE.UNFILLED
+		__defend.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_defend(value : int) -> void:
+		__defend.value = value
+	
+	var __min_damage: PBField
+	func has_min_damage() -> bool:
+		if __min_damage.value != null:
+			return true
+		return false
+	func get_min_damage() -> int:
+		return __min_damage.value
+	func clear_min_damage() -> void:
+		data[24].state = PB_SERVICE_STATE.UNFILLED
+		__min_damage.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_min_damage(value : int) -> void:
+		__min_damage.value = value
+	
+	var __max_damage: PBField
+	func has_max_damage() -> bool:
+		if __max_damage.value != null:
+			return true
+		return false
+	func get_max_damage() -> int:
+		return __max_damage.value
+	func clear_max_damage() -> void:
+		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__max_damage.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_max_damage(value : int) -> void:
+		__max_damage.value = value
+	
+	var __fire_resist: PBField
+	func has_fire_resist() -> bool:
+		if __fire_resist.value != null:
+			return true
+		return false
+	func get_fire_resist() -> int:
+		return __fire_resist.value
+	func clear_fire_resist() -> void:
+		data[26].state = PB_SERVICE_STATE.UNFILLED
+		__fire_resist.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_fire_resist(value : int) -> void:
+		__fire_resist.value = value
+	
+	var __cold_resist: PBField
+	func has_cold_resist() -> bool:
+		if __cold_resist.value != null:
+			return true
+		return false
+	func get_cold_resist() -> int:
+		return __cold_resist.value
+	func clear_cold_resist() -> void:
+		data[27].state = PB_SERVICE_STATE.UNFILLED
+		__cold_resist.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cold_resist(value : int) -> void:
+		__cold_resist.value = value
+	
+	var __poison_resist: PBField
+	func has_poison_resist() -> bool:
+		if __poison_resist.value != null:
+			return true
+		return false
+	func get_poison_resist() -> int:
+		return __poison_resist.value
+	func clear_poison_resist() -> void:
+		data[28].state = PB_SERVICE_STATE.UNFILLED
+		__poison_resist.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_poison_resist(value : int) -> void:
+		__poison_resist.value = value
+	
+	var __light_resist: PBField
+	func has_light_resist() -> bool:
+		if __light_resist.value != null:
+			return true
+		return false
+	func get_light_resist() -> int:
+		return __light_resist.value
+	func clear_light_resist() -> void:
+		data[29].state = PB_SERVICE_STATE.UNFILLED
+		__light_resist.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_light_resist(value : int) -> void:
+		__light_resist.value = value
+	
+	var __physics_resist: PBField
+	func has_physics_resist() -> bool:
+		if __physics_resist.value != null:
+			return true
+		return false
+	func get_physics_resist() -> int:
+		return __physics_resist.value
+	func clear_physics_resist() -> void:
+		data[30].state = PB_SERVICE_STATE.UNFILLED
+		__physics_resist.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_physics_resist(value : int) -> void:
+		__physics_resist.value = value
+	
+	var __walk_speed: PBField
+	func has_walk_speed() -> bool:
+		if __walk_speed.value != null:
+			return true
+		return false
+	func get_walk_speed() -> int:
+		return __walk_speed.value
+	func clear_walk_speed() -> void:
+		data[31].state = PB_SERVICE_STATE.UNFILLED
+		__walk_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_walk_speed(value : int) -> void:
+		__walk_speed.value = value
+	
+	var __run_speed: PBField
+	func has_run_speed() -> bool:
+		if __run_speed.value != null:
+			return true
+		return false
+	func get_run_speed() -> int:
+		return __run_speed.value
+	func clear_run_speed() -> void:
+		data[32].state = PB_SERVICE_STATE.UNFILLED
+		__run_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_run_speed(value : int) -> void:
+		__run_speed.value = value
+	
+	var __attack_speed: PBField
+	func has_attack_speed() -> bool:
+		if __attack_speed.value != null:
+			return true
+		return false
+	func get_attack_speed() -> int:
+		return __attack_speed.value
+	func clear_attack_speed() -> void:
+		data[33].state = PB_SERVICE_STATE.UNFILLED
+		__attack_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_attack_speed(value : int) -> void:
+		__attack_speed.value = value
+	
+	var __cast_speed: PBField
+	func has_cast_speed() -> bool:
+		if __cast_speed.value != null:
+			return true
+		return false
+	func get_cast_speed() -> int:
+		return __cast_speed.value
+	func clear_cast_speed() -> void:
+		data[34].state = PB_SERVICE_STATE.UNFILLED
+		__cast_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_cast_speed(value : int) -> void:
+		__cast_speed.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[35].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class ChangeMap:
 	extends RefCounted
 	func _init():
@@ -5538,6 +6285,7 @@ enum MsgId {
 	C2G_ITEM_USE = 1107,
 	C2G_ITEM_DROP = 1108,
 	C2G_PICK_UP = 1109,
+	C2G_ADD_POINT = 1110,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,
@@ -5559,6 +6307,7 @@ enum MsgId {
 	G2C_ITEM_MOVE = 2112,
 	G2C_ITEM_RESULT = 2113,
 	G2C_MONEY = 2114,
+	G2C_PLAYER_ATTRIB = 2115,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

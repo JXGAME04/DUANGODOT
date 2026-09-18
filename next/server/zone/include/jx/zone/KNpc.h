@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -33,6 +34,18 @@ struct KNpcSkillSlot {
     bool melee = false;
     bool target_self = false;
 };
+
+// KNpc::m_DamageRecord of the JX2 server (KNpc+0x1724, three cells of {player, damage, ttl};
+// KDamageRecord::Add 0x0809BC70): who hurt this npc how much, so that its experience is shared
+// by damage dealt when it dies (0x0809BDD0: exp x damage / life max per cell).  A cell is worth
+// 0x4B0 = 1200 frames after its last hit; a fourth attacker finds no cell and gets nothing.
+struct KDamageRecord {
+    EntityId player;
+    int damage = 0;
+    int ttl = 0;
+};
+inline constexpr int kDamageRecordCells = 3;
+inline constexpr int kDamageRecordTtl = 0x4B0;
 
 struct KNpc {
     EntityId id;
@@ -103,6 +116,25 @@ struct KNpc {
     bool active_skill_melee = false;
     bool active_skill_self = false;
     KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4]
+    std::array<KDamageRecord, kDamageRecordCells> damage_records{};
+    // KDamageRecord::Add: the attacker's own cell, else a free one, else nothing
+    void add_damage_record(EntityId who, int damage) noexcept
+    {
+        KDamageRecord* free = nullptr;
+        for (KDamageRecord& r : damage_records) {
+            if (r.player == who) {
+                r.damage += damage;
+                r.ttl = kDamageRecordTtl;
+                return;
+            }
+            if (free == nullptr && r.player.value == 0) free = &r;
+        }
+        if (free == nullptr) return;
+        free->player = who;
+        free->damage = damage;
+        free->ttl = kDamageRecordTtl;
+    }
+    void clear_damage_records() noexcept { damage_records.fill(KDamageRecord{}); }
     // KNpcKind::drop - an object on the ground (KObj): what the zone keeps of it; the item itself
     // lives in KSubWorld::ground_items_
     KGroundObject object;

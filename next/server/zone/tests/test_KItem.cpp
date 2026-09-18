@@ -619,6 +619,9 @@ struct ItemWorld {
         role.set_player_id(11);
         role.set_name("A");
         role.set_level(9);
+        role.mutable_stats()->set_strength(25);   // the level-2 sword needs strength 20 (a fresh Shaolin has 35)
+        role.mutable_stats()->set_dexterity(25);
+        role.mutable_stats()->set_hp_max(204);
         role.set_money(500);
         REQUIRE(w->spawn_player(1, role, id, p) == jx::pb::RESULT_OK);
     }

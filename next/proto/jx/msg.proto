@@ -32,6 +32,7 @@ enum MsgId {
   C2G_ITEM_USE = 1107;         // (zone) eat a medicine / use an item
   C2G_ITEM_DROP = 1108;        // (zone) throw an item away: it lies on the ground for a while
   C2G_PICK_UP = 1109;          // (zone) pick up an item / money from the ground
+  C2G_ADD_POINT = 1110;        // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -55,6 +56,7 @@ enum MsgId {
   G2C_ITEM_MOVE = 2112;        // an item lies somewhere else now (also the answer to C2G_ITEM_MOVE / EQUIP / UNEQUIP)
   G2C_ITEM_RESULT = 2113;      // a request that changed nothing, with why
   G2C_MONEY = 2114;            // money in the bag and the repository
+  G2C_PLAYER_ATTRIB = 2115;    // the character's own numbers (CURPLAYER_SYNC + PLAYER_ATTRIBUTE_SYNC + PLAYER_LEVEL_UP_SYNC of the old game)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

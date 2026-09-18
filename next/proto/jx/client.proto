@@ -272,6 +272,63 @@ message MoneySync {              // G2C_MONEY
   uint32 bank_money = 2;
 }
 
+// The five attributes a point can go to (m_btAttribute of PLAYER_ATTRIBUTE_SYNC: 0 strength,
+// 1 dexterity, 2 vitality, 3 energy)
+enum PlayerAttribute {
+  ATTRIB_STRENGTH = 0;
+  ATTRIB_DEXTERITY = 1;
+  ATTRIB_VITALITY = 2;
+  ATTRIB_ENERGY = 3;
+}
+
+message AddPointReq {            // C2G_ADD_POINT: KPlayer::AddBaseStrength / Dexterity / Vitality / Engergy (points <= m_nAttributePoint)
+  PlayerAttribute attribute = 1;
+  uint32 points = 2;
+  uint32 seq = 3;                // answered with G2C_PLAYER_ATTRIB (nothing changes when the points are not there)
+}
+
+// Everything the character window shows about the character itself, sent on entering the
+// world and whenever it changes (a level, a point spent, a piece worn or taken off, damage
+// taken updates only life through EntityLife).  The base numbers are the character's own,
+// the current ones include equipment, skills and states (KPlayer::UpdataCurData).
+message PlayerAttribSync {       // G2C_PLAYER_ATTRIB
+  uint32 level = 1;
+  uint64 exp = 2;
+  uint64 next_level_exp = 3;     // m_nNextLevelExp: what this level needs to become the next
+  uint32 attribute_point = 4;
+  uint32 skill_point = 5;
+  int32 strength = 6;            // base points
+  int32 dexterity = 7;
+  int32 vitality = 8;
+  int32 energy = 9;
+  int32 lucky = 10;
+  int32 cur_strength = 11;       // current points
+  int32 cur_dexterity = 12;
+  int32 cur_vitality = 13;
+  int32 cur_energy = 14;
+  int32 cur_lucky = 15;
+  int32 life = 16;
+  int32 life_max = 17;           // m_CurrentLifeMax in use
+  int32 mana = 18;
+  int32 mana_max = 19;
+  int32 stamina = 20;
+  int32 stamina_max = 21;
+  int32 attack_rating = 22;      // m_CurrentAttackRating
+  int32 defend = 23;             // m_CurrentDefend
+  int32 min_damage = 24;         // m_PhysicsDamage
+  int32 max_damage = 25;
+  int32 fire_resist = 26;        // the current resistances in use
+  int32 cold_resist = 27;
+  int32 poison_resist = 28;
+  int32 light_resist = 29;
+  int32 physics_resist = 30;
+  int32 walk_speed = 31;
+  int32 run_speed = 32;
+  int32 attack_speed = 33;
+  int32 cast_speed = 34;
+  uint32 seq = 35;               // the AddPointReq.seq this answers, 0 otherwise
+}
+
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
 // The client drops every entity, loads the bundle and waits for the EntitySpawn of the new
 // surroundings (which includes the player itself).

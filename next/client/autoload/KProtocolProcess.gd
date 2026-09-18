@@ -30,6 +30,10 @@ signal item_changed(item: Dictionary)
 signal item_removed(id: int)
 signal item_result(seq: int, result: int)
 signal money_changed(money: int, bank_money: int)
+# the character's own numbers (G2C_PLAYER_ATTRIB: level, exp, points, life / mana / stamina,
+# attack rating, defence, damage, resistances - the CURPLAYER_SYNC of the old game); the
+# dictionary is `player_attrib`
+signal player_attrib_changed(attrib: Dictionary)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
 signal pong(rtt_ms: int, server_ms: int)
@@ -66,6 +70,11 @@ var entities := {}
 var items := {}
 var money := 0
 var bank_money := 0
+# what the zone last said about the character itself (KPlayer of the zone): keys as in
+# PlayerAttribSync (level, exp, next_level_exp, attribute_point, skill_point, strength.., cur_strength..,
+# life, life_max, mana, mana_max, stamina, stamina_max, attack_rating, defend, min_damage, max_damage,
+# fire_resist.., walk_speed, run_speed, attack_speed, cast_speed)
+var player_attrib := {}
 const ROOM_BAG := 0
 const ROOM_REPOSITORY := 1
 const ROOM_TRADE := 2
@@ -231,6 +240,21 @@ func item_use(id: int) -> int:
 	req.set_seq(_move_seq)
 	Net.send_msg(Proto.MsgId.C2G_ITEM_USE, req)
 	Log.trace("item", "use request", {"id": id, "seq": _move_seq})
+	return _move_seq
+
+
+# Spend attribute points (KPlayer::AddBaseStrength.. of the old game, c2s_playeraddattribute):
+# 0 strength, 1 dexterity, 2 vitality, 3 energy.  The zone answers with G2C_PLAYER_ATTRIB.
+func add_point(attribute: int, points: int) -> int:
+	if state != "world" or points <= 0:
+		return 0
+	_move_seq += 1
+	var req := Proto.AddPointReq.new()
+	req.set_attribute(attribute)
+	req.set_points(points)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ADD_POINT, req)
+	Log.trace("player", "add point request", {"attribute": attribute, "points": points, "seq": _move_seq})
 	return _move_seq
 
 
@@ -563,6 +587,35 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			money = m.get_money()
 			bank_money = m.get_bank_money()
 			money_changed.emit(money, bank_money)
+
+		Proto.MsgId.G2C_PLAYER_ATTRIB:
+			var m := Proto.PlayerAttribSync.new()
+			if not _decode(m, payload):
+				return
+			player_attrib = {
+				"level": m.get_level(), "exp": m.get_exp(), "next_level_exp": m.get_next_level_exp(),
+				"attribute_point": m.get_attribute_point(), "skill_point": m.get_skill_point(),
+				"strength": m.get_strength(), "dexterity": m.get_dexterity(), "vitality": m.get_vitality(),
+				"energy": m.get_energy(), "lucky": m.get_lucky(),
+				"cur_strength": m.get_cur_strength(), "cur_dexterity": m.get_cur_dexterity(),
+				"cur_vitality": m.get_cur_vitality(), "cur_energy": m.get_cur_energy(), "cur_lucky": m.get_cur_lucky(),
+				"life": m.get_life(), "life_max": m.get_life_max(), "mana": m.get_mana(), "mana_max": m.get_mana_max(),
+				"stamina": m.get_stamina(), "stamina_max": m.get_stamina_max(),
+				"attack_rating": m.get_attack_rating(), "defend": m.get_defend(),
+				"min_damage": m.get_min_damage(), "max_damage": m.get_max_damage(),
+				"fire_resist": m.get_fire_resist(), "cold_resist": m.get_cold_resist(), "poison_resist": m.get_poison_resist(),
+				"light_resist": m.get_light_resist(), "physics_resist": m.get_physics_resist(),
+				"walk_speed": m.get_walk_speed(), "run_speed": m.get_run_speed(),
+				"attack_speed": m.get_attack_speed(), "cast_speed": m.get_cast_speed(), "seq": m.get_seq(),
+			}
+			# our own entity follows (the level and the life the world draws)
+			var me = entities.get(entity_id)
+			if me != null:
+				me.level = m.get_level()
+				me.life = m.get_life()
+				me.life_max = m.get_life_max()
+			Log.debug("player", "attributes", {"level": m.get_level(), "exp": m.get_exp(), "points": m.get_attribute_point(), "life": m.get_life(), "life_max": m.get_life_max()})
+			player_attrib_changed.emit(player_attrib)
 
 		Proto.MsgId.G2C_PONG:
 			var m := Proto.Pong.new()

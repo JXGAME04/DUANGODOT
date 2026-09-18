@@ -5,10 +5,13 @@
 // newplayerini00 template: 35 / 25 / 25 / 15, life 204, mana 16).
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "jx/role.pb.h"
 #include "jx/zone/KItem.h"
@@ -25,6 +28,7 @@ using jx::zone::KNpc;
 using jx::zone::KNpcAttribModify;
 using jx::zone::KNpcAttribModifyContext;
 using jx::zone::KNpcKind;
+using jx::zone::KPlayer;
 using jx::zone::KPlayerSet;
 
 namespace {
@@ -371,4 +375,136 @@ TEST_CASE("KPlayerSet reads player.json and follows the level rules", "[player][
     KPlayerSet none;
     CHECK_FALSE(none.load("no-such-file.json", &err));
     CHECK_FALSE(err.empty());
+}
+
+// ---- in the world: the sync packet, spending points, the experience of a kill ----------------
+#include "jx/client.pb.h"
+#include "jx/log.hpp"
+#include "jx/msg.pb.h"
+#include "jx/zone/KSubWorld.h"
+
+namespace {
+
+jx::zone::KSubWorldConfig hero_world()
+{
+    jx::zone::KSubWorldConfig c;
+    c.zone_id = 1;
+    c.tick_hz = 18;
+    c.width = 4096;
+    c.height = 4096;
+    c.cell_size = 512;
+    c.view_cells = 1;
+    c.interest_period = 1;
+    c.view_slack = 0;
+    c.far_period = 1;
+    c.spawn_point = jx::zone::Pos{2000, 2000};
+    c.seed = 7;
+    auto tables = std::make_shared<KPlayerSet>(linux_tables());
+    c.player_set = tables;
+    return c;
+}
+
+std::vector<jx::zone::Packet> of(const std::vector<jx::zone::Packet>& all, std::uint64_t sid, jx::pb::MsgId id)
+{
+    std::vector<jx::zone::Packet> out;
+    for (const auto& p : all) {
+        if (p.msg_id == id && std::find(p.sids.begin(), p.sids.end(), sid) != p.sids.end()) out.push_back(p);
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("the world tells the client its numbers, spends its points and shares a kill's experience", "[player][world]")
+{
+    jx::log::Options o;
+    o.console = false;
+    o.default_level = jx::log::Level::warn;
+    jx::log::init(o);
+    jx::zone::KSubWorld w(hero_world());
+    jx::EntityId hero;
+    jx::zone::Pos at;
+    jx::pb::RoleData role = shaolin_role();
+    role.mutable_stats()->set_dexterity(100);   // hits the template-less pig surely (attack rating 372 vs defence 10)
+    role.mutable_stats()->set_attribute_point(6);
+    role.mutable_position()->set_zone_id(1);
+    role.mutable_position()->mutable_pos()->set_x(2000);
+    role.mutable_position()->mutable_pos()->set_y(2000);
+    REQUIRE(w.spawn_player(7, role, hero, at) == jx::pb::RESULT_OK);
+    auto out = of(w.take_outbox(), 7, jx::pb::G2C_PLAYER_ATTRIB);
+    REQUIRE(out.size() == 1);
+    jx::pb::PlayerAttribSync sync;
+    REQUIRE(sync.ParseFromString(out[0].payload));
+    CHECK(sync.level() == 1);
+    CHECK(sync.strength() == 35);
+    CHECK(sync.cur_strength() == 35);
+    CHECK(sync.attack_rating() == 100 * 4 - 28);
+    CHECK(sync.life_max() == 204);
+    CHECK(sync.next_level_exp() == 100);
+    CHECK(sync.attribute_point() == 6);
+    CHECK(sync.min_damage() == 35 / 5 + 1);
+
+    // two points into vitality: +16 life; a third request beyond the points changes nothing
+    REQUIRE(w.add_point_request(7, jx::pb::ATTRIB_VITALITY, 2, 41));
+    out = of(w.take_outbox(), 7, jx::pb::G2C_PLAYER_ATTRIB);
+    REQUIRE(out.size() == 1);
+    REQUIRE(sync.ParseFromString(out[0].payload));
+    CHECK(sync.seq() == 41);
+    CHECK(sync.vitality() == 27);
+    CHECK(sync.life_max() == 204 + 16);
+    CHECK(sync.attribute_point() == 4);
+    CHECK_FALSE(w.add_point_request(7, jx::pb::ATTRIB_STRENGTH, 5, 42));
+    out = of(w.take_outbox(), 7, jx::pb::G2C_PLAYER_ATTRIB);
+    REQUIRE(out.size() == 1);
+    REQUIRE(sync.ParseFromString(out[0].payload));
+    CHECK(sync.strength() == 35);
+    CHECK(sync.attribute_point() == 4);
+
+    // a pig worth 60 experience (the template-less test monster: 30 life, level 1): the hero
+    // deals all its damage - the killing blow is recorded whole, so an overkill of 32 on 30
+    // life gives 60 x 32 / 30 = 64 - of the 100 the level needs; a second pig brings the level
+    // (the leftover is lost, as in the old game)
+    for (int kill = 0; kill < 2; ++kill) {
+        const jx::EntityId pig = w.spawn_npc("pig", jx::zone::Pos{2040, 2000}, 418, 0, jx::zone::KNpcKind::monster);
+        KNpc* e = const_cast<KNpc*>(w.find_entity(pig));
+        REQUIRE(e != nullptr);
+        e->cur.experience = 60;
+        e->level = 1;
+        w.take_outbox();
+        REQUIRE(w.attack_request(7, pig, static_cast<std::uint32_t>(kill + 1)));
+        for (int i = 0; i < 400 && w.find_entity(pig) != nullptr && w.find_entity(pig)->alive(); ++i) w.tick();
+        REQUIRE((w.find_entity(pig) == nullptr || !w.find_entity(pig)->alive()));
+        const KNpc* h = w.find_player(7);
+        REQUIRE(h != nullptr);
+        if (kill == 0) {
+            CHECK(h->player.exp >= 60);
+            CHECK(h->player.exp < 100);
+            CHECK(h->level == 1);
+        } else {
+            CHECK(h->level == 2);
+            CHECK(h->player.exp == 0);
+            CHECK(h->player.attribute_point == 4 + 5);
+            CHECK(h->player.next_level_exp == 500);
+            CHECK(h->life() == h->life_max());   // filled on the level
+        }
+        out = of(w.take_outbox(), 7, jx::pb::G2C_PLAYER_ATTRIB);
+        REQUIRE(!out.empty());
+        REQUIRE(sync.ParseFromString(out.back().payload));
+        CHECK(sync.level() == h->level);
+        CHECK(sync.exp() == static_cast<std::uint64_t>(h->player.exp));
+    }
+}
+
+TEST_CASE("CalcExp follows the level difference of 0x080A7C80", "[player]")
+{
+    CHECK(KPlayer::calc_exp(1000, 20, 20) == 1000);
+    CHECK(KPlayer::calc_exp(1000, 20, 15) == 1000);      // 5 apart: all
+    CHECK(KPlayer::calc_exp(1000, 20, 14) == 950);       // 6 apart: 19/20
+    CHECK(KPlayer::calc_exp(1000, 5, 20) == 500);        // 15 apart: 10/20
+    CHECK(KPlayer::calc_exp(1000, 40, 20) == 500);       // 20 apart: half
+    CHECK(KPlayer::calc_exp(1000, 1, 56) == 1000 * (-19 * -55 - 1030) / 300);   // 55 above: 5 %
+    CHECK(KPlayer::calc_exp(1000, 1, 71) == 1000);       // 70 above: all of it
+    CHECK(KPlayer::calc_exp(1000, 100, 89) == 1);        // level 100 farming low monsters
+    CHECK(KPlayer::calc_exp(1000, 100, 90) == 1000);
+    CHECK(KPlayer::calc_exp(0, 20, 20) == 1);            // never below 1
 }

@@ -102,8 +102,9 @@ TEST_CASE("spawn sends the visible set to the newcomer and the newcomer to viewe
     REQUIRE(w.spawn_player(1, role(11, "A", Pos{100, 100}), ea, pa) == jx::pb::RESULT_OK);
     CHECK(pa == Pos{100, 100});
     auto out = w.take_outbox();
-    REQUIRE(out.size() == 2);   // the spawn and the (empty) item list
+    REQUIRE(out.size() == 3);   // the spawn, the (empty) item list and the character's numbers
     REQUIRE(to(out, 1, jx::pb::G2C_ITEM_LIST).size() == 1);
+    REQUIRE(to(out, 1, jx::pb::G2C_PLAYER_ATTRIB).size() == 1);
     auto spawn = decode<jx::pb::EntitySpawn>(to(out, 1, jx::pb::G2C_ENTITY_SPAWN)[0]);
     REQUIRE(spawn.entities_size() == 1);
     CHECK(spawn.entities(0).entity_id() == ea.value);

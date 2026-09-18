@@ -97,6 +97,19 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
         if (npc.kind != KNpcKind::player || ctx.tables == nullptr) return true;
         npc.player.change_cur_energy(npc, v0, *ctx.tables);
         return true;
+    case magic_expenhance_v:               // 175 (0x08099F40 -> 0x080A82A0): a random range on every gain
+        if (npc.kind != KNpcKind::player) return true;
+        npc.player.exp_enhance_lo += v0;
+        npc.player.exp_enhance_hi += v2;
+        return true;
+    case magic_expenhance_p:               // 176 (-> 0x080A82C0)
+        if (npc.kind != KNpcKind::player) return true;
+        npc.player.exp_enhance_percent += v0;
+        return true;
+    case magic_add120skillexpenhance_p:    // 206 (-> 0x080A82E0)
+        if (npc.kind != KNpcKind::player) return true;
+        npc.player.exp_enhance_percent2 += v0;
+        return true;
     case magic_lucky_v:                    // 135 (0x0809A180): KPlayer::m_nCurLucky (through 0x080B0Cxx)
         if (npc.kind != KNpcKind::player) return true;
         npc.player.cur_lucky += v0;

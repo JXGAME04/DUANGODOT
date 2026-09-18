@@ -138,6 +138,27 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 — M12 lát A phần 3: **kinh nghiệm, lên cấp, cộng điểm, đồng bộ thuộc tính ra client**
+
+- Đọc thêm (`LINUX-SERVER.md` §10.5): `KDamageRecord::Add 0x0809BC70` (3 ô sát thương, 1200 khung),
+  chia kinh nghiệm khi chết `0x0809BDD0` (`m_Experience × sátThương / máuMax`, quái chết **không** cộng
+  trong OnDeath mà qua DoDeath; `OnGlobalNpcDeath` chỉ là script nhiệm vụ), `KPlayer::AddExp 0x080B00C0`
+  + `CalcExp 0x080A7C80` (chênh cấp: ±5 đủ, 6–15 `(25−|d|)/20`, hơn 15 một nửa, ≥ cấp 100 chỉ 1 với
+  quái < 90, quái cao hơn 55–69 cấp `(−19d−1030)/300`), lõi `0x080AFEA0` (kẹp ở mốc, lên cấp mất phần dư),
+  `expenhance_v/_p`, `add120skillexpenhance_p` vào `Player+0xc8..+0xd4`.
+- Zone: `KNpc::damage_records` + `add_damage_record` (ghi khi người chơi đánh trúng), `share_experience`
+  khi chết, `KPlayer::calc_exp` / `add_exp` (đúng các bước trên, chia đội để lát đội), gói mới
+  **`G2C_PLAYER_ATTRIB` / `PlayerAttribSync`** (35 trường: cấp, kinh nghiệm, điểm, 5 chỉ số gốc + hiện
+  tại, máu/nội/thể, chính xác, phòng thủ, sát thương, 5 kháng, tốc độ) gửi khi vào map / lên cấp / cộng
+  điểm / mặc–cởi đồ; lệnh **`C2G_ADD_POINT` / `AddPointReq`** (thuộc tính 0..3, số điểm, seq) →
+  `KPlayer::add_base_*` có kiểm điểm; mặc/cởi đồ giờ chạy `UpdataCurData` thật (sức mạnh/phòng thủ của
+  đồ tính vào); `EnoughAttrib` so với điểm **hiện tại**.
+- Client: `Game.player_attrib` + tín hiệu `player_attrib_changed`, `Game.add_point()`; trang thuộc tính
+  `UiStatus` hiện đủ số theo `KUiStatus::UpdateData` (điểm bị đồ đổi hiện `hiện tại(gốc)`, sát thương
+  `min-max`, kinh nghiệm `x/y`, điểm còn), 4 nút `+` bật khi còn điểm và gửi lệnh.
+- Test: `test_KPlayer` +2 case (thế giới: gói đồng bộ, cộng điểm, 2 con heo → lên cấp 2; CalcExp),
+  UiCheck 155 → 160. Còn: chia đội, hình phạt chết, kỹ năng (lát B), công thức sát thương (lát C).
+
 ### 2026-09-19 — M12 lát A phần 2: **thuộc tính nhân vật trong zone theo nhị phân Linux**
 
 - `KNpcAttrib.h`: `KNpc::base` (m_XXX) / `KNpc::cur` (m_CurrentXXX) với offset nhị phân từng trường, cặp

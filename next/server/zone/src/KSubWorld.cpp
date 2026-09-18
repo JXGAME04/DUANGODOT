@@ -261,6 +261,8 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     v.next_look = tick_ + 1 + sid % std::max<std::uint32_t>(1, cfg_.interest_period);
     // then what the character carries (s2c_syncitem of the old server followed the player sync)
     send_item_list(sid);
+    // and the character's own numbers (CURPLAYER_SYNC)
+    send_player_attrib(sid);
 
     entity_out = id;
     pos_out = start;
@@ -977,6 +979,7 @@ void KSubWorld::hit(KNpc& attacker, KNpc& target)
     // m_CurrentLife -= nDamage; DoDeath only below zero: a blow that leaves exactly 0 leaves it standing
     const bool dies = dmg > target.life();
     target.cur.life = dies ? 0 : target.life() - dmg;
+    if (attacker.kind == KNpcKind::player) target.add_damage_record(attacker.id, dmg);
     log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("resist", res), log::kv("life", target.life())});
     emit_life(target, -dmg, attacker.id);
     if (dies) {
@@ -1078,7 +1081,112 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
     if (e.moving) e.set_pos(e.pos());
     log::debug("zone.fight", "death", {log::kv("entity", e.id), log::kv("killer", killer)});
     emit_action(e, pb::ACTION_DEATH, killer);
+    share_experience(e);
     lose_treasure(e, killer);
+}
+
+// 0x0809BDD0 (from KNpc::DoDeath): every damage record's player gets m_Experience x its damage /
+// the life max in use, through KPlayer::AddExp with the npc's level (the team share of
+// 0x080B03E0 comes with the teams); the records are then cleared (0x0809BD80).
+void KSubWorld::share_experience(KNpc& dead)
+{
+    const int life_max = dead.life_max();
+    if (life_max <= 0 || dead.cur.experience <= 0) {
+        dead.clear_damage_records();
+        return;
+    }
+    for (const KDamageRecord& r : dead.damage_records) {
+        if (r.player.value == 0 || r.damage <= 0) continue;
+        KNpc* p = entities_.find(r.player);
+        if (p == nullptr || p->kind != KNpcKind::player || !p->player.loaded) continue;
+        const int exp = static_cast<int>(static_cast<double>(dead.cur.experience) * static_cast<double>(r.damage) / static_cast<double>(life_max));
+        if (exp <= 0) continue;
+        const std::uint32_t before = p->level;
+        p->player.add_exp(*p, exp, static_cast<int>(dead.level), tables(), items_of(p->sid),
+                          [](void* ctx, int n) { return static_cast<KSubWorld*>(ctx)->random(n); }, this);
+        log::debug("zone.fight", "experience", {log::kv("entity", p->id), log::kv("exp", exp), log::kv("level", p->level)});
+        if (p->level != before) {
+            log::info("zone.player", "level up", {log::kv("entity", p->id), log::kv("level", p->level)});
+            emit_life(*p, 0, EntityId{});
+        }
+        send_player_attrib(p->sid);
+    }
+    dead.clear_damage_records();
+}
+
+void KSubWorld::recalc_player(KNpc& e)
+{
+    if (e.kind != KNpcKind::player || !e.player.loaded) return;
+    e.player.updata_cur_data(e, false, tables(), items_of(e.sid));
+    send_player_attrib(e.sid);
+}
+
+void KSubWorld::send_player_attrib(std::uint64_t sid, std::uint32_t seq)
+{
+    const KNpc* e = find_player(sid);
+    if (e == nullptr) return;
+    const KPlayer& p = e->player;
+    const KNpcCurrentAttrib& c = e->cur;
+    pb::PlayerAttribSync out;
+    out.set_level(e->level);
+    out.set_exp(static_cast<std::uint64_t>(std::max<std::int64_t>(0, p.exp)));
+    out.set_next_level_exp(static_cast<std::uint64_t>(std::max<std::int64_t>(0, p.next_level_exp)));
+    out.set_attribute_point(static_cast<std::uint32_t>(std::max(0, p.attribute_point)));
+    out.set_skill_point(static_cast<std::uint32_t>(std::max(0, p.skill_point)));
+    out.set_strength(p.strength);
+    out.set_dexterity(p.dexterity);
+    out.set_vitality(p.vitality);
+    out.set_energy(p.energy);
+    out.set_lucky(p.lucky);
+    out.set_cur_strength(p.cur_strength);
+    out.set_cur_dexterity(p.cur_dexterity);
+    out.set_cur_vitality(p.cur_vitality);
+    out.set_cur_energy(p.cur_energy);
+    out.set_cur_lucky(p.cur_lucky);
+    out.set_life(c.life);
+    out.set_life_max(c.life_max_v());
+    out.set_mana(c.mana);
+    out.set_mana_max(c.mana_max_v());
+    out.set_stamina(c.stamina);
+    out.set_stamina_max(c.stamina_max);
+    out.set_attack_rating(c.attack_rating);
+    out.set_defend(c.defend);
+    out.set_min_damage(c.min_damage());
+    out.set_max_damage(c.max_damage());
+    out.set_fire_resist(c.fire_resist_v());
+    out.set_cold_resist(c.cold_resist_v());
+    out.set_poison_resist(c.poison_resist_v());
+    out.set_light_resist(c.light_resist_v());
+    out.set_physics_resist(c.physics_resist_v());
+    out.set_walk_speed(c.walk_speed);
+    out.set_run_speed(c.run_speed);
+    out.set_attack_speed(c.attack_speed_v());
+    out.set_cast_speed(c.cast_speed_v());
+    out.set_seq(seq);
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_PLAYER_ATTRIB), out);
+}
+
+bool KSubWorld::add_point_request(std::uint64_t sid, int attribute, int points, std::uint32_t seq)
+{
+    const auto pit = players_.find(sid);
+    KNpc* e = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    if (e == nullptr || !e->player.loaded) return false;
+    bool ok = false;
+    if (points > 0) {
+        switch (attribute) {
+        case pb::ATTRIB_STRENGTH: ok = e->player.add_base_strength(*e, points, true, tables(), items_of(sid)); break;
+        case pb::ATTRIB_DEXTERITY: ok = e->player.add_base_dexterity(*e, points, true, tables(), items_of(sid)); break;
+        case pb::ATTRIB_VITALITY: ok = e->player.add_base_vitality(*e, points, true, tables(), items_of(sid)); break;
+        case pb::ATTRIB_ENERGY: ok = e->player.add_base_energy(*e, points, true, tables(), items_of(sid)); break;
+        default: break;
+        }
+    }
+    if (!ok) {
+        log::debug("zone.player", "points refused", {log::kv("sid", sid), log::kv("attribute", attribute), log::kv("points", points),
+                                                      log::kv("left", e->player.attribute_point)});
+    }
+    send_player_attrib(sid, seq);
+    return ok;
 }
 
 // KNpc::DoRevive (server): the corpse leaves the region for ReviveFrame frames.
@@ -1382,12 +1490,19 @@ void KSubWorld::send_money(std::uint64_t sid)
 
 std::function<int(int)> KSubWorld::attrib_of(const KNpc& e) const
 {
-    // KItemList::EnoughAttrib read the player's strength / dexterity / vitality / energy, the
-    // npc's level, series and sex, the faction.  The attribute points are not in the world yet
-    // (M12): they read as "enough", the rest is real.
+    // KItemList::EnoughAttrib reads the player's current strength / dexterity / vitality /
+    // energy (what equipment adds counts), the npc's level, series and sex, the faction (not
+    // in the world yet: 0)
     const int level = static_cast<int>(e.level), series = static_cast<int>(e.series), sex = static_cast<int>(e.sex);
-    return [level, series, sex](int type) {
+    const KPlayer& p = e.player;
+    const int str = p.loaded ? p.cur_strength : 1 << 20, dex = p.loaded ? p.cur_dexterity : 1 << 20;
+    const int vit = p.loaded ? p.cur_vitality : 1 << 20, eng = p.loaded ? p.cur_energy : 1 << 20;
+    return [level, series, sex, str, dex, vit, eng](int type) {
         switch (type) {
+        case magic_requirestr: return str;
+        case magic_requiredex: return dex;
+        case magic_requirevit: return vit;
+        case magic_requireeng: return eng;
         case magic_requirelevel: return level;
         case magic_requireseries: return series;
         case magic_requiresex: return sex;
@@ -1448,6 +1563,7 @@ bool KSubWorld::item_equip_request(std::uint64_t sid, std::uint32_t id, int part
     }
     item_moved(sid, id, seq);
     if (worn != 0) item_moved(sid, worn, 0);
+    if (KNpc* me2 = entities_.find(players_.at(sid))) recalc_player(*me2);   // KPlayer::UpdataCurData after Equip
     return true;
 }
 
@@ -1464,6 +1580,7 @@ bool KSubWorld::item_unequip_request(std::uint64_t sid, int part, std::uint32_t 
         return false;
     }
     item_moved(sid, id, seq);
+    if (KNpc* me = entities_.find(players_.at(sid))) recalc_player(*me);   // KItemList::UnEquip takes the attributes off
     return true;
 }
 
