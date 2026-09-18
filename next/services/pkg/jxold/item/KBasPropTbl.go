@@ -430,6 +430,39 @@ func (s *Set) Count() int {
 	return n
 }
 
+// ObjIDs lists the ground object (ObjData.txt DataID, the 对应物件索引 column) every row names, each once.
+func (s *Set) ObjIDs() []int {
+	var out []int
+	seen := map[int]bool{}
+	add := func(id int) {
+		if id > 0 && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	for _, name := range EquipTables {
+		for _, r := range s.Equipment[name] {
+			add(r.ObjIdx)
+		}
+	}
+	for _, r := range s.Gold {
+		add(r.ObjIdx)
+	}
+	for _, r := range s.Medicine {
+		add(r.ObjIdx)
+	}
+	for _, r := range s.Quest {
+		add(r.ObjIdx)
+	}
+	for _, r := range s.TownPortal {
+		add(r.ObjIdx)
+	}
+	for _, r := range s.Scripts {
+		add(r.ObjIdx)
+	}
+	return out
+}
+
 // ImagePaths lists the sprite every row names (the 动画文件名 column), each once, in table order.
 func (s *Set) ImagePaths() []string {
 	var out []string

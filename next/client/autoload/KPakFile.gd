@@ -221,5 +221,18 @@ var _item_images := {}
 var _item_index = null
 
 
+# One row of ObjData.txt as jxassets export-objdata wrote it (assets/objdata.json): what a thing
+# on the ground looks like.  {} when the table is not exported or the row is unknown.
+func objdata_row(id: int) -> Dictionary:
+	if _objdata == null:
+		var raw = load_json("%s/objdata.json" % assets_root())
+		_objdata = raw.get("objects", {}) if raw is Dictionary else {}
+	var row = _objdata.get(str(id), null)
+	return row if row is Dictionary else {}
+
+
+var _objdata = null
+
+
 var _ui_images := {}
 var _ui_pixels := {}

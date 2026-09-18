@@ -147,6 +147,18 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no item tables", {jx::log::kv("dir", items_dir), jx::log::kv("error", error)});
         }
     }
+    // the ground objects (jxassets export-objdata): without them nothing can be dropped
+    const std::string objdata = cfg.get_string("zone.objdata", "client/assets/objdata.json");
+    if (!objdata.empty()) {
+        auto od = std::make_shared<jx::zone::KObjDataSet>();
+        std::string error;
+        if (od->load(objdata, &error)) {
+            w.objdata = od;
+        } else {
+            jx::log::warn("boot", "no object data", {jx::log::kv("file", objdata), jx::log::kv("error", error)});
+        }
+    }
+    w.money_rate_percent = static_cast<int>(cfg.get_int("zone.money_rate_percent", 100));
     const std::string map_dir = cfg.get_string("zone.map_dir", "");
     if (!map_dir.empty()) {
         std::string error;

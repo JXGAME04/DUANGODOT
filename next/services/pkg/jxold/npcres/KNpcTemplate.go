@@ -50,6 +50,9 @@ type Template struct {
 	// the LevelScript column and the raw cells KNpcTemplate::InitNpcLevelData hands to the script
 	LevelScript string            `json:"level_script"`
 	Cells       map[string]string `json:"cells"`
+	// what it drops when a player kills it (KNpc::OnDeath): Treasure rolls of DropRateFile
+	Treasure     int    `json:"treasure"`
+	DropRateFile string `json:"drop_rate_file"` // game path of the drop table (\settings\item\npcdroprate.ini...), "" = nothing
 }
 
 // LevelCells are the columns InitNpcLevelData reads as raw strings for the level script.
@@ -136,6 +139,8 @@ func ParseTemplates(data []byte) []Template {
 			t.Skills[slot] = TemplateSkill{ID: Atoi(id), LevelA: a, LevelB: b}
 		}
 		t.LevelScript = strings.ToLower(strings.TrimSpace(tab.GetByName(row, "LevelScript")))
+		t.Treasure = num(row, "Treasure", 0)
+		t.DropRateFile = strings.ToLower(strings.TrimSpace(tab.GetByName(row, "DropRateFile")))
 		t.Cells = map[string]string{}
 		for _, c := range LevelCells {
 			if v := strings.TrimSpace(tab.GetByName(row, c)); v != "" {

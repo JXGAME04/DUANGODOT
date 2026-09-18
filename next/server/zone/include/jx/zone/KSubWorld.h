@@ -25,6 +25,7 @@
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KObj.h"
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcTemplate.h"
@@ -89,6 +90,8 @@ struct KSubWorldConfig {
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
     std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
     std::shared_ptr<const KItemLibrary> items;          // the item tables (settings\item, every version); optional
+    std::shared_ptr<const KObjDataSet> objdata;         // ObjData.txt / MoneyObj.txt (objdata.json): what a drop looks like; optional
+    int money_rate_percent = 100;                       // [ServerConfig] MoneyRate of gamesetting.ini: dropped money x this / 100
     std::uint32_t item_version = 0;                     // the table set new items are made from (g_SubWorldSet+0x34 of jx_linux_y); 0 = the newest
     // KGMCommand.cpp: a chat line "?gm ds <lua>" runs the code for the player, "?gm dw <lua>" for
     // the world.  Only while this is on (a development server); accounts with a GM flag come later.
@@ -156,6 +159,19 @@ public:
     bool item_unequip_request(std::uint64_t sid, int part, std::uint32_t seq);
     bool item_use_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
     bool item_drop_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
+    // KPlayer::ServerPickUpItem: the thing on the ground goes into the bag (or the purse)
+    bool pick_up_request(std::uint64_t sid, EntityId object, std::uint32_t seq);
+    // KObjSet::Add / AddMoneyObj: an item / a pile of money appears on the ground near `at`
+    // (KSubWorld::GetFreeObjPos), kept for `belong` (a player id, 0 = anybody).  Null id when the
+    // object data is missing.
+    EntityId drop_item(KItem item, Pos at, std::uint64_t belong);
+    EntityId drop_money(int amount, Pos at, std::uint64_t belong);
+    [[nodiscard]] const KItem* ground_item(EntityId object) const;
+    [[nodiscard]] std::size_t ground_object_count() const noexcept { return ground_items_.size() + ground_money_; }
+    // KNpc::OnDeath (the drops): Treasure rolls of the template's drop table for the killer
+    void lose_treasure(KNpc& dead, EntityId killer);
+    // KNpc::LoseSingleItem -> GenRandomItem of jx_linux_y (0x08083BB0): one roll of a drop table
+    std::optional<KItem> gen_random_item(const KNpcDropRate& table, int npc_level, int npc_series, int luck);
     // Give an item to a player (a script, a drop picked up, a quest reward): into the bag, onto a
     // stack where it can; the client is told.  0 when it does not fit.
     std::uint32_t give_item(std::uint64_t sid, KItem item);
@@ -321,6 +337,22 @@ private:
     // KItemList::EnoughAttrib needs the player's numbers
     [[nodiscard]] std::function<int(int)> attrib_of(const KNpc& e) const;
     void process_potions(KNpc& e);   // the 补血状态 block of KNpc::ProcessState, every frame
+    void object_tick(KNpc& e, std::vector<EntityId>& expired);   // KObj::Activate for items and money
+    void remove_object(EntityId id);
+    [[nodiscard]] Pos free_object_pos(Pos at) const;              // KSubWorld::GetFreeObjPos
+    std::unordered_map<std::uint64_t, KItem> ground_items_;       // object entity id -> the item lying there
+    std::size_t ground_money_ = 0;
+    // A death inside the tick loop cannot add entities (the table's vector would move under the
+    // loop's references): what a monster drops waits here until the loop is over.
+    struct KPendingDrop {
+        std::optional<KItem> item;
+        int money = 0;
+        Pos at;
+        std::uint64_t belong = 0;
+    };
+    std::vector<KPendingDrop> pending_drops_;
+    void flush_pending_drops();
+    std::uint32_t random_percent() { return static_cast<std::uint32_t>(rng_() % 100); }   // g_Random(100)
     std::vector<Packet> outbox_;
     std::uint64_t tick_ = 0;
     std::minstd_rand rng_;

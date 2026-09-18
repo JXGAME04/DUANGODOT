@@ -149,6 +149,12 @@ message EntityInfo {
   uint32 life_max = 14;
   Action doing = 15;             // what it is doing right now (a corpse reports ACTION_DEATH)
   uint32 doing_frames = 16;
+  uint32 count = 17;             // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
+}
+
+message PickUpReq {              // C2G_PICK_UP: take the thing on the ground into the bag (KPlayer::ServerPickUpItem)
+  uint64 entity_id = 1;
+  uint32 seq = 2;                // answered with G2C_ITEM_ADD / G2C_MONEY, or G2C_ITEM_RESULT with the reason
 }
 
 message EntitySpawn {
@@ -445,7 +451,8 @@ enum MsgId {
   C2G_ITEM_EQUIP = 1105;       // (zone) wear an item from the bag
   C2G_ITEM_UNEQUIP = 1106;     // (zone) take a worn item off into the bag
   C2G_ITEM_USE = 1107;         // (zone) eat a medicine / use an item
-  C2G_ITEM_DROP = 1108;        // (zone) throw an item away
+  C2G_ITEM_DROP = 1108;        // (zone) throw an item away: it lies on the ground for a while
+  C2G_PICK_UP = 1109;          // (zone) pick up an item / money from the ground
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;

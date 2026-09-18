@@ -92,7 +92,8 @@ const (
 	MsgId_C2G_ITEM_EQUIP   MsgId = 1105 // (zone) wear an item from the bag
 	MsgId_C2G_ITEM_UNEQUIP MsgId = 1106 // (zone) take a worn item off into the bag
 	MsgId_C2G_ITEM_USE     MsgId = 1107 // (zone) eat a medicine / use an item
-	MsgId_C2G_ITEM_DROP    MsgId = 1108 // (zone) throw an item away
+	MsgId_C2G_ITEM_DROP    MsgId = 1108 // (zone) throw an item away: it lies on the ground for a while
+	MsgId_C2G_PICK_UP      MsgId = 1109 // (zone) pick up an item / money from the ground
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK       MsgId = 2001
 	MsgId_G2C_LOGIN_RES       MsgId = 2002
@@ -146,6 +147,7 @@ var (
 		1106: "C2G_ITEM_UNEQUIP",
 		1107: "C2G_ITEM_USE",
 		1108: "C2G_ITEM_DROP",
+		1109: "C2G_PICK_UP",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -194,6 +196,7 @@ var (
 		"C2G_ITEM_UNEQUIP":    1106,
 		"C2G_ITEM_USE":        1107,
 		"C2G_ITEM_DROP":       1108,
+		"C2G_PICK_UP":         1109,
 		"G2C_HELLO_ACK":       2001,
 		"G2C_LOGIN_RES":       2002,
 		"G2C_CHAR_LIST_RES":   2003,
@@ -261,7 +264,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xb4\a\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xc6\a\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -279,7 +282,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x0eC2G_ITEM_EQUIP\x10\xd1\b\x12\x15\n" +
 	"\x10C2G_ITEM_UNEQUIP\x10\xd2\b\x12\x11\n" +
 	"\fC2G_ITEM_USE\x10\xd3\b\x12\x12\n" +
-	"\rC2G_ITEM_DROP\x10\xd4\b\x12\x12\n" +
+	"\rC2G_ITEM_DROP\x10\xd4\b\x12\x10\n" +
+	"\vC2G_PICK_UP\x10\xd5\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +

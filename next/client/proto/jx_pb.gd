@@ -2262,6 +2262,11 @@ class EntityInfo:
 		service.field = __doing_frames
 		data[__doing_frames.tag] = service
 		
+		__count = PBField.new("count", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 17, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __count
+		data[__count.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2471,6 +2476,83 @@ class EntityInfo:
 		__doing_frames.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_doing_frames(value : int) -> void:
 		__doing_frames.value = value
+	
+	var __count: PBField
+	func has_count() -> bool:
+		if __count.value != null:
+			return true
+		return false
+	func get_count() -> int:
+		return __count.value
+	func clear_count() -> void:
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_count(value : int) -> void:
+		__count.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class PickUpReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -5419,6 +5501,7 @@ enum MsgId {
 	C2G_ITEM_UNEQUIP = 1106,
 	C2G_ITEM_USE = 1107,
 	C2G_ITEM_DROP = 1108,
+	C2G_PICK_UP = 1109,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,

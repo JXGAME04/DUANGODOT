@@ -47,8 +47,9 @@ Lệnh này cũng chạy `jxassets export-ui`: đọc bố cục `\Ui\ui3_1024\U
 `随身物品.ini`, `玩家装备与人物状态*.ini`, `弹出说明文字.ini`, `储物箱.ini` (túi đồ, nhân vật, chú thích, kho), ảnh `.spr`,
 font bitmap, bảng chuỗi, `\settings\magicdesc.ini` (câu mô tả thuộc tính) của client VLTK 2.0 rồi ghi
 `client/assets/ui` (JSON + atlas + `.fnt`); rồi `export-items` (bảng vật phẩm server → `client/assets/items/*.json`)
-và `export-item-images` (2 305 icon vật phẩm → `client/assets/items/images/`). Không có client 2.0 thì bước này bỏ
-qua và Godot dùng màn đăng nhập trơn (`UiLoginPlain`). Chi tiết: [VLTK20-CLIENT.md](VLTK20-CLIENT.md).
+và `export-item-images` (2 305 icon vật phẩm → `client/assets/items/images/`), `export-objdata` (`ObjData.txt`
++ `MoneyObj.txt` của server → `client/assets/objdata.json` + sprite vật thể trên đất). Không có client 2.0 thì bước
+này bỏ qua và Godot dùng màn đăng nhập trơn (`UiLoginPlain`). Chi tiết: [VLTK20-CLIENT.md](VLTK20-CLIENT.md).
 
 Nguồn dữ liệu: `config/oldgame.local.json` (mẫu `config/oldgame.example.json`) trỏ tới **client VLTK 2.0** (thư mục có
 `config.ini` + `data/*.pak`), client dự phòng (`bin/Client`, chỉ cấp file 2.0 thiếu) và **server Linux** (`D:\ServerLinux\server1`:
@@ -85,7 +86,8 @@ python tools/dev.py stop
 Client: nhập máy chủ `127.0.0.1:17100`, tài khoản bất kỳ (tự tạo lần đầu, mật khẩu phải giống
 lần sau) → tạo nhân vật → **Vào game** → click chuột trái để đi, Enter để chat, cuộn chuột để zoom,
 **I** mở túi đồ, **C** mở cửa sổ nhân vật (click nhấc vật phẩm lên tay, click đặt; đúp/chuột phải để mặc,
-uống, cởi), Esc để về màn chọn nhân vật. Mở nhiều client cùng lúc để thấy nhau.
+uống, cởi), click đồ dưới đất để nhặt (đi tới nếu xa), Esc để về màn chọn nhân vật. Quái bị giết rơi tiền/đồ theo
+bảng `DropRateFile` của nó (đồ rơi thuộc người giết 33 s, nằm 133 s). Mở nhiều client cùng lúc để thấy nhau.
 
 Client có vài tham số dòng lệnh (sau `--`) cho test và chụp màn hình:
 `--auto` (tự đăng nhập, vào game, đi, đánh, thoát — `dev.py e2e` dùng), `--server=host:port`,

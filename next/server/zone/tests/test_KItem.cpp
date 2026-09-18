@@ -17,6 +17,8 @@
 #include "jx/msg.pb.h"
 #include "jx/zone/KItem.h"
 #include "jx/zone/KLuaScript.h"
+#include "jx/zone/KNpcTemplate.h"
+#include "jx/zone/KObj.h"
 #include "jx/zone/KSubWorld.h"
 #include "jx/zone/ScriptFuns.h"
 
@@ -764,4 +766,257 @@ TEST_CASE("AddItem / AddGoldItem give the player what the tables describe; ?gm d
     REQUIRE(gm.chat(1, "xin chao"));
     out = gm.take_outbox();
     CHECK(decode_packet<jx::pb::ChatMsg>(packets(out, 1, jx::pb::G2C_CHAT_MSG)[0]).name() == "GM");
+}
+
+
+// ---- the ground: drops, pick up, throw away (M11 D) --------------------------------------------
+
+namespace {
+
+const char* const kObjData = R"({
+ "objects": {
+  "9": {"id": 9, "name": "Kiem", "kind": "Item", "life_time": 40, "height": 8, "image": "aaaa0001"},
+  "18": {"id": 18, "name": "Thuoc", "kind": "Item", "life_time": 0, "height": 4, "image": "aaaa0002"},
+  "22": {"id": 22, "name": "Ao", "kind": "Item", "life_time": 40, "height": 8, "image": "aaaa0003"},
+  "41": {"id": 41, "name": "Tui", "kind": "Item", "life_time": 40, "height": 8, "image": "aaaa0004"},
+  "267": {"id": 267, "name": "Tien", "kind": "Money", "life_time": 40, "height": 4, "image": "aaaa0005"},
+  "268": {"id": 268, "name": "Tien lon", "kind": "Money", "life_time": 40, "height": 4, "image": "aaaa0006"}
+ },
+ "money": [{"max": 200, "obj": 267}, {"max": 999999999, "obj": 268}]
+})";
+
+std::shared_ptr<jx::zone::KObjDataSet> test_objdata()
+{
+    const auto path = std::filesystem::temp_directory_path() / "jxnext_objdata_test.json";
+    std::ofstream(path, std::ios::binary) << kObjData;
+    auto od = std::make_shared<jx::zone::KObjDataSet>();
+    std::string error;
+    REQUIRE(od->load(path.string(), &error));
+    return od;
+}
+
+// a monster template with a drop table: every roll is a level-1 sword, one roll in five is money
+std::shared_ptr<jx::zone::KNpcTemplateSet> test_templates()
+{
+    auto set = std::make_shared<jx::zone::KNpcTemplateSet>();
+    jx::zone::KNpcTemplate t;
+    t.id = 418;
+    t.name = "pig";
+    t.treasure = 3;
+    t.drop_rate_file = "\\settings\\item\\test.ini";
+    set->add(t);
+    jx::zone::KNpcDropRate r;
+    r.source = "test.ini";
+    r.count = 1;
+    r.rand_range = 1000;
+    r.money_rate = 20;
+    r.money_scale = 50;
+    r.min_level_scale = 20;
+    r.max_level_scale = 10;
+    r.min_level = 1;
+    r.max_level = 2;
+    jx::zone::KDropEntry e;
+    e.genre = 0;
+    e.detail = 0;
+    e.particular = 0;
+    e.rate = 1000;
+    r.entries.push_back(e);
+    set->add_drop_rate("\\settings\\item\\test.ini", r);
+    return set;
+}
+
+} // namespace
+
+TEST_CASE("ground objects: a thrown item lies for anybody, a drop for its player, then goes away; picking up needs to be near", "[item][world][drop]")
+{
+    jx::log::Options lo;
+    lo.console = false;
+    lo.default_level = jx::log::Level::warn;
+    jx::log::init(lo);
+    auto lib = std::make_shared<jx::zone::KItemLibrary>();
+    {
+        KItemTemplateSet set;
+        std::string error;
+        REQUIRE(set.load(write_tables(), &error));
+        lib->add(1, std::move(set));
+    }
+    jx::zone::KSubWorldConfig cfg;
+    cfg.zone_id = 1;
+    cfg.width = cfg.height = 4096;
+    cfg.spawn_point = jx::zone::Pos{2000, 2000};
+    cfg.items = lib;
+    cfg.objdata = test_objdata();
+    cfg.interest_period = 1;
+    cfg.view_slack = 0;
+    cfg.far_period = 1;
+    jx::zone::KSubWorld w(cfg);
+    jx::pb::RoleData role;
+    role.set_player_id(11);
+    role.set_name("A");
+    role.set_level(9);
+    jx::EntityId me;
+    jx::zone::Pos p;
+    REQUIRE(w.spawn_player(1, role, me, p) == jx::pb::RESULT_OK);
+    auto gen = w.item_generator();
+    const auto sword = w.give_item(1, *gen->equipment(jx::zone::equip_meleeweapon, 0, 2, 1));
+    REQUIRE(sword != 0);
+    w.tick();
+    w.take_outbox();
+
+    // throw it away: it leaves the bag and appears on the ground next to the player, for anybody
+    REQUIRE(w.item_drop_request(1, sword, 51));
+    CHECK(w.items_of(1)->size() == 0);
+    CHECK(w.ground_object_count() == 1);
+    auto out = w.take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_REMOVE).size() == 1);
+    w.tick();   // the player's own look notices the new thing on the ground
+    out = w.take_outbox();
+    const auto spawns = packets(out, 1, jx::pb::G2C_ENTITY_SPAWN);
+    REQUIRE(spawns.size() == 1);
+    const auto seen = decode_packet<jx::pb::EntitySpawn>(spawns[0]);
+    REQUIRE(seen.entities_size() == 1);
+    const auto& obj = seen.entities(0);
+    CHECK(obj.entity_type() == jx::pb::ENTITY_DROP);
+    CHECK(obj.template_id() == 9);   // the sword's ObjData row
+    CHECK(obj.name() == "Kiem 1");
+    CHECK(obj.count() == 1);
+    const jx::EntityId ground{obj.entity_id()};
+    REQUIRE(w.ground_item(ground) != nullptr);
+    CHECK(w.ground_item(ground)->name() == "Kiem 1");
+    CHECK((std::abs(obj.pos().x() - p.x) <= 128 && std::abs(obj.pos().y() - p.y) <= 128));
+
+    // a task item cannot be thrown away
+    const auto tui = w.give_item(1, *gen->quest(1, 3));
+    REQUIRE_FALSE(w.item_drop_request(1, tui, 52));
+    CHECK(w.items_of(1)->size() == 1);
+    w.take_outbox();
+
+    // picking it up from far away is refused (40000 = 200 units squared), from near it comes back
+    REQUIRE(w.teleport(me, jx::zone::Pos{2500, 2000}));
+    REQUIRE_FALSE(w.pick_up_request(1, ground, 53));
+    out = w.take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_RESULT).size() == 1);
+    CHECK(decode_packet<jx::pb::ItemResult>(packets(out, 1, jx::pb::G2C_ITEM_RESULT)[0]).result() == jx::pb::RESULT_WRONG_STATE);
+    REQUIRE(w.teleport(me, jx::zone::Pos{obj.pos().x() + 100, obj.pos().y()}));
+    REQUIRE(w.pick_up_request(1, ground, 54));
+    CHECK(w.ground_object_count() == 0);
+    CHECK(w.items_of(1)->size() == 2);
+    out = w.take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_ADD).size() == 1);
+    CHECK(decode_packet<jx::pb::ItemAdd>(packets(out, 1, jx::pb::G2C_ITEM_ADD)[0]).item().name() == "Kiem 1");
+    REQUIRE_FALSE(w.pick_up_request(1, ground, 55));   // gone
+
+    // money: a pile picked up goes into the purse (KPlayer::Earn) and the client hears the sum
+    const auto pile = w.drop_money(150, p, 0);
+    REQUIRE(pile.value != 0);
+    CHECK(w.find_entity(pile)->template_id == 267);   // MoneyObj: up to 200 coins is row 267
+    const auto big = w.drop_money(5000, p, 0);
+    CHECK(w.find_entity(big)->template_id == 268);
+    REQUIRE(w.teleport(me, w.find_entity(pile)->pos()));
+    REQUIRE(w.pick_up_request(1, pile, 56));
+    CHECK(w.items_of(1)->money() == 150);
+    out = w.take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_MONEY).size() == 1);
+    CHECK(decode_packet<jx::pb::MoneySync>(packets(out, 1, jx::pb::G2C_MONEY)[0]).money() == 150);
+
+    // a drop kept for another player: refused until the belong time (600 frames) runs out (a
+    // potion: its object lies for ever, so it is still there after that)
+    const auto kept = w.drop_item(*gen->medicine(0, 1), p, 99);
+    REQUIRE(kept.value != 0);
+    REQUIRE(w.teleport(me, w.find_entity(kept)->pos()));
+    REQUIRE_FALSE(w.pick_up_request(1, kept, 57));
+    out = w.take_outbox();
+    CHECK(decode_packet<jx::pb::ItemResult>(packets(out, 1, jx::pb::G2C_ITEM_RESULT)[0]).result() == jx::pb::RESULT_UNAUTHORIZED);
+    for (int i = 0; i < jx::zone::kObjBelongTime; ++i) w.tick();
+    REQUIRE(w.pick_up_request(1, kept, 58));
+    w.take_outbox();
+
+    // an item on the ground vanishes after its LifeTime (40 frames here for a sword), a potion (LifeTime 0) never
+    const auto short_lived = w.drop_item(*gen->equipment(jx::zone::equip_meleeweapon, 0, 2, 1), p, 0);
+    const auto forever = w.drop_item(*gen->medicine(0, 1), p, 0);
+    REQUIRE((short_lived.value != 0 && forever.value != 0));
+    for (int i = 0; i < 40; ++i) w.tick();
+    CHECK(w.find_entity(short_lived) == nullptr);
+    CHECK(w.find_entity(forever) != nullptr);
+    CHECK(w.ground_item(short_lived) == nullptr);
+    out = w.take_outbox();
+    bool despawned = false;
+    for (const auto& pk : packets(out, 1, jx::pb::G2C_ENTITY_DESPAWN)) {
+        const auto d = decode_packet<jx::pb::EntityDespawn>(pk);
+        for (int i = 0; i < d.entity_ids_size(); ++i) despawned = despawned || d.entity_ids(i) == short_lived.value;
+    }
+    CHECK(despawned);
+}
+
+TEST_CASE("a monster killed by a player drops its treasure: money by MoneyRate, items by the table", "[item][world][drop]")
+{
+    jx::log::Options lo;
+    lo.console = false;
+    lo.default_level = jx::log::Level::warn;
+    jx::log::init(lo);
+    auto lib = std::make_shared<jx::zone::KItemLibrary>();
+    {
+        KItemTemplateSet set;
+        std::string error;
+        REQUIRE(set.load(write_tables(), &error));
+        lib->add(1, std::move(set));
+    }
+    jx::zone::KSubWorldConfig cfg;
+    cfg.zone_id = 1;
+    cfg.width = cfg.height = 4096;
+    cfg.spawn_point = jx::zone::Pos{2000, 2000};
+    cfg.items = lib;
+    cfg.objdata = test_objdata();
+    cfg.templates = test_templates();
+    cfg.tick_hz = 18;
+    jx::zone::KSubWorld w(cfg);
+
+    // GenRandomItem: the level range from the npc level through the scales, clamped to the table
+    const auto* table = cfg.templates->drop_rate("\\settings\\item\\test.ini");
+    REQUIRE(table != nullptr);
+    std::set<int> levels;
+    for (int i = 0; i < 200; ++i) {
+        auto it = w.gen_random_item(*table, 15, 0, 0);   // (15-1)/10+1 = 2 .. (15-1)/20+1 = 1 -> 1..2
+        REQUIRE(it.has_value());
+        CHECK(it->genre == KItemGenre::equip);
+        levels.insert(it->level);
+    }
+    CHECK((levels == std::set<int>{1, 2}));
+    levels.clear();
+    for (int i = 0; i < 50; ++i) levels.insert(w.gen_random_item(*table, 1, 0, 0)->level);   // 0/10+1 = 1 both ends
+    CHECK((levels == std::set<int>{1}));
+    jx::zone::KNpcDropRate empty = *table;
+    empty.entries.clear();
+    CHECK_FALSE(w.gen_random_item(empty, 5, 0, 0).has_value());
+
+    // the kill: three rolls, each money (20 %) or a sword
+    jx::pb::RoleData role;
+    role.set_player_id(11);
+    role.set_name("Hero");
+    role.set_level(9);
+    jx::EntityId hero;
+    jx::zone::Pos at;
+    REQUIRE(w.spawn_player(7, role, hero, at) == jx::pb::RESULT_OK);
+    int total_objects = 0;
+    for (int kill = 0; kill < 20; ++kill) {
+        const jx::EntityId pig = w.spawn_npc("pig", jx::zone::Pos{2050, 2000}, 418, 0, jx::zone::KNpcKind::monster);
+        jx::zone::KNpc* e = const_cast<jx::zone::KNpc*>(w.find_entity(pig));
+        REQUIRE(e != nullptr);
+        CHECK(e->treasure == 3);
+        e->exp = 1000;
+        e->life = 1;
+        REQUIRE(w.attack_request(7, pig, static_cast<std::uint32_t>(kill + 1)));
+        for (int i = 0; i < 20 && w.find_entity(pig) != nullptr && w.find_entity(pig)->alive(); ++i) w.tick();
+        REQUIRE((w.find_entity(pig) == nullptr || !w.find_entity(pig)->alive()));
+        total_objects += static_cast<int>(w.ground_object_count());   // the drops land at the end of the tick the death happened in
+        for (int i = 0; i < 40; ++i) w.tick();   // everything on the ground is gone after 40 frames
+        CHECK(w.ground_object_count() == 0);
+        w.take_outbox();
+    }
+    CHECK(total_objects >= 40);   // 20 kills x 3 rolls, minus the rare rolls that land on nothing
+    // money: experience * MoneyScale / 100 x the server's rate
+    const auto pile = w.drop_money(1000 * 50 / 100, at, 11);
+    REQUIRE(pile.value != 0);
+    CHECK(w.find_entity(pile)->object.money == 500);
+    CHECK(w.find_entity(pile)->object.belong == 11);
 }

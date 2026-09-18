@@ -44,6 +44,7 @@ var (
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
+	flagAll    = flag.Bool("all", false, "export-objdata: every row's picture, not only the ones items and money use")
 	flagTheme  = flag.String("theme", "", "export-ui: a fragment of the theme folder name (1024, 800); default: the largest")
 	flagServer = flag.String("server", "", "old server folder(s) 'a;b' (package.ini + pak/maps.pak, Settings, script): the first with a pak serves the regions, plain files come from the first that has them; default: the Server folder next to the client")
 )
@@ -312,6 +313,32 @@ func scriptIndex(serverDir string) map[uint32]string {
 			}
 		}
 	}
+	return out
+}
+
+// loadDropRates reads every drop table the templates name (the DropRateFile column) from the
+// server folder; a table that is not there is reported once and the npc drops nothing.
+func loadDropRates(templates []npcres.Template, serverDir string) map[string]*item.DropRate {
+	out := map[string]*item.DropRate{}
+	if serverDir == "" {
+		return out
+	}
+	missing := map[string]bool{}
+	for _, t := range templates {
+		p := t.DropRateFile
+		if p == "" || out[p] != nil || missing[p] {
+			continue
+		}
+		rel := strings.TrimPrefix(strings.ReplaceAll(p, `\`, "/"), "/")
+		data, _, err := readServerFile(serverDir, rel)
+		if err != nil {
+			missing[p] = true
+			log.Warn("asset", "drop table missing", log.F("path", p), log.F("template", t.ID))
+			continue
+		}
+		out[p] = item.ParseDropRate(p, data)
+	}
+	log.Info("asset", "drop tables read", log.F("tables", len(out)), log.F("missing", len(missing)))
 	return out
 }
 
@@ -706,6 +733,58 @@ func main() {
 		}
 		fmt.Printf("export-items: %d bo, %d dong vat pham\n", len(sets), total)
 
+	case "export-objdata":
+		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):
+		// data for the zone, sprites for the client -> <out>/objdata.json, <out>/sprites.  With
+		// -all every row's picture is written; by default the rows the item tables and the money
+		// piles use (a dropped sword, a pile of coins).
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		dir := findClient()
+		sdir := findServer(dir)
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		objData, p1, err := readServerFile(sdir, "settings/obj/ObjData.txt", "Settings/Obj/ObjData.txt")
+		if err != nil {
+			fail("ObjData.txt: %v", err)
+		}
+		moneyObj, _, err := readServerFile(sdir, "settings/obj/MoneyObj.txt", "Settings/Obj/MoneyObj.txt")
+		if err != nil {
+			fail("MoneyObj.txt: %v", err)
+		}
+		var only map[int]bool
+		if !*flagAll {
+			only = map[int]bool{}
+			for _, s := range itemTableSets() {
+				set, err := item.Load(s.dir, s.version)
+				if err != nil {
+					fail("%s: %v", s.dir, err)
+				}
+				for _, id := range set.ObjIDs() {
+					only[id] = true
+				}
+			}
+			for _, line := range strings.Split(string(moneyObj), "\n")[1:] {
+				cols := strings.Split(strings.TrimSpace(line), "\t")
+				if len(cols) >= 2 {
+					if id, err := strconv.Atoi(strings.TrimSpace(cols[1])); err == nil {
+						only[id] = true
+					}
+				}
+			}
+		}
+		set := openSet(dir)
+		defer set.Close()
+		ex := export.New(set, out)
+		bundle, err := ex.ObjData(objData, moneyObj, only)
+		if err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("export-objdata: %d doi tuong (%s), %d muc tien, %d sprite -> %s\n", len(bundle.Objects), p1, len(bundle.Money), ex.Exported, filepath.Join(out, "objdata.json"))
+
 	case "export-item-images":
 		// The sprite of every item the tables name (the 动画文件名 column), out of the old client's
 		// archives, as atlas .png + items/images.json - what the bag and the equipment window draw.
@@ -886,10 +965,11 @@ func main() {
 			fail("item appearance tables: %v", err)
 		}
 		opt := export.NpcResOptions{
-			Names:  names,
-			Doings: []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1},
-			Equips: icr.DefaultEquips(),
-			Skills: loadSkills(set, findServer(dir)),
+			DropRates: loadDropRates(templates, findServer(dir)),
+			Names:     names,
+			Doings:    []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1},
+			Equips:    icr.DefaultEquips(),
+			Skills:    loadSkills(set, findServer(dir)),
 		}
 		n, err := e.NpcRes(list, templates, player, opt)
 		if err != nil {

@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "jx/zone/KNpcDropRate.h"
+
 namespace jx::zone {
 
 class KScriptCache;
@@ -61,6 +63,8 @@ struct KNpcTemplate {
     // the LevelScript column and the raw cells InitNpcLevelData hands to it (ExpParam..3,
     // LifeParam..3, LifeReplenish, ARParam..3, DefenseParam..3, Min/MaxDamageParam..3, *Resist, Level1..4)
     std::string level_script;          // "" = NPC_LEVELSCRIPT_FILENAME
+    int treasure = 0;                  // Treasure: how many drop rolls its death is worth (KNpc::m_CurrentTreasure)
+    std::string drop_rate_file;        // DropRateFile: the drop table (lower-cased game path), "" = none
     std::unordered_map<std::string, std::string> cells;
     [[nodiscard]] std::string cell(const std::string& column) const
     {
@@ -92,6 +96,10 @@ public:
     // Loads npcres/npcs.json; on failure returns nullopt and puts the reason in *error.
     static std::optional<KNpcTemplateSet> load(const std::string& file, std::string* error);
     [[nodiscard]] const KNpcTemplate* find(std::uint32_t id) const;
+    // the drop table a template names (npcs.json "droprates"), null when it was not exported
+    [[nodiscard]] const KNpcDropRate* drop_rate(const std::string& file) const;
+    void add_drop_rate(std::string file, KNpcDropRate table) { droprates_[std::move(file)] = std::move(table); }
+    [[nodiscard]] std::size_t drop_rate_count() const noexcept { return droprates_.size(); }
     [[nodiscard]] std::size_t size() const noexcept { return templates_.size(); }
     void add(KNpcTemplate t) { templates_[t.id] = std::move(t); }
 
@@ -101,6 +109,7 @@ public:
 
 private:
     std::unordered_map<std::uint32_t, KNpcTemplate> templates_;
+    std::unordered_map<std::string, KNpcDropRate> droprates_;
 };
 
 } // namespace jx::zone

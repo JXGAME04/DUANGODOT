@@ -30,7 +30,8 @@ enum MsgId {
   C2G_ITEM_EQUIP = 1105;       // (zone) wear an item from the bag
   C2G_ITEM_UNEQUIP = 1106;     // (zone) take a worn item off into the bag
   C2G_ITEM_USE = 1107;         // (zone) eat a medicine / use an item
-  C2G_ITEM_DROP = 1108;        // (zone) throw an item away
+  C2G_ITEM_DROP = 1108;        // (zone) throw an item away: it lies on the ground for a while
+  C2G_PICK_UP = 1109;          // (zone) pick up an item / money from the ground
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;

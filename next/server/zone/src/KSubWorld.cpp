@@ -198,6 +198,13 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
         set_vec(out.add_path(), e.target());
         for (const Pos& p : e.path) set_vec(out.add_path(), p);
     }
+    if (e.kind == KNpcKind::drop) {
+        if (e.object.kind == KObjKind::money) {
+            out.set_count(static_cast<std::uint32_t>(e.object.money));
+        } else if (const KItem* it = ground_item(e.id)) {
+            out.set_count(static_cast<std::uint32_t>(it->count));
+        }
+    }
 }
 
 pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, EntityId& entity_out, Pos& pos_out, const Pos* at)
@@ -514,13 +521,18 @@ void KSubWorld::tick()
     awake_entities_ = 0;
 
     auto ai_phase = std::make_unique<core::ScopedTiming>(profile_->phase_timing(core::TickPhase::ai));
-    std::vector<EntityId> moved, arrived;
+    std::vector<EntityId> moved, arrived, expired_objects;
     for (const EntityId id : scratch_ids_) {
         KNpc& e = entities_.at(id);
         // MASTER SPEC 44 / 45: a npc nobody can see does not think.  It keeps its state (and its
         // regeneration), but the ai and the wandering - the expensive parts - are skipped until a
         // player comes near again.  A npc that is busy (moving, fighting, hurt, dead) stays awake
         // so nothing can freeze half way through an action.
+        if (e.kind == KNpcKind::drop) {   // KObj::Activate: no ai, no moving - a countdown
+            object_tick(e, expired_objects);
+            if (!e.object.forever) ++awake_entities_;   // a map with things on the ground keeps ticking until they are gone
+            continue;
+        }
         const bool awake = is_awake(e);
         if (awake) ++awake_entities_;
         // KNpc::Activate: m_LoopFrames++, ProcessState every GAME_UPDATE_TIME frames, then NpcAI.Activate
@@ -558,7 +570,9 @@ void KSubWorld::tick()
         }
         moved.push_back(id);
     }
-    ai_phase.reset();   // ai + movement integration end here
+    ai_phase.reset();
+    for (const EntityId id : expired_objects) remove_object(id);
+    flush_pending_drops();   // ai + movement integration end here
 
     {
         // spatial: re-file whatever crossed a cell.  A player that did sees another part of the
@@ -649,6 +663,7 @@ void KSubWorld::apply_template(KNpc& e) const
     e.physics_resist = d.physics_resist;
     e.life_replenish = d.life_replenish;
     e.exp = d.exp;
+    e.treasure = t->treasure;
     e.life_max = std::max(1u, d.life_max);
     e.life = e.life_max;
     if (e.kind != KNpcKind::player) {
@@ -1047,6 +1062,7 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
     if (e.moving) e.set_pos(e.pos());
     log::debug("zone.fight", "death", {log::kv("entity", e.id), log::kv("killer", killer)});
     emit_action(e, pb::ACTION_DEATH, killer);
+    lose_treasure(e, killer);
 }
 
 // KNpc::DoRevive (server): the corpse leaves the region for ReviveFrame frames.
@@ -1478,10 +1494,23 @@ bool KSubWorld::item_drop_request(std::uint64_t sid, std::uint32_t id, std::uint
         item_result(sid, seq, pb::RESULT_NOT_FOUND);
         return false;
     }
-    // dropping puts the item on the ground for others (KPlayer::DropItem + a map object): the
-    // ground side comes with the drops (M11 D); until then the client is told no
-    item_result(sid, seq, pb::RESULT_BAD_REQUEST);
-    return false;
+    // KPlayer::DropItem (c2s_playerthrowawayitem): the item leaves the bag and lies at the
+    // player's feet for anybody; a task item cannot be thrown away
+    const KItem* item = list->find(id);
+    const KNpc* me = find_player(sid);
+    if (me == nullptr || item->genre == KItemGenre::task || !cfg_.objdata) {
+        item_result(sid, seq, pb::RESULT_BAD_REQUEST);
+        return false;
+    }
+    KItem copy = *item;
+    if (!take_item(sid, id)) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    if (drop_item(std::move(copy), me->pos(), 0).value == 0) {
+        log::warn("zone", "dropped item lost", {log::kv("entity", me->id), log::kv("item", id)});
+    }
+    return true;
 }
 
 std::uint32_t KSubWorld::give_item(std::uint64_t sid, KItem item)
@@ -1519,6 +1548,261 @@ void KSubWorld::process_potions(KNpc& e)
         if (life != before) emit_life(e, static_cast<std::int32_t>(life - before), EntityId{});
     }
     if (e.life_state.time <= 0) e.life_state = {};
+}
+
+// ---- the ground --------------------------------------------------------------------------
+
+Pos KSubWorld::free_object_pos(Pos at) const
+{
+    // KSubWorld::GetFreeObjPos: the spot itself, else the nearest cell around it without an
+    // object (a ring of 32-unit steps, then a wider one), on walkable ground
+    const auto taken = [&](Pos p) {
+        bool hit = false;
+        grid_.for_each_within(p, 16, [&](EntityId id) {
+            const KNpc* o = entities_.find(id);
+            if (o != nullptr && o->kind == KNpcKind::drop && std::abs(o->pos().x - p.x) < 16 && std::abs(o->pos().y - p.y) < 16) hit = true;
+        });
+        return hit;
+    };
+    const auto ok = [&](Pos p) { return (!cfg_.map || cfg_.map->walkable(p)) && !taken(p); };
+    Pos c = clamp(at);
+    if (ok(c)) return c;
+    for (int ring = 1; ring <= 4; ++ring) {
+        for (int dy = -ring; dy <= ring; ++dy) {
+            for (int dx = -ring; dx <= ring; ++dx) {
+                if (std::abs(dx) != ring && std::abs(dy) != ring) continue;
+                const Pos p = clamp(Pos{c.x + dx * 32, c.y + dy * 32});
+                if (ok(p)) return p;
+            }
+        }
+    }
+    return c;
+}
+
+EntityId KSubWorld::drop_item(KItem item, Pos at, std::uint64_t belong)
+{
+    const KObjTemplate* t = cfg_.objdata && item.tpl ? cfg_.objdata->find(item.tpl->obj) : nullptr;
+    if (t == nullptr) {
+        log::warn("zone", "no ground object for item", {log::kv("item", item.name()), log::kv("obj", item.tpl ? item.tpl->obj : -1),
+                                                        log::kv("objdata", static_cast<bool>(cfg_.objdata))});
+        return EntityId{};
+    }
+    KNpc e;
+    e.kind = KNpcKind::drop;
+    e.name = item.name();
+    e.template_id = static_cast<std::uint32_t>(t->id);
+    e.object.kind = KObjKind::item;
+    e.object.obj_id = t->id;
+    e.object.belong = belong;
+    e.object.belong_ticks = belong != 0 ? kObjBelongTime : 0;
+    e.object.life_ticks = t->life_time;
+    e.object.forever = t->life_time <= 0;
+    e.ai_mode = 0;
+    e.speed = 0;
+    e.life = e.life_max = 1;
+    e.home = free_object_pos(at);
+    e.set_pos(e.home);
+    const Pos home = e.home;
+    const EntityId id = entities_.insert(std::move(e));
+    entities_.at(id).id = id;
+    grid_.insert(id, home);
+    ground_items_[id.value] = std::move(item);
+    return id;
+}
+
+EntityId KSubWorld::drop_money(int amount, Pos at, std::uint64_t belong)
+{
+    if (amount <= 0 || !cfg_.objdata) return EntityId{};
+    const KObjTemplate* t = cfg_.objdata->find(cfg_.objdata->money_obj(amount));
+    if (t == nullptr) return EntityId{};
+    KNpc e;
+    e.kind = KNpcKind::drop;
+    e.name = std::to_string(amount) + " lượng";
+    e.template_id = static_cast<std::uint32_t>(t->id);
+    e.object.kind = KObjKind::money;
+    e.object.obj_id = t->id;
+    e.object.money = amount;
+    e.object.belong = belong;
+    e.object.belong_ticks = belong != 0 ? kObjBelongTime : 0;
+    e.object.life_ticks = t->life_time;
+    e.object.forever = t->life_time <= 0;
+    e.speed = 0;
+    e.life = e.life_max = 1;
+    e.home = free_object_pos(at);
+    e.set_pos(e.home);
+    const Pos home = e.home;
+    const EntityId id = entities_.insert(std::move(e));
+    entities_.at(id).id = id;
+    grid_.insert(id, home);
+    ++ground_money_;
+    return id;
+}
+
+const KItem* KSubWorld::ground_item(EntityId object) const
+{
+    const auto it = ground_items_.find(object.value);
+    return it == ground_items_.end() ? nullptr : &it->second;
+}
+
+void KSubWorld::object_tick(KNpc& e, std::vector<EntityId>& expired)
+{
+    if (e.object.belong != 0 && e.object.belong_ticks > 0 && --e.object.belong_ticks <= 0) {
+        e.object.belong = 0;   // anybody may take it now
+    }
+    if (!e.object.forever && --e.object.life_ticks <= 0) expired.push_back(e.id);
+}
+
+void KSubWorld::remove_object(EntityId id)
+{
+    KNpc* e = entities_.find(id);
+    if (e == nullptr || e->kind != KNpcKind::drop) return;
+    entity_gone(*e);
+    grid_.remove(id);
+    if (e->object.kind == KObjKind::money && ground_money_ > 0) --ground_money_;
+    ground_items_.erase(id.value);
+    entities_.destroy(id);
+}
+
+bool KSubWorld::pick_up_request(std::uint64_t sid, EntityId object, std::uint32_t seq)
+{
+    const auto pit = players_.find(sid);
+    KNpc* me = pit == players_.end() ? nullptr : find_mutable(pit->second);
+    KNpc* o = find_mutable(object);
+    if (me == nullptr || o == nullptr || o->kind != KNpcKind::drop) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    // kept for somebody else (the team share of the old server is not here yet)
+    if (o->object.belong != 0 && o->object.belong != me->player_id) {
+        item_result(sid, seq, pb::RESULT_UNAUTHORIZED);
+        return false;
+    }
+    const std::int64_t dx = me->pos().x - o->pos().x;
+    const std::int64_t dy = me->pos().y - o->pos().y;
+    if (dx * dx + dy * dy > kPickUpDistance2) {
+        item_result(sid, seq, pb::RESULT_WRONG_STATE);   // enumMSG_ID_OBJ_TOO_FAR
+        return false;
+    }
+    if (o->object.kind == KObjKind::money) {
+        KItemList* list = items_of(sid);
+        if (list == nullptr || !list->add_money(room_equipment, o->object.money)) {   // KPlayer::Earn
+            item_result(sid, seq, pb::RESULT_FULL);
+            return false;
+        }
+        send_money(sid);
+        log::debug("zone", "money picked up", {log::kv("entity", me->id), log::kv("money", o->object.money)});
+        remove_object(object);
+        return true;
+    }
+    const auto it = ground_items_.find(object.value);
+    if (it == ground_items_.end()) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    KItem item = it->second;
+    item.id = 0;   // a new id in this player's list
+    const std::uint32_t id = give_item(sid, std::move(item));
+    if (id == 0) {
+        item_result(sid, seq, pb::RESULT_FULL);   // no room in the bag: it stays on the ground
+        return false;
+    }
+    log::debug("zone", "item picked up", {log::kv("entity", me->id), log::kv("item", id)});
+    remove_object(object);
+    return true;
+}
+
+// KNpc::OnDeath of the JX2 server (jx_linux_y 0x08088B60): a monster a player killed rolls
+// m_CurrentTreasure times - g_Random(100) < MoneyRate is a pile of money (KNpc::LoseMoney:
+// experience * MoneyScale / 100, then x the server's MoneyRate / 100), else one item of the table
+// (KNpc::LoseSingleItem).  Everything lies for the killer first (SetItemBelong).  The team share
+// ([Main] IsTeamShare) waits for the team system.
+void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
+{
+    if (dead.kind == KNpcKind::player || dead.treasure <= 0 || !cfg_.templates) return;
+    const KNpc* k = entities_.find(killer);
+    if (k == nullptr || k->kind != KNpcKind::player) return;
+    const KNpcTemplate* t = cfg_.templates->find(dead.template_id);
+    const KNpcDropRate* table = t && !t->drop_rate_file.empty() ? cfg_.templates->drop_rate(t->drop_rate_file) : nullptr;
+    if (table == nullptr) return;
+    int items = 0, money = 0;
+    for (int i = 0; i < dead.treasure; ++i) {
+        if (random_percent() < static_cast<std::uint32_t>(table->money_rate)) {
+            const std::int64_t amount = static_cast<std::int64_t>(dead.exp) * table->money_scale / 100 * cfg_.money_rate_percent / 100;
+            if (amount > 0) {
+                pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), k->player_id});
+                ++money;
+            }
+        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), 0)) {
+            pending_drops_.push_back(KPendingDrop{std::move(item), 0, dead.pos(), k->player_id});
+            ++items;
+        }
+    }
+    log::debug("zone.fight", "treasure dropped", {log::kv("entity", dead.id), log::kv("killer", killer), log::kv("rolls", dead.treasure),
+                                                   log::kv("items", items), log::kv("money", money)});
+}
+
+void KSubWorld::flush_pending_drops()
+{
+    if (pending_drops_.empty()) return;
+    std::vector<KPendingDrop> drops;
+    drops.swap(pending_drops_);
+    for (auto& d : drops) {
+        if (d.item) drop_item(std::move(*d.item), d.at, d.belong);
+        else drop_money(d.money, d.at, d.belong);
+    }
+}
+
+// GenRandomItem (jx_linux_y 0x08083BB0): a weighted entry, its level from the npc level through
+// the table's scales (clamped to the table's range, then 1..10), a white item of that kind.  The
+// prefix / suffix levels (3 to 6 slots at the item level) and the platina sockets are rolled too
+// but not applied: Gen_MagicAttrib is not ported yet.
+std::optional<KItem> KSubWorld::gen_random_item(const KNpcDropRate& table, int npc_level, int npc_series, int luck)
+{
+    if (table.max_level_scale <= 0 || table.min_level_scale <= 0 || table.rand_range <= 0 || table.entries.empty()) return std::nullopt;
+    const auto roll = static_cast<int>(rng_() % static_cast<std::uint32_t>(table.rand_range));
+    const KDropEntry* pick = nullptr;
+    int sum = 0;
+    for (const auto& e : table.entries) {
+        if (roll >= sum && roll < sum + e.rate) {
+            pick = &e;
+            break;
+        }
+        sum += e.rate;
+    }
+    if (pick == nullptr) return std::nullopt;   // the range beyond the entries: nothing
+    const int series = pick->series >= 0 ? pick->series : table.series >= 0 ? table.series : npc_series;
+    int lo, hi;
+    if (pick->min_level >= 0) {
+        lo = pick->min_level;
+        hi = pick->max_level >= lo ? pick->max_level : lo;
+    } else {
+        lo = (npc_level - 1) / table.max_level_scale + 1;
+        hi = (npc_level - 1) / table.min_level_scale + 1;
+        if (lo > hi) std::swap(lo, hi);
+        lo = std::clamp(lo, table.min_level, table.max_level);
+        hi = std::clamp(hi, table.min_level, table.max_level);
+        if (lo > hi) std::swap(lo, hi);
+    }
+    int level = lo + static_cast<int>(rng_() % static_cast<std::uint32_t>(hi - lo + 1));
+    level = std::clamp(level, 1, 10);
+    auto gen = item_generator(item_version());
+    if (!gen) return std::nullopt;
+    std::optional<KItem> item;
+    switch (static_cast<KItemGenre>(pick->genre)) {
+    case KItemGenre::equip: item = gen->equipment(pick->detail, pick->particular, series, level); break;
+    case KItemGenre::medicine: item = gen->medicine(pick->detail, level); break;
+    case KItemGenre::task: item = gen->quest(pick->detail, 1); break;
+    case KItemGenre::town_portal: item = gen->town_portal(); break;
+    case KItemGenre::magic_script: item = gen->magic_script(pick->detail, pick->particular, level, series, 1); break;
+    default: break;
+    }
+    if (!item) {
+        log::debug("zone.fight", "drop row missing", {log::kv("table", table.source), log::kv("genre", pick->genre), log::kv("detail", pick->detail),
+                                                       log::kv("particular", pick->particular), log::kv("level", level)});
+        return std::nullopt;
+    }
+    (void)luck;   // KItemSet::Add rolls the gold / magic with it: not ported yet
+    return item;
 }
 
 void KSubWorld::save_items(std::uint64_t sid, pb::RoleData& out) const

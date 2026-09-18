@@ -84,6 +84,8 @@ std::optional<KNpcTemplateSet> KNpcTemplateSet::load(const std::string& file, st
                 }
             }
             tpl.level_script = t.value("level_script", "");
+            tpl.treasure = t.value("treasure", 0);
+            tpl.drop_rate_file = t.value("drop_rate_file", "");
             if (const auto c = t.find("cells"); c != t.end() && c->is_object()) {
                 for (const auto& [col, v] : c->items()) {
                     if (v.is_string()) tpl.cells[col] = v.get<std::string>();
@@ -91,11 +93,60 @@ std::optional<KNpcTemplateSet> KNpcTemplateSet::load(const std::string& file, st
             }
             set.templates_[tpl.id] = std::move(tpl);
         }
+        const nlohmann::json droprates = j.value("droprates", nlohmann::json::object());
+        for (const auto& [path, d] : droprates.items()) {
+            KNpcDropRate r;
+            r.source = d.value("source", path);
+            r.count = d.value("count", 0);
+            r.rand_range = d.value("rand_range", 0);
+            r.magic_rate = d.value("magic_rate", 0);
+            r.money_rate = d.value("money_rate", 20);
+            r.money_scale = d.value("money_scale", 50);
+            r.min_level_scale = d.value("min_level_scale", 20);
+            r.max_level_scale = d.value("max_level_scale", 10);
+            r.min_level = d.value("min_level", 1);
+            r.max_level = d.value("max_level", 10);
+            r.series = d.value("series", -1);
+            r.enchasable_rate = d.value("enchasable_rate", 0);
+            r.min_socket = d.value("min_socket", 1);
+            r.max_socket = d.value("max_socket", 1);
+            r.team_share = d.value("team_share", 0);
+            r.team_share_rate = d.value("team_share_rate", 0);
+            for (const auto& e : d.value("entries", nlohmann::json::array())) {
+                KDropEntry x;
+                x.genre = e.value("genre", 0);
+                x.quality = e.value("quality", 0);
+                x.detail = e.value("detail", 0);
+                x.particular = e.value("particular", 0);
+                x.rate = e.value("rate", 0);
+                x.min_level = e.value("min_level", -1);
+                x.max_level = e.value("max_level", -1);
+                x.series = e.value("series", -1);
+                x.enchasable_rate = e.value("enchasable_rate", -1);
+                x.min_socket = e.value("min_socket", -1);
+                x.max_socket = e.value("max_socket", -1);
+                if (const auto ml = e.find("magic_level"); ml != e.end() && ml->is_array()) {
+                    std::size_t i = 0;
+                    for (const auto& v : *ml) {
+                        if (i >= 6) break;
+                        x.magic_level[i++] = v.is_number() ? v.get<int>() : 0;
+                    }
+                }
+                r.entries.push_back(x);
+            }
+            set.droprates_[path] = std::move(r);
+        }
     } catch (const std::exception& e) {
         return fail(std::string("npcs.json fields: ") + e.what());
     }
     log::info("npc", "npc templates loaded", {log::kv("file", file), log::kv("count", set.templates_.size())});
     return set;
+}
+
+const KNpcDropRate* KNpcTemplateSet::drop_rate(const std::string& file) const
+{
+    const auto it = droprates_.find(file);
+    return it == droprates_.end() ? nullptr : &it->second;
 }
 
 const KNpcTemplate* KNpcTemplateSet::find(std::uint32_t id) const

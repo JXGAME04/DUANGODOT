@@ -310,7 +310,8 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     case pb::C2G_ITEM_EQUIP:
     case pb::C2G_ITEM_UNEQUIP:
     case pb::C2G_ITEM_USE:
-    case pb::C2G_ITEM_DROP: {
+    case pb::C2G_ITEM_DROP:
+    case pb::C2G_PICK_UP: {
         KCmdClientPacket cmd;
         cmd.sid = cp.sid();
         cmd.msg_id = cp.msg_id();

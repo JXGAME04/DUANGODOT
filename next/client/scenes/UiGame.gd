@@ -3,6 +3,9 @@
 extends Node2D
 
 const NpcScript := preload("res://scenes/KNpc.gd")
+const ObjScript := preload("res://scenes/KObj.gd")
+const ENTITY_DROP := 4
+const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
 const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
@@ -24,6 +27,7 @@ var _action_count := 0
 var _scene_w := 8192
 var _scene_h := 8192
 var _windows: KUiGameWindows = null   # the bag, the character window, the tooltip, the item on the cursor
+var _pending_pickup := 0              # the ground object the player walks to (0 = none)
 
 
 func _ready() -> void:
@@ -156,6 +160,7 @@ func _view_rect() -> Rect2:
 
 func _process(delta: float) -> void:
 	_update_camera(false)
+	_walk_to_pickup()
 	if _map.map_id > 0:
 		_map.update_view(_view_rect(), delta)
 	var own := _own()
@@ -174,7 +179,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			var p := get_global_mouse_position()
 			var hit := _entity_at(p)
-			if hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
+			if hit != null and hit.entity_type == ENTITY_DROP:
+				_pick_up(hit)
+			elif hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
 				_select_target(hit)
 				var aseq := Game.attack(hit.entity_id)
 				Log.debug("ui", "click attack", {"target": hit.entity_id, "name": hit.display_name, "seq": aseq})
@@ -199,6 +206,37 @@ func _unhandled_input(event: InputEvent) -> void:
 func _set_zoom(z: float) -> void:
 	_zoom = clampf(z, 0.25, 3.0)
 	_camera.zoom = Vector2(_zoom, _zoom)
+
+
+# A click on a thing on the ground: picked up at once when near enough, else the character walks
+# next to it and asks when it arrives (the old client did the same through KPlayer::PickUpItem).
+func _pick_up(node: Node2D) -> void:
+	var own := _own()
+	if own == null:
+		return
+	_pending_pickup = 0
+	if own.scene_pos.distance_to(node.scene_pos) <= PICK_UP_RANGE:
+		Game.pick_up(node.entity_id)
+		return
+	_pending_pickup = node.entity_id
+	var dir: Vector2 = (node.scene_pos - own.scene_pos).normalized()
+	var stand: Vector2 = node.scene_pos - dir * 60.0
+	Game.move_to(int(stand.x), int(stand.y))
+
+
+func _walk_to_pickup() -> void:
+	if _pending_pickup == 0:
+		return
+	var node: Node2D = _entities.get(_pending_pickup)
+	var own := _own()
+	if node == null or own == null:
+		_pending_pickup = 0
+		return
+	if own.scene_pos.distance_to(node.scene_pos) <= PICK_UP_RANGE:
+		Game.pick_up(node.entity_id)
+		_pending_pickup = 0
+	elif not own.is_moving():
+		_pending_pickup = 0   # could not get there
 
 
 # The entity drawn under a world point (the one on top wins).
@@ -230,7 +268,7 @@ func _add_entity(d: Dictionary) -> void:
 	var node: Node2D = _entities.get(id)
 	if node == null:
 		node = Node2D.new()
-		node.set_script(NpcScript)
+		node.set_script(ObjScript if int(d.get("type", 0)) == ENTITY_DROP else NpcScript)
 		_entity_layer.add_child(node)
 		_entities[id] = node
 	node.setup(d, id == Game.entity_id)
@@ -260,7 +298,8 @@ func _on_move(mv: Dictionary) -> void:
 	var node: Node2D = _entities.get(int(mv.id))
 	if node:
 		node.apply_move(mv)
-		_move_count += 1
+		if node.entity_type != ENTITY_DROP:
+			_move_count += 1
 	else:
 		Log.trace("world", "move for unknown entity", {"id": mv.id})
 
@@ -374,6 +413,29 @@ func _auto_items() -> void:
 		waited += 0.25
 	Log.info("auto", "auto items", {"before": before, "after": Game.items.size()})
 	print("AUTO_ITEMS count=%d" % Game.items.size())
+	# throw one on the ground and pick it up again: the ground objects end to end
+	if Game.items.size() > 0:
+		var had := Game.items.size()
+		Game.item_drop(int(Game.items.keys()[0]))
+		var ground: Node2D = null
+		waited = 0.0
+		while waited < 3.0 and ground == null:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+			for node in _entities.values():
+				if node.entity_type == ENTITY_DROP:
+					ground = node
+		var dropped := ground != null and Game.items.size() == had - 1
+		if ground != null:
+			await _save_screenshot("user://logs/auto_drop.png")
+			_pick_up(ground)
+			waited = 0.0
+			while waited < 3.0 and Game.items.size() < had:
+				await get_tree().create_timer(0.25).timeout
+				waited += 0.25
+		var picked := Game.items.size() == had
+		Log.info("auto", "auto drop", {"dropped": dropped, "picked": picked, "ground": ground.display_name if ground else ""})
+		print("AUTO_DROP dropped=%s picked=%s" % [dropped, picked])
 	if _windows != null and _windows.ready_ok and Game.items.size() > 0:
 		_windows.item_window.open_window()
 		_windows.status_window.open_window()

@@ -8,6 +8,7 @@
 
 #include "jx/ids.hpp"
 #include "jx/zone/KMath.h"
+#include "jx/zone/KObj.h"
 #include "jx/zone/KRegion.h"
 
 namespace jx::zone {
@@ -110,6 +111,10 @@ struct KNpc {
     KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4]
     int walk_speed = 5;               // m_WalkSpeed: scene units per frame (KNpc::ServeMove)
     int run_speed = 10;
+    // KNpcKind::drop - an object on the ground (KObj): what the zone keeps of it; the item itself
+    // lives in KSubWorld::ground_items_
+    KGroundObject object;
+    int treasure = 0;                 // m_CurrentTreasure: drop rolls when a player kills it
     // players: KPlayer / trap state
     bool fight_mode = false;          // m_FightMode (SetFightState of the gate scripts)
     std::uint32_t trap_script_id = 0; // m_TrapScriptID: the trap under the feet, so a trap fires once per entry

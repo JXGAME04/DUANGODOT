@@ -49,6 +49,10 @@
     // "?gm ds <lua>" / "?gm dw <lua>" in the chat run Lua for anyone (KGMCommand.cpp) - a development
     // server only; dev.py start turns it on
     "gm_chat": false,
+    // ObjData.txt / MoneyObj.txt of the old server (jxassets export-objdata): what dropped things look like
+    "objdata": "client/assets/objdata.json",
+    // [ServerConfig] MoneyRate of gamesetting.ini: money dropped by monsters x this / 100
+    "money_rate_percent": 100,
     // exported by: python tools/dev.py assets   (empty = plain 8192x8192 grid)
     "map_dir": "client/assets/maps/1",
     // every other map bundle the zone hosts (portals need the target loaded): a list like "3,7,99",

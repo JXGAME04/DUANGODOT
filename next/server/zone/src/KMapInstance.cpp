@@ -126,6 +126,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.item_drop_request(cmd.sid, req.id(), req.seq());
         break;
     }
+    case pb::C2G_PICK_UP: {
+        pb::PickUpReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.pick_up_request(cmd.sid, EntityId{req.entity_id()}, req.seq());
+        break;
+    }
     default:
         log::debug("zone", "client message not handled by the world",
                    {log::kv("sid", cmd.sid), log::kv("msg", cmd.msg_id), log::kv("map", world_.map_id())});

@@ -13,6 +13,7 @@ add_library(jx_zone_core STATIC
     src/KSubWorld.cpp
     src/KInterest.cpp
     src/KItem.cpp
+    src/KObj.cpp
     src/KMapInstance.cpp
     src/KWorldScheduler.cpp
     src/KNpcAI.cpp

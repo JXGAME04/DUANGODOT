@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/item"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
 )
@@ -17,6 +18,8 @@ type NpcResBundle struct {
 	Player     map[string]npcres.PlayerFrames `json:"player"` // "male" / "female"
 	NpcActions []string                       `json:"npc_actions"`
 	Actions    []string                       `json:"actions"`
+	// the drop tables the templates name (DropRateFile), by their lower-cased game path
+	DropRates map[string]*item.DropRate `json:"droprates,omitempty"`
 }
 
 // TemplateInfo is what the client needs from a row of npcs.txt.
@@ -57,8 +60,10 @@ type TemplateInfo struct {
 	ActiveRadius int         `json:"active_radius"`
 	Skills       []SkillInfo `json:"skills"` // slots 1..4 (index 0 = Skill1); id 0 = empty
 	// the LevelScript column and the raw cells KNpcTemplate::InitNpcLevelData hands to it
-	LevelScript string            `json:"level_script"`
-	Cells       map[string]string `json:"cells,omitempty"`
+	LevelScript  string            `json:"level_script"`
+	Cells        map[string]string `json:"cells,omitempty"`
+	Treasure     int               `json:"treasure,omitempty"`
+	DropRateFile string            `json:"drop_rate_file,omitempty"`
 }
 
 // SkillInfo is one skill slot of a template (Skill1..4 / Level1..4 of npcs.txt) with what the
@@ -121,10 +126,11 @@ type ResSortAct struct {
 
 // NpcResOptions selects what to export.
 type NpcResOptions struct {
-	Names  []string             // resource names (rows of 人物类型.txt)
-	Doings []int                // doings whose sprites are exported (npcres.Do*)
-	Equips map[int]int          // equipment per part group for main characters (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); missing = none
-	Skills map[int]npcres.Skill // skills.txt by id, for the attack radius of the npc skills (nil = unknown)
+	DropRates map[string]*item.DropRate // the drop tables the templates name, read from the server folder
+	Names     []string                  // resource names (rows of 人物类型.txt)
+	Doings    []int                     // doings whose sprites are exported (npcres.Do*)
+	Equips    map[int]int               // equipment per part group for main characters (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); missing = none
+	Skills    map[int]npcres.Skill      // skills.txt by id, for the attack radius of the npc skills (nil = unknown)
 }
 
 // MergeAppearance returns the server's templates with the drawing side taken from the client's
@@ -166,7 +172,7 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 	if err := os.MkdirAll(filepath.Join(e.Out, "sprites"), 0o755); err != nil {
 		return 0, err
 	}
-	bundle := NpcResBundle{Templates: map[string]TemplateInfo{}, Player: player, NpcActions: list.NpcActions, Actions: list.Actions}
+	bundle := NpcResBundle{Templates: map[string]TemplateInfo{}, Player: player, NpcActions: list.NpcActions, Actions: list.Actions, DropRates: opt.DropRates}
 	for _, t := range templates {
 		if t.Name == "" {
 			continue
@@ -178,7 +184,7 @@ func (e *Exporter) NpcRes(list *npcres.List, templates []npcres.Template, player
 			LifeParam: t.LifeParam, MinDamage: t.MinDamage, MaxDamage: t.MaxDamage, Defense: t.Defense,
 			Camp: t.Camp, CastFrame: t.CastFrame, WalkSpeed: t.WalkSpeed, RunSpeed: t.RunSpeed,
 			AIMode: t.AIMode, AIParam: t.AIParam, AIMaxTime: t.AIMaxTime, VisionRadius: t.VisionRadius, ActiveRadius: t.ActiveRadius,
-			LevelScript: t.LevelScript, Cells: t.Cells}
+			LevelScript: t.LevelScript, Cells: t.Cells, Treasure: t.Treasure, DropRateFile: t.DropRateFile}
 		for slot := 1; slot <= 4; slot++ {
 			ts := t.Skills[slot]
 			si := SkillInfo{ID: ts.ID, LevelA: ts.LevelA, LevelB: ts.LevelB}

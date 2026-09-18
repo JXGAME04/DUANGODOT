@@ -234,6 +234,20 @@ func item_use(id: int) -> int:
 	return _move_seq
 
 
+# Pick a thing up from the ground (KPlayer::ServerPickUpItem): the zone answers with G2C_ITEM_ADD /
+# G2C_MONEY and the object's despawn, or G2C_ITEM_RESULT (too far, kept for somebody else, no room).
+func pick_up(entity_id: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.PickUpReq.new()
+	req.set_entity_id(entity_id)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_PICK_UP, req)
+	Log.trace("item", "pick up request", {"entity": entity_id, "seq": _move_seq})
+	return _move_seq
+
+
 func item_drop(id: int) -> int:
 	if state != "world":
 		return 0
@@ -623,4 +637,5 @@ func _entity_dict(e) -> Dictionary:
 		"x": e.get_pos().get_x(), "y": e.get_pos().get_y(), "tx": e.get_target().get_x(), "ty": e.get_target().get_y(),
 		"speed": e.get_move_speed(), "level": e.get_level(), "series": e.get_series(), "sex": e.get_sex(),
 		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir(),
-		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames()}
+		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames(),
+		"count": e.get_count()}

@@ -118,7 +118,7 @@ thu bằng cảm tính.
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
-| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 + C2 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (luật uống thuốc/hồi máu đối chiếu nhị phân Linux); cửa sổ Túi đồ, Thông tin nhân vật (trang Trang bị + Thuộc tính) và chú thích vật phẩm dựng từ bố cục 2.0, icon từ bảng vật phẩm, nhấc–đặt–mặc–cởi–uống qua giao thức; script `AddItem`/`AddGoldItem` đúng thứ tự bản Linux + lệnh GM `?gm ds` (E phần 1). Còn: rơi đồ (D), phần còn lại của E (`AddStackItem`, `AddItemEx`, `RemoveItem`, móc Lua khi dùng), ma pháp tiền/hậu tố, kho đồ/giao dịch. |
+| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 + C2 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (luật uống thuốc/hồi máu đối chiếu nhị phân Linux); cửa sổ Túi đồ, Thông tin nhân vật (trang Trang bị + Thuộc tính) và chú thích vật phẩm dựng từ bố cục 2.0, icon từ bảng vật phẩm, nhấc–đặt–mặc–cởi–uống qua giao thức; script `AddItem`/`AddGoldItem` đúng thứ tự bản Linux + lệnh GM `?gm ds` (E phần 1); **lát D xong**: quái chết rơi tiền/đồ theo `DropRateFile`/`Treasure` (luật `GenRandomItem` bản Linux), vật thể trên đất (`ObjData`), nhặt/vứt. Còn: phần còn lại của E (`AddStackItem`, `AddItemEx`, `RemoveItem`, móc Lua khi dùng), ma pháp tiền/hậu tố (`Gen_MagicAttrib`) + hoàng kim/bạch kim khi rơi, chia đội, kho đồ/giao dịch. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
 | **M14** | Xã hội: chat, bạn bè, thư, bang hội, tổ đội, giao dịch, PK | 5 | Test nhiều phiên; giao dịch nguyên tử. |
@@ -137,6 +137,46 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (trưa) — M11 lát D: rơi đồ, vật thể trên đất, nhặt, vứt — luật theo nhị phân Linux
+
+Ảnh: `build/shots/auto_drop.png` (đã gửi) — client thật vứt kiếm xuống đất (vật thể `obj_wq_001.spr` của
+`ObjData.txt`) rồi nhặt lại; `dev.py e2e` in `AUTO_DROP dropped=true picked=true` trên TCP và WebSocket.
+
+- **Đối chiếu nhị phân** (ghi ở `LINUX-SERVER.md` §9): bộ nạp bảng rơi đồ `0x080A3B80` (mọi khoá + mặc định của
+  `KIniFile::GetInteger`: `[Main] MoneyRate=20 MoneyScale=50 MinItemLevelScale=20 MaxItemLevelScale=10
+  MinItemLevel=1 MaxItemLevel=10 Series=-1 EnchasableRate MinSocket/MaxSocket=1 IsTeamShare TeamShareRate`; `[i]
+  Genre Quality Detail Particular RandRate MinItemLevel/MaxItemLevel=-1 Series=-1 … MagicLevel1..6`);
+  `GenRandomItem 0x08083BB0` (chọn dòng theo `RandRate` cộng dồn trên `RandRange`; cấp = `(cấp quái−1)/scale+1`
+  hai đầu, kẹp vào [Min,Max] của bảng rồi 1..10; **JX2 khác nguồn Windows**: 3–6 ô ma pháp = cấp vật phẩm
+  thay vì chuỗi `MagicRate`; `Quality` 2/`EnchasableRate` → lỗ khảm bạch kim); vòng chết `0x08088B60`
+  (`Treasure` lần: `g_Random(100) < MoneyRate` → tiền, không thì `LoseSingleItem 0x08088840`; bản đồ có cờ
+  `+0x4f298` không rơi; `IsTeamShare` → chia đội); `LoseMoney 0x08081950` = `exp × MoneyScale/100 ×
+  [ServerConfig] MoneyRate/100` (khoá của `gamesetting.ini`, mặc định 100); `SetItemBelong 0x080A4D90` =
+  600 frame; nhặt (`0x080B8210`) kiểm `khoảng cách² ≤ 40000`. `NpcS.txt` cột 5 `Treasure`, cột 88 `DropRateFile`.
+- **Dữ liệu**: `npcs.txt` giờ xuất `treasure` + `drop_rate_file`, và `npcs.json` mang luôn 77 bảng rơi đồ đọc được
+  (`droprates`; 37 bảng sự kiện không có trong thư mục → quái đó không rơi, có cảnh báo); `export-objdata`
+  (mới, `dev.py assets` chạy): 477 dòng `ObjData.txt` + 5 mức `MoneyObj.txt` → `client/assets/objdata.json`,
+  265 sprite vật thể → `client/assets/sprites`.
+- **Zone**: `KObj.h/.cpp` (`KObjDataSet`, `KGroundObject`, hằng 600 / 40000); vật thể trên đất là thực thể
+  `KNpcKind::drop` (đi qua đúng hệ quan tâm/AOI như NPC, `EntityInfo.count` = số lượng/tiền, `template_id` = dòng
+  ObjData); `drop_item`/`drop_money` (`GetFreeObjPos`: vòng 32 đơn vị quanh chỗ rơi, tránh vật thể khác, đất đi
+  được), `object_tick` (đếm `LifeTime`, `belong` hết 600 frame thành của chung; map đang có đồ dưới đất không
+  ngủ), `pick_up_request` (chủ sở hữu/khoảng cách/túi đầy → `G2C_ITEM_RESULT`; tiền → `add_money` + `G2C_MONEY`),
+  `item_drop_request` (vứt xuống chân, đồ nhiệm vụ không vứt), `lose_treasure` + `gen_random_item` như trên
+  (luck = 0, ma pháp/bạch kim/hoàng kim của bảng chưa quay — `Gen_MagicAttrib` chưa port; chia đội chưa có).
+  `KNpcTemplate.treasure/drop_rate_file` + `KNpcTemplateSet::drop_rate()`; cấu hình `zone.objdata`,
+  `zone.money_rate_percent`.
+- **Giao thức**: `C2G_PICK_UP` (1109, `PickUpReq`), `EntityInfo.count`; gateway relay.
+- **Client**: `scenes/KObj.gd` (vẽ sprite ObjData từ điểm tựa như vật thể bản đồ, tên/số tiền phía trên, click),
+  `UiGame`: click vào đồ dưới đất → nhặt ngay nếu ≤ 180 đơn vị, không thì đi tới rồi nhặt; `Game.pick_up`;
+  `--auto` thêm vứt + chụp `auto_drop.png` + nhặt.
+- Test: 2 case zone mới (vứt/nhặt/xa quá/của người khác/hết hạn/tiền; giết 20 quái → 60 vật thể, cấp theo công
+  thức, tiền theo `MoneyScale`); zone 65/65.
+- **Lỗi tìm ra khi test lặp**: `EntityTable` là `std::vector` dày — thêm thực thể **trong** vòng lặp tick (quái chết
+  → rơi đồ) làm vector dời chỗ, tham chiếu `KNpc& e` của vòng lặp treo (test đôi khi đổ). Sửa: đồ rơi xếp vào
+  `pending_drops_`, đặt xuống đất sau vòng lặp (`flush_pending_drops`). **Lưu ý cho người sau**: script trap
+  gọi `spawn_npc` trong tick cũng gặp đúng cạm bẫy này — chưa sửa, cần cơ chế hoãn tương tự.
 
 ### 2026-09-18 (sáng) — M11 lát E phần 1: `AddItem` / `AddGoldItem` cho script + lệnh GM `?gm ds <lua>` qua chat
 

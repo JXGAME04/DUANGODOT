@@ -230,6 +230,14 @@
     "ok": "thành công",
     "particular": "loại riêng",
     "row": "dòng",
+    "item": "vật phẩm",
+    "money": "tiền",
+    "money_rows": "số mức tiền",
+    "obj": "vật thể",
+    "objdata": "có bảng vật thể",
+    "objects": "số vật thể",
+    "rolls": "số lần quay",
+    "table": "bảng",
     "lost": "mất",
     "versions": "các phiên bản"
   },
@@ -410,6 +418,14 @@
     "AddGoldItem: no such row": "Script AddGoldItem: không có dòng hoàng kim này",
     "code failed": "Đoạn mã Lua chạy lỗi",
     "gm chat commands on": "Lệnh GM qua chat đang BẬT (?gm ds <lua> chạy cho bất kỳ ai) — chỉ dùng máy phát triển",
-    "gm command": "Lệnh GM"
+    "gm command": "Lệnh GM",
+    "object data loaded": "Đã nạp bảng vật thể trên đất (ObjData / MoneyObj)",
+    "no object data": "Không có bảng vật thể trên đất — không rơi / vứt đồ được (chạy jxassets export-objdata)",
+    "no ground object for item": "Vật phẩm không có vật thể trên đất tương ứng (thiếu dòng ObjData)",
+    "dropped item lost": "Vật phẩm vứt ra không đặt được xuống đất — đã mất",
+    "item picked up": "Nhặt vật phẩm",
+    "money picked up": "Nhặt tiền",
+    "treasure dropped": "Quái chết rơi đồ",
+    "drop row missing": "Bảng rơi đồ trỏ tới dòng vật phẩm không có"
   }
 }
