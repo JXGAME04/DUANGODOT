@@ -456,7 +456,7 @@ func _auto_items() -> void:
 		_windows.status_window.hide_window()
 		if not magic_sword.is_empty():
 			# the tooltip of the magic sword, as if the mouse rested on it in the bag
-			_windows.hover.show_lines(KUiItemView.describe(magic_sword), Vector2(560, 120))
+			_windows.hover.show_text(KUiItemView.describe_text(magic_sword) + "\n", Vector2(560, 120))
 			await _save_screenshot("user://logs/auto_item_tip.png")
 			_windows.hover.hide_lines()
 		_windows.item_window.hide_window()

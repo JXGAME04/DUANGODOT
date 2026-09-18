@@ -1,9 +1,15 @@
 # KUiItemView - what a window needs to show one item of Game.items: the container object (cells,
-# picture, shade), whether this character can wear it, and its description lines
-# (KUiBase::GetObjImage / GetItemDesc through CoreShell of the old client).
+# picture, shade), whether this character can wear it, and its description text.
+#
+# The description is KItem::GetDesc of the 2.0 client (gamecl.exe unpacked, 0x00636460, read line
+# by line - docs/CLIENT-2.0.md) rebuilt exactly: the same string-table lines (G_ITEM_* of
+# \lang\vn\stringtable_core.txt), the same colour tags, the same order, the same "\n"s.  The
+# text is one rich string; UiMouseHover wraps and centres it the way KMouseOver drew it.
 extends RefCounted
 
 const KMagicDesc := preload("res://ui/KMagicDesc.gd")
+const KTextEncode := preload("res://ui/KTextEncode.gd")
+const KMagicRange := preload("res://ui/KMagicRange.gd")
 
 # ITEMGENRE of KItem.h
 const GENRE_EQUIP := 0
@@ -11,6 +17,9 @@ const GENRE_MEDICINE := 1
 const GENRE_TASK := 4
 const GENRE_TOWN_PORTAL := 5
 const GENRE_SCRIPT := 6
+const GENRE_BROKEN := 7
+const DETAIL_MASK := 11         # equip_mask: no element line, no prefixes / suffixes
+const EQUIP_HORSE := 10         # equip_horse: from the horse on every suffix is always active
 # the attribute ids this window reads by number (MAGIC_ATTRIB)
 const MAGIC_DURABILITY := 31
 const REQUIRE_STR := 32
@@ -21,12 +30,18 @@ const REQUIRE_LEVEL := 36
 const REQUIRE_SERIES := 37
 const REQUIRE_SEX := 38
 const REQUIRE_MENPAI := 39
-# The colour of a name, KItem::GetDesc of the old core with the named colours of Engine/Text.cpp:
-# equipment by ITEMEXTENDTYPE - gold Yellow (255,255,0), platina Yellow too, purple Purple
-# (188,40,255) - else Blue (100,100,255) when it carries a magic prefix / suffix, White without;
-# a quest item Yellow; everything else White.
-const NAME_COLORS := [Color.WHITE, Color8(255, 255, 0), Color8(255, 255, 0), Color8(188, 40, 255)]
+# g_StrWrap(buf, intro, 0x28): the description is wrapped at 40 characters
+const INTRO_WRAP := 40
+# the name colours by kind, kept for the windows that paint names (the tooltip has its own rule)
+const NAME_COLORS := [Color.WHITE, Color8(255, 255, 0), Color8(188, 64, 255), Color8(255, 255, 255)]
 const NAME_COLOR_MAGIC := Color8(100, 100, 255)
+
+# the name colour tags by genre (the table at 0x0081b398 of the client: genre 1 White, 4 Yellow,
+# the rest empty - the text keeps the window's colour; genre 0 is decided by the piece itself)
+const NAME_TAG_BY_GENRE := {1: "<color=White>", 4: "<color=Yellow>"}
+
+static var _strings: Dictionary = {}
+static var _strings_loaded := false
 
 
 # The object a KWndObjContainer draws for an item (at the item's own cells).
@@ -38,81 +53,203 @@ static func object_of(item: Dictionary) -> Dictionary:
 	}
 
 
-# KItemList::EnoughAttrib as far as the client knows its own character: level, series and sex
-# (strength and the rest come with the attribute system, M12 - they read as enough).
-static func usable(item: Dictionary) -> bool:
-	if int(item.get("genre", 0)) != GENRE_EQUIP:
-		return true
+# A line of \lang\vn\stringtable_core.txt (ui/du-lieu/chuoi-core.json) by key; "" when missing.
+static func core_string(key: String) -> String:
+	if not _strings_loaded:
+		_strings_loaded = true
+		var t = Assets.ui_data("chuoi-core")
+		if t is Dictionary:
+			_strings = t.get("strings", {})
+	return str(_strings.get(key, ""))
+
+
+static func forget() -> void:
+	_strings_loaded = false
+	_strings = {}
+
+
+# One requirement against this character (KItemList::EnoughAttrib as the client knows it: level,
+# series, sex; strength and the rest come with M12 and read as enough)
+static func enough(req: Dictionary) -> bool:
 	var me = Game.entities.get(Game.entity_id)
 	if me == null:
 		return true
-	for r in item.get("require", []):
-		var v: Array = r.get("value", [])
-		var need := int(v[0]) if v.size() > 0 else 0
-		match int(r.get("type", 0)):
-			REQUIRE_LEVEL:
-				if int(me.get("level", 1)) < need:
-					return false
-			REQUIRE_SERIES:
-				if int(me.get("series", 0)) != need:
-					return false
-			REQUIRE_SEX:
-				if int(me.get("sex", 0)) != need:
-					return false
+	var v: Array = req.get("value", [])
+	var need := int(v[0]) if v.size() > 0 else 0
+	match int(req.get("type", 0)):
+		REQUIRE_LEVEL:
+			return int(me.get("level", 1)) >= need
+		REQUIRE_SERIES:
+			return int(me.get("series", 0)) == need
+		REQUIRE_SEX:
+			return int(me.get("sex", 0)) == need
 	return true
 
 
-static func name_color(item: Dictionary) -> Color:
+# KItemList::EnoughAttrib for every requirement
+static func usable(item: Dictionary) -> bool:
+	if int(item.get("genre", 0)) != GENRE_EQUIP:
+		return true
+	for r in item.get("require", []):
+		if int(r.get("type", 0)) > 0 and not enough(r):
+			return false
+	return true
+
+
+# The colour tag KItem::GetDesc opens the name with (0x0063657e..0x006366fe)
+static func name_tag(item: Dictionary) -> String:
 	var genre := int(item.get("genre", 0))
-	if genre == GENRE_TASK:
-		return Color8(255, 255, 0)
-	if genre != GENRE_EQUIP:
-		return Color.WHITE
-	var ex := int(item.get("ex_type", 0))
-	if ex > 0:
-		return NAME_COLORS[ex] if ex < NAME_COLORS.size() else Color.WHITE
+	var quality := int(item.get("ex_type", 0))
 	var magic: Array = item.get("magic", [])
-	return NAME_COLOR_MAGIC if magic.size() > 0 and int(magic[0].get("type", 0)) != 0 else Color.WHITE
+	if genre == GENRE_EQUIP:
+		if quality == 1 or quality == 4 or quality == 5:
+			return "<color=Yellow>"
+		if quality == 2:
+			return "<color=Violet>"
+		if quality == 3:
+			return core_string("G_ITEM_0")   # "<color=White> vật phẩm tạm thời: "
+		if magic.size() > 0 and int(magic[0].get("type", 0)) != 0:
+			return "<color=Blue>"
+		return "<color=White>"
+	if genre == GENRE_BROKEN or int(item.get("durability", -1)) == 0:
+		return "<color=Red>"
+	return str(NAME_TAG_BY_GENRE.get(genre, ""))
 
 
-# The first line of the tooltip: the name, " [Cấp N]" for equipment with a level (KItem::GetDesc),
-# " xN" for a stack.
+# The colour the name is painted in (for windows that show only the name)
+static func name_color(item: Dictionary) -> Color:
+	var runs := KTextEncode.runs_of(name_tag(item) + "x", Color.WHITE)
+	return runs.back().color
+
+
+# The first line: the name and " [Cấp N]" (G_ITEM_22) on equipment, as GetDesc writes it
 static func title_of(item: Dictionary) -> String:
+	var genre := int(item.get("genre", 0))
 	var name := str(item.get("name", ""))
-	var level := int(item.get("level", 0))
-	if int(item.get("genre", 0)) == GENRE_EQUIP and level > 0:
-		name += " [Cấp %d]" % level
-	var count := int(item.get("count", 1))
-	return name + (" x%d" % count if count > 1 else "")
+	if genre == GENRE_BROKEN or int(item.get("durability", -1)) == 0:
+		name = core_string("G_ITEM_28") + name   # "<trang bị tổn hại>"
+	if genre == GENRE_EQUIP:
+		name += core_string("G_ITEM_22") % int(item.get("level", 0))
+	return name
 
 
-# The lines of the item's tooltip: [{text, color}].  Name first, then what the tables say about
-# it through KMagicDesc, the requirements, the description, the price.
-static func describe(item: Dictionary) -> Array:
+# The "[min-max]" the 2.0 client prints after a magic line: KLibOfBPT::GetMagicRange over the
+# rows of that kind the piece could have drawn (position, type, series, level)
+static func magic_range(item: Dictionary, slot: int, type: int) -> Array:
+	return KMagicRange.range_of(int(item.get("version", 0)), type, (slot & 1) == 0, int(item.get("detail", 0)),
+		int(item.get("series", 0)), int(item.get("level", 0)))
+
+
+# KItem::GetDesc(buf, nUiType = 0, nPriceScale = 1, nActive, ...) of the 2.0 client for a piece in
+# the bag: no price line, `active` suffixes lit (0 in the bag; a worn piece counts its element
+# links, M12), the magic block unless the window is one of the shop / trade ones (19..28).
+static func describe_text(item: Dictionary, active: int = 0, ui_type: int = 0) -> String:
+	var genre := int(item.get("genre", 0))
+	var detail := int(item.get("detail", 0))
+	var durability := int(item.get("durability", -1))
+	var s := name_tag(item) + title_of(item) + "\n"
+	# (bind / lock / stamp lines: the piece carries none of those states yet)
+	if genre == GENRE_EQUIP and detail != DETAIL_MASK:
+		var series := int(item.get("series", -1))
+		if series >= 0 and series <= 4:
+			s += core_string("G_ITEM_%d" % (3 + series))   # "<color=White>Thuộc tính Ngũ hành: <color=Metal>Kim "
+		s += "\n"
+	s += "<color=White>" + KTextEncode.str_wrap(str(item.get("intro", "")), INTRO_WRAP)
+	if genre == GENRE_SCRIPT:
+		return s   # a script item ends with its own description (0x00630cd0): with the script items
+	else:
+		# the seven base attributes (0x00630ae0)
+		for a in item.get("base", []):
+			var type := int(a.get("type", 0))
+			if type <= 0:
+				continue
+			if type == MAGIC_DURABILITY:
+				if genre != GENRE_EQUIP or detail == DETAIL_MASK:
+					continue
+				if durability == -1:
+					s += core_string("G_ITEM_8")   # "<color=Yellow>Không thể phá hủy<color>"
+				else:
+					var key := "G_ITEM_9_1" if durability > 0 else "G_ITEM_9_2"
+					s += core_string(key) % [durability, int(item.get("max_durability", 0))]
+				s += "\n"
+				continue
+			var t := KMagicDesc.describe(a)
+			if t == "":
+				continue
+			if durability == 0:
+				s += "<color=red>%s<color>\n" % t
+			else:
+				s += t + "\n"
+	# the requirements (0x0062ea70): white when met, red when not
+	for r in item.get("require", []):
+		if int(r.get("type", 0)) <= 0:
+			continue
+		var t := KMagicDesc.describe(r)
+		if t == "":
+			continue
+		s += ("<color=White>" if enough(r) else "<color=Red>") + t + "\n"
+	# the prefixes and suffixes (0x00635430)
+	if ui_type < 19 or ui_type >= 29:
+		s += magic_text(item, active)
+	return s
+
+
+# The magic block: slot i even = prefix, odd = suffix; a suffix is lit while (i >> 1) < active
+# (every one on a mask); the colour by quality, the "[min-max]" range after the sentence for
+# quality 0 / 3 / 5 pieces; an empty socket of a quality-2 piece says "Chưa khảm".
+static func magic_text(item: Dictionary, active: int) -> String:
+	var s := ""
+	var genre := int(item.get("genre", 0))
+	var quality := int(item.get("ex_type", 0))
+	var detail := int(item.get("detail", 0))
+	var durability := int(item.get("durability", -1))
+	var magic: Array = item.get("magic", [])
+	var levels: Array = item.get("magic_levels", [])
+	if genre == GENRE_EQUIP and detail == DETAIL_MASK:
+		active = 3
+	for i in range(mini(6, magic.size())):
+		var a: Dictionary = magic[i]
+		var type := int(a.get("type", 0))
+		if type <= 0:
+			if quality == 2 and i < levels.size() and int(levels[i]) == -1:
+				s += "<color=Yellow>" + core_string("G_ITEM_27") + "\n"   # "Chưa khảm"
+			continue
+		var t := KMagicDesc.describe(a)
+		if t == "":
+			continue
+		var range := magic_range(item, i, type)
+		var lit: bool = (i & 1) == 0 or (i >> 1) < active
+		var tag := ""
+		var range_text := ""
+		if durability == 0:
+			tag = "<color=Red>"
+		elif quality == 1 or quality == 4:
+			tag = "<color=Yellow>" if lit else "<color=DYellow>"
+		elif quality == 2:
+			tag = "<color=Violet>" if lit else "<color=DViolet>"
+		elif quality == 5:
+			# a roll at the top of its range is orange (0x0062f020); the rest yellow
+			var value: Array = a.get("value", [0])
+			var perfect: bool = range.size() == 2 and int(range[1]) > 0 and int(value[0]) >= int(range[1])
+			range_text = ("<color=0xc0c0c0>[%d-%d]" if lit else "<color=DBlue>[%d-%d]") % range
+			tag = ("<color=0xff8c27>" if perfect else "<color=Yellow>") if lit else ("<color=0xaa7f14>" if perfect else "<color=DYellow>")
+		else:
+			range_text = ("<color=0xc0c0c0>[%d-%d]" if lit else "<color=DBlue>[%d-%d]") % range
+			tag = "<color=HBlue>" if lit else "<color=DBlue>"
+		s += tag + t + range_text + "\n"
+	return s
+
+
+# The description as lines of coloured runs, for windows and tests: [{text, color, parts}]
+static func describe(item: Dictionary, active: int = 0) -> Array:
 	var lines: Array = []
-	lines.append({"text": title_of(item), "color": name_color(item)})
-	var ok := usable(item)
-	var has_durability: bool = int(item.get("durability", -1)) >= 0 and int(item.get("max_durability", -1)) > 0
-	for a in item.get("base", []):
-		if has_durability and int(a.get("type", 0)) == MAGIC_DURABILITY:
-			continue   # the durability line below says what is left of it
-		var t := KMagicDesc.describe(a)
-		if t != "":
-			lines.append({"text": t, "color": Color8(255, 255, 255)})
-	if has_durability:
-		lines.append({"text": "Độ bền: %d/%d" % [int(item.durability), int(item.max_durability)], "color": Color8(255, 255, 255)})
-	for a in item.get("require", []):
-		var t := KMagicDesc.describe(a)
-		if t != "":
-			lines.append({"text": t, "color": Color8(200, 255, 200) if ok else Color8(255, 80, 80)})
-	for a in item.get("magic", []):
-		var t := KMagicDesc.describe(a)
-		if t != "":
-			lines.append({"text": t, "color": Color8(125, 255, 216)})
-	var intro := str(item.get("intro", "")).strip_edges()
-	if intro != "":
-		lines.append({"text": intro, "color": Color8(210, 210, 210)})
-	var price := int(item.get("price", 0))
-	if price > 0:
-		lines.append({"text": "Giá: %d" % price, "color": Color8(255, 217, 78)})
+	var text := describe_text(item, active)
+	if text.ends_with("\n"):
+		text = text.substr(0, text.length() - 1)
+	for line in text.split("\n"):
+		var runs := KTextEncode.runs_of(line, Color.WHITE)
+		var plain := ""
+		for r in runs:
+			plain += str(r.text)
+		lines.append({"text": plain, "color": runs[0].color, "parts": runs})
 	return lines

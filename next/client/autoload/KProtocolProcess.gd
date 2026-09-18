@@ -622,7 +622,7 @@ func _item_dict(v) -> Dictionary:
 		"ex_type": int(v.get_ex_type()), "room": int(v.get_room()), "x": int(v.get_x()), "y": int(v.get_y()),
 		"w": int(v.get_width()), "h": int(v.get_height()), "name": v.get_name(), "image": v.get_image(),
 		"intro": v.get_intro(), "price": int(v.get_price()), "base": _magic_list(v.get_base()),
-		"require": _magic_list(v.get_require()), "magic": _magic_list(v.get_magic())}
+		"require": _magic_list(v.get_require()), "magic": _magic_list(v.get_magic()), "version": int(v.get_version())}
 
 
 func _path_list(points: Array) -> Array:

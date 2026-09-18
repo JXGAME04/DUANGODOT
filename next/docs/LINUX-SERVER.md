@@ -47,6 +47,8 @@ sau constructor của đối tượng toàn cục): cả 5 đúng. Vậy **183 s
 | `re_luasig.py` | **Chữ ký** từng hàm script (§5): đối số đọc bằng API Lua 4.0 nào, có xem `lua_gettop` không, có cần nhân vật không, đẩy gì, trả mấy giá trị; theo cả hàm bọc (tail-jump và gọi thường với `L`), cả khối nằm sau epilogue | `callees`, `sig <tên>`, `all <out.tsv>` |
 | `re_tables.py` | **Bảng settings ↔ cột/khoá** (§6): nối `KTabFile::Load(obj, path)` với mọi `Get*(obj, row, "Cột")` qua đồ thị gọi hàm, kể cả bảng truyền qua đối số, đường dẫn ghép lúc chạy, đọc theo chỉ số cột, ghi/`Save` | `objects`, `columns`, `report <out.md>` |
 | `re_settings.py` | Bản thô hơn: hàm nào nhắc tới đường dẫn + các hằng chuỗi hàm đó dùng (giữ để tra nhanh) | `list`, `file <text>`, `all` |
+| `re_tabdesc.py <elf> <reader-va>…` | mảng mô tả cột `{kiểu, đích, mặc định}` của một `KBPT_*::ReadRow` (bộ đọc chung `0x081ECF40`) |
+| `re_upx.py <exe>` | mở `gamecl.exe` (UPX 3.03) của client 2.0 thành ảnh bộ nhớ cho các công cụ này ([CLIENT-2.0.md](CLIENT-2.0.md)) |
 | `re_scan.py` | Ba phép quét mọi hàm (§9): **ai đọc/ghi thành viên ở offset** (`disp 1f8`), **hàm nào đổ bảng con trỏ hàm thành viên** (`pmf` — tìm ctor của `KNpcAttribModify`, `KProtocolProcess`), **lệnh có hình dạng** (`ins <regex>`) | `disp <hex>[,…] [mnemonic]`, `pmf [min]`, `ins <regex> [max]` |
 
 Chạy: `python re_<tool>.py D:/ServerLinux/server1/jx_linux_y <lệnh>` (cần `pip install capstone`).
@@ -251,6 +253,7 @@ theo `re_calls.py callers` và theo **offset thành viên** bằng `re_scan.py d
 | `0x0806A150` | `KItemGenerator::Gen_GoldEquip(this, row, pItem, bNew)`: `row < this+0x170c` (số dòng), dòng 0x16c byte tại `this+0x1708`; `Item+0x80 = row`, `+4 = 1` (hoàng kim), nhóm bộ `+0x270/+0x274/+0x2a4..`; `SetAttrib_CBR`; 6 ma pháp từ `magicattrib_ge` (dòng+0x154.., bảng `this+0x1a44`) | chuỗi `"Gen_GoldEquipment Error"` |
 | `0x0806C2E0` / `0x0805EA10` | `KItemGenerator::Init(this, version)` (`this+0x5a4c = version`, `KLibOfBPT::Init 0x080719C0` đọc thư mục `/settings/item/%03d`); `g_ItemGenerator = 0x0830D408` (new 0x5a68 byte) được Init với **`g_nItemVersion 0x9777F34`** | |
 | `0x080F6A40` | **ctor `KSubWorldSet`** (`g_SubWorldSet 0x9777F00`): `+0x34 = 4` — **phiên bản vật phẩm hiện hành của bản này là 4** (thư mục `004`), không đọc từ tệp; Lua `ITEM_GetLatestItemVersion 0x081542C0` trả nó | `re_scan disp 34 mov` |
+| `0x08227E10` / `0x08227A00` | **`KTabFile::GetInteger(row, col, default, &out)`** / `GetValue`: ô **trống** (độ dài 0) hoặc ngoài bảng → **mặc định**, còn lại `strtol` — khác nguồn Windows (`atoi("")` = 0). Bộ đọc dòng của từng bảng đưa mặc định theo cột: `tools/re/re_tabdesc.py` (`0x081ED830` trang bị: hệ 0, giá 0, cấp 1, khác −1; `0x081EEE30` magicattrib: mọi số −1; `0x081ED430` thuốc) | `re_tabdesc` |
 | `0x08226AD0` / `0x08226B00` / `0x08226AC0` | **`g_Random(n)`** = `seed = seed·0xF25 + 0x7385; seed % n` (unsigned; `n = 0` → 0) — đúng `Engine/Src/KRandom.cpp` (IA 3877, IC 29573); `g_GetRandomSeed` / `g_RandomSeed` (`0x082E76C4`) | |
 
 Bảng tên thuộc tính ma pháp của bản JX2 (`MAGIC_ATTRIB_STRING`, ctor `KMagicDesc` `0x080724B0` đổ

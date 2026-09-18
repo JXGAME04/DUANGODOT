@@ -215,6 +215,7 @@ message ItemView {
   repeated ItemMagic base = 20;
   repeated ItemMagic require = 21;
   repeated ItemMagic magic = 22;
+  uint32 version = 23;           // the item table set it was made from (items/v00N.json): the tooltip's "[min-max]" ranges
 }
 
 message InventorySync {          // G2C_ITEM_LIST ("ItemList" is a Godot class, so not that name)

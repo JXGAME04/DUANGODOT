@@ -16,6 +16,8 @@ headers and the DYNAMIC segment, the way the loader does it.
 Addresses are virtual addresses as the process sees them.
 """
 import bisect
+import json
+import os
 import re
 import struct
 import sys
@@ -36,6 +38,20 @@ class Elf:
         self.path = path
         self.d = open(path, "rb").read()
         d = self.d
+        self.imports = {}     # {slot va: "dll!name"} of an unpacked PE image (re_upx.py)
+        if path.endswith(".img") and os.path.exists(path[:-4] + ".json"):
+            # a raw memory image with its layout beside it (re_upx.py): no ELF headers
+            meta = json.load(open(path[:-4] + ".json"))
+            self.entry = meta.get("entry", 0)
+            self.segments = meta["segments"]
+            self.dynamic = None
+            self.imports = {int(k, 16): v for k, v in meta.get("imports", {}).items()}
+            self.md = Cs(CS_ARCH_X86, CS_MODE_32)
+            self.md.detail = True
+            self._dyn = {"NEEDED": []}
+            self._plt = dict(self.imports)
+            self._strings = None
+            return
         if d[:4] != b"\x7fELF" or d[4] != 1:
             raise SystemExit("not a 32-bit ELF")
         self.entry, phoff = struct.unpack_from("<II", d, 0x18)
@@ -242,7 +258,8 @@ class Elf:
             p = o - back
             if p < 1:
                 break
-            if self.d[p:p + 3] == b"\x55\x89\xe5" and (self.d[p - 1] in (0xC3, 0x90, 0xCC, 0x00) or (va - back) % 16 == 0 or self.d[p - 3:p - 1] == b"\xc2"):
+            # push ebp; mov ebp, esp - as GCC (89 E5) and as MSVC (8B EC) encode it
+            if self.d[p:p + 3] in (b"\x55\x89\xe5", b"\x55\x8b\xec") and (self.d[p - 1] in (0xC3, 0x90, 0xCC, 0x00) or (va - back) % 16 == 0 or self.d[p - 3:p - 1] == b"\xc2"):
                 return va - back
         return va
 

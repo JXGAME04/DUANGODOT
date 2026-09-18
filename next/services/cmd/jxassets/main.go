@@ -718,6 +718,7 @@ func main() {
 		}
 		sets := itemTableSets()
 		total := 0
+		magic := map[string]any{}   // the prefix / suffix rows of every set, for the client's tooltip
 		for _, s := range sets {
 			set, err := item.Load(s.dir, s.version)
 			if err != nil {
@@ -728,10 +729,20 @@ func main() {
 				fail("%s: %v", p, err)
 			}
 			total += set.Count()
+			magic[s.file] = set.MagicRows()
 			fmt.Printf("  %-6s %5d vat pham, %3d ma phap, %3d hoang kim, %3d bo  -> %s%s\n", s.file, set.Count(), len(set.Magic), len(set.Gold), len(set.Suites), p,
 				map[bool]string{true: "  (thieu: " + strings.Join(set.Missing, ",") + ")", false: ""}[len(set.Missing) > 0])
 		}
-		fmt.Printf("export-items: %d bo, %d dong vat pham\n", len(sets), total)
+		// items/magic.json: what KItem::GetDesc of the 2.0 client needs to print "[min-max]"
+		// after a magic line (KLibOfBPT::GetMagicRange over the m_CMAIT candidates of the piece)
+		blob, err := json.Marshal(map[string]any{"source": "settings/item/<version>/magicattrib.txt", "sets": magic})
+		if err != nil {
+			fail("magic.json: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(out, "items", "magic.json"), blob, 0o644); err != nil {
+			fail("magic.json: %v", err)
+		}
+		fmt.Printf("export-items: %d bo, %d dong vat pham; items/magic.json cho chu thich\n", len(sets), total)
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):
@@ -873,6 +884,12 @@ func main() {
 			fmt.Printf("  %-20s THIEU: %v\n", "chuoi-client", err)
 		} else {
 			fmt.Printf("  %-20s %d chuoi  <- %s\n", "chuoi-client", n, `\lang\vn\stringtable_client.txt`)
+		}
+		// the core's own texts (KItem::GetDesc reads G_ITEM_* and G_S_* from it: the item tooltip)
+		if n, err := ex.UiStrings("chuoi-core", `\lang\vn\stringtable_core.txt`); err != nil {
+			fmt.Printf("  %-20s THIEU: %v\n", "chuoi-core", err)
+		} else {
+			fmt.Printf("  %-20s %d chuoi  <- %s\n", "chuoi-core", n, `\lang\vn\stringtable_core.txt`)
 		}
 		fonts, err := ex.UiFonts(theme)
 		if err != nil {

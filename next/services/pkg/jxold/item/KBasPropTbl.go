@@ -174,6 +174,24 @@ type MagicLimit struct {
 	Note string `json:"note,omitempty"`
 }
 
+// MagicRow is the compact form of a magicattrib.txt row the client keeps for its tooltip
+// (items/magic.json): [kind, pos, class, level, min1, max1, rate_type0..rate_typeN].
+type MagicRow []int
+
+// MagicRows lists every prefix / suffix of the set in that compact form.
+func (s *Set) MagicRows() []MagicRow {
+	out := make([]MagicRow, 0, len(s.Magic))
+	for _, m := range s.Magic {
+		r := MagicRow{m.Kind, m.Pos, m.Class, m.Level, 0, 0}
+		if len(m.Ranges) > 0 {
+			r[4], r[5] = m.Ranges[0].Min, m.Ranges[0].Max
+		}
+		r = append(r, m.DropRates...)
+		out = append(out, r)
+	}
+	return out
+}
+
 // SuiteActivate is KEQCP_REQ of suite_activate_count.txt: pieces needed to wake a set bonus.
 type SuiteActivate struct {
 	Suite int `json:"suite"`
@@ -216,6 +234,19 @@ type Set struct {
 	Limits     []MagicLimit           `json:"magic_limits"`
 	Scripts    []MagicScript          `json:"scripts"`
 	Missing    []string               `json:"missing,omitempty"` // tables the folder does not have
+}
+
+// cell is KTabFile::GetInteger(row, col, default) of the JX2 server (jx_linux_y 0x08227E10):
+// a cell that is missing OR EMPTY gives the default - KTabFile::GetValue (0x08227A00) fails on
+// a zero-length cell.  The readers (KBPT_*::ReadRow through 0x081ECF40, tools/re/re_tabdesc.py)
+// give every column its default: -1 for most numbers, 0 for the series and the price, 1 for the
+// level - so an empty 五行属性要求 in magicattrib.txt means "any series" (-1), not Kim (0).
+func cell(t *npcres.TabFile, row, col, def int) int {
+	s := strings.TrimSpace(t.Get(row, col))
+	if s == "" {
+		return def
+	}
+	return atoi(s)
 }
 
 func atoi(s string) int {
@@ -263,18 +294,19 @@ func equipmentRow(t *npcres.TabFile, row int, gold bool) Equipment {
 	e := Equipment{
 		Row: row - 1, Name: vi(t.Get(row, 1)), Genre: atoi(t.Get(row, 2)), Detail: atoi(t.Get(row, 3)), Particular: atoi(t.Get(row, 4)),
 		Image: t.Get(row, 5), ObjIdx: atoi(t.Get(row, 6)), Width: atoi(t.Get(row, 7)), Height: atoi(t.Get(row, 8)), Intro: vi(t.Get(row, 9)),
-		Series: atoi(t.Get(row, 10)), Price: atoi(t.Get(row, 11)), Level: atoi(t.Get(row, 12)), Stackable: atoi(t.Get(row, 13)),
+		Series: cell(t, row, 10, 0), Price: cell(t, row, 11, 0), Level: cell(t, row, 12, 1), Stackable: cell(t, row, 13, 0),
 	}
+	// KBPT_Equip::ReadRow (jx_linux_y 0x081ED830): an empty attribute cell is -1 = none
 	for i := 0; i < 7; i++ { // columns 14..34: type, min, max
 		c := 14 + i*3
-		if typ := atoi(t.Get(row, c)); typ != 0 {
-			e.Basics = append(e.Basics, Basic{Type: typ, Range: Range{atoi(t.Get(row, c+1)), atoi(t.Get(row, c+2))}})
+		if typ := cell(t, row, c, -1); typ > 0 {
+			e.Basics = append(e.Basics, Basic{Type: typ, Range: Range{cell(t, row, c+1, -1), cell(t, row, c+2, -1)}})
 		}
 	}
 	for i := 0; i < 6; i++ { // columns 35..46: type, value
 		c := 35 + i*2
-		if typ := atoi(t.Get(row, c)); typ != 0 {
-			e.Reqs = append(e.Reqs, Req{Type: typ, Para: atoi(t.Get(row, c+1))})
+		if typ := cell(t, row, c, -1); typ > 0 {
+			e.Reqs = append(e.Reqs, Req{Type: typ, Para: cell(t, row, c+1, -1)})
 		}
 	}
 	if gold {
@@ -322,11 +354,12 @@ func Load(dir, version string) (*Set, error) {
 		for row := 2; row <= t.Height(); row++ {
 			m := Medicine{Row: row - 1, Name: vi(t.Get(row, 1)), Genre: atoi(t.Get(row, 2)), Detail: atoi(t.Get(row, 3)), Particular: atoi(t.Get(row, 4)),
 				Image: t.Get(row, 5), ObjIdx: atoi(t.Get(row, 6)), Width: atoi(t.Get(row, 7)), Height: atoi(t.Get(row, 8)), Intro: vi(t.Get(row, 9)),
-				Price: atoi(t.Get(row, 11)), Level: atoi(t.Get(row, 12)), Stackable: atoi(t.Get(row, 13))}
-			// the old core read two attributes (columns 14..19); the JX2 file has five (..28): keep them all
+				Price: cell(t, row, 11, 0), Level: cell(t, row, 12, 1), Stackable: cell(t, row, 13, 0)}
+			// the old core read two attributes (columns 14..19; KBPT_Medicine::ReadRow 0x081ED430,
+			// empty = -1); the JX2 file has five (..28): keep them all
 			for c := 14; c+2 <= t.Width(); c += 3 {
-				if a := atoi(t.Get(row, c)); a != 0 {
-					m.Attribs = append(m.Attribs, MedAttrib{Attrib: a, Value: atoi(t.Get(row, c+1)), Time: atoi(t.Get(row, c+2))})
+				if a := cell(t, row, c, -1); a > 0 {
+					m.Attribs = append(m.Attribs, MedAttrib{Attrib: a, Value: cell(t, row, c+1, -1), Time: cell(t, row, c+2, -1)})
 				}
 			}
 			s.Medicine = append(s.Medicine, m)
@@ -359,14 +392,15 @@ func Load(dir, version string) (*Set, error) {
 		s.Missing = append(s.Missing, "townportal")
 	}
 	if t, _, err := readTable(dir, "magicattrib"); err == nil {
+		// KBPT_MagicAttrib_TF::ReadRow (jx_linux_y 0x081EEE30): every number defaults to -1
 		for row := 2; row <= t.Height(); row++ {
-			m := MagicAttrib{Row: row - 1, Name: vi(t.Get(row, 1)), Pos: atoi(t.Get(row, 2)), Class: atoi(t.Get(row, 3)), Level: atoi(t.Get(row, 4)),
-				Kind: atoi(t.Get(row, 5)), Intro: vi(t.Get(row, 12))}
+			m := MagicAttrib{Row: row - 1, Name: vi(t.Get(row, 1)), Pos: cell(t, row, 2, -1), Class: cell(t, row, 3, -1), Level: cell(t, row, 4, -1),
+				Kind: cell(t, row, 5, -1), Intro: vi(t.Get(row, 12))}
 			for i := 0; i < 3; i++ {
-				m.Ranges = append(m.Ranges, Range{atoi(t.Get(row, 6+i*2)), atoi(t.Get(row, 7+i*2))})
+				m.Ranges = append(m.Ranges, Range{cell(t, row, 6+i*2, -1), cell(t, row, 7+i*2, -1)})
 			}
 			for c := 13; c <= t.Width(); c++ {
-				m.DropRates = append(m.DropRates, atoi(t.Get(row, c)))
+				m.DropRates = append(m.DropRates, cell(t, row, c, -1))
 			}
 			s.Magic = append(s.Magic, m)
 		}
@@ -375,9 +409,9 @@ func Load(dir, version string) (*Set, error) {
 	}
 	if t, _, err := readTable(dir, "magicattrib_ge"); err == nil {
 		for row := 2; row <= t.Height(); row++ {
-			g := GoldMagic{Row: row - 1, Name: vi(t.Get(row, 1)), Kind: atoi(t.Get(row, 5)), Intro: vi(t.Get(row, 12))}
+			g := GoldMagic{Row: row - 1, Name: vi(t.Get(row, 1)), Kind: cell(t, row, 5, -1), Intro: vi(t.Get(row, 12))}
 			for i := 0; i < 3; i++ {
-				g.Ranges = append(g.Ranges, Range{atoi(t.Get(row, 6+i*2)), atoi(t.Get(row, 7+i*2))})
+				g.Ranges = append(g.Ranges, Range{cell(t, row, 6+i*2, -1), cell(t, row, 7+i*2, -1)})
 			}
 			s.GoldMagic = append(s.GoldMagic, g)
 		}

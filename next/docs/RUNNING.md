@@ -94,6 +94,8 @@ Client có vài tham số dòng lệnh (sau `--`) cho test và chụp màn hình
 `--account=`, `--password=`, `--shot=<cửa sổ>` (mở thẳng một cửa sổ đăng nhập 2.0 và chụp ảnh:
 `bat-dau`, `chon-may-chu`, `dang-nhap`, `chon-nhan-vat`, `chon-tan-thu-thon`, `tao-nhan-vat`),
 `--serverlist=<tệp>`, `--region=`, `--roles=`, `--series=`. Ví dụ: `godot --path client -- --shot=dang-nhap`.
+Mổ nhị phân client 2.0: `python tools/re/re_upx.py build/re/gamecl.exe` (chép `gamecl.exe` vào `build/re/`
+trước; kết quả `.unpacked.img` đọc bằng mọi `tools/re/re_*.py`), xem [CLIENT-2.0.md](CLIENT-2.0.md).
 Ảnh các cửa sổ vật phẩm với dữ liệu mẫu: `godot --path client tests/UiItemPreview.tscn` →
 `user://logs/ui_vat-pham.png`. Trên máy phát triển (`dev.py start` bật `zone.gm_chat`), gõ vào chat
 `?gm ds AddItem(0,0,0,1,0,0)` để zone đưa một món vào túi (`KGMCommand.cpp` cũ: `?gm ds <lua>` chạy

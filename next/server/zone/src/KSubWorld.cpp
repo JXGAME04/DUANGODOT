@@ -1303,7 +1303,10 @@ void KSubWorld::fill_item_view(const KItem& item, const KItemPlace& place, pb::I
     };
     for (const auto& a : item.base) if (!a.empty()) magic_out(a, out.add_base());
     for (const auto& a : item.require) if (!a.empty()) magic_out(a, out.add_require());
-    for (const auto& a : item.magic) if (!a.empty()) magic_out(a, out.add_magic());
+    // all six magic slots, empty ones included: the client tells prefixes (even slots) from
+    // suffixes (odd slots) by the index, as KItem::GetDesc of the 2.0 client does
+    for (const auto& a : item.magic) magic_out(a, out.add_magic());
+    out.set_version(item.version);
 }
 
 void KSubWorld::send_item_list(std::uint64_t sid)

@@ -30,6 +30,7 @@ const UiMouseHover := preload("res://ui/uicase/UiMouseHover.gd")
 const KWndObjContainer := preload("res://ui/elem/KWndObjContainer.gd")
 const KMagicDesc := preload("res://ui/KMagicDesc.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
+const KTextEncode := preload("res://ui/KTextEncode.gd")
 
 const SCREEN := Vector2i(1024, 768)
 
@@ -381,14 +382,43 @@ func _check_item_windows() -> void:
 	check(KMagicDesc.describe({"type": 999, "value": [1, 0, 0]}) == "", "an unknown id has no sentence")
 	var lines := KUiItemView.describe(Game.items[2])
 	check(lines.size() >= 4 and str(lines[0].text) == "Áo vàng [Cấp 1]" and lines[0].color == KUiItemView.NAME_COLORS[1], "a gold piece is named in gold with its level: %s" % str(lines[0]))
-	# KItem::GetDesc: a white piece is white, one with a prefix / suffix is blue, a quest item yellow, a potion white
+	# KItem::GetDesc of the 2.0 client: a white piece is white, one with a prefix / suffix is blue, a quest item yellow, a potion white
 	check(KUiItemView.name_color(Game.items[1]) == Color.WHITE, "a piece without magic is named in white")
 	var blue: Dictionary = Game.items[1].duplicate(true)
-	blue["magic"] = [{"type": 100, "value": [3, -1, 0]}]
+	blue["magic"] = [{"type": 28, "value": [3, -1, 0]}, {"type": 0, "value": [0, 0, 0]}, {"type": 29, "value": [5, -1, 0]}]
 	check(KUiItemView.name_color(blue) == KUiItemView.NAME_COLOR_MAGIC, "a piece with a prefix is named in blue (100,100,255)")
 	check(KUiItemView.name_color({"genre": 4, "name": "Thư"}) == Color8(255, 255, 0), "a quest item is named in yellow")
-	check(KUiItemView.name_color(Game.items[3]) == Color.WHITE and KUiItemView.title_of(Game.items[3]) == "Thuốc x5", "a stack of potions: white, ' x5', no level")
+	check(KUiItemView.name_color(Game.items[3]) == Color.WHITE and KUiItemView.title_of(Game.items[3]) == "Thuốc", "a stack of potions: white, no count in the name, no level")
 	check(not KUiItemView.usable(Game.items[2]) and KUiItemView.usable(Game.items[1]), "the armour of a woman is not for this man, the sword is")
+	# the text line by line, as gamecl.exe 0x00636460 writes it (docs/CLIENT-2.0.md)
+	var text := KUiItemView.describe_text(blue)
+	var tl := text.split("\n")
+	check(tl[0] == "<color=Blue>Kiếm 1 [Cấp 1]", "line 1: the blue name with [Cấp 1]: %s" % tl[0])
+	check(tl[1] == "<color=White>Thuộc tính Ngũ hành: <color=Water>Thủy ", "line 2: G_ITEM_5, the element of the piece: %s" % tl[1])
+	check(tl[2] == "<color=White>", "line 3: '<color=White>' + an empty description: %s" % tl[2])
+	check(tl[3].begins_with("Sát thương nhỏ nhất") and tl[4].begins_with("Sát thương lớn nhất"), "lines 4-5: the base attributes")
+	check(tl[5].begins_with("<color=White>Yêu cầu") and tl[5].ends_with("5"), "line 6: a requirement this level-9 character meets, white: %s" % tl[5])
+	check(tl[6].begins_with("<color=HBlue>Sát thương nhỏ nhất") and tl[6].ends_with("<color=0xc0c0c0>[0-0]"), "line 7: the prefix in HBlue with its [min-max]: %s" % tl[6])
+	check(tl[7].begins_with("<color=HBlue>Sát thương lớn nhất"), "line 8: the third slot is a prefix again (even index), the empty second slot is skipped: %s" % tl[7])
+	check(tl[8] == "", "the text ends with a newline")
+	var sword: Dictionary = Game.items[1].duplicate(true)
+	sword["base"] = [{"type": 28, "value": [4, 0, 0]}, {"type": 31, "value": [20, 0, 0]}]
+	var st2 := KUiItemView.describe_text(sword).split("\n")
+	check(st2[4] == "Độ bền:  20 /  20", "durability as G_ITEM_9_1 'Độ bền: %%3d / %%3d': '%s'" % st2[4])
+	sword["durability"] = -1
+	check(KUiItemView.describe_text(sword).split("\n")[4] == "<color=Yellow>Không thể phá hủy<color>", "durability -1 is G_ITEM_8")
+	var pot := KUiItemView.describe_text(Game.items[3]).split("\n")
+	check(pot[0] == "<color=White>Thuốc" and pot[1] == "<color=White>" and pot[2].begins_with("Phục hồi sinh lực"), "a potion: name, the empty description (no element line), its effect: %s" % str(pot))
+	# g_StrWrap: a description longer than 40 characters is spread evenly, in the middle of a word if need be
+	check(KTextEncode.str_wrap("abc", 40) == "abc\n", "a short description is one line")
+	var wrapped := KTextEncode.str_wrap("Loại kiếm nhỏ bằng sắt, khả năng sát thương kém, dùng cho người mới.", 40)
+	var wl := wrapped.split("\n")
+	check(wl.size() == 3 and wl[2] == "" and wl[0].length() > 20 and wl[1].length() > 20, "65 characters -> 2 lines (n / 40 + 1) of about n / 2: %s" % str(wl))
+	check(KTextEncode.str_wrap("một<enter>hai", 40) == "một\nhai\n", "<enter> is a break of its own")
+	# the engine's colours: names of enginefree.dll, hex, <color> back to the base
+	var runs := KTextEncode.runs_of("<color=HBlue>a<color=0xff8c27>b<color>c", Color.WHITE)
+	check(runs.size() == 3 and runs[0].color == Color8(100, 100, 255) and runs[1].color == Color8(255, 140, 39) and runs[2].color == Color.WHITE, "HBlue, 0xff8c27, restore: %s" % str(runs))
+	check(KTextEncode.runs_of("<trang bị tổn hại>x", Color.WHITE)[0].text == "<trang bị tổn hại>x", "an unknown tag stays text")
 
 	# the bag: 6 x 10 cells of 28 px with a 2 px border, the things of the bag room, the money
 	var bag := UiItem.new()
@@ -440,15 +470,24 @@ func _check_item_windows() -> void:
 	st.slots["Seal"].put_requested.emit(0, 0)
 	check(put_on == [3], "a piece dropped on the weapon slot asks for part 3, the JX2 seal slot asks nothing: %s" % str(put_on))
 
-	# the tooltip: width from the longest line, a strip above and below, flips left at the edge
+	# the tooltip (KMouseOver): lines by "\n", 64-character wrap, at least 26 characters wide,
+	# 13 px a line, centred under the cursor in the upper half of the screen, above it below
 	var tip := UiMouseHover.new()
 	_host.add_child(tip)
 	check(tip.load_scheme(SCREEN), "the tooltip builds")
 	check(tip.img_width == 12 and tip.img_height == 9 and tip.indent == 6 and tip.font_size == 12, "ImgWidth 12, ImgHeight 9, Indent 6, Font 12")
-	tip.show_lines(lines, Vector2(100, 100))
-	check(tip.visible and tip.position == Vector2(116, 116) and int(tip.size.y) == 13 * lines.size() + 18, "the box opens below right of the cursor, 13 px a line + 2 x 9: %s" % str(tip.size))
-	tip.show_lines(lines, Vector2(1020, 100))
-	check(tip.position.x == 1020 - tip.size.x, "at the right edge it opens to the left")
+	var laid := UiMouseHover.layout_lines("<color=Blue>ab\ncd\n\n", Color.WHITE)
+	check(laid.size() == 3 and int(laid[2].len) == 0 and laid[0].parts[0].color == Color8(100, 100, 255), "three lines, the last empty; the tail after the last newline is nothing: %s" % str(laid))
+	var long := ""
+	for i in range(70):
+		long += "x"
+	laid = UiMouseHover.layout_lines(long, Color.WHITE)
+	check(laid.size() == 2 and int(laid[0].len) == 64 and int(laid[1].len) == 6, "70 characters break at 64: %s" % str(laid))
+	tip.show_text("<color=Blue>Kiếm 1 [Cấp 1]\nab\n", Vector2(100, 100))
+	check(tip.visible and int(tip.size.x) == 12 * 26 / 2 + 12 and int(tip.size.y) == 13 * 2, "26 characters wide at least (6 px each) + 2 x 6, 13 px a line: %s" % str(tip.size))
+	check(tip.position == Vector2(100 - int(tip.size.x) / 2, 132), "centred on the cursor, 32 px below it in the upper half: %s" % str(tip.position))
+	tip.show_text("ab\n", Vector2(1020, 700))
+	check(tip.position.x == 1024 - tip.size.x and tip.position.y == 700 - tip.size.y, "kept on screen at the right edge, above the cursor in the lower half: %s" % str(tip.position))
 	tip.hide_lines()
 	check(not tip.visible, "hidden when there is nothing to say")
 	bag.queue_free()

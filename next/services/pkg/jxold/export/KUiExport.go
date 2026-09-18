@@ -725,7 +725,14 @@ func (e *Exporter) UiStrings(name, gamePath string) (int, error) {
 		if key == "" || key == "key" { // the header row
 			continue
 		}
-		table[key] = DecodeValue(strings.TrimRight(line[tab+1:], "\t "))
+		// what the player reads, TCVN3 throughout (a "/" inside "Độ bền: %3d / %3d" is no path),
+		// with its trailing spaces: KItem::GetDesc appends "...<color=Metal>Kim " space and all
+		value := strings.TrimRight(line[tab+1:], "\t")
+		if text.IsTCVN3([]byte(value)) {
+			table[key] = text.TCVN3ToUTF8([]byte(value))
+		} else {
+			table[key] = DecodeValue(value)
+		}
 	}
 	blob, err := json.MarshalIndent(map[string]any{"source": gamePath, "strings": table}, "", "  ")
 	if err != nil {

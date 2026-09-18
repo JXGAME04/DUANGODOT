@@ -3035,6 +3035,11 @@ class ItemView:
 		service.func_ref = Callable(self, "add_magic")
 		data[__magic.tag] = service
 		
+		__version = PBField.new("version", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 23, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __version
+		data[__version.tag] = service
+		
 	var data = {}
 	
 	var __id: PBField
@@ -3316,6 +3321,19 @@ class ItemView:
 		var element = ItemMagic.new()
 		__magic.value.append(element)
 		return element
+	
+	var __version: PBField
+	func has_version() -> bool:
+		if __version.value != null:
+			return true
+		return false
+	func get_version() -> int:
+		return __version.value
+	func clear_version() -> void:
+		data[23].state = PB_SERVICE_STATE.UNFILLED
+		__version.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_version(value : int) -> void:
+		__version.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

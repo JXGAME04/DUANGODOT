@@ -138,6 +138,33 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-18 (tối) — chú thích vật phẩm dựng lại từng dòng theo **nhị phân client 2.0** (mở UPX `gamecl.exe`); sửa bộ đọc bảng: ô trống = mặc định của server
+
+Chủ dự án: "Thiếu hệ item và các dòng chưa nằm giữa"; "hình ảnh phải lấy đúng chuẩn bản 2.0 còn code thì bản
+Linux"; "phải kiểm tra từng dòng nhị phân". Ảnh: `build/shots/auto_item_tip.png` (đã gửi).
+
+- **Mở được nhị phân client 2.0**: `gamecl.exe` là core + UI nén UPX 3.03 → `tools/re/re_upx.py` (giải nén NRV2E,
+  bỏ lọc E8, dựng lại import từ stub nạp) → ảnh bộ nhớ 34,6 MB mà mọi `re_*` đọc như ELF. Tài liệu mới
+  [`CLIENT-2.0.md`](CLIENT-2.0.md): địa chỉ, bảng chuỗi, luật.
+- **`KItem::GetDesc` `0x00636460`** đọc từng dòng: màu tên (Blue 100,100,255 khi có ma pháp; Yellow hoàng kim;
+  Violet; Red hỏng), ` [Cấp N]`, dòng **"Thuộc tính Ngũ hành: <màu hệ>Kim "** (`G_ITEM_3..7`, chỉ trang bị không
+  mặt nạ), mô tả qua **`g_StrWrap(.., 40)`** của `engineFree.dll` (chia đều `n/40+1` dòng), độ bền `"Độ bền: %3d /
+  %3d"` / "Không thể phá hủy", yêu cầu trắng/đỏ, ma pháp tiền tố HBlue + **`[min-max]`** (`GetMagicRange` trên
+  `m_CMAIT`) / hậu tố DBlue khi chưa kích hoạt, `"\n"` trống cuối (bọc `0x6b66a0`). Chuỗi lấy từ
+  `\lang\vn\stringtable_core.txt` (xuất mới `ui/du-lieu/chuoi-core.json`; bộ xuất giữ khoảng trắng cuối và
+  giải mã TCVN3 thuần). Bảng màu tên của engine dump từ `enginefree.dll` (Violet 188,64,255, DYellow 127,127,0…).
+- **`KMouseOver`**: mọi dòng **căn giữa**, ngắt 64 ký tự, rộng ≥ 26 ký tự, 13 px/dòng, vị trí `ALW_GetWndPosition`
+  (giữa con trỏ, dưới 32 px ở nửa trên màn hình) — `UiMouseHover.gd` viết lại; `KTextEncode.gd` (thẻ màu),
+  `KMagicRange.gd` (`items/magic.json` mới của `export-items`), `ItemView.version` + đủ 6 ô ma pháp (chẵn/lẻ).
+- **Lỗi thật tìm ra khi đối chiếu**: `KTabFile::GetInteger` của server Linux (`0x08227E10`) trả **mặc định khi ô
+  trống** (`GetValue 0x08227A00` fail với ô dài 0) — bộ xuất Go dùng `atoi("") = 0`. Với `magicattrib.txt`
+  (bộ đọc `0x081EEE30`, mọi số mặc định −1) **116/330 dòng có hệ trống = mọi hệ (−1)** chứ không phải Kim (0)
+  → `Gen_MagicAttrib` của ta đã bỏ sót chúng cho hệ 1..4. Sửa: `cell(t,row,col,def)` + mặc định đúng từng bộ
+  đọc (`tools/re/re_tabdesc.py` in mảng mô tả cột của mọi `KBPT_*::ReadRow`: trang bị hệ 0/giá 0/cấp 1/khác −1).
+- Test: UiCheck 153 (+19: từng dòng của GetDesc, `g_StrWrap`, thẻ màu, `KMouseOver`), run.gd 262, zone
+  `[item]` 18/18, e2e `AUTO_MAGIC count=6`. Còn (ghi §4 `CLIENT-2.0.md`): tên/mô tả theo **bảng của client**
+  (chữ khác bảng server), `nActive` khi mặc (tương sinh), giá cửa hàng.
+
 ### 2026-09-18 (chiều) — M11 lát F: ma pháp tiền tố / hậu tố khi sinh trang bị (`Gen_MagicAttrib`) — đối chiếu nhị phân Linux từng dòng
 
 Từ lát này trang bị rơi ra (và `AddItem(... magic1..6)`) có thuộc tính ma pháp thật: "Sắc bén", "của Mãnh Hổ"…
