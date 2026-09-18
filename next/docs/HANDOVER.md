@@ -157,7 +157,8 @@ ctest --preset windows-msvc-release                                            #
 cd services && go test ./... && go vet ./... && gofmt -l .                     # Go
 python tools/check_includes.py && python tools/check_log_catalog.py            # trước commit
 python tools/dev.py assets        # xuất map/UI/vật phẩm/bảng người chơi (player.json) từ bản cũ
-python tools/dev.py start         # gateway + zone + client (dừng server trước khi build lại)
+python tools/dev.py start         # gateway + zone (dừng server trước khi build lại)
+client.cmd                        # nhấp đôi: mở client Godot (tự tìm Godot 4.7 trong WinGet; hoặc python tools/dev.py client)
 python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
