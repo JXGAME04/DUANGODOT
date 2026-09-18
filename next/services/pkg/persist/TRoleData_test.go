@@ -3,6 +3,7 @@ package persist
 import (
 	"context"
 	"errors"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
 	"os"
 	"path/filepath"
 	"testing"
@@ -114,5 +115,33 @@ func TestStoreMigratesOnOpenAndWritesBack(t *testing.T) {
 	}
 	if _, err := OpenFileStore(dir); !errors.Is(err, ErrNewerData) {
 		t.Fatalf("newer record loaded: %v", err)
+	}
+}
+
+func TestMigrationThreeReplacesThePlaceholderPoints(t *testing.T) {
+	set := &player.Set{}
+	set.LevelAdd[0] = player.LevelAdd{LifePerLevel: 4, StaminaMalePerLevel: 9, StaminaFemalePerLevel: 8, ManaPerLevel: 1, LifePerVitality: 8, ManaPerEnergy: 1, StaminaMaleBase: 180, StaminaFemaleBase: 180}
+	set.NewPlayer[0] = player.NewPlayer{Present: true, Strength: 35, Dexterity: 25, Vitality: 25, Energy: 15, LifeMax: 204, ManaMax: 16, Level: 1}
+	SetNewPlayerSet(set)
+	defer SetNewPlayerSet(nil)
+	// a level-9 record with the old placeholders (10/10/10/10, 100 / 50)
+	r := &jxpb.RoleData{PlayerId: 1, Name: "Cu", Level: 9, Series: 0, Sex: 0, DataVersion: 2,
+		Stats: &jxpb.RoleStats{Hp: 100, HpMax: 100, Mp: 50, MpMax: 50, Stamina: 100, StaminaMax: 100, Strength: 10, Dexterity: 10, Vitality: 10, Energy: 10, MoveSpeed: 200}}
+	changed, err := MigrateRole(r)
+	if err != nil || !changed || r.DataVersion != CurrentRoleVersion {
+		t.Fatalf("migrate: %v %v %d", err, changed, r.DataVersion)
+	}
+	s := r.Stats
+	if s.Strength != 35 || s.Dexterity != 25 || s.Vitality != 25 || s.Energy != 15 {
+		t.Fatalf("points %+v", s)
+	}
+	if s.HpMax != 204+4*8 || s.MpMax != 16+8 || s.StaminaMax != 180+9*8 || s.AttributePoint != 5*8 || s.SkillPoint != 8 {
+		t.Fatalf("level 9 numbers %+v", s)
+	}
+	// real numbers are left alone
+	r2 := &jxpb.RoleData{PlayerId: 2, Name: "Da", Level: 3, DataVersion: 2,
+		Stats: &jxpb.RoleStats{Hp: 300, HpMax: 300, Mp: 20, MpMax: 20, Stamina: 100, StaminaMax: 100, Strength: 40, Dexterity: 12, Vitality: 12, Energy: 12, MoveSpeed: 200}}
+	if _, err := MigrateRole(r2); err != nil || r2.Stats.Strength != 40 || r2.Stats.HpMax != 300 {
+		t.Fatalf("real numbers changed: %+v", r2.Stats)
 	}
 }

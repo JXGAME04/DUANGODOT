@@ -19,7 +19,7 @@ import (
 //     or repairing existing values, does.
 //
 // See docs/ADR-003-role-data.md.
-const CurrentRoleVersion uint32 = 2
+const CurrentRoleVersion uint32 = 3
 
 // ErrNewerData is returned when a record was written by a newer server.
 var ErrNewerData = fmt.Errorf("persist: character was written by a newer server (data_version > %d)", CurrentRoleVersion)
@@ -73,6 +73,39 @@ var roleMigrations = []roleMigration{
 			}
 		},
 	},
+	{
+		version: 3,
+		what:    "characters made before the player tables: the placeholder points become the newplayerini template of their series and sex",
+		apply: func(r *jxpb.RoleData) {
+			if NewPlayerSet == nil || !placeholderStats(r.Stats) {
+				return
+			}
+			t := NewPlayerSet.NewPlayerFor(int(r.Series), int(r.Sex))
+			if t == nil {
+				return
+			}
+			s := r.Stats
+			s.Strength, s.Dexterity, s.Vitality, s.Energy, s.Lucky = int32(t.Strength), int32(t.Dexterity), int32(t.Vitality), int32(t.Energy), int32(t.Lucky)
+			// the level's worth of points and life / mana, as if the levels had been earned with the tables
+			level := int(r.Level)
+			if level < 1 {
+				level = 1
+			}
+			add := NewPlayerSet.LevelAdd[r.Series%uint32(len(NewPlayerSet.LevelAdd))]
+			s.HpMax = int32(t.LifeMax + add.LifePerLevel*(level-1))
+			s.MpMax = int32(t.ManaMax + add.ManaPerLevel*(level-1))
+			s.StaminaMax = int32(NewPlayerSet.GetStaminaBase(int(r.Series), int(r.Sex), level))
+			s.Hp, s.Mp, s.Stamina = s.HpMax, s.MpMax, s.StaminaMax
+			s.AttributePoint = int32(t.AttributePoint + 5*(level-1))
+			s.SkillPoint = int32(t.SkillPoint + (level - 1))
+		},
+	},
+}
+
+// placeholderStats reports the numbers NewRole gave before the player tables existed (10 of each
+// point, 100 life, 50 mana): a record that still carries them was never played with real numbers.
+func placeholderStats(s *jxpb.RoleStats) bool {
+	return s != nil && s.Strength == 10 && s.Dexterity == 10 && s.Vitality == 10 && s.Energy == 10 && s.HpMax == 100 && s.MpMax == 50
 }
 
 func clampStat(v, max int32) int32 {

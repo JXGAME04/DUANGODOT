@@ -79,6 +79,17 @@ func main() {
 		log.Info("cfg", "setting", log.F("key", kv[0]), log.F("value", kv[1]))
 	}
 
+	// what a new character starts with (settings/npc/player of the old server, exported by
+	// jxassets export-player); without the file the built-in placeholder numbers are used.  Loaded
+	// before the store opens: the migration of old records uses it too.
+	if pf := cfg.String("gateway.player_file", "client/assets/player.json"); pf != "" {
+		if set, err := player.Read(pf); err == nil {
+			persist.SetNewPlayerSet(set)
+			log.Info("boot", "new character templates loaded", log.F("file", pf))
+		} else {
+			log.Warn("boot", "new character templates not loaded", log.F("file", pf), log.F("error", err))
+		}
+	}
 	// accounts and characters: PostgreSQL when gateway.db names one (M9), else the file store of
 	// a developer's machine under gateway.data_dir
 	var store persist.Store
@@ -93,16 +104,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer store.Close()
-	// what a new character starts with (settings/npc/player of the old server, exported by
-	// jxassets export-player); without the file the built-in placeholder numbers are used
-	if pf := cfg.String("gateway.player_file", "client/assets/player.json"); pf != "" {
-		if set, err := player.Read(pf); err == nil {
-			persist.SetNewPlayerSet(set)
-			log.Info("boot", "new character templates loaded", log.F("file", pf))
-		} else {
-			log.Warn("boot", "new character templates not loaded", log.F("file", pf), log.F("error", err))
-		}
-	}
 
 	// the account server: "dev" registers any new name on first login, "strict" only knows
 	// accounts made with jxaccount
