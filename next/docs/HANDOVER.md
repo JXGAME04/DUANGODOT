@@ -1,10 +1,166 @@
-# Bàn giao JX NEXT — trạng thái ngày 2026-09-17
+# Bàn giao JX NEXT — trạng thái ngày 2026-09-19
 
 Tài liệu này trả lời ba câu: **đang ở đâu**, **còn gì phải làm**, **làm theo thứ tự nào**. Người
 tiếp nhận đọc xong là chạy được hệ thống và biết bước kế tiếp mà không phải hỏi ai.
 
 Phạm vi đã chốt: **làm bản PC (Windows) trước**. Android và các nền tảng khác để sau, codebase giữ
 đủ trừu tượng để thêm vào nhưng chưa làm.
+
+## 0. Hướng dẫn cho phiên sau — đọc trước tiên (cập nhật 2026-09-19)
+
+Mục này gom **toàn bộ** những gì một phiên mới cần để tiếp tục mà không phải hỏi lại: quy tắc chủ dự
+án đã đặt, hai nguồn nhị phân và cách mổ, việc đã làm / chưa làm và cách làm, lỗi đã mắc, cách làm
+đang tốt. Các mục 1–5 phía dưới vẫn đúng và chi tiết hơn ở từng phần.
+
+### 0.1 Quy tắc làm việc (chủ dự án đã nói — bắt buộc)
+
+1. **Đọc mã nguồn, không đoán mò.** Mọi luật game phải lấy từ **nhị phân Linux** (`D:\ServerLinux\server1\jx_linux_y`)
+   đọc **từng dòng**; mọi hình ảnh / bố cục / câu chữ giao diện phải lấy từ **client 2.0**
+   (`C:\Users\nguye\Level Up Games\Vo Lam Truyen Ky 2.0`). Nguồn cũ VC6 (`SwordOnline/Sources`, bản JX1)
+   chỉ dùng để **đặt tên** và hiểu ý đồ, không dùng làm luật (bản 2.0 là JX2, khác số).
+2. **Xong phần nào → ghi `docs/HANDOVER.md` (mục 4b) + commit + push ngay**, rồi dời nhánh
+   `safe/jxnext-2026-09-17` và tag `backup/jxnext-2026-09-17` lên commit mới nhất (`git branch -f`,
+   `git tag -f`, `git push -f origin <cả hai>`). Chủ dự án xem GitHub Desktop, nên không gom nhiều việc
+   vào một commit. Sau khi xong một cụm việc thì **fast-forward `main`** lên nhánh làm việc
+   (`git push origin HEAD:main`) cho đồng bộ.
+3. **Làm liên tục đến khi chủ dự án bảo dừng.** Không dừng giữa chừng để hỏi; gặp trở ngại thường
+   (lỗi build, test đỏ, thiếu dữ liệu) thì tự xử lý; chỉ dừng khi cần một quyết định thật sự của chủ dự án.
+   Mỗi lúc bắt đầu / xong một phần thì báo ngắn: **"Đang làm: …"** / **"Xong: …"**, có ảnh chụp thì gửi.
+4. Log của `jx_zone` và `jx_gateway` phải **rõ từng dòng, tiếng Việt hoặc tiếng Anh chi tiết**: mọi
+   thông báo / trường mới phải có trong `config/log.vi.json` (`python tools/check_log_catalog.py` phải sạch;
+   CI chạy nó trước mọi thứ).
+5. **Đặt tên tệp / lớp theo nguồn cũ** (`KNpc`, `KPlayer`, `KItemList`, `UiStatus`…), bảng đối chiếu ở
+   `docs/OLD-TO-NEW.md`; mỗi tệp mới thêm một dòng vào đó.
+6. **PostgreSQL lưu theo từng nhân vật, rải đều, không dồn dập** (mục tiêu 20 000 người một server) —
+   đã làm ở M9 (`PgStore`, hàng đợi lưu riêng ở gateway); không được quay lại kiểu lưu cả cụm.
+7. **PC trước**; nền tảng khác để sau nhưng không được viết mã chặn đường.
+8. Nâng cấp công nghệ để mã dùng được 5–10 năm: C++20 + CMake + vcpkg, Go 1.26, Godot 4.7, protobuf;
+   không thêm lớp tương thích tạm, không giữ Lua 4.
+9. Không cài phần mềm lên máy chủ dự án khi chưa hỏi (không có PostgreSQL / Docker / GCC tại chỗ —
+   PostgreSQL thật chạy trong CI). Không dùng token GitHub của chủ dự án; không đăng nhập game thật;
+   không nhập mật khẩu.
+10. Trước khi build C++ phải **tắt server đang chạy** (LNK1168). **Không bao giờ giết tiến trình của chủ
+    dự án** (server ở checkout chính, cổng 17001/17100/17102); chỉ tắt tiến trình test do mình mở.
+    Khi cần chạy song song thì `JX_PORT_OFFSET=1000`.
+11. Không commit dữ liệu game (`data/`, `client/assets/`, `config/*.local.json`, DB tài khoản, `build/`).
+    Không sửa nguồn cũ GBK/TCVN3 bằng công cụ soạn thảo thường (đọc qua `python … decode('gbk')`).
+12. Mọi câu hỏi thiết kế trả lời bằng **số đo và bằng chứng** (địa chỉ hàm, dòng nguồn cũ, ảnh chụp).
+
+### 0.2 Hai nguồn nhị phân — đường dẫn, công cụ, cách mổ
+
+| | Bản Linux (luật game) | Client 2.0 (hình ảnh, chữ, bố cục) |
+|---|---|---|
+| Tệp | `D:\ServerLinux\server1\jx_linux_y` (ELF 32-bit không section header), `gateway\s3relay_y`, `bishop_y`; bảng: `D:\ServerLinux\server1\settings\`, script: `…\script\` | `C:\Users\nguye\Level Up Games\Vo Lam Truyen Ky 2.0\gamecl.exe` (UPX 3.03), `enginefree.dll`, kho `Data\*.pak`, `\reslst.dat` |
+| Mở | `python tools/re/re_calls.py D:/ServerLinux/server1/jx_linux_y build` (một lần, cache `jx_linux_y.calls.json`) | `python tools/re/re_upx.py "<gamecl.exe>"` → `build/re/gamecl.exe.unpacked.img` + `.json`; các công cụ dưới đọc `.img` như ELF |
+| Dịch ngược | `re_elf.py <bin> dis <va> [n]`, `func <va>`, `xref <va>`, `xrefstr <chuỗi>`, `strings <regex>`, `luamap` | như bên trái (`function_start` biết prologue MSVC) + `re_pe.py`, `re_dll.py` cho DLL, `imgstr.py` |
+| Ai gọi ai | `re_calls.py <bin> callers <va>`, `strargs`, `byarg <chuỗi>` (xem chuỗi/đối tượng truyền vào từng lời gọi) | cùng công cụ trên `.img` |
+| Thành viên / bảng con trỏ hàm | `re_scan.py <bin> disp <hex>[,…] [mnemonic]` (ai đọc/ghi `[reg+off]`), `pmf` (ctor đổ `ProcessFunc[]`), `ins <regex>` | cùng |
+| Bảng settings ↔ cột | `re_tables.py`, `re_tabdesc.py <bin> <reader-va>` (mảng mô tả cột `{kiểu, đích, mặc định}` của `KBPT_*::ReadRow`) | bảng của client nằm trong pak: `jxassets export-items` tự rút `\settings\item\NNN\*.txt` |
+| Chữ ký hàm Lua | `re_luasig.py` → `docs/linux/jx_linux_luasig.tsv` (1506 hàm) | — |
+| Ma pháp ↔ ô KNpc | `re_attribmod.py <bin>` → `docs/linux/jx_linux_attribmod.tsv` | — |
+| Kết quả ghi ở | `docs/LINUX-SERVER.md` (§9 vật phẩm, §10 KNpc/KPlayer, §10.5 kinh nghiệm), `docs/linux/*.tsv` | `docs/CLIENT-2.0.md` (`KItem::GetDesc`, `KMouseOver`, bảng chuỗi `stringtable_core`, màu engine) |
+
+Cách tìm một hàm không có tên (đã dùng suốt M11–M12, luôn hiệu quả):
+1. **Chuỗi**: `re_elf.py … strings "<regex>"` rồi `xrefstr` → hàm chứa chuỗi log/lỗi (ví dụ
+   `"m_CurrentHitRecover:%d"` → `KNpc::OnHurt`).
+2. **Bảng con trỏ hàm**: `re_scan.py … pmf` → ctor `KNpcAttribModify` (0x08099600), `KProtocolProcess` (0x080DA560).
+3. **Offset thành viên đã biết**: `re_scan.py … disp 15ac,15b4` → mọi hàm chạm `m_LifeMax` → ra
+   `ClearAttrib`, `LoadFrom`, `LevelUp`… rồi `re_calls callers` để biết ai gọi.
+4. **Hàm Lua**: `luamap` / `jx_linux_luasig.tsv` cho địa chỉ hàm C++ đứng sau tên script (`AddExp` →
+   `0x0811A140` → `KPlayer::AddExp 0x080B00C0`).
+5. **Đọc gọn nhiều hàm nhỏ**: bản dump rút gọn (bỏ prologue/epilogue, chỉ giữ lệnh chạm `[npc+off]`) —
+   mẫu ở scratchpad phiên trước (`pfdump.py`) — viết lại trong 20 dòng bằng `Elf.dis` + lọc.
+6. Mỗi hằng số kỳ lạ đều là phép chia của trình biên dịch: `0x51EB851F, sar 5` = /100;
+   `0x10624DD3, sar 6` = /1000; `0x66666667, sar 1` = /5, `sar 2` = /10, `sar 3` = /20;
+   `0x1B4E81B5, sar 5` = /300; `0x92492493` = /7. **`sub edx, ecx`** là chia thường, **`sub ecx, edx`**
+   là **âm** của thương (đã gặp ở `nomovespeed`).
+7. Nguồn cũ để đặt tên: `SwordOnline/Sources/Core/Src/*.h` — đọc bằng script decode GBK (mẫu `oldsrc.py`
+   ở scratchpad: `open(p,'rb').read().decode('gbk','replace')`), **không** mở bằng editor.
+
+Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0x080A7F90`), và test khẳng định đúng số
+đó với bảng thật của server Linux (`test_KPlayer.cpp` là mẫu).
+
+### 0.3 Đã làm (tóm tắt; chi tiết ở mục 2 và nhật ký 4b)
+
+- **M6–M8** hiệu năng mạng + luồng đăng nhập 2.0 (7 cửa sổ, khớp điểm ảnh 99,9 %).
+- **M9** kho PostgreSQL (`PgStore`, lưu theo nhân vật, CI có PostgreSQL thật) — còn số đo 20 000.
+- **M10** mổ nhị phân Linux: 1506 hàm script có chữ ký, 109 bảng settings nối cột, công cụ `tools/re`.
+- **M11** vật phẩm: bảng đọc đúng cột (mọi phiên bản 000–004), `KItem/KInventory/KItemList/KItemGenerator`,
+  túi đồ + cửa sổ nhân vật + chú thích đúng client 2.0 từng dòng, rơi đồ / nhặt / vứt, ma pháp tiền
+  tố–hậu tố + hoàng kim, `GetEquipEnhance`, hàm script vật phẩm nhiệm vụ.
+- **M12 lát A (xong 2026-09-19)**: bản đồ `KNpc`/`KPlayer` (§10), `KNpcAttrib.h` (gốc/hiện tại/yan),
+  `KMagicAttribId.h` (335 tên sinh tự động), `KNpcAttribModify` (217 ProcessFunc đọc từng hàm),
+  `KPlayer` (LoadFrom, công thức điểm → chỉ số, UpdataCurData/ReCalcEquip, LevelUp, cộng điểm,
+  AddExp + CalcExp, bản ghi sát thương chia kinh nghiệm), `KPlayerSet` + `jxassets export-player`
+  (`player.json`), gateway tạo nhân vật mới theo `newplayerini%02d`, gói `G2C_PLAYER_ATTRIB` /
+  `C2G_ADD_POINT`, client `UiStatus` trang thuộc tính + nút cộng điểm.
+
+### 0.4 Chưa làm — và làm như thế nào
+
+| Việc | Cách làm (đã biết địa chỉ / nguồn) |
+|---|---|
+| **M12 lát B — kỹ năng** (`Skills.txt` 60 cột, `KSkill`, cấp kỹ năng → ma pháp) | Bảng đọc ở `0x080E9200` (đối tượng `0x0830AE00`), kho kỹ năng `0x08BC99E0`, nạp `0x080E6E10`, vtable `+0x48` = `GetAttackRadius`; `KSkillList` trong `KNpc+0x248` (ô 1..79 × 0x30: id, cấp, cấp hiện tại); ProcessFunc 139–144 (`allskill_v`, `metalskill_v`…) gọi `0x080E5BF0`; điểm kỹ năng `Player+0x5928`; `SetSkillLevel` Lua `0x0812C430`. Đọc `KNpc::DoSkill`/`OnSkill`, `KSkill::Cast` rồi mới viết. |
+| **M12 lát C — công thức sát thương** | `KNpc::OnHurt 0x0807F780` (đã đọc: hồi đòn, `ignorenegativestate`), tìm `KNpc::ReceiveDamage`/`CalcDamage` từ chuỗi `"SorbDamage"`, `"AddLife:"`, và từ nơi ghi `KDamageRecord` (`0x08089C90`, `0x0808A4A0`: hai hàm nhận sát thương vật lý / ma pháp). Áp `m_CurrentDefend`, 5 kháng (`max(thường, yan)` + max), `add_damage_percent`, `sorb`, `me2X/X2me`, `fatally/deadly strike`, trả sát thương… Thay `KSubWorld::hit` (đang là công thức tạm). |
+| Trạng thái (độc / băng / choáng / thuốc) | `KNpc::ProcessState 0x0808B610` (§9), trang trạng thái `KNpc+0x234` (20 ô × 16 byte), `ReCalcStateEffect 0x0807D270` (áp lại với dấu âm), `+0x1bc..+0x1fc` các bộ đếm. Zone mới có `life_state/mana_state` và ô giữ chỗ `poison/freeze/stun_state`. |
+| Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
+| Hình phạt chết của người chơi | `KNpc::OnDeath 0x08088B60` phần đầu (mất kinh nghiệm `GetLevelExp/100·2 × (7−PK)/7`, trần 0x1FBD0; `0x080B9FA0` mất tiền/đồ theo PK). |
+| Ngồi hồi thể lực / chạy trừ thể lực | `stamina.ini` đã có trong `KPlayerSet` (`NormalAdd`, `SitAdd` ‰ ở `+0x11b0`, `ExerciseRunSub/FightRunSub/KillRunSub`); tìm nơi dùng `+0x11b0` và `KPlayerSet+0x14c0..` (`re_scan disp 11b0`). |
+| `m_nLucky` vào rơi đồ | `GenRandomItem` đọc `Player+0x5958` (`KPlayer::cur_lucky` đã có) — nối vào `KSubWorld::gen_random_item` (đang truyền 0). |
+| M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
+| M13 nhiệm vụ / hàm script, M14 xã hội, M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
+| Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
+| CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
+
+### 0.5 Lỗi đã mắc — để phiên sau tránh
+
+- **Công cụ Bash ở máy này rút `\\` thành `\` và ăn `\N`, `\x`, `\u` trong heredoc** → patch Python bị
+  `AssertionError` hoặc ghi sai chuỗi (`"\\n"` thành xuống dòng thật trong `.gd`). Cách đúng: viết tệp
+  patch bằng công cụ **Write** rồi `python patch.py`; console cp1252 → `sys.stdout.reconfigure(encoding="utf-8")`.
+- **Đoán tên hàm từ địa chỉ gần đúng**: từng nhận nhầm `0x632710` là `GetDesc` (thật `0x00636460`),
+  `0x784A58` là `strcat` (thật `g_StrWrap`), `0x8BACAC0` là `g_NpcSet` (thật `g_PlayerSet`). Luôn kiểm bằng
+  chuỗi log trong hàm, số đối số, và một hàm gọi nó.
+- **`re_attribmod.py` bản đầu chạy lố sang hàm kế** (các ProcessFunc kết thúc bằng `jmp` tail-call, không
+  `ret`) → gán thừa ô. Mọi bộ duyệt hàm phải chặn ở địa chỉ hàm kế và ở `jmp` ra ngoài.
+- **Viết lại công cụ đã có** (`re_upx.py` trùng `upx_unpack.py`/`re_pe.py`) vì không đọc `tools/re/README.md`
+  trước. Đọc README + `LINUX-SERVER.md §2` trước khi viết công cụ mới.
+- **CI đỏ vì `-Werror=sign-conversion` của GCC** (MSVC không báo): đã bật `/w44365` để bắt tại chỗ; chỉ số
+  `std::array` phải là `size_t`, `return ec ? std::uint16_t{0} : port`.
+- **CI đỏ vì `gofmt`** (tệp Go mới không format) và **catalogue log thiếu** thông báo mới của gateway →
+  chạy `gofmt -l .`, `go vet ./...`, `python tools/check_log_catalog.py`, `python tools/check_includes.py`
+  **trước mỗi commit**.
+- **Godot treo khi script lỗi cú pháp** → luôn chạy Godot qua `Start-Process` + `WaitForExit(240000)`,
+  đọc `*.err`; `var x := a.duplicate(true)` không suy được kiểu, `static func _set` đụng `Object._set`.
+- **Test giả định số cũ** (máu 100, chính xác 100 vs phòng thủ 0 → trúng 100 %): khi đưa công thức thật vào,
+  tỉ lệ trúng thành 54 % và test ngẫu nhiên; cách sửa là cho vai test điểm cao (nhanh nhẹn 100 → 95 %) chứ
+  không nới công thức.
+- Bộ đọc bảng Go: `atoi("")` = 0 khác `KTabFile::GetInteger` (ô trống = mặc định) — đã sửa bằng `cell()`;
+  nhớ luật này khi đọc bảng mới. Chuỗi TCVN3 có `/` bị tưởng là đường dẫn — decode thuần TCVN3 cho chuỗi UI.
+
+### 0.6 Cách làm đang tốt — giữ nguyên
+
+- **Đọc từng thân hàm rồi mới viết**, ghi địa chỉ vào chú thích và vào `LINUX-SERVER.md`; số trong test
+  lấy từ bảng thật (`level_add.txt` hệ Kim: 4/9/8/1/8/0/1; `newplayerini00`: 35/25/25/15, máu 204).
+- **Bản đồ offset → tên** (bảng §10.1) trước khi viết struct: `KNpcAttrib.h` ghi offset ở từng trường, nhờ
+  đó đọc thêm hàm mới là map thẳng vào mã.
+- **Sinh mã từ dữ liệu nhị phân** (`tools/gen_magic_ids.py` → 335 tên ma pháp) thay vì gõ tay.
+- **Một commit một lát**, HANDOVER cập nhật cùng commit, safe branch/tag đi theo.
+- **Client lấy đúng bản 2.0**: bố cục `.ini` xuất JSON, chuỗi từ `stringtable_core`, màu từ engine, luật
+  gói chữ của `KMouseOver`; đối chiếu ảnh chụp với client thật khi có thể.
+- Kiểm tra CI trên trình duyệt tích hợp, không cần đăng nhập; các step chạy nhanh trước (gofmt / include /
+  catalogue) nên lỗi hiện trong 1–2 phút.
+
+### 0.7 Lệnh chạy nhanh (Windows, PowerShell)
+
+```
+cmake --preset windows-msvc && cmake --build --preset windows-msvc-release     # build Release
+ctest --preset windows-msvc-release                                            # 152 test C++
+cd services && go test ./... && go vet ./... && gofmt -l .                     # Go
+python tools/check_includes.py && python tools/check_log_catalog.py            # trước commit
+python tools/dev.py assets        # xuất map/UI/vật phẩm/bảng người chơi (player.json) từ bản cũ
+python tools/dev.py start         # gateway + zone + client (dừng server trước khi build lại)
+python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
+Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
+```
 
 ## 1. Chạy được ngay trong mười phút
 
