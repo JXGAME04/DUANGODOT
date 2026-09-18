@@ -4130,7 +4130,10 @@ type MissleSync struct {
 	Status        uint32                 `protobuf:"varint,16,opt,name=status,proto3" json:"status,omitempty"`                              // 0 wait, 1 fly, 2 vanished
 	Removed       bool                   `protobuf:"varint,17,opt,name=removed,proto3" json:"removed,omitempty"`                            // the slot is freed: the vanish movie, then nothing
 	MoveKind      uint32                 `protobuf:"varint,18,opt,name=move_kind,json=moveKind,proto3" json:"move_kind,omitempty"`
-	Collided      bool                   `protobuf:"varint,19,opt,name=collided,proto3" json:"collided,omitempty"` // a blow landed this frame at (x, y): the collision movie (AnimFile4) plays there (KMissle::DoCollision)
+	Collided      bool                   `protobuf:"varint,19,opt,name=collided,proto3" json:"collided,omitempty"`                                // a blow landed this frame at (x, y): the collision movie (AnimFile4) plays there (KMissle::DoCollision)
+	Height        int32                  `protobuf:"varint,20,opt,name=height,proto3" json:"height,omitempty"`                                    // m_nHeight (MissleHeight << 10, 1/1024 units): z = height >> 10; the client climbs between syncs
+	HeightSpeed   int32                  `protobuf:"varint,21,opt,name=height_speed,json=heightSpeed,proto3" json:"height_speed,omitempty"`       // m_nHeightSpeed (Zspeed, or the climb of a MoveKind 7 missile): height += it each frame
+	ZAcceleration int32                  `protobuf:"varint,22,opt,name=z_acceleration,json=zAcceleration,proto3" json:"z_acceleration,omitempty"` // m_nZAcceleration (Zacc): height_speed -= it each frame; not 0 = drawn facing its vector (KMissle::Paint 1531)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4296,6 +4299,27 @@ func (x *MissleSync) GetCollided() bool {
 		return x.Collided
 	}
 	return false
+}
+
+func (x *MissleSync) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *MissleSync) GetHeightSpeed() int32 {
+	if x != nil {
+		return x.HeightSpeed
+	}
+	return 0
+}
+
+func (x *MissleSync) GetZAcceleration() int32 {
+	if x != nil {
+		return x.ZAcceleration
+	}
+	return 0
 }
 
 type SkillDesc struct {
@@ -5050,7 +5074,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\rattack_radius\x18\x04 \x01(\x05R\fattackRadius\x120\n" +
 	"\aattribs\x18\x05 \x03(\v2\x16.jx.pb.SkillDescAttribR\aattribs\x120\n" +
 	"\aappends\x18\x06 \x03(\v2\x16.jx.pb.SkillDescAppendR\aappends\x121\n" +
-	"\arelated\x18\a \x03(\v2\x17.jx.pb.SkillDescRelatedR\arelated\"\xe7\x03\n" +
+	"\arelated\x18\a \x03(\v2\x17.jx.pb.SkillDescRelatedR\arelated\"\xc9\x04\n" +
 	"\n" +
 	"MissleSync\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x1b\n" +
@@ -5072,7 +5096,10 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x06status\x18\x10 \x01(\rR\x06status\x12\x18\n" +
 	"\aremoved\x18\x11 \x01(\bR\aremoved\x12\x1b\n" +
 	"\tmove_kind\x18\x12 \x01(\rR\bmoveKind\x12\x1a\n" +
-	"\bcollided\x18\x13 \x01(\bR\bcollided\"\xa5\x02\n" +
+	"\bcollided\x18\x13 \x01(\bR\bcollided\x12\x16\n" +
+	"\x06height\x18\x14 \x01(\x05R\x06height\x12!\n" +
+	"\fheight_speed\x18\x15 \x01(\x05R\vheightSpeed\x12%\n" +
+	"\x0ez_acceleration\x18\x16 \x01(\x05R\rzAcceleration\"\xa5\x02\n" +
 	"\tSkillDesc\x12\x19\n" +
 	"\bskill_id\x18\x01 \x01(\rR\askillId\x12\x19\n" +
 	"\bwith_cur\x18\x02 \x01(\bR\awithCur\x12'\n" +

@@ -10,6 +10,7 @@ extends Node2D
 
 const KMissleResMath := preload("res://scenes/KMissleResMath.gd")
 const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
+const KMath := preload("res://scenes/KMath.gd")
 const TICK := 1.0 / 18.0
 const STATUS_WAIT := 0
 const STATUS_FLY := 1
@@ -23,7 +24,10 @@ var index := 0
 var missle_id := 0
 var skill_id := 0
 var scene_pos := Vector2.ZERO
-var z := 0
+var z := 0                    # m_nCurrentMapZ = height >> 10
+var height := 0               # m_nHeight, 1/1024 units
+var height_speed := 0         # m_nHeightSpeed
+var z_acceleration := 0       # m_nZAcceleration
 var dir64 := 0
 var x_factor := 0
 var y_factor := 0
@@ -67,7 +71,16 @@ func setup(d: Dictionary, row: Dictionary) -> void:
 func apply(d: Dictionary) -> void:
 	scene_pos = Vector2(float(d.get("x", 0)), float(d.get("y", 0)))
 	z = int(d.get("z", 0))
+	height = int(d.get("height", z << 10))
+	height_speed = int(d.get("height_speed", 0))
+	z_acceleration = int(d.get("z_acceleration", 0))
 	dir64 = clampi(int(d.get("dir", 0)), 0, 63)
+	if z_acceleration != 0:
+		# KMissle::Paint 1531: a missile with a Z acceleration faces its vector (g_GetDirIndex(0, 0, XFactor, YFactor) through
+		# g_DirIndex2Dir(., 64), which is the index itself); the vector is what the zone sent
+		var facing := KMath.get_dir_index(0, 0, int(d.get("x_factor", 0)), int(d.get("y_factor", 0)))
+		if facing >= 0:
+			dir64 = facing
 	x_factor = int(d.get("x_factor", 0))
 	y_factor = int(d.get("y_factor", 0))
 	speed = int(d.get("speed", 0))
@@ -102,6 +115,13 @@ func _process(delta: float) -> void:
 func _tick() -> void:
 	cur_life += 1
 	if status == STATUS_FLY:
+		if z_acceleration != 0:
+			# ZAxisMove (KMissle::OnFlyFPS 1018 with one step, the zone's missle_activate): climb, never below the ground,
+			# z = height >> 10, then the speed loses the acceleration
+			var hs: Array = KMissleResMath.z_step(height, height_speed, z_acceleration)
+			height = int(hs[0])
+			height_speed = int(hs[1])
+			z = height >> 10
 		scene_pos += Vector2(float(x_factor * speed) / 1024.0, float(y_factor * speed) / 1024.0)
 		if cur_life >= life_time:
 			_begin_vanish()

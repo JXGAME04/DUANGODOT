@@ -491,6 +491,9 @@ message MissleSync {             // G2C_MISSLE: a KMissle of the zone as KMissle
   bool removed = 17;             // the slot is freed: the vanish movie, then nothing
   uint32 move_kind = 18;
   bool collided = 19;            // a blow landed this frame at (x, y): the collision movie (AnimFile4) plays there (KMissle::DoCollision)
+  int32 height = 20;             // m_nHeight (MissleHeight << 10, 1/1024 units): z = height >> 10; the client climbs between syncs
+  int32 height_speed = 21;       // m_nHeightSpeed (Zspeed, or the climb of a MoveKind 7 missile): height += it each frame
+  int32 z_acceleration = 22;     // m_nZAcceleration (Zacc): height_speed -= it each frame; not 0 = drawn facing its vector (KMissle::Paint 1531)
 }
 
 message SkillDesc {              // G2C_SKILL_DESC

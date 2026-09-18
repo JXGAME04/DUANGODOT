@@ -558,6 +558,13 @@ func test_missle_math() -> void:
 	check(M.frame_index(64, 16, 1, 6, 5, 10, false, false, 0, 0) == 2 * 4 + 2 and M.frame_index(64, 16, 1, 6, 11, 10, false, false, 0, 0) == -1, "the sprite frame of direction 6 (block 2)")
 	# the vanish movie: 6 frames of one block, interval 2 -> 12 frames long, one frame every 2
 	check(M.special_frame(6, 1, 2, 20, 0) == 0 and M.special_frame(6, 1, 2, 20, 3) == 1 and M.special_frame(6, 1, 2, 20, 11) == 5 and M.special_frame(6, 1, 2, 20, 12) == -1, "special movie")
+	# the climb of a MoveKind 7 missile (the zone's test: speed 512, acc 1024): up 512, then down, never below the ground
+	var hs: Array = M.z_step(0, 512, 1024)
+	check(hs[0] == 512 and hs[1] == -512, "first frame: 512 up, the speed turns: %s" % str(hs))
+	hs = M.z_step(hs[0], hs[1], 1024)
+	check(hs[0] == 0 and hs[1] == -1536, "second frame: back on the ground")
+	check(M.z_step(100, -1536, 1024)[0] == 0, "never below the ground")
+	check(KMath.get_dir_index(0, 0, 1024, 0) == 48 and KMath.get_dir_index(0, 0, 0, -1024) == 32, "a Z missile faces its vector: east 48, north 32")
 
 
 # ---- knock back on the client (KNpc::KnockBack 0x005EE950 / OnKnockBack 0x005EFE00 of gamecl.exe) ------------------

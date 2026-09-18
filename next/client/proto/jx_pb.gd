@@ -6829,6 +6829,21 @@ class MissleSync:
 		service.field = __collided
 		data[__collided.tag] = service
 		
+		__height = PBField.new("height", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 20, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __height
+		data[__height.tag] = service
+		
+		__height_speed = PBField.new("height_speed", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 21, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __height_speed
+		data[__height_speed.tag] = service
+		
+		__z_acceleration = PBField.new("z_acceleration", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 22, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __z_acceleration
+		data[__z_acceleration.tag] = service
+		
 	var data = {}
 	
 	var __index: PBField
@@ -7077,6 +7092,45 @@ class MissleSync:
 		__collided.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
 	func set_collided(value : bool) -> void:
 		__collided.value = value
+	
+	var __height: PBField
+	func has_height() -> bool:
+		if __height.value != null:
+			return true
+		return false
+	func get_height() -> int:
+		return __height.value
+	func clear_height() -> void:
+		data[20].state = PB_SERVICE_STATE.UNFILLED
+		__height.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_height(value : int) -> void:
+		__height.value = value
+	
+	var __height_speed: PBField
+	func has_height_speed() -> bool:
+		if __height_speed.value != null:
+			return true
+		return false
+	func get_height_speed() -> int:
+		return __height_speed.value
+	func clear_height_speed() -> void:
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__height_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_height_speed(value : int) -> void:
+		__height_speed.value = value
+	
+	var __z_acceleration: PBField
+	func has_z_acceleration() -> bool:
+		if __z_acceleration.value != null:
+			return true
+		return false
+	func get_z_acceleration() -> int:
+		return __z_acceleration.value
+	func clear_z_acceleration() -> void:
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__z_acceleration.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_z_acceleration(value : int) -> void:
+		__z_acceleration.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

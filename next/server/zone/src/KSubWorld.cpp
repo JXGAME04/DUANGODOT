@@ -1681,6 +1681,9 @@ void KSubWorld::emit_missle(const KMissle& m, bool removed, bool collided)
     s.set_removed(removed);
     s.set_move_kind(static_cast<std::uint32_t>(std::max(0, m.move_kind)));
     s.set_collided(collided);
+    s.set_height(m.height);   // ZAxisMove (0x080760E0): height += speed, speed -= acc each frame - the client does the same between syncs
+    s.set_height_speed(m.height_speed);
+    s.set_z_acceleration(m.z_acceleration);
     log::trace("zone.fight", "missile sync", {log::kv("missle", m.index), log::kv("skill", m.skill_id), log::kv("status", m.status), log::kv("removed", removed), log::kv("collided", collided)});
     emit(launcher->watchers, static_cast<std::uint16_t>(pb::G2C_MISSLE), s);
 }

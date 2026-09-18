@@ -72,3 +72,12 @@ static func special_frame(total: int, dirs: int, interval: int, dir64: int, elap
 	if elapsed >= interval * per_dir:
 		return -1
 	return sprite_dir(dir64, dirs) * per_dir + elapsed / interval
+
+
+# ZAxisMove of KMissle (the zone's missle_activate, KMissle::OnFlyFPS 1018 with one step): one frame of the climb of a
+# missile with a Z acceleration - {height, speed} after it, the height never below the ground
+static func z_step(height: int, height_speed: int, z_acceleration: int) -> Array:
+	var h := height + height_speed
+	if h < 0:
+		h = 0
+	return [h, height_speed - z_acceleration]

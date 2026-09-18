@@ -772,7 +772,8 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				"level": int(m.get_level()), "launcher": m.get_launcher(), "x": int(m.get_x()), "y": int(m.get_y()), "z": int(m.get_z()),
 				"dir": int(m.get_dir()), "x_factor": int(m.get_x_factor()), "y_factor": int(m.get_y_factor()), "speed": int(m.get_speed()),
 				"life_time": int(m.get_life_time()), "start_life_time": int(m.get_start_life_time()), "current_life": int(m.get_current_life()),
-				"status": int(m.get_status()), "removed": m.get_removed(), "move_kind": int(m.get_move_kind()), "collided": m.get_collided()})
+				"status": int(m.get_status()), "removed": m.get_removed(), "move_kind": int(m.get_move_kind()), "collided": m.get_collided(),
+				"height": int(m.get_height()), "height_speed": int(m.get_height_speed()), "z_acceleration": int(m.get_z_acceleration())})
 
 		Proto.MsgId.G2C_SKILL_DESC:
 			var m := Proto.SkillDesc.new()

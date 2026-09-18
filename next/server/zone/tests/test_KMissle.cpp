@@ -503,8 +503,25 @@ TEST_CASE("a MoveKind 7 missile climbs and lands on its spot in the frames it sh
     CHECK(m->height_speed == 512);   // ((50 / 25) - 1) x 1024 / 2
     CHECK(m->arrive_from == 2);      // the delay 0 + 50 / 25
     CHECK(m->arrive_to == 5);        // + 32 / 25 + 2
+    // the sync of the first flying frame tells the climb: after one frame height (10 << 10) + 512 (MissleHeight 10), speed
+    // -512 (acc 1024 - the client integrates the same way between syncs), z = height >> 10
+    a.h->watchers = {7};
+    a.w.take_outbox();
+    a.w.tick();
+    int synced = 0;
+    for (const Packet& pk : a.w.take_outbox()) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_MISSLE)) continue;
+        jx::pb::MissleSync sync;
+        REQUIRE(sync.ParseFromString(pk.payload));
+        ++synced;
+        CHECK(sync.height() == (10 << 10) + 512);
+        CHECK(sync.height_speed() == -512);
+        CHECK(sync.z_acceleration() == 1024);
+        CHECK(sync.z() == 10);   // height >> 10
+    }
+    CHECK(synced == 1);
     // frames 0 and 1 fly 25 units each; frame 2 is inside the window and the exact spot holds the pig
-    a.ticks(2);
+    a.ticks(1);
     CHECK(KSubWorld::missle_pos(*a.first_missle()) == Pos{2050, 2000});
     CHECK(a.p->life() == 100);
     a.w.tick();
