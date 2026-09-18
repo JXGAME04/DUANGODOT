@@ -465,6 +465,13 @@ public:
     void abrade_equipments(KNpc& e, int mode);
     // 0x08201D90(list, n): every worn piece but the mask loses n percent (the death penalty, KPlayer 0x080B9FA0)
     void abrade_equipments_percent(KNpc& e, int percent);
+    // ---- a player's death and revive: KNpc 0x08089920 / DoDeath 0x080896C0 / OnDeath 0x08088D50, KNpc::Revive
+    //      0x080833B0, KPlayer::Revive 0x080AD9F0 (docs/LINUX-SERVER.md §16.4) ----
+    // C2G_REVIVE (the handler slot 118 -> 0x080AEBC0(player, 12), KPlayer::Revive(0)): back at the revive point
+    bool revive_request(std::uint64_t sid, std::uint32_t seq);
+    // KPlayer::Revive(type, force): 0 at the revive point (fight mode off), 1 where it lies in fight mode, 2 where
+    // it lies out of it; a character that is not dead is stood up instead (unless forced)
+    bool player_revive(KNpc& e, int type, bool force);
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
@@ -508,6 +515,8 @@ private:
     void jump_attack_frame(KNpc& e);          // 0x08084E00
     void cast_child_skill(KNpc& e, bool style0_only);   // the ChildSkillId at the kept target / spot
     void wear_result(KNpc& e, KItemList& list, int part, std::uint32_t id, int before, int left);   // after KItem::Abrade: the sync / the break
+    void on_death_player(KNpc& e, EntityId killer);   // KNpc::OnDeath 0x08088D50: the experience and the money lost
+    void player_corpse(KNpc& e);                      // KNpc::Revive 0x080833B0 for a player: the corpse waits, the states off
     void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
     static constexpr std::uint64_t kSwapEveryLooks = 4;    // ... and it looks for them every 4th routine look (about 0,9 s)

@@ -176,6 +176,19 @@ func attack(target_id: int) -> int:
 	return _move_seq
 
 
+# A dead character asks to revive at its revive point (KPlayer::Revive(0) of the old server): the zone
+# answers with an EntityAction ACTION_REVIVE, the life and the attributes.
+func revive() -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.ReviveReq.new()
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_REVIVE, req)
+	Log.trace("world", "revive request", {"seq": _move_seq})
+	return _move_seq
+
+
 func chat(text: String) -> void:
 	if state != "world" or text.strip_edges() == "":
 		return

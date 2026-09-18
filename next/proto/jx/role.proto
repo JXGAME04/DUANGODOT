@@ -106,4 +106,8 @@ message RoleData {
   uint32 money = 19;         // in the bag (KItemList room_equipment money)
   uint32 bank_money = 20;    // in the repository
   repeated RoleSkill skills = 21;   // the fight skill list (KSkillList; DBSkillData of the old server)
+  // the revive point (KPlayer+0x20 map, +0x28 / +0x2c x, y: SetTempRevPos / SetRevPos): where KPlayer::Revive(0) puts
+  // the character back; 0 = the spawn point of its map
+  uint32 revive_map = 22;
+  Vec2 revive_pos = 23;
 }

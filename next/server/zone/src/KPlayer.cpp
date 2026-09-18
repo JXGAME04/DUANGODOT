@@ -74,6 +74,9 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     set_npc_defence(npc);
     exp = static_cast<std::int64_t>(role.exp());
     next_level_exp = tables.level_exp(static_cast<int>(npc.level), reborn);
+    revive_map = role.revive_map();
+    revive_x = role.revive_pos().x();
+    revive_y = role.revive_pos().y();
     // m_LifeMax straight from the role data (TRoleData+0xeb), the stamina from the tables, the
     // mana from the role data; a player has no natural life / mana replenish of its own
     npc.base.life_max = std::max(1, s.hp_max());
@@ -117,6 +120,15 @@ void KPlayer::save_to(const KNpc& npc, pb::RoleData& role) const
     s->set_reborn(static_cast<std::uint32_t>(std::max(0, reborn)));
     role.set_level(npc.level);
     role.set_exp(static_cast<std::uint64_t>(std::max<std::int64_t>(0, exp)));
+    role.set_revive_map(revive_map);
+    role.mutable_revive_pos()->set_x(revive_x);
+    role.mutable_revive_pos()->set_y(revive_y);
+}
+
+void KPlayer::lose_exp(std::int64_t loss) noexcept
+{
+    if (loss <= 0) return;
+    exp = std::max<std::int64_t>(0, exp - loss);
 }
 
 void KPlayer::set_npc_physics_damage_base(KNpc& npc) const noexcept

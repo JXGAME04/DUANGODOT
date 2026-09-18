@@ -677,6 +677,36 @@ int l_AbradeEquipments(lua_State* L)
     return 0;
 }
 
+// SetTempRevPos(map, x, y): KPlayer+0x20 / +0x28 / +0x2c (0x08110790) - where KPlayer::Revive(0) puts the
+// character; cells like NewWorld (SetTempRevPos(map) alone keeps the map)
+int l_SetTempRevPos(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetTempRevPos");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.revive_map = static_cast<std::uint32_t>(lua_tonumber(L, 1));
+    if (lua_gettop(L) >= 3) {
+        p->player.revive_x = static_cast<int>(lua_tonumber(L, 2)) * 32;
+        p->player.revive_y = static_cast<int>(lua_tonumber(L, 3)) * 32;
+    }
+    return 0;
+}
+
+// SetRevPos(map, ref): KPlayer 0x080B1E50 - the map and its reference point (KSubWorldSet 0x080F6D20 finds the
+// spot; a map without it is logged to revive_error); the zone has no reference-point table yet, so the map is
+// kept and the revive goes to its spawn point
+int l_SetRevPos(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetRevPos");
+    if (p == nullptr || lua_gettop(L) < 2) return 0;
+    const int map = static_cast<int>(lua_tonumber(L, 1));
+    if (map < 0) return 0;
+    p->player.revive_map = static_cast<std::uint32_t>(map);
+    p->player.revive_ref = static_cast<int>(lua_tonumber(L, 2));
+    p->player.revive_x = 0;
+    p->player.revive_y = 0;
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -692,7 +722,8 @@ const luaL_Reg kGameScriptFuns[] = {
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
-    {"AbradeEquipments", l_AbradeEquipments}, {nullptr, nullptr},
+    {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},
+    {nullptr, nullptr},
 };
 
 } // namespace

@@ -600,11 +600,15 @@ type RoleData struct {
 	FightMode   bool   `protobuf:"varint,16,opt,name=fight_mode,json=fightMode,proto3" json:"fight_mode,omitempty"` // KNpc::SetFightMode: in/out of combat stance (city gate traps)
 	// Where the character was born (CharCreateReq.native_place, KRoleChiefInfo.NativePlaceId of the
 	// old game): the map id of the starting village, the character's home for the revive rules.
-	NativePlace   uint32       `protobuf:"varint,17,opt,name=native_place,json=nativePlace,proto3" json:"native_place,omitempty"`
-	NextItemId    uint32       `protobuf:"varint,18,opt,name=next_item_id,json=nextItemId,proto3" json:"next_item_id,omitempty"` // KItemList: the id the next item gets (ids never repeat within a character)
-	Money         uint32       `protobuf:"varint,19,opt,name=money,proto3" json:"money,omitempty"`                               // in the bag (KItemList room_equipment money)
-	BankMoney     uint32       `protobuf:"varint,20,opt,name=bank_money,json=bankMoney,proto3" json:"bank_money,omitempty"`      // in the repository
-	Skills        []*RoleSkill `protobuf:"bytes,21,rep,name=skills,proto3" json:"skills,omitempty"`                              // the fight skill list (KSkillList; DBSkillData of the old server)
+	NativePlace uint32       `protobuf:"varint,17,opt,name=native_place,json=nativePlace,proto3" json:"native_place,omitempty"`
+	NextItemId  uint32       `protobuf:"varint,18,opt,name=next_item_id,json=nextItemId,proto3" json:"next_item_id,omitempty"` // KItemList: the id the next item gets (ids never repeat within a character)
+	Money       uint32       `protobuf:"varint,19,opt,name=money,proto3" json:"money,omitempty"`                               // in the bag (KItemList room_equipment money)
+	BankMoney   uint32       `protobuf:"varint,20,opt,name=bank_money,json=bankMoney,proto3" json:"bank_money,omitempty"`      // in the repository
+	Skills      []*RoleSkill `protobuf:"bytes,21,rep,name=skills,proto3" json:"skills,omitempty"`                              // the fight skill list (KSkillList; DBSkillData of the old server)
+	// the revive point (KPlayer+0x20 map, +0x28 / +0x2c x, y: SetTempRevPos / SetRevPos): where KPlayer::Revive(0) puts
+	// the character back; 0 = the spawn point of its map
+	ReviveMap     uint32 `protobuf:"varint,22,opt,name=revive_map,json=reviveMap,proto3" json:"revive_map,omitempty"`
+	RevivePos     *Vec2  `protobuf:"bytes,23,opt,name=revive_pos,json=revivePos,proto3" json:"revive_pos,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -786,6 +790,20 @@ func (x *RoleData) GetSkills() []*RoleSkill {
 	return nil
 }
 
+func (x *RoleData) GetReviveMap() uint32 {
+	if x != nil {
+		return x.ReviveMap
+	}
+	return 0
+}
+
+func (x *RoleData) GetRevivePos() *Vec2 {
+	if x != nil {
+		return x.RevivePos
+	}
+	return nil
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -849,7 +867,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +
-	"\x03exp\x18\x03 \x01(\rR\x03exp\"\x94\x05\n" +
+	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xdf\x05\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -876,7 +894,11 @@ const file_jx_role_proto_rawDesc = "" +
 	"\x05money\x18\x13 \x01(\rR\x05money\x12\x1d\n" +
 	"\n" +
 	"bank_money\x18\x14 \x01(\rR\tbankMoney\x12(\n" +
-	"\x06skills\x18\x15 \x03(\v2\x10.jx.pb.RoleSkillR\x06skillsB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"\x06skills\x18\x15 \x03(\v2\x10.jx.pb.RoleSkillR\x06skills\x12\x1d\n" +
+	"\n" +
+	"revive_map\x18\x16 \x01(\rR\treviveMap\x12*\n" +
+	"\n" +
+	"revive_pos\x18\x17 \x01(\v2\v.jx.pb.Vec2R\trevivePosB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once
@@ -901,20 +923,21 @@ var file_jx_role_proto_goTypes = []any{
 	(*Vec2)(nil),         // 6: jx.pb.Vec2
 }
 var file_jx_role_proto_depIdxs = []int32{
-	6, // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
-	2, // 1: jx.pb.ItemData.base:type_name -> jx.pb.ItemMagic
-	2, // 2: jx.pb.ItemData.require:type_name -> jx.pb.ItemMagic
-	2, // 3: jx.pb.ItemData.magic:type_name -> jx.pb.ItemMagic
-	2, // 4: jx.pb.ItemData.magic_ex:type_name -> jx.pb.ItemMagic
-	0, // 5: jx.pb.RoleData.position:type_name -> jx.pb.RolePosition
-	1, // 6: jx.pb.RoleData.stats:type_name -> jx.pb.RoleStats
-	3, // 7: jx.pb.RoleData.items:type_name -> jx.pb.ItemData
-	4, // 8: jx.pb.RoleData.skills:type_name -> jx.pb.RoleSkill
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	6,  // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
+	2,  // 1: jx.pb.ItemData.base:type_name -> jx.pb.ItemMagic
+	2,  // 2: jx.pb.ItemData.require:type_name -> jx.pb.ItemMagic
+	2,  // 3: jx.pb.ItemData.magic:type_name -> jx.pb.ItemMagic
+	2,  // 4: jx.pb.ItemData.magic_ex:type_name -> jx.pb.ItemMagic
+	0,  // 5: jx.pb.RoleData.position:type_name -> jx.pb.RolePosition
+	1,  // 6: jx.pb.RoleData.stats:type_name -> jx.pb.RoleStats
+	3,  // 7: jx.pb.RoleData.items:type_name -> jx.pb.ItemData
+	4,  // 8: jx.pb.RoleData.skills:type_name -> jx.pb.RoleSkill
+	6,  // 9: jx.pb.RoleData.revive_pos:type_name -> jx.pb.Vec2
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_jx_role_proto_init() }

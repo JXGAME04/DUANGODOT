@@ -35,6 +35,7 @@ enum MsgId {
   C2G_ADD_POINT = 1110;        // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
   C2G_ADD_SKILL_POINT = 1111;  // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
   C2G_CAST_SKILL = 1112;       // (zone) cast a skill at a target or a spot (NpcSkillCommand -> KNpc::SendCommand(do_skill))
+  C2G_REVIVE = 1113;           // (zone) a dead character asks to revive at its revive point (the handler slot 118 -> KPlayer::Revive(0))
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;

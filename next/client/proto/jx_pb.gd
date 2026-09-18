@@ -4434,6 +4434,52 @@ class CastSkillReq:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class ReviveReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class SkillLevelSync:
 	extends RefCounted
 	func _init():
@@ -7017,6 +7063,7 @@ enum MsgId {
 	C2G_ADD_POINT = 1110,
 	C2G_ADD_SKILL_POINT = 1111,
 	C2G_CAST_SKILL = 1112,
+	C2G_REVIVE = 1113,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,
@@ -8118,6 +8165,17 @@ class RoleData:
 		service.func_ref = Callable(self, "add_skills")
 		data[__skills.tag] = service
 		
+		__revive_map = PBField.new("revive_map", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 22, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __revive_map
+		data[__revive_map.tag] = service
+		
+		__revive_pos = PBField.new("revive_pos", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 23, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __revive_pos
+		service.func_ref = Callable(self, "new_revive_pos")
+		data[__revive_pos.tag] = service
+		
 	var data = {}
 	
 	var __player_id: PBField
@@ -8390,6 +8448,33 @@ class RoleData:
 		var element = RoleSkill.new()
 		__skills.value.append(element)
 		return element
+	
+	var __revive_map: PBField
+	func has_revive_map() -> bool:
+		if __revive_map.value != null:
+			return true
+		return false
+	func get_revive_map() -> int:
+		return __revive_map.value
+	func clear_revive_map() -> void:
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__revive_map.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_revive_map(value : int) -> void:
+		__revive_map.value = value
+	
+	var __revive_pos: PBField
+	func has_revive_pos() -> bool:
+		if __revive_pos.value != null:
+			return true
+		return false
+	func get_revive_pos() -> Vec2:
+		return __revive_pos.value
+	func clear_revive_pos() -> void:
+		data[23].state = PB_SERVICE_STATE.UNFILLED
+		__revive_pos.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_revive_pos() -> Vec2:
+		__revive_pos.value = Vec2.new()
+		return __revive_pos.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

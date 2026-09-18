@@ -972,7 +972,7 @@ void KSubWorld::update_action(KNpc& e)
         if (e.wait_for_frame()) do_revive(e);
         break;
     case KDoing::revive:
-        if (e.wait_for_frame()) revive(e);
+        if (e.kind != KNpcKind::player && e.wait_for_frame()) revive(e);   // 0x08086220: a player's corpse counts no frame
         break;
     default:
         break;
@@ -1055,10 +1055,16 @@ const KNpcLevelData& KSubWorld::level_data_of(const KNpcTemplate& t, int level, 
 void KSubWorld::do_death(KNpc& e, EntityId killer)
 {
     if (e.doing == KDoing::death) return;
-    if (e.kind == KNpcKind::player) {
-        e.cur.life = 1;
-        emit_life(e, 0, killer);
-        return;
+    const bool player = e.kind == KNpcKind::player;
+    if (player) {
+        // KNpc 0x08089920 for a player: KPlayer::CheckAndReviveOnDeath 0x080B2790 comes first - the revive item
+        // (genre 6, detail 1, particular [0x830D128]: full life and mana, the packet 0x343, G_PLAYER_30) or the
+        // OnCheckAndReviveOnDeath script of Player+0x5f98 (unless the DeathReliveFlag +0x390 is set): neither is in
+        // the zone yet; then +0x118c = 0, the PK bookkeeping (0x0807A350 / 0x08089A30..: B3c-4) and DoDeath
+        e.cur.life = 0;
+        // KNpc::DoDeath 0x080896C0: 0x080AEBC0(player, 11), the team (0x080AE4B0; 0x080AB610: +0x28c = the frame,
+        // +0x290 = 0, the packet 0x94), the command ring cleared (0x0809BBC0)
+        e.commands.clear();
     }
     end_run(e);
     if (e.hide > 0) break_hide(e);   // 0x08089359: after the death list, before m_Doing = death - the hiding breaks
@@ -1069,6 +1075,13 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
     if (e.moving) e.set_pos(e.pos());
     log::debug("zone.fight", "death", {log::kv("entity", e.id), log::kv("killer", killer)});
     emit_action(e, pb::ACTION_DEATH, killer);
+    if (player) {
+        emit_life(e, 0, killer);
+        on_death_player(e, killer);
+        // 0x08089750: a player killed by a player on an arena (Player+0x384) stands up at once with full life,
+        // G_PLAYER_27 and \script\global\pk10_deathpunish.lua - B3c-4
+        return;
+    }
     share_experience(e);
     lose_treasure(e, killer);
 }
@@ -1182,8 +1195,126 @@ bool KSubWorld::add_point_request(std::uint64_t sid, int attribute, int points, 
 }
 
 // KNpc::DoRevive (server): the corpse leaves the region for ReviveFrame frames.
+// KNpc::OnDeath 0x08088B60 for a player (0x08088D50) that died the plain way (the death type 0 of 0x08089920;
+// a type of 1 / 3 / 4 loses nothing, any other goes to the PK punishment 0x080B9FA0 - B3c-4).  KItemList
+// 0x08203530 (the drop of a protected list, B3c-4), then the experience and the money.
+void KSubWorld::on_death_player(KNpc& e, EntityId killer)
+{
+    (void)killer;
+    KPlayer& p = e.player;
+    // 0x08088D7C: an experience of 0 loses nothing.  The loss is 2 % of the level's experience up to level 10
+    // and 3 % above it (KLevelAdd::GetLevelExp 0x080C3FF0: / 50 or x 3 / 100 below 100 000, / 100 x 2 or x 3
+    // above - the binary's two roundings), at most 130 000 (0x1fbd0), x (7 - the faction rank) / 7 for a member
+    // of a faction (Player+0x5994, 0x080CC620 - no factions in the zone), and never more than what is held
+    if (p.exp > 0) {
+        const std::int64_t level_exp = tables().level_exp(static_cast<int>(e.level), p.reborn);
+        std::int64_t loss;
+        if (e.level > 10) loss = level_exp > 99999 ? level_exp / 100 * 3 : level_exp * 3 / 100;
+        else loss = level_exp > 99999 ? level_exp / 100 * 2 : level_exp / 50;
+        loss = std::min<std::int64_t>(loss, 130000);
+        loss = std::min(loss, p.exp);
+        if (loss > 0) {
+            p.lose_exp(loss);   // 0x080AFEA0(player, -loss)
+            log::info("zone.player", "death exp loss", {log::kv("entity", e.id), log::kv("loss", loss), log::kv("exp", p.exp)});
+            send_player_attrib(e.sid);
+        }
+    }
+    // 0x080890C0: half the money of the bag goes (KItemList 0x081FC940, the money packet 0x86 {8, 10, half}, the
+    // item log "C_Death"); a quarter of it lies at the corpse (0x0807FA50(this, half / 2)) unless half is 1
+    if (KItemList* list = items_of(e.sid)) {
+        const int half = list->money() / 2;
+        if (half > 0) {
+            list->cost_money(half);
+            send_money(e.sid);
+            log::info("zone.player", "death money loss", {log::kv("entity", e.id), log::kv("money", half)});
+            if (half != 1) drop_money(half / 2, e.pos(), 0);
+        }
+    }
+    // (0x08088E9D: the death line "NewWorld(map, x, y)" of the log when [0x830D0F0] == 1 - the lines above)
+}
+
+// KNpc::Revive 0x080833B0 for a player, from the end of the death frames (0x08083B50 -> 0x08083720: the death
+// script of Player+0x5f98 or \script\global\player_default_death.lua OnDeath - the honour kills of a faction
+// war map, not in the zone): m_Doing 21 with the corpse where it lies, m_ProcessState off, every state off
+// (0x080823B0: each attribute taken back, the 0x87 packet), the potion states cleared (0x08079C30), the
+// targets cleared - then nothing until KPlayer::Revive (0x08086220 counts no frame for a player)
+void KSubWorld::player_corpse(KNpc& e)
+{
+    e.doing = KDoing::revive;
+    e.frame_total = 0;
+    e.frame_cur = 0;
+    while (!e.state_skills.empty()) {
+        const int id = e.state_skills.front().skill_id;
+        remove_state_skill_effect(e, id, true);
+        if (!e.state_skills.empty() && e.state_skills.front().skill_id == id) e.state_skills.erase(e.state_skills.begin());
+    }
+    e.life_state = {};
+    e.mana_state = {};
+    e.poison_state = {};
+    e.poison_interval = 0;
+    e.freeze_state = {};
+    e.stun_state = {};
+    e.attack_target = EntityId{};
+    e.people_id = EntityId{};
+    log::debug("zone.player", "player corpse", {log::kv("entity", e.id)});
+}
+
+bool KSubWorld::revive_request(std::uint64_t sid, std::uint32_t seq)
+{
+    (void)seq;
+    const auto pit = players_.find(sid);
+    KNpc* e = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    if (e == nullptr) return false;
+    return player_revive(*e, 0, false);   // 0x080DBFE0: 0x080AEBC0(player, 12), KPlayer::Revive(0, 0)
+}
+
+// KPlayer::Revive 0x080AD9F0(player, type, force)
+bool KSubWorld::player_revive(KNpc& e, int type, bool force)
+{
+    if (e.kind != KNpcKind::player) return false;
+    if (!force && e.doing != KDoing::death && e.doing != KDoing::revive) {
+        // "Client Want to Revive But he is no deaded!": the action do_stand instead (0x08078AA0(npc, 1))
+        log::debug("zone.player", "revive refused", {log::kv("entity", e.id), log::kv("type", type)});
+        do_stand(e);
+        return false;
+    }
+    // the 0x89 packet {id, type} to the player (0x080A8400) and the players around (0x0807B200)
+    if (type == 1) e.fight_mode = true;         // 0x080ADBF0: SetFightMode(1)
+    else if (type == 0 || type == 2) e.fight_mode = false;   // 0x080ADB24: SetFightMode(0)
+    // 0x080ADB44: life, mana and stamina full; the action do_revive (0x08078AA0(npc, 21) -> 0x080886F0 the next
+    // frame: DoStand, +0x194c = 1, +0x1950 = 1)
+    e.cur.life = e.life_max();
+    e.cur.mana = e.mana_max();
+    e.cur.stamina = e.cur.stamina_max;
+    e.doing = KDoing::stand;
+    e.frame_cur = 0;
+    e.frame_total = 0;
+    e.attack_target = EntityId{};
+    emit_action(e, pb::ACTION_REVIVE, EntityId{});
+    emit_life(e, 0, EntityId{});
+    send_player_attrib(e.sid);
+    log::info("zone.player", "player revived", {log::kv("entity", e.id), log::kv("type", type)});
+    if (type == 0) {
+        // 0x080ADAD3: KNpc 0x08080110(npc, Player+0x20, +0x28, +0x2c) - to the revive point (the map's spawn point
+        // when none was set), then 0x08080F70(npc, player, 1): the position packet 0xc5
+        const KPlayer& p = e.player;
+        const bool set = p.revive_x != 0 || p.revive_y != 0;
+        if (p.revive_map == 0 || p.revive_map == map_id()) {
+            set_pos(e.id, set ? to_local(Pos{p.revive_x, p.revive_y}) : cfg_.spawn_point);
+        } else {
+            change_world_request(e, p.revive_map, set ? Pos{p.revive_x, p.revive_y} : Pos{});
+        }
+    }
+    // \script\global\revive.lua main(type): the national war reload - not in the zone
+    return true;
+}
+
 void KSubWorld::do_revive(KNpc& e)
 {
+    if (e.kind == KNpcKind::player) {   // the corpse of a player waits for KPlayer::Revive
+        player_corpse(e);
+        return;
+    }
     e.doing = KDoing::revive;
     e.life_state = {};   // KNpc::DoRevive -> ClearNormalState
     e.frame_total = std::max(1u, e.revive_frame);

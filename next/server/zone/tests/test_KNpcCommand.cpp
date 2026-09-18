@@ -601,3 +601,75 @@ TEST_CASE("style 1: the multi cast fires the child ChildSkillNum times, the spec
     CHECK(a.h->commands.size() == 1);
     CHECK(a.h->doing == KDoing::special_skill);
 }
+
+// The death of a player: KNpc 0x08089920 / DoDeath 0x080896C0 (the plain way, no PK), OnDeath 0x08088D50 (the
+// experience and the money), the corpse 0x080833B0, KPlayer::Revive 0x080AD9F0 - docs/LINUX-SERVER.md §16.4
+TEST_CASE("a player's death: the corpse waits, 2 percent of the level's experience and half the money go, the revive puts it back", "[command]")
+{
+    Arena a;
+    KItemList* list = a.w.items_of(7);
+    REQUIRE(list != nullptr);
+    list->set_money(room_equipment, 100);
+    a.h->player.exp = 1000;
+    const std::int64_t level_exp = a.h->player.next_level_exp;   // KLevelAdd::GetLevelExp(5): 2 % (/ 50 below 100 000), at most 130 000, at most what is held
+    const std::int64_t expected_loss = std::min<std::int64_t>(std::min<std::int64_t>(level_exp / 50, 130000), 1000);
+    a.w.take_outbox();
+    // a blow of 1000 kills: life 0, m_Doing 10 for the death frames, the loss of experience and money, a quarter on the ground
+    int dealt = 0;
+    CHECK(a.w.calc_damage(*a.h, *a.p, 1000, 1000, damage_physics, true, nullptr, &dealt, 0, false) == 0);
+    CHECK(a.h->doing == KDoing::death);
+    CHECK(a.h->cur.life == 0);
+    CHECK(a.h->player.exp == 1000 - expected_loss);
+    CHECK(list->money() == 50);
+    bool death_told = false;
+    for (const Packet& pk : a.w.take_outbox()) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_ACTION)) continue;
+        jx::pb::EntityAction act;
+        REQUIRE(act.ParseFromString(pk.payload));
+        if (act.entity_id() == a.hero.value && act.action() == jx::pb::ACTION_DEATH) death_told = true;
+    }
+    CHECK(death_told);
+    // the revive request of a dead player before the corpse settled counts as dead too; until then a walk is refused
+    CHECK_FALSE(a.w.move_request(7, Pos{2100, 2000}, 1));
+    // the death frames run out: the corpse stays where it lies (m_Doing 21), the states are off, nothing counts on
+    a.ticks(static_cast<int>(a.h->frame_total) + 1);
+    CHECK(a.h->doing == KDoing::revive);
+    CHECK(a.h->state_skills.empty());
+    CHECK(a.h->cur.life == 0);
+    a.ticks(5);
+    CHECK(a.h->doing == KDoing::revive);
+    // KPlayer::Revive(0): full life, mana and stamina, standing, fight mode off, at the revive point (the spawn point
+    // of the map when none was set), ACTION_REVIVE to the clients around
+    a.h->set_pos(Pos{2300, 2000});
+    a.h->fight_mode = true;
+    CHECK(a.w.revive_request(7, 2));
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->cur.life == a.h->life_max());
+    CHECK(a.h->cur.mana == a.h->mana_max());
+    CHECK_FALSE(a.h->fight_mode);
+    CHECK(a.h->pos() == Pos{2000, 2000});
+    bool revive_told = false;
+    for (const Packet& pk : a.w.take_outbox()) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_ACTION)) continue;
+        jx::pb::EntityAction act;
+        REQUIRE(act.ParseFromString(pk.payload));
+        if (act.entity_id() == a.hero.value && act.action() == jx::pb::ACTION_REVIVE) revive_told = true;
+    }
+    CHECK(revive_told);
+    // alive: a revive request is refused ("Client Want to Revive But he is no deaded!") - the character stands
+    CHECK_FALSE(a.w.revive_request(7, 3));
+    CHECK(a.h->doing == KDoing::stand);
+    // a revive point set by SetTempRevPos (cells x 32, this map): the next death revives there
+    a.h->player.revive_map = a.w.map_id();
+    a.h->player.revive_x = 2500;
+    a.h->player.revive_y = 2100;
+    a.h->cur.life = 5;
+    CHECK(a.w.calc_damage(*a.h, *a.p, 1000, 1000, damage_physics, true, nullptr, &dealt, 0, false) == 0);
+    CHECK(a.h->doing == KDoing::death);
+    CHECK(a.w.player_revive(*a.h, 2, false));   // type 2: where it lies, out of fight mode
+    CHECK(a.h->pos() == Pos{2000, 2000});
+    a.h->cur.life = 5;
+    CHECK(a.w.calc_damage(*a.h, *a.p, 1000, 1000, damage_physics, true, nullptr, &dealt, 0, false) == 0);
+    CHECK(a.w.revive_request(7, 4));
+    CHECK(a.h->pos() == a.w.to_local(Pos{2500, 2100}));
+}

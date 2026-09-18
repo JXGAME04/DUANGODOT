@@ -37,6 +37,15 @@ struct KPlayer {
     int reborn = 0;            // +0x86b8 (<= 7): the experience table and the resistance floor
     int skill_max_level_addons = 0;   // +0x8600 (SetSkillMaxLevelAddons, <= 99): what a reborn character may add to every skill's MaxLevel
     bool loaded = false;       // LoadFrom ran (a player's npc; false for every other npc)
+    // the revive point: KPlayer+0x20 (map), +0x28 / +0x2c (x, y) - SetTempRevPos 0x08110790 writes them, SetRevPos
+    // 0x080B1E50 keeps the map and its reference point at +0x10 / +0x14 and copies the point's spot here; 0 = the
+    // spawn point of the map (the zone has no reference-point table yet: SetRevPos keeps the map only)
+    std::uint32_t revive_map = 0;
+    int revive_x = 0;
+    int revive_y = 0;
+    int revive_ref = 0;        // +0x14
+    // 0x080AFEA0 with a loss (KNpc::OnDeath 0x08088E8D hands -loss): the experience down, never below 0, the level kept
+    void lose_exp(std::int64_t loss) noexcept;
     // what the exp bonuses of equipment / states left here (expenhance_v 175 -> a random range
     // +0xc8..+0xcc, expenhance_p 176 -> +0xd0, add120skillexpenhance_p 206 -> +0xd4); cleared by
     // UpdataCurData like the binary does

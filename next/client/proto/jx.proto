@@ -305,6 +305,10 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
   uint32 seq = 5;
 }
 
+message ReviveReq {              // C2G_REVIVE: the revive request of the old client (KPlayer::Revive 0x080AD9F0, type 0)
+  uint32 seq = 1;
+}
+
 message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server
   uint32 skill_id = 1;
   int32 level = 2;               // -1: the skill was taken away (DelMagic)
@@ -565,6 +569,7 @@ enum MsgId {
   C2G_ADD_POINT = 1110;        // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
   C2G_ADD_SKILL_POINT = 1111;  // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
   C2G_CAST_SKILL = 1112;       // (zone) cast a skill at a target or a spot (NpcSkillCommand -> KNpc::SendCommand(do_skill))
+  C2G_REVIVE = 1113;           // (zone) a dead character asks to revive at its revive point (the handler slot 118 -> KPlayer::Revive(0))
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -710,5 +715,9 @@ message RoleData {
   uint32 money = 19;         // in the bag (KItemList room_equipment money)
   uint32 bank_money = 20;    // in the repository
   repeated RoleSkill skills = 21;   // the fight skill list (KSkillList; DBSkillData of the old server)
+  // the revive point (KPlayer+0x20 map, +0x28 / +0x2c x, y: SetTempRevPos / SetRevPos): where KPlayer::Revive(0) puts
+  // the character back; 0 = the spawn point of its map
+  uint32 revive_map = 22;
+  Vec2 revive_pos = 23;
 }
 

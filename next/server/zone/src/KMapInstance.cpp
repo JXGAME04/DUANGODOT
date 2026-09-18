@@ -148,6 +148,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
                                   at_target ? 0 : req.y(), EntityId{req.target()}, req.seq());
         break;
     }
+    case pb::C2G_REVIVE: {
+        pb::ReviveReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.revive_request(cmd.sid, req.seq());
+        break;
+    }
     case pb::C2G_ADD_SKILL_POINT: {
         pb::AddSkillPointReq req;
         if (!req.ParseFromString(cmd.payload)) break;

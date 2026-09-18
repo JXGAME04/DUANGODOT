@@ -306,6 +306,10 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
   uint32 seq = 5;
 }
 
+message ReviveReq {              // C2G_REVIVE: the revive request of the old client (KPlayer::Revive 0x080AD9F0, type 0)
+  uint32 seq = 1;
+}
+
 message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server
   uint32 skill_id = 1;
   int32 level = 2;               // -1: the skill was taken away (DelMagic)
