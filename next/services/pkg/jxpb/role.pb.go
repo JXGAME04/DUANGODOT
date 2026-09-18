@@ -85,21 +85,31 @@ func (x *RolePosition) GetMapId() uint32 {
 	return 0
 }
 
+// The character's own numbers, the way TRoleData of the JX2 server keeps them (KPlayer::LoadFrom,
+// docs/LINUX-SERVER.md §10): hp_max / mp_max are the BASE maxima (m_LifeMax / m_ManaMax: levels
+// and attribute points, before equipment); stamina_max is recomputed from the level tables; the
+// five points are the base points (m_nStrength.. the player put there), the current ones are
+// derived every time the zone recalculates.
 type RoleStats struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hp            int32                  `protobuf:"varint,1,opt,name=hp,proto3" json:"hp,omitempty"`
-	HpMax         int32                  `protobuf:"varint,2,opt,name=hp_max,json=hpMax,proto3" json:"hp_max,omitempty"`
-	Mp            int32                  `protobuf:"varint,3,opt,name=mp,proto3" json:"mp,omitempty"`
-	MpMax         int32                  `protobuf:"varint,4,opt,name=mp_max,json=mpMax,proto3" json:"mp_max,omitempty"`
-	Stamina       int32                  `protobuf:"varint,5,opt,name=stamina,proto3" json:"stamina,omitempty"`
-	StaminaMax    int32                  `protobuf:"varint,6,opt,name=stamina_max,json=staminaMax,proto3" json:"stamina_max,omitempty"`
-	Strength      int32                  `protobuf:"varint,7,opt,name=strength,proto3" json:"strength,omitempty"`
-	Dexterity     int32                  `protobuf:"varint,8,opt,name=dexterity,proto3" json:"dexterity,omitempty"`
-	Vitality      int32                  `protobuf:"varint,9,opt,name=vitality,proto3" json:"vitality,omitempty"`
-	Energy        int32                  `protobuf:"varint,10,opt,name=energy,proto3" json:"energy,omitempty"`
-	MoveSpeed     int32                  `protobuf:"varint,11,opt,name=move_speed,json=moveSpeed,proto3" json:"move_speed,omitempty"` // units per second
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Hp             int32                  `protobuf:"varint,1,opt,name=hp,proto3" json:"hp,omitempty"`
+	HpMax          int32                  `protobuf:"varint,2,opt,name=hp_max,json=hpMax,proto3" json:"hp_max,omitempty"`
+	Mp             int32                  `protobuf:"varint,3,opt,name=mp,proto3" json:"mp,omitempty"`
+	MpMax          int32                  `protobuf:"varint,4,opt,name=mp_max,json=mpMax,proto3" json:"mp_max,omitempty"`
+	Stamina        int32                  `protobuf:"varint,5,opt,name=stamina,proto3" json:"stamina,omitempty"`
+	StaminaMax     int32                  `protobuf:"varint,6,opt,name=stamina_max,json=staminaMax,proto3" json:"stamina_max,omitempty"`
+	Strength       int32                  `protobuf:"varint,7,opt,name=strength,proto3" json:"strength,omitempty"`
+	Dexterity      int32                  `protobuf:"varint,8,opt,name=dexterity,proto3" json:"dexterity,omitempty"`
+	Vitality       int32                  `protobuf:"varint,9,opt,name=vitality,proto3" json:"vitality,omitempty"`
+	Energy         int32                  `protobuf:"varint,10,opt,name=energy,proto3" json:"energy,omitempty"`
+	MoveSpeed      int32                  `protobuf:"varint,11,opt,name=move_speed,json=moveSpeed,proto3" json:"move_speed,omitempty"`                // units per second
+	Lucky          int32                  `protobuf:"varint,12,opt,name=lucky,proto3" json:"lucky,omitempty"`                                         // m_nLucky
+	AttributePoint int32                  `protobuf:"varint,13,opt,name=attribute_point,json=attributePoint,proto3" json:"attribute_point,omitempty"` // m_nAttributePoint: unspent (5 per level)
+	SkillPoint     int32                  `protobuf:"varint,14,opt,name=skill_point,json=skillPoint,proto3" json:"skill_point,omitempty"`             // m_nSkillPoint: unspent (1 per level)
+	Reborn         uint32                 `protobuf:"varint,15,opt,name=reborn,proto3" json:"reborn,omitempty"`                                       // times reborn (KPlayer+0x86b8, <= 7): picks the experience table
+	Camp           uint32                 `protobuf:"varint,16,opt,name=camp,proto3" json:"camp,omitempty"`                                           // m_Camp (BaseInfo.iteam)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RoleStats) Reset() {
@@ -205,6 +215,41 @@ func (x *RoleStats) GetEnergy() int32 {
 func (x *RoleStats) GetMoveSpeed() int32 {
 	if x != nil {
 		return x.MoveSpeed
+	}
+	return 0
+}
+
+func (x *RoleStats) GetLucky() int32 {
+	if x != nil {
+		return x.Lucky
+	}
+	return 0
+}
+
+func (x *RoleStats) GetAttributePoint() int32 {
+	if x != nil {
+		return x.AttributePoint
+	}
+	return 0
+}
+
+func (x *RoleStats) GetSkillPoint() int32 {
+	if x != nil {
+		return x.SkillPoint
+	}
+	return 0
+}
+
+func (x *RoleStats) GetReborn() uint32 {
+	if x != nil {
+		return x.Reborn
+	}
+	return 0
+}
+
+func (x *RoleStats) GetCamp() uint32 {
+	if x != nil {
+		return x.Camp
 	}
 	return 0
 }
@@ -678,7 +723,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\fRolePosition\x12\x17\n" +
 	"\azone_id\x18\x01 \x01(\rR\x06zoneId\x12\x1d\n" +
 	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x15\n" +
-	"\x06map_id\x18\x03 \x01(\rR\x05mapId\"\xa1\x02\n" +
+	"\x06map_id\x18\x03 \x01(\rR\x05mapId\"\xad\x03\n" +
 	"\tRoleStats\x12\x0e\n" +
 	"\x02hp\x18\x01 \x01(\x05R\x02hp\x12\x15\n" +
 	"\x06hp_max\x18\x02 \x01(\x05R\x05hpMax\x12\x0e\n" +
@@ -693,7 +738,13 @@ const file_jx_role_proto_rawDesc = "" +
 	"\x06energy\x18\n" +
 	" \x01(\x05R\x06energy\x12\x1d\n" +
 	"\n" +
-	"move_speed\x18\v \x01(\x05R\tmoveSpeed\"5\n" +
+	"move_speed\x18\v \x01(\x05R\tmoveSpeed\x12\x14\n" +
+	"\x05lucky\x18\f \x01(\x05R\x05lucky\x12'\n" +
+	"\x0fattribute_point\x18\r \x01(\x05R\x0eattributePoint\x12\x1f\n" +
+	"\vskill_point\x18\x0e \x01(\x05R\n" +
+	"skillPoint\x12\x16\n" +
+	"\x06reborn\x18\x0f \x01(\rR\x06reborn\x12\x12\n" +
+	"\x04camp\x18\x10 \x01(\rR\x04camp\"5\n" +
 	"\tItemMagic\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12\x14\n" +
 	"\x05value\x18\x02 \x03(\x05R\x05value\"\xc7\x04\n" +

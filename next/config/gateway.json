@@ -19,6 +19,9 @@
     // saves over save_interval_s (one player per tick slot), so 20 000 players are ~19 writes a tick.
     "save_workers": 4,
     "save_timeout_s": 10,
+    // what a new character starts with: settings/npc/player of the old server exported by
+    // jxassets export-player (dev.py assets). Missing file = built-in placeholder numbers.
+    "player_file": "client/assets/player.json",
 
     // accounts: "dev" = the first login of a new name registers it (tests, bots);
     // "strict" = only accounts made with jxaccount (password >= min_password)

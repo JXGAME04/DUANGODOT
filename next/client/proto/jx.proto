@@ -503,6 +503,11 @@ message RolePosition {
   uint32 map_id = 3;    // map bundle within the zone (0 = the zone's default map)
 }
 
+// The character's own numbers, the way TRoleData of the JX2 server keeps them (KPlayer::LoadFrom,
+// docs/LINUX-SERVER.md §10): hp_max / mp_max are the BASE maxima (m_LifeMax / m_ManaMax: levels
+// and attribute points, before equipment); stamina_max is recomputed from the level tables; the
+// five points are the base points (m_nStrength.. the player put there), the current ones are
+// derived every time the zone recalculates.
 message RoleStats {
   int32 hp = 1;
   int32 hp_max = 2;
@@ -515,6 +520,11 @@ message RoleStats {
   int32 vitality = 9;
   int32 energy = 10;
   int32 move_speed = 11;    // units per second
+  int32 lucky = 12;         // m_nLucky
+  int32 attribute_point = 13;   // m_nAttributePoint: unspent (5 per level)
+  int32 skill_point = 14;       // m_nSkillPoint: unspent (1 per level)
+  uint32 reborn = 15;       // times reborn (KPlayer+0x86b8, <= 7): picks the experience table
+  uint32 camp = 16;         // m_Camp (BaseInfo.iteam)
 }
 
 // One attribute of an item (KMagicAttrib of the old core): a type and up to three parameters.

@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
 )
@@ -343,11 +344,22 @@ func (s *FileStore) Character(_ context.Context, playerID uint64) (*jxpb.RoleDat
 	return proto.Clone(r).(*jxpb.RoleData), nil
 }
 
-// NewRole builds the starting RoleData for a fresh character (the numbers are placeholders
-// until the formula tables from the old Core are ported).
+// NewPlayerSet is the player.json of jxassets export-player (settings/npc/player of the old
+// server): the ten newplayerini%02d templates a new character starts from.  The gateway sets
+// it at boot (gateway.player_file); nil keeps the built-in numbers of a machine without assets.
+var NewPlayerSet *player.Set
+
+// SetNewPlayerSet installs the templates NewRole builds from.
+func SetNewPlayerSet(s *player.Set) { NewPlayerSet = s }
+
+// NewRole builds the starting RoleData for a fresh character the way the Bishop's CPlayerCreator
+// did: newplayerini[series*2 + sex].ini gives the five points, the base life / mana (vitality x
+// LifePerVitality + LifePerLevel, energy x ManaPerEnergy + ManaPerLevel of level_add.txt - the
+// file already holds the result), the unspent points and the starting items; the zone rolls the
+// items' attributes and the stamina when the character first enters (KPlayer::LoadFrom).
 func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.RoleData {
 	now := time.Now().UnixMilli()
-	return &jxpb.RoleData{
+	role := &jxpb.RoleData{
 		PlayerId:    playerID,
 		AccountId:   accountID,
 		Name:        name,
@@ -359,6 +371,39 @@ func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.
 		CreatedAtMs: uint64(now),
 		DataVersion: CurrentRoleVersion,
 	}
+	if NewPlayerSet == nil {
+		return role
+	}
+	t := NewPlayerSet.NewPlayerFor(int(series), int(sex))
+	if t == nil {
+		return role
+	}
+	role.Level = uint32(t.Level)
+	role.Exp = uint64(t.Exp)
+	role.Stats = &jxpb.RoleStats{
+		Hp: int32(t.LifeMax), HpMax: int32(t.LifeMax),
+		Mp: int32(t.ManaMax), MpMax: int32(t.ManaMax),
+		Stamina: int32(NewPlayerSet.GetStaminaBase(int(series), int(sex), t.Level)),
+		StaminaMax: int32(NewPlayerSet.GetStaminaBase(int(series), int(sex), t.Level)),
+		Strength: int32(t.Strength), Dexterity: int32(t.Dexterity), Vitality: int32(t.Vitality), Energy: int32(t.Energy),
+		Lucky: int32(t.Lucky), AttributePoint: int32(t.AttributePoint), SkillPoint: int32(t.SkillPoint),
+		MoveSpeed: 200,
+	}
+	for i, it := range t.Items {
+		// ilocal 3 of the old DB is the bag (pos_equiproom); the zone rolls the attributes of a
+		// row that has none (an equipment without base attributes) when it loads the character
+		room := uint32(0)
+		if it.Room != 3 {
+			room = uint32(it.Room)
+		}
+		role.Items = append(role.Items, &jxpb.ItemData{
+			Id: uint32(i + 1), Version: uint32(it.Version), Genre: uint32(it.Genre), Detail: uint32(it.Detail),
+			Particular: uint32(it.Particular), Level: uint32(it.Level), Series: int32(it.Series), Count: 1,
+			Room: room, X: uint32(it.X), Y: uint32(it.Y),
+		})
+	}
+	role.NextItemId = uint32(len(t.Items) + 1)
+	return role
 }
 
 // CreateCharacter implements Store.

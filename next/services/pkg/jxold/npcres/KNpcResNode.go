@@ -462,7 +462,7 @@ func parseSortTable(data []byte, actions []string, partNum int) *SortTable {
 	if partNum < 1 {
 		partNum = 1
 	}
-	ini := parseIni(data)
+	ini := ParseIni(data)
 	s := &SortTable{PartNum: partNum, Acts: map[int]*SortAct{}}
 	def := ini["default"]
 	s.Default = make([]SortRow, MaxSortDir)
@@ -535,8 +535,8 @@ func sortStrToNum(s string, partNum int) SortRow {
 	return row
 }
 
-// parseIni reads "[section]" / "key=value" lines; section and key names are lower-cased.
-func parseIni(data []byte) map[string]map[string]string {
+// ParseIni reads "[section]" / "key=value" lines; section and key names are lower-cased.
+func ParseIni(data []byte) map[string]map[string]string {
 	out := map[string]map[string]string{}
 	section := ""
 	sc := bufio.NewScanner(bytes.NewReader(data))
@@ -575,7 +575,7 @@ type PlayerFrames struct {
 
 // ParsePlayerBase reads BaseValue.ini; missing values use the old defaults (15).
 func ParsePlayerBase(data []byte) map[string]PlayerFrames {
-	ini := parseIni(data)
+	ini := ParseIni(data)
 	get := func(sec, key string, def int) int {
 		if v, ok := ini[sec][key]; ok {
 			if n, err := strconv.Atoi(v); err == nil {

@@ -454,6 +454,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the objects of the ground (ObjData.txt / MoneyObj.txt): what a dropped thing looks like
     if subprocess.call([*jxassets_args(), "export-objdata", "-out", out], cwd=ROOT) != 0:
         print("export-objdata: no settings/obj in the reference server folder - nothing can be dropped")
+    # the player tables (level_exp, level_add, stamina.ini, the new-character templates): the
+    # zone's KPlayerSet and the gateway's new characters
+    if subprocess.call([*jxassets_args(), "export-player", "-out", out], cwd=ROOT) != 0:
+        print("export-player: no settings/npc/player in the reference server folder - built-in numbers are used")
     print("assets ok")
 
 

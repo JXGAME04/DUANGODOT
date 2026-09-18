@@ -18,6 +18,7 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/internal/gateway"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/auth"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/config"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/log"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/persist"
 )
@@ -92,6 +93,16 @@ func main() {
 		os.Exit(1)
 	}
 	defer store.Close()
+	// what a new character starts with (settings/npc/player of the old server, exported by
+	// jxassets export-player); without the file the built-in placeholder numbers are used
+	if pf := cfg.String("gateway.player_file", "client/assets/player.json"); pf != "" {
+		if set, err := player.Read(pf); err == nil {
+			persist.SetNewPlayerSet(set)
+			log.Info("boot", "new character templates loaded", log.F("file", pf))
+		} else {
+			log.Warn("boot", "new character templates not loaded", log.F("file", pf), log.F("error", err))
+		}
+	}
 
 	// the account server: "dev" registers any new name on first login, "strict" only knows
 	// accounts made with jxaccount

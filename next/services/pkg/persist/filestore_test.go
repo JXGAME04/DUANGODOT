@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
 	"testing"
 )
 
@@ -34,5 +35,30 @@ func TestNewCharacterChoice(t *testing.T) {
 	}
 	if err := (NewCharacter{Name: "Có Trắng"}).Validate(); err != ErrInvalidName {
 		t.Errorf("a name with a blank: %v", err)
+	}
+}
+
+func TestNewRoleStartsFromTheOldTemplates(t *testing.T) {
+	// no templates: the placeholder numbers
+	SetNewPlayerSet(nil)
+	r := NewRole(7, 1, "Ai", 0, 0)
+	if r.Stats.Strength != 10 || len(r.Items) != 0 {
+		t.Fatalf("placeholder role %+v", r.Stats)
+	}
+	// newplayerini00 of the Linux server (Shaolin, male): 35/25/25/15, life 204, mana 16,
+	// stamina from level_add (base 180), one starting weapon in the bag
+	set := &player.Set{}
+	set.LevelAdd[0] = player.LevelAdd{LifePerLevel: 4, StaminaMalePerLevel: 9, StaminaFemalePerLevel: 8, ManaPerLevel: 1, LifePerVitality: 8, ManaPerEnergy: 1, StaminaMaleBase: 180, StaminaFemaleBase: 180}
+	set.NewPlayer[0] = player.NewPlayer{Present: true, Strength: 35, Dexterity: 25, Vitality: 25, Energy: 15, LifeMax: 204, ManaMax: 16, Level: 1,
+		Items: []player.NewPlayerItem{{Genre: 0, Detail: 0, Particular: 4, Level: 1, Version: 2, Room: 3}}}
+	SetNewPlayerSet(set)
+	defer SetNewPlayerSet(nil)
+	r = NewRole(7, 1, "Ai", 0, 1) // the female file is missing: 00 serves
+	s := r.Stats
+	if s.Strength != 35 || s.Dexterity != 25 || s.Vitality != 25 || s.Energy != 15 || s.HpMax != 204 || s.Hp != 204 || s.MpMax != 16 || s.StaminaMax != 180 {
+		t.Fatalf("template role %+v", s)
+	}
+	if len(r.Items) != 1 || r.Items[0].Room != 0 || r.Items[0].Particular != 4 || r.Items[0].Version != 2 || r.NextItemId != 2 {
+		t.Fatalf("starting items %+v", r.Items)
 	}
 }

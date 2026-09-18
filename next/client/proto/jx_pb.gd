@@ -5714,6 +5714,31 @@ class RoleStats:
 		service.field = __move_speed
 		data[__move_speed.tag] = service
 		
+		__lucky = PBField.new("lucky", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __lucky
+		data[__lucky.tag] = service
+		
+		__attribute_point = PBField.new("attribute_point", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 13, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __attribute_point
+		data[__attribute_point.tag] = service
+		
+		__skill_point = PBField.new("skill_point", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 14, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __skill_point
+		data[__skill_point.tag] = service
+		
+		__reborn = PBField.new("reborn", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 15, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __reborn
+		data[__reborn.tag] = service
+		
+		__camp = PBField.new("camp", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 16, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __camp
+		data[__camp.tag] = service
+		
 	var data = {}
 	
 	var __hp: PBField
@@ -5858,6 +5883,71 @@ class RoleStats:
 		__move_speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_move_speed(value : int) -> void:
 		__move_speed.value = value
+	
+	var __lucky: PBField
+	func has_lucky() -> bool:
+		if __lucky.value != null:
+			return true
+		return false
+	func get_lucky() -> int:
+		return __lucky.value
+	func clear_lucky() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__lucky.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_lucky(value : int) -> void:
+		__lucky.value = value
+	
+	var __attribute_point: PBField
+	func has_attribute_point() -> bool:
+		if __attribute_point.value != null:
+			return true
+		return false
+	func get_attribute_point() -> int:
+		return __attribute_point.value
+	func clear_attribute_point() -> void:
+		data[13].state = PB_SERVICE_STATE.UNFILLED
+		__attribute_point.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_attribute_point(value : int) -> void:
+		__attribute_point.value = value
+	
+	var __skill_point: PBField
+	func has_skill_point() -> bool:
+		if __skill_point.value != null:
+			return true
+		return false
+	func get_skill_point() -> int:
+		return __skill_point.value
+	func clear_skill_point() -> void:
+		data[14].state = PB_SERVICE_STATE.UNFILLED
+		__skill_point.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_skill_point(value : int) -> void:
+		__skill_point.value = value
+	
+	var __reborn: PBField
+	func has_reborn() -> bool:
+		if __reborn.value != null:
+			return true
+		return false
+	func get_reborn() -> int:
+		return __reborn.value
+	func clear_reborn() -> void:
+		data[15].state = PB_SERVICE_STATE.UNFILLED
+		__reborn.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_reborn(value : int) -> void:
+		__reborn.value = value
+	
+	var __camp: PBField
+	func has_camp() -> bool:
+		if __camp.value != null:
+			return true
+		return false
+	func get_camp() -> int:
+		return __camp.value
+	func clear_camp() -> void:
+		data[16].state = PB_SERVICE_STATE.UNFILLED
+		__camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_camp(value : int) -> void:
+		__camp.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

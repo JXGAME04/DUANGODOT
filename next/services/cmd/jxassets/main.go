@@ -11,6 +11,8 @@
 //	objects <mapid | gamepath> <x> <y> [text]  raw cover/buildin records + sprite headers of one region
 //	export-npcres [mapid...] -out <dir>   npc/character appearance tables + sprites used on those maps
 //	export-items -out <dir>          the item tables of the old server (settings/item, every version) as JSON
+//	export-player -out <dir>         settings/npc/player of the old server (level_exp, level_add, stamina.ini,
+//	                                 basevalue.ini, newplayerini%02d) as player.json for the zone and the gateway
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -33,6 +35,7 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/item"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/spr"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/wor"
@@ -799,6 +802,58 @@ func main() {
 				}
 			}
 		}
+
+	case "export-player":
+		// The player tables of the old server (settings/npc/player): the experience of every
+		// level, what a level and an attribute point add per series, the resistance per level,
+		// stamina.ini, basevalue.ini and the ten new-character templates - read the way KLevelAdd
+		// / KPlayerSet of jx_linux_y read them (docs/LINUX-SERVER.md §10.3) -> <out>/player.json
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		var dir string
+		for _, root := range serverRoots(sdir) {
+			for _, sub := range []string{"settings/npc/player", "Settings/npc/player", "Settings/Npc/Player", "settings/player", "Settings/Player"} {
+				if st, err := os.Stat(filepath.Join(root, sub)); err == nil && st.IsDir() {
+					dir = filepath.Join(root, sub)
+					break
+				}
+			}
+			if dir != "" {
+				break
+			}
+		}
+		if dir == "" {
+			fail("no settings/npc/player under %s", sdir)
+		}
+		set, err := player.Load(dir)
+		if err != nil {
+			fail("%s: %v", dir, err)
+		}
+		p := filepath.Join(out, "player.json")
+		if err := set.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		have := 0
+		for i := range set.NewPlayer {
+			if set.NewPlayer[i].Present {
+				have++
+			}
+		}
+		fmt.Printf("export-player: cap 1..%d (cap 2 can %d, cap 10 can %d), %d he, %d/%d mau nhan vat moi -> %s%s\n",
+			player.MaxLevel, set.GetLevelExp(1, 0), set.GetLevelExp(9, 0), len(set.LevelAdd), have, player.NewPlayers, p,
+			map[bool]string{true: "  (thieu: " + strings.Join(set.Missing, ",") + ")", false: ""}[len(set.Missing) > 0])
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):
