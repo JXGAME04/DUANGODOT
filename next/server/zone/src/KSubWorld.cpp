@@ -1189,6 +1189,7 @@ void KSubWorld::send_player_attrib(std::uint64_t sid, std::uint32_t seq)
     out.set_cast_speed(c.cast_speed_v());
     out.set_faction(p.faction.current);        // the login sync 0x080A9750 +0xb0e / +0xb12
     out.set_faction_last(p.faction.last);
+    out.set_level_exp(static_cast<std::uint64_t>(std::max<std::int64_t>(0, e->level > 1 ? tables().level_exp(static_cast<int>(e->level) - 1, p.reborn) : 0)));
     out.set_seq(seq);
     emit({sid}, static_cast<std::uint16_t>(pb::G2C_PLAYER_ATTRIB), out);
 }

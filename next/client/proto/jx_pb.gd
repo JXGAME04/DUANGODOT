@@ -5270,6 +5270,11 @@ class PlayerAttribSync:
 		service.field = __faction_last
 		data[__faction_last.tag] = service
 		
+		__level_exp = PBField.new("level_exp", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 38, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __level_exp
+		data[__level_exp.tag] = service
+		
 	var data = {}
 	
 	var __level: PBField
@@ -5752,6 +5757,19 @@ class PlayerAttribSync:
 		__faction_last.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_faction_last(value : int) -> void:
 		__faction_last.value = value
+	
+	var __level_exp: PBField
+	func has_level_exp() -> bool:
+		if __level_exp.value != null:
+			return true
+		return false
+	func get_level_exp() -> int:
+		return __level_exp.value
+	func clear_level_exp() -> void:
+		data[38].state = PB_SERVICE_STATE.UNFILLED
+		__level_exp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_level_exp(value : int) -> void:
+		__level_exp.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

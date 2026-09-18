@@ -12,6 +12,8 @@ const UiItem := preload("res://ui/uicase/UiItem.gd")
 const UiStatus := preload("res://ui/uicase/UiStatus.gd")
 const UiSkills := preload("res://ui/uicase/UiSkills.gd")
 const UiMouseHover := preload("res://ui/uicase/UiMouseHover.gd")
+const UiControlBar := preload("res://ui/uicase/UiControlBar.gd")
+const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
@@ -19,6 +21,11 @@ const KUiScheme := preload("res://ui/KUiScheme.gd")
 var item_window: UiItem = null
 var status_window: UiStatus = null
 var skills_window: UiSkills = null
+# the bars of the 2.0 screen (docs/CLIENT-2.0.md §7): the top bar (life / mana / stamina / exp / level), the tool bar
+# (the buttons that open the windows) and the bottom bar (quick items, the two mouse skills, the chat line)
+var top_bar: UiControlBar = null
+var tool_bar: UiControlBar = null
+var player_bar: UiPlayerBar = null
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
 var ready_ok := false
@@ -43,6 +50,7 @@ func _ready() -> void:
 	skills_window = UiSkills.new()
 	hover = UiMouseHover.new()
 	hand = KUiDraggedObject.new()
+	_build_bars()
 	for w in [item_window, status_window, skills_window]:
 		_canvas.add_child(w)
 		if not w.load_scheme(screen):
@@ -64,6 +72,11 @@ func _ready() -> void:
 	skills_window.skill_clicked.connect(_on_skill_clicked.bind(false))
 	skills_window.skill_right_clicked.connect(_on_skill_clicked.bind(true))
 	skills_window.skill_hovered.connect(_on_skill_hovered)
+	Game.player_attrib_changed.connect(func(_a): _refresh_bars())
+	Game.skills_changed.connect(_refresh_mouse_skills)
+	Game.skill_changed.connect(func(_id): _refresh_mouse_skills())
+	_refresh_bars()
+	_refresh_mouse_skills()
 	Game.item_changed.connect(_on_item_changed)
 	Game.item_removed.connect(_on_item_removed)
 	Game.item_result.connect(_on_item_result)
@@ -107,12 +120,75 @@ func _on_item_hovered(item) -> void:
 		hover.show_text(KUiItemView.describe_text(item, KUiItemView.equip_enhance(item)) + "\n", _canvas.get_local_mouse_position())
 
 
+# KUiPlayerBar::LoadScheme 0x004750E0 (the bottom bar, then [Main] ToolBoxSchema = the tool bar 0x00474B20) and the
+# top bar 顶部控制条.ini: the bars sit under the windows; a missing layout leaves that bar out
+func _build_bars() -> void:
+	player_bar = UiPlayerBar.new()
+	_canvas.add_child(player_bar)
+	if not player_bar.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiPlayerBar.SCHEME})
+		player_bar.queue_free()
+		player_bar = null
+	else:
+		player_bar.mouse_skill_clicked.connect(func(_right): skills_window.open_window())
+	top_bar = UiControlBar.new()
+	_canvas.add_child(top_bar)
+	if not top_bar.load_scheme("thanh-dieu-khien-tren", screen):
+		Log.warn("ui", "layout missing", {"window": "thanh-dieu-khien-tren"})
+		top_bar.queue_free()
+		top_bar = null
+	tool_bar = UiControlBar.new()
+	_canvas.add_child(tool_bar)
+	if not tool_bar.load_scheme("thanh-cong-cu", screen, true):
+		Log.warn("ui", "layout missing", {"window": "thanh-cong-cu"})
+		tool_bar.queue_free()
+		tool_bar = null
+	else:
+		tool_bar.command.connect(_on_bar_command)
+
+
+# the Lua Open([[x]]) / Switch([[x]]) a tool bar button runs (0x0044B250..): the windows this client has
+func _on_bar_command(cmd: String) -> void:
+	match cmd:
+		"status":
+			status_window.toggle_window()
+		"items":
+			item_window.toggle_window()
+		"skills":
+			skills_window.toggle_window()
+		_:
+			Log.info("ui", "window not built yet", {"command": cmd})
+
+
+func _refresh_bars() -> void:
+	if top_bar != null:
+		top_bar.refresh()
+	if tool_bar != null:
+		tool_bar.refresh()
+
+
+# the two mouse skill boxes of the bottom bar (ImediaLeftSkill / ImediaRightSkill)
+func _refresh_mouse_skills() -> void:
+	if player_bar == null:
+		return
+	var left := {}
+	var right := {}
+	if Game.left_skill > 0 and Game.skills.has(Game.left_skill):
+		left = skills_window.skill_info(Game.left_skill)
+		left["id"] = Game.left_skill
+	if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
+		right = skills_window.skill_info(Game.right_skill)
+		right["id"] = Game.right_skill
+	player_bar.set_mouse_skills(left, right)
+
+
 func _on_skill_clicked(skill_id: int, right: bool) -> void:
 	if right:
 		Game.right_skill = skill_id
 	else:
 		Game.left_skill = skill_id
 	Log.info("ui", "mouse skill", {"skill": skill_id, "button": "right" if right else "left"})
+	_refresh_mouse_skills()
 
 
 func _on_skill_hovered(skill) -> void:

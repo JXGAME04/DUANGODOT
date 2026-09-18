@@ -954,3 +954,15 @@ phải thứ tự phát. `faction_def.lua` `AddFacSkill(nFacId, nLv)`: với m�
 
 Chưa: `SetRank` (`0x081109E0`, danh hiệu `factiontitle.txt`), `Msg2Faction`, `0x081621B0` (danh sách móc `+0x8078`), gia nhập qua NPC
 (script `thieulam.lua` cần `SetTask`/`AddNote`/`SetRank`…), "門派多修" (client có UI, `jx_linux_y` không có).
+
+### 16.8 Trạng thái chiến đấu `+0x168c` — không có gói client; bẫy cổng, thổ địa phù, khôi phục lúc vào game (M12 lát B4b-1, đã kiểm)
+
+`re_scan disp 0x168c`: chỉ `KNpc::SetFightMode 0x08079B30` (và `Init 0x0807E0E8`) ghi; không handler gói client nào gọi (bảng `0x080DA560` rút hết).
+Người gọi `SetFightMode`: **script bẫy** `SetFightState 0x08117A10` (`script/maps/*`: ra cổng thành `SetFightState(1)`, vào thành `(0)` — cách JX2 vào/ra
+chiến đấu), **khôi phục lúc vào game** `0x080B5DF0` (`Player+0x8074 = 1`, `SetFightMode(npc, +0x1690)` = giá trị lưu; zone: `RoleData.fight_mode`),
+`KNpcSet::Add 0x0809F910` (npc thường: bật), `KPlayer::Revive 0x080AD9F0` kiểu 0 (tắt), **thổ địa phù** Lua `UseTownPortal 0x08117900` → `0x080B59D0`
+(đang chiến → lưu `Player+0x30/+0x38/+0x3c` = map/toạ độ hiện tại, `+0x34 = 1800` khung, `0x08080110(npc, Player+0x20/+0x28/+0x2c)` về điểm hồi sinh,
+`SetFightMode(0)`; cũng gọi từ dùng vật phẩm `0x08204710` với sự kiện `UseTownPortalEvent:OnEvent`) / `ReturnFromPortal 0x081178C0` → `0x080AD960`
+(về chỗ đã lưu, `SetFightMode(1)`), `0x080DD37D` (một lệnh con của handler `0x080DBA90` → `UseTownPortal`), `0x081EAA80` (đồng hành chép trạng thái
+chủ), `0x08050580` (khôi phục `+0x1690`). Vậy client 2.0 không có nút/gói "vào chiến đấu"; `--auto` của zone dùng `SetFightState(1)` qua GM đúng như
+bẫy cổng. Chưa port: thổ địa phù (`+0x34` đếm lùi ở đâu tiêu — đọc tiếp khi làm vật phẩm), `+0x8074`.

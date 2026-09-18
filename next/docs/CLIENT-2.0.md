@@ -124,3 +124,39 @@ kỹ năng trái (không có → đánh thường), click phải thi triển k�
 `auto_skills.png` (Quyền) và `auto_skills_2.png` (Bổng). Chưa: thanh nhân vật 2.0
 (`玩家信息主界面.ini`) với hai ô kỹ năng chuột, cây chọn kỹ năng (`技能选择树.ini`), phím F1..F11 (`ShortcutSkill(%d)`), trang
 sống, chú thích kỹ năng (`KUiSkillTree`), gói 0x87, gói vào/ra chiến đấu.
+
+## 7. Ba thanh của màn hình 2.0 — `KUiControlBar` (thanh trên `顶部控制条.ini`, thanh công cụ `工具控制条.ini`), `KUiPlayerBar` (`玩家信息主界面.ini`) (M12 lát B4b-2, đã đọc từng dòng `gamecl.exe`)
+
+Tệp (theme `\Ui\ui3_1024\`, xuất ra `client/assets/ui/thanh-dieu-khien-tren`, `thanh-cong-cu`, `thanh-nhan-vat`, `thanh-nhan-vat-thu-nho`):
+- `顶部控制条.ini`: `[Main]` (236,0) 550×27 ảnh `血条底.spr`, `Button0..5 = Life Mana Stamina Exp Level WorldSort`; `Txt_Level` "Cấp" (28,1), `Txt_WorldSort`
+  "Hạng" (475,1); mỗi mục `[Life]` (182,2) 91×10 `Tip` `Part=1` `ClassType=Player_Life` + `[Life_Image]` (`PartType=0`, ảnh thanh) + `[Life_Text]`
+  (0,12) 91×10 `HAlign=1`; `Mana` (277,2) `PartType=1`; `Stamina` (87,2) `PartType=1`; `Exp` (372,2) `PartType=0`; `Level` (55,1) 50×12 chữ
+  màu 55,231,63; `WorldSort` (498,1).
+- `工具控制条.ini`: `[Main]` không ảnh; `Button0..9 = Status Items ItemEx Skills Team Faction ChatRoom Task Friend Options` (`Button14=ZhenFa` "không có");
+  mỗi nút 21×23 y = 739: Status x=518, Items 543, ItemEx 568, Task 593, Skills 618, Team 643, Friend 668, Faction 693, ChatRoom 718, Options 743;
+  `ClassType=Player_Status …`, `Esc_Options`.
+- `玩家信息主界面.ini`: `[Main]` 1024×768 ảnh `玩家信息下版1024.spr` `DummyWnd=1` `PositionType=2` `ToolBoxSchema=工具控制条.ini`; `DateTime` (0,2)
+  120×13 (khoá `GameLogo`, `SmoothMsg/CrowdMsg/BlockMsg` theo ping); `Recorder`; `Item_0..8` 36×36 y=728, x = 158 + 38·i (463 ở ô 8); `ImediaLeftSkill`
+  (791,724) / `ImediaRightSkill` (828,724) 36×36 `EnableClickEmpty=1`; `InputEdit` (25,697) 232×15 `Type=2 MaxLen=80 Color=254,255,160 FocusBKColor
+  25,31,11 α180 FocusNoCanBKColor 97,2,0 α150`; `SendBtn` (281,693) 21×20; `ChannelBtn` (1,692) 20×20; `Face` (260,694) 20×20; `InputBack` (0,692)
+  304×24; `StatusBack` (0,508) 800×92 (không ảnh); `AdultPermit` (10,18). Bản thu nhỏ `玩家信息主界面最小化.ini` (`thanh-nhan-vat-thu-nho`) có
+  thêm `Life/Mana/Stamina/Exp/Angry`, `Run/Sit/Status/Item/Horse/Skill/Options`, 3 ô thuốc, `ScenePos0/1`, `SwitchSizeBtn`.
+
+| Địa chỉ | Làm gì | Client mới |
+|---|---|---|
+| `0x00469840` | **`KUiControlBar::LoadScheme(ini, mục)`**: `Init(ini, mục)` (`0x00457D80`), `AddChild` `+0x554` `Txt_Level`, `+0xaec` `Txt_WorldSort` (`Init` với tên mục — thanh công cụ không có → trống); vòng `i = 0..`: `GetString(mục, "Button%d", "", tên, 32)` còn → `AddElement 0x004695B0` | `UiControlBar.load_scheme` |
+| `0x004695B0` | **`AddElement(ini, mục)`**: mảng `+0x1088` (36 byte/mục: cửa sổ + tên 32) `realloc`; `GetString(mục, "ClassType")` → `0x0044E050` (bộ đăng ký toàn cục `0x8329E0`) `0x0044E150(tên)` → mô tả lớp `+0x20` = hàm tạo → `wnd->vtable[3](ini, mục)` (Init/LoadScheme) → `AddChild`. Lớp đăng ký `0x00449C40`: `Player_Life Player_Mana Player_Stamina Player_Exp Player_Level Player_WorldSort Player_Status Player_Items Player_ItemEx Player_Skills Player_Team Player_Faction Player_ChatRoom Player_Sit Player_Run Player_Horse Player_Exchange Player_PK Player_Recorder Player_Task Player_Friend Esc_Options` (vtable qua RTTI `.?AVPlayer_Life@@` = `0x0078E5E4`…) | `_add_element` |
+| `0x00451C40` | **`LoadScheme` phần tử thanh** (Player_Life…): `0x00451580(ini, mục)` (cửa sổ nút, `Tip`); `[mục] Part` (mặc định 1) → `+0x17d0`; `sprintf("%s_Image")` → `Part` ≠ 0 ? `KWndPartImage +0xcdc` : `KWndImage +0x770`; `"%s_Text"` → `KWndText +0x1238`; `AddChild` ảnh + chữ; `vtable[10](0)` (không nhận chuột) | phần tử `{root, image, text}` |
+| `0x004583D0` / `0x004584D0` / `0x00450F00` | **`KWndPartImage`**: `Init` đọc `PartType` (0..3, khác → 0), `ImgType`; `SetPart(cur, max)`: `max` = 0 → thôi, else `0x00450F00(sprite +0x494, cur, max)`: `cur ≥ max` → cả ảnh; `cur < 0` → rỗng; **PartType 0**: `right = w·cur/max`; **1**: `left = w − w·cur/max`; **2**: `bottom = h·cur/max`; **3**: `top = h − h·cur/max` (chia nguyên); vẽ `0x00458200` chỉ phần đó | `KWndPartImage.gd` + `KUiPartMath.part_rect` (test headless) |
+| `0x0044AAA0` | **`Player_Life::Update`**: `GetGameData(0x3ea, 0x58 byte)` → `{+0 máu, +4 máu tối đa, +8 tối đa 2}` (khối `0x00661724`: npc `+0x105c`, `+0x12b14`, `+0x12b18`); `SetPart(máu, max(hai tối đa))`; công tắc `showplayernumber` (`[0x80ED44]`, **mặc định 1**) → chữ `"%d/%d"` (`0x00451DB0`, dấu `/` 0x2f) hoặc xoá (`0x00451DD0`); click `0x0044AB60` → Lua `Switch([[showplayernumber]])` | `refresh()` Life; click đảo `show_numbers` |
+| `0x0044AB80` / `0x0044AC60` | `Player_Mana` (`+0xc`, `+0x10`, `+0x14`) / `Player_Stamina` (`+0x18`, `+0x1c`) như trên | |
+| `0x0044AD20` | **`Player_Exp`**: ba số int64 của `KUiPlayerBar +0x8db8/+0x8dc0/+0x8dc8` (`0x00473910`) → phần trăm vào cấp (nhân 100.0, `ftol`) → `SetPart(pct, 100)`; chữ từ `GDI 0x3eb` | `KUiPartMath.exp_percent(exp, level_exp, next_level_exp)`; zone gửi `PlayerAttribSync.level_exp` = `level_exp[cấp − 1]` |
+| `0x0044AFE0` / `0x0044B050` | `Player_Level`: `GDI 0x3eb +0` (cấp) → `SetText(số)` (`0x00451DC0`); `Player_WorldSort`: `GDI 0x3e9 +0x64` > 0 → số, else `"-"` (`0x7B8FB4`) | cấp; hạng "-" (chưa có bảng xếp hạng) |
+| `0x0044B250` / `0x0044B290` / `0x0044B310` / `0x0044BAF0` / `0x0044B470` | click nút công cụ (vtable[17]): Lua `Open([[status]])` / `Open([[items]])` / `Open([[skills]])` / `Open([[system]])` / `Switch([[sit]])` (`0x00433E30` biên dịch, `0x0043A000` chạy); vtable[18] (`0x0044B230`…): cùng chuỗi khi `0x00524D70` cho phép | tín hiệu `command("status"/"items"/"skills"/…)` → `KUiGameWindows._on_bar_command` |
+| `0x004750E0` | **`KUiPlayerBar::LoadScheme` (tĩnh)**: `+0x8d90` → `玩家信息主界面最小化.ini` else `玩家信息主界面.ini`; `0x00472360`; `[Main] ToolBoxSchema` → `0x00474B20(dir, tên)` nạp thanh công cụ | `UiPlayerBar.load_scheme` + `UiControlBar("thanh-cong-cu")` |
+| `0x00472360` | **`KUiPlayerBar::LoadScheme(ini)`**: `Init(ini, [0x80EC58])`; `Face +0x554`, `Market +0xcc4`, `DateTime +0x1434`, `AdultPermit +0x1e7c`; **`Item_%d` i = 0..8** (`[0x838840] +0x23d0 + i·0x4f0`, `+0x28b8 + i·0x4f0 = 0`); `ImediaLeftSkill +0x5040`, `ImediaRightSkill +0x5528` (`0x0045E040(0)`); `InputEdit +0x6180` (`FocusNoCanBKColor` → `[0x83884C]`, alpha → `(255 − a) << 21` vào byte cao; thiếu → `0x6c0c…`); `SendBtn +0x5a10`, `ChannelBtn +0x686c`, `OpenChannelBtn +0x6d64`, `SwitchSizeBtn +0x74d4`, `InputBack +0xa164`, `StatusBack +0xa6b8` | `UiPlayerBar` (chat `LineEdit` trên ô `InputEdit`, `SendBtn`, 9 ô thuốc trống, hai ô kỹ năng chuột theo `Game.left_skill/right_skill`) |
+| `0x004730D0` | đổi kênh chat (`ChannelBtn +0x686c`) | chưa |
+
+Client mới: `client/ui/uicase/UiControlBar.gd` (hai thanh), `UiPlayerBar.gd` (thanh dưới), `client/ui/elem/KWndPartImage.gd` + `client/ui/KUiPartMath.gd`,
+`KUiGameWindows._build_bars/_on_bar_command/_refresh_bars/_refresh_mouse_skills`; `UiGame` dùng dòng chat của thanh dưới. Chưa: ô thuốc nhanh (kéo
+thuốc từ túi: `+0x28b8`), `DateTime` ping/`GameLogo`, `ChannelBtn`/kênh chat, `Face` biểu cảm, thanh thu nhỏ `SwitchSizeBtn`, `Market`, hạng giang hồ.

@@ -394,6 +394,7 @@ message PlayerAttribSync {       // G2C_PLAYER_ATTRIB
   uint32 seq = 35;               // the AddPointReq.seq this answers, 0 otherwise
   int32 faction = 36;            // the login sync 0x080A9750 (+0xb0e / +0xb12): the current faction and the one last added, -1 = none
   int32 faction_last = 37;
+  uint64 level_exp = 38;         // where this level starts (level_exp[level - 1]): the exp bar of the 2.0 top bar (Player_Exp 0x0044AD20) shows the way into the level
 }
 
 // KNpc::SetCamp 0x0807B7B0 (the 0x59 packet of the old game): a npc's camp (m_Camp) changed - a player joined or left a faction

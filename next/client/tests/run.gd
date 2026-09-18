@@ -39,6 +39,7 @@ func _init() -> void:
 	test_kmath_direction()
 	test_npcres_tables()
 	test_skill_book_layout()
+	test_part_math()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -331,3 +332,20 @@ func test_skill_book_layout() -> void:
 	check(order == [0, 10, 20, 1, 11], "common fill order %s" % [order])
 	check(UiSkills.BRANCHES == 3 and UiSkills.TIER_COLS == 10 and UiSkills.SLOT_ROWS == 3, "three pages of 3 x 10")
 	check(UiSkills.ROW_PITCH == 58 and UiSkills.ROW_PITCH_COMMON == 61 and UiSkills.COL_PITCH == 51, "row / column pitches")
+
+
+# ---- the bars (KUiPartMath.gd; gamecl.exe 2.0 KSpriteImagePart 0x00450F00, Player_Exp 0x0044AD20) ----------
+func test_part_math() -> void:
+	var M = load("res://ui/KUiPartMath.gd")
+	# PartType 0: from the left; 1: from the right; 2: from the top; 3: from the bottom (integer division)
+	check(M.part_rect(0, 25, 100, 91, 10) == Rect2i(0, 0, 22, 10), "part type 0")
+	check(M.part_rect(1, 25, 100, 91, 10) == Rect2i(69, 0, 22, 10), "part type 1")
+	check(M.part_rect(2, 50, 100, 91, 10) == Rect2i(0, 0, 91, 5), "part type 2")
+	check(M.part_rect(3, 50, 100, 91, 10) == Rect2i(0, 5, 91, 5), "part type 3")
+	# full, empty, and a max of 0 (SetPart skips: the whole picture)
+	check(M.part_rect(0, 100, 100, 91, 10) == Rect2i(0, 0, 91, 10) and M.part_rect(1, 150, 100, 91, 10) == Rect2i(0, 0, 91, 10), "full")
+	check(M.part_rect(0, -1, 100, 91, 10).size == Vector2i(0, 0), "empty")
+	check(M.part_rect(3, 5, 0, 91, 10) == Rect2i(0, 0, 91, 10), "max 0")
+	# the way into the level in hundredths
+	check(M.exp_percent(150, 100, 300) == 25 and M.exp_percent(100, 100, 300) == 0 and M.exp_percent(300, 100, 300) == 100, "exp percent")
+	check(M.exp_percent(50, 100, 300) == 0 and M.exp_percent(5, 0, 0) == 100, "exp percent clamps")

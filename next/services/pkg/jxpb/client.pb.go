@@ -3170,6 +3170,7 @@ type PlayerAttribSync struct {
 	Seq            uint32                 `protobuf:"varint,35,opt,name=seq,proto3" json:"seq,omitempty"`         // the AddPointReq.seq this answers, 0 otherwise
 	Faction        int32                  `protobuf:"varint,36,opt,name=faction,proto3" json:"faction,omitempty"` // the login sync 0x080A9750 (+0xb0e / +0xb12): the current faction and the one last added, -1 = none
 	FactionLast    int32                  `protobuf:"varint,37,opt,name=faction_last,json=factionLast,proto3" json:"faction_last,omitempty"`
+	LevelExp       uint64                 `protobuf:"varint,38,opt,name=level_exp,json=levelExp,proto3" json:"level_exp,omitempty"` // where this level starts (level_exp[level - 1]): the exp bar of the 2.0 top bar (Player_Exp 0x0044AD20) shows the way into the level
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -3459,6 +3460,13 @@ func (x *PlayerAttribSync) GetFaction() int32 {
 func (x *PlayerAttribSync) GetFactionLast() int32 {
 	if x != nil {
 		return x.FactionLast
+	}
+	return 0
+}
+
+func (x *PlayerAttribSync) GetLevelExp() uint64 {
+	if x != nil {
+		return x.LevelExp
 	}
 	return 0
 }
@@ -4141,7 +4149,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"forbid_all\x18\x02 \x01(\bR\tforbidAll\"D\n" +
 	"\x0fSkillForbidSync\x12\x19\n" +
 	"\bskill_id\x18\x01 \x01(\rR\askillId\x12\x16\n" +
-	"\x06forbid\x18\x02 \x01(\bR\x06forbid\"\xe7\b\n" +
+	"\x06forbid\x18\x02 \x01(\bR\x06forbid\"\x84\t\n" +
 	"\x10PlayerAttribSync\x12\x14\n" +
 	"\x05level\x18\x01 \x01(\rR\x05level\x12\x10\n" +
 	"\x03exp\x18\x02 \x01(\x04R\x03exp\x12$\n" +
@@ -4189,7 +4197,8 @@ const file_jx_client_proto_rawDesc = "" +
 	"cast_speed\x18\" \x01(\x05R\tcastSpeed\x12\x10\n" +
 	"\x03seq\x18# \x01(\rR\x03seq\x12\x18\n" +
 	"\afaction\x18$ \x01(\x05R\afaction\x12!\n" +
-	"\ffaction_last\x18% \x01(\x05R\vfactionLast\"`\n" +
+	"\ffaction_last\x18% \x01(\x05R\vfactionLast\x12\x1b\n" +
+	"\tlevel_exp\x18& \x01(\x04R\blevelExp\"`\n" +
 	"\n" +
 	"EntityCamp\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x12\n" +

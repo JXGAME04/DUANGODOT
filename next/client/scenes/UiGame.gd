@@ -44,6 +44,11 @@ func _ready() -> void:
 	_windows = KUiGameWindows.new()
 	_windows.name = "Windows"
 	add_child(_windows)
+	# the 2.0 bottom bar carries the chat line ([InputEdit] of 玩家信息主界面.ini): the plain one steps aside
+	if _windows.player_bar != null and _windows.player_bar.chat_input != null:
+		_chat_input.visible = false
+		_chat_input = _windows.player_bar.chat_input
+		_windows.player_bar.chat_submitted.connect(_on_chat_submitted)
 	Game.map_changed.connect(_on_map_changed)
 	Game.entity_spawn.connect(_on_spawn)
 	Game.entity_despawn.connect(_on_despawn)
@@ -67,7 +72,7 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	_hud = Label.new()
-	_hud.position = Vector2(8, 8)
+	_hud.position = Vector2(8, 30)   # below the 2.0 top bar (顶部控制条.ini, 27 px)
 	_hud.add_theme_color_override("font_color", Color.WHITE)
 	_hud.add_theme_color_override("font_shadow_color", Color.BLACK)
 	_hud.add_theme_constant_override("shadow_offset_x", 1)

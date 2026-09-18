@@ -754,7 +754,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			faction = m.get_faction()
 			faction_last = m.get_faction_last()
 			player_attrib = {
-				"level": m.get_level(), "exp": m.get_exp(), "next_level_exp": m.get_next_level_exp(),
+				"level": m.get_level(), "exp": m.get_exp(), "next_level_exp": m.get_next_level_exp(), "level_exp": m.get_level_exp(),
 				"attribute_point": m.get_attribute_point(), "skill_point": m.get_skill_point(),
 				"faction": m.get_faction(), "faction_last": m.get_faction_last(),
 				"strength": m.get_strength(), "dexterity": m.get_dexterity(), "vitality": m.get_vitality(),
