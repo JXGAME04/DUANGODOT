@@ -47,6 +47,7 @@ sau constructor của đối tượng toàn cục): cả 5 đúng. Vậy **183 s
 | `re_luasig.py` | **Chữ ký** từng hàm script (§5): đối số đọc bằng API Lua 4.0 nào, có xem `lua_gettop` không, có cần nhân vật không, đẩy gì, trả mấy giá trị; theo cả hàm bọc (tail-jump và gọi thường với `L`), cả khối nằm sau epilogue | `callees`, `sig <tên>`, `all <out.tsv>` |
 | `re_tables.py` | **Bảng settings ↔ cột/khoá** (§6): nối `KTabFile::Load(obj, path)` với mọi `Get*(obj, row, "Cột")` qua đồ thị gọi hàm, kể cả bảng truyền qua đối số, đường dẫn ghép lúc chạy, đọc theo chỉ số cột, ghi/`Save` | `objects`, `columns`, `report <out.md>` |
 | `re_settings.py` | Bản thô hơn: hàm nào nhắc tới đường dẫn + các hằng chuỗi hàm đó dùng (giữ để tra nhanh) | `list`, `file <text>`, `all` |
+| `re_attribmod.py <elf>` | bản đồ `KNpcAttribModify` (§10): mỗi id ma pháp → ô `KNpc` mà `ProcessFunc` của nó cộng/ghi, dừng ở tail-jump cuối hàm → `docs/linux/jx_linux_attribmod.tsv` |
 | `re_tabdesc.py <elf> <reader-va>…` | mảng mô tả cột `{kiểu, đích, mặc định}` của một `KBPT_*::ReadRow` (bộ đọc chung `0x081ECF40`) |
 | `re_upx.py <exe>` | mở `gamecl.exe` (UPX 3.03) của client 2.0 thành ảnh bộ nhớ cho các công cụ này ([CLIENT-2.0.md](CLIENT-2.0.md)) |
 | `re_scan.py` | Ba phép quét mọi hàm (§9): **ai đọc/ghi thành viên ở offset** (`disp 1f8`), **hàm nào đổ bảng con trỏ hàm thành viên** (`pmf` — tìm ctor của `KNpcAttribModify`, `KProtocolProcess`), **lệnh có hình dạng** (`ins <regex>`) | `disp <hex>[,…] [mnemonic]`, `pmf [min]`, `ins <regex> [max]` |
@@ -273,3 +274,139 @@ Bảng tên thuộc tính ma pháp của bản JX2 (`MAGIC_ATTRIB_STRING`, ctor 
 `pkg/jxold/item/KMagicAttribNames.go` (client dùng làm khoá tra `\settings\magicdesc.ini`). Khớp
 `ProcessFunc`: 153 `lifepotion_v`, 154 `manapotion_v`, 155 `physicsresmax_p`, 190 `lifereplenish_p`
 (hệ số hồi máu ở `KNpc+0x1194`).
+
+## 10. Cấu trúc `KNpc` / `KPlayer` và thuộc tính nhân vật (M12) — đã kiểm từng dòng
+
+Cách tìm: `tools/re/re_attribmod.py` duyệt 217 `ProcessFunc` của `KNpcAttribModify` (mỗi hàm chạm
+npc qua thanh ghi nạp từ `[ebp+0x10]`, đọc `pMagic->nValue[k]` ở `[ebp+0x14] + 4 + 4k`) → mỗi id ma
+pháp cho biết **ô nào của KNpc** nó cộng/ghi (kết quả:
+[`linux/jx_linux_attribmod.tsv`](linux/jx_linux_attribmod.tsv)); rồi đọc tay `KNpc::ClearAttrib`,
+`KNpc::Init`, `KNpc::SetTemplate`, `KPlayer::LoadFrom`, `KPlayer::LevelUp`, `KPlayer::UpdataCurData`
+để có chiều "gốc → hiện tại". Tên đặt theo `Core/Src/KNpc.h` của nguồn cũ (`m_LifeMax` gốc,
+`m_CurrentLifeMax` hiện tại).
+
+**Kích thước và mảng**: `sizeof(KNpc) = 0x1A4C`, mảng `g_pNpc` ở `[0x836EAE0]`, số ô `[0x830CA58]`;
+`sizeof(KPlayer) = 0x8788`, `g_pPlayer` ở `[0x8BAEE60]`; `Player+0x3f4 = m_nIndex` (npc của người
+chơi), `Npc+0x1908 = m_nPlayerIdx`; `Npc+0x4 = m_Index` (đối số đầu của log `0x08096A30`).
+`g_PlayerSet = 0x8BACAC0` (`KPlayerSet`), `g_PlayerSet.m_cLevelAdd = 0x8BAF378` (`KLevelAdd`).
+
+### 10.1 `KNpc` — ô gốc (`m_XXX`, +0x15a8…) và ô hiện tại (`m_CurrentXXX`)
+
+Hai bản "hiện tại" cho máu/nội/kháng/tốc độ: bản thường và bản **`_yan_`** (id 228…245 của bảng
+ma pháp — `lifemax_yan_v`…); giá trị dùng thật = **max(thường, yan)** (`ProcessState` chặn máu ở
+`max(+0x1a14, +0x1a18)`, `LevelUp` đổ đầy máu bằng cùng max, `OnHurt` lấy `max(+0x1a44, +0x1a48)`).
+
+| Gốc | Hiện tại | Yan | Tên | Từ đâu |
+|---|---|---|---|---|
+| `+0x20` | | | `m_Level` | người chơi: WORD `TRoleData+0xc3`; quái: mẫu `+0x1138` |
+| `+0x24` | | | `m_Kind` (1 = người chơi) | mẫu `+0x20` |
+| `+0x28` | | | `m_Series` | `TRoleData+0xbb` / mẫu `+0x28` |
+| `+0x21c` | `+0x220` | | `m_Camp` / `m_CurrentCamp` (`changecamp_b` ghi `+0x220` khi 1..6, khác → về `+0x21c`) | `TRoleData+0xbf` / mẫu `+0x24` |
+| | `+0x224` | | `m_Doing` (8 ngồi, 9 bị đánh, 10 chết, 0x12, 0x15…) | |
+| | `+0x22c` / `+0x230` | | `m_Frames.nTotalFrame` / `nCurrentFrame` | |
+| | `+0x248` | | `m_SkillList` (`KSkillList`: ô i = 1..79 ở `+0x250 + 0x30·i`: `+0` id, `+4` cấp, `+0x18` cấp hiện tại) | mẫu `+0x108` (0xF00 byte) |
+| | `+0x1150` | | danh sách ma pháp mẫu (`+0x1150/54/58` từ mẫu `+0x1008..`) — `ClearAttrib` xoá | |
+| | `+0x1180` / `+0x1184` | | `m_SubWorldIndex` (SubWorld 0x63FC8 byte, `[0x8FC81E0]`) / `m_RegionIndex` (0xCC4 byte) | |
+| `+0x15a8` | `+0x1188` | | `m_Experience` / `m_CurrentExperience` = mẫu `+0xc0` × `[ServerConfig] ExpRate` (`[0x830C7E0]`) / 100 | `SetTemplate` |
+| `+0x15ac` | `+0x1a14` | `+0x1a18` | `m_LifeMax` / `m_CurrentLifeMax` | `TRoleData+0xeb` / mẫu `+0x60` |
+| | `+0x118c` | | `m_CurrentLife` | `TRoleData+0xf7` |
+| `+0x15b0` | `+0x1190` | | `m_LifeReplenish` / `m_CurrentLifeReplenish` (người chơi gốc = 0) | mẫu `+0xc4` |
+| | `+0x1194` | | `m_nLifeReplenishPercent` = 100 (`lifereplenish_p` cộng) | |
+| `+0x15b4` | `+0x1a1c` | `+0x1a20` | `m_ManaMax` / `m_CurrentManaMax` | `TRoleData+0xf3` |
+| | `+0x11a0` | | `m_CurrentMana` (`TRoleData+0xff`); `+0x119c` `m_nManaReplenishPercent` = 100 | |
+| `+0x15b8` | `+0x11a4` | | `m_ManaReplenish` / `m_CurrentManaReplenish` (người chơi gốc = 0) | |
+| `+0x15bc` | `+0x11ac` | | `m_StaminaMax` / `m_CurrentStaminaMax`; `+0x11a8` `m_CurrentStamina` (`TRoleData+0xfb`) | `GetStaminaBase(series, sex, level)` |
+| | `+0x11b0` | | `m_CurrentStaminaSitAdd` = max(1, `m_CurrentStaminaMax × SitAdd / 1000`) — tính lại mỗi khi StaminaMax đổi | `stamina.ini SitAdd` |
+| `+0x15c0` | `+0x11b4` | | `m_StaminaGain` / `m_CurrentStaminaGain` (người chơi = `NormalAdd`) | `stamina.ini` |
+| | `+0x11b8` | | `m_PhysicsDamage` {`+0x11b8` type, `+0x11bc` min, `+0x11c0`, `+0x11c4` max} | `SetNpcPhysicsDamage` / mẫu `+0xd0..+0xdc` |
+| | `+0x11c8`/`+0x11d8`/`+0x11e8`/`+0x11f8` | | `m_CurrentFireDamage` / Cold / Light / Poison (`KMagicAttrib` 16 byte; `addXdamage_v` ghi `nValue`) | |
+| | `+0x1208`/`+0x1218`/`+0x1228`/`+0x1238`/`+0x1248` | | ma pháp vật lý/băng/lôi/hoả/độc (`addXmagic_v` 168–172) | |
+| `+0x15c4` | `+0x1258` | | `m_AttackRating` / `m_CurrentAttackRating` | người chơi: `dexterity × 4 − 28`; mẫu `+0xc8` |
+| `+0x15c8` | `+0x125c` | | `m_Defend` / `m_CurrentDefend` (`armordefense_v` 30, `adddefense_v` 150) | người chơi: `dexterity / 4`; mẫu `+0xcc` |
+| | `+0x1260` / `+0x1264` / `+0x1268` | | `returnres_p` 205 / `melee_returnres_p` 299 / `range_returnres_p` 300 | |
+| `+0x1608..+0x1618` | `+0x126c..+0x127c` | | `m_XResistMax` / hiện tại (thứ tự hoả, băng, độc, lôi, vật lý); người chơi từ `TRoleData+0x164..0x168` (0 → 75) | mẫu `+0x98..+0xa8` (hoả, băng, lôi, độc, vật lý) |
+| | `+0x1280` / `+0x1284` | | `skill_enhance` 243 / `magicdamage_p` 244 | |
+| `+0x161c` / `+0x1620` | `+0x1288` / `+0x128c` | `+0x1a2c` / `+0x1a30` (% `fastwalkrun_p` / yan) | `m_WalkSpeed` / `m_RunSpeed` (người chơi 5 / 10; mẫu `+0x50` / `+0x5c`); `0x08098A50`: bỏ phần `gốc × max(p, yan) / 100` cũ, `p += v0`, cộng lại `gốc × max(p, yan) / 100` | |
+| | `+0x1294` / `+0x1298` | | `nomovespeed` 182 | |
+| `+0x1624` | `+0x129c` | | `m_AttackRadius` / `m_CurrentAttackRadius` | |
+| `+0x1630` | `+0x12a4` | | `m_VisionRadius` / `m_CurrentVisionRadius` (người chơi 120; `visionradius_p` 112) | mẫu `+0xb0` |
+| `+0x1638` | `+0x12ac` | | `m_ActiveRadius` / `m_CurrentActiveRadius` | mẫu `+0xac` |
+| | `+0x12b0`… | | các cặp `anti_*` (2 dword mỗi cặp): `+0x12b0` anti_hitrecover, `+0x12b8` anti_stuntimereduce, `+0x12c0/c8/d0/d8/e0` anti_{physics,fire,cold,lighting,poison}res, `+0x12e8..+0x1308` bản yan, `+0x1310` anti_sorbdamage_yan, `+0x1318` anti_block_rate, `+0x1320` anti_enhancehit_rate, `+0x1328` anti_do_stun, `+0x1330` do_stun, `+0x1338` anti_do_hurt, `+0x1340` do_hurt, `+0x1348` anti_poisontimereduce; `0x08078F10` xoá tất cả | |
+| `+0x1640` | `+0x1378` | | `m_Treasure` / `m_CurrentTreasure` | mẫu `+0x68` |
+| | `+0x137c` / `+0x1380` / `+0x1384` / `+0x1388,+0x138c` / `+0x1394` / `+0x1398,+0x13a0` | | `meleedamagereturnmana_p` / `rangedamagereturnmana_p` / `clearallcd` / `addblockrate` / `walkrunshadow` / `manatoskill_enhance` | |
+| | `+0x13a4` / `+0x13a8` / `+0x13ac` / `+0x13b0` / `+0x13b4` / `+0x13b8` | | `meleedamagereturn_p` / `_v`, `rangedamagereturn_p` / `_v`, `poisondamagereturn_p` / `_v` | |
+| | `+0x13bc` / `+0x13c0` / `+0x13cc` / `+0x13d0` / `+0x13d4` | | `slowmissle_b` / `statusimmunity_b` / `damage2addmana_p` / `poison2decmana_p` / `manashield_p` | |
+| | `+0x13dc` / `+0x13e0` / `+0x13e4` | | `steallife_p` / `stealmana_p` / `stealstamina_p` (ghi đè, không cộng; 136–138 `*enhance_p` cùng ô) | |
+| | `+0x13e8` / `+0x13ec` / `+0x13f0` / `+0x13f4` | | `seriesres_p` / `seriesenhance_p` / `five_elements_enhance_v` / `five_elements_resist_v` | |
+| | `+0x13f8` / `+0x13fc` / `+0x1400` / `+0x1404` / `+0x1408` / `+0x140c` / `+0x1410` / `+0x1414` (=100) / `+0x1418` | | `knockback_p` / `deadlystrike_p` / `stun_p` / `fatallystrikeres_p` / `block_rate` / `enhancehit_rate` / `enhancehiteffect_rate` / `add_damage_p` / `fatallystrike_p` | |
+| | `+0x1420` / `+0x1424` / `+0x1428` | | `freezetimereduce_p` / `poisontimereduce_p` / `stuntimereduce_p` | |
+| | `+0x142c` / `+0x1430` / `+0x1434` / `+0x1438` / `+0x143c` | | `fireenhance_p` / `coldenhance_p` / `poisonenhance_p` / `lightingenhance_p` / `addphysicsdamage_v` | |
+| | `+0x1464` / `+0x1468` / `+0x146c` / `+0x1470` / `+0x1474` | | `dynamicmagicshield_v` / `staticmagicshield_v,_p` / `ignoreskill_p` / `returnskill_p` / `ignorenegativestate_p` | |
+| | `+0x1478` / `+0x1479` / `+0x147a` / `+0x147b` (byte) | | `forbit_attack` / `frozen_action` / `forbit_takemedicine` / `invincibility` (`sete` sau `cmp nValue[0], 1`: cờ = 1 **khi giá trị đúng bằng 1**) | |
+| | `+0x14c4` | | `randmove` 199 | |
+| | `+0x1505` (32 byte) / `+0x1528` | | `m_szName` / độ dài tên | `TRoleData+0x4` / tên mẫu |
+| | `+0x152c` | | `m_nSex` | `TRoleData+0x24` |
+| | `+0x15cc..+0x15dc` / `+0x15e0..+0x15f0` | | `me2{metal,wood,water,fire,earth}damage_p` 276… / `{…}2medamage_p` 277… (5 hệ) | |
+| `+0x15f4` / `+0x15f8` / `+0x15fc` / `+0x1600` / `+0x1604` | `+0x19ec` / `+0x19f4` / `+0x19fc` / `+0x1a04` / `+0x1a0c` | `+0x19f0` / `+0x19f8` / `+0x1a00` / `+0x1a08` / `+0x1a10` | `m_FireResist` / Cold / Poison / Light / Physics (người chơi từ `level_add`; mẫu `+0xec/+0xf0/+0xf8/+0xf4/+0xfc`) | |
+| `+0x1628` / `+0x162c` | `+0x1a34` / `+0x1a3c` | `+0x1a38` / `+0x1a40` | `m_AttackSpeed` / `m_CastSpeed` (người chơi 0 / 0) | |
+| `+0x163c` | `+0x1a44` | `+0x1a48` | `m_HitRecover` (người chơi 0; mẫu `+0xb8`) | |
+| | `+0x1a24` / `+0x1a28` | | `sorbdamage_p` / `sorbdamage_yan_p` | |
+| | `+0x1658` (10 int) / `+0x1680` / `+0x1720` | | `m_AiParam[10]` / bán kính kỹ năng lớn nhất² / `m_AiSkillRadiusLoadFlag` | mẫu `+0x70..` |
+| | `+0x1750` | | tên kịch bản (`strcpy` từ mẫu `+0x103c`) | |
+| | `+0x1904` | | `m_LoopFrames` | |
+| | `+0x190c`, `+0x1910`, `+0x1914` (`m_HurtFrame`), `+0x1918`, `+0x191c`, `+0x1920`, `+0x1924`, `+0x1928`, `+0x192c` (`m_DeathFrame`) | | số khung | mẫu `+0x38, +0x40, +0x4c, +0x54, +0x58, +0x3c, +0x48, +0x44, +0xbc` |
+| | `+0x19e8` | | cờ "đang tính lại trang bị/trạng thái" | |
+| | `+0x1f0/+0x1f8`, `+0x200/+0x208` | | `m_LifeState`, `m_ManaState` (thuốc) | §9 |
+| | `+0x234` | | đầu danh sách trang trạng thái: mỗi trang `+4` next, 20 `KMagicAttrib` từ `+0x24` | |
+
+### 10.2 `KPlayer` (0x8788 byte)
+
+`+0x3f4 m_nIndex`; `+0x3fc m_ItemList` (ô trang bị `+0xc + place·8`: `+0x408 + place·8` idx, `+0x40c`
+cờ); `+0x5924 m_nAttributePoint`; `+0x5928 m_nSkillPoint`; `+0x5930 m_nStrength`, `+0x5934
+m_nDexterity`, `+0x5938 m_nVitality`, `+0x593c m_nEngergy`, `+0x5940 m_nLucky`; `+0x5948..+0x5954
+m_nCurStrength/Dexterity/Vitality/Engergy`, `+0x5958 m_nCurLucky`; `+0x595c/+0x5960 m_nExp` (64 bit),
+`+0x5964/+0x5968 m_nNextLevelExp`; `+0x5994` danh sách kỹ năng người chơi; `+0x86b8` số lần **trùng
+sinh** (byte `TRoleData+0x162`, ≤ 7) — đổi bảng kinh nghiệm và chặn dưới kháng; `+0x86a4/+0x86a8`
+đếm thuốc (§9).
+
+### 10.3 `KLevelAdd` (`0x8BAF378`, nạp ở `0x080C4FD0`)
+
+`level_exp.txt` 200 dòng (cấp 1..200, dòng i+2): cột 2 → `this[i]` (1..2·10⁹, sai → 2·10⁹); cột 3 →
+`this+0x320+4i` (≤ 2·10⁹); cột 4..10 (trùng sinh 1..7) → int64 `this + 0x640 + 4·0x640·(k−1)... ` đúng
+hơn: `this + 8·(200·k + i)` = cột × 10 000. **`GetLevelExp(level, reborn)`** (`0x080C3FF0`) = `cột2[level]
++ (reborn == 0 ? 10 000 × cột3[level] : bảng64[reborn][level])`; ngoài 1..200 hoặc reborn > 7 → −1.
+`level_add.txt` 5 dòng (hệ 0..4): cột 2 `LifePerLevel` (+0x3200), 3 `StaminaMalePerLevel` (+0x323c),
+4 `StaminaFemalePerLevel` (+0x3250), 5 `ManaPerLevel` (+0x3264), 6 `LifePerVitality` (+0x3278), 7
+`StaminaPerVitality` (+0x328c), 8 `ManaPerEnergy` (+0x32a0), 9 `LeadExpShare` (+0x32b4), 10
+`FireResPerLevel` (+0x32c8), 11 Cold (+0x32dc), 12 Poison (+0x32f0), 13 Lighting (+0x3304), 14 Physics
+(+0x3318), 15 `StaminaMaleBase` (+0x3214), 16 `StaminaFemaleBase` (+0x3228); mọi ô trống → 0.
+**`GetXResist(series, level, reborn≠0)`** (`0x080C4220` hoả, `0x080C42A0` băng, `0x080C4320` độc,
+`0x080C43A0` lôi, `0x080C4420` vật lý): series > 4 hoặc cấp ∉ 1..200 → 0; `n = level`, nhưng cấp > 120
+và hệ số **âm** → `n = 120`; `res = XResPerLevel[series] × n / 100`; trùng sinh → `max(res,
+[0x830CA08])`. **`GetStaminaBase(series, sex, level)`** (`0x080C4120`) = `(level − 1) ×
+StaminaPerLevel[sex][series] + StaminaBase[sex][series]` (sex 0 = nam). `GetLifePerLevel`
+`0x080C40A0`, `GetStaminaPerLevel(series, sex)` `0x080C40C0`, `GetManaPerLevel` `0x080C4180`.
+`stamina.ini` → `KPlayerSet`: `NormalAdd` +0x14bc (1), `ExerciseRunSub` +0x14c0 (6), `FightRunSub`
++0x14c4 (6), `KillRunSub` +0x14c8 (6), `SitAdd` +0x14cc (3) — mặc định trong ngoặc khi thiếu tệp.
+
+### 10.4 Các hàm (địa chỉ đã kiểm từng thân hàm)
+
+| Địa chỉ | Là gì |
+|---|---|
+| `0x0807DBD0` | `KNpc::Init` (từ ctor `0x0807E5D0`): gốc máu/nội/thể/chính xác = 100, phòng thủ = 10 |
+| `0x0807EE60` | **`KNpc::ClearAttrib(this, bClearState)`**: ô hiện tại = ô gốc (bảng 10.1), `+0x1194/+0x119c = 100`, `+0x1414 = 100`, xoá mọi ô ma pháp, `0x08078F10` xoá `anti_*`; xoá danh sách `+0x1150` (từng nút: `0x082248C0` rồi `vtbl[1]`); **79 ô kỹ năng**: `cấp hiện tại (+0x18) > cấp (+4)` → `0x080E4CA0(skilllist, i, cur, base)` rồi `cur = base`; người chơi: `Player+0x86f8/+0x86fc/+0x8700 = 0`; xoá 5 danh sách `+0x1854/+0x1878/+0x189c/+0x18c0/+0x1830` (`0x0808C140`) và `+0x18e8` (`0x0805F760`); `+0x15cc..+0x15f0 = 0`; `bClearState` → xoá `+0x1bc/+0x1cc/+0x1dc/+0x1ec/+0x1fc` (các trạng thái độc/băng/choáng/thuốc) |
+| `0x08082680` | **`KNpc::Init/ResetCurData`** (sau `SetTemplate`, `LoadFrom`, Lua `0x08165750`, `0x08085E70`): `m_CurrentCamp = m_Camp`; người chơi: `0x081621B0(Player+0x8078, level, level)`; `0x080823B0(this, 1, 0, 0, 0)`; máu = máu max, nội = nội max, thể = thể max, chép mọi ô gốc → hiện tại như `ClearAttrib`, `0x08079030`; cuối: nhảy `0x08079C30` |
+| `0x08082E20` | **`KNpc::SetTemplate(this, nTemplate, nLevelOff, nSeries)`**: mẫu = `[0x836EB00 + 4·(nTemplate·0xB4 + (nSeries < 5 ? nSeries+1 : 1)·0x1E + nLevelOff)]` (mỗi mẫu 6 hệ × 30 cấp con trỏ); `0x08078F10`; tên (`+0x1505`, 32 byte); ô theo bảng 10.1; kinh nghiệm × `ExpRate`; `m_AiParam[10]` + bán kính² lớn nhất của 4 kỹ năng (vtable `+0x48` = `GetAttackRadius`, `0x08BC99E0` kho kỹ năng, `0x080E6E10` nạp) — chỉ lần đầu (`+0x1720`); kết: gọi `0x08082680`, nhảy `0x080A1C20` |
+| `0x080C16D0` | **`KPlayer::LoadFrom(this, TRoleData*, bFlag)`**: `0x080A8550` (xoá), `+0x86b8` trùng sinh, `+0x8600`; `0x080F6D20` map; `npc = g_PlayerSet.AddNpc`(`0x0809FB10`); kháng max từ `+0x164..` (0 → 75); `m_Kind = 1`; `0x08078BE0(npc, playerIdx)`; `m_Level` = WORD `+0xc3`; tên; 5 điểm gốc `+0xd7..+0xe7` → cả gốc lẫn hiện tại; **`SetNpcPhysicsDamage 0x080A7EC0`**, **`SetNpcAttackRating 0x080A7F90`**, **`SetNpcDefence 0x080A7FC0`**; kinh nghiệm 64 bit `= +0xc7 + WORD +0xc5 × 2·10⁹`; `m_nNextLevelExp = GetLevelExp`; `m_Series` `+0xbb`, `m_Camp` `+0xbf`, `m_nSex` `+0x24`, **`m_LifeMax = TRoleData+0xeb`**, `m_StaminaMax = GetStaminaBase`, `m_LifeReplenish = m_ManaReplenish = 0`, `m_ManaMax = +0xf3`, `m_StaminaGain = NormalAdd`; **`SetNpcResist 0x080AB7C0`** (5 kháng gốc từ `level_add`); `0x080A7FF0` (đi 5, chạy 10, tốc đánh/thi triển 0, tầm nhìn 120, hồi đòn 0); `0x08078F10`; **`0x08082680`**; máu/nội/thể hiện tại từ `+0xf7/+0xff/+0xfb`; … |
+| `0x080A7EC0` | `KPlayer::SetNpcPhysicsDamage` (gốc): `m_PhysicsDamage = {min = max = m_nCurStrength / 5 + 1, nValue[1] = 0}`, xoá hoả/băng/lôi/độc |
+| `0x080A7F90` / `0x080A7FC0` | `SetNpcAttackRating`: `m_AttackRating = m_nDexterity × 4 − 28`; `SetNpcDefence`: `m_Defend = m_nDexterity / 4` |
+| `0x080AF740` | **`KPlayer::SetNpcPhysicsDamage` (hiện tại)**: `GetWeaponDamage 0x081F9310` (`min = (Item+0x88 + Σ weapondamagemin_v) × (100 + Σ weapondamageenhance_p) / 100`, max với `+0x98`; tay không: `m_nCurStrength / 5 + 1`); `GetWeaponType 0x081F92E0` (= `Item+0x8` detail, −1 khi trống): **0 (cận chiến) → cả hai `+= m_nCurStrength / 5`; 1 (xa) → `+= m_nCurDexterity / 5`**; khác → giữ nguyên; `KNpc::SetPhysicsDamage 0x08078E20` ghi `+0x11bc/+0x11c4` |
+| `0x080B0B40` / `0x080B0AF0` | `ChangeCurStrength(n)`: `+0x5948 += n` rồi hàm trên; `ChangeCurDexterity(n)`: `+0x594c += n`, **`m_CurrentAttackRating += 4n`, `m_CurrentDefend += n/4`**, rồi hàm trên (ProcessFunc 97/98 `strength_v`/`dexterity_v` gọi hai hàm này, chỉ người chơi) |
+| `0x080B0B60` | `AddBaseDexterity(n, bCheck)`: `bCheck && n > điểm` → không; gốc và hiện tại `+= n`; âm → lỗi; điểm `−= n`; `0x080AF700`/`0x080AF6C0` (chính xác/phòng thủ gốc), `UpdataCurData(0)`, `SetNpcPhysicsDamage`; gói s2c **0x5D** {attr 1, gốc, hiện tại, điểm} 14 byte |
+| `0x080AF250` / `0x080AF1A0` / `0x080AF120` | `LevelAddBaseLifeMax(sign)`: `m_LifeMax += LifePerLevel(series) × sign`, cả hai max hiện tại = gốc; `LevelAddBaseStaminaMax(sign)`: `+= StaminaPerLevel(series, sex) × sign`, max hiện tại = gốc, tính lại `+0x11b0`; `LevelAddBaseManaMax(sign)` tương tự |
+| `0x080AF800` | **`KPlayer::LevelUp(this, bUp)`**: `m_nExp = 0`; lên: cấp ≤ 199 → `++`, **điểm thuộc tính += 5, điểm kỹ năng += 1**; xuống (`bUp = 0`): cấp > 1 → `−−`, `−5`, `−1`; `m_nNextLevelExp = GetLevelExp(cấp mới)`; ba hàm trên với dấu; 5 kháng gốc = `GetXResist` và hiện tại = gốc, 5 kháng max hiện tại = gốc; giữ `m_CurrentCamp`, **`UpdataCurData(1)`**, `SetNpcPhysicsDamage`, trả `m_CurrentCamp`; **máu = max(+0x1a14,+0x1a18), thể = max thể, nội = max(+0x1a1c,+0x1a20)**; `0x080A86B0` (đồng bộ), `0x081E7FD0`; báo đội (7 ô `0x08BB86EC`); bang; lên cấp → `\script\global\server_playerlevelup.lua` `main(player, level)`; trùng sinh → `0x080E4A00(skilllist)` |
+| `0x080AF550` | **`KPlayer::UpdataCurData(this, bClearState)`**: `ClearAttrib(npc, bClearState)`; 5 điểm hiện tại = gốc; `Player+0xc8/+0xcc/+0xd0/+0xd4 = 0`; `KNpc::ReCalcStateEffect 0x0807D270` (duyệt trang trạng thái `+0x234`, mỗi ô ≠ 0 → `ModifyAttrib(npc, idx, {type, −v0, −v1, −v2}, 0)`); **`ReCalcEquip 0x080AF3E0`** (`+0x19e8 = 1`; `0x081FD1B0`; 15 ô trang bị có đồ: `KItem::ApplyBaseAttrib 0x080669B0`, `nActive = GetEquipEnhance(place, 0)`, `ApplyMagicAttrib 0x08066890`, `0x080684A0`, `0x08068280`; `+0x19e8 = 0`); `0x080AF390` (`0x081E5F20(0x97AC300, player)`); `0x081D5800(Player+0x8704)`; đuôi `0x080CBE40(Player+0x5994, idx)` (rỗng) |
+| `0x0807F780` | `KNpc::OnHurt(this, nAntiHitRecover)`: `m_RegionIndex ≥ 0`, `m_Doing ∉ {9, 10}`; log `"m_CurrentHitRecover:%d - AntiHitRecover:%d = %d"`; `hr = max(+0x1a44, +0x1a48) − anti`; `hr > 99` → không bị đánh; `g_Random(100) ≤ 49` → không; `ignorenegativestate_p` `+0x1474` > `g_Random(100)` → log `"IgnoreNegState(Hurt):%d%%, Hit!"` và không; `m_Doing = 9`, `+0x194c = 0`, `+0x230 = 0`, **`+0x22c = max(1, (100 − hr) × m_HurtFrame(+0x1914) / 100)`**; báo vùng `0x080EF710`, gói `0x0807A970(this, 9, …)` |
+
+Trạng thái `KNpc` lúc bị đánh/chết/ngồi… và công thức sát thương (`KNpc::Attack`, `ReceiveDamage`,
+`CalcDamage`) → lát tiếp của M12.

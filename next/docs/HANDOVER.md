@@ -138,6 +138,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 — M12 lát A phần 1: **bản đồ `KNpc`/`KPlayer` của nhị phân Linux** (`LINUX-SERVER.md` §10)
+
+Công cụ mới `tools/re/re_attribmod.py`: duyệt 217 `ProcessFunc` của `KNpcAttribModify`, cho mỗi id
+ma pháp biết ô `KNpc` nó cộng/ghi (dừng ở tail-jump cuối hàm — bản đầu chạy lố sang hàm kế nên gán
+thừa; đã sửa và kiểm với `lifemax_v → +0x1a14`, `life_v → +0x118c`, `lifepotion_v → +0x1f0/+0x1f8`).
+Đọc tay `KNpc::ClearAttrib 0x0807EE60`, `KNpc::Init 0x08082680`, `KNpc::SetTemplate 0x08082E20`,
+`KPlayer::LoadFrom 0x080C16D0`, `LevelUp 0x080AF800`, `UpdataCurData 0x080AF550`, `ReCalcEquip
+0x080AF3E0`, `SetNpcPhysicsDamage 0x080AF740`, bộ nạp `level_exp`/`level_add` `0x080C4FD0` và các
+`Get*` của `KLevelAdd`, `stamina.ini` → `KPlayerSet`. Kết quả: bảng ô gốc ↔ hiện tại ↔ "yan"
+(giá trị dùng thật = max(thường, yan)), công thức người chơi (`chính xác = nhanh nhẹn × 4 − 28`,
+`phòng thủ = nhanh nhẹn / 4`, `sát thương tay không = sức mạnh / 5 + 1`, vũ khí cận chiến `+= sức
+mạnh / 5`, xa `+= nhanh nhẹn / 5`; lên cấp `+5` điểm thuộc tính `+1` điểm kỹ năng, máu/thể/nội theo
+`level_add`, kháng theo cấp có kẹp 120 khi hệ số âm; kinh nghiệm cấp = cột 2 + 10 000 × cột 3,
+7 bảng trùng sinh). Chưa có code — lát A phần 2 là hiện thực trong zone theo đúng bảng này.
+
 ### 2026-09-18 (khuya) — hậu tố "kích hoạt" khi mặc: `KItemList::GetEquipEnhance` theo nhị phân Linux
 
 `0x081FD2C0`: số hậu tố sáng của món đang mặc = (hệ nhân vật **sinh** hệ món: 1) + mỗi ô trong hai "ô kích hoạt"

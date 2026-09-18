@@ -1,0 +1,216 @@
+id	name	function	writes	reads	magic values
+30	armordefense_v	08098000	0x125c:add		v0
+56	attackrating_v	08098D30	0x1258:add		v0
+57	attackrating_p	08098D70	0x1258:add	0x15c4	v0
+66	steallife_p	080981E0	0x13dc:mov		v0
+67	stealmana_p	080981A0	0x13e0:mov		v0
+68	stealstamina_p	08098160	0x13e4:mov		v0
+69	knockback_p	080989A0	0x13f8:add		v0
+70	deadlystrike_p	08098BD0	0x13fc:add		v0
+71	fatallystrike_p	08097B90	0x1418:add		v0
+72	stun_p	08097B10	0x1400:add		v0
+85	lifemax_v	080988E0	0x1a14:add		v0
+86	lifemax_p	08098920	0x1a14:add	0x15ac	v0
+87	life_v	08098840	0x118c:add		v0
+88	lifereplenish_v	08098880	0x1190:add		v0
+89	manamax_v	08098740	0x1a1c:add		v0
+90	manamax_p	08098780	0x1a1c:add	0x15b4	v0
+91	mana_v	080986C0	0x11a0:add		v0
+92	manareplenish_v	08098700	0x11a4:add		v0
+93	staminamax_v	080982A0	0x11ac:mov 0x11b0:mov		v0
+94	staminamax_p	08098310	0x11ac:mov 0x11b0:mov	0x15bc	v0
+95	stamina_v	08098220	0x11a8:add		v0
+96	staminareplenish_v	08098260	0x11b4:add		v0
+97	strength_v	0809A100		0x24	
+98	dexterity_v	0809A270		0x24	
+99	vitality_v	0809A080		0x24	
+100	energy_v	0809A1F0		0x24	
+101	poisonres_p	080984C0	0x19fc:add		v0
+102	fireres_p	08098040	0x19ec:add		v0
+103	lightingres_p	08098800	0x1a04:add		v0
+104	physicsres_p	08098590	0x1a0c:add		v0
+105	coldres_p	08098C10	0x19f4:add		v0
+106	freezetimereduce_p	080989E0	0x1420:add		v0
+107	burntimereduce_p	08095BD0			
+108	poisontimereduce_p	08098480	0x1424:add		v0
+109	poisondamagereduce_v	08098500	0x1c0:mov 0x1c8:mov		v0
+110	stuntimereduce_p	08098120	0x1428:add		v0
+111	fastwalkrun_p	08098A50	0x1288:mov 0x128c:mov 0x1a2c:mov	0x161c 0x1620 0x1a30	v0
+112	visionradius_p	080980E0	0x12a4:add		v0
+113	fasthitrecover_v	08098B60	0x1a44:add		v0
+114	allres_p	08098DF0	0x19ec:add 0x19f4:add 0x19fc:add 0x1a04:add 0x1a0c:add		v0
+115	attackspeed_v	08098CF0	0x1a34:add		v0
+116	castspeed_v	08098CB0	0x1a3c:add		v0
+117	meleedamagereturn_v	08098600	0x13a8:add		v0
+118	meleedamagereturn_p	08098640	0x13a4:add		v0
+119	rangedamagereturn_v	08098440	0x13b0:add		v0
+120	rangedamagereturn_p	08098400	0x13ac:add		v0
+121	addphysicsdamage_v	08098E50	0x143c:add		v0
+122	addfiredamage_v	08098F60	0x11cc:add 0x11d4:add		v0
+123	addcolddamage_v	08098FA0	0x11dc:mov 0x11e0:mov 0x11e4:mov		v0
+124	addlightingdamage_v	08098F20	0x11ec:add 0x11f4:add		v0
+125	addpoisondamage_v	08098E90	0x11fc:mov 0x1200:mov 0x1204:mov		
+126	addphysicsdamage_p	0809A7F0	0x0:mov		
+127	slowmissle_b	080983C0	0x13bc:mov		v0
+128	changecamp_b	08098C50	0x220:mov	0x24	v0
+134	damage2addmana_p	08098550	0x13cc:add		v0
+135	lucky_v	0809A180		0x24	
+136	steallifeenhance_p	080981E0	0x13dc:mov		v0
+137	stealmanaenhance_p	080981A0	0x13e0:mov		v0
+138	stealstaminaenhance_p	08098160	0x13e4:mov		v0
+139	allskill_v	080993A0		0x248	v0 v2
+140	metalskill_v	080985D0			
+141	woodskill_v	08098080			
+142	waterskill_v	080980B0			
+143	fireskill_v	08098A20			
+144	earthskill_v	08098BA0			
+145	knockbackenhance_p	080989A0	0x13f8:add		v0
+146	deadlystrikeenhance_p	08098BD0	0x13fc:add		v0
+148	badstatustimereduce_v	08095BC0			
+149	manashield_p	08098680	0x13d4:add		v0 v1
+150	adddefense_v	08098000	0x125c:add		v0
+152	fatallystrikeenhance_p	08097B90	0x1418:add		v0
+153	lifepotion_v	08097E70	0x1f0:mov 0x1f8:mov		v0 v1
+154	manapotion_v	08097DE0	0x200:mov 0x208:mov		v0 v1
+155	physicsresmax_p	08097DA0	0x127c:add		v0
+156	coldresmax_p	08097D60	0x1270:add		v0
+157	fireresmax_p	08097D20	0x126c:add		v0
+158	lightingresmax_p	08097CE0	0x1278:add		v0
+159	poisonresmax_p	08097CA0	0x1274:add		v0
+160	allresmax_p	08097BD0	0x126c:mov 0x1270:mov 0x1274:mov 0x1278:mov 0x127c:mov	0x4	v0
+161	coldenhance_p	08097FC0	0x1430:add		v0
+162	fireenhance_p	08097F80	0x142c:add		v0
+163	lightingenhance_p	08097F40	0x1438:add		v0
+164	poisonenhance_p	08097F00	0x1434:add		v0
+166	attackratingenhance_v	08098D30	0x1258:add		v0
+167	attackratingenhance_p	08098D70	0x1258:add	0x15c4	v0
+168	addphysicsmagic_v	08097A10	0x120c:add 0x1214:add		v0
+169	addcoldmagic_v	08097AD0	0x121c:add 0x1224:add		v0
+170	addfiremagic_v	08097A90	0x123c:add 0x1244:add		v0
+171	addlightingmagic_v	08097A50	0x122c:add 0x1234:add		v0
+172	addpoisonmagic_v	08097980	0x124c:mov 0x1250:mov 0x1254:mov		
+173	fatallystrikeres_p	08097B50	0x1404:add		v0
+174	statusimmunity_b	08097940	0x13c0:mov		v0
+175	expenhance_v	08099F40		0x24	
+176	expenhance_p	08099F00		0x24	
+177	seriesres_p	08095C80	0x13e8:add		
+178	seriesenhance_p	08095C60	0x13ec:add		
+180	autoattacknpc	08099500		0x24	
+181	dynamicmagicshield_v	08095CA0	0x1464:add		
+182	nomovespeed	08095CC0	0x1294:add	0x1298	v0
+183	execscript	08099400			v2
+184	changefeature1	080990E0			
+185	changefeature2	08099050			v0
+186	stealfeature	08099170			
+187	addstealfeatureskill	08099370		0x248	v1
+188	lucky_v_partner	08095CF0		0x24	
+189	listen_msg	080964E0		0x24	
+190	lifereplenish_p	0809A2F0	0x1194:add	0x4 0x1505	v0
+191	ignoreskill_p	0809A4F0	0x146c:add	0x4 0x1505	v0
+192	returnskill_p	0809A3F0	0x1470:add	0x4 0x1505	v0
+193	poisondamagereturn_v	0809A6F0	0x13b8:add	0x4 0x1505	v0
+194	poisondamagereturn_p	0809A5F0	0x13b4:add	0x4 0x1505	v0
+195	autoreplyskill	080973D0			v0 v1
+196	autoattackskill	08097380			v0 v2
+197	autorescueskill	08097330			v0 v1 v2
+198	autodeathskill	080972E0			v0 v2
+199	randmove	080978D0	0x14c4:mov	0x4 0x1654	v0
+200	hide	08097860		0x19a0	
+201	ignorenegativestate_p	080977D0	0x1d8:mov 0x1e8:mov 0x1474:mov	0x4	v0
+202	poison2decmana_p	08096ED0	0x13d0:mov	0x4	v0
+203	staticmagicshield_v	08096E80	0x1468:mov	0x4	v0
+204	staticmagicshield_p	08096DC0	0x1468:mov	0x4 0x1a1c 0x1a20	v0
+205	returnres_p	08096D80	0x1260:mov	0x4	v0
+206	add120skillexpenhance_p	08099EC0		0x24	
+207	dec_percasttimehorse	08097750			v0 v2
+208	dec_percasttime	08097700			v0 v2
+209	enhance_709_auto	080976B0			
+210	enhance_708_life_p	08097660			
+211	?	08097610			
+212	enhance_711_auto	080975C0			
+213	enhance_714_auto	08097570			
+214	enhance_717_auto	08097520			
+215	enhance_723_miss_p	080974D0			
+216	showpersoninfo	08096490		0x24	
+217	ignoredamage	08095D50	0x18e0:mov		v0
+218	sorbdamage_p	08096D10	0x1a24:mov	0x4 0x1a28	
+219	anti_hitrecover	08096CD0	0x12b0:mov 0x12b4:mov	0x4	
+220	anti_stuntimereduce_p	08096C10	0x12b8:mov 0x12bc:mov	0x4	
+221	anti_poisonres_p	08096BD0	0x12e0:mov 0x12e4:mov	0x4	
+222	anti_fireres_p	08096B90	0x12c8:mov 0x12cc:mov	0x4	
+223	anti_lightingres_p	08096B50	0x12d8:mov 0x12dc:mov	0x4	
+224	anti_physicsres_p	08096B10	0x12c0:mov 0x12c4:mov	0x4	
+225	anti_coldres_p	08096AD0	0x12d0:mov 0x12d4:mov	0x4	
+226	block_rate	08096C90	0x1408:mov	0x4	
+227	enhancehit_rate	08096C50	0x140c:mov	0x4	
+228	poisonres_yan_p	08095D70	0x1a00:add		
+229	lightingres_yan_p	08095DB0	0x1a08:add		
+230	fireres_yan_p	08095D90	0x19f0:add		
+231	physicsres_yan_p	08095DD0	0x1a10:add		
+232	coldres_yan_p	08095DF0	0x19f8:add		
+233	lifemax_yan_v	08095E10	0x1a18:add		
+234	lifemax_yan_p	08095E30	0x1a18:add	0x15ac	v0
+235	manamax_yan_v	08095E60	0x1a20:add		
+236	manamax_yan_p	08095E80	0x1a20:add	0x15b4	v0
+237	sorbdamage_yan_p	08095EB0	0x1a28:mov		
+238	fastwalkrun_yan_p	08095EF0	0x1288:mov 0x128c:mov 0x1a30:mov	0x161c 0x1620 0x1a2c	v0
+239	attackspeed_yan_v	08095FE0	0x1a38:add		
+240	castspeed_yan_v	08096000	0x1a40:add		
+241	allres_yan_p	08096020	0x19f0:add 0x19f8:add 0x1a00:add 0x1a08:add 0x1a10:add		v0
+242	anti_maxres_p	08096060	0x12c0:mov 0x12c4:mov		v0
+243	skill_enhance	08096090	0x1280:add		
+244	magicdamage_p	080960B0	0x1284:add		
+245	fasthitrecover_yan_v	080960D0	0x1a48:add		
+246	five_elements_enhance_v	080960F0	0x13f0:add		
+247	five_elements_resist_v	08096110	0x13f4:add		
+248	manareplenish_p	08096F10	0x119c:mov	0x4	v0
+249	add_damage_p	08096130	0x1414:add		
+250	forbit_attack	08096150	0x1478:sete		v0
+251	frozen_action	08096170	0x1479:sete		v0
+252	forbit_takemedicine	08096190	0x147a:sete		v0
+253	invincibility	080961B0	0x147b:sete		v0
+254	not_add_pkvalue_p	08095BE0		0x24	
+255	add_boss_damage	08095C30	0x84:mov		
+256	pk_punish_weaken	080961D0		0x24	
+257	pk_punish_enhance	08096210		0x24	
+258	anti_poisontimereduce_p	080969B0	0x1348:mov 0x134c:mov	0x4	
+259	do_hurt_p	08096970	0x1340:mov 0x1344:mov	0x4	
+260	anti_do_hurt_p	08096930	0x1338:mov 0x133c:mov	0x4	
+261	do_stun_p	080968F0	0x1330:mov 0x1334:mov	0x4	
+262	anti_do_stun_p	080968B0	0x1328:mov 0x132c:mov	0x4	
+263	anti_physicsres_yan_p	08096870	0x12e8:mov 0x12ec:mov	0x4	
+264	anti_poisonres_yan_p	08096830	0x1308:mov 0x130c:mov	0x4	
+265	anti_coldres_yan_p	080967F0	0x12f8:mov 0x12fc:mov	0x4	
+266	anti_fireres_yan_p	080967B0	0x12f0:mov 0x12f4:mov	0x4	
+267	anti_lightingres_yan_p	08096770	0x1300:mov 0x1304:mov	0x4	
+268	anti_allres_yan_p	08096710	0x12e8:mov 0x12ec:mov	0x4	v0
+269	anti_sorbdamage_yan_p	080966D0	0x1310:mov 0x1314:mov	0x4	
+270	anti_block_rate	08096690	0x1318:mov 0x131c:mov	0x4	
+271	anti_enhancehit_rate	08096650	0x1320:mov 0x1324:mov	0x4	
+272	autocastskill	08097420		0x4 0x1180 0x182c	v0 v1 v2
+274	oncastskill	0809AE60		0x0 0x18f0	v0 v1 v2
+275	enhancehiteffect_rate	080969F0	0x1410:mov	0x4	
+276	me2metaldamage_p	08096250	0x15cc:add		
+277	metal2medamage_p	08096270	0x15e0:add		
+278	me2wooddamage_p	08096290	0x15d0:add		
+279	wood2medamage_p	080962B0	0x15e4:add		
+280	me2waterdamage_p	080962D0	0x15d4:add		
+281	water2medamage_p	080962F0	0x15e8:add		
+282	me2firedamage_p	08096310	0x15d8:add		
+283	fire2medamage_p	08096330	0x15ec:add		
+284	me2earthdamage_p	08096350	0x15dc:add		
+285	earth2medamage_p	08096370	0x15f0:add		
+286	meleedamagereturnmana_p	080963D0	0x137c:add		
+287	rangedamagereturnmana_p	080963F0	0x1380:add		
+288	reduceskillcd1	08097250			v0 v1 v2
+289	reduceskillcd2	08097250			v0 v1 v2
+290	reduceskillcd3	08097250			v0 v1 v2
+291	clearallcd	08096410	0x1384:add		
+292	addblockrate	08096430	0x1388:add 0x138c:add		v0
+293	walkrunshadow	08096610	0x1394:mov		
+295	candetonate1	08097110			v0 v2
+296	candetonate2	08097110			v0 v2
+297	candetonate3	08097110			v0 v2
+298	manatoskill_enhance	08096450	0x1398:mov 0x13a0:mov		v0
+299	melee_returnres_p	08096390	0x1264:add		
+300	range_returnres_p	080963B0	0x1268:add		
