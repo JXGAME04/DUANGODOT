@@ -655,6 +655,16 @@ int l_UpdateSkill(lua_State* L)
     return 0;
 }
 
+// SetHide(n): KNpc::SetHide 0x0807FF80 on the player's npc (0x0810AD80; NpcSetHide(idx, n)
+// 0x08101C10 waits for the npc handle of the script api)
+int l_SetHide(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetHide");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    g_ScriptContext().world->set_hide(*p, static_cast<int>(lua_tonumber(L, 1)));
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -669,7 +679,8 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
-    {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {nullptr, nullptr},
+    {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
+    {nullptr, nullptr},
 };
 
 } // namespace

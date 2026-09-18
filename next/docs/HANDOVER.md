@@ -137,12 +137,19 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `武器物理攻击对照表.txt` (`0x0805F18D`) → `KWeaponSkillTable`/`weapon_skill.json` (**tệp thiếu trên máy** → đánh thường 1/2);
   kỹ năng khởi đầu `[FSKILLS]` (53, 1, 2, 229..232) vào `RoleData.skills` khi tạo nhân vật; AI npc đi thẳng `cast_skill`;
   test `test_KNpcCommand.cpp` 6 ca / 113 kiểm.
+- **M12 lát B3c-0 (xong 2026-09-18)**: **ẩn thân `[hide]` 200 đúng từng lệnh** (`LINUX-SERVER.md` §16.1): `ProcessFunc 200
+  0x08097860` → `KNpc::SetHide 0x0807FF80` (0→n: gói 0x4f cho người xung quanh trừ chính mình → zone `entity_gone(keep_self)`;
+  n→0: đồng bộ lại → `wake_viewers_near`), `IsInvisibleTo 0x08079200` (ẩn: chỉ chính mình thấy; hỏi trong `look_around`), ẩn thân
+  vỡ `0x0807D4C0` (`[hide]` `Data1..4` = 713/1235/1258/1267 gỡ; `Data0` = 70 độ trong suốt) trong `CastSkill 0x080884A3` và
+  `DoDeath 0x08089359`; 187 `addstealfeatureskill` → `add_level_inc(v1, ±1)`; Lua `SetHide`; `EntityInfo.hide`; sửa kèm: người
+  chơi không tự lặp buff lên mình; test `test_KNpcCommand.cpp` 8 ca / 155 kiểm, ctest 204/204. Đã đọc, chưa port: 186 mượn
+  dáng `0x08099170`, ngựa `0x0807D520`, gói 0x85/aura `0x080873B0`, `NpcSetHide` (chờ quy ước chỉ số npc).
 
 ### 0.4 Chưa làm — và làm như thế nào
 
 | Việc | Cách làm (đã biết địa chỉ / nguồn) |
 |---|---|
-| **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; cần bảng `武器物理攻击对照表.txt` → kỹ năng đánh theo vũ khí, thay `swing_skill` tạm) và kỹ năng tạo npc `0x080E8770` (đã đọc §14; cần sổ npc tạo của `KPlayer +0x7d34..` và đếm ngược thời gian — chưa đọc), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3a xong 2026-09-18** (sổ `KSkillList` + điểm/kinh nghiệm kỹ năng + Lua; §15). **B3b xong 2026-09-18** (đường lệnh thi triển + `CanCastSkill` + bảng vũ khí + kỹ năng khởi đầu; §16). **B3c**: style 1 thân pháp/lao (`0x08087F70`: dạng 8..13, `0x08087CF0` + `0x08084930/0x08084A10/0x08084B40/0x08084C90`), mòn đồ khi đánh/bị đánh (`0x08201940`, `0x0808A9D8`), `0x0807D4C0` (ẩn thân vỡ), `0x080B12C0`, kỹ năng tạo npc `0x080E8770` + đếm `Player+0x7db0`, đồng hành (loại 2, `npc+0x1698`), chết của người chơi `0x080B2790` + PK (`[0x8BADF50]`, `Player+0x5a50`), `Player+0x5994` (chưa rõ), bảng chuyển sinh `0x0830CA14`, hàm `0x080AEBC0`/`0x081D0C00`. **Dữ liệu cần xin chủ dự án**: `settings/武器物理攻击对照表.txt` (vũ khí → kỹ năng vật lý; máy này chỉ có `clientweaponskill.txt`). **B4** client: ô kỹ năng / phím tắt theo bố cục 2.0, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng). **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
+| **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; cần bảng `武器物理攻击对照表.txt` → kỹ năng đánh theo vũ khí, thay `swing_skill` tạm) và kỹ năng tạo npc `0x080E8770` (đã đọc §14; cần sổ npc tạo của `KPlayer +0x7d34..` và đếm ngược thời gian — chưa đọc), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3a xong 2026-09-18** (sổ `KSkillList` + điểm/kinh nghiệm kỹ năng + Lua; §15). **B3b xong 2026-09-18** (đường lệnh thi triển + `CanCastSkill` + bảng vũ khí + kỹ năng khởi đầu; §16). **B3c-0 xong 2026-09-18** (ẩn thân `[hide]` 200: `SetHide 0x0807FF80`, `IsInvisibleTo 0x08079200`, vỡ `0x0807D4C0`; §16.1). **B3c**: style 1 thân pháp/lao (`0x08087F70`: dạng 8..13, `0x08087CF0` + `0x08084930/0x08084A10/0x08084B40/0x08084C90`), mòn đồ khi đánh/bị đánh (`0x08201940`, `0x0808A9D8`), ngựa `0x0807D520` (`+0x199c`; lên ngựa làm vỡ ẩn thân), mượn dáng 186 `0x08099170`, gói 0x85/aura `0x080873B0`, `NpcSetHide` (chờ quy ước chỉ số npc của API script), `0x080B12C0`, kỹ năng tạo npc `0x080E8770` + đếm `Player+0x7db0`, đồng hành (loại 2, `npc+0x1698`), chết của người chơi `0x080B2790` + PK (`[0x8BADF50]`, `Player+0x5a50`), `Player+0x5994` (chưa rõ), bảng chuyển sinh `0x0830CA14`, hàm `0x080AEBC0`/`0x081D0C00`. **Dữ liệu cần xin chủ dự án**: `settings/武器物理攻击对照表.txt` (vũ khí → kỹ năng vật lý; máy này chỉ có `clientweaponskill.txt`). **B4** client: ô kỹ năng / phím tắt theo bố cục 2.0, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng). **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
 | **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); bộ nạp hằng PK `[0x8BADF50]`; `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ngồi (`m_Doing 8`) và chạy (`0x12`, thưởng `+0x14b0`, thể lực `[0x8BADF80..]`) chưa có trạng thái trong zone. |
 | Trạng thái (độc / băng / choáng / thuốc) | `KNpc::ProcessState 0x0808B610` (§9), trang trạng thái `KNpc+0x234` (20 ô × 16 byte), `ReCalcStateEffect 0x0807D270` (áp lại với dấu âm), `+0x1bc..+0x1fc` các bộ đếm. Zone mới có `life_state/mana_state` và ô giữ chỗ `poison/freeze/stun_state`. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
@@ -241,6 +248,15 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 
 ### 0.6 Cách làm đang tốt — giữ nguyên
 
+- **Con trỏ `KNpc*` trong test chết sau khi thêm thực thể** (`entities_.insert` có thể dời bảng): `Arena` giữ `h`/`p` → sau
+  `spawn_player` thứ hai phải `mutable_entity` lại (giá trị rác `watchers.size() == 0` làm đoán sai hướng).
+- **Vector `attribconstdata` bắt đầu từ `Data0`** (bộ nạp `0x080E75A0` ghi `[i] = Data_i`), nhưng vòng `0x0807D4C0` đi
+  `size−1 … 1`: `Data0` của `[hide]` là độ trong suốt (70), không phải kỹ năng — đọc `.ini` gốc (`settings/attribconstdata.ini`,
+  GBK) để biết nghĩa từng ô.
+- **`+0x19a0` không phải "steal feature"**: `0x8FBFE40 = 0x8FBF4E0 + 200·12` → id 200 `[hide]`; đoán theo tên thuộc tính gần
+  (186/187) là sai — luôn tính lại chỉ số từ địa chỉ vector.
+- **Đuôi tự lặp lệnh của người chơi** (`update_action`) lặp cả buff lên mình → mỗi lần lặp `cast_skill` làm vỡ ẩn thân; giờ chỉ
+  lặp đòn `TargetEnemy` nhắm kẻ khác.
 - **Đọc từng thân hàm rồi mới viết**, ghi địa chỉ vào chú thích và vào `LINUX-SERVER.md`; số trong test
   lấy từ bảng thật (`level_add.txt` hệ Kim: 4/9/8/1/8/0/1; `newplayerini00`: 35/25/25/15, máu 204).
 - **Bản đồ offset → tên** (bảng §10.1) trước khi viết struct: `KNpcAttrib.h` ghi offset ở từng trường, nhờ
@@ -256,7 +272,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 
 ```
 cmake --preset windows-msvc && cmake --build --preset windows-msvc-release     # build Release
-ctest --preset windows-msvc-release                                            # 152 test C++
+ctest --preset windows-msvc-release                                            # 204 test C++
 cd services && go test ./... && go vet ./... && gofmt -l .                     # Go
 python tools/check_includes.py && python tools/check_log_catalog.py            # trước commit
 python tools/dev.py assets        # xuất map/UI/vật phẩm/bảng người chơi (player.json) từ bản cũ
@@ -397,6 +413,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 7) — M12 lát B3c-0: ẩn thân `[hide]` 200
+
+- **Mổ nhị phân** (`LINUX-SERVER.md` §16.1): `ProcessFunc 200 0x08097860` ("Hide + %d = %d"; `[obj+0]` = cờ gỡ của `0x0807D210`/`0x08095B40`), `KNpc::SetHide 0x0807FF80` (gói 0x4f 5 byte / `0x0807FBB0` gói 0x4c), `IsInvisibleTo 0x08079200` (`+4 = m_Index`, `+0x19a4` cờ đang gửi), `0x0807A870` gửi quanh + duyệt 9 vùng `0x080E1C80/0x080E1B80` (bỏ người mà npc vô hình), ẩn thân vỡ `0x0807D4C0` (vector `[hide]` từ `size−1` xuống 1; `attribconstdata.ini`: `Data0=70` độ trong suốt, `Data1..4 = 713, 1235, 1258, 1267`), gọi từ `CastSkill 0x080884A3`, `DoDeath 0x08089359`, ngựa `0x0807D520`, Lua `OpenProgressBar 0x081082D0`; `0x0809F190` đồng bộ npc theo yêu cầu (từ chối khi ẩn), gói 0x4d `0x080810C0` (bit ẩn), `0x080873B0` (0x85 không phát khi ẩn, aura), 186 mượn dáng `0x08099170`, 187 `0x08099370`, Lua `SetHide 0x0810AD80` / `NpcSetHide 0x08101C10`; bộ nạp `attribconstdata` `0x080E75A0` (`[i] = Data_i`).
+- **Zone**: `KNpc::hide/hide_syncing` (+0x19a0/+0x19a4; `clear_attrib` đặt 0), `KSubWorld::invisible_to/set_hide/break_hide` (`KNpc.cpp`), `wake_viewers_near` + lọc ẩn trong `look_around` (`KInterest.cpp`), `KNpcAttribModify` 200 (`ctx.set_hide`) và 187, `cast_skill`/`do_death` gọi `break_hide`, Lua `SetHide`, `EntityInfo.hide` (proto Go/GD sinh lại); sửa lỗi kèm: người chơi không tự lặp lệnh với kỹ năng không đánh địch / nhắm mình.
+- **Test**: `test_KNpcCommand.cpp` 8 ca / 155 kiểm (2 ca mới: ẩn → người xem quên (DESPAWN), không học lại khi còn ẩn, thi triển làm vỡ → học lại ngay khung sau; `SetHide` trên npc, gỡ khỏi npc không ẩn giữ 0, chết làm vỡ), ctest 204/204, Go test xanh.
+- **Chưa**: style 1 thân pháp, mòn đồ, tạo npc, đồng hành, chết/PK, ngựa, mượn dáng 186, gói 0x85/0x87 (B4), `NpcSetHide`.
+- commit: `JX NEXT: M12 lat B3c-0 - an than [hide] 200` (nhánh, `safe/jxnext-2026-09-17`, `main`).
 
 ### 2026-09-18 (phiên tiếp theo, phần 6) — M12 lát B3b: lệnh thi triển của client, `CanCastSkill`, bảng vũ khí → kỹ năng
 

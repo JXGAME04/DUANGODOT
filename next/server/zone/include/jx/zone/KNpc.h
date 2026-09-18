@@ -241,6 +241,11 @@ struct KNpc {
     // players: KPlayer / trap state
     bool fight_mode = false;          // m_FightMode (SetFightState of the gate scripts)
     std::uint32_t trap_script_id = 0; // m_TrapScriptID: the trap under the feet, so a trap fires once per entry
+    // [hide] (200) of a state: while > 0 only its own client sees the npc (KNpc::IsInvisibleTo
+    // 0x08079200 = KSubWorld::invisible_to).  KNpc::SetHide 0x0807FF80 tells the players around;
+    // the cast, the death and a mount break it (0x0807D4C0 = KSubWorld::break_hide).
+    int hide = 0;                     // +0x19a0
+    bool hide_syncing = false;        // +0x19a4: set while the "hidden" packet 0x4f goes out - invisible to itself only then
 
     [[nodiscard]] bool alive() const noexcept { return doing != KDoing::death && doing != KDoing::revive; }
     // m_ProcessAI: the ai only decides while the npc stands or walks (DoSkill / DoAttack / DoHurt /
@@ -264,6 +269,8 @@ struct KNpc {
     {
         cur.clear(base, sit_add_per_mille);
         skill_list.clear_attrib(skill_mgr);   // 0x0807F341: the current levels back to the learned ones
+        hide = 0;                             // 0x0807F3DE / 0x0807F4A6: the hiding too (a state puts it back when applied again)
+        hide_syncing = false;
         auto_skills[static_cast<std::size_t>(KAutoSkillList::every_frame)].clear();   // 0x0807F5AC: the every-frame list and
         on_cast_skills.clear();                                                        // 0x0807F5F3: the on-cast map, always
         if (clear_state) {

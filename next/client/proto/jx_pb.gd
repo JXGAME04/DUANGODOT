@@ -2323,6 +2323,11 @@ class EntityInfo:
 		service.field = __count
 		data[__count.tag] = service
 		
+		__hide = PBField.new("hide", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 18, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __hide
+		data[__hide.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2545,6 +2550,19 @@ class EntityInfo:
 		__count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_count(value : int) -> void:
 		__count.value = value
+	
+	var __hide: PBField
+	func has_hide() -> bool:
+		if __hide.value != null:
+			return true
+		return false
+	func get_hide() -> int:
+		return __hide.value
+	func clear_hide() -> void:
+		data[18].state = PB_SERVICE_STATE.UNFILLED
+		__hide.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_hide(value : int) -> void:
+		__hide.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

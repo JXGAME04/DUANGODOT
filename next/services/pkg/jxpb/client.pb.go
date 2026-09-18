@@ -1217,6 +1217,7 @@ type EntityInfo struct {
 	Doing         Action                 `protobuf:"varint,15,opt,name=doing,proto3,enum=jx.pb.Action" json:"doing,omitempty"` // what it is doing right now (a corpse reports ACTION_DEATH)
 	DoingFrames   uint32                 `protobuf:"varint,16,opt,name=doing_frames,json=doingFrames,proto3" json:"doing_frames,omitempty"`
 	Count         uint32                 `protobuf:"varint,17,opt,name=count,proto3" json:"count,omitempty"` // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
+	Hide          int32                  `protobuf:"varint,18,opt,name=hide,proto3" json:"hide,omitempty"`   // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1366,6 +1367,13 @@ func (x *EntityInfo) GetDoingFrames() uint32 {
 func (x *EntityInfo) GetCount() uint32 {
 	if x != nil {
 		return x.Count
+	}
+	return 0
+}
+
+func (x *EntityInfo) GetHide() int32 {
+	if x != nil {
+		return x.Hide
 	}
 	return 0
 }
@@ -3660,7 +3668,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04life\x18\x02 \x01(\rR\x04life\x12\x19\n" +
 	"\blife_max\x18\x03 \x01(\rR\alifeMax\x12\x14\n" +
 	"\x05delta\x18\x04 \x01(\x05R\x05delta\x12\x16\n" +
-	"\x06source\x18\x05 \x01(\x04R\x06source\"\xf5\x03\n" +
+	"\x06source\x18\x05 \x01(\x04R\x06source\"\x89\x04\n" +
 	"\n" +
 	"EntityInfo\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x122\n" +
@@ -3683,7 +3691,8 @@ const file_jx_client_proto_rawDesc = "" +
 	"\blife_max\x18\x0e \x01(\rR\alifeMax\x12#\n" +
 	"\x05doing\x18\x0f \x01(\x0e2\r.jx.pb.ActionR\x05doing\x12!\n" +
 	"\fdoing_frames\x18\x10 \x01(\rR\vdoingFrames\x12\x14\n" +
-	"\x05count\x18\x11 \x01(\rR\x05count\":\n" +
+	"\x05count\x18\x11 \x01(\rR\x05count\x12\x12\n" +
+	"\x04hide\x18\x12 \x01(\x05R\x04hide\":\n" +
 	"\tPickUpReq\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x10\n" +
 	"\x03seq\x18\x02 \x01(\rR\x03seq\"<\n" +

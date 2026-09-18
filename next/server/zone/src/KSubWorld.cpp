@@ -192,6 +192,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_sex(e.sex);
     out.set_template_id(e.template_id);
     out.set_dir(e.dir);
+    out.set_hide(e.hide);   // the hide bit of the 0x4d status packet (0x08081230); only its own client gets a hidden npc
     out.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
     out.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
     switch (e.doing) {
@@ -980,8 +981,8 @@ void KSubWorld::update_action(KNpc& e)
     if (e.ai_mode == 0 && e.doing == KDoing::stand && e.attack_target.value != 0 && e.commands.empty() && e.active_skill_id > 0) {
         KNpc* t = entities_.find(e.attack_target);
         const KSkill* sk = t != nullptr ? skill_instance(e.active_skill_id, std::max(1, e.skill_list.get_current_level(e.active_skill_id, true))) : nullptr;
-        if (t == nullptr || !t->alive() || sk == nullptr) {
-            e.attack_target = EntityId{};   // dead or gone
+        if (t == nullptr || !t->alive() || sk == nullptr || t->id == e.id || !sk->row.target_enemy) {
+            e.attack_target = EntityId{};   // dead or gone - or not a blow at an enemy (a buff on oneself is cast once)
         } else if (in_reach_of(e, *t, sk->row.attack_radius)) {
             if (e.moving) {
                 e.set_pos(e.pos());   // arrived within reach: stop and swing
@@ -1058,6 +1059,7 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
         emit_life(e, 0, killer);
         return;
     }
+    if (e.hide > 0) break_hide(e);   // 0x08089359: after the death list, before m_Doing = death - the hiding breaks
     e.doing = KDoing::death;
     e.frame_total = std::max(1u, e.death_frame);
     e.frame_cur = 0;

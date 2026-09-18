@@ -17,6 +17,7 @@
 #include "jx/zone/KMagicAttrib.h"
 
 #include <cstdint>
+#include <functional>
 
 namespace jx::zone {
 
@@ -32,6 +33,7 @@ struct KNpcAttribModifyContext {
     bool removing = false;                // the values are the negated ones of a piece taken off
     std::uint64_t tick = 0;               // the frame (autocastskill starts its wait from it, 0x08188A10)
     KSkillListHost* skill_host = nullptr; // what KSkillList needs of the world (allskill_v); null = the change is not applied
+    const std::function<void(int)>* set_hide = nullptr;   // KNpc::SetHide 0x0807FF80 (the world tells the players around); null = the field only
 };
 
 class KNpcAttribModify {

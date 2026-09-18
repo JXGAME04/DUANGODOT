@@ -455,7 +455,7 @@ bool KSubWorld::cast_skill(KNpc& e, int p1, int p2, EntityId target)
     if (!e.skill_list.can_cast(e.active_skill_id, tick_, static_cast<int>(e.level))) return refuse("cannot cast");
     if (!can_cast_skill(*sk, e, p1, p2, target)) return refuse("target");
     if (e.kind == KNpcKind::player && !cost_skill(e, sk->row.cost_type, sk->row.cost, false)) return refuse("cost");
-    // (+0x19a0 > 0 -> 0x0807D4C0: the hidden state breaks - B3c)
+    if (e.hide > 0) break_hide(e);   // 0x080884A3: +0x19a0 > 0 -> 0x0807D4C0, the hiding breaks before the 0x5a packet
     return do_skill(e, *sk, p1, p2, target);   // style 14 and 0..4 (13: the thief skill, none here)
 }
 

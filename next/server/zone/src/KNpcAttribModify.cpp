@@ -280,6 +280,11 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
     case magic_ignoreskill_p: c.ignore_skill += v0; return true;                   // 191 (0x0809A4F0)
     case magic_returnskill_p: c.return_skill += v0; return true;                   // 192 (0x0809A3F0)
     case magic_randmove: c.rand_move += v0; return true;                           // 199 (0x080978D0; the stop of a random walk is the ai's)
+    case magic_hide:                                                               // 200 (0x08097860): nValue[0] onto +0x19a0 through KNpc::SetHide
+        if (ctx.removing && npc.hide == 0) return true;   // a removal off a npc that is not hidden changes nothing
+        if (ctx.set_hide != nullptr) (*ctx.set_hide)(npc.hide + v0);
+        else npc.hide += v0;
+        return true;
     case magic_ignorenegativestate_p:                                              // 201 (0x080977D0)
         if (!ctx.removing) {
             npc.stun_state = KNpc::PotionState{};      // +0x1e8 = 0
@@ -386,6 +391,9 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
     // ---- the skill list (KSkillList.h)
     case magic_allskill_v:                                                                 // 139 (0x080993A0): nValue[0] levels for skill nValue[2] (0 = every skill)
         if (ctx.skill_host != nullptr) npc.skill_list.add_level_inc(v2, v0, *ctx.skill_host);   // KSkillList::AddSkillLevelInc 0x080E5BF0
+        return true;
+    case magic_addstealfeatureskill:                                                       // 187 (0x08099370): one level onto skill nValue[1] - the sign of nValue[1] is the direction (a removal hands -id)
+        if (ctx.skill_host != nullptr) npc.skill_list.add_level_inc(v1, v1 > 0 ? 1 : -1, *ctx.skill_host);
         return true;
     case magic_reduceskillcd1:                                                             // 288..290 (0x08097250): nValue[2] frames off the cool down of skill nValue[0]
     case magic_reduceskillcd2:

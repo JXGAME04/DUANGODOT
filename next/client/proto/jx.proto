@@ -153,6 +153,7 @@ message EntityInfo {
   Action doing = 15;             // what it is doing right now (a corpse reports ACTION_DEATH)
   uint32 doing_frames = 16;
   uint32 count = 17;             // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
+  int32 hide = 18;               // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
 }
 
 message PickUpReq {              // C2G_PICK_UP: take the thing on the ground into the bag (KPlayer::ServerPickUpItem)

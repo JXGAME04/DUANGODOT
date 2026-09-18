@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
 
 #include "jx/log.hpp"
 #include "jx/zone/KMagicAttribId.h"
@@ -362,7 +363,8 @@ void KSubWorld::modify_attrib(KNpc& target, EntityId launcher, const KMagicAttri
 {
     (void)launcher;   // KNpc::ModifyAttrib(nLauncher, ...) hands it to the table; no entry the zone carries reads it
     KSkillListHost host = skill_host(target);
-    const KNpcAttribModifyContext ctx{&tables(), target.sid != 0 ? items_of(target.sid) : nullptr, removing, tick_, &host};
+    const std::function<void(int)> set_hide_hook = [&](int v) { set_hide(target, v); };   // [hide] 200 -> KNpc::SetHide 0x0807FF80
+    const KNpcAttribModifyContext ctx{&tables(), target.sid != 0 ? items_of(target.sid) : nullptr, removing, tick_, &host, &set_hide_hook};
     if (!KNpcAttribModify::modify(target, m, ctx)) {
         log::trace("zone.fight", "magic attribute not carried", {log::kv("entity", target.id), log::kv("attrib", m.type)});
     }
@@ -524,6 +526,53 @@ void KSubWorld::remove_state_skill_effect(KNpc& t, int skill_id, bool notify)
         log::debug("zone.fight", "state removed", {log::kv("entity", t.id), log::kv("skill", skill_id)});
         return;
     }
+}
+
+// KNpc::IsInvisibleTo(this, nNpcIdx) 0x08079200: while the "hidden" packet goes out (+0x19a4) the
+// npc is invisible to itself only (the packet is for everybody else); hidden (+0x19a0 != 0) it is
+// invisible to everybody but itself; otherwise to nobody.  The region walk 0x080E1B80 asks it for
+// every player around before a packet goes out; the zone asks in look_around and in set_hide.
+bool KSubWorld::invisible_to(const KNpc& e, EntityId viewer) const noexcept
+{
+    if (e.hide_syncing) return e.id == viewer;
+    if (e.hide == 0) return false;
+    return e.id != viewer;
+}
+
+// KNpc::SetHide(this, nHide) 0x0807FF80 (Lua SetHide / NpcSetHide, [hide] 200 of a state)
+void KSubWorld::set_hide(KNpc& e, int value)
+{
+    if (e.hide == 0) {
+        if (value != 0) {
+            // 0x0807FFB4: the packet 0x4f {npc id} to the players around - with +0x19a4 set the npc is
+            // invisible to itself only, so everybody else is told: they forget it (G2C_ENTITY_DESPAWN)
+            e.hide_syncing = true;
+            entity_gone(e, true);
+            e.hide_syncing = false;
+        }
+    } else if (value == 0) {
+        // 0x08080008: 0x0807FBB0(this, 0), the npc's full sync (the packet 0x4c) to the players around
+        // - still hidden at that moment, only its own client qualifies; the others learn it again when
+        // their client asks for it (0x0809F190, refused while hidden).  Here the viewers whose view
+        // holds it look again at the next tick.
+        wake_viewers_near(e);
+    }
+    if (e.hide != value) log::debug("zone.fight", "hidden", {log::kv("entity", e.id), log::kv("hide", value)});
+    e.hide = value;
+}
+
+// 0x0807D4C0: a hidden npc breaks its hiding - the state skills named by [hide] of
+// attribconstdata.ini come off, Data(Count-1) down to Data1 (Data0 is the transparency of the
+// hidden client, 70, not a skill): 713, 1235, 1258, 1267.  KNpc::CastSkill 0x08088350 (after the
+// cost), KNpc::DoDeath 0x080892E0 (after the death list), a mount 0x0807D520 and the Lua
+// OpenProgressBar 0x081082D0 call it.
+void KSubWorld::break_hide(KNpc& e)
+{
+    if (e.hide == 0) return;
+    const std::vector<int>* d = attrib_data(magic_hide);
+    if (d == nullptr || d->size() < 2) return;
+    log::debug("zone.fight", "hide broken", {log::kv("entity", e.id), log::kv("hide", e.hide)});
+    for (std::size_t i = d->size() - 1; i >= 1; --i) remove_state_skill_effect(e, (*d)[i], true);
 }
 
 void KSubWorld::tick_state_skills(KNpc& e)

@@ -134,8 +134,8 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
         // this loop never meets one; the cell comes from the position, not from a lookup.
         KNpc* e = entities_.find(id);
         const Cell c = e != nullptr ? grid_.cell_of(e->pos()) : Cell{};
-        if (e == nullptr || std::abs(c.cx - here.cx) > keep_x || std::abs(c.cy - here.cy) > keep_y) {
-            forget(id, e);
+        if (e == nullptr || std::abs(c.cx - here.cx) > keep_x || std::abs(c.cy - here.cy) > keep_y || invisible_to(*e, v.self)) {
+            forget(id, e);   // (hidden - [hide] 200 - it is seen by its own client only, 0x08079200)
         } else {
             v.known[kept++] = id;
             if (e->kind == KNpcKind::player) ++players_kept;
@@ -173,7 +173,9 @@ void KSubWorld::look_around(std::uint64_t sid, KViewer& v)
     const auto candidate = [&](std::vector<Near>& into, EntityId id) {
         ++look_stats_.candidates;
         if (id == v.self || knows(v, id)) return;
-        if (const KNpc* e = entities_.find(id)) into.push_back(Near{dist2(at, e->pos()), id});
+        const KNpc* e = entities_.find(id);
+        if (e == nullptr || invisible_to(*e, v.self)) return;   // hidden ([hide] 200): seen by its own client only
+        into.push_back(Near{dist2(at, e->pos()), id});
     };
     const std::size_t cells = grid_.view_cell_count();
     const bool everything = !v.looked || v.carry || forgot || here != v.last_cell || v.cell_versions.size() != cells ||
@@ -342,6 +344,25 @@ void KSubWorld::entity_gone(KNpc& e, bool keep_self)
     pb::EntityDespawn gone;
     gone.add_entity_ids(e.id.value);
     emit(std::move(told), static_cast<std::uint16_t>(pb::G2C_ENTITY_DESPAWN), gone);
+}
+
+// The viewers whose view holds this npc look again at the next tick, at everything (its cell's
+// version did not change, so a plain look would walk past it): KNpc::SetHide 0x0807FF80 when the
+// hiding ends re-syncs the npc to the players around.
+void KSubWorld::wake_viewers_near(const KNpc& e)
+{
+    const Cell c = grid_.cell_of(e.pos());
+    const std::int32_t vx = grid_.view_cells_x() + std::max(0, cfg_.view_slack);
+    const std::int32_t vy = grid_.view_cells_y() + std::max(0, cfg_.view_slack);
+    for (auto& kv : viewers_) {
+        KViewer& v = kv.second;
+        const KNpc* me = entities_.find(v.self);
+        if (me == nullptr) continue;
+        const Cell here = grid_.cell_of(me->pos());
+        if (std::abs(c.cx - here.cx) > vx || std::abs(c.cy - here.cy) > vy) continue;
+        v.dirty = true;
+        v.carry = true;
+    }
 }
 
 // The session leaves this map: it watches nothing any more.

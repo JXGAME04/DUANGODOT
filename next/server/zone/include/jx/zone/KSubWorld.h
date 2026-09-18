@@ -446,6 +446,13 @@ public:
     [[nodiscard]] const KSkill* skill_instance(int id, int level);
     static constexpr int kCommandSkill = 5;          // do_skill
     static constexpr int kCommandApproach = 300;     // 0x0809BAFF: walked toward within radius + 300
+    // ---- hiding: [hide] 200 of a state (docs/LINUX-SERVER.md §16.1) ----
+    // KNpc::IsInvisibleTo 0x08079200: hidden, the npc is seen by its own client only
+    [[nodiscard]] bool invisible_to(const KNpc& e, EntityId viewer) const noexcept;
+    // KNpc::SetHide 0x0807FF80: the players around forget it (the 0x4f packet) / look at it again
+    void set_hide(KNpc& e, int value);
+    // 0x0807D4C0: the hiding breaks - the state skills of [hide] Data1.. come off
+    void break_hide(KNpc& e);
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
@@ -470,6 +477,7 @@ private:
     void run_interest();                                   // once per tick: every client that is due looks around
     void look_around(std::uint64_t sid, KViewer& v);       // forget what left, learn what is near, within the budget
     void entity_gone(KNpc& e, bool keep_self = false);     // it leaves the world: every client that knows it is told
+    void wake_viewers_near(const KNpc& e);                 // the viewers around it look again next tick (a hiding ended)
     void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
     static constexpr std::uint64_t kSwapEveryLooks = 4;    // ... and it looks for them every 4th routine look (about 0,9 s)

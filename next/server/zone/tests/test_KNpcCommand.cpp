@@ -40,6 +40,7 @@ constexpr const char* kLevelScript = R"lua(
 function GetSkillLevelData(levelname, data, level)
     if data == "hit" and levelname == "life_v" then return "-5,0,0" end
     if data == "buff" and levelname == "armordefense_v" then return "10,60,0" end
+    if data == "buff" and levelname == "hide" then return "1,60,0" end
     return ""
 end
 )lua";
@@ -78,6 +79,8 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1105, {{"EqtLimit", "3"}});
     add(1106, {{"AttackRadius", "40"}, {"SkillStyle", "0"}, {"MisslesForm", "3"}, {"Param1", "0"}});   // CanCastSkill checks no reach for it (form 3, Param1 != 1): ProcessCommand walks up
     add(1107, {{"ReqLevel", "10"}});
+    add(1108, {{"TargetEnemy", "0"}, {"TargetSelf", "1"}, {"PeaceCanUse", "1"}, {"IsPhysical", "0"}, {"LvlSetting1", "hide"}, {"LvlData1", "buff"}});
+    t.set_attrib_data(magic_hide, {70, 713, 1108});   // [hide] of attribconstdata.ini: Data0 the transparency, Data1.. the state skills
     return std::make_shared<const KSkillTable>(std::move(t));
 }
 
@@ -327,4 +330,100 @@ TEST_CASE("the old attack request is the weapon's physical skill and keeps strik
     }
     CHECK(swings >= 3);
     CHECK(a.p->life() < 1000);
+}
+
+// KNpc::SetHide 0x0807FF80, KNpc::IsInvisibleTo 0x08079200, the hiding broken 0x0807D4C0, the
+// ProcessFunc of [hide] 200 0x08097860 - docs/LINUX-SERVER.md §16.1
+TEST_CASE("hide: the players around forget the npc, its own client keeps it, the cast breaks it", "[command]")
+{
+    Arena a({1, 1101, 1102, 1108});
+    EntityId watcher;
+    Pos at;
+    REQUIRE(a.w.spawn_player(8, role(80, "Watcher", Pos{2100, 2000}, {1}), watcher, at) == jx::pb::RESULT_OK);
+    a.h = a.w.mutable_entity(a.hero);   // the entity table may have moved
+    a.p = a.w.mutable_entity(a.pig);
+    a.ticks(2);
+    a.w.take_outbox();
+    KNpc* wn = a.w.mutable_entity(watcher);
+    REQUIRE(wn != nullptr);
+    REQUIRE(std::binary_search(a.h->watchers.begin(), a.h->watchers.end(), 8u));
+    const auto packets_to = [&](std::uint64_t sid, jx::pb::MsgId id, std::uint64_t entity) {
+        int n = 0;
+        for (const Packet& pk : a.w.take_outbox()) {
+            if (pk.msg_id != static_cast<std::uint16_t>(id) || std::find(pk.sids.begin(), pk.sids.end(), sid) == pk.sids.end()) continue;
+            if (id == jx::pb::G2C_ENTITY_DESPAWN) {
+                jx::pb::EntityDespawn d;
+                REQUIRE(d.ParseFromString(pk.payload));
+                for (const auto e : d.entity_ids()) n += e == entity;
+            } else {
+                jx::pb::EntitySpawn s;
+                REQUIRE(s.ParseFromString(pk.payload));
+                for (const auto& e : s.entities()) n += e.entity_id() == entity && e.hide() == 0;
+            }
+        }
+        return n;
+    };
+    // the hide buff on oneself ([hide] 1 for 60 frames) fires at frame 10 -> KNpc::SetHide(1): the
+    // watcher's client is sent the despawn (the 0x4f packet), the hero's own client keeps its npc
+    CHECK(a.w.cast_skill_request(7, 1108, -1, 0, a.hero, 1));
+    a.ticks(11);
+    CHECK(a.h->hide == 1);
+    CHECK(a.h->state_of(1108) != nullptr);
+    CHECK(a.w.invisible_to(*a.h, watcher));
+    CHECK_FALSE(a.w.invisible_to(*a.h, a.hero));
+    CHECK_FALSE(a.w.invisible_to(*wn, a.hero));
+    CHECK(a.h->watchers == std::vector<std::uint64_t>{7});
+    CHECK(packets_to(8, jx::pb::G2C_ENTITY_DESPAWN, a.hero.value) == 1);
+    // the watcher keeps looking around and does not learn it again while it is hidden
+    a.ticks(10);
+    CHECK(a.h->watchers == std::vector<std::uint64_t>{7});
+    CHECK(packets_to(8, jx::pb::G2C_ENTITY_SPAWN, a.hero.value) == 0);
+    // 0x080884A3: a cast breaks the hiding - the state skill named by [hide] Data2 (1108) comes off,
+    // its negated [hide] runs KNpc::SetHide(0); the watcher looks again at once and learns the hero
+    CHECK(a.w.cast_skill_request(7, 1101, -1, 0, a.pig, 2));
+    CHECK(a.h->hide == 0);
+    CHECK(a.h->state_of(1108) == nullptr);
+    CHECK_FALSE(a.w.invisible_to(*a.h, watcher));
+    a.ticks(1);
+    CHECK(std::binary_search(a.h->watchers.begin(), a.h->watchers.end(), 8u));
+    CHECK(packets_to(8, jx::pb::G2C_ENTITY_SPAWN, a.hero.value) == 1);
+}
+
+TEST_CASE("hide on a npc: SetHide, a removal off an unhidden npc changes nothing, the death breaks it", "[command]")
+{
+    Arena a;
+    a.ticks(4);   // the hero's next look: it learns the pig (spawned after its first look)
+    REQUIRE(a.p->watchers == std::vector<std::uint64_t>{7});
+    // KNpc::SetHide(1): the hero's client forgets the pig
+    a.w.set_hide(*a.p, 1);
+    CHECK(a.p->hide == 1);
+    CHECK(a.p->watchers.empty());
+    CHECK(a.w.invisible_to(*a.p, a.hero));
+    a.ticks(8);
+    CHECK(a.p->watchers.empty());
+    // KNpc::SetHide(0): the viewers around look again and learn it
+    a.w.set_hide(*a.p, 0);
+    CHECK(a.p->hide == 0);
+    a.ticks(1);
+    CHECK(a.p->watchers == std::vector<std::uint64_t>{7});
+    // 0x08097860: a [hide] taken off a npc that is not hidden leaves 0 (the value would go negative)
+    KMagicAttrib off;
+    off.type = magic_hide;
+    off.value = {-1, 0, 0};
+    a.w.modify_attrib(*a.p, a.pig, off, true);
+    CHECK(a.p->hide == 0);
+    // the state itself on the pig, then its death: 0x08089359 breaks the hiding
+    KMagicAttrib on;
+    on.type = magic_hide;
+    on.value = {1, 60, 0};
+    CHECK(a.w.set_state_skill_effect(*a.p, a.hero, 1108, 1, &on, 1, 60) == 0);
+    CHECK(a.p->hide == 1);
+    CHECK(a.p->watchers.empty());
+    a.p->cur.sorb_damage = 0;   // a blow of 3 on 3 life kills it: KNpc::DoDeath 0x080892E0
+    a.p->cur.life = 3;
+    int dealt = 0;
+    CHECK(a.w.calc_damage(*a.p, *a.h, 3, 3, damage_physics, true, nullptr, &dealt, 0, false) == 0);
+    CHECK(a.p->doing == KDoing::death);
+    CHECK(a.p->hide == 0);
+    CHECK(a.p->state_of(1108) == nullptr);
 }
