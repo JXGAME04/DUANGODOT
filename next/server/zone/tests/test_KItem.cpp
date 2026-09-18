@@ -902,12 +902,43 @@ TEST_CASE("AddItem / AddGoldItem give the player what the tables describe; ?gm d
     // the client heard about every one of them
     auto out = iw.w->take_outbox();
     CHECK(packets(out, 1, jx::pb::G2C_ITEM_ADD).size() == 7);
+
+    // the quest-item api of the JX2 server, by detail or by the questkey.txt name:
+    // AddStackItem([tag,] count, genre, detail, particular, level, series, luck) stacks "Tui" (max 20)
+    // onto the one AddItem gave (KPlayer::AddItem(.., bStack = 1) merges like KItemList::Add does)
+    CHECK(script.call_number("AddStackItem", {5.0, 4.0, 1.0, 0.0, 1.0, 0.0, 0.0}) != 0.0);
+    CHECK(script.call_number("AddStackItem", {std::string("quest"), 25.0, 4.0, 1.0, 0.0, 1.0, 0.0, 0.0}) != 0.0);   // 25 > max 20: a stack of 1
+    CHECK(iw.list().size() == 7);
+    int tui = 0;
+    iw.list().each([&](const KItem& it, const jx::zone::KItemPlace&) {
+        if (it.genre == KItemGenre::task && it.detail == 1) tui += it.count;
+    });
+    CHECK(tui == 7);
+    CHECK(script.call_number("HaveItem", {1.0}) == 1.0);
+    CHECK(script.call_number("HaveItem", {std::string("Tui")}) == 1.0);
+    CHECK(script.call_number("HaveItem", {std::string("Khong co")}) == 0.0);
+    CHECK(script.call_number("HaveItem", {0.0}) == 0.0);        // no "Tram"
+    CHECK(script.call_number("GetItemCount", {1.0}) == 1.0);    // one stack, whatever its size
+    CHECK(script.call_number("GetItemCountEx", {std::string("Tui")}) == 1.0);
+    CHECK(script.call_number("HaveCommonItem", {0.0, 0.0, -1.0}) == 1.0);   // a melee weapon of any particular
+    CHECK(script.call_number("HaveCommonItem", {0.0, 3.0, -1.0}) == 0.0);   // no ring
+    CHECK(script.call_number("GetTotalItemCount", {}) == 7.0);
+    // DelItem("Tui") takes the whole stack; DelCommonItem(0, 0, 0) the sword
+    script.call_number("DelItem", {std::string("Tui")});
+    CHECK(script.call_number("GetItemCount", {1.0}) == 0.0);
+    script.call_number("DelItemEx", {1.0});
+    CHECK(script.call_number("HaveItem", {1.0}) == 0.0);
+    script.call_number("DelCommonItem", {0.0, 0.0, 0.0});
+    CHECK(iw.list().find(1) == nullptr);
+    CHECK(iw.list().size() == 5);
+    out = iw.w->take_outbox();
+    CHECK(packets(out, 1, jx::pb::G2C_ITEM_REMOVE).size() == 2);
     ctx = jx::zone::KScriptContext{};
 
     // the chat: "?gm ds <lua>" runs for the player only while gm_chat is on
     REQUIRE(iw.w->chat(1, "?gm ds AddItem(0,0,0,1,2,0)"));
     out = iw.w->take_outbox();
-    CHECK(iw.list().size() == 7);                                   // off: it was said, not run
+    CHECK(iw.list().size() == 5);                                   // off: it was said, not run
     CHECK(packets(out, 1, jx::pb::G2C_CHAT_MSG).size() == 1);
     CHECK(decode_packet<jx::pb::ChatMsg>(packets(out, 1, jx::pb::G2C_CHAT_MSG)[0]).text() == "?gm ds AddItem(0,0,0,1,2,0)");
 

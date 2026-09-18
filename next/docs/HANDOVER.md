@@ -138,6 +138,17 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-18 (khuya) — M11 lát E phần 2: hàm script vật phẩm nhiệm vụ theo nhị phân Linux
+
+`AddStackItem`, `HaveItem`, `GetItemCount`, `GetItemCountEx`, `DelItem`, `DelItemEx`, `HaveCommonItem`,
+`DelCommonItem`, `GetTotalItemCount` (`ScriptFuns.cpp`), mỗi hàm mổ từ `jx_linux_y` (địa chỉ ở `LINUX-SERVER.md`
+§9). Điểm khác nguồn Windows: bản JX2 nhận **tên** vật phẩm nhiệm vụ (tra `\settings\item\questkey.txt` cột 名称 →
+`DetailType`) hoặc số; `DelItem` xoá **cả chồng** đầu tiên có detail đó (mọi phòng), `DelItemEx`/`GetItemCountEx`
+chỉ trong túi (`pos_equiproom = 3`); `GetItemCount` đếm **số chồng**; `AddStackItem([tag,] count, genre, detail,
+particular, level, series, luck[, magic1..6])` = AddItem + chồng `count` khi ≤ max (25 > 20 → chồng 1), rồi
+`KPlayer::AddItem(.., bStack=1)` gộp vào chồng sẵn có như `give_item` của ta. Test `[lua]` mở rộng; zone 69/69.
+Chưa có: `AddItemEx`, `forbit_takemedicine` / `*PotionCounter` (chờ M12 trạng thái), `Check_ItemUsable`/`OnUseItem` (chờ script).
+
 ### 2026-09-18 (tối) — tên / mô tả vật phẩm lấy từ **bảng của chính client 2.0** (`items/client_vNNN.json`)
 
 Client thật tra bảng `\settings\item\NNN\*.txt` trong kho của nó (`KItem::operator=(row)` chép tên +0x30, ảnh

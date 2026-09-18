@@ -266,6 +266,14 @@ const KItemTemplate* KItemTemplateSet::quest(int detail) const
     return &quest_[static_cast<std::size_t>(detail)];
 }
 
+int KItemTemplateSet::quest_detail_of(const std::string& name) const
+{
+    for (const auto& t : quest_) {
+        if (t.name == name) return t.detail;
+    }
+    return -1;
+}
+
 const KItemTemplate* KItemTemplateSet::town_portal() const
 {
     return town_portal_.empty() ? nullptr : &town_portal_[0];

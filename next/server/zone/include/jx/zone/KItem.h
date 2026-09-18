@@ -190,6 +190,9 @@ public:
     [[nodiscard]] const KItemTemplate* medicine(int detail, int level) const;
     // Gen_Quest: row = detail
     [[nodiscard]] const KItemTemplate* quest(int detail) const;
+    // the DetailType of the questkey.txt row with that 名称 (the JX2 script api takes names:
+    // DelItem("Thư giới thiệu") looks the row up in \settings\item\questkey.txt), -1 when none
+    [[nodiscard]] int quest_detail_of(const std::string& name) const;
     // Gen_TownPortal: the first row
     [[nodiscard]] const KItemTemplate* town_portal() const;
     // Gen_GoldEquip: row id 1-based
@@ -396,6 +399,7 @@ public:
     void seed(std::uint32_t s) noexcept { rng_.seed(s); }
     [[nodiscard]] std::uint32_t seed() const noexcept { return rng_.seed(); }
     [[nodiscard]] std::uint32_t version() const noexcept { return version_; }
+    [[nodiscard]] const KItemTemplateSet& set() const noexcept { return set_; }
 
     // KItemGenerator::Gen_Equipment (jx_linux_y 0x0806B3A0): the row's base attributes rolled,
     // then - with magic levels, not for a mask - Gen_MagicAttrib and the magicattrib_limit check,

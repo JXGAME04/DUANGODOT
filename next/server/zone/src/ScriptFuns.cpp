@@ -7,6 +7,7 @@ extern "C" {
 #include <lua.h>
 }
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 
@@ -224,12 +225,198 @@ int l_AddGoldItem(lua_State* L)
     return 1;
 }
 
+// The JX2 script api names a quest item by its DetailType or by its 名称 in
+// \settings\item\questkey.txt (jx_linux_y DelItem 0x0811D5D0: a string argument is looked up
+// with KTabFile::GetInteger(row-by-name, "DetailType")).  -1 when the name is unknown.
+int quest_detail_arg(lua_State* L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TSTRING) {
+        KSubWorld* w = g_ScriptContext().world;
+        auto gen = w->item_generator(w->item_version());
+        return gen ? gen->set().quest_detail_of(lua_tostring(L, idx)) : -1;
+    }
+    return static_cast<int>(luaL_optnumber(L, idx, -1));
+}
+
+// The rooms the JX2 KItemList walks: every item the player has (bag, repository, quick slots,
+// worn); the Ex forms look at the bag only (pos_equiproom = 3 in the entry list)
+bool in_bag(const KItemPlace& p) { return p.room == room_equipment; }
+
+// HaveItem(detail | name) -> 1 / 0: a quest item of that detail anywhere (0x0811D250 -> 0x081F9FA0)
+int l_HaveItem(lua_State* L)
+{
+    const KNpc* p = player_of(L, "HaveItem");
+    const int detail = quest_detail_arg(L, 1);
+    bool have = false;
+    if (p != nullptr && detail >= 0) {
+        if (const KItemList* list = g_ScriptContext().world->items_of(g_ScriptContext().sid)) {
+            list->each([&](const KItem& it, const KItemPlace&) {
+                if (it.genre == KItemGenre::task && it.detail == detail) have = true;
+            });
+        }
+    }
+    lua_pushinteger(L, have ? 1 : 0);
+    return 1;
+}
+
+// GetItemCount(detail | name) -> how many quest items of that detail the player holds, each
+// stack one (0x0811D6E0 -> 0x081FA010); GetItemCountEx counts the bag only (0x081FC550)
+int item_count(lua_State* L, const char* fn, bool bag_only)
+{
+    const KNpc* p = player_of(L, fn);
+    const int detail = quest_detail_arg(L, 1);
+    int n = 0;
+    if (p != nullptr && detail >= 0) {
+        if (const KItemList* list = g_ScriptContext().world->items_of(g_ScriptContext().sid)) {
+            list->each([&](const KItem& it, const KItemPlace& place) {
+                if (it.genre == KItemGenre::task && it.detail == detail && (!bag_only || in_bag(place))) ++n;
+            });
+        }
+    }
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+int l_GetItemCount(lua_State* L) { return item_count(L, "GetItemCount", false); }
+int l_GetItemCountEx(lua_State* L) { return item_count(L, "GetItemCountEx", true); }
+
+// DelItem(detail | name): the first quest item of that detail goes, stack and all
+// (0x0811D5D0 -> KItemList 0x08204560); DelItemEx takes it from the bag only (0x08204350)
+int del_item(lua_State* L, const char* fn, bool bag_only)
+{
+    const KNpc* p = player_of(L, fn);
+    const int detail = quest_detail_arg(L, 1);
+    if (p == nullptr || detail < 0) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    std::uint32_t victim = 0;
+    if (const KItemList* list = w->items_of(g_ScriptContext().sid)) {
+        list->each([&](const KItem& it, const KItemPlace& place) {
+            if (victim == 0 && it.genre == KItemGenre::task && it.detail == detail && (!bag_only || in_bag(place))) victim = it.id;
+        });
+    }
+    if (victim != 0) {
+        w->take_item(g_ScriptContext().sid, victim);
+        log::debug("lua", "quest item taken", {log::kv("entity", p->id), log::kv("detail", detail), log::kv("item", victim)});
+    } else {
+        log::debug("lua", "quest item to take not found", {log::kv("entity", p->id), log::kv("detail", detail)});
+    }
+    return 0;
+}
+
+int l_DelItem(lua_State* L) { return del_item(L, "DelItem", false); }
+int l_DelItemEx(lua_State* L) { return del_item(L, "DelItemEx", true); }
+
+// HaveCommonItem(genre, detail, particular) -> 1 / 0, -1 = any detail / particular (0x0811D140 -> 0x081FA080)
+int l_HaveCommonItem(lua_State* L)
+{
+    const KNpc* p = player_of(L, "HaveCommonItem");
+    const auto genre = static_cast<int>(luaL_optnumber(L, 1, -1));
+    const auto detail = static_cast<int>(luaL_optnumber(L, 2, -1));
+    const auto particular = static_cast<int>(luaL_optnumber(L, 3, -1));
+    bool have = false;
+    if (p != nullptr) {
+        if (const KItemList* list = g_ScriptContext().world->items_of(g_ScriptContext().sid)) {
+            list->each([&](const KItem& it, const KItemPlace&) {
+                if (static_cast<int>(it.genre) == genre && (detail == -1 || it.detail == detail) && (particular == -1 || it.particular == particular)) have = true;
+            });
+        }
+    }
+    lua_pushinteger(L, have ? 1 : 0);
+    return 1;
+}
+
+// DelCommonItem(genre, detail, particular): the first such item goes (0x0811D4C0 -> 0x08204470)
+int l_DelCommonItem(lua_State* L)
+{
+    const KNpc* p = player_of(L, "DelCommonItem");
+    const auto genre = static_cast<int>(luaL_optnumber(L, 1, -1));
+    const auto detail = static_cast<int>(luaL_optnumber(L, 2, -1));
+    const auto particular = static_cast<int>(luaL_optnumber(L, 3, -1));
+    if (p == nullptr) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    std::uint32_t victim = 0;
+    if (const KItemList* list = w->items_of(g_ScriptContext().sid)) {
+        list->each([&](const KItem& it, const KItemPlace&) {
+            if (victim == 0 && static_cast<int>(it.genre) == genre && (detail == -1 || it.detail == detail) && (particular == -1 || it.particular == particular)) victim = it.id;
+        });
+    }
+    if (victim != 0) w->take_item(g_ScriptContext().sid, victim);
+    return 0;
+}
+
+// GetTotalItemCount() -> every item the player holds (the JX2 one counts the item set)
+int l_GetTotalItemCount(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTotalItemCount");
+    const KItemList* list = p ? g_ScriptContext().world->items_of(g_ScriptContext().sid) : nullptr;
+    lua_pushinteger(L, list ? static_cast<lua_Integer>(list->size()) : 0);
+    return 1;
+}
+
+// AddStackItem([tag,] count, genre, detail, particular, level, series, luck [, magic1..6]) -> item
+// id / 0 (jx_linux_y 0x0811FA10): AddItem with a stack of `count` when the piece stacks and the
+// count is within its maximum (Item+0x14 stackable, +0x30c max, +0x308 the stack); a leading
+// string is a tag the scripts write and is skipped
+int l_AddStackItem(lua_State* L)
+{
+    int first = 1;
+    if (lua_type(L, 1) == LUA_TSTRING) first = 2;
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "AddStackItem");
+    if (p == nullptr || n < first + 6) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const auto count = static_cast<int>(luaL_checknumber(L, first));
+    const auto genre = static_cast<int>(luaL_checknumber(L, first + 1));
+    const auto detail = static_cast<int>(luaL_checknumber(L, first + 2));
+    const auto particular = static_cast<int>(luaL_checknumber(L, first + 3));
+    const auto level = static_cast<int>(luaL_checknumber(L, first + 4));
+    const auto series = static_cast<int>(luaL_checknumber(L, first + 5));
+    const auto luck = static_cast<int>(luaL_checknumber(L, first + 6));
+    KMagicLevels levels{};
+    bool with_magic = false;
+    for (int i = 0; i < 6 && first + 7 + i <= n; ++i) {
+        levels[static_cast<std::size_t>(i)] = static_cast<int>(luaL_optnumber(L, first + 7 + i, 0));
+        with_magic = with_magic || levels[static_cast<std::size_t>(i)] != 0;
+    }
+    KSubWorld* w = g_ScriptContext().world;
+    auto gen = w->item_generator(w->item_version());
+    std::optional<KItem> item;
+    if (gen) {
+        switch (static_cast<KItemGenre>(genre)) {
+        case KItemGenre::equip: item = gen->equipment(detail, particular, series, level, with_magic ? &levels : nullptr, luck); break;
+        case KItemGenre::medicine: item = gen->medicine(detail, level); break;
+        case KItemGenre::task: item = gen->quest(detail, 1); break;
+        case KItemGenre::town_portal: item = gen->town_portal(); break;
+        case KItemGenre::magic_script: item = gen->magic_script(detail, particular, level, series, 1); break;
+        default: break;
+        }
+    }
+    if (!item) {
+        log::warn("lua", "AddStackItem: no such item", {log::kv("genre", genre), log::kv("detail", detail), log::kv("particular", particular),
+                                                         log::kv("level", level)});
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    if (item->tpl != nullptr && (item->tpl->stackable || item->tpl->max_stack > 0) && count > 0) {
+        const int max_stack = item->tpl->max_stack > 0 ? item->tpl->max_stack : 1;
+        if (count <= max_stack) item->count = std::min(count, 0xFFFF);
+    }
+    const std::uint32_t id = w->give_item(g_ScriptContext().sid, std::move(*item));
+    lua_pushinteger(L, id);
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
     {"Msg2Player", l_Msg2Player},       {"AddStation", l_AddStation},       {"AddTermini", l_AddTermini},
     {"Say", l_Say},                     {"Talk", l_Talk},                   {"AddItem", l_AddItem},
-    {"AddGoldItem", l_AddGoldItem},     {nullptr, nullptr},
+    {"AddGoldItem", l_AddGoldItem},     {"AddStackItem", l_AddStackItem},   {"HaveItem", l_HaveItem},
+    {"GetItemCount", l_GetItemCount},   {"GetItemCountEx", l_GetItemCountEx}, {"DelItem", l_DelItem},
+    {"DelItemEx", l_DelItemEx},         {"HaveCommonItem", l_HaveCommonItem}, {"DelCommonItem", l_DelCommonItem},
+    {"GetTotalItemCount", l_GetTotalItemCount}, {nullptr, nullptr},
 };
 
 } // namespace
