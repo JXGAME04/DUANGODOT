@@ -465,6 +465,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the missile table (settings/missles.txt): the templates the skills fire (the zone's KMissleTable)
     if subprocess.call([*jxassets_args(), "export-missles", "-out", out], cwd=ROOT) != 0:
         print("export-missles: no settings/missles.txt in the reference server folder - the skills fire the built-in basic attacks only")
+    # the weapon -> physical skill table (settings/武器物理攻击对照表.txt): which attack a weapon swings
+    if subprocess.call([*jxassets_args(), "export-weapon-skill", "-out", out], cwd=ROOT) != 0:
+        print("export-weapon-skill: no settings/武器物理攻击对照表.txt in the reference server folder - the basic attacks 1 / 2 stand in")
     print("assets ok")
 
 

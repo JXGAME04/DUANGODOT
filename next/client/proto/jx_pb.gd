@@ -1940,6 +1940,22 @@ class EntityAction:
 		service.field = __tick
 		data[__tick.tag] = service
 		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__skill_level = PBField.new("skill_level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_level
+		data[__skill_level.tag] = service
+		
+		__aim = PBField.new("aim", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __aim
+		service.func_ref = Callable(self, "new_aim")
+		data[__aim.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2033,6 +2049,46 @@ class EntityAction:
 		__tick.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
 	func set_tick(value : int) -> void:
 		__tick.value = value
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __skill_level: PBField
+	func has_skill_level() -> bool:
+		if __skill_level.value != null:
+			return true
+		return false
+	func get_skill_level() -> int:
+		return __skill_level.value
+	func clear_skill_level() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__skill_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_level(value : int) -> void:
+		__skill_level.value = value
+	
+	var __aim: PBField
+	func has_aim() -> bool:
+		if __aim.value != null:
+			return true
+		return false
+	func get_aim() -> Vec2:
+		return __aim.value
+	func clear_aim() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__aim.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_aim() -> Vec2:
+		__aim.value = Vec2.new()
+		return __aim.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -4216,6 +4272,124 @@ class AddSkillPointReq:
 		return __seq.value
 	func clear_seq() -> void:
 		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class CastSkillReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__target = PBField.new("target", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __target
+		data[__target.tag] = service
+		
+		__x = PBField.new("x", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __x
+		data[__x.tag] = service
+		
+		__y = PBField.new("y", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __y
+		data[__y.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __target: PBField
+	func has_target() -> bool:
+		if __target.value != null:
+			return true
+		return false
+	func get_target() -> int:
+		return __target.value
+	func clear_target() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__target.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_target(value : int) -> void:
+		__target.value = value
+	
+	var __x: PBField
+	func has_x() -> bool:
+		if __x.value != null:
+			return true
+		return false
+	func get_x() -> int:
+		return __x.value
+	func clear_x() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__x.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_x(value : int) -> void:
+		__x.value = value
+	
+	var __y: PBField
+	func has_y() -> bool:
+		if __y.value != null:
+			return true
+		return false
+	func get_y() -> int:
+		return __y.value
+	func clear_y() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_y(value : int) -> void:
+		__y.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
 		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_seq(value : int) -> void:
 		__seq.value = value
@@ -6823,6 +6997,7 @@ enum MsgId {
 	C2G_PICK_UP = 1109,
 	C2G_ADD_POINT = 1110,
 	C2G_ADD_SKILL_POINT = 1111,
+	C2G_CAST_SKILL = 1112,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,

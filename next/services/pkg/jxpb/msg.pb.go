@@ -96,6 +96,7 @@ const (
 	MsgId_C2G_PICK_UP         MsgId = 1109 // (zone) pick up an item / money from the ground
 	MsgId_C2G_ADD_POINT       MsgId = 1110 // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
 	MsgId_C2G_ADD_SKILL_POINT MsgId = 1111 // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
+	MsgId_C2G_CAST_SKILL      MsgId = 1112 // (zone) cast a skill at a target or a spot (NpcSkillCommand -> KNpc::SendCommand(do_skill))
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK       MsgId = 2001
 	MsgId_G2C_LOGIN_RES       MsgId = 2002
@@ -156,6 +157,7 @@ var (
 		1109: "C2G_PICK_UP",
 		1110: "C2G_ADD_POINT",
 		1111: "C2G_ADD_SKILL_POINT",
+		1112: "C2G_CAST_SKILL",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -211,6 +213,7 @@ var (
 		"C2G_PICK_UP":         1109,
 		"C2G_ADD_POINT":       1110,
 		"C2G_ADD_SKILL_POINT": 1111,
+		"C2G_CAST_SKILL":      1112,
 		"G2C_HELLO_ACK":       2001,
 		"G2C_LOGIN_RES":       2002,
 		"G2C_CHAR_LIST_RES":   2003,
@@ -282,7 +285,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xce\b\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xe3\b\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -303,7 +306,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\rC2G_ITEM_DROP\x10\xd4\b\x12\x10\n" +
 	"\vC2G_PICK_UP\x10\xd5\b\x12\x12\n" +
 	"\rC2G_ADD_POINT\x10\xd6\b\x12\x18\n" +
-	"\x13C2G_ADD_SKILL_POINT\x10\xd7\b\x12\x12\n" +
+	"\x13C2G_ADD_SKILL_POINT\x10\xd7\b\x12\x13\n" +
+	"\x0eC2G_CAST_SKILL\x10\xd8\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +

@@ -195,6 +195,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
     out.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
     switch (e.doing) {
+    case KDoing::magic:
     case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
     case KDoing::hurt: out.set_doing(pb::ACTION_HURT); break;
     case KDoing::knock_back: out.set_doing(pb::ACTION_HURT); break;   // shown as a stagger until the client knows it (B4)
@@ -555,6 +556,7 @@ void KSubWorld::tick()
         // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
         if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
         if (awake && e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
+        process_command(e);   // KNpc::ProcessCommand 0x0809B9E0: the do_skill commands waiting
         update_action(e);
         if (awake && e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
@@ -753,23 +755,30 @@ bool KSubWorld::attack_request(std::uint64_t sid, EntityId target, std::uint32_t
     KNpc* t = entities_.find(target);
     if (t == nullptr || target == e.id || !t->alive()) return false;
     if (t->kind == KNpcKind::npc || t->kind == KNpcKind::drop) return false;   // townsfolk cannot be attacked
-    log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
-    e.move_seq = seq;
-    e.attack_target = target;
-    e.approach_tries = 0;
-    if (in_reach(e, *t)) {
-        if (e.moving) {
-            e.set_pos(e.pos());
-            emit_move(e);
-        }
-        if (e.doing == KDoing::stand) start_attack(e, *t);
-    } else {
-        // like the old client: walk up to the target first, the swing starts on arrival
+    // the 2.0 client's left click sends NpcSkillCommand with the weapon's physical skill (0x08079A90);
+    // the old client walked up first, the zone does that for the Godot client until B4: out of the
+    // skill's reach the character approaches and the swing follows on arrival (update_action)
+    const int skill_id = weapon_physics_skill(e);
+    log::trace("zone.fight", "attack request", {log::kv("entity", e.id), log::kv("target", target), log::kv("seq", seq), log::kv("skill", skill_id)});
+    e.fight_mode = true;   // the 2.0 client enters fight mode (SetFightMode) before its first blow; the Godot client has no toggle until B4
+    const KSkill* sk = skill_instance(skill_id, 1);
+    if (sk != nullptr && e.skill_list.find_same(skill_id) != 0 && !in_reach_of(e, *t, sk->row.attack_radius)) {
+        log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
+        e.move_seq = seq;
+        e.attack_target = target;
+        e.active_skill_id = skill_id;
+        e.approach_tries = 0;
         approach(e, *t);
+        return true;
     }
-    log::trace("zone.fight", "attack request", {log::kv("entity", e.id), log::kv("target", target), log::kv("seq", seq),
-                                                 log::kv("in_reach", in_reach(e, *t))});
-    return true;
+    return cast_skill_request(sid, skill_id, -1, 0, target, seq);
+}
+
+bool KSubWorld::in_reach_of(const KNpc& a, const KNpc& b, int radius) const noexcept
+{
+    const std::int64_t dx = a.pos().x - b.pos().x;
+    const std::int64_t dy = a.pos().y - b.pos().y;
+    return dx * dx + dy * dy <= static_cast<std::int64_t>(radius) * radius;
 }
 
 // Walks toward a target that is out of reach (KNpc::Attack -> NewPath in the old core); a
@@ -820,14 +829,10 @@ void KSubWorld::begin_action(KNpc& e, KNpc& target, std::uint32_t frames)
 // the frames (OnSkill).  A cast on oneself is a heal.
 void KSubWorld::cast_skill(KNpc& e, KNpc& target)
 {
-    if (e.doing == KDoing::attack) return;   // DoSkill: already casting
-    if (e.active_skill_id == 0) return;      // nothing selected: ProcCommand finds no skill to cast
-    if (e.moving) {
-        e.set_pos(e.pos());
-        emit_move(e);
-    }
-    const std::uint32_t base = e.active_skill_melee ? e.attack_frame : e.cast_frame;
-    begin_action(e, target, attack_length(e, base));
+    // the ai's cast goes to KNpc::CastSkill at once, like the +0x193c action of 0x08088640
+    if (e.doing == KDoing::attack || e.doing == KDoing::magic) return;   // an action runs (+0x194c)
+    if (e.active_skill_id == 0) return;                                   // nothing selected
+    cast_skill(e, -1, 0, target.id);
 }
 
 // SendCommand(do_walk) -> ProcCommand -> Goto -> NewPath + DoWalk.  The old npcs steer straight at
@@ -835,7 +840,7 @@ void KSubWorld::cast_skill(KNpc& e, KNpc& target)
 // around obstacles.  An unreachable or already reached spot ends in DoStand.
 void KSubWorld::walk_to(KNpc& e, Pos dest)
 {
-    if (e.doing == KDoing::attack) {   // DoWalk overrides a swing
+    if (e.doing == KDoing::attack || e.doing == KDoing::magic) {   // DoWalk overrides a swing
         e.doing = KDoing::stand;
         e.frame_cur = 0;
         e.attack_target = EntityId{};
@@ -862,7 +867,7 @@ void KSubWorld::walk_to(KNpc& e, Pos dest)
 // SendCommand(do_stand) -> KNpc::DoStand
 void KSubWorld::do_stand(KNpc& e)
 {
-    if (e.doing == KDoing::attack) {
+    if (e.doing == KDoing::attack || e.doing == KDoing::magic) {
         e.doing = KDoing::stand;
         e.frame_cur = 0;
         e.attack_target = EntityId{};
@@ -933,17 +938,13 @@ void KSubWorld::update_action(KNpc& e)
 {
     switch (e.doing) {
     case KDoing::attack:
+    case KDoing::magic:
+        // 0x08085020: the skill fires at 60 % of the frames, the action ends at the last one
         if (e.wait_for_frame()) {
             e.doing = KDoing::stand;
-            if (e.ai_mode != 0) e.attack_target = EntityId{};   // OnSkill: the ai decides again (m_ProcessAI = 1)
+            if (e.ai_mode != 0) e.attack_target = EntityId{};   // the ai decides again (m_ProcessAI = 1)
         } else if (e.reach_frame(kAttackEffectPercent)) {
-            if (e.attack_target == e.id) {
-                on_skill(e, e);
-            } else {
-                // the missile the skill fires decides whether the target is still in reach
-                KNpc* t = entities_.find(e.attack_target);
-                if (t != nullptr && t->alive()) on_skill(e, *t);
-            }
+            on_skill(e);
         }
         break;
     case KDoing::hurt:
@@ -974,18 +975,21 @@ void KSubWorld::update_action(KNpc& e)
     default:
         break;
     }
-    if (e.ai_mode == 0 && e.doing == KDoing::stand && e.attack_target.value != 0) {
+    // a player keeps striking its target until it dies or another request comes (the old client
+    // re-sent the skill command each swing): one do_skill command at a time
+    if (e.ai_mode == 0 && e.doing == KDoing::stand && e.attack_target.value != 0 && e.commands.empty() && e.active_skill_id > 0) {
         KNpc* t = entities_.find(e.attack_target);
-        if (t == nullptr || !t->alive()) {
+        const KSkill* sk = t != nullptr ? skill_instance(e.active_skill_id, std::max(1, e.skill_list.get_current_level(e.active_skill_id, true))) : nullptr;
+        if (t == nullptr || !t->alive() || sk == nullptr) {
             e.attack_target = EntityId{};   // dead or gone
-        } else if (in_reach(e, *t)) {
+        } else if (in_reach_of(e, *t, sk->row.attack_radius)) {
             if (e.moving) {
                 e.set_pos(e.pos());   // arrived within reach: stop and swing
                 emit_move(e);
             }
-            start_attack(e, *t);
+            send_command(e, e.active_skill_id, -1, 0, t->id);
         } else if (!e.moving) {
-            approach(e, *t);
+            approach(e, *t);   // walks up (a few tries), the swing follows on arrival
         }
     }
 }
@@ -1247,7 +1251,7 @@ bool KSubWorld::set_pos(EntityId id, Pos p)
 {
     if (!teleport(id, p)) return false;
     KNpc* e = find_mutable(id);
-    if (e->doing == KDoing::attack) do_stand(*e);   // DoStand(); m_ProcessAI = 1
+    if (e->doing == KDoing::attack || e->doing == KDoing::magic) do_stand(*e);   // DoStand(); m_ProcessAI = 1
     return true;
 }
 
@@ -1282,7 +1286,7 @@ void KSubWorld::broadcast(const KNpc& e, std::uint16_t msg_id, const google::pro
     if (!e.watchers.empty()) emit(e.watchers, msg_id, msg);
 }
 
-void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target)
+void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target, int skill_id, int skill_level, Pos aim)
 {
     pb::EntityAction a;
     a.set_entity_id(e.id.value);
@@ -1292,6 +1296,11 @@ void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target)
     a.set_frames(e.frame_total);
     set_vec(a.mutable_pos(), e.pos());
     a.set_tick(tick_);
+    if (skill_id > 0) {   // the 0x5a packet of KNpc::CastSkill: the skill, its level, the spot aimed at
+        a.set_skill_id(static_cast<std::uint32_t>(skill_id));
+        a.set_skill_level(static_cast<std::uint32_t>(std::max(0, skill_level)));
+        if (!target.valid()) set_vec(a.mutable_aim(), aim);
+    }
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_ACTION), a);
 }
 

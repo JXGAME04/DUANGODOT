@@ -122,6 +122,9 @@ message EntityAction {
   uint32 frames = 5;
   Vec2 pos = 6;
   uint64 tick = 7;
+  uint32 skill_id = 8;           // ACTION_ATTACK: the skill cast (the 0x5a packet of KNpc::CastSkill), 0 = a plain swing
+  uint32 skill_level = 9;
+  Vec2 aim = 10;                 // the spot aimed at when target is 0
 }
 
 // Life changed (damage / heal), sent to everyone who sees the entity.
@@ -291,6 +294,14 @@ message AddSkillPointReq {       // C2G_ADD_SKILL_POINT: KPlayer::AddSkillPoint 
   uint32 skill_id = 1;
   uint32 points = 2;
   uint32 seq = 3;                // answered with G2C_SKILL_LEVEL when the old server answered (not for a skill not held / an exp skill)
+}
+
+message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet of the old client (KNpc::SendCommand(do_skill))
+  uint32 skill_id = 1;
+  uint64 target = 2;             // the entity aimed at (0 = a spot)
+  int32 x = 3;                   // the spot, scene units
+  int32 y = 4;
+  uint32 seq = 5;
 }
 
 message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server

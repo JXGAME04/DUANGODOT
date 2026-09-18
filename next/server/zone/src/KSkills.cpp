@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <vector>
 
 #include "jx/log.hpp"
@@ -206,39 +207,357 @@ bool KSubWorld::skill_cast(const KSkill& skill, KNpc& launcher, const KCastParam
     }
 }
 
-const KSkill* KSubWorld::swing_skill(const KNpc& e)
+// ---- the do_skill command of a npc (docs/LINUX-SERVER.md §16) -------------------------------------
+
+namespace {
+// 0x0809F370 for two npcs of one region: the whole distance of the absolute positions, truncated
+int npc_distance(const KNpc& a, const KNpc& b) noexcept
 {
-    // A player's basic attack is skill 1 (melee) or 2 (a ranged weapon) - the client's choice
-    // of the left click comes with B3; a npc swings its active skill at the level of its slot.
-    int id = 1;
-    int level = 1;
-    if (e.kind == KNpcKind::player) {
-        const KItemList* items = e.sid != 0 ? items_of(e.sid) : nullptr;
-        if (items != nullptr && items->weapon_type() == 1) id = 2;
-    } else if (e.active_skill_id > 0) {
-        id = e.active_skill_id;
-        level = std::max(1, skill_list_level(e, id));
-    }
-    if (skills_ != nullptr) {
-        if (const KSkill* s = skills_->get(id, level); s != nullptr) return s;
-    }
+    const double dx = static_cast<double>(a.pos().x - b.pos().x);
+    const double dy = static_cast<double>(a.pos().y - b.pos().y);
+    return static_cast<int>(std::sqrt(dx * dx + dy * dy));
+}
+} // namespace
+
+const KSkill* KSubWorld::skill_instance(int id, int level)
+{
+    if (skills_ != nullptr) return skills_->get(id, level);
     if (const KSkill* s = KSkill::basic_attack(id); s != nullptr) return s;
-    if (skills_ == nullptr) return KSkill::basic_attack(1);   // a monster's own skill without a table: a plain blow
-    return nullptr;
+    return KSkill::basic_attack(1);   // a monster's own skill without a table: a plain blow
 }
 
-void KSubWorld::on_skill(KNpc& e, KNpc& target)
+const KSkill* KSubWorld::current_skill(KNpc& e)
 {
-    // KNpc::OnSkill: at 60 % of the swing the active skill is cast at the target (or oneself)
-    const KSkill* skill = swing_skill(e);
-    if (skill == nullptr) {
-        log::trace("zone.fight", "no skill for the swing", {log::kv("entity", e.id), log::kv("skill", e.active_skill_id)});
-        return;
-    }
-    KCastParams p;
-    p.target = target.id;
-    skill_cast(*skill, e, p);
+    // 0x080848B0: GetCurrentLevel(list, m_ActiveSkillID, 1) > 0, the id 1..1999, the level 1..63
+    const int level = e.skill_list.get_current_level(e.active_skill_id, true);
+    if (level <= 0 || e.active_skill_id < 1 || e.active_skill_id > 1999 || level > 63) return nullptr;
+    return skill_instance(e.active_skill_id, level);
 }
+
+bool KSubWorld::set_active_skill(KNpc& e, int slot)
+{
+    // 0x08086D90: the cell holds a skill with a current level and the npc is free (+0x194c)
+    const KNpcSkill* c = e.skill_list.cell(slot);
+    if (c == nullptr || c->id == 0 || c->current_level == 0) return false;
+    if (e.doing == KDoing::attack || e.doing == KDoing::magic) return false;
+    e.active_skill_id = c->id;
+    if (c->id >= 1 && c->id <= 1999 && c->current_level >= 1 && c->current_level <= 63) {
+        if (const KSkill* sk = skill_instance(c->id, c->current_level); sk != nullptr) e.cur.attack_radius = sk->row.attack_radius;   // +0x12a8
+    }
+    return true;
+}
+
+int KSubWorld::weapon_physics_skill(const KNpc& e)
+{
+    // 0x08079A90: a player only; the worn weapon (KItemList 0x081F92E0 / 0x081F9F70) through the table
+    if (e.kind != KNpcKind::player) return 0;
+    const KItemList* items = e.sid != 0 ? items_of(e.sid) : nullptr;
+    const int detail = items != nullptr ? items->weapon_type() : -1;
+    const int particular = items != nullptr ? items->weapon_particular() : -1;
+    if (cfg_.weapon_skills) return cfg_.weapon_skills->skill_of(detail, particular);
+    return detail == 1 ? 2 : 1;   // no table on this machine: the built-in basic attacks (docs §16)
+}
+
+int KSubWorld::weapon_eqt_limit(const KNpc& e)
+{
+    // 0x080E8C05..0x080E8C4A: the EqtLimit a worn weapon answers to - DetailType 1: particular + 100,
+    // none: -1, DetailType 0: particular (6 counts as none), any other detail: the particular
+    const KItemList* items = e.sid != 0 ? items_of(e.sid) : nullptr;
+    const int detail = items != nullptr ? items->weapon_type() : -1;
+    const int particular = items != nullptr ? items->weapon_particular() : -1;
+    if (detail == 1) return particular + 100;
+    if (detail == -1) return -1;
+    if (detail == 0) return particular == 6 ? -1 : particular;
+    return particular;
+}
+
+bool KSubWorld::cost_skill(KNpc& e, int type, int cost, bool check_only)
+{
+    // 0x08078B10: a npc pays nothing; 0 mana (+0x11a0), 1 stamina (+0x11a8), 2 life (+0x118c)
+    if (e.kind != KNpcKind::player) return true;
+    int* pool = nullptr;
+    switch (type) {
+    case 0: pool = &e.cur.mana; break;
+    case 1: pool = &e.cur.stamina; break;
+    case 2: pool = &e.cur.life; break;
+    default: return false;
+    }
+    if (*pool < cost) return false;
+    if (!check_only) *pool -= cost;
+    return true;
+}
+
+bool KSubWorld::can_cast_skill(const KSkill& sk, KNpc& launcher, int& p1, int& p2, EntityId& target)
+{
+    // KSkill::CanCastSkill 0x080E8AE0, docs §14
+    const KSkillRow& r = sk.row;
+    if (launcher.cur.forbid_attack) return false;   // byte +0x1478
+    if (p1 != -1) {   // a spot (or a direction)
+        if (r.target_self) {   // 0x080E8B33: a self skill is cast on oneself
+            p1 = -1;
+            p2 = 0;
+            target = launcher.id;
+        } else if (r.target_only) {
+            return false;
+        }
+    }
+    KNpc* t = nullptr;
+    if (p1 == -1) {
+        t = entities_.find(target);
+        if (t == nullptr) return false;
+        const int rel = relation(launcher, *t);   // 0x0809EE50
+        bool ok = r.target_self && (rel & relation_self) != 0;
+        if (!ok) {
+            if (r.target_no_npc && t->kind != KNpcKind::player) return false;
+            if (r.target_enemy && (rel & relation_enemy) != 0) ok = true;
+            if (r.target_ally) {
+                if (t->kind != KNpcKind::player && t->npc_kind == kind_partner) return false;
+                if ((rel & relation_ally) != 0) ok = true;
+            }
+            if (r.target_self && (rel & relation_self) != 0) ok = true;
+            if (r.target_other && (rel & relation_none) != 0) ok = true;   // TargetOther: the "no relation" bit (rel & 1)
+            if (!ok) return false;
+        }
+    }
+    if (launcher.kind == KNpcKind::player) {   // 0x080E8BC8
+        if (r.weapon_skill && weapon_physics_skill(launcher) != r.id) return false;
+        if (r.eqt_limit != -2 && weapon_eqt_limit(launcher) != r.eqt_limit) return false;
+        if (r.horse_limit == 2) return false;   // needs a horse: none in the zone (+0x199c == 0); 1 = on foot, always
+        // style 4: the npcs it made so far against ChildSkillNum and a free record of the player (B3c)
+    }
+    bool reach;
+    switch (r.style) {   // 0x080E8CF0
+    case skill_style_missles:
+        if (r.missles_form > 6) return true;
+        switch (r.missles_form) {
+        case 0: case 5: case 6: reach = true; break;
+        case 3: reach = r.param1 == 1; break;
+        case 1: case 2: reach = r.target_only && p1 == -1; break;
+        default: reach = false; break;   // 4
+        }
+        break;
+    case skill_style_initiative_npc_state:
+    case skill_style_create_npc:
+    case skill_style_jx2_14:
+        reach = true;
+        break;
+    default:   // 1, 3, 5..13
+        reach = false;
+        break;
+    }
+    if (!reach) return true;
+    if (p1 == -1) return t != nullptr && npc_distance(launcher, *t) <= r.attack_radius;   // 0x0809F370 <= GetAttackRadius
+    const double dx = static_cast<double>(launcher.pos().x - p1);
+    const double dy = static_cast<double>(launcher.pos().y - p2);
+    return static_cast<int>(std::sqrt(dx * dx + dy * dy)) <= r.attack_radius;
+}
+
+bool KSubWorld::send_command(KNpc& e, int skill_id, int p1, int p2, EntityId target)
+{
+    // 0x0809B750: the list must hold the skill (FindSame), the ring must not be full (+0x171c)
+    if (e.skill_list.find_same(skill_id) == 0) {
+        log::trace("zone.fight", "skill command refused", {log::kv("entity", e.id), log::kv("skill", skill_id), log::kv("reason", "not held")});
+        return false;
+    }
+    if (e.commands.size() >= KNpc::kCommandQueue) {
+        log::trace("zone.fight", "skill command refused", {log::kv("entity", e.id), log::kv("skill", skill_id), log::kv("reason", "queue full")});
+        return false;
+    }
+    KNpcCommand c;
+    c.cmd = kCommandSkill;
+    c.skill_id = skill_id;
+    c.param1 = p1;
+    c.param2 = p2;
+    c.target = target;
+    c.life = KNpc::kCommandLife;
+    e.commands.push_back(c);
+    return true;
+}
+
+int KSubWorld::check_command(KNpc& e, KNpcCommand& c)
+{
+    // 0x0809B840
+    if (c.cmd != kCommandSkill) return 2;
+    if (c.life <= 0) return 2;                                                // p5 > 0
+    if (e.doing == KDoing::attack || e.doing == KDoing::magic) return 1;    // +0x194c == 0: an action runs
+    if (c.skill_id < 1 || c.skill_id > 1999) return 2;
+    const KSkill* sk1 = skill_instance(c.skill_id, 1);
+    if (sk1 == nullptr) return 2;
+    if (!e.fight_mode && !sk1->row.peace_can_use) return 2;                 // +0x168c == 0 -> PeaceCanUse
+    const int idx = e.skill_list.find_same(c.skill_id);
+    if (idx == 0) return 2;
+    set_active_skill(e, idx);                                                // 0x08086D90 (not looked at)
+    const KSkill* sk = current_skill(e);
+    if (sk == nullptr) return 2;
+    if (!e.skill_list.can_cast(c.skill_id, tick_, 0)) return 2;             // 0x080E4540 without the level
+    if (!can_cast_skill(*sk, e, c.param1, c.param2, c.target)) return 2;    // vtable+0x18 (p2 / p3 in place)
+    if (e.kind == KNpcKind::player && !cost_skill(e, sk->row.cost_type, sk->row.cost, true)) return 2;
+    return 0;
+}
+
+void KSubWorld::process_command(KNpc& e)
+{
+    // 0x0809B9E0 on the first command, then 0x0809B510: every waiting command ages a frame and
+    // goes when its frames are spent
+    if (!e.commands.empty()) {
+        KNpcCommand& c = e.commands.front();
+        const int r = check_command(e, c);
+        bool pop = true;
+        if (r == 0) {
+            if (c.param1 == -1) {   // 0x0809BAA8: a target
+                KNpc* t = entities_.find(c.target);
+                if (t == nullptr || t->doing == KDoing::death || !grid_.contains(t->id)) {   // +0x118c < 0, m_Doing 10, region < 0
+                    do_stand(e);   // 0x08080030
+                } else {
+                    const int dist = npc_distance(e, *t);
+                    if (dist <= e.cur.attack_radius) {
+                        cast_skill(e, -1, 0, t->id);
+                    } else if (dist <= e.cur.attack_radius + kCommandApproach) {
+                        if (!e.moving) approach(e, *t);   // 0x0809BB0D: a step toward it, the command kept
+                        pop = false;
+                    } else {
+                        log::trace("zone.fight", "skill command dropped", {log::kv("entity", e.id), log::kv("skill", c.skill_id), log::kv("reason", "too far")});
+                    }
+                }
+            } else {
+                cast_skill(e, c.param1, c.param2, EntityId{});
+            }
+        } else if (r == 1) {
+            pop = false;   // the npc is busy: the command waits
+        } else {
+            log::trace("zone.fight", "skill command dropped", {log::kv("entity", e.id), log::kv("skill", c.skill_id), log::kv("reason", "refused")});
+        }
+        if (pop && !e.commands.empty()) e.commands.pop_front();   // 0x0809B4B0
+    }
+    for (auto it = e.commands.begin(); it != e.commands.end();) {   // 0x0809B510
+        if (--it->life <= 0) it = e.commands.erase(it);
+        else ++it;
+    }
+}
+
+bool KSubWorld::cast_skill(KNpc& e, int p1, int p2, EntityId target)
+{
+    // KNpc::CastSkill 0x08088350
+    if (!grid_.contains(e.id) || e.doing == KDoing::death) return false;   // region < 0, m_Doing 5
+    const KSkill* sk = current_skill(e);
+    if (sk == nullptr) return false;
+    if (e.kind == KNpcKind::player) {
+        if (!e.fight_mode && !sk->row.peace_can_use) return false;   // +0x168c == 0 -> vtable+0x44
+        // (+0x1908 > 0: KItemList 0x08201940(list, 0) wears the weapon - the durability of M11, later)
+    }
+    if (p1 == -1) e.attack_target = target;   // +0x1594
+    auto refuse = [&](const char* why) {
+        log::trace("zone.fight", "skill cast refused", {log::kv("entity", e.id), log::kv("skill", e.active_skill_id), log::kv("reason", why)});
+        e.attack_target = EntityId{};   // +0x1594 = +0x15a4 = 0
+        do_stand(e);                    // 0x08080030
+        return false;
+    };
+    if (!e.skill_list.can_cast(e.active_skill_id, tick_, static_cast<int>(e.level))) return refuse("cannot cast");
+    if (!can_cast_skill(*sk, e, p1, p2, target)) return refuse("target");
+    if (e.kind == KNpcKind::player && !cost_skill(e, sk->row.cost_type, sk->row.cost, false)) return refuse("cost");
+    // (+0x19a0 > 0 -> 0x0807D4C0: the hidden state breaks - B3c)
+    return do_skill(e, *sk, p1, p2, target);   // style 14 and 0..4 (13: the thief skill, none here)
+}
+
+bool KSubWorld::do_skill(KNpc& e, const KSkill& sk, int p1, int p2, EntityId target)
+{
+    // KNpc::DoSkill 0x08088150
+    const KSkillRow& r = sk.row;
+    if (r.style == skill_style_melee) {   // 0x08087F70: the MisslesForm 8..13 moves (a dash, a jump) - B3c
+        log::debug("zone.fight", "skill cast refused", {log::kv("entity", e.id), log::kv("skill", r.id), log::kv("reason", "style 1")});
+        e.attack_target = EntityId{};
+        do_stand(e);
+        return false;
+    }
+    e.cast_param1 = p1;   // +0x14a0 / +0x14a4
+    e.cast_param2 = p2;
+    e.cast_target = target;
+    std::uint32_t total;
+    if (!r.is_physical) {   // do_magic: m_CastFrame x 100 / (the cast speed + 100)
+        const int speed = std::max(1, e.cur.cast_speed_v() + 100);
+        total = r.char_anim_id == 14 ? 0u : static_cast<std::uint32_t>(static_cast<int>(e.cast_frame) * 100 / speed);
+        e.doing = KDoing::magic;
+    } else {   // do_attack: m_AttackFrame x 100 / (the attack speed + 100)
+        const int speed = std::max(1, e.cur.attack_speed_v() + 100);
+        total = r.char_anim_id == 14 ? 0u : static_cast<std::uint32_t>(static_cast<int>(e.attack_frame) * 100 / speed);
+        e.doing = KDoing::attack;
+    }
+    if (e.cur.clear_all_cd > random(100)) e.skill_list.clear_cool_time(tick_);   // +0x1384
+    e.frame_total = total;
+    e.frame_cur = 0;
+    if (e.moving) {
+        e.set_pos(e.pos());
+        emit_move(e);
+    }
+    Pos aim;
+    if (p1 == -1) {
+        if (const KNpc* t = entities_.find(target); t != nullptr && t->id != e.id) {
+            const int d = g_GetDirIndex(e.pos().x, e.pos().y, t->pos().x, t->pos().y);
+            if (d >= 0) e.dir = static_cast<std::uint32_t>(d);
+        }
+    } else {
+        aim = Pos{p1, p2};
+        const int d = g_GetDirIndex(e.pos().x, e.pos().y, p1, p2);
+        if (d >= 0) e.dir = static_cast<std::uint32_t>(d);
+    }
+    // the 0x5a packet of CastSkill: {p1, the skill, p2 (the target's id), the npc's id, its level}
+    emit_action(e, pb::ACTION_ATTACK, p1 == -1 ? target : EntityId{}, r.id, sk.level, aim);
+    log::trace("zone.fight", "skill cast", {log::kv("entity", e.id), log::kv("skill", r.id), log::kv("level", sk.level), log::kv("frames", total),
+                                            log::kv("target", target)});
+    if (total == 0) {   // 0x08085048: an action of no frames fires at once and is over
+        on_skill(e);
+        e.doing = KDoing::stand;
+    }
+    return true;
+}
+
+void KSubWorld::on_skill(KNpc& e)
+{
+    // 0x0808505A, at 60 % of the action: the target must still be somewhere (a spot needs nothing),
+    // the current skill not locked; Cast(sk, self, p1, p2, 0, 0, 0), then the cool down
+    KCastParams p;
+    if (e.cast_param1 == -1) {
+        const KNpc* t = entities_.find(e.cast_target);
+        if (t == nullptr || !grid_.contains(t->id)) return;   // +0x1184 < 0
+        p.target = t->id;
+    } else {
+        p.at_pos = true;
+        p.pos = Pos{e.cast_param1, e.cast_param2};
+    }
+    const KSkill* sk = current_skill(e);
+    if (sk == nullptr) return;
+    if (e.skill_list.is_forbidden(sk->row.id)) return;   // 0x080E45C0
+    skill_cast(*sk, e, p);
+    set_skill_cool_time(e, e.active_skill_id, sk->level);   // 0x080847B0
+}
+
+bool KSubWorld::cast_skill_request(std::uint64_t sid, int skill_id, int p1, int p2, EntityId target, std::uint32_t seq)
+{
+    // the NpcSkillCommand handler 0x080DD130 (the packet's sync check 0x080A79B0 is the old
+    // protocol's, none here), then SendCommand; the command is worked off at once
+    const auto pit = players_.find(sid);
+    KNpc* e = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    if (e == nullptr || !e->player.loaded) return false;
+    log::ScopedContext ctx(log::Context{sid, e->player_id, cfg_.zone_id, tick_});
+    auto refuse = [&](const char* why) {
+        log::debug("zone.fight", "skill command refused", {log::kv("entity", e->id), log::kv("skill", skill_id), log::kv("reason", why), log::kv("seq", seq)});
+        return false;
+    };
+    if (skill_id < 1 || skill_id > 1999) return refuse("bad id");
+    const KSkill* sk1 = skill_instance(skill_id, 1);
+    if (sk1 == nullptr) return refuse("no row");
+    if (sk1->row.is_aura) return refuse("aura");   // vtable+0x4c: an aura is switched, not cast
+    if (p1 != -1 && (p1 < 0 || p2 < 0)) return refuse("bad spot");
+    if (p1 == -1 && (!target.valid() || entities_.find(target) == nullptr)) return refuse("no target");   // 0x080B12C0
+    if (!send_command(*e, skill_id, p1, p2, target)) return false;
+    e->move_seq = seq;
+    if (p1 == -1) e->attack_target = target;   // the zone keeps striking it (the old client re-sent the command)
+    else e->attack_target = EntityId{};
+    e->approach_tries = 0;
+    process_command(*e);
+    return true;
+}
+
 
 // ---- the skill list of a npc (KSkillList.h; jx_linux_y KNpc+0x248, docs/LINUX-SERVER.md §15) ------
 
@@ -282,6 +601,10 @@ void KSubWorld::load_skills(KNpc& e, const pb::RoleData& role)
     }
     KSkillListHost host = skill_host(e);
     const int addon = e.player.reborn != 0 ? e.player.skill_max_level_addons : 0;
+    if (saved.empty()) {   // a character saved before the list existed (or a test role): the two built-in basic attacks
+        saved.push_back(KSkillSaved{1, 1, 0});
+        saved.push_back(KSkillSaved{2, 1, 0});
+    }
     e.skill_list.deserialize(saved, addon, host);
     log::debug("zone.player", "skill list loaded", {log::kv("entity", e.id), log::kv("count", saved.size()), log::kv("held", e.skill_list.get_count())});
 }

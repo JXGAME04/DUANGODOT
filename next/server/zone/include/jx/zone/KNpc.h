@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -27,7 +28,20 @@ enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 
 
 // KNpc::m_Doing of the old game, the part the zone simulates (knock_back = do_knockback 0x18 of
 // the JX2 server: pushed over frame_total frames to knock_dest).
-enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back };
+enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic };   // attack = do_attack (7), magic = do_magic (6)
+
+// NPC_COMMAND of the old core: the JX2 ring of five at KNpc+0x169c (24 bytes each) that
+// KNpc::SendCommand 0x0809B750 fills - only do_skill (5) goes through it - and
+// KNpc::ProcessCommand 0x0809B9E0 works off, one a frame; 0x0809B510 counts `life` down.
+struct KNpcCommand {
+    int cmd = 0;          // +0x00 5 = do_skill
+    int skill_id = 0;     // +0x04
+    int param1 = -1;      // +0x08 a spot's x, or -1 for a target
+    int param2 = 0;       // +0x0c a spot's y (the target's index in the binary: EntityId here)
+    EntityId target;      //       the npc aimed at when param1 == -1
+    int param3 = 0;       // +0x10 (0)
+    int life = 0;         // +0x14 frames the command may wait (0x12 = 18)
+};
 
 // KSkillList::m_Skills[1..4] of a npc (Skill1..4 / Level1..4 of npcs.txt) as far as KNpcAI needs it.
 struct KNpcSkillSlot {
@@ -128,6 +142,14 @@ struct KNpc {
     std::uint32_t frame_cur = 0;     // m_Frames.nCurrentFrame
     EntityId attack_target;          // kept attacking until it dies or we are told to move
     Pos knock_dest;                  // +0x14a0 / +0x14a4: where a knock back (KDoing::knock_back) ends
+    // the cast in progress (the same +0x14a0 / +0x14a4 in the binary; CastSkill 0x08088350 keeps
+    // p1 / p2 there for the fire at 60 % of the action, 0x08085020)
+    int cast_param1 = -1;            // a spot's x, or -1 for a target
+    int cast_param2 = 0;             // a spot's y
+    EntityId cast_target;            // the npc aimed at when cast_param1 == -1
+    std::deque<KNpcCommand> commands;   // +0x169c..: the do_skill commands waiting (kCommandQueue at most)
+    static constexpr std::size_t kCommandQueue = 5;   // the ring of five (+0x171c set when full)
+    static constexpr int kCommandLife = 18;           // the 0x12 the skill handler 0x080DD130 hands SendCommand
     Pos knock_from;                  // where it started (the way between is walked frame by frame)
     std::uint32_t approach_tries = 0;   // walks toward an out-of-reach target, a few times at most
     // m_LifeState: a medicine at work - `value` life every GAME_UPDATE_TIME frames for `time`

@@ -528,6 +528,12 @@
     "skill points spent": "Đã cộng điểm kỹ năng",
     "skill level set": "Script đặt cấp kỹ năng (SetSkillLevel)",
     "skill removed": "Script gỡ kỹ năng (DelMagic)",
-    "skills rolled back": "Script thu hồi cấp kỹ năng (RollbackSkill)"
+    "skills rolled back": "Script thu hồi cấp kỹ năng (RollbackSkill)",
+    "skill command refused": "Từ chối lệnh thi triển của client (lý do ở trường reason)",
+    "skill command dropped": "Bỏ lệnh thi triển đang chờ (mục tiêu quá xa / bị từ chối)",
+    "skill cast refused": "KNpc::CastSkill từ chối thi triển (hết hồi chiêu chưa, mục tiêu, phí, kiểu 1)",
+    "skill cast": "Bắt đầu hành động thi triển kỹ năng (bắn ở 60 % số khung)",
+    "weapon skill table loaded": "Đã nạp bảng vũ khí → kỹ năng vật lý",
+    "no weapon skill table": "Không có bảng vũ khí → kỹ năng vật lý (dùng đánh thường 1/2)"
   }
 }

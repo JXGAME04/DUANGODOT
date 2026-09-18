@@ -403,6 +403,14 @@ func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.
 		})
 	}
 	role.NextItemId = uint32(len(t.Items) + 1)
+	// [FSKILLS] Sn / Ln of newplayerini: the fight skills a new character starts with (the
+	// basic attacks among them - the zone's KSkillList holds them from the first swing)
+	for _, sk := range t.Skills {
+		if sk.ID <= 0 {
+			continue
+		}
+		role.Skills = append(role.Skills, &jxpb.RoleSkill{Id: uint32(sk.ID), Level: uint32(sk.Level)})
+	}
 	return role
 }
 

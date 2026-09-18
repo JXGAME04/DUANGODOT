@@ -396,6 +396,61 @@ const std::vector<int>* KSkillTable::attrib_data(int attrib_id) const noexcept
     return it == attrib_data_.end() ? nullptr : &it->second;
 }
 
+void KWeaponSkillTable::add(int detail, int particular, int skill) noexcept
+{
+    // 0x0805F208 / 0x0805F2DB: a skill of 1..1999, a particular of 0..99 for a weapon
+    if (skill < 1 || skill > 1999) return;
+    if (detail == -1) {
+        bare = skill;
+        return;
+    }
+    if (particular < 0 || particular >= kParticulars) return;
+    if (detail == 0) melee[static_cast<std::size_t>(particular)] = skill;
+    else if (detail == 1) ranged[static_cast<std::size_t>(particular)] = skill;
+}
+
+int KWeaponSkillTable::skill_of(int detail, int particular) const noexcept
+{
+    // 0x08079A90: the table by the worn weapon's detail; no weapon (-1) is the bare-hand skill
+    if (detail == -1) return bare;
+    if (particular < 0 || particular >= kParticulars) return 0;
+    if (detail == 0) return melee[static_cast<std::size_t>(particular)];
+    if (detail == 1) return ranged[static_cast<std::size_t>(particular)];
+    return 0;
+}
+
+int KWeaponSkillTable::size() const noexcept
+{
+    int n = bare != 0 ? 1 : 0;
+    for (int v : melee) n += v != 0 ? 1 : 0;
+    for (int v : ranged) n += v != 0 ? 1 : 0;
+    return n;
+}
+
+std::optional<KWeaponSkillTable> KWeaponSkillTable::load(const std::string& file, std::string* error)
+{
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        if (error) *error = "cannot open " + file;
+        return std::nullopt;
+    }
+    nlohmann::json j;
+    try {
+        in >> j;
+    } catch (const std::exception& ex) {
+        if (error) *error = ex.what();
+        return std::nullopt;
+    }
+    KWeaponSkillTable t;
+    if (const auto rows = j.find("rows"); rows != j.end() && rows->is_array()) {
+        for (const auto& r : *rows) {
+            if (!r.is_object()) continue;
+            t.add(r.value("detail", 0), r.value("particular", 0), r.value("skill", 0));
+        }
+    }
+    return t;
+}
+
 const KSkill* KSkill::basic_attack(int id)
 {
     // Skills.txt of the Linux server, rows 2 and 3 (every column the server reads), the level

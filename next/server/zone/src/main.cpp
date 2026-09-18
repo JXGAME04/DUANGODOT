@@ -171,6 +171,17 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no skill table", {jx::log::kv("file", skills_file), jx::log::kv("error", error)});
         }
     }
+    // the weapon -> physical skill table (jxassets export-weapon-skill); without it the basic attacks 1 / 2
+    const std::string weapon_file = cfg.get_string("zone.weapon_skill_file", "client/assets/weapon_skill.json");
+    if (!weapon_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KWeaponSkillTable::load(weapon_file, &error)) {
+            w.weapon_skills = std::make_shared<const jx::zone::KWeaponSkillTable>(std::move(*t));
+            jx::log::info("boot", "weapon skill table loaded", {jx::log::kv("file", weapon_file), jx::log::kv("count", w.weapon_skills->size())});
+        } else {
+            jx::log::warn("boot", "no weapon skill table", {jx::log::kv("file", weapon_file), jx::log::kv("error", error)});
+        }
+    }
     // the missile table (jxassets export-missles): the rows of settings\missles.txt the skills fire
     const std::string missles_file = cfg.get_string("zone.missles_file", "client/assets/missles.json");
     if (!missles_file.empty()) {

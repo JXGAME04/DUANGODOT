@@ -274,6 +274,24 @@ private:
     std::unordered_map<int, std::vector<int>> attrib_data_;
 };
 
+// \settings\武器物理攻击对照表.txt of the JX2 server (loaded by 0x0805F18D from the columns DetailType,
+// ParticularType, PhysicsSkillID; docs/LINUX-SERVER.md §16): the physical attack skill a weapon
+// gives.  KNpc 0x08079A90 reads melee[particular] for a weapon of DetailType 0, ranged[particular]
+// for DetailType 1 and `bare` (DetailType -1) for empty hands.  The file is missing on this machine
+// (docs/HANDOVER.md §0.4): the zone falls back to the built-in basic attacks 1 / 2.
+struct KWeaponSkillTable {
+    static constexpr int kParticulars = 100;   // the loader keeps ParticularType 0..99 (0x0805F20B)
+    std::array<int, kParticulars> melee{};     // 0x0830AF00
+    std::array<int, kParticulars> ranged{};    // 0x0830B0A0
+    int bare = 0;                              // 0x0830B230
+    // weapon_skill.json of jxassets export-weapon-skill: {"rows": [{"detail", "particular", "skill"}]}
+    static std::optional<KWeaponSkillTable> load(const std::string& file, std::string* error);
+    // one row the way the loader takes it: a skill 1..1999, a particular 0..99 (detail -1: any)
+    void add(int detail, int particular, int skill) noexcept;
+    [[nodiscard]] int skill_of(int detail, int particular) const noexcept;   // 0x08079A90
+    [[nodiscard]] int size() const noexcept;
+};
+
 // g_SkillManager: the per-level instances.  One per map instance, because the level data is
 // computed by the map's own Lua states (KScriptCache).
 class KSkillManager {

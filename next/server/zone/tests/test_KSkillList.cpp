@@ -43,7 +43,7 @@ constexpr const char* kLevelScript = R"lua(
 function GetSkillLevelData(levelname, data, level)
     if data == "e" and levelname == "skill_skillexp_v" then return tostring(100 * level) end
     if data == "d" and levelname == "addskilldamage1" then return "1001,0," .. tostring(5 * level) end
-    if data == "p" and levelname == "defense_v" then return "10,1,0" end
+    if data == "p" and levelname == "armordefense_v" then return "10,1,0" end
     if data == "h" and levelname == "addskillexp1" then return "1002,50,0" end
     return ""
 end
@@ -84,7 +84,7 @@ std::shared_ptr<const KSkillTable> skill_table()
     };
     add(1001, "2", {{"TargetEnemy", "1"}, {"ReqLevel", "10"}});
     add(1002, "2", {{"TargetEnemy", "1"}, {"IsExpSkill", "1"}, {"MaxLevel", "5"}, {"LvlSetting1", "skill_skillexp_v"}, {"LvlData1", "e"}});
-    add(1003, "3", {{"TargetSelf", "1"}, {"ReqLevel", "12"}, {"MaxLevel", "10"}, {"LvlSetting1", "defense_v"}, {"LvlData1", "p"}});
+    add(1003, "3", {{"TargetSelf", "1"}, {"ReqLevel", "12"}, {"MaxLevel", "10"}, {"LvlSetting1", "armordefense_v"}, {"LvlData1", "p"}});
     add(1004, "2", {{"TargetEnemy", "1"}, {"WeaponSkill", "1"}, {"MaxLevel", "1"}});
     add(1005, "0", {{"TargetEnemy", "1"}, {"MaxLevel", "10"}, {"LvlSetting1", "addskilldamage1"}, {"LvlData1", "d"}});
     add(1006, "2", {{"TargetEnemy", "1"}, {"MaxLevel", "9"}, {"LevelUpScript", "\\script\\skill\\lvup.lua"}});

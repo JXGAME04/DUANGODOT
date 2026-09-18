@@ -115,6 +115,7 @@ struct KSubWorldConfig {
     // missing fires the zero template, which falls to the ground at once (like the binary's
     // unfilled array cell).
     std::shared_ptr<const KMissleTable> missles;
+    std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -408,10 +409,43 @@ public:
     bool process_frame_state(KNpc& e, bool regen);
     // 0x0808BFD4: once a second (m_LoopFrames % 18) the crowd block rate and the mana skill enhance
     void per_second_attribs(KNpc& e);
-    // the skill a swing carries: the npc's active skill, a player's basic attack (1 melee / 2 ranged)
-    [[nodiscard]] const KSkill* swing_skill(const KNpc& e);
-    // KNpc::OnSkill: the cast at 60 % of the swing (the active skill on the target)
-    void on_skill(KNpc& e, KNpc& target);
+    // ---- the do_skill command of a npc (docs/LINUX-SERVER.md §16) ----
+    // C2G_CAST_SKILL, the NpcSkillCommand handler 0x080DD130: a skill of 1..1999 that is not an
+    // aura, at a target (target set, p1 = -1) or at a spot (x, y); queued through send_command
+    // and, unlike the binary's next-frame pick-up, worked off at once
+    bool cast_skill_request(std::uint64_t sid, int skill_id, int p1, int p2, EntityId target, std::uint32_t seq);
+    // KNpc::SendCommand(do_skill, ...) 0x0809B750: only for a skill the list holds, five at most
+    bool send_command(KNpc& e, int skill_id, int p1, int p2, EntityId target);
+    // KNpc::ProcessCommand 0x0809B9E0 (+ 0x0809B510 aging): the first command checked, cast when
+    // the target is within the active skill's radius, walked toward within 300 more, dropped beyond
+    void process_command(KNpc& e);
+    // 0x0809B840: 0 = cast now, 1 = the npc is busy (wait), 2 = drop the command
+    int check_command(KNpc& e, KNpcCommand& c);
+    // KNpc::CastSkill 0x08088350: the checks of the current skill, its cost, the sync to the
+    // clients around, then do_skill; false when refused (the npc stands)
+    bool cast_skill(KNpc& e, int p1, int p2, EntityId target);
+    // KNpc::DoSkill 0x08088150: the action (do_magic 6 / do_attack 7) with its frames from the
+    // attack / cast speed; the cast itself comes at 60 % of them (on_skill)
+    bool do_skill(KNpc& e, const KSkill& sk, int p1, int p2, EntityId target);
+    // 0x08085020, the fire: the current skill on the kept target / spot, then its cool down
+    void on_skill(KNpc& e);
+    // KSkill::CanCastSkill 0x080E8AE0 (docs §14): the target rules, a player's weapon / horse
+    // limits, the reach by style; may turn a spot cast of a self skill into one on oneself
+    bool can_cast_skill(const KSkill& sk, KNpc& launcher, int& p1, int& p2, EntityId& target);
+    // KNpc 0x08079A90: the physical skill of the worn weapon through the table (basic attacks
+    // without one); 0x080E8C05: the EqtLimit the weapon answers to
+    [[nodiscard]] int weapon_physics_skill(const KNpc& e);
+    [[nodiscard]] int weapon_eqt_limit(const KNpc& e);
+    // 0x08078B10: mana (0) / stamina (1) / life (2) of a player against the cost; check only or paid
+    bool cost_skill(KNpc& e, int type, int cost, bool check_only);
+    // 0x08086D90 KNpc::SetActiveSkill(cell): m_ActiveSkillID and m_CurrentAttackRadius from the cell
+    bool set_active_skill(KNpc& e, int slot);
+    // 0x080848B0 KNpc::GetCurrentSkill: m_ActiveSkillID at its current level in the list
+    [[nodiscard]] const KSkill* current_skill(KNpc& e);
+    // GetSkill + InstanceSkill; without a table the built-in basic attacks (a plain blow for an unknown id)
+    [[nodiscard]] const KSkill* skill_instance(int id, int level);
+    static constexpr int kCommandSkill = 5;          // do_skill
+    static constexpr int kCommandApproach = 300;     // 0x0809BAFF: walked toward within radius + 300
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
@@ -455,6 +489,7 @@ private:
     void update_action(KNpc& e);
     [[nodiscard]] int reach_of(const KNpc& e) const noexcept;
     [[nodiscard]] bool in_reach(const KNpc& a, const KNpc& b) const noexcept;
+    [[nodiscard]] bool in_reach_of(const KNpc& a, const KNpc& b, int radius) const noexcept;   // within a skill's AttackRadius
     void start_attack(KNpc& e, KNpc& target);
     void begin_action(KNpc& e, KNpc& target, std::uint32_t frames);
     // the frames of a swing: base x 100 / (100 + m_CurrentAttackSpeed), at least one
@@ -521,7 +556,7 @@ private:
     void missle_event(const KSkill& skill, int type, KMissle& m);   // OnMissleEvent 0x080EE810: 2 fly, 3 collide, 4 vanished
     void do_revive(KNpc& e);
     void revive(KNpc& e);
-    void emit_action(const KNpc& e, pb::Action action, EntityId target);
+    void emit_action(const KNpc& e, pb::Action action, EntityId target, int skill_id = 0, int skill_level = 0, Pos aim = Pos{});
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
     // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
     void recalc_player(KNpc& e);
