@@ -13,6 +13,7 @@
 extends "res://ui/elem/KWndWindow.gd"
 
 const Layout := preload("res://ui/KUiSkillTreeLayout.gd")
+const KFont := preload("res://ui/KFont.gd")
 
 const SCHEME := "chon-ky-nang"
 const GROUP_SIZE := 8   # 0x00623B0C: group = index / 8
@@ -32,6 +33,7 @@ var _rows := 0
 var _skill_rows := {}      # skill id -> {style, aura, req_level, icon, name} of skills.json
 var _tables_loaded := false
 var _hover := -1
+var shortcuts = null   # KUiShortcut of the window manager: the key letter painted on an entry that has a slot (0x0049627D)
 
 
 func load_scheme(_screen: Vector2i) -> bool:
@@ -121,6 +123,15 @@ func _draw() -> void:
 		var img = Assets.item_image(str(e.icon))
 		if img != null:
 			img.draw(self, at, 0)
+		if shortcuts != null:
+			var k: int = shortcuts.slot_of(int(e.id), right_side)
+			if k >= 0:
+				# the key letter in KeyFont / KeyColor (0x0049627D): the game font of that size, else the default font
+				var font = KFont.of(key_font)
+				if font != null:
+					font.draw(self, at + Vector2(2, 1), shortcuts.key_of(k), key_color, Color.BLACK)
+				else:
+					draw_string(get_theme_default_font(), at + Vector2(2, key_font), shortcuts.key_of(k), HORIZONTAL_ALIGNMENT_LEFT, -1, key_font, key_color)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -141,6 +152,13 @@ func _gui_input(event: InputEvent) -> void:
 			_hover = i
 			queue_redraw()
 			hovered.emit(int(_entries[i].id) if i >= 0 else 0)
+
+
+# the entry under the mouse (ShortcutSkill(k) with the tree open takes it): its skill id, 0 for none
+func hovered_skill() -> int:
+	if _hover < 0 or _hover >= _entries.size():
+		return 0
+	return int(_entries[_hover].id)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:

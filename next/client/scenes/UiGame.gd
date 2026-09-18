@@ -63,7 +63,7 @@ func _ready() -> void:
 	_update_camera(true)
 	Log.info("ui", "world screen", {"zone": Game.zone_name, "entity": Game.entity_id, "entities": _entities.size(),
 		"map": Game.map_id, "bundle": has_map})
-	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, I túi đồ, C nhân vật, Esc để thoát.[/color]" % Game.zone_name)
+	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, F4 túi đồ, F3 nhân vật, F5 kỹ năng, Q..C kỹ năng tắt, Esc để thoát.[/color]" % Game.zone_name)
 	if "--auto" in OS.get_cmdline_user_args():
 		_auto_run()
 
@@ -652,11 +652,24 @@ func _auto_skills() -> void:
 		_windows.skills_window.hide_window()
 		# the mouse-skill tree of the left button (Open([[leftskill]]) of the bottom bar's box)
 		if _windows.skill_tree != null:
-			_windows.skill_tree.open_for(false)
+			var tree = _windows.skill_tree
+			tree.open_for(false)
+			# ShortcutSkill(k) with the tree open (0x00495F70): the entry under the mouse takes key k - Q to the first listed
+			# entry, W to the second (the tree lists skills of level 1..64 only, 0x006239F0: the faction skills of the fresh
+			# disciple are level 0 until a point is spent, so they are not here yet)
+			var tree_ids := []
+			for e in tree._entries:
+				tree_ids.append(int(e.id))
+			var tree_key := 0
+			for i in tree._entries.size():
+				if i > 0 and int(tree._entries[i].id) > 0 and tree_key < 2:
+					tree._hover = i
+					_windows._shortcut_key(tree_key)
+					tree_key += 1
 			await get_tree().create_timer(0.3).timeout
 			await _save_screenshot("user://logs/auto_skill_tree.png")
-			print("AUTO_SKILL_TREE entries=%d rows=%d" % [_windows.skill_tree._entries.size(), _windows.skill_tree._rows])
-			_windows.skill_tree.hide()
+			print("AUTO_SKILL_TREE entries=%d rows=%d ids=%s key_q=%d key_w=%d" % [tree._entries.size(), tree._rows, str(tree_ids), int(_windows.shortcuts.slot(0).id), int(_windows.shortcuts.slot(1).id)])
+			tree.hide()
 		# a state on the character: Bất Động Minh Vương (15, stage 30) cast on oneself puts its icon in the state list (the
 		# 0x87 packet); the fight stance first, like the gate trap does
 		if Game.skills.has(15) and _windows.state_window != null:

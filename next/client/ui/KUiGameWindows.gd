@@ -16,6 +16,7 @@ const UiControlBar := preload("res://ui/uicase/UiControlBar.gd")
 const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
+const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
@@ -30,6 +31,7 @@ var tool_bar: UiControlBar = null
 var player_bar: UiPlayerBar = null
 var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
 var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
+var shortcuts := KUiShortcut.new()      # the nine shortcut skills (Q W E A S D Z X C), kept per character
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
 var ready_ok := false
@@ -69,6 +71,8 @@ func _ready() -> void:
 	else:
 		skill_tree.picked.connect(_on_skill_clicked)
 		skill_tree.hovered.connect(_on_tree_hovered)
+		skill_tree.shortcuts = shortcuts
+	_load_shortcuts()
 	_canvas.add_child(hover)
 	hover.load_scheme(screen)
 	_canvas.add_child(hand)
@@ -100,15 +104,25 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not ready_ok or not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	# the keys of autoexec.lua of the 2.0 client: F3 status, F4 items, F5 skills, M horse; Q W E A S D Z X C the shortcut
+	# skills (ShortcutSkill(0..8)); I and K stay as the plain client had them
+	var k := KUiShortcut.slot_of_key(event.keycode)
+	if k >= 0:
+		_shortcut_key(k)
+		get_viewport().set_input_as_handled()
+		return
 	match event.keycode:
-		KEY_I:
+		KEY_I, KEY_F4:
 			item_window.toggle_window()
 			get_viewport().set_input_as_handled()
-		KEY_C:
+		KEY_F3:
 			status_window.toggle_window()
 			get_viewport().set_input_as_handled()
-		KEY_K:
+		KEY_K, KEY_F5:
 			skills_window.toggle_window()
+			get_viewport().set_input_as_handled()
+		KEY_M:
+			Game.ride(not bool(Game.entities.get(Game.entity_id, {}).get("riding", false)))
 			get_viewport().set_input_as_handled()
 		KEY_ESCAPE:
 			if hand.holding():
@@ -214,6 +228,53 @@ func _on_skill_clicked(skill_id: int, right: bool) -> void:
 
 
 # the tip of a state icon: "name\ndesc\ntime" (0x0041ECE4)
+# ShortcutSkill(k) 0x00495F70: with the tree open the hovered entry takes slot k; closed, slot k becomes the mouse skill
+# of its side (OperationRequest(0xd, entry, side))
+func _shortcut_key(k: int) -> void:
+	if skill_tree != null and skill_tree.visible:
+		var id := skill_tree.hovered_skill()
+		if id > 0:
+			assign_shortcut(k, id, skill_tree.right_side)
+		return
+	var s: Dictionary = shortcuts.slot(k)
+	if int(s.id) <= 0 or not Game.skills.has(int(s.id)):
+		return
+	_on_skill_clicked(int(s.id), bool(s.right))
+
+
+func assign_shortcut(k: int, skill_id: int, right: bool) -> void:
+	if shortcuts.assign(k, skill_id, right):
+		Log.info("ui", "shortcut skill", {"slot": k, "key": KUiShortcut.key_of(k), "skill": skill_id, "side": "right" if right else "left"})
+		_save_shortcuts()
+		if skill_tree != null:
+			skill_tree.queue_redraw()
+
+
+# [ShortSkill] ShortcutSkill_%d of the character's settings (0x0052D720): here user://shortcuts_<player id>.json
+func _shortcut_path() -> String:
+	return "user://shortcuts_%d.json" % int(Game.player_id)
+
+
+func _load_shortcuts() -> void:
+	var path := _shortcut_path()
+	if not FileAccess.file_exists(path):
+		return
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	shortcuts.from_json(parsed)
+
+
+func _save_shortcuts() -> void:
+	var f := FileAccess.open(_shortcut_path(), FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify(shortcuts.to_json()))
+	f.close()
+
+
 func _on_state_hovered(text: String) -> void:
 	if text == "":
 		hover.hide_lines()

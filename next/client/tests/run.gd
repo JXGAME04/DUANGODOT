@@ -42,6 +42,7 @@ func _init() -> void:
 	test_part_math()
 	test_skill_tree_layout()
 	test_state_math()
+	test_shortcuts()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -385,3 +386,20 @@ func test_state_math() -> void:
 	check(M.time_text(3725, true) == "01h:02m:05s", "long form")
 	check(M.slot_pos(3, false) == Vector2i(72, 0) and M.slot_pos(9, true) == Vector2i(216, 36), "slots 24 px apart, debuffs at y 36")
 	check(M.seconds_left(18) == 1 and M.seconds_left(19) == 2 and M.seconds_left(-1) == -1 and M.seconds_left(0) == 0, "frames to seconds")
+
+
+# ---- the shortcut skills (KUiShortcut.gd; gamecl.exe 2.0 ShortcutSkill 0x00495F70, autoexec.lua Q W E A S D Z X C) ----
+func test_shortcuts() -> void:
+	var K = load("res://ui/KUiShortcut.gd")
+	var sc = K.new()
+	check(sc.slots.size() == 9 and int(sc.slot(0).id) == 0, "nine empty slots")
+	check(sc.assign(0, 14, false) and int(sc.slot(0).id) == 14 and sc.slot_of(14, false) == 0, "slot 0 takes 14")
+	# the same skill on the same side moves: the old slot is cleared (0x00495FEA); another side may keep it
+	check(sc.assign(3, 14, false) and int(sc.slot(0).id) == 0 and sc.slot_of(14, false) == 3, "14 moves from Q to A")
+	check(sc.assign(5, 14, true) and sc.slot_of(14, false) == 3 and sc.slot_of(14, true) == 5, "the right side is another slot")
+	check(not sc.assign(9, 1, false) and not sc.assign(0, 0, false), "out of range / empty refused")
+	check(K.key_of(0) == "Q" and K.key_of(8) == "C" and K.key_of(9) == "", "key names")
+	check(K.slot_of_key(KEY_Q) == 0 and K.slot_of_key(KEY_C) == 8 and K.slot_of_key(KEY_F1) == -1, "keys to slots")
+	var again = K.new()
+	again.from_json(sc.to_json())
+	check(again.slot_of(14, false) == 3 and again.slot_of(14, true) == 5, "round trip")

@@ -122,8 +122,8 @@ kỹ năng trái (không có → đánh thường), click phải thi triển k�
 `KFaction` / `KPlayerFaction` (`LINUX-SERVER.md` §16.7), `--auto` làm đệ tử Thiếu Lâm (`SetFaction("shaolin")` rồi
 `Include("\\script\\global\\skills_table.lua")` + `add_sl(20)` như script NPC phái: nhập môn + nhiệm vụ cấp 10 → 14, 10, 8, 4, 6) rồi chụp
 `auto_skills.png` (Quyền) và `auto_skills_2.png` (Bổng). Chưa: thanh nhân vật 2.0
-(`玩家信息主界面.ini`) với hai ô kỹ năng chuột, cây chọn kỹ năng (`技能选择树.ini`), phím F1..F11 (`ShortcutSkill(%d)`), trang
-sống, chú thích kỹ năng (`KUiSkillTree`), gói 0x87, gói vào/ra chiến đấu.
+(`玩家信息主界面.ini`) với hai ô kỹ năng chuột, cây chọn kỹ năng (`技能选择树.ini`), phím tắt Q W E A S D Z X C (`ShortcutSkill(0..8)`;
+§8.1), trang sống, chú thích kỹ năng (`KUiSkillTree`), gói 0x87, gói vào/ra chiến đấu — B4b-2..B4b-5 đã làm các mục này trừ chú thích kỹ năng.
 
 ## 7. Ba thanh của màn hình 2.0 — `KUiControlBar` (thanh trên `顶部控制条.ini`, thanh công cụ `工具控制条.ini`), `KUiPlayerBar` (`玩家信息主界面.ini`) (M12 lát B4b-2, đã đọc từng dòng `gamecl.exe`)
 
@@ -175,13 +175,33 @@ Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `Left
 | `0x00495AE0` | **`UpdateData`**: `GetGameData(+0x8b0 ? 0x3f7 : 0x3f8, danh sách +0x498, 0)` → số mục `+0x494`; duyệt bảng phím tắt `0x83f440` (9 × 16 byte `{genre, id, bên, …}` từ `[ShortSkill] ShortcutSkill_%d` — `0x00495810`) đối chiếu; rồi xếp | `open_for`: danh sách + `Layout.place` |
 | `0x006239F0` (GDI 0x3f7, trái) / `0x00623B70` (GDI 0x3f8, phải) | mục 0 = `{0x40004, kỹ năng chuột hiện tại (0x005EBBA0), 0, nhóm 0}`; mỗi ô sổ kỹ năng (`+0x38`, bước 0x1c) có id 1..3000 và cấp 1..64: phiên bản `(id, cấp)`; style (`vtable[3]`): **trái**: 5..12 → nhận; 0..4 và 14 → nhận khi `IsAura` (`vtable +0x4c`) = 0 và `+0x110` = 0 (hoặc `+0x110` = 1) và `ReqLevel (+0x6c) ≤ cấp npc`; 13 → bỏ. **phải**: chỉ style 0..4 và 14 với cùng điều kiện; mục = `{0x40004, id, ?, nhóm = chỉ số / 8}` (`0x00623B0C`), tối đa 0x40 | `KUiSkillTreeLayout.listed(style, aura, right)` (`+0x110` chưa rõ cột → coi 0), `SkillStyle/IsAura/ReqLevel` của `skills.json` |
 | `0x00495A40` | **xếp**: duyệt mục: cùng nhóm với mục trước và số ô trong hàng < `MaxBtnCountPerRow` → cùng hàng; else hàng mới (đếm hàng, hàng rộng nhất); `SetPosition(LeftBtnPos.x, LeftBtnPos.y − h·hàng + h)`, `SetSize(w·rộng nhất, h·hàng)` — **cả hai bên đều neo `LeftBtnPos`** (`RightBtnPos` đọc mà không dùng trong phần đã đọc) | `Layout.place`, `Layout.window_rect` |
-| `0x00496170` | **vẽ**: từ đáy cửa sổ đi lên (`+0x1c + +0x14` trừ `h` mỗi hàng); mỗi mục vẽ đối tượng `{genre, id}` `0x005B8FE0(genre, id, x, y, w, h, −1, 0)`; mục trùng bảng phím tắt (cùng bên, genre, id) → Lua `ShortcutSkill(k)` / `DirectShortcutSkill(k)` → chữ phím bằng `KeyFont`/`KeyColor` | `_draw` (chưa vẽ phím tắt: bảng `[ShortSkill]` là tệp thiết lập riêng từng nhân vật) |
+| `0x00496170` | **vẽ**: từ đáy cửa sổ đi lên (`+0x1c + +0x14` trừ `h` mỗi hàng); mỗi mục vẽ đối tượng `{genre, id}` `0x005B8FE0(genre, id, x, y, w, h, −1, 0)`; mục trùng bảng phím tắt (cùng bên, genre, id — `0x00496260`) → hỏi phím của lệnh Lua `ShortcutSkill(k)` / `DirectShortcutSkill(k)` (`0x00433E30`, bảng `AddCommand` của `autoexec.lua`) → chữ phím bằng `KeyFont`/`KeyColor` (`0x0049627D`) | `_draw`: `shortcuts.slot_of(id, bên)` → `KFont.of(KeyFont).draw(chữ, KeyColor)` (§8.1) |
 | `0x00495B80` | **hit test**: hàng = `(đáy − y) / h`, cột = `(x − trái) / w`, duyệt lại cùng thuật toán xếp | `Layout.hit` |
 | `0x00495E10` | **`WndProc`**: `0x202` (nhả chuột trái): mục dưới chuột → `OperationRequest(0xd, &{genre, id}, +0x8b0 == 0)` (đặt kỹ năng chuột; 1 = phải) rồi ẩn; `0x205` (chuột phải) → ẩn; `0x100` phím `0x1b` Esc → ẩn; di chuột (`0x2a1`) → chú thích đối tượng `0x0044EBC0(genre, id, 0x10)` | `_gui_input`: `picked(id, right)`, ẩn; `hovered(id)` → chú thích |
 
 Client mới: `client/ui/uicase/UiSkillTree.gd` + `client/ui/KUiSkillTreeLayout.gd` (xếp/hit/danh sách, test headless `test_skill_tree_layout`),
 `KUiGameWindows.skill_tree` (bấm ô kỹ năng chuột của thanh dưới → `toggle_for`, chọn → `_on_skill_clicked`, rê → chú thích), `--auto` chụp
-`auto_skill_tree.png`. Chưa: phím tắt F1..F11 (`[ShortSkill]`, `ShortcutSkill(%d)`), `+0x110` của kỹ năng, `RightBtnPos`.
+`auto_skill_tree.png`. Chưa: `+0x110` của kỹ năng, `RightBtnPos`. Phím tắt: §8.1.
+
+### 8.1 Phím tắt kỹ năng — `ShortcutSkill(k)` / `DirectShortcutSkill(k)` (M12 lát B4b-5, đã đọc từng dòng)
+
+Bản 2.0 **không** dùng F1..F11 cho kỹ năng: `\Ui\autoexec.lua` (trong `\reslst.dat`) gắn `AddCommand("Q", "", "ShortcutSkill(0)")`, `W` 1, `E` 2, `A` 3, `S` 4,
+`D` 5, `Z` 6, `X` 7, `C` 8 (chín ô); `1`..`9` → `ShortcutUseItem(0..8)` (ô thuốc nhanh); `F1` activityguide, `F2` options, `F3` status, `F4` items, `F5` skills,
+`F6` friend, `F7` showplayername, `F8` showplayerlife, `F9`/`Ctrl+H` pk, `F11` tasknote, `F12` NewTask, `Tab` map, `Esc` system, `Enter` commandline, `P` team,
+`Space` SpacePickUp, `Del` ClearMessage, `` ` `` battlereport; chuột: `LButton` `Mouse_Action`, `RButton` `Mouse_Force1`, `Shift+LButton` `Mouse_Force0`,
+`Ctrl+LButton` `Mouse_Say`, `Ctrl+RButton` `Mouse_Menu`, `Alt+LButton` `Mouse_PartnerAction`, `Alt+RButton` `Mouse_Emote_Menu`.
+
+| Địa chỉ | Làm gì | Client mới |
+|---|---|---|
+| `0x0042F8D0` (Lua `ShortcutSkill`) → `0x00495F70(k)` | `k > 8` → về; **cây đang mở** (`0x004957A0`): mục dưới chuột (`+0x8d4`, hit `0x00495B80`) → ô `k` của bảng `0x83f440` (9 × 16 byte `{genre, id, bên (+0x8b0), …}`); **mọi ô khác** cùng `{bên, genre, id}` bị xoá (`0x00495FEA`); ghi thiết lập; vẽ lại. **Cây đóng**: ô `k` có id → `OperationRequest(0xd, &{genre, id}, bên == 0)` = đặt kỹ năng chuột của bên đó | `KUiGameWindows._shortcut_key(k)`: cây mở → `assign_shortcut(k, hovered_skill(), right_side)` (`KUiShortcut.assign` xoá ô trùng); đóng → `_on_skill_clicked(id, right)` |
+| `0x0042F930` (Lua `DirectShortcutSkill`) → `0x00496070(k)` | như trên khi cây mở; cây đóng → thi triển ngay ô `k` (`0x005BC500`) — `autoexec.lua` 2.0 không gắn phím cho lệnh này | chưa (không có phím) |
+| `0x00495810` (từ `0x00447390` lúc vào game) | đọc bảng: `GetStruct("ShortSkill", "ShortcutSkill_%d", ô, 16)` qua `0x0052D720` (tệp thiết lập riêng từng nhân vật) | `user://shortcuts_<player_id>.json` (`[{id, right}] × 9`), nạp khi dựng cửa sổ, ghi mỗi lần gán |
+| `0x0049627D` (trong vẽ `0x00496170`) | mục có ô phím tắt (`0x00496260`: cùng bên, genre, id) → tên phím của lệnh `ShortcutSkill(k)` (`0x00433E30`) vẽ bằng `KeyFont` (16) / `KeyColor` (255,0,0) | `UiSkillTree._draw` (`KFont.of(16)`, viền đen; không có phông → phông mặc định) |
+
+Client mới: `client/ui/KUiShortcut.gd` (bảng 9 ô, `assign`/`slot_of`/`key_of`/`slot_of_key`, JSON; test headless `test_shortcuts`), `KUiGameWindows` (phím
+`Q W E A S D Z X C`, `F3`/`F4`/`F5` mở nhân vật/túi/kỹ năng — `I`/`K` vẫn giữ, `M` lên/xuống ngựa `Game.ride`), `UiSkillTree.hovered_skill()` + chữ phím; `--auto` mở
+cây, rê lên hai mục đầu rồi `ShortcutSkill(0)`/`(1)` → `auto_skill_tree.png` có chữ Q, W đỏ (cây chỉ liệt kê kỹ năng cấp 1..64 — kỹ năng phái cấp 0 chưa có). Chưa: `DirectShortcutSkill`, ô thuốc nhanh `ShortcutUseItem(0..8)` (phím 1..9), các
+`Open([[...]])` khác (map, team, friend, options, system), `Switch` (pk, tên/máu người chơi), `Mouse_*`.
 
 ## 9. Danh sách trạng thái kỹ năng — `KUiSkillState` (`技能状态列表.ini`, gói 0x87; M12 lát B4b-4, đã đọc từng dòng)
 
