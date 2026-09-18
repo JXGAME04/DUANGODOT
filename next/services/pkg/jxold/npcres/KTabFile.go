@@ -20,6 +20,7 @@ type TabFile struct {
 // ParseTab splits the file into rows and cells; empty lines are dropped.
 func ParseTab(data []byte) *TabFile {
 	t := &TabFile{cols: map[string]int{}}
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF}) // the client's tables may carry a UTF-8 BOM
 	for _, line := range bytes.Split(data, []byte{'\n'}) {
 		line = bytes.TrimRight(line, "\r")
 		if len(bytes.TrimSpace(line)) == 0 {

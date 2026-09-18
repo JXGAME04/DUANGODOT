@@ -65,6 +65,7 @@ func _load_tables() -> void:
 			var cells: Dictionary = r.get("cells", {})
 			_skill_rows[int(r.get("id", 0))] = {
 				"style": int(str(cells.get("SkillStyle", "0"))), "aura": int(str(cells.get("IsAura", "0"))) != 0,
+				"lr": int(str(cells.get("LRSkill", "0"))),
 				"req_level": int(str(cells.get("ReqLevel", "0"))), "icon": str(cells.get("SkillIcon", "")), "name": str(cells.get("SkillName", ""))}
 
 
@@ -80,7 +81,8 @@ func open_for(right: bool) -> void:
 	_load_tables()
 	right_side = right
 	_entries.clear()
-	var current: int = Game.right_skill if right else Game.left_skill
+	# entry 0 (group 0) is the plain attack of the worn weapon (0x005EBBA0), not the mouse skill
+	var current: int = Game.weapon_attack_skill()
 	_entries.append({"id": current, "group": 0, "icon": _skill_rows.get(current, {}).get("icon", "")})
 	var level := int(Game.player_attrib.get("level", 1))
 	var i := 1
@@ -89,9 +91,7 @@ func open_for(right: bool) -> void:
 		if int(sk.get("level", 0)) < 1:
 			continue
 		var row: Dictionary = _skill_rows.get(int(id), {})
-		if row.is_empty() or not Layout.listed(int(row.style), bool(row.aura), right):
-			continue
-		if int(row.req_level) > level:
+		if row.is_empty() or not Layout.listed(int(row.style), bool(row.aura), int(row.lr), right, int(row.req_level), level):
 			continue
 		@warning_ignore("integer_division")
 		_entries.append({"id": int(id), "group": i / GROUP_SIZE, "icon": str(row.icon)})

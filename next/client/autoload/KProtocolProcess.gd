@@ -42,6 +42,7 @@ signal money_changed(money: int, bank_money: int)
 # dictionary is `player_attrib`
 signal player_attrib_changed(attrib: Dictionary)
 signal skills_changed()                 # G2C_SKILL_LIST: the whole book (on entering the world)
+signal mouse_skill_changed()            # left_skill / right_skill set by the weapon rule (0x005FE820)
 signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: one skill (level -1 = gone)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -101,6 +102,10 @@ var skills_forbidden := false
 # 0 = the plain attack of the weapon (C2G_ATTACK)
 var left_skill := 0
 var right_skill := 0
+const ITEMPART_WEAPON := 3              # ITEM_PART itempart_weapon (KItem.h of the zone)
+const KWeaponSkillTable := preload("res://ui/KWeaponSkillTable.gd")
+var _weapon_table := {}                 # weapon_skill.json, loaded on first use
+var _weapon_table_loaded := false
 const ROOM_BAG := 0
 const ROOM_REPOSITORY := 1
 const ROOM_TRADE := 2
@@ -366,6 +371,38 @@ func item_drop(id: int) -> int:
 	Net.send_msg(Proto.MsgId.C2G_ITEM_DROP, req)
 	Log.trace("item", "drop request", {"id": id, "seq": _move_seq})
 	return _move_seq
+
+
+# The plain attack of the worn weapon (0x005EBBA0 for one's own character: the worn weapon's DetailType /
+# ParticularType through \settings\武器物理攻击对照表.txt, no weapon -> the bare-hand row); 0 without a table
+func weapon_attack_skill() -> int:
+	if not _weapon_table_loaded:
+		_weapon_table_loaded = true
+		_weapon_table = KWeaponSkillTable.parse(Assets.load_json(Assets.assets_root() + "/weapon_skill.json"))
+		if _weapon_table.get("bare", 0) == 0:
+			Log.warn("player", "weapon skill table missing", {"file": Assets.assets_root() + "/weapon_skill.json"})
+	var detail := -1
+	var particular := -1
+	var weapon := item_worn(ITEMPART_WEAPON)
+	if weapon != 0:
+		var it: Dictionary = items[weapon]
+		detail = int(it.get("detail", -1))
+		particular = int(it.get("particular", -1))
+	return KWeaponSkillTable.skill_of(_weapon_table, detail, particular)
+
+
+# UpdateWeaponSkill 0x005FE820 (KProtocolProcess::SyncEnd 0x00654F5B of the 2.0 client): both mouse skills become
+# the weapon's plain attack; SetLeftSkill 0x005F7550 / SetRightSkill 0x005FB280 only take a skill held at level >= 1
+func update_weapon_skill() -> void:
+	var id := weapon_attack_skill()
+	if id <= 0 or int(skills.get(id, {}).get("level", 0)) < 1:
+		return
+	if left_skill == id and right_skill == id:
+		return
+	left_skill = id
+	right_skill = id
+	Log.debug("player", "weapon skill", {"skill": id, "weapon": item_worn(ITEMPART_WEAPON)})
+	mouse_skill_changed.emit()
 
 
 # The item worn on a part (0 = none), and what lies on a cell of a room (0 = nothing)
@@ -679,6 +716,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			bank_money = m.get_bank_money()
 			Log.debug("item", "item list", {"count": items.size(), "money": money, "bank_money": bank_money})
 			items_changed.emit()
+			update_weapon_skill()   # SyncEnd of the 2.0 client: the mouse skills follow the worn weapon
 			money_changed.emit(money, bank_money)
 
 		Proto.MsgId.G2C_ITEM_ADD:
@@ -707,11 +745,14 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			if d == null:
 				Log.warn("item", "moved item unknown", {"id": m.get_id()})
 				return
+			var was_weapon: bool = int(d.room) == ROOM_BODY and int(d.x) == ITEMPART_WEAPON
 			d.room = int(m.get_room())
 			d.x = int(m.get_x())
 			d.y = int(m.get_y())
 			Log.debug("item", "item moved", {"id": d.id, "room": d.room, "x": d.x, "y": d.y, "seq": m.get_seq()})
 			item_changed.emit(d)
+			if was_weapon or (d.room == ROOM_BODY and d.x == ITEMPART_WEAPON):
+				update_weapon_skill()   # the weapon changed: the mouse skills follow it (as after SyncEnd)
 
 		Proto.MsgId.G2C_ITEM_RESULT:
 			var m := Proto.ItemResult.new()
@@ -738,6 +779,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			skills_forbidden = m.get_forbid_all()
 			Log.debug("player", "skill list", {"count": skills.size(), "forbid_all": skills_forbidden})
 			skills_changed.emit()
+			update_weapon_skill()
 
 		Proto.MsgId.G2C_SKILL_LEVEL:
 			var m := Proto.SkillLevelSync.new()

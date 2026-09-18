@@ -161,6 +161,26 @@ Client mới: `client/ui/uicase/UiControlBar.gd` (hai thanh), `UiPlayerBar.gd` (
 `KUiGameWindows._build_bars/_on_bar_command/_refresh_bars/_refresh_mouse_skills`; `UiGame` dùng dòng chat của thanh dưới. Chưa: ô thuốc nhanh (kéo
 thuốc từ túi: `+0x28b8`), `DateTime` ping/`GameLogo`, `ChannelBtn`/kênh chat, `Face` biểu cảm, thanh thu nhỏ `SwitchSizeBtn`, `Market`, hạng giang hồ.
 
+### 7.1 Kỹ năng chuột mặc định — đánh thường theo vũ khí (M12 lát B4b-6a, đã đọc từng dòng)
+
+Bản 2.0 nạp **cùng tệp với server** `\settings\武器物理攻击对照表.txt` (có trong `slistcl.pak` của client, 92 dòng, BOM UTF-8; cột `DetailType`,
+`ParticularType`, `PhysicsSkillID`) trong lõi khởi động `0x005CADC0` tại `0x005CB396`: detail 0 → `0x9bcbf0[particular ≤ 99]`, 1 → `0x9bca60[…]`, −1 →
+`[0x9bca5c]` (tay không), kỹ năng 1..0xbb6. Nội dung: tay không / đoản kiếm / đoản đao / song kiếm / song chuỳ / (6) → 53, thương / côn → 1, ám khí
+(detail 1) → 2; các kỹ năng 229..232 không có trong bảng. `jxassets export-weapon-skill` (rơi về pak client khi thư mục server thiếu) →
+`client/assets/weapon_skill.json` cho cả zone (`KWeaponSkillTable`, `LINUX-SERVER.md` §16) và client.
+
+| Địa chỉ | Làm gì | Client mới |
+|---|---|---|
+| `0x0060D660` / `0x0060E3B0` | `KItemList::GetWeaponType / GetWeaponParticular`: `[list+0x34]` = ô vũ khí đang mặc → bảng vật phẩm `[0x1f179a4]` bước 0x74c, `+0xc` / `+0x10`; không có → −1 | `Game.item_worn(3)` → `detail` / `particular` của vật |
+| `0x005EBBA0` | **đánh thường theo vũ khí của một npc** (nhân vật mình: qua bảng trên; mục 0 của cây chọn kỹ năng §8) | `Game.weapon_attack_skill()` (`KWeaponSkillTable.skill_of`) |
+| `0x005FE820` | **`UpdateWeaponSkill`**: đặt **cả hai** ô chuột = kỹ năng của bảng theo vũ khí đang cầm (`SetLeftSkill 0x005F7550` → `+0x2c`, `SetRightSkill 0x005FB280` → `+0x34` của `KPlayer +0xa878`; mỗi hàm chỉ nhận kỹ năng đang giữ cấp ≥ 1: `0x006233B0(sổ, id, 1) > 0`, rồi báo UI `0x005B8150(4/5, {0x40004, id})`); **người gọi duy nhất**: `KProtocolProcess::SyncEnd 0x00654F5B` (đồng bộ xong lúc vào game) | `Game.update_weapon_skill()` sau `G2C_SKILL_LIST` + `G2C_ITEM_LIST` và khi vật ở ô vũ khí đổi chỗ (`item moved`); tín hiệu `mouse_skill_changed` → thanh dưới vẽ lại |
+| `0x00624F80` | `KPlayer::RemoveSkill(id)`: sau khi bỏ kỹ năng, ô chuột đang giữ id đó rơi về kỹ năng của bảng theo vũ khí (trái `0x625032..`, phải `0x625072..`) | chưa (client không bỏ kỹ năng) |
+| op `0xd` của `OperationRequest 0x005C1CF0` (`0x5c2fd9`) | đặt kỹ năng chuột: id > 0 → `SetLeft/RightSkill(id)`; id = −1 → kỹ năng của bảng theo vũ khí (`0x5c2ff8..`) | `KUiGameWindows._on_skill_clicked` |
+
+`--auto` (đệ tử mới, tay không): `AUTO_SKILL_TREE … mouse=53/53 weapon=53`, hai ô chuột của thanh dưới hiện Quyền cơ bản (53) ngay khi vào game
+(`auto_world.png`). Chưa đọc: các chỗ khác gọi `SetLeftSkill` (`0x005FB340`, `0x005FDF60`, `0x006004C0`) — client mới tạm gọi lại luật khi vật ở ô vũ khí
+đổi chỗ.
+
 ## 8. Cây chọn kỹ năng cho chuột — `KUiSkillTree` (`技能选择树.ini`, M12 lát B4b-3, đã đọc từng dòng `gamecl.exe`)
 
 Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `LeftBtnPos=760,650` (vị trí ô thấp nhất bên trái), `RightBtnPos=710,450`,
@@ -173,7 +193,7 @@ Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `Left
 | `0x00496400` | **`OpenWindow(side)`**: đối tượng đơn 0x8d0 byte (ctor `0x00495670`, `Init 0x00496360` → `LoadScheme`, `0x00466180(this, 2)`), `+0x8b0 = (side ≠ 0)` (1 = trái), `vtable[1]` (UpdateData), `vtable[8]` (Show), `0x0046BE90` (lên trên) | `open_for(right)` |
 | `0x00495C20` | **`LoadScheme`**: `[Main] LeftBtnPos` → `+0x8b4/+0x8b8`, `RightBtnPos` → `+0x8bc/+0x8c0`, `BtnSize` → `+0x8c4/+0x8c8` (≤ 0 → 1), `KeyFont` (12) `+0x8a8`, `KeyColor` `+0x8ac`, `MaxBtnCountPerRow` `+0x8cc`; rồi xếp `0x00495A40` | `load_scheme` |
 | `0x00495AE0` | **`UpdateData`**: `GetGameData(+0x8b0 ? 0x3f7 : 0x3f8, danh sách +0x498, 0)` → số mục `+0x494`; duyệt bảng phím tắt `0x83f440` (9 × 16 byte `{genre, id, bên, …}` từ `[ShortSkill] ShortcutSkill_%d` — `0x00495810`) đối chiếu; rồi xếp | `open_for`: danh sách + `Layout.place` |
-| `0x006239F0` (GDI 0x3f7, trái) / `0x00623B70` (GDI 0x3f8, phải) | mục 0 = `{0x40004, kỹ năng chuột hiện tại (0x005EBBA0), 0, nhóm 0}`; mỗi ô sổ kỹ năng (`+0x38`, bước 0x1c) có id 1..3000 và cấp 1..64: phiên bản `(id, cấp)`; style (`vtable[3]`): **trái**: 5..12 → nhận; 0..4 và 14 → nhận khi `IsAura` (`vtable +0x4c`) = 0 và `+0x110` = 0 (hoặc `+0x110` = 1) và `ReqLevel (+0x6c) ≤ cấp npc`; 13 → bỏ. **phải**: chỉ style 0..4 và 14 với cùng điều kiện; mục = `{0x40004, id, ?, nhóm = chỉ số / 8}` (`0x00623B0C`), tối đa 0x40 | `KUiSkillTreeLayout.listed(style, aura, right)` (`+0x110` chưa rõ cột → coi 0), `SkillStyle/IsAura/ReqLevel` của `skills.json` |
+| `0x006239F0` (GDI 0x3f7, trái) / `0x00623B70` (GDI 0x3f8, phải) | mục 0 = `{0x40004, đánh thường theo vũ khí đang cầm (`0x005EBBA0`, §7.1), 0, nhóm 0}`; mỗi ô sổ kỹ năng (`+0x38`, bước 0x1c) có id 1..3000 và cấp 1..64: phiên bản `(id, cấp)`; style (`vtable[3]`): **trái**: 5..12 → nhận; 0..4 và 14 → nhận khi (`IsAura` (`vtable +0x4c`) = 0 và `LRSkill` (`+0x110`, cột 12 của `skills.txt`) = 0) hoặc `LRSkill` = 1, rồi `ReqLevel (+0x6c) ≤ cấp npc`; 13 → bỏ. **phải**: chỉ style 0..4 và 14 khi (`IsAura` = 0 và `LRSkill` = 0) hoặc `LRSkill` = 2, cùng kiểm cấp (`LRSkill` 3 = không lên cây: 8/4/6 Thiếu Lâm; 15/16 = 2 chỉ chuột phải); mục = `{0x40004, id, ?, nhóm = chỉ số / 8}` (`0x00623B0C`), tối đa 0x40 | `KUiSkillTreeLayout.listed(style, aura, lr, right, req_level, level)`, `SkillStyle/IsAura/LRSkill/ReqLevel` của `skills.json` |
 | `0x00495A40` | **xếp**: duyệt mục: cùng nhóm với mục trước và số ô trong hàng < `MaxBtnCountPerRow` → cùng hàng; else hàng mới (đếm hàng, hàng rộng nhất); `SetPosition(LeftBtnPos.x, LeftBtnPos.y − h·hàng + h)`, `SetSize(w·rộng nhất, h·hàng)` — **cả hai bên đều neo `LeftBtnPos`** (`RightBtnPos` đọc mà không dùng trong phần đã đọc) | `Layout.place`, `Layout.window_rect` |
 | `0x00496170` | **vẽ**: từ đáy cửa sổ đi lên (`+0x1c + +0x14` trừ `h` mỗi hàng); mỗi mục vẽ đối tượng `{genre, id}` `0x005B8FE0(genre, id, x, y, w, h, −1, 0)`; mục trùng bảng phím tắt (cùng bên, genre, id — `0x00496260`) → hỏi phím của lệnh Lua `ShortcutSkill(k)` / `DirectShortcutSkill(k)` (`0x00433E30`, bảng `AddCommand` của `autoexec.lua`) → chữ phím bằng `KeyFont`/`KeyColor` (`0x0049627D`) | `_draw`: `shortcuts.slot_of(id, bên)` → `KFont.of(KeyFont).draw(chữ, KeyColor)` (§8.1) |
 | `0x00495B80` | **hit test**: hàng = `(đáy − y) / h`, cột = `(x − trái) / w`, duyệt lại cùng thuật toán xếp | `Layout.hit` |
@@ -181,7 +201,8 @@ Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `Left
 
 Client mới: `client/ui/uicase/UiSkillTree.gd` + `client/ui/KUiSkillTreeLayout.gd` (xếp/hit/danh sách, test headless `test_skill_tree_layout`),
 `KUiGameWindows.skill_tree` (bấm ô kỹ năng chuột của thanh dưới → `toggle_for`, chọn → `_on_skill_clicked`, rê → chú thích), `--auto` chụp
-`auto_skill_tree.png`. Chưa: `+0x110` của kỹ năng, `RightBtnPos`. Phím tắt: §8.1.
+`auto_skill_tree.png`. Chưa: `RightBtnPos`. Phím tắt: §8.1. Bảy đánh thường (53, 1, 2, 229..232, cùng biểu tượng `icon_sk_ty_ap.spr`) lên cây vì
+nhân vật mới được server phát cả bảy (`newplayerini00.ini [FSKILLS]`) và chúng có `LRSkill` 0 — đúng như 2.0 sẽ hiện.
 
 ### 8.1 Phím tắt kỹ năng — `ShortcutSkill(k)` / `DirectShortcutSkill(k)` (M12 lát B4b-5, đã đọc từng dòng)
 

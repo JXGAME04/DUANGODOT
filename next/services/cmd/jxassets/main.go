@@ -1093,14 +1093,18 @@ func main() {
 		fmt.Printf("export-faction: mon phai %s (%d/%d co ten) -> %s\n", file, named, len(table.Factions), p)
 
 	case "export-weapon-skill":
-		// \settings\武器物理攻击对照表.txt of the old server (DetailType, ParticularType, PhysicsSkillID),
-		// read the way 0x0805F18D of jx_linux_y reads it -> <out>/weapon_skill.json for the zone's
-		// KWeaponSkillTable (docs/LINUX-SERVER.md §16).  The file is missing on this machine: the
-		// zone then falls back to the built-in basic attacks 1 / 2.
+		// \settings\武器物理攻击对照表.txt (DetailType, ParticularType, PhysicsSkillID), read the way 0x0805F18D
+		// of jx_linux_y reads it -> <out>/weapon_skill.json for the zone's KWeaponSkillTable
+		// (docs/LINUX-SERVER.md §16) and the client's default mouse skills (gamecl.exe 2.0 loads the
+		// same file at 0x005CB396 into the tables 0x9bcbf0 / 0x9bca60 / 0x9bca5c; docs/CLIENT-2.0.md
+		// §7.1).  The old server folder is tried first, then the 2.0 client's archives (the server
+		// on this machine lacks the file, the client carries it).
 		out := *flagOut
 		if out == "" {
 			out = "client/assets"
 		}
+		var data []byte
+		var file string
 		sdir := *flagServer
 		if sdir == "" {
 			sdir = os.Getenv("JX_OLD_SERVER")
@@ -1108,12 +1112,23 @@ func main() {
 		if sdir == "" {
 			sdir = findServer(findClient())
 		}
-		if sdir == "" {
-			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		if sdir != "" {
+			data, file, _ = readServerFile(sdir, "settings/武器物理攻击对照表.txt", "Settings/武器物理攻击对照表.txt", "settings/weaponskill.txt")
 		}
-		data, file, err := readServerFile(sdir, "settings/武器物理攻击对照表.txt", "Settings/武器物理攻击对照表.txt", "settings/weaponskill.txt")
-		if err != nil {
-			fail("no settings/武器物理攻击对照表.txt under %s: %v", sdir, err)
+		if data == nil {
+			if cdir := findClient(); cdir != "" {
+				set := openSet(cdir)
+				p := gamePath("\\settings\\武器物理攻击对照表.txt")
+				if f, e, ok := set.Lookup(p); ok {
+					if d, err := f.Read(e); err == nil {
+						data, file = d, filepath.Base(f.Path)+":"+p
+					}
+				}
+				set.Close()
+			}
+		}
+		if data == nil {
+			fail("no settings/武器物理攻击对照表.txt under the old server folder or in the client's archives")
 		}
 		table := skill.ParseWeaponSkill(data)
 		table.Source = file

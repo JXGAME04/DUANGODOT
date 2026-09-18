@@ -668,7 +668,7 @@ func _auto_skills() -> void:
 					tree_key += 1
 			await get_tree().create_timer(0.3).timeout
 			await _save_screenshot("user://logs/auto_skill_tree.png")
-			print("AUTO_SKILL_TREE entries=%d rows=%d ids=%s key_q=%d key_w=%d" % [tree._entries.size(), tree._rows, str(tree_ids), int(_windows.shortcuts.slot(0).id), int(_windows.shortcuts.slot(1).id)])
+			print("AUTO_SKILL_TREE entries=%d rows=%d ids=%s key_q=%d key_w=%d mouse=%d/%d weapon=%d" % [tree._entries.size(), tree._rows, str(tree_ids), int(_windows.shortcuts.slot(0).id), int(_windows.shortcuts.slot(1).id), Game.left_skill, Game.right_skill, Game.weapon_attack_skill()])
 			tree.hide()
 		# a state on the character: Bất Động Minh Vương (15, stage 30) cast on oneself puts its icon in the state list (the
 		# 0x87 packet); the fight stance first, like the gate trap does

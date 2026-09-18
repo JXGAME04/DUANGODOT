@@ -462,6 +462,8 @@ def cmd_assets(map_ids: list[str]) -> None:
     # from the converted skill scripts (dev.py lua) at run time, like the JX2 server
     if subprocess.call([*jxassets_args(), "export-skills", "-out", out], cwd=ROOT) != 0:
         print("export-skills: no settings/skills.txt in the reference server folder - skills stay unavailable")
+    if subprocess.call([*jxassets_args(), "export-weapon-skill", "-out", out], cwd=ROOT) != 0:
+        print("export-weapon-skill: no settings/武器物理攻击对照表.txt in the server folder or the client archives - the built-in basic attacks 1 / 2 are used")
     # the icons of those skills (SkillIcon column) into items/images, for the skill book and the mouse skill slots
     elif subprocess.call([*jxassets_args(), "export-skill-images", "-out", out], cwd=ROOT) != 0:
         print("export-skill-images: the skill icons could not be written - the skill book shows names instead")

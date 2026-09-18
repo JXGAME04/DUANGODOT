@@ -56,13 +56,24 @@ static func hit(local: Vector2i, btn: Vector2i, rows: int, cells: Array) -> int:
 	return -1
 
 
-# GDI 0x3f7 (left, 0x006239F0) / 0x3f8 (right, 0x00623B70): does a held skill of this style / aura flag belong in
-# the tree?  Left: styles 5..12 always, 0..4 and 14 when not an aura, 13 never; right: 0..4 and 14 when not an aura.
-static func listed(style: int, aura: bool, right: bool) -> bool:
+# GDI 0x3f7 (left, 0x006239F0) / 0x3f8 (right, 0x00623B70): does a held skill belong in the tree?  `lr` is the
+# LRSkill column of skills.txt (the skill's +0x110): 0 = either mouse button, 1 = the left only, 2 = the right only,
+# 3 = never.  Left: styles 5..12 always (no level check), 13 never, 0..4 and 14 when (lr 0 and not an aura) or lr 1,
+# and then ReqLevel (+0x6c) <= the character's level.  Right: 0..4 and 14 when (lr 0 and not an aura) or lr 2, with
+# the same level check.
+static func listed(style: int, aura: bool, lr: int, right: bool, req_level: int = 0, level: int = 0) -> bool:
 	if right:
-		return (style >= 0 and style <= 4 or style == 14) and not aura
+		if not (style >= 0 and style <= 4 or style == 14):
+			return false
+		if not ((lr == 0 and not aura) or lr == 2):
+			return false
+		return req_level <= level
 	if style >= 5 and style <= 12:
 		return true
 	if style == 13:
 		return false
-	return (style >= 0 and style <= 4 or style == 14) and not aura
+	if not (style >= 0 and style <= 4 or style == 14):
+		return false
+	if not ((lr == 0 and not aura) or lr == 1):
+		return false
+	return req_level <= level

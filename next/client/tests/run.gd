@@ -43,6 +43,7 @@ func _init() -> void:
 	test_skill_tree_layout()
 	test_state_math()
 	test_shortcuts()
+	test_weapon_skill()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -372,9 +373,13 @@ func test_skill_tree_layout() -> void:
 	check(r == Rect2i(760, 650 - 36 * 4, 36 * 7, 36 * 5), "window rect %s" % [r])
 	check(T.cell_pos(p.cells[0], Vector2i(36, 36), 5) == Vector2i(0, 36 * 4) and T.cell_pos(p.cells[16], Vector2i(36, 36), 5) == Vector2i(0, 0), "cells from the bottom")
 	check(T.hit(Vector2i(40, 36 * 4 + 5), Vector2i(36, 36), 5, p.cells) == 1 and T.hit(Vector2i(5, 5), Vector2i(36, 36), 5, p.cells) == 16 and T.hit(Vector2i(100, 5), Vector2i(36, 36), 5, p.cells) == -1, "hit test")
-	# GDI 0x3f7 / 0x3f8: what each side lists
-	check(T.listed(0, false, false) and T.listed(7, false, false) and not T.listed(13, false, false) and not T.listed(0, true, false), "left list")
-	check(T.listed(2, false, true) and T.listed(14, false, true) and not T.listed(7, false, true) and not T.listed(3, true, true), "right list")
+	# GDI 0x3f7 / 0x3f8: what each side lists (style, aura, LRSkill, side, ReqLevel, level)
+	check(T.listed(0, false, 0, false) and T.listed(7, false, 0, false) and not T.listed(13, false, 0, false) and not T.listed(0, true, 0, false), "left list")
+	check(T.listed(2, false, 0, true) and T.listed(14, false, 0, true) and not T.listed(7, false, 0, true) and not T.listed(3, true, 0, true), "right list")
+	# LRSkill: 1 = the left only (even an aura), 2 = the right only, 3 = never; the level check only for styles 0..4 / 14
+	check(T.listed(0, true, 1, false) and not T.listed(0, false, 1, true) and T.listed(0, false, 2, true) and not T.listed(0, false, 2, false), "LRSkill sides")
+	check(not T.listed(0, false, 3, false) and not T.listed(0, false, 3, true) and T.listed(7, false, 3, false), "LRSkill 3 hidden, style 7 always")
+	check(not T.listed(0, false, 0, false, 10, 1) and T.listed(0, false, 0, false, 10, 10) and T.listed(7, false, 0, false, 99, 1), "ReqLevel")
 
 
 # ---- the skill state list (KUiStateMath.gd; gamecl.exe 2.0 KUiSkillState 0x0041F460 / 0x0041D720) ----------
@@ -403,3 +408,14 @@ func test_shortcuts() -> void:
 	var again = K.new()
 	again.from_json(sc.to_json())
 	check(again.slot_of(14, false) == 3 and again.slot_of(14, true) == 5, "round trip")
+
+
+# ---- the weapon -> plain attack table (KWeaponSkillTable.gd; gamecl.exe 2.0 0x005CB396 / 0x005EBBA0) -----------
+func test_weapon_skill() -> void:
+	var K = load("res://ui/KWeaponSkillTable.gd")
+	var t = K.parse({"rows": [{"detail": -1, "particular": 0, "skill": 53}, {"detail": 0, "particular": 2, "skill": 1},
+		{"detail": 0, "particular": 200, "skill": 1}, {"detail": 1, "particular": 0, "skill": 2}, {"detail": 0, "particular": 3, "skill": 0}]})
+	check(int(t.bare) == 53 and t.melee.size() == 1 and t.ranged.size() == 1, "rows kept: bare, melee 2, ranged 0 (particular 200 and skill 0 dropped)")
+	check(K.skill_of(t, -1, -1) == 53 and K.skill_of(t, 0, 2) == 1 and K.skill_of(t, 1, 0) == 2, "lookups")
+	check(K.skill_of(t, 0, 5) == 0 and K.skill_of(t, 2, 0) == 0 and K.skill_of({}, -1, 0) == 0, "no row / no table -> 0")
+	check(K.parse(null).bare == 0, "no json")

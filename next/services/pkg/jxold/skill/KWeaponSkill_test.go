@@ -19,3 +19,12 @@ func TestParseWeaponSkillKeepsTheRowsTheLoaderKeeps(t *testing.T) {
 		t.Fatalf("lookup %+v", tb.Rows)
 	}
 }
+
+func TestParseWeaponSkillSkipsTheBOM(t *testing.T) {
+	// \settings\武器物理攻击对照表.txt inside the 2.0 client's archives starts with EF BB BF
+	data := append([]byte{0xEF, 0xBB, 0xBF}, []byte("DetailType\tParticularType\tPhysicsSkillID\r\n-1\t0\t53\r\n0\t2\t1\r\n1\t0\t2\r\n")...)
+	tb := ParseWeaponSkill(data)
+	if len(tb.Rows) != 3 || tb.Rows[0].Detail != -1 || tb.Rows[0].Skill != 53 || tb.Rows[1].Particular != 2 || tb.Rows[2].Skill != 2 {
+		t.Fatalf("rows = %+v", tb.Rows)
+	}
+}

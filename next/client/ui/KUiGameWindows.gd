@@ -91,6 +91,7 @@ func _ready() -> void:
 	skills_window.skill_hovered.connect(_on_skill_hovered)
 	Game.player_attrib_changed.connect(func(_a): _refresh_bars())
 	Game.skills_changed.connect(_refresh_mouse_skills)
+	Game.mouse_skill_changed.connect(_refresh_mouse_skills)
 	Game.skill_changed.connect(func(_id): _refresh_mouse_skills())
 	_refresh_bars()
 	_refresh_mouse_skills()
