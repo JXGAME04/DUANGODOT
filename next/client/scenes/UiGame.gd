@@ -42,6 +42,7 @@ func _ready() -> void:
 
 	_build_hud()
 	_windows = KUiGameWindows.new()
+	_windows.quick_skill.connect(func(id: int): cast_skill_at_mouse(id))
 	_windows.name = "Windows"
 	add_child(_windows)
 	# the 2.0 bottom bar carries the chat line ([InputEdit] of 玩家信息主界面.ini): the plain one steps aside
@@ -63,7 +64,7 @@ func _ready() -> void:
 	_update_camera(true)
 	Log.info("ui", "world screen", {"zone": Game.zone_name, "entity": Game.entity_id, "entities": _entities.size(),
 		"map": Game.map_id, "bundle": has_map})
-	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, F4 túi đồ, F3 nhân vật, F5 kỹ năng, Q..C kỹ năng tắt, Esc để thoát.[/color]" % Game.zone_name)
+	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, F4 túi đồ, F3 nhân vật, F5 kỹ năng, Q..C kỹ năng tắt, 1..9 ô nhanh, Esc để thoát.[/color]" % Game.zone_name)
 	if "--auto" in OS.get_cmdline_user_args():
 		_auto_run()
 
@@ -205,14 +206,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# the right mouse skill (m_nRightSkillID): on the entity under the cursor, else on the spot
 			if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
-				var p := get_global_mouse_position()
-				var hit := _entity_at(p)
-				var cseq: int
-				if hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
-					_select_target(hit)
-					cseq = Game.cast_skill(Game.right_skill, hit.entity_id)
-				else:
-					cseq = Game.cast_skill(Game.right_skill, 0, clampi(int(p.x), 0, _scene_w - 1), clampi(int(p.y * 2.0), 0, _scene_h - 1))
+				var cseq := cast_skill_at_mouse(Game.right_skill)
 				Log.debug("ui", "right click cast", {"skill": Game.right_skill, "seq": cseq})
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_set_zoom(_zoom * 1.15)
@@ -230,6 +224,17 @@ func _unhandled_input(event: InputEvent) -> void:
 func _set_zoom(z: float) -> void:
 	_zoom = clampf(z, 0.25, 3.0)
 	_camera.zoom = Vector2(_zoom, _zoom)
+
+
+# A skill on the entity under the cursor, else on the spot (the right mouse skill; ShortcutUseItem of a quick cell
+# holding a skill casts the same way, 0x005BC500 with the cursor position)
+func cast_skill_at_mouse(skill_id: int) -> int:
+	var p := get_global_mouse_position()
+	var hit := _entity_at(p)
+	if hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
+		_select_target(hit)
+		return Game.cast_skill(skill_id, hit.entity_id)
+	return Game.cast_skill(skill_id, 0, clampi(int(p.x), 0, _scene_w - 1), clampi(int(p.y * 2.0), 0, _scene_h - 1))
 
 
 # A click on a thing on the ground: picked up at once when near enough, else the character walks
@@ -670,6 +675,25 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_skill_tree.png")
 			print("AUTO_SKILL_TREE entries=%d rows=%d ids=%s key_q=%d key_w=%d mouse=%d/%d weapon=%d" % [tree._entries.size(), tree._rows, str(tree_ids), int(_windows.shortcuts.slot(0).id), int(_windows.shortcuts.slot(1).id), Game.left_skill, Game.right_skill, Game.weapon_attack_skill()])
 			tree.hide()
+		# the quick slots: the first medicine of the bag goes to cell 0 (a drop from the cursor), key 1 uses it
+		# (ShortcutUseItem(0) -> UseItem), the bar is photographed with the cell filled
+		var quick_item := {}
+		for id in Game.items:
+			var it: Dictionary = Game.items[id]
+			if int(it.room) == Game.ROOM_BAG and int(it.genre) == KUiItemView.GENRE_MEDICINE:
+				quick_item = it
+				break
+		var quick_ok := false
+		var quick_count := 0
+		if not quick_item.is_empty():
+			quick_count = int(quick_item.count)
+			quick_ok = _windows.assign_quick(0, quick_item)
+			await get_tree().create_timer(0.3).timeout
+			await _save_screenshot("user://logs/auto_quick.png")
+			_windows._quick_key(0)
+			await get_tree().create_timer(0.6).timeout
+		var after = Game.items.get(int(quick_item.get("id", 0)))
+		print("AUTO_QUICK item=%d name=%s count=%d assigned=%s count_after=%d slot0=%d" % [int(quick_item.get("id", 0)), str(quick_item.get("name", "")), quick_count, quick_ok, int(after.count) if after != null else -1, int(_windows.quick.slot(0).id)])
 		# a state on the character: Bất Động Minh Vương (15, stage 30) cast on oneself puts its icon in the state list (the
 		# 0x87 packet); the fight stance first, like the gate trap does
 		if Game.skills.has(15) and _windows.state_window != null:

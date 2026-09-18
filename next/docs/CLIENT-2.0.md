@@ -158,8 +158,7 @@ Tệp (theme `\Ui\ui3_1024\`, xuất ra `client/assets/ui/thanh-dieu-khien-tren`
 | `0x004730D0` | đổi kênh chat (`ChannelBtn +0x686c`) | chưa |
 
 Client mới: `client/ui/uicase/UiControlBar.gd` (hai thanh), `UiPlayerBar.gd` (thanh dưới), `client/ui/elem/KWndPartImage.gd` + `client/ui/KUiPartMath.gd`,
-`KUiGameWindows._build_bars/_on_bar_command/_refresh_bars/_refresh_mouse_skills`; `UiGame` dùng dòng chat của thanh dưới. Chưa: ô thuốc nhanh (kéo
-thuốc từ túi: `+0x28b8`), `DateTime` ping/`GameLogo`, `ChannelBtn`/kênh chat, `Face` biểu cảm, thanh thu nhỏ `SwitchSizeBtn`, `Market`, hạng giang hồ.
+`KUiGameWindows._build_bars/_on_bar_command/_refresh_bars/_refresh_mouse_skills`; `UiGame` dùng dòng chat của thanh dưới. Chưa (ô thuốc nhanh: §7.2): `DateTime` ping/`GameLogo`, `ChannelBtn`/kênh chat, `Face` biểu cảm, thanh thu nhỏ `SwitchSizeBtn`, `Market`, hạng giang hồ.
 
 ### 7.1 Kỹ năng chuột mặc định — đánh thường theo vũ khí (M12 lát B4b-6a, đã đọc từng dòng)
 
@@ -180,6 +179,32 @@ Bản 2.0 nạp **cùng tệp với server** `\settings\武器物理攻击对照
 `--auto` (đệ tử mới, tay không): `AUTO_SKILL_TREE … mouse=53/53 weapon=53`, hai ô chuột của thanh dưới hiện Quyền cơ bản (53) ngay khi vào game
 (`auto_world.png`). Chưa đọc: các chỗ khác gọi `SetLeftSkill` (`0x005FB340`, `0x005FDF60`, `0x006004C0`) — client mới tạm gọi lại luật khi vật ở ô vũ khí
 đổi chỗ.
+
+### 7.2 Ô thuốc nhanh `Item_0..8` — `ShortcutUseItem(0..8)` (M12 lát B4b-6b, đã đọc từng dòng)
+
+Chín ô của thanh dưới (`Item_%d`, `KWndObjectBox` 36 px tại (158 + 38·i, 728)) là **lưới 9 × 1 phía client** trong `KItemList` (`+0x4ce8`; `0x00637DD0`
+đọc ô (x, y), `0x00637CE0` ghi): mỗi ô giữ chỉ số một vật **trong túi** hoặc một kỹ năng (id | 0x4000000). Không liên quan phòng `room_immediacy`
+3 × 1 của server (JX1: `pos_immediacy` = 7 phía client; `pos_equiproom` = 3 là túi — `GameDataDef.h` cũ). `autoexec.lua`: phím `1`..`9` →
+`ShortcutUseItem(0..8)`.
+
+| Địa chỉ | Làm gì | Client mới |
+|---|---|---|
+| `0x0042F990` (Lua `ShortcutUseItem`) → `0x00472F80(k)` | `k > 8` → về; `GetObject 0x0045DD40` của ô k (`+0x23d0 + k·0x4f0`; 6 dword `+0x4b0..`) → `{genre, id, k, 0, x chuột, y chuột}` (`0x004664B0` = vị trí con trỏ) → `OperationRequest(0xa, &struct, 3)` | `KUiGameWindows._quick_key(k)` |
+| op `0xa` (`0x5c2d91`) | nguồn 3 → loại 7 (ô nhanh), 5 → 3; genre 4 (kỹ năng): loại 7 → `0x0042BB20(id)` rồi thi triển tại (x, y) `0x005BC500`; genre 5 (vật): loại 7 → `UseItem(id) 0x005FD4B0` (vật phải ở túi: bản ghi `+0x18cc + idx·20 == 3`), loại khác → Lua `UiManage:ScriptHandleRCLickItem` rồi `0x005FA990`; genre 0x9e → `0x00612980` | kỹ năng → tín hiệu `quick_skill` → `UiGame.cast_skill_at_mouse`; vật → `Game.item_use` (trang bị → `item_equip`) khi còn trong túi |
+| `WndProc 0x00475A10` | msg `0x511` (thả từ con trỏ) → `0x00446590(0x831978, 0)` rồi `0x00472E70(wParam, lParam)`; msg `0x513` (bấm ô có vật) → `0x00446590(…, 2)` rồi duyệt 9 ô so lParam → `ShortcutUseItem(k)` (`0x004763C0`); msg `0x512` trên `ImediaLeft/RightSkill` → `0x00496400(1/0)` mở cây | `UiPlayerBar.quick_put / quick_clicked` (KWndObjContainer `put_requested` / `object_clicked`) |
+| `0x00472E70` | **thả vào ô**: struct nguồn `{genre, id, ô, 0, +0x10, +0x14, 3, …, con trỏ ô}` từ `GetObject` của ô (hoặc từ tay `0x00466310`), chỉ số ô = vị trí trong `+0x23d0 + i·0x4f0` → `OperationRequest(3, &từ, &đến)` | `_quick_put(k)` |
+| op `3` (`0x5c2532`) → `Exchange 0x005FAD10` loại 7 (`0x5FADD5`) | `0x005F7C10` (đang giao dịch → thôi); vật trên tay `[+0x1878]` → bảng vật `[0x1f179a4]` bước 0x74c `+4/+0xc/+0x10` = genre/detail/particular → `0x006386C0(lưới +0x6544)` **đã có vật cùng loại trong thanh → báo `[0x9c00d8]`** (`0x005B8150(0x1f)`), else `0x00612A60(list, &từ, &đến)` đặt ô (bỏ khi vật ở `pos_immediacy` 7) | `KUiShortcutItem.put_item` (từ chối trùng loại), tay được thả, vật vẫn ở túi |
+| `0x0060EB50(list, ô, genre, id)` | đặt ô: genre 5 → `0x0060C130(id)` vật phải tồn tại; genre 4 → `0x0060CF80(id, 0)` kỹ năng phải giữ → `id | 0x4000000`; `0x00637CE0(lưới +0x4ce8, ô, id, 0, 1, 1)` | `put_item` / `put_skill` |
+| `GetGameData 0x3ec` (`0x00661B03`) | 0x58 byte: 9 × `{genre, id}` từ lưới (`0x00637DD0(+0x10dbc, i, 0)`; bit 0x4000000 → genre 4, else 5), rồi `{0x40004, kỹ năng chuột trái +0xa8a4}`, `{0x40004, phải +0xa8ac}` | `quick.slots` |
+| `0x00473B10` (`SaveConfig`) / `0x00473970` (`LoadConfig`) | `[Player]`: `ShowLife`/`ShowName`/`…` (GDI 0x403/0x402/0x401); 9 ô: struct 0x14 `{genre, id, +GetGameData 0x7dd(id) 3 dword = genre/detail/particular của vật}` → `WriteStruct("Player", "Item_%d")`; nạp: `GetStruct` → `OperationRequest(0xe, &struct, i)`; rồi `LeftSkill`/`RightSkill` 8 byte | `user://shortcuts_<pid>.json` `items` (`{genre, id, kind, detail, particular}`) |
+| op `0xe` (`0x5c30e1`) | `i ≤ 8`; genre 5 → `0x0060CA60(list, genre, detail, particular, &id…)` = `0x00638500` tìm trong túi vật cùng loại → `[ebx+4] = id`, không có → xoá struct; rồi `0x0060EB50(list, i, genre, id)` | `KUiShortcutItem.resolve(items, túi)` mỗi khi túi đổi (`items_changed`/`item_changed`/`item_removed`) |
+
+Client mới: `client/ui/KUiShortcutItem.gd` (9 ô `{genre 4/5, id, kind, detail, particular}`, `put_item` (từ chối trùng loại), `put_skill`, `remove`,
+`resolve`, `slot_of_key` 1..9 / bàn phím số, JSON; test `test_shortcut_items`), `UiPlayerBar` (`set_quick`, `set_hand`, tín hiệu `quick_clicked/quick_put/
+quick_right_clicked`; ô `accept_free`), `KUiGameWindows` (`_quick_key`, `_quick_put`, `assign_quick`, `_quick_clear` = chuột phải xoá ô — thay cho kéo ra bằng tay,
+`_refresh_quick`, tệp `shortcuts_<pid>.json` `{skills, items}`), `UiGame.cast_skill_at_mouse` (dùng chung với chuột phải). `--auto`: thuốc đầu tiên trong túi vào
+ô 0 → `auto_quick.png`, phím 1 dùng thuốc → `AUTO_QUICK item=3 name=Kim Sáng Dược (tiểu) count=1 assigned=true count_after=-1 slot0=0 (thuốc dùng hết, ô tự xoá theo op 0xe)`. Chưa: kéo vật ra khỏi ô bằng tay (2.0: thả ô → tay), thông báo trùng loại (`[0x9c00d8]`),
+genre 0x9e, `ShortcutEatMedicine` (`0x00439DB0`: 0 → `0x005A5B40`, 1 → `0x005A5B30` — MouseWheel của autoexec), chú thích ô.
 
 ## 8. Cây chọn kỹ năng cho chuột — `KUiSkillTree` (`技能选择树.ini`, M12 lát B4b-3, đã đọc từng dòng `gamecl.exe`)
 

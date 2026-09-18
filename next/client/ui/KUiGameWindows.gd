@@ -17,6 +17,7 @@ const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
+const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
@@ -32,6 +33,8 @@ var player_bar: UiPlayerBar = null
 var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
 var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
 var shortcuts := KUiShortcut.new()      # the nine shortcut skills (Q W E A S D Z X C), kept per character
+var quick := KUiShortcutItem.new()      # the nine quick slots of the bottom bar (keys 1..9), kept per character
+signal quick_skill(skill_id: int)       # ShortcutUseItem on a cell holding a skill: cast it at the cursor (the scene knows where)
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
 var ready_ok := false
@@ -112,6 +115,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_shortcut_key(k)
 		get_viewport().set_input_as_handled()
 		return
+	var q := KUiShortcutItem.slot_of_key(event.keycode)
+	if q >= 0:
+		_quick_key(q)
+		get_viewport().set_input_as_handled()
+		return
 	match event.keycode:
 		KEY_I, KEY_F4:
 			item_window.toggle_window()
@@ -159,6 +167,13 @@ func _build_bars() -> void:
 		player_bar = null
 	else:
 		player_bar.mouse_skill_clicked.connect(func(right): if skill_tree != null: skill_tree.toggle_for(right))
+		player_bar.quick_clicked.connect(_quick_key)
+		player_bar.quick_put.connect(_quick_put)
+		player_bar.quick_right_clicked.connect(_quick_clear)
+		Game.items_changed.connect(_refresh_quick)
+		Game.item_changed.connect(func(_item): _refresh_quick())
+		Game.item_removed.connect(func(_id): _refresh_quick())
+		_refresh_quick()
 	top_bar = UiControlBar.new()
 	_canvas.add_child(top_bar)
 	if not top_bar.load_scheme("thanh-dieu-khien-tren", screen):
@@ -251,7 +266,77 @@ func assign_shortcut(k: int, skill_id: int, right: bool) -> void:
 			skill_tree.queue_redraw()
 
 
-# [ShortSkill] ShortcutSkill_%d of the character's settings (0x0052D720): here user://shortcuts_<player id>.json
+# ShortcutUseItem(k) 0x00472F80: the cell's item is used (UseItem 0x005FD4B0 wants it in the bag: equipment is worn,
+# a medicine / portal / script item used), a skill is cast at the cursor (op 0xa genre 4 -> 0x005BC500)
+func _quick_key(k: int) -> void:
+	var s: Dictionary = quick.slot(k)
+	if int(s.genre) == KUiShortcutItem.GENRE_SKILL:
+		if Game.skills.has(int(s.id)):
+			quick_skill.emit(int(s.id))
+		return
+	if int(s.genre) != KUiShortcutItem.GENRE_ITEM:
+		return
+	var it = Game.items.get(int(s.id))
+	if it == null or int(it.room) != Game.ROOM_BAG:
+		return
+	Log.info("ui", "quick item", {"slot": k, "item": int(it.id), "name": str(it.name), "genre": int(it.genre)})
+	if int(it.genre) == KUiItemView.GENRE_EQUIP:
+		Game.item_equip(int(it.id), -1)
+	else:
+		Game.item_use(int(it.id))
+
+
+# a click on a quick box with an item on the cursor (msg 0x511 -> 0x00472E70 -> op 3 kind 7): the cell references the
+# bag item, the cursor is emptied (the item stays in the bag); refused when the bar holds that kind already (0x006386C0)
+func _quick_put(k: int) -> void:
+	if not hand.holding():
+		return
+	var it = Game.items.get(hand.item_id)
+	if it == null:
+		return
+	if not assign_quick(k, it):
+		Log.info("ui", "quick slot refused", {"slot": k, "item": int(it.id), "name": str(it.name)})
+		return
+	_drop_hand()
+
+
+func assign_quick(k: int, item: Dictionary) -> bool:
+	if not quick.put_item(k, item):
+		return false
+	Log.info("ui", "quick slot", {"slot": k, "item": int(item.id), "name": str(item.name)})
+	_save_shortcuts()
+	_refresh_quick()
+	return true
+
+
+func _quick_clear(k: int) -> void:
+	if int(quick.slot(k).genre) == 0:
+		return
+	quick.remove(k)
+	_save_shortcuts()
+	_refresh_quick()
+
+
+# the cells follow the bag (op 0xe: a vanished item is replaced by one of its kind, or the cell clears)
+func _refresh_quick() -> void:
+	if player_bar == null:
+		return
+	if quick.resolve(Game.items, Game.ROOM_BAG):
+		_save_shortcuts()
+	for i in KUiShortcutItem.SLOTS:
+		var s: Dictionary = quick.slot(i)
+		var view := {}
+		if int(s.genre) == KUiShortcutItem.GENRE_ITEM and Game.items.has(int(s.id)):
+			view = KUiItemView.object_of(Game.items[int(s.id)])
+		elif int(s.genre) == KUiShortcutItem.GENRE_SKILL and skills_window != null:
+			var info: Dictionary = skills_window.skill_info(int(s.id))
+			view = {"id": int(s.id), "image": Assets.item_image(str(info.get("icon", ""))), "ex_type": 0, "usable": false,
+				"name": str(info.get("name", "")), "count": 0}
+		player_bar.set_quick(i, view)
+
+
+# [ShortSkill] ShortcutSkill_%d and [Player] Item_%d of the character's settings (0x0052D720, 0x00473B10): here
+# user://shortcuts_<player id>.json {"skills": [...], "items": [...]}
 func _shortcut_path() -> String:
 	return "user://shortcuts_%d.json" % int(Game.player_id)
 
@@ -265,14 +350,18 @@ func _load_shortcuts() -> void:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
 	f.close()
-	shortcuts.from_json(parsed)
+	if parsed is Array:   # the first files held the skills only
+		shortcuts.from_json(parsed)
+	elif parsed is Dictionary:
+		shortcuts.from_json(parsed.get("skills", []))
+		quick.from_json(parsed.get("items", []))
 
 
 func _save_shortcuts() -> void:
 	var f := FileAccess.open(_shortcut_path(), FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(JSON.stringify(shortcuts.to_json()))
+	f.store_string(JSON.stringify({"skills": shortcuts.to_json(), "items": quick.to_json()}))
 	f.close()
 
 
@@ -315,6 +404,8 @@ func _drop_hand() -> void:
 func _tell_hand() -> void:
 	item_window.set_hand(hand.cells)
 	status_window.set_hand(hand.cells)
+	if player_bar != null:
+		player_bar.set_hand(hand.cells)
 
 
 # A click in the bag with an item on the cursor: the zone decides (C2G_ITEM_MOVE); the item

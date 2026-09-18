@@ -22,6 +22,9 @@ const QUICK_SLOTS := 9        # 0x00472457: Item_0 .. Item_8 (0x2c70 / 0x4f0)
 
 signal chat_submitted(text: String)
 signal mouse_skill_clicked(right: bool)   # a click on ImediaLeftSkill / ImediaRightSkill
+signal quick_clicked(slot: int)           # a left click on a filled quick box, nothing on the cursor (msg 0x513 -> ShortcutUseItem)
+signal quick_put(slot: int)               # a left click on a quick box with something on the cursor (msg 0x511 -> 0x00472E70)
+signal quick_right_clicked(slot: int)     # a right click on a filled quick box (the new client clears it)
 
 var chat_input: LineEdit = null
 var _quick: Array = []        # the nine KWndObjContainer
@@ -61,6 +64,11 @@ func load_scheme(screen: Vector2i) -> bool:
 		var box := KWndObjContainer.new()
 		add_child(box)
 		if box.init_from(ini, "Item_%d" % i):
+			box.accept_free = true   # a KWndObjectBox takes whatever is dropped on it (one cell)
+			var slot_index := i
+			box.object_clicked.connect(func(_o): quick_clicked.emit(slot_index))
+			box.put_requested.connect(func(_x, _y): quick_put.emit(slot_index))
+			box.object_right_clicked.connect(func(_o): quick_right_clicked.emit(slot_index))
 			_quick.append(box)
 		else:
 			box.queue_free()
@@ -113,6 +121,29 @@ func _on_submitted(text: String) -> void:
 
 
 # the two mouse skills (KPlayer::m_nLeftSkillID / m_nRightSkillID): {id, name, icon} or empty
+# what a quick box shows: an object dict of KWndObjContainer ({id, image, name, count, ...}) or an empty one
+func set_quick(slot: int, obj: Dictionary) -> void:
+	if slot < 0 or slot >= _quick.size():
+		return
+	var box: KWndObjContainer = _quick[slot]
+	if obj.is_empty():
+		box.set_objects([])
+	else:
+		var o := obj.duplicate()
+		o["x"] = 0
+		o["y"] = 0
+		o["w"] = 1
+		o["h"] = 1
+		box.set_objects([o])
+
+
+# the size of the item on the cursor: a click on a quick box then asks to put it there
+func set_hand(cells: Vector2i) -> void:
+	for box in _quick:
+		box.hand_size = cells
+		box.queue_redraw()
+
+
 func set_mouse_skills(left: Dictionary, right: Dictionary) -> void:
 	for pair in [[_left_box, left], [_right_box, right]]:
 		var box: KWndObjContainer = pair[0]

@@ -44,6 +44,7 @@ func _init() -> void:
 	test_state_math()
 	test_shortcuts()
 	test_weapon_skill()
+	test_shortcut_items()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -419,3 +420,32 @@ func test_weapon_skill() -> void:
 	check(K.skill_of(t, -1, -1) == 53 and K.skill_of(t, 0, 2) == 1 and K.skill_of(t, 1, 0) == 2, "lookups")
 	check(K.skill_of(t, 0, 5) == 0 and K.skill_of(t, 2, 0) == 0 and K.skill_of({}, -1, 0) == 0, "no row / no table -> 0")
 	check(K.parse(null).bare == 0, "no json")
+
+
+# ---- the quick slots (KUiShortcutItem.gd; gamecl.exe 2.0 ShortcutUseItem 0x00472F80, Exchange kind 7, op 0xe) -----
+func test_shortcut_items() -> void:
+	var K = load("res://ui/KUiShortcutItem.gd")
+	var q = K.new()
+	var potion := {"id": 11, "genre": 1, "detail": 0, "particular": 0, "room": 0, "count": 3}
+	var potion2 := {"id": 12, "genre": 1, "detail": 0, "particular": 0, "room": 0, "count": 5}
+	var mana := {"id": 13, "genre": 1, "detail": 1, "particular": 0, "room": 0, "count": 2}
+	check(q.slots.size() == 9 and int(q.slot(0).genre) == 0, "nine empty cells")
+	check(q.put_item(0, potion) and q.slot_of(K.GENRE_ITEM, 11) == 0, "a potion in cell 0")
+	check(not q.put_item(3, potion2) and int(q.slot(3).genre) == 0, "another stack of the same kind is refused (0x006386C0)")
+	check(q.put_item(0, potion2) and int(q.slot(0).id) == 12, "the same kind may replace its own cell")
+	check(q.put_item(1, mana) and q.has_kind(1, 1, 0), "another kind takes cell 1")
+	check(q.put_skill(2, 14) and q.put_skill(4, 14) and int(q.slot(2).genre) == 0 and q.slot_of(K.GENRE_SKILL, 14) == 4, "a skill moves between cells")
+	check(not q.put_item(9, potion) and not q.put_skill(0, 0), "out of range / empty refused")
+	# op 0xe: the stack in cell 0 is gone -> the other stack of that kind takes it; the mana potion vanished -> cleared
+	var items := {11: potion}
+	check(q.resolve(items, 0) and int(q.slot(0).id) == 11 and int(q.slot(1).genre) == 0 and int(q.slot(4).id) == 14, "resolve rebinds by kind, clears the rest")
+	check(not q.resolve(items, 0), "nothing to change the second time")
+	var moved := {11: {"id": 11, "genre": 1, "detail": 0, "particular": 0, "room": 10, "count": 3}}
+	check(q.resolve(moved, 0) and int(q.slot(0).genre) == 0, "an item out of the bag leaves the cell")
+	check(K.slot_of_key(KEY_1) == 0 and K.slot_of_key(KEY_9) == 8 and K.slot_of_key(KEY_KP_5) == 4 and K.slot_of_key(KEY_0) == -1, "keys 1..9")
+	q.put_item(5, potion)
+	var again = K.new()
+	again.from_json(q.to_json())
+	check(int(again.slot(5).id) == 11 and int(again.slot(5).detail) == 0 and int(again.slot(4).id) == 14, "round trip")
+	q.remove(5)
+	check(int(q.slot(5).genre) == 0, "remove")
