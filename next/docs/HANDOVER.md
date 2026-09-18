@@ -163,7 +163,9 @@ Linux"; "phải kiểm tra từng dòng nhị phân". Ảnh: `build/shots/auto_i
 
 - **Mở được nhị phân client 2.0**: `gamecl.exe` là core + UI nén UPX 3.03 → `tools/re/re_upx.py` (giải nén NRV2E,
   bỏ lọc E8, dựng lại import từ stub nạp) → ảnh bộ nhớ 34,6 MB mà mọi `re_*` đọc như ELF. Tài liệu mới
-  [`CLIENT-2.0.md`](CLIENT-2.0.md): địa chỉ, bảng chuỗi, luật.
+  [`CLIENT-2.0.md`](CLIENT-2.0.md): địa chỉ, bảng chuỗi, luật. (Thú thật: phiên trước đã có `upx_unpack.py` +
+  `re_pe.py` cho việc này mà tôi không xem lại trước khi viết; giữ cả hai, `tools/re/README.md` ghi rõ — bộ mới
+  thêm import tĩnh và nối được vào đồ thị gọi hàm.)
 - **`KItem::GetDesc` `0x00636460`** đọc từng dòng: màu tên (Blue 100,100,255 khi có ma pháp; Yellow hoàng kim;
   Violet; Red hỏng), ` [Cấp N]`, dòng **"Thuộc tính Ngũ hành: <màu hệ>Kim "** (`G_ITEM_3..7`, chỉ trang bị không
   mặt nạ), mô tả qua **`g_StrWrap(.., 40)`** của `engineFree.dll` (chia đều `n/40+1` dòng), độ bền `"Độ bền: %3d /

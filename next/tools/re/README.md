@@ -6,8 +6,9 @@ byte breakpoint `INT3` của `filetrace.py`.
 
 | Công cụ | Việc |
 |---|---|
-| `upx_unpack.py <exe> <out.bin>` | Giải nén ảnh PE bị UPX (NRV2B/NRV2E LE32) **và** gỡ bộ lọc lệnh `call` (filter 0x24/0x26). `gamecl.exe` 2.0: 1,28 MB → 34,5 MB trong 0,6 giây. |
-| `re_pe.py <img> sections\|xref\|xrefstr\|dis\|func` | Đọc ảnh đã giải nén: bảng section gốc, ai nạp một địa chỉ/chuỗi, dịch ngược có chú thích chuỗi GBK. |
+| `re_upx.py <exe>` | **Bộ mở mới (2026-09-18)**: giải nén UPX (NRV2E) + gỡ bộ lọc `call` + **dựng lại bảng import ngay từ stub nạp** (không cần tiến trình sống) → `<exe>.unpacked.img` + `.json` mà **`re_elf.py` / `re_calls.py` / `re_scan.py` / `re_tabdesc.py` đọc như một ELF** (đồ thị gọi hàm, quét thành viên, prologue MSVC). Dùng cho `KItem::GetDesc` ([`docs/CLIENT-2.0.md`](../../docs/CLIENT-2.0.md)). |
+| `upx_unpack.py <exe> <out.bin>` | Bộ mở cũ hơn (cùng thuật toán, không import): ảnh thô cho `re_pe.py`. |
+| `re_pe.py <img> sections\|xref\|xrefstr\|dis\|func` | Đọc ảnh của `upx_unpack.py`: bảng section gốc, ai nạp một địa chỉ/chuỗi, dịch ngược có chú thích chuỗi GBK. |
 | `re_dll.py <dll> exports\|dis` | DLL không nén (`engineFree.dll`): bảng export, dịch ngược theo tên export, chú thích import/chuỗi. |
 | `imgstr.py <img> near\|grep` | Chuỗi trong ảnh theo vùng địa chỉ hoặc theo regex. |
 | `callers.py`, `iatcalls.py` | Ai gọi một hàm (`call rel32`, con trỏ bảng ảo) / ai gọi một ô import. |
