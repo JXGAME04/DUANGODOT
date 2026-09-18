@@ -547,6 +547,7 @@ TEST_CASE("a character's items survive spawn -> snapshot -> spawn, worn pieces i
     CHECK(saved.money() == 500);
     CHECK(saved.bank_money() == 70);
     CHECK(saved.next_item_id() == list->next_id());
+    const std::uint32_t next_before = list->next_id();   // `list` dies with the player below (its KItemList is erased)
     REQUIRE(w.remove_player(1));
 
     // the same character comes back: same ids, same places, same rolled values
@@ -561,7 +562,7 @@ TEST_CASE("a character's items survive spawn -> snapshot -> spawn, worn pieces i
     CHECK(again->find(goldpiece)->magic[0].value[0] == magic0);   // no re-roll
     CHECK(again->find(goldpiece)->name() == "Hoang kim");
     CHECK(again->find(sword)->durability == 20);
-    CHECK(again->next_id() == list->next_id());
+    CHECK(again->next_id() == next_before);
     CHECK(again->money(jx::zone::room_repository) == 70);
 
     // an item whose table set is gone is dropped, the rest stays

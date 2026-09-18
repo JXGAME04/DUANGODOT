@@ -57,10 +57,56 @@ def tails(files: list[str]) -> int:
     return 1
 
 
+LOG_TEST = re.compile(r"^\d+/\d+\s+Testing:\s+(?P<name>.+?)\s*$")
+LOG_RESULT = re.compile(r"^Test (Passed|Failed|Timeout|Crashed)\.?\s*$|^\"(?P<name>.+?)\" end time:")
+
+
+def first_run_failures(preset: str) -> int:
+    """The output of the run that FAILED, before --rerun-failed overwrites it: ctest keeps every
+    test's output in <build>/Testing/Temporary/LastTest.log.  A test that fails once in a hundred
+    runs passes its rerun and would otherwise leave nothing readable without a login (the runs
+    114 / 112 of next-ci: 'items survive spawn -> snapshot -> spawn' on Windows)."""
+    build = os.path.join(ROOT, "build", preset.rsplit("-", 1)[0], "Testing", "Temporary", "LastTest.log")
+    try:
+        with open(build, encoding="utf-8", errors="replace") as f:
+            lines = [l.rstrip("\n") for l in f]
+    except OSError:
+        return 0
+    sent = 0
+    current = ""
+    body: list[str] = []
+    found_in_test = 0
+    for i, line in enumerate(lines):
+        start = LOG_TEST.match(line)
+        if start:
+            current, body, found_in_test = start.group("name"), [], 0
+            continue
+        body.append(line)
+        failed = FAILED.match(line.strip())
+        if failed and sent < 10:
+            detail: list[str] = []
+            for l in lines[i + 1:i + 9]:
+                if l.startswith("===") or l.startswith("<end of output>"):
+                    break
+                if l.strip():
+                    detail.append(l)
+            print(f"::error file={relative(failed.group('file'))},line={failed.group('line')},title={escape('first run: ' + (current or 'test'))}::"
+                  + escape("\n".join(detail)))
+            sent += 1
+            found_in_test += 1
+            continue
+        if line.startswith("Test ") and line.rstrip(".") in ("Test Failed", "Test Timeout", "Test Crashed") and found_in_test == 0 and sent < 10:
+            tail = [l for l in body if l.strip()][-25:]
+            print(f"::error title={escape('first run: ' + (current or 'test') + ' ' + line.strip())}::" + escape("\n".join(tail)))
+            sent += 1
+    return sent
+
+
 def main() -> int:
     if len(sys.argv) > 2 and sys.argv[1] == "--tail":
         return tails(sys.argv[2:])
     preset = sys.argv[1]
+    first_run_failures(preset)
     run = subprocess.run(["ctest", "--preset", preset, "--rerun-failed", "--output-on-failure"],
                          cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
     lines = (run.stdout + "\n" + run.stderr).split("\n")

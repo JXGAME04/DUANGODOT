@@ -249,7 +249,11 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 ### 0.6 Cách làm đang tốt — giữ nguyên
 
 - **Con trỏ `KNpc*` trong test chết sau khi thêm thực thể** (`entities_.insert` có thể dời bảng): `Arena` giữ `h`/`p` → sau
-  `spawn_player` thứ hai phải `mutable_entity` lại (giá trị rác `watchers.size() == 0` làm đoán sai hướng).
+  `spawn_player` thứ hai phải `mutable_entity` lại (giá trị rác `watchers.size() == 0` làm đoán sai hướng). Cùng lớp lỗi: test
+  CI chập chờn "items survive spawn → snapshot → spawn" (run 112/114 của `main`, chỉ Windows) là `KItemList* list` đọc sau
+  `remove_player` (đã `erase`) — Release đọc trúng bộ nhớ cũ nên qua, Debug 222/300 lần sai. Sửa: lấy `next_id` trước khi xoá.
+  Muốn thấy lỗi gốc của lần chạy đầu (lần chạy lại qua): `tools/ci_annotate.py` giờ đọc `Testing/Temporary/LastTest.log` trước
+  `--rerun-failed` và ghi chú thích "first run: …".
 - **Vector `attribconstdata` bắt đầu từ `Data0`** (bộ nạp `0x080E75A0` ghi `[i] = Data_i`), nhưng vòng `0x0807D4C0` đi
   `size−1 … 1`: `Data0` của `[hide]` là độ trong suốt (70), không phải kỹ năng — đọc `.ini` gốc (`settings/attribconstdata.ini`,
   GBK) để biết nghĩa từng ô.
@@ -421,6 +425,10 @@ Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo 
 - **Test**: `test_KNpcCommand.cpp` 8 ca / 155 kiểm (2 ca mới: ẩn → người xem quên (DESPAWN), không học lại khi còn ẩn, thi triển làm vỡ → học lại ngay khung sau; `SetHide` trên npc, gỡ khỏi npc không ẩn giữ 0, chết làm vỡ), ctest 204/204, Go test xanh.
 - **Chưa**: style 1 thân pháp, mòn đồ, tạo npc, đồng hành, chết/PK, ngựa, mượn dáng 186, gói 0x85/0x87 (B4), `NpcSetHide`.
 - commit: `JX NEXT: M12 lat B3c-0 - an than [hide] 200` (nhánh, `safe/jxnext-2026-09-17`, `main`).
+- **CI chập chờn giải xong**: `main` #112/#114 đỏ ở "a character's items survive spawn → snapshot → spawn" (Windows, chạy lại qua):
+  `test_KItem.cpp` giữ `KItemList* list` qua `remove_player` (danh sách bị `erase`) rồi đọc `next_id()` — Debug tại chỗ sai
+  222/300 lần (`5 == 1`), Release đọc trúng bộ nhớ cũ. Sửa test (`next_before`), `ci_annotate.py` ghi chú thích lỗi của lần chạy
+  đầu từ `LastTest.log`. commit: `JX NEXT: sua test items round trip + ci_annotate doc LastTest.log`.
 
 ### 2026-09-18 (phiên tiếp theo, phần 6) — M12 lát B3b: lệnh thi triển của client, `CanCastSkill`, bảng vũ khí → kỹ năng
 
