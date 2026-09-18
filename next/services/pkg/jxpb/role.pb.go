@@ -607,8 +607,11 @@ type RoleData struct {
 	Skills      []*RoleSkill `protobuf:"bytes,21,rep,name=skills,proto3" json:"skills,omitempty"`                              // the fight skill list (KSkillList; DBSkillData of the old server)
 	// the revive point (KPlayer+0x20 map, +0x28 / +0x2c x, y: SetTempRevPos / SetRevPos): where KPlayer::Revive(0) puts
 	// the character back; 0 = the spawn point of its map
-	ReviveMap     uint32 `protobuf:"varint,22,opt,name=revive_map,json=reviveMap,proto3" json:"revive_map,omitempty"`
-	RevivePos     *Vec2  `protobuf:"bytes,23,opt,name=revive_pos,json=revivePos,proto3" json:"revive_pos,omitempty"`
+	ReviveMap uint32 `protobuf:"varint,22,opt,name=revive_map,json=reviveMap,proto3" json:"revive_map,omitempty"`
+	RevivePos *Vec2  `protobuf:"bytes,23,opt,name=revive_pos,json=revivePos,proto3" json:"revive_pos,omitempty"`
+	// the id of the revive point (KPlayer+0x14: the Bishop's irevivalx of a fresh character = one of its village's ids in
+	// revivepos.ini, or SetRevPos(map, ref) later); the zone resolves it through revive_pos.json; 0 = none
+	ReviveRef     uint32 `protobuf:"varint,24,opt,name=revive_ref,json=reviveRef,proto3" json:"revive_ref,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -804,6 +807,13 @@ func (x *RoleData) GetRevivePos() *Vec2 {
 	return nil
 }
 
+func (x *RoleData) GetReviveRef() uint32 {
+	if x != nil {
+		return x.ReviveRef
+	}
+	return 0
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -867,7 +877,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +
-	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xdf\x05\n" +
+	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xfe\x05\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -898,7 +908,9 @@ const file_jx_role_proto_rawDesc = "" +
 	"\n" +
 	"revive_map\x18\x16 \x01(\rR\treviveMap\x12*\n" +
 	"\n" +
-	"revive_pos\x18\x17 \x01(\v2\v.jx.pb.Vec2R\trevivePosB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"revive_pos\x18\x17 \x01(\v2\v.jx.pb.Vec2R\trevivePos\x12\x1d\n" +
+	"\n" +
+	"revive_ref\x18\x18 \x01(\rR\treviveRefB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once

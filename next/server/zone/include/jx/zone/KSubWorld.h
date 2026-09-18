@@ -25,6 +25,7 @@
 #include "jx/zone/KItem.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
+#include "jx/zone/KRevivePos.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KObj.h"
 #include "jx/zone/KNpcAI.h"
@@ -118,6 +119,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMissleTable> missles;
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
+    std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -470,6 +472,9 @@ public:
     //      0x080833B0, KPlayer::Revive 0x080AD9F0 (docs/LINUX-SERVER.md §16.4) ----
     // C2G_REVIVE (the handler slot 118 -> 0x080AEBC0(player, 12), KPlayer::Revive(0)): back at the revive point
     bool revive_request(std::uint64_t sid, std::uint32_t seq);
+    // KSubWorldSet 0x080F6D20: the revive / reference point `ref` of `map` in absolute Mps (revivepos.ini), nothing
+    // without the table or the point
+    [[nodiscard]] std::optional<Pos> revive_point(std::uint32_t map, int ref) const noexcept;
     // KPlayer::Revive(type, force): 0 at the revive point (fight mode off), 1 where it lies in fight mode, 2 where
     // it lies out of it; a character that is not dead is stood up instead (unless forced)
     bool player_revive(KNpc& e, int type, bool force);

@@ -9,6 +9,7 @@
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/KRevivePos.h"
 
 using jx::EntityId;
 using jx::zone::Packet;
@@ -528,4 +529,58 @@ TEST_CASE("nearby chat reaches exactly the clients that see the speaker", "[worl
     CHECK(expected.size() > 1);                      // himself and his neighbours
     CHECK(expected.size() < 40);                     // not the whole crowd
     CHECK(w.viewers_capped() > 0);
+}
+
+// KPlayer::LoadFrom 0x080C171D: a fresh character (no saved spot) enters at the revive point (revive_map, revive_ref)
+// of revivepos.ini - KSubWorldSet 0x080F6D20 - and KPlayer::Revive(0) resolves the same table; an id the table lacks
+// falls back (map 57 at 50976,102208 in the binary, the spawn point here)
+TEST_CASE("a fresh character is born at its village's revive point; the revive resolves the same table", "[world][player]")
+{
+    Quiet q;
+    KSubWorldConfig cfg = small_world();
+    auto table = std::make_shared<jx::zone::KRevivePosTable>();
+    table->add(0, 10, Pos{2500, 2100});   // this world has no map bundle: map_id() == 0 and to_local is the identity
+    table->add(0, 11, Pos{2600, 2200});
+    cfg.revive_pos = table;
+    KSubWorld w(cfg);
+    CHECK(table->region(0) == std::make_pair(10, 11));
+    CHECK(w.revive_point(0, 11) == Pos{2600, 2200});
+    CHECK_FALSE(w.revive_point(0, 12).has_value());
+    CHECK_FALSE(w.revive_point(20, 10).has_value());
+    jx::pb::RoleData born = role(31, "Born", Pos{100, 100});
+    born.clear_position();
+    born.set_revive_map(0);
+    born.set_revive_ref(10);
+    EntityId id;
+    Pos at;
+    REQUIRE(w.spawn_player(3, born, id, at) == jx::pb::RESULT_OK);
+    CHECK(at == Pos{2500, 2100});
+    // an id the table lacks: the spawn point stands in
+    jx::pb::RoleData lost = role(32, "Lost", Pos{100, 100});
+    lost.clear_position();
+    lost.set_revive_map(0);
+    lost.set_revive_ref(12);
+    EntityId id2;
+    Pos at2;
+    REQUIRE(w.spawn_player(4, lost, id2, at2) == jx::pb::RESULT_OK);
+    CHECK(at2 == cfg.spawn_point);
+    // a saved spot wins over the point (0x080C1790: ientergame of a returning character)
+    jx::pb::RoleData back = role(33, "Back", Pos{300, 300});
+    back.set_revive_map(0);
+    back.set_revive_ref(10);
+    EntityId id3;
+    Pos at3;
+    REQUIRE(w.spawn_player(5, back, id3, at3) == jx::pb::RESULT_OK);
+    CHECK(at3 == Pos{300, 300});
+    // KPlayer::Revive(0) without a SetTempRevPos spot: the reference point of the village again
+    REQUIRE(w.teleport(id, Pos{3000, 3000}));
+    jx::zone::KNpc* e = w.mutable_entity(id);
+    REQUIRE(e != nullptr);
+    CHECK(e->player.revive_ref == 10);
+    CHECK(w.player_revive(*e, 0, true));
+    CHECK(w.mutable_entity(id)->pos() == Pos{2500, 2100});
+    // the id goes back into the role data
+    jx::pb::RoleData saved;
+    w.mutable_entity(id)->player.save_to(*w.mutable_entity(id), saved);
+    CHECK(saved.revive_ref() == 10);
 }

@@ -253,6 +253,14 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     } else if (role.has_position() && role.position().zone_id() == cfg_.zone_id && role.position().has_pos() &&
                (role.position().map_id() == 0 || role.position().map_id() == map_id())) {
         start = clamp(Pos{role.position().pos().x(), role.position().pos().y()});
+    } else if (!role.has_position() || !role.position().has_pos()) {
+        // KPlayer::LoadFrom 0x080C171D: a character that still carries cUseRevive (a fresh one, no saved spot) enters
+        // at its revive point - KPlayer+0x10 map = irevivalid (the village picked), +0x14 ref = irevivalx - looked up in
+        // revivepos.ini (0x080F6D20); a point the table lacks sends it to map 57 at 50976,102208 (0x080C2038) - here
+        // the spawn point of this map stands in for that
+        if (role.revive_map() == map_id()) {
+            if (const auto p = revive_point(role.revive_map(), static_cast<int>(role.revive_ref()))) start = clamp(to_local(*p));
+        }
     }
     if (cfg_.map) start = cfg_.map->nearest_walkable(start);
     e.set_pos(start);
@@ -1259,6 +1267,12 @@ void KSubWorld::player_corpse(KNpc& e)
     log::debug("zone.player", "player corpse", {log::kv("entity", e.id)});
 }
 
+std::optional<Pos> KSubWorld::revive_point(std::uint32_t map, int ref) const noexcept
+{
+    if (!cfg_.revive_pos) return std::nullopt;
+    return cfg_.revive_pos->point(map, ref);
+}
+
 bool KSubWorld::revive_request(std::uint64_t sid, std::uint32_t seq)
 {
     (void)seq;
@@ -1298,11 +1312,13 @@ bool KSubWorld::player_revive(KNpc& e, int type, bool force)
         // 0x080ADAD3: KNpc 0x08080110(npc, Player+0x20, +0x28, +0x2c) - to the revive point (the map's spawn point
         // when none was set), then 0x08080F70(npc, player, 1): the position packet 0xc5
         const KPlayer& p = e.player;
-        const bool set = p.revive_x != 0 || p.revive_y != 0;
+        std::optional<Pos> at;   // absolute Mps
+        if (p.revive_x != 0 || p.revive_y != 0) at = Pos{p.revive_x, p.revive_y};
+        else at = revive_point(p.revive_map, p.revive_ref);   // +0x18 / +0x1c: the reference point of the village
         if (p.revive_map == 0 || p.revive_map == map_id()) {
-            set_pos(e.id, set ? to_local(Pos{p.revive_x, p.revive_y}) : cfg_.spawn_point);
+            set_pos(e.id, at ? to_local(*at) : cfg_.spawn_point);
         } else {
-            change_world_request(e, p.revive_map, set ? Pos{p.revive_x, p.revive_y} : Pos{});
+            change_world_request(e, p.revive_map, at ? *at : Pos{});
         }
     }
     // \script\global\revive.lua main(type): the national war reload - not in the zone

@@ -65,8 +65,20 @@ func TestNewRoleStartsFromTheOldTemplates(t *testing.T) {
 	if len(r.Items) != 1 || r.Items[0].Room != 0 || r.Items[0].Genre != 0 || r.Items[0].Particular != 4 || r.Items[0].Version != 2 || r.NextItemId != 2 {
 		t.Fatalf("starting items %+v", r.Items)
 	}
-	// CPlayerCreator::GetRoleData: irevivalid = the village picked -> the map entered and the revive map
-	if r.NativePlace != 20 || r.Position.MapId != 20 || r.ReviveMap != 20 {
+	// CPlayerCreator::GetRoleData: irevivalid = the village picked -> the map entered and the revive map;
+	// irevivalx = GetRevivalID(20) = 10, the first id of the map's region in revivepos.ini (none without the table)
+	if r.NativePlace != 20 || r.Position.MapId != 20 || r.ReviveMap != 20 || r.ReviveRef != 0 {
 		t.Fatalf("native place %+v", r)
+	}
+	SetRevivePos(player.ParseRevivePos([]byte("[20]\nregion=10,12\n10=113472,199232\n11=110656,197888\n[53]\nregion=19,19\n19=52032,101696\n")))
+	defer SetRevivePos(nil)
+	if r = NewRole(8, 1, "Bi", 0, 0, 20); r.ReviveRef != 10 || r.ReviveMap != 20 {
+		t.Fatalf("revival id of 20: %+v", r)
+	}
+	if r = NewRole(9, 1, "Ci", 0, 0, 53); r.ReviveRef != 19 {
+		t.Fatalf("revival id of 53: %+v", r)
+	}
+	if r = NewRole(10, 1, "Di", 0, 0, 99); r.ReviveRef != 0 || r.ReviveMap != 99 {
+		t.Fatalf("a map the table lacks: %+v", r)
 	}
 }

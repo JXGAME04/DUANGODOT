@@ -90,6 +90,16 @@ func main() {
 			log.Warn("boot", "new character templates not loaded", log.F("file", pf), log.F("error", err))
 		}
 	}
+	// the revive / reference points of every map (settings/revivepos.ini, jxassets export-revive-pos):
+	// which point of its village a fresh character is born at (CPlayerCreator::GetRevivalID)
+	if rf := cfg.String("gateway.revive_pos_file", "client/assets/revive_pos.json"); rf != "" {
+		if table, err := player.ReadRevivePos(rf); err == nil {
+			persist.SetRevivePos(table)
+			log.Info("boot", "revive point table loaded", log.F("file", rf))
+		} else {
+			log.Warn("boot", "revive point table not loaded", log.F("file", rf), log.F("error", err))
+		}
+	}
 	// accounts and characters: PostgreSQL when gateway.db names one (M9), else the file store of
 	// a developer's machine under gateway.data_dir
 	var store persist.Store

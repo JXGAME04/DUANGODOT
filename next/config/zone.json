@@ -54,6 +54,9 @@
     // settings/npc/player of the old server (jxassets export-player): level_exp, level_add, stamina.ini,
     // basevalue.ini - the numbers of KPlayer::LoadFrom / LevelUp; without the file built-in defaults apply
     "player_file": "client/assets/player.json",
+    // settings/revivepos.ini of the old server (jxassets export-revive-pos): the revive / reference points of every
+    // map - where a new character is born in its village, where the revive and SetRevPos go; missing = spawn points
+    "revive_pos_file": "client/assets/revive_pos.json",
     // settings/skills.txt of the old server (jxassets export-skills): every skill's row for KSkillManager;
     // the numbers of each level are computed by the converted skill scripts (dev.py lua) when first used
     "skills_file": "client/assets/skills.json",

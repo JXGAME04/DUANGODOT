@@ -352,6 +352,33 @@ var NewPlayerSet *player.Set
 // SetNewPlayerSet installs the templates NewRole builds from.
 func SetNewPlayerSet(s *player.Set) { NewPlayerSet = s }
 
+// RevivePos is the revive_pos.json of jxassets export-revive-pos (settings/revivepos.ini of the old
+// server): the revive / reference points of every map and the ids each map owns.  The gateway sets
+// it at boot (gateway.revive_pos_file); nil leaves every new character with revive_ref 0 (the zone
+// then uses the map's spawn point).
+var RevivePos *player.RevivePos
+
+// SetRevivePos installs the table revivalID picks from.
+func SetRevivePos(r *player.RevivePos) { RevivePos = r }
+
+// revivalID is CPlayerCreator::GetRevivalID: the revival id a fresh character of this village gets -
+// the first id of the map's "region" in revivepos.ini (the Bishop's own list picked one of the map's
+// ids at random; its hard-coded switch gave 10 for map 20 and 19 for 53 = the first of each region),
+// 0 when the map has none (KPlayer::LoadFrom 0x080C2038 then falls back to map 57).
+func revivalID(mapID uint32) uint32 {
+	if mapID == 0 {
+		return 0
+	}
+	lo, _, ok := RevivePos.Region(int(mapID))
+	if !ok || lo < 0 {
+		return 0
+	}
+	if _, _, has := RevivePos.Point(int(mapID), lo); !has {
+		return 0
+	}
+	return uint32(lo)
+}
+
 // NewRole builds the starting RoleData for a fresh character the way the Bishop's CPlayerCreator
 // did: newplayerini[series*2 + sex].ini gives the five points, the base life / mana (vitality x
 // LifePerVitality + LifePerLevel, energy x ManaPerEnergy + ManaPerLevel of level_add.txt - the
@@ -374,6 +401,7 @@ func NewRole(playerID, accountID uint64, name string, series, sex, nativePlace u
 		Position:    &jxpb.RolePosition{ZoneId: 0, MapId: nativePlace}, // zone 0 = let the zone choose; the map = the village
 		NativePlace: nativePlace,
 		ReviveMap:   nativePlace,
+		ReviveRef:   revivalID(nativePlace), // irevivalx of the Bishop: the point of the village
 		Stats:       &jxpb.RoleStats{Hp: 100, HpMax: 100, Mp: 50, MpMax: 50, Stamina: 100, StaminaMax: 100, Strength: 10, Dexterity: 10, Vitality: 10, Energy: 10, MoveSpeed: 200},
 		CreatedAtMs: uint64(now),
 		DataVersion: CurrentRoleVersion,

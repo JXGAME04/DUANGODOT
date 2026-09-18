@@ -110,4 +110,7 @@ message RoleData {
   // the character back; 0 = the spawn point of its map
   uint32 revive_map = 22;
   Vec2 revive_pos = 23;
+  // the id of the revive point (KPlayer+0x14: the Bishop's irevivalx of a fresh character = one of its village's ids in
+  // revivepos.ini, or SetRevPos(map, ref) later); the zone resolves it through revive_pos.json; 0 = none
+  uint32 revive_ref = 24;
 }

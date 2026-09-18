@@ -693,8 +693,8 @@ int l_SetTempRevPos(lua_State* L)
 }
 
 // SetRevPos(map, ref): KPlayer 0x080B1E50 - the map and its reference point (KSubWorldSet 0x080F6D20 finds the
-// spot; a map without it is logged to revive_error); the zone has no reference-point table yet, so the map is
-// kept and the revive goes to its spawn point
+// spot in revivepos.ini: +0x18 / +0x1c and +0x20 / +0x28 / +0x2c take it; a point it cannot find is logged as
+// revive_error and leaves the spot unset - the revive then goes to the map's spawn point here)
 int l_SetRevPos(lua_State* L)
 {
     KNpc* p = player_of(L, "SetRevPos");
@@ -703,8 +703,14 @@ int l_SetRevPos(lua_State* L)
     if (map < 0) return 0;
     p->player.revive_map = static_cast<std::uint32_t>(map);
     p->player.revive_ref = static_cast<int>(lua_tonumber(L, 2));
-    p->player.revive_x = 0;
-    p->player.revive_y = 0;
+    if (const auto at = g_ScriptContext().world->revive_point(p->player.revive_map, p->player.revive_ref)) {
+        p->player.revive_x = at->x;
+        p->player.revive_y = at->y;
+    } else {
+        p->player.revive_x = 0;
+        p->player.revive_y = 0;
+        log::warn("lua", "revive point not found", {log::kv("map", map), log::kv("ref", p->player.revive_ref)});
+    }
     return 0;
 }
 

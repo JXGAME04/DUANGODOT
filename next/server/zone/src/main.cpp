@@ -193,6 +193,18 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no abrade rate table", {jx::log::kv("file", abrade_file), jx::log::kv("error", error)});
         }
     }
+    // the revive / reference points of every map (jxassets export-revive-pos): where a fresh character is born in its
+    // village and where the revive / SetRevPos put a character; without it the spawn point of each map stands in
+    const std::string revive_file = cfg.get_string("zone.revive_pos_file", "client/assets/revive_pos.json");
+    if (!revive_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KRevivePosTable::load(revive_file, &error)) {
+            w.revive_pos = std::make_shared<const jx::zone::KRevivePosTable>(std::move(*t));
+            jx::log::info("boot", "revive point table loaded", {jx::log::kv("file", revive_file), jx::log::kv("maps", w.revive_pos->maps.size())});
+        } else {
+            jx::log::warn("boot", "no revive point table", {jx::log::kv("file", revive_file), jx::log::kv("error", error)});
+        }
+    }
     // the missile table (jxassets export-missles): the rows of settings\missles.txt the skills fire
     const std::string missles_file = cfg.get_string("zone.missles_file", "client/assets/missles.json");
     if (!missles_file.empty()) {

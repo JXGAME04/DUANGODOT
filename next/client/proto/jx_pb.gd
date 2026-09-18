@@ -8176,6 +8176,11 @@ class RoleData:
 		service.func_ref = Callable(self, "new_revive_pos")
 		data[__revive_pos.tag] = service
 		
+		__revive_ref = PBField.new("revive_ref", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 24, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __revive_ref
+		data[__revive_ref.tag] = service
+		
 	var data = {}
 	
 	var __player_id: PBField
@@ -8475,6 +8480,19 @@ class RoleData:
 	func new_revive_pos() -> Vec2:
 		__revive_pos.value = Vec2.new()
 		return __revive_pos.value
+	
+	var __revive_ref: PBField
+	func has_revive_ref() -> bool:
+		if __revive_ref.value != null:
+			return true
+		return false
+	func get_revive_ref() -> int:
+		return __revive_ref.value
+	func clear_revive_ref() -> void:
+		data[24].state = PB_SERVICE_STATE.UNFILLED
+		__revive_ref.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_revive_ref(value : int) -> void:
+		__revive_ref.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

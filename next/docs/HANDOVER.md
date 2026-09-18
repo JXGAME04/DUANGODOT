@@ -495,6 +495,17 @@ hệ toàn ra item lỗi hình chiếc lá trong hành trang". Luật lấy từ
   sinh Giang Tân Thôn), túi có vũ khí thật; ảnh `build/shots/village_20_auto_world.png` / `village_20_auto_items.png` (đã
   gửi). 8 map thôn xuất thêm vào worktree (`jxassets export-map 20 53 99 100 101 121 153 174` + `export-npcres`).
 - commit: `JX NEXT: sua chon thon -> map (NewRole ghi Position.map_id/revive_map = NativePlace nhu CPlayerCreator) + do tan thu genre iequipclasscode (het chiec la)` (nhánh, `safe/jxnext-2026-09-17`, `main`).
+- **Toạ độ (chủ dự án hỏi "đã đúng toạ độ lúc tạo nhân vật tại map thôn chưa")**: chưa — zone thả nhân vật mới ở `spawn` của
+  gói map (ô đi được đầu tiên). Luật thật: Bishop ghi `irevivalx = GetRevivalID(map)` (id điểm hồi sinh của thôn),
+  `KPlayer::LoadFrom 0x080C171D` tra **`\settings\revivepos.ini`** qua `0x080F6D20` (`[map]` → `id=x,y` Mps tuyệt đối;
+  `region=a,b` = các id của bản đồ) và đặt nhân vật `cUseRevive` tại điểm đó; thiếu điểm → map 57 tại (50976, 102208)
+  (`0x080C2038`). Làm: Go `jxold/player/KRevivePos.go` + `jxassets export-revive-pos` → `client/assets/revive_pos.json`
+  (136 map; `dev.py assets` gọi luôn); proto `RoleData.revive_ref = 24`; gateway `NewRole` ghi `revive_ref` = id đầu của
+  `region` (20 → 10, 53 → 19 — trùng hai ca `switch` cũ) và nạp `gateway.revive_pos_file`; zone `KRevivePosTable`
+  (`zone.revive_pos_file`), `spawn_player` nhân vật chưa có chỗ đứng → `to_local(điểm)`, `player_revive(0)` và Lua `SetRevPos`
+  giải cùng bảng (hết "sai khác (4)"); test `test_KSubWorld.cpp` +1 ca (sinh tại điểm, thiếu id → điểm sinh, chỗ đã lưu
+  thắng, hồi sinh về điểm, `revive_ref` lưu lại), Go `KRevivePos_test.go` + `persist`. e2e `--place=20`: nhân vật mới đứng
+  tại điểm 10 của Giang Tân Thôn (113472, 199232 tuyệt đối). **Phải xuất lại assets** (`python tools/dev.py assets`).
 
 ### 2026-09-18 (phiên tiếp theo, phần 11) — Ảnh test e2e sau M12 B3c, Lua `KillPlayer`, `PKRate.ini rate`, gói 1111/1112/1113 bị chặn
 

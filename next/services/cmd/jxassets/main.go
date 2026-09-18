@@ -999,6 +999,37 @@ func main() {
 		}
 		fmt.Printf("export-abrade-rate: bang hao mon %s -> %s\n", file, p)
 
+	case "export-revive-pos":
+		// \settings\revivepos.ini of the old server: the revive / reference points of every map, the
+		// way KSubWorldSet 0x080F6D20 of jx_linux_y reads them ("%u" section, "%d" key -> "x,y") plus
+		// the "region=a,b" ids of each map -> <out>/revive_pos.json: where a fresh character is born
+		// (the gateway's NewRole, KPlayer::LoadFrom 0x080C171D) and where KPlayer::Revive(0) / SetRevPos go
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/revivepos.ini", "Settings/revivepos.ini", "Settings/RevivePos.ini", "settings/RevivePos.ini")
+		if err != nil {
+			fail("no settings/revivepos.ini under %s: %v", sdir, err)
+		}
+		table := player.ParseRevivePos(data)
+		table.Source = file
+		p := filepath.Join(out, "revive_pos.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-revive-pos: diem hoi sinh %s (%d map) -> %s\n", file, len(table.Maps), p)
+
 	case "export-weapon-skill":
 		// \settings\武器物理攻击对照表.txt of the old server (DetailType, ParticularType, PhysicsSkillID),
 		// read the way 0x0805F18D of jx_linux_y reads it -> <out>/weapon_skill.json for the zone's
