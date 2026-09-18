@@ -40,6 +40,7 @@ func _init() -> void:
 	test_npcres_tables()
 	test_skill_book_layout()
 	test_part_math()
+	test_skill_tree_layout()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -349,3 +350,26 @@ func test_part_math() -> void:
 	# the way into the level in hundredths
 	check(M.exp_percent(150, 100, 300) == 25 and M.exp_percent(100, 100, 300) == 0 and M.exp_percent(300, 100, 300) == 100, "exp percent")
 	check(M.exp_percent(50, 100, 300) == 0 and M.exp_percent(5, 0, 0) == 100, "exp percent clamps")
+
+
+# ---- the mouse-skill tree (KUiSkillTreeLayout.gd; gamecl.exe 2.0 KUiSkillTree 0x00495A40 / 0x00495B80) ----
+func test_skill_tree_layout() -> void:
+	var T = load("res://ui/KUiSkillTreeLayout.gd")
+	# entry 0 (the current skill, group 0), then held skills with group = index / 8; seven per row at most, a new
+	# group starts a new row: 0..6 | 7 | 8..14 | 15 (the walk of 0x00495A62)
+	var groups := []
+	for i in 17:
+		@warning_ignore("integer_division")
+		groups.append(i / 8)
+	var p = T.place(groups, 7)
+	check(p.rows == 5 and p.cols == 7, "rows %d cols %d" % [p.rows, p.cols])
+	check(p.cells[0] == {"row": 0, "col": 0} and p.cells[6] == {"row": 0, "col": 6}, "first row")
+	check(p.cells[7] == {"row": 1, "col": 0} and p.cells[8] == {"row": 2, "col": 0} and p.cells[15] == {"row": 3, "col": 0} and p.cells[16] == {"row": 4, "col": 0}, "row breaks")
+	# the window grows upward from the anchor (LeftBtnPos = the lowest, leftmost button)
+	var r = T.window_rect(Vector2i(760, 650), Vector2i(36, 36), 5, 7)
+	check(r == Rect2i(760, 650 - 36 * 4, 36 * 7, 36 * 5), "window rect %s" % [r])
+	check(T.cell_pos(p.cells[0], Vector2i(36, 36), 5) == Vector2i(0, 36 * 4) and T.cell_pos(p.cells[16], Vector2i(36, 36), 5) == Vector2i(0, 0), "cells from the bottom")
+	check(T.hit(Vector2i(40, 36 * 4 + 5), Vector2i(36, 36), 5, p.cells) == 1 and T.hit(Vector2i(5, 5), Vector2i(36, 36), 5, p.cells) == 16 and T.hit(Vector2i(100, 5), Vector2i(36, 36), 5, p.cells) == -1, "hit test")
+	# GDI 0x3f7 / 0x3f8: what each side lists
+	check(T.listed(0, false, false) and T.listed(7, false, false) and not T.listed(13, false, false) and not T.listed(0, true, false), "left list")
+	check(T.listed(2, false, true) and T.listed(14, false, true) and not T.listed(7, false, true) and not T.listed(3, true, true), "right list")

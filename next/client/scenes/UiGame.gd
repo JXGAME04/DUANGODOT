@@ -646,6 +646,13 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_skills_2.png")
 			_windows.skills_window._on_page_button(true, 0)
 		_windows.skills_window.hide_window()
+		# the mouse-skill tree of the left button (Open([[leftskill]]) of the bottom bar's box)
+		if _windows.skill_tree != null:
+			_windows.skill_tree.open_for(false)
+			await get_tree().create_timer(0.3).timeout
+			await _save_screenshot("user://logs/auto_skill_tree.png")
+			print("AUTO_SKILL_TREE entries=%d rows=%d" % [_windows.skill_tree._entries.size(), _windows.skill_tree._rows])
+			_windows.skill_tree.hide()
 	var cast_told := false
 	if pick != 0:
 		Game.left_skill = pick

@@ -160,3 +160,25 @@ Tệp (theme `\Ui\ui3_1024\`, xuất ra `client/assets/ui/thanh-dieu-khien-tren`
 Client mới: `client/ui/uicase/UiControlBar.gd` (hai thanh), `UiPlayerBar.gd` (thanh dưới), `client/ui/elem/KWndPartImage.gd` + `client/ui/KUiPartMath.gd`,
 `KUiGameWindows._build_bars/_on_bar_command/_refresh_bars/_refresh_mouse_skills`; `UiGame` dùng dòng chat của thanh dưới. Chưa: ô thuốc nhanh (kéo
 thuốc từ túi: `+0x28b8`), `DateTime` ping/`GameLogo`, `ChannelBtn`/kênh chat, `Face` biểu cảm, thanh thu nhỏ `SwitchSizeBtn`, `Market`, hạng giang hồ.
+
+## 8. Cây chọn kỹ năng cho chuột — `KUiSkillTree` (`技能选择树.ini`, M12 lát B4b-3, đã đọc từng dòng `gamecl.exe`)
+
+Tệp `\Ui\ui3_1024\技能选择树.ini` (`chon-ky-nang`): chỉ `[Main]`: `LeftBtnPos=760,650` (vị trí ô thấp nhất bên trái), `RightBtnPos=710,450`,
+`BtnSize=36,36`, `KeyFont=16`, `KeyColor=255,0,0`, `MaxBtnCountPerRow=7`. Mở bằng Lua `Open([[leftskill]])` / `Open([[rightskill]])`
+(bảng tên `0x80dae8` ô 9/10 của `0x0042EF50`) khi bấm ô `ImediaLeftSkill` / `ImediaRightSkill` của thanh dưới.
+
+| Địa chỉ | Làm gì | Client mới |
+|---|---|---|
+| `0x0042F0EB` / `0x0042F115` | `Open("leftskill")`: đang mở (`0x004957A0`: đối tượng `0x83f4d0` và cờ `+4 & 0x80000000`) → `0x004957C0` đóng (vtable[9]; tham số ≠ 0 → huỷ), else `0x00496400(1)`; `Open("rightskill")` → `0x00496400(0)` (`esi` = 0 sau `xor esi, esi` ở `0x0042EF87`) | `UiSkillTree.toggle_for(right)` |
+| `0x00496400` | **`OpenWindow(side)`**: đối tượng đơn 0x8d0 byte (ctor `0x00495670`, `Init 0x00496360` → `LoadScheme`, `0x00466180(this, 2)`), `+0x8b0 = (side ≠ 0)` (1 = trái), `vtable[1]` (UpdateData), `vtable[8]` (Show), `0x0046BE90` (lên trên) | `open_for(right)` |
+| `0x00495C20` | **`LoadScheme`**: `[Main] LeftBtnPos` → `+0x8b4/+0x8b8`, `RightBtnPos` → `+0x8bc/+0x8c0`, `BtnSize` → `+0x8c4/+0x8c8` (≤ 0 → 1), `KeyFont` (12) `+0x8a8`, `KeyColor` `+0x8ac`, `MaxBtnCountPerRow` `+0x8cc`; rồi xếp `0x00495A40` | `load_scheme` |
+| `0x00495AE0` | **`UpdateData`**: `GetGameData(+0x8b0 ? 0x3f7 : 0x3f8, danh sách +0x498, 0)` → số mục `+0x494`; duyệt bảng phím tắt `0x83f440` (9 × 16 byte `{genre, id, bên, …}` từ `[ShortSkill] ShortcutSkill_%d` — `0x00495810`) đối chiếu; rồi xếp | `open_for`: danh sách + `Layout.place` |
+| `0x006239F0` (GDI 0x3f7, trái) / `0x00623B70` (GDI 0x3f8, phải) | mục 0 = `{0x40004, kỹ năng chuột hiện tại (0x005EBBA0), 0, nhóm 0}`; mỗi ô sổ kỹ năng (`+0x38`, bước 0x1c) có id 1..3000 và cấp 1..64: phiên bản `(id, cấp)`; style (`vtable[3]`): **trái**: 5..12 → nhận; 0..4 và 14 → nhận khi `IsAura` (`vtable +0x4c`) = 0 và `+0x110` = 0 (hoặc `+0x110` = 1) và `ReqLevel (+0x6c) ≤ cấp npc`; 13 → bỏ. **phải**: chỉ style 0..4 và 14 với cùng điều kiện; mục = `{0x40004, id, ?, nhóm = chỉ số / 8}` (`0x00623B0C`), tối đa 0x40 | `KUiSkillTreeLayout.listed(style, aura, right)` (`+0x110` chưa rõ cột → coi 0), `SkillStyle/IsAura/ReqLevel` của `skills.json` |
+| `0x00495A40` | **xếp**: duyệt mục: cùng nhóm với mục trước và số ô trong hàng < `MaxBtnCountPerRow` → cùng hàng; else hàng mới (đếm hàng, hàng rộng nhất); `SetPosition(LeftBtnPos.x, LeftBtnPos.y − h·hàng + h)`, `SetSize(w·rộng nhất, h·hàng)` — **cả hai bên đều neo `LeftBtnPos`** (`RightBtnPos` đọc mà không dùng trong phần đã đọc) | `Layout.place`, `Layout.window_rect` |
+| `0x00496170` | **vẽ**: từ đáy cửa sổ đi lên (`+0x1c + +0x14` trừ `h` mỗi hàng); mỗi mục vẽ đối tượng `{genre, id}` `0x005B8FE0(genre, id, x, y, w, h, −1, 0)`; mục trùng bảng phím tắt (cùng bên, genre, id) → Lua `ShortcutSkill(k)` / `DirectShortcutSkill(k)` → chữ phím bằng `KeyFont`/`KeyColor` | `_draw` (chưa vẽ phím tắt: bảng `[ShortSkill]` là tệp thiết lập riêng từng nhân vật) |
+| `0x00495B80` | **hit test**: hàng = `(đáy − y) / h`, cột = `(x − trái) / w`, duyệt lại cùng thuật toán xếp | `Layout.hit` |
+| `0x00495E10` | **`WndProc`**: `0x202` (nhả chuột trái): mục dưới chuột → `OperationRequest(0xd, &{genre, id}, +0x8b0 == 0)` (đặt kỹ năng chuột; 1 = phải) rồi ẩn; `0x205` (chuột phải) → ẩn; `0x100` phím `0x1b` Esc → ẩn; di chuột (`0x2a1`) → chú thích đối tượng `0x0044EBC0(genre, id, 0x10)` | `_gui_input`: `picked(id, right)`, ẩn; `hovered(id)` → chú thích |
+
+Client mới: `client/ui/uicase/UiSkillTree.gd` + `client/ui/KUiSkillTreeLayout.gd` (xếp/hit/danh sách, test headless `test_skill_tree_layout`),
+`KUiGameWindows.skill_tree` (bấm ô kỹ năng chuột của thanh dưới → `toggle_for`, chọn → `_on_skill_clicked`, rê → chú thích), `--auto` chụp
+`auto_skill_tree.png`. Chưa: phím tắt F1..F11 (`[ShortSkill]`, `ShortcutSkill(%d)`), `+0x110` của kỹ năng, `RightBtnPos`.

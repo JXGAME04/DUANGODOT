@@ -14,6 +14,7 @@ const UiSkills := preload("res://ui/uicase/UiSkills.gd")
 const UiMouseHover := preload("res://ui/uicase/UiMouseHover.gd")
 const UiControlBar := preload("res://ui/uicase/UiControlBar.gd")
 const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
+const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
@@ -26,6 +27,7 @@ var skills_window: UiSkills = null
 var top_bar: UiControlBar = null
 var tool_bar: UiControlBar = null
 var player_bar: UiPlayerBar = null
+var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
 var ready_ok := false
@@ -56,6 +58,15 @@ func _ready() -> void:
 		if not w.load_scheme(screen):
 			Log.error("ui", "layout missing", {"window": w.SCHEME})
 			return
+	skill_tree = UiSkillTree.new()
+	_canvas.add_child(skill_tree)
+	if not skill_tree.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiSkillTree.SCHEME})
+		skill_tree.queue_free()
+		skill_tree = null
+	else:
+		skill_tree.picked.connect(_on_skill_clicked)
+		skill_tree.hovered.connect(_on_tree_hovered)
 	_canvas.add_child(hover)
 	hover.load_scheme(screen)
 	_canvas.add_child(hand)
@@ -109,7 +120,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func any_open() -> bool:
-	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible)
+	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible or (skill_tree != null and skill_tree.visible))
 
 
 func _on_item_hovered(item) -> void:
@@ -130,7 +141,7 @@ func _build_bars() -> void:
 		player_bar.queue_free()
 		player_bar = null
 	else:
-		player_bar.mouse_skill_clicked.connect(func(_right): skills_window.open_window())
+		player_bar.mouse_skill_clicked.connect(func(right): if skill_tree != null: skill_tree.toggle_for(right))
 	top_bar = UiControlBar.new()
 	_canvas.add_child(top_bar)
 	if not top_bar.load_scheme("thanh-dieu-khien-tren", screen):
@@ -189,6 +200,15 @@ func _on_skill_clicked(skill_id: int, right: bool) -> void:
 		Game.left_skill = skill_id
 	Log.info("ui", "mouse skill", {"skill": skill_id, "button": "right" if right else "left"})
 	_refresh_mouse_skills()
+
+
+func _on_tree_hovered(skill_id: int) -> void:
+	if skill_id <= 0 or not Game.skills.has(skill_id):
+		hover.hide_lines()
+		return
+	var sk = Game.skills[skill_id]
+	var info := skills_window.skill_info(skill_id)
+	hover.show_text("%s  %d/%d\n" % [info.name, int(sk.current_level), int(sk.max_level)], _canvas.get_local_mouse_position())
 
 
 func _on_skill_hovered(skill) -> void:
