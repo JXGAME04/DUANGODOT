@@ -116,6 +116,7 @@ struct KSubWorldConfig {
     // unfilled array cell).
     std::shared_ptr<const KMissleTable> missles;
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
+    std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -458,6 +459,12 @@ public:
     bool do_special_skill(KNpc& e, const KSkill& sk);
     static constexpr int kJumpSteps = 40;          // +0x12a0 (KNpc::Init 0x0807DDD4): a jump reaches 40 steps of the step length at most
     static constexpr int kMoveMinDistance = 20;    // 0x08087D3E / 0x08084D43: a jump or a blink shorter than this is no move
+    // ---- the wear of the worn pieces: KItemList 0x08201940 (docs/LINUX-SERVER.md §16.3) ----
+    // every worn piece but the mask rolls its wear for `mode` (0 an attack, 1 a hit taken, 2 a step):
+    // a point lost is synced, a piece at 0 turns broken and goes into the bag (or is destroyed)
+    void abrade_equipments(KNpc& e, int mode);
+    // 0x08201D90(list, n): every worn piece but the mask loses n percent (the death penalty, KPlayer 0x080B9FA0)
+    void abrade_equipments_percent(KNpc& e, int percent);
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
@@ -500,6 +507,7 @@ private:
     bool start_jump_attack(KNpc& e);          // 0x080807E0 (form 10)
     void jump_attack_frame(KNpc& e);          // 0x08084E00
     void cast_child_skill(KNpc& e, bool style0_only);   // the ChildSkillId at the kept target / spot
+    void wear_result(KNpc& e, KItemList& list, int part, std::uint32_t id, int before, int left);   // after KItem::Abrade: the sync / the break
     void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
     static constexpr std::uint64_t kSwapEveryLooks = 4;    // ... and it looks for them every 4th routine look (about 0,9 s)

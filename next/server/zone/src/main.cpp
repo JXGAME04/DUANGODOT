@@ -182,6 +182,17 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no weapon skill table", {jx::log::kv("file", weapon_file), jx::log::kv("error", error)});
         }
     }
+    // the wear table (jxassets export-abrade-rate): how fast a worn piece loses durability; without it nothing wears
+    const std::string abrade_file = cfg.get_string("zone.abrade_rate_file", "client/assets/abrade_rate.json");
+    if (!abrade_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KAbradeRate::load(abrade_file, &error)) {
+            w.abrade_rate = std::make_shared<const jx::zone::KAbradeRate>(std::move(*t));
+            jx::log::info("boot", "abrade rate table loaded", {jx::log::kv("file", abrade_file)});
+        } else {
+            jx::log::warn("boot", "no abrade rate table", {jx::log::kv("file", abrade_file), jx::log::kv("error", error)});
+        }
+    }
     // the missile table (jxassets export-missles): the rows of settings\missles.txt the skills fire
     const std::string missles_file = cfg.get_string("zone.missles_file", "client/assets/missles.json");
     if (!missles_file.empty()) {

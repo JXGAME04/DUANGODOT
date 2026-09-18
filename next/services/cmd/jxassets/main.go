@@ -969,6 +969,36 @@ func main() {
 		}
 		fmt.Printf("export-missles: %d dong dan (%d cot, bo qua %d dong) tu %s -> %s\n", len(table.Rows), len(table.Columns), table.Skipped, file, p)
 
+	case "export-abrade-rate":
+		// \settings\item\AbradeRate.ini of the old server, read the way KItemSet::Init 0x0806E250 of
+		// jx_linux_y reads it -> <out>/abrade_rate.json for the zone's KAbradeRate (docs/LINUX-SERVER.md
+		// §16.3): how fast a worn piece wears on an attack, a hit, a step
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/item/AbradeRate.ini", "Settings/Item/AbradeRate.ini", "settings/Item/AbradeRate.ini", "Settings/item/AbradeRate.ini")
+		if err != nil {
+			fail("no settings/item/AbradeRate.ini under %s: %v", sdir, err)
+		}
+		table := item.ParseAbradeRate(data)
+		table.Source = file
+		p := filepath.Join(out, "abrade_rate.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-abrade-rate: bang hao mon %s -> %s\n", file, p)
+
 	case "export-weapon-skill":
 		// \settings\武器物理攻击对照表.txt of the old server (DetailType, ParticularType, PhysicsSkillID),
 		// read the way 0x0805F18D of jx_linux_y reads it -> <out>/weapon_skill.json for the zone's

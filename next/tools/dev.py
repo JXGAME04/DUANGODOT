@@ -468,6 +468,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the weapon -> physical skill table (settings/武器物理攻击对照表.txt): which attack a weapon swings
     if subprocess.call([*jxassets_args(), "export-weapon-skill", "-out", out], cwd=ROOT) != 0:
         print("export-weapon-skill: no settings/武器物理攻击对照表.txt in the reference server folder - the basic attacks 1 / 2 stand in")
+    # the wear table (settings/item/AbradeRate.ini): how fast a worn piece loses durability
+    if subprocess.call([*jxassets_args(), "export-abrade-rate", "-out", out], cwd=ROOT) != 0:
+        print("export-abrade-rate: no settings/item/AbradeRate.ini in the reference server folder - nothing wears")
     print("assets ok")
 
 

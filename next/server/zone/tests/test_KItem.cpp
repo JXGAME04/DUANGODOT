@@ -600,7 +600,7 @@ struct ItemWorld {
     jx::EntityId id;
     jx::zone::Pos p;
 
-    ItemWorld()
+    explicit ItemWorld(std::shared_ptr<const jx::zone::KAbradeRate> abrade = nullptr)
     {
         jx::log::Options lo;
         lo.console = false;
@@ -615,6 +615,7 @@ struct ItemWorld {
         cfg.width = cfg.height = 4096;
         cfg.spawn_point = jx::zone::Pos{2000, 2000};
         cfg.items = lib;
+        cfg.abrade_rate = std::move(abrade);
         w = std::make_unique<jx::zone::KSubWorld>(cfg);
         jx::pb::RoleData role;
         role.set_player_id(11);
@@ -1251,4 +1252,85 @@ TEST_CASE("a monster killed by a player drops its treasure: money by MoneyRate, 
     REQUIRE(pile.value != 0);
     CHECK(w.find_entity(pile)->object.money == 500);
     CHECK(w.find_entity(pile)->object.belong == 11);
+}
+
+// The wear of the worn pieces: KItemList 0x08201940 with KItem::Abrade 0x08066570 and the rates of
+// AbradeRate.ini (KItemSet::Init 0x0806E250, the lookup 0x0806D560), the AbradeToZero way of a piece
+// at 0, the percent loss 0x08201D90 / 0x080658B0, the hook of ReceiveDamage 0x0808B148 - docs/LINUX-SERVER.md §16.3
+TEST_CASE("equipment wears one in N on an attack, a hit and a step; a piece at 0 goes broken into the bag", "[item][world]")
+{
+    auto rate = std::make_shared<jx::zone::KAbradeRate>();
+    rate->rate[0][jx::zone::itempart_weapon] = 1;   // [Attack] Weapon: every attack
+    rate->rate[1][jx::zone::itempart_body] = 1;     // [Defend] Body: every hit
+    rate->rate[2][jx::zone::itempart_foot] = 1;     // [Move] Foot: every step
+    ItemWorld iw(rate);
+    jx::zone::KNpc* hero = iw.w->mutable_entity(iw.id);
+    REQUIRE(hero != nullptr);
+    // level 9 with plenty of strength; the armor of the tables asks for a sex / series of 1 exactly (EnoughAttrib)
+    const auto level9 = [](int type) {
+        if (type == jx::zone::magic_requirelevel) return 9;
+        if (type == jx::zone::magic_requireseries || type == jx::zone::magic_requiresex) return 1;
+        return 50;
+    };
+    const auto sword = iw.list().add(*iw.gen().equipment(jx::zone::equip_meleeweapon, 0, 2, 1), jx::zone::room_equipment);
+    const auto armor = iw.list().add(*iw.gen().equipment(jx::zone::equip_armor, 0, 0, 1), jx::zone::room_equipment);
+    REQUIRE((sword && armor));
+    REQUIRE(iw.list().equip(sword, jx::zone::itempart_weapon, level9));
+    REQUIRE(iw.list().equip(armor, jx::zone::itempart_body, level9));
+    iw.list().find_mutable(sword)->durability = 2;
+    iw.list().find_mutable(armor)->durability = 3;
+    iw.w->take_outbox();
+    // [Attack]: the weapon loses a point, the piece is synced (the 0x9b packet = G2C_ITEM_ADD); the body does not
+    iw.w->abrade_equipments(*hero, 0);
+    CHECK(iw.list().find(sword)->durability == 1);
+    CHECK(iw.list().find(armor)->durability == 3);
+    CHECK(packets(iw.w->take_outbox(), 1, jx::pb::G2C_ITEM_ADD).size() == 1);
+    // [Defend]: the body piece only
+    iw.w->abrade_equipments(*hero, 1);
+    CHECK(iw.list().find(armor)->durability == 2);
+    CHECK(iw.list().find(sword)->durability == 1);
+    CHECK(packets(iw.w->take_outbox(), 1, jx::pb::G2C_ITEM_ADD).size() == 1);
+    // [Move]: nothing on the feet - nothing happens
+    iw.w->abrade_equipments(*hero, 2);
+    CHECK(iw.w->take_outbox().empty());
+    // the weapon reaches 0 (AbradeToZero): genre 7, off the body into the bag (G2C_ITEM_MOVE), the message
+    // G_STR_ITEM_ABRADETOZERO with its name, the attributes recalculated
+    iw.w->abrade_equipments(*hero, 0);
+    const KItem* s = iw.list().find(sword);
+    REQUIRE(s != nullptr);
+    CHECK(s->durability == 0);
+    CHECK(s->genre == jx::zone::KItemGenre::broken);
+    CHECK(iw.list().equipped(jx::zone::itempart_weapon) == 0);
+    const auto place = iw.list().place_of(sword);
+    REQUIRE(static_cast<bool>(place));
+    CHECK(place->room == jx::zone::room_equipment);
+    auto out = iw.w->take_outbox();
+    CHECK(packets(out, 1, jx::pb::G2C_ITEM_MOVE).size() == 1);
+    const auto said = packets(out, 1, jx::pb::G2C_CHAT_MSG);
+    REQUIRE(said.size() == 1);
+    CHECK(decode_packet<jx::pb::ChatMsg>(said[0]).text().find(s->name()) != std::string::npos);
+    // a broken piece is not worn any more, so it wears no further; a piece at 0 would answer -1 anyway
+    iw.w->abrade_equipments(*hero, 0);
+    CHECK(iw.list().find(sword)->durability == 0);
+    // 0x08201D90(list, n): n percent off every worn piece (KItem 0x080658B0), synced
+    iw.list().find_mutable(armor)->durability = 100;
+    iw.w->abrade_equipments_percent(*hero, 10);
+    CHECK(iw.list().find(armor)->durability == 90);
+    CHECK(packets(iw.w->take_outbox(), 1, jx::pb::G2C_ITEM_ADD).size() == 1);
+    // the hook of ReceiveDamage 0x0808B148: a blow that takes life wears the body piece
+    const jx::EntityId pig = iw.w->spawn_npc("pig", jx::zone::Pos{2040, 2000}, 418, 0, jx::zone::KNpcKind::monster);
+    jx::zone::KNpc* p = iw.w->mutable_entity(pig);
+    hero = iw.w->mutable_entity(iw.id);   // the table may have moved
+    REQUIRE((p != nullptr && hero != nullptr));
+    p->camp = p->current_camp = jx::zone::camp_animal;
+    std::array<jx::zone::KMagicAttrib, jx::zone::kSkillAttribs> d{};
+    d[1].type = jx::zone::magic_attackrating_v;
+    d[1].value = {1000, 0, 0};
+    d[3].type = jx::zone::magic_physicsdamage_v;
+    d[3].value = {30, 0, 30};
+    hero->cur.defend = 0;
+    const int before = hero->life();
+    CHECK(iw.w->receive_damage(*hero, *p, -1, true, d.data(), false, 0, jx::zone::relation_enemy, 1) == 1);
+    CHECK(hero->life() < before);
+    CHECK(iw.list().find(armor)->durability == 89);
 }

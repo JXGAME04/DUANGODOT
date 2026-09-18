@@ -743,8 +743,8 @@ mỗi khung `ProcessCommand` → `CastSkill` (kiểm + trừ phí + gói 0x5a) �
 Sai khác có chủ ý: (1) lệnh xin thi triển của client được xử lý **ngay** trong `cast_skill_request` (nhị phân: khung sau)
 và `attack_request` cũ (AttackReq của client Godot) vẫn **tự đi tới** khi ngoài tầm rồi mới gửi lệnh và **bật
 `fight_mode`** (`+0x168c`) — client 2.0 tự đi tới và vào chế độ chiến đấu trước khi gửi gói (đánh thường `PeaceCanUse = 0`); B4 sẽ chuyển client sang `CastSkillReq`; (2) người chơi tự lặp lệnh khi mục tiêu còn sống
-(`update_action`) — client cũ gửi lại mỗi đòn; (3) `0x080A79B0`, `0x080AEBC0`, `0x08201940` (mòn đồ),
-`0x080B12C0` không port (style 1 `0x08087F70`: §16.2); (4) vòng 5 lệnh là `std::deque` cùng luật (đầy, sống 18 khung);
+(`update_action`) — client cũ gửi lại mỗi đòn; (3) `0x080A79B0`, `0x080AEBC0`,
+`0x080B12C0` không port (style 1 `0x08087F70`: §16.2; mòn đồ `0x08201940`: §16.3); (4) vòng 5 lệnh là `std::deque` cùng luật (đầy, sống 18 khung);
 (5) `+0x194c` = "không trong hành động" ≡ `doing ∉ {attack, magic}`; (6) `KDoing::magic` gửi client như `ACTION_ATTACK`
 kèm `skill_id/skill_level/aim` (0x5a) — client phân biệt ở B4; (7) do_magic không chặn chia 0 ở nhị phân (tốc độ −100),
 zone `max(1, …)`; (8) bảng vũ khí thiếu → đánh thường 1/2, `bare` 53 chưa dùng; (9) style 4 (tạo npc) trong
@@ -811,3 +811,27 @@ hình nhảy 2.0: B4), `+0x2c` độ cao chưa gửi; (4) `DoWalk` khi nhảy kh
 lệnh lại), khi đang chạy đánh/đòn con/thi triển nhiều lần → dừng thân pháp; (6) `SetPos` của thuấn di = `set_pos` (đồng bộ
 `teleport` của zone) thay gói 0x4f; (7) `0x08084930` và `0x08084A10` không đổi `+0x194c` (thân pháp vẫn "rảnh" với AI nhị phân)
 — zone coi mọi thân pháp là bận (`KNpc::in_action`).
+
+### 16.3 Mòn đồ — `KItemList 0x08201940`, bảng `AbradeRate.ini`, trang bị hỏng (M12 lát B3c-2, đã kiểm từng dòng)
+
+`0x830D420` = **`g_ItemSet`** (`KItemSet`); `[0x830D300]` = mảng vật phẩm (0x368 byte/ô). Trong `KItem`: `+0` genre, `+4` detail, `+8`
+particular, `+0xc` level, `+0x304` id, `+0x308` `m_nCurrentDur`, `+0x344` (byte) cấp ngọc bội 0..10 (`0x0806AD90` nâng), `+0x358` chủ.
+Ô mặc của `KItemList`: `list+0xc + slot·8` (slot = `KItemPart`: 0 Head … 11 Mask, 12..14 phần JX2).
+
+| Địa chỉ | Nội dung (đã đọc từng dòng) | Zone |
+|---|---|---|
+| `0x0806E250` | **`KItemSet::Init`**: log `Logs/KSG_ItemLog`, `KSG_ItemGenerate`, `IB_ItemExpired`; `\settings\item\ItemTradeLogFilter.ini` (`FilterNum`, `DetailType`); **`\settings\item\AbradeRate.ini`** qua `KIniFile::GetInteger`: `[Repair] ItemPriceScale → +0x188, MagicPriceScale +0x18c, WarningBaseline +0x190`; `[Attack]` Head `+0x20`, Body `+0x24`, Belt `+0x28`, Weapon `+0x2c`, Foot `+0x30`, Cuff `+0x34`, Amulet `+0x38`, Ring1 `+0x3c`, Ring2 `+0x40`, Pendant `+0x44`, Horse `+0x48`, Mask `+0x4c` (15 ô/chế độ: chỉ số `8 + chế độ·15 + slot`); `[Defend]` từ `+0x5c`, `[Move]` từ `+0x98`; `[AdvPlatina_Attack/Defend/Move]` từ `+0xd4/+0x110/+0x14c` (chỉ số `0x35 + chế độ·15 + slot`). Tệp thật: Attack Weapon 256; Defend Head/Body/Belt/Cuff 320; Move Foot 2560, Horse 5120; AdvPlatina_Defend thêm Amulet/Ring1/Ring2/Pendant 320 | `KAbradeRate` (`abrade_rate.json` — `jxassets export-abrade-rate`, Go `KAbradeRate.go`) |
+| `0x0806D560` | **`KItemSet::GetAbradeRate(this, item, chế độ, slot)`**: `chế độ > 2` hay `slot > 14` (không dấu) → 0; **`item+4 == 4` (ngọc bội) và byte `item+0x344 > 5`** → bảng AdvPlatina, không thì bảng thường | `KAbradeRate::range_of` (`amulet_tier` zone chưa sinh → luôn bảng thường) |
+| `0x08066570` | **`KItem::Abrade(this, N)`**: `N == 0` → −1; `+0x308 == −1` hay `≤ 0` → −1; `g_Random(N) ≠ 0` → trả `+0x308` (không đổi); không thì `+0x308 −= 1`, trả giá trị mới (0 = vừa hỏng) | `KItem::abrade` (sửa: độ bền 0 trả −1) |
+| `0x08201940` | **`KItemList::Abrade?(this, chế độ)`** (gọi: `CastSkill 0x08088350` chế độ 0 sau `PeaceCanUse` khi `+0x1908 > 0`; `ReceiveDamage 0x0808B148` chế độ 1 khi người chơi và `+0x118c < máu trước`; **mỗi bước đi `0x0807C2F0`** chế độ 2 khi `+0x1908 > 0`; Lua `AbradeEquipments(chế độ) 0x08107AA0`): `[0x830CA78] == 1` → thôi (không ai ghi → luôn 0); duyệt slot 0..13 **trừ 11 (Mask)**: `idx = list+0xc+slot·8`, `N = GetAbradeRate`, `r = KItem::Abrade`; `r == −1` hay `r == +0x308 cũ` → bỏ; `r > 0` → **gói 0x9b** 13 byte `{0x9b, +0x304, +0x30c, +0x308}` cho người chơi (`0x080A8400`); **`r == 0` (hỏng)**: `[0x830D244] ≠ 0` (không ai ghi) → log "Item Damage", gói 0x86 `{0x86, 8, 0x10, id}`, `KItemList::Remove 0x082006B0`, `KItemSet::Remove 0x0806DB90(…, 3, 1)`; **không thì "AbradeToZero"**: (`item+0x350 ≠ 0` hay `list+0x4c80 && +0x4c84` → `0x081F8A90(list+0x4c8c)` đếm ô trống > 0, không thì `list+4 ≠ 0` → bỏ) → log "Item AbradeToZero.Name(%s) Gener(%d) DetailType(%d) Player(%s) Account", `sprintf([0x978A614] = G_STR_ITEM_ABRADETOZERO, tên)` → `0x081C9220(1, player, [0x978A650], msg)` (thông báo), **`KItem 0x08067540(item, 1)`** (thành phế phẩm), `KItemList::Remove(idx)`, `KPlayer::AddItem 0x080B5180(player, idx, phòng 0 rồi 0xe)` không được → `KItemSet::Remove(g_ItemSet, idx, player, 0, 1)` (huỷ) | `KSubWorld::abrade_equipments` + `wear_result` (`item_changed` = 0x9b; hỏng: thông báo, `genre = broken`, `unequip` vào túi hay `take_item`, `recalc_player`); móc `cast_skill`, `receive_damage`, vòng `moved` của tick, Lua `AbradeEquipments` |
+| `0x08067540` | **`KItem::ChangeToBroken?(this, cờ)`**: genre phải 0 hay 7; `genre = 7`; cờ ≠ 0 → dò bảng phế phẩm của `g_ItemGenerator+0x1e88` (mỗi dòng: genre, detail (−1 mọi), cấp (`+8`, hay khoảng `+0x10..+0x14` khi byte `+0x121`), particular `+0x10`…) khớp → chép `+0x58/+0x5c/+0x60` (detail/particular/cấp phế phẩm) vào `item+0x18/+0x1c/+0x20`, byte `+0x128..+0x12d` → `item+0x35c..+0x361` | chưa port (bảng phế phẩm chưa đọc): zone chỉ đặt `genre = broken` |
+| `0x082006B0` | **`KItemList::Remove(this, idx)`**: tìm mục `+0x94 == idx` trong `list+0x4c6c` (`+0x4c74` mục, 20 byte/mục); phòng `+0x98 ≤ 0x1d` nhảy theo bảng `0x826B468`; đang mặc → `0x081FFE90(list, idx, −1, 0)` (gỡ thuộc tính), `0x081E8060(item, player, 2)` (log), xoá mục, bit `+0x4c60/+0x4c6c`, `item+0x358 = 0`, **gói 0x60** `{0x60, id}` | `KItemList::remove` / `unequip` + `G2C_ITEM_MOVE/REMOVE` |
+| `0x0806DB90` | **`KItemSet::Remove(this, idx, player, lý do, cờ)`**: `idx` trong 1..max, `+0xce4 == 0`; log `0x0818A1E0(0x978B320, item, lý do, cờ)`; `KItem::Release 0x08067830`; bit `+0x10/+4`; `+0x1c −= 1` | `take_item` |
+| `0x080B5180` | `KPlayer::AddItem(player, idx, …)` → `KItemList::Add 0x08205830(list, 0 (túi), idx, …)` không được → thử phòng `0xe` | `unequip(part, room_equipment)` (zone không có phòng 0xe) |
+| `0x08201D90` / `0x080658B0` | **`KItemList::AbradePercent?(this, n)`** (gọi từ `KPlayer 0x080B9FA0` — chết/PK, B3c sau): `n ≤ 0` → thôi; slot 0..13 trừ 11: **`KItem 0x080658B0(item, n)`**: `+0x308 == −1` → −1; `n ∉ 1..100` hay `+0x308 ≤ 0` → không đổi; **`+0x308 −= n·+0x308/100`**; rồi cùng đường gói 0x9b / hỏng như trên | `KItem::abrade_percent`, `KSubWorld::abrade_equipments_percent` |
+| `lang\vn\stringtable_core.txt` | `G_STR_ITEM_ABRADETOZERO` (TCVN3): " %s  đã tổn hại, không thể tiếp tục sử dụng, hiện trong hành trang. Hãy đến Lâm An tìm <Thần bí Thương Nhân> sử dụng tiền đồng để sửa chữa!" (bảng chuỗi nạp ở `0x0817F0B0`, con trỏ `[0x978A614]`) | `kAbradeToZeroMessage` → `msg_to_player` |
+
+Sai khác có chủ ý: (1) gói 0x9b (độ bền) = `G2C_ITEM_ADD` cả món; (2) phế phẩm giữ nguyên detail/particular/cấp (bảng
+phế phẩm `g_ItemGenerator+0x1e88` chưa đọc), chỉ `genre = broken`; (3) không có phòng 0xe → không vừa túi thì huỷ ngay;
+(4) `amulet_tier` (+0x344) chưa được bộ sinh vật phẩm của zone đặt → ngọc bội luôn dùng bảng thường; (5) mòn khi đi: mỗi
+tick người chơi còn di chuyển (nhị phân: mỗi khung `0x0807C2F0`).

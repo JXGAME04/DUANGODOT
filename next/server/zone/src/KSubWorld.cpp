@@ -600,6 +600,7 @@ void KSubWorld::tick()
             Cell from, to;
             if (!grid_.move(id, e.pos(), from, to)) continue;
             if (e.kind != KNpcKind::player || e.sid == 0) continue;
+            abrade_equipments(e, 2);   // 0x0807C2F0: every step of a player wears the [Move] pieces (the boots, the horse)
             if (const auto v = viewers_.find(e.sid); v != viewers_.end()) v->second.dirty = true;
         }
         run_interest();
@@ -1657,6 +1658,77 @@ std::uint32_t KSubWorld::give_item(std::uint64_t sid, KItem item)
     if (id == 0) return 0;
     item_changed(sid, id);
     return id;
+}
+
+// KItemList 0x08201940(list, mode): every worn piece but the mask (slot 11; the JX2 slot 14 is not walked
+// either) rolls KItem::Abrade with the rate of (mode, part) from AbradeRate.ini; a piece that lost a point
+// is synced (the 0x9b packet), one that reached 0 goes the AbradeToZero way.  Nothing wears while the
+// switch [0x830CA78] is 1 - the binary never sets it.  Called for a player by KNpc::CastSkill (mode 0,
+// 0x08088350), by KNpc::ReceiveDamage when the hit took life (mode 1, 0x0808B148), by every step of a
+// move (mode 2, 0x0807C2F0) and by the Lua AbradeEquipments(mode) (0x08107AA0).
+void KSubWorld::abrade_equipments(KNpc& e, int mode)
+{
+    if (e.kind != KNpcKind::player || !cfg_.abrade_rate) return;
+    KItemList* list = items_of(e.sid);
+    if (list == nullptr) return;
+    for (int part = 0; part < itempart_shipin; ++part) {
+        if (part == itempart_mask) continue;   // 0x0820198F
+        const std::uint32_t id = list->equipped(part);
+        if (id == 0) continue;
+        KItem* item = list->find_mutable(id);
+        if (item == nullptr) continue;
+        const int before = item->durability;
+        const int range = cfg_.abrade_rate->range_of(*item, mode, part);   // KItemSet 0x0806D560
+        wear_result(e, *list, part, id, before, item->abrade(range, rng_));
+    }
+}
+
+void KSubWorld::abrade_equipments_percent(KNpc& e, int percent)
+{
+    if (e.kind != KNpcKind::player || percent <= 0) return;   // 0x08201DAC
+    KItemList* list = items_of(e.sid);
+    if (list == nullptr) return;
+    for (int part = 0; part < itempart_shipin; ++part) {
+        if (part == itempart_mask) continue;   // 0x08201DDC
+        const std::uint32_t id = list->equipped(part);
+        if (id == 0) continue;
+        KItem* item = list->find_mutable(id);
+        if (item == nullptr) continue;
+        const int before = item->durability;
+        wear_result(e, *list, part, id, before, item->abrade_percent(percent));
+    }
+}
+
+// G_STR_ITEM_ABRADETOZERO of lang\vn\stringtable_core.txt (TCVN3 -> UTF-8); the %s is the piece's name
+static constexpr const char* kAbradeToZeroMessage =
+    " %s  đã tổn hại, không thể tiếp tục sử dụng, hiện trong hành trang. Hãy đến Lâm An tìm <Thần bí Thương Nhân> sử dụng tiền đồng để sửa chữa!";
+
+void KSubWorld::wear_result(KNpc& e, KItemList& list, int part, std::uint32_t id, int before, int left)
+{
+    if (left == -1 || left == before) return;   // 0x08201B98 / 0x08201BA1: does not wear, or the roll missed
+    if (left > 0) {                             // 0x08201BAD: the 0x9b packet {id, +0x30c, durability} - the piece as it is now
+        item_changed(e.sid, id);
+        log::debug("zone.item", "equipment worn", {log::kv("entity", e.id), log::kv("item", id), log::kv("part", part), log::kv("durability", left)});
+        return;
+    }
+    // 0x08201A06, AbradeToZero ([0x830D244] "damage" mode is never set): the log, the message to the player,
+    // the piece turned into its broken form (KItem 0x08067540(item, 1): genre 7 through the generator's broken
+    // table +0x1e88 - not read yet, the zone keeps the piece as it is under genre broken), off the body
+    // (KItemList::Remove 0x082006B0) into the bag (KPlayer::AddItem 0x080B5180: room 0, then room 0xe the
+    // zone does not have) or destroyed when it does not fit (KItemSet::Remove 0x0806DB90)
+    KItem* item = list.find_mutable(id);
+    if (item == nullptr) return;
+    log::info("zone.item", "equipment broke", {log::kv("entity", e.id), log::kv("item", id), log::kv("part", part), log::kv("name", item->name())});
+    std::string text = kAbradeToZeroMessage;
+    if (const auto at = text.find("%s"); at != std::string::npos) text.replace(at, 2, item->name());
+    msg_to_player(e.sid, text);
+    item->genre = KItemGenre::broken;
+    if (list.unequip(part, room_equipment)) {
+        item_moved(e.sid, id, 0);
+    } else {
+        take_item(e.sid, id);
+    }
+    recalc_player(e);   // 0x081FFE90: the attributes of the piece come off
 }
 
 bool KSubWorld::take_item(std::uint64_t sid, std::uint32_t id)

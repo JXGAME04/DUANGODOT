@@ -475,12 +475,65 @@ int KItem::total_magic_level() const noexcept
 
 int KItem::abrade(int range, std::minstd_rand& rng)
 {
-    if (durability == -1 || range <= 0) return -1;
-    if (static_cast<int>(rng() % static_cast<unsigned>(range)) == 0) {
-        --durability;
-        if (durability == 0) return 0;
-    }
+    // 0x08066570: no range, no durability or none left -> -1; g_Random(range) != 0 -> untouched
+    if (range <= 0 || durability <= 0) return -1;
+    if (static_cast<int>(rng() % static_cast<unsigned>(range)) == 0) --durability;
     return durability;
+}
+
+int KItem::abrade_percent(int percent) noexcept
+{
+    // 0x080658B0: -1 stays -1; n outside 1..100 or nothing left -> unchanged; else dur -= n x dur / 100
+    if (durability == -1) return -1;
+    if (percent < 1 || percent > 100 || durability <= 0) return durability;
+    durability -= percent * durability / 100;
+    return durability;
+}
+
+std::optional<KAbradeRate> KAbradeRate::load(const std::string& file, std::string* error)
+{
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        if (error) *error = "cannot open " + file;
+        return std::nullopt;
+    }
+    nlohmann::json j;
+    try {
+        in >> j;
+    } catch (const std::exception& ex) {
+        if (error) *error = ex.what();
+        return std::nullopt;
+    }
+    KAbradeRate t;
+    static const char* const kModeKeys[kModes] = {"attack", "defend", "move"};
+    const auto read = [&](const char* key, std::array<std::array<int, itempart_num>, kModes>& into) {
+        const auto block = j.find(key);
+        if (block == j.end() || !block->is_object()) return;
+        for (int m = 0; m < kModes; ++m) {
+            const auto arr = block->find(kModeKeys[m]);
+            if (arr == block->end() || !arr->is_array()) continue;
+            for (std::size_t p = 0; p < into[static_cast<std::size_t>(m)].size() && p < arr->size(); ++p) {
+                if ((*arr)[p].is_number_integer()) into[static_cast<std::size_t>(m)][p] = (*arr)[p].get<int>();
+            }
+        }
+    };
+    read("rate", t.rate);
+    read("adv_rate", t.adv_rate);
+    if (const auto r = j.find("repair"); r != j.end() && r->is_object()) {
+        t.repair_item_price_scale = r->value("item_price_scale", 0);
+        t.repair_magic_price_scale = r->value("magic_price_scale", 0);
+        t.repair_warning_baseline = r->value("warning_baseline", 0);
+    }
+    return t;
+}
+
+int KAbradeRate::range_of(const KItem& item, int mode, int part) const noexcept
+{
+    if (mode < 0 || mode >= kModes || part < 0 || part >= itempart_num) return 0;   // 0x0806D570: (unsigned) > 2, > 14
+    const auto m = static_cast<std::size_t>(mode);
+    const auto p = static_cast<std::size_t>(part);
+    if (item.detail == equip_amulet && item.amulet_tier > 5) return adv_rate[m][p];   // 0x0806D5A0
+    return rate[m][p];
 }
 
 // ---- KInventory ---------------------------------------------------------------------------

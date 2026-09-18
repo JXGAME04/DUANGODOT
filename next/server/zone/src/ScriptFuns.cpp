@@ -665,6 +665,18 @@ int l_SetHide(lua_State* L)
     return 0;
 }
 
+// AbradeEquipments(mode): KItemList 0x08201940 on the player's worn pieces - 0 an attack, 1 a hit, 2 a
+// step (0x08107AA0: the first argument, above 2 nothing)
+int l_AbradeEquipments(lua_State* L)
+{
+    KNpc* p = player_of(L, "AbradeEquipments");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int mode = static_cast<int>(lua_tonumber(L, 1));
+    if (mode < 0 || mode > 2) return 0;
+    g_ScriptContext().world->abrade_equipments(*p, mode);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -680,7 +692,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
-    {nullptr, nullptr},
+    {"AbradeEquipments", l_AbradeEquipments}, {nullptr, nullptr},
 };
 
 } // namespace

@@ -230,7 +230,8 @@ struct KItem {
     int level = 0;
     int series = -1;
     int count = 1;               // stack
-    int durability = -1;         // -1 = never wears (KItem::m_nCurrentDur)
+    int durability = -1;         // -1 = never wears (KItem::m_nCurrentDur, +0x308)
+    int amulet_tier = 0;         // +0x344 (byte): the tier 0..10 of an amulet (0x0806AD90 raises it); above 5 the AdvPlatina wear rates apply - nothing sets it in the zone yet
     int ex_type = 0;             // ITEMEXTENDTYPE: 0 normal, 1 gold, 2 platina, 3 purple
     int gen_param = 0;           // gold: row id; script: row
     int group = 0, ex_group = 0, group_serial = 0;
@@ -247,8 +248,12 @@ struct KItem {
     [[nodiscard]] const std::string& name() const;
     [[nodiscard]] int max_durability() const noexcept;      // KItem::GetMaxDurability: the durability base attribute, -1 when none
     [[nodiscard]] int total_magic_level() const noexcept;   // KItem::GetTotalMagicLevel
-    // KItem::Abrade: one in `range` chance to lose a point; returns the durability left, -1 = never wears, 0 = broke now
+    // KItem::Abrade (jx_linux_y 0x08066570): one in `range` chance to lose a point; returns the durability
+    // left (0 = broke now), -1 when the piece does not wear (no durability, already 0, no range)
     int abrade(int range, std::minstd_rand& rng);
+    // KItem 0x080658B0(this, n): n percent of the durability off (1..100, a piece that wears); returns what
+    // is left (0 = broke now), -1 when it does not wear, the old value when n is out of range or it is 0
+    int abrade_percent(int percent) noexcept;
 
     // RoleData.items: what is saved with the character and how it comes back.  from_proto finds
     // the template again through the library (false when its table set or row is gone).
@@ -287,6 +292,25 @@ struct KItemPlace {
 };
 
 // KItemList: everything one player owns and where it is.
+// KItemSet+0x20.. of the JX2 server: \settings\item\AbradeRate.ini, read by KItemSet::Init 0x0806E250
+// (jxassets export-abrade-rate -> abrade_rate.json).  The one-in-N chance a worn piece loses a point
+// of durability, by what the player does (mode 0 an attack [Attack], 1 a hit taken [Defend], 2 a step
+// [Move]) and by part (KItemPart; 15 slots, Head..Mask named in the ini), with a second table
+// [AdvPlatina_*] for an amulet above tier 5 (KItemSet 0x0806D560); 0 = never.  [Repair] carries the
+// repair price scales and the warning line (docs/LINUX-SERVER.md §16.3).
+struct KAbradeRate {
+    static constexpr int kModes = 3;
+    std::array<std::array<int, itempart_num>, kModes> rate{};
+    std::array<std::array<int, itempart_num>, kModes> adv_rate{};
+    int repair_item_price_scale = 0;   // KItemSet+0x188
+    int repair_magic_price_scale = 0;  // +0x18c
+    int repair_warning_baseline = 0;   // +0x190
+    static std::optional<KAbradeRate> load(const std::string& file, std::string* error);
+    // 0x0806D560(set, item, mode, part): 0 outside the tables; the AdvPlatina table for an amulet (detail 4)
+    // whose tier is above 5, the plain one otherwise
+    [[nodiscard]] int range_of(const KItem& item, int mode, int part) const noexcept;
+};
+
 class KItemList {
 public:
     KItemList();

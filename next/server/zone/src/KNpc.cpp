@@ -925,7 +925,8 @@ int KSubWorld::receive_damage(KNpc& t, KNpc& a, int series, bool melee, const KM
             }
         }
     }
-    // 0x0808A9D8: a player's equipment wears (Abrade) - B3; an untouched target may still stagger
+    // 0x0808A9D8 -> 0x0808B148: a player that lost life wears its worn pieces ([Defend]); an untouched target may still stagger
+    if (t.kind == KNpcKind::player && t.cur.life < life_before) abrade_equipments(t, 1);
     if (t.cur.life == life_before) {
         do_hurt_chance(t, do_hurt, a);
     } else if (t.cur.life < life_before && t.kind == KNpcKind::player && skill_id != kNoCounterSkill) {

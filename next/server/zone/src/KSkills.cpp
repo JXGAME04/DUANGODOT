@@ -443,7 +443,7 @@ bool KSubWorld::cast_skill(KNpc& e, int p1, int p2, EntityId target)
     if (sk == nullptr) return false;
     if (e.kind == KNpcKind::player) {
         if (!e.fight_mode && !sk->row.peace_can_use) return false;   // +0x168c == 0 -> vtable+0x44
-        // (+0x1908 > 0: KItemList 0x08201940(list, 0) wears the weapon - the durability of M11, later)
+        abrade_equipments(e, 0);   // +0x1908 > 0: KItemList 0x08201940(list, 0) - the worn pieces wear ([Attack]: the weapon)
     }
     if (p1 == -1) e.attack_target = target;   // +0x1594
     auto refuse = [&](const char* why) {
