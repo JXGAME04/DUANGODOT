@@ -380,7 +380,14 @@ func _check_item_windows() -> void:
 	check(KMagicDesc.describe({"type": 153, "value": [10, 100, 0]}).contains("+10"), "#d1+ shows the sign")
 	check(KMagicDesc.describe({"type": 999, "value": [1, 0, 0]}) == "", "an unknown id has no sentence")
 	var lines := KUiItemView.describe(Game.items[2])
-	check(lines.size() >= 4 and str(lines[0].text) == "Áo vàng" and lines[0].color == KUiItemView.NAME_COLORS[1], "a gold piece is named in gold: %s" % str(lines[0]))
+	check(lines.size() >= 4 and str(lines[0].text) == "Áo vàng [Cấp 1]" and lines[0].color == KUiItemView.NAME_COLORS[1], "a gold piece is named in gold with its level: %s" % str(lines[0]))
+	# KItem::GetDesc: a white piece is white, one with a prefix / suffix is blue, a quest item yellow, a potion white
+	check(KUiItemView.name_color(Game.items[1]) == Color.WHITE, "a piece without magic is named in white")
+	var blue: Dictionary = Game.items[1].duplicate(true)
+	blue["magic"] = [{"type": 100, "value": [3, -1, 0]}]
+	check(KUiItemView.name_color(blue) == KUiItemView.NAME_COLOR_MAGIC, "a piece with a prefix is named in blue (100,100,255)")
+	check(KUiItemView.name_color({"genre": 4, "name": "Thư"}) == Color8(255, 255, 0), "a quest item is named in yellow")
+	check(KUiItemView.name_color(Game.items[3]) == Color.WHITE and KUiItemView.title_of(Game.items[3]) == "Thuốc x5", "a stack of potions: white, ' x5', no level")
 	check(not KUiItemView.usable(Game.items[2]) and KUiItemView.usable(Game.items[1]), "the armour of a woman is not for this man, the sword is")
 
 	# the bag: 6 x 10 cells of 28 px with a 2 px border, the things of the bag room, the money

@@ -9,6 +9,7 @@ const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
 const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
+const KUiItemView := preload("res://ui/KUiItemView.gd")
 const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
@@ -400,19 +401,30 @@ func _auto_run() -> void:
 	get_tree().quit(0 if arrived else 1)
 
 
-# --auto: ask the zone for a sword and a potion through the GM chat (a development server has
-# zone.gm_chat on), wait for G2C_ITEM_ADD, open the bag and take its picture.  AUTO_ITEMS says how
-# many the character carries afterwards: 0 when the zone has no item tables or gm_chat is off.
+# --auto: ask the zone for a sword, a potion and a level-5 sword with six magic levels through the
+# GM chat (a development server has zone.gm_chat on), wait for G2C_ITEM_ADD, open the bag and take
+# its picture, then the tooltip of the magic sword.  AUTO_ITEMS says how many the character carries
+# afterwards: 0 when the zone has no item tables or gm_chat is off; AUTO_MAGIC how many prefixes /
+# suffixes the level-5 sword rolled (Gen_MagicAttrib of the zone on the real tables).
 func _auto_items() -> void:
 	var before := Game.items.size()
 	Game.chat("?gm ds AddItem(0,0,0,1,0,0)")
 	Game.chat("?gm ds AddItem(1,0,0,1,0,0)")
+	Game.chat("?gm ds AddItem(0,0,0,5,0,100,5,5,5,5,5,5)")
 	var waited := 0.0
-	while waited < 3.0 and Game.items.size() < before + 2:
+	while waited < 3.0 and Game.items.size() < before + 3:
 		await get_tree().create_timer(0.25).timeout
 		waited += 0.25
 	Log.info("auto", "auto items", {"before": before, "after": Game.items.size()})
 	print("AUTO_ITEMS count=%d" % Game.items.size())
+	var magic_sword: Dictionary = {}
+	for item in Game.items.values():
+		if int(item.get("genre", -1)) == 0 and int(item.get("level", 0)) == 5:
+			magic_sword = item
+	if not magic_sword.is_empty():
+		var magic: Array = magic_sword.get("magic", [])
+		Log.info("auto", "auto magic sword", {"name": str(magic_sword.get("name", "")), "magic": magic.size()})
+		print("AUTO_MAGIC count=%d" % magic.size())
 	# throw one on the ground and pick it up again: the ground objects end to end
 	if Game.items.size() > 0:
 		var had := Game.items.size()
@@ -441,8 +453,13 @@ func _auto_items() -> void:
 		_windows.status_window.open_window()
 		_windows.status_window._on_page_button(true, _windows.status_window.PAGE_EQUIP)
 		await _save_screenshot("user://logs/auto_items.png")
-		_windows.item_window.hide_window()
 		_windows.status_window.hide_window()
+		if not magic_sword.is_empty():
+			# the tooltip of the magic sword, as if the mouse rested on it in the bag
+			_windows.hover.show_lines(KUiItemView.describe(magic_sword), Vector2(560, 120))
+			await _save_screenshot("user://logs/auto_item_tip.png")
+			_windows.hover.hide_lines()
+		_windows.item_window.hide_window()
 
 
 # --auto: walk up to the nearest monster in sight and attack it until it dies (or 8 s pass);

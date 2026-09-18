@@ -1753,9 +1753,14 @@ void KSubWorld::flush_pending_drops()
 }
 
 // GenRandomItem (jx_linux_y 0x08083BB0): a weighted entry, its level from the npc level through
-// the table's scales (clamped to the table's range, then 1..10), a white item of that kind.  The
-// prefix / suffix levels (3 to 6 slots at the item level) and the platina sockets are rolled too
-// but not applied: Gen_MagicAttrib is not ported yet.
+// the table's scales (clamped to the table's range, then 1..10), then the prefix / suffix levels
+// of the piece: k = g_Random(4) + 3 and every slot i <= k gets the item level (4, 5 or 6 magic
+// slots - the tail of six beyond k stays 0); an entry with its own MagicLevel1..6 uses those
+// instead.  An equipment entry of quality 0 whose EnchasableRate roll hits, or of quality 2,
+// gets MinSocket..MaxSocket sockets (-1 slots) and becomes quality 2 - platina, which is not
+// made yet (the tables of the JX2 server set EnchasableRate 0 everywhere).  Quality 1 is a gold
+// row of goldequip.txt (Gen_GoldEquip; the entry's Detail is its 1-based row).  KItemSet::Add
+// then makes the item from the current table version with the killer's luck.
 std::optional<KItem> KSubWorld::gen_random_item(const KNpcDropRate& table, int npc_level, int npc_series, int luck)
 {
     if (table.max_level_scale <= 0 || table.min_level_scale <= 0 || table.rand_range <= 0 || table.entries.empty()) return std::nullopt;
@@ -1785,11 +1790,35 @@ std::optional<KItem> KSubWorld::gen_random_item(const KNpcDropRate& table, int n
     }
     int level = lo + static_cast<int>(rng_() % static_cast<std::uint32_t>(hi - lo + 1));
     level = std::clamp(level, 1, 10);
+    // the magic slots (pnaryMALevel)
+    int quality = pick->quality;
+    const int enchasable_rate = pick->enchasable_rate >= 0 ? pick->enchasable_rate : table.enchasable_rate;
+    const int min_socket = pick->min_socket >= 0 ? pick->min_socket : table.min_socket;
+    const int max_socket = pick->max_socket >= 0 ? pick->max_socket : table.max_socket;
+    bool sockets = false;
+    if (pick->genre == static_cast<int>(KItemGenre::equip)) {
+        if (quality == 0) sockets = static_cast<int>(random_percent()) < enchasable_rate;
+        else if (quality == 2) sockets = true;
+    }
+    KMagicLevels levels{};
+    if (!sockets) {
+        const int k = random(4) + 3;
+        for (int i = 0; i < 6; ++i) levels[static_cast<std::size_t>(i)] = i <= k ? level : 0;
+    } else {
+        const int n = min_socket + random(max_socket + 1 - min_socket);
+        for (int i = 0; i < n && i < 6; ++i) levels[static_cast<std::size_t>(i)] = -1;
+        quality = 2;
+    }
+    if (std::any_of(pick->magic_level.begin(), pick->magic_level.end(), [](int l) { return l > 0; })) levels = pick->magic_level;
     auto gen = item_generator(item_version());
     if (!gen) return std::nullopt;
     std::optional<KItem> item;
     switch (static_cast<KItemGenre>(pick->genre)) {
-    case KItemGenre::equip: item = gen->equipment(pick->detail, pick->particular, series, level); break;
+    case KItemGenre::equip:
+        if (quality == 0) item = gen->equipment(pick->detail, pick->particular, series, level, &levels, luck);
+        else if (quality == 1) item = gen->gold(luck, pick->detail);
+        else log::debug("zone.fight", "drop quality not made yet", {log::kv("table", table.source), log::kv("quality", quality)});
+        break;
     case KItemGenre::medicine: item = gen->medicine(pick->detail, level); break;
     case KItemGenre::task: item = gen->quest(pick->detail, 1); break;
     case KItemGenre::town_portal: item = gen->town_portal(); break;
@@ -1798,10 +1827,9 @@ std::optional<KItem> KSubWorld::gen_random_item(const KNpcDropRate& table, int n
     }
     if (!item) {
         log::debug("zone.fight", "drop row missing", {log::kv("table", table.source), log::kv("genre", pick->genre), log::kv("detail", pick->detail),
-                                                       log::kv("particular", pick->particular), log::kv("level", level)});
+                                                       log::kv("particular", pick->particular), log::kv("level", level), log::kv("quality", quality)});
         return std::nullopt;
     }
-    (void)luck;   // KItemSet::Add rolls the gold / magic with it: not ported yet
     return item;
 }
 

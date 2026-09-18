@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "jx/role.pb.h"
+#include "jx/zone/KRandom.h"
 
 namespace jx::zone {
 
@@ -108,6 +109,7 @@ enum KMagic : int {
     magic_requireseries = 37,
     magic_requiresex = 38,
     magic_requiremenpai = 39,
+    magic_indestructible_b = 43,   // KItem::SetAttrib_MA: the piece never wears (durability -1)
     magic_lifepotion_v = 153,
     magic_manapotion_v = 154,
 };
@@ -155,8 +157,23 @@ struct KMagicTemplate {
     int level = 0;
     int kind = 0;
     std::array<std::pair<int, int>, 3> ranges{};
-    std::vector<int> drop_rates;   // per equipment detail type
+    std::vector<int> drop_rates;   // per equipment detail type (m_DropRate[MATF_CBDR]: 12 in the JX2 server)
 };
+
+// magicattrib_limit.txt of the JX2 server (one per version folder; jx_linux_y loader 0x0806BE00,
+// check 0x08069D10): an attribute type a new item may only roll with every parameter k strictly
+// inside (min[k], max[k]); a max of -1 (the default of a missing column) turns that parameter's
+// check off.  The 004 table forbids allskill_v (139) with 0..0: "no more +N all skills".
+struct KMagicLimit {
+    int type = 0;
+    std::array<int, 3> min{-1, -1, -1};
+    std::array<int, 3> max{-1, -1, -1};
+};
+
+// MATF_* of KBasPropTbl.h as the JX2 server has them: 12 equipment types (the drop-rate columns of
+// magicattrib.txt: melee, range, armor, ring, amulet, boots, belt, helm, cuff, pendant, horse,
+// mask), five series, ten levels
+constexpr int kMagicTypes = 12, kMagicSeries = 5, kMagicLevels = 10;
 
 // KLibOfBPT: every table of one item set (one version folder)
 class KItemTemplateSet {
@@ -182,14 +199,25 @@ public:
     [[nodiscard]] const KMagicTemplate* gold_magic(int row_id) const;   // magicattrib_ge.txt, 1-based
     [[nodiscard]] const std::vector<KMagicTemplate>& magic() const noexcept { return magic_; }
     [[nodiscard]] int suite_activate_count(int suite) const;
+    // KLibOfBPT::GetCMIT (jx_linux_y 0x08070B50): the rows of magicattrib.txt a (prefix 1 / suffix
+    // 0, equipment detail type, series, level 1..10) may draw from - indices into magic().  Built
+    // the way 0x08070D00 builds m_CMAIT: a row is listed under every type it has a rate for, every
+    // series it allows (-1 = all five) and every level from its own up to 10.  nullptr when the
+    // place is outside the table (the old code returned NULL and the roll stopped).
+    [[nodiscard]] const std::vector<int>* magic_candidates(int pos, int detail, int series, int level) const;
+    [[nodiscard]] const KMagicLimit* magic_limit(int type) const;
+    [[nodiscard]] std::size_t magic_limit_count() const noexcept { return limits_.size(); }
 
 private:
+    void build_magic_index();
     std::string version_;
     std::size_t count_ = 0;
     std::array<std::vector<KItemTemplate>, equip_detailnum> equipment_;
     std::vector<KItemTemplate> gold_, medicine_, quest_, town_portal_, scripts_;
     std::vector<KMagicTemplate> magic_, gold_magic_;
     std::map<int, int> suites_;
+    std::vector<std::vector<int>> cmait_;   // [pos][type][series][level - 1], 2 x 12 x 5 x 10
+    std::map<int, KMagicLimit> limits_;
 };
 
 // Every item table set the zone knows, by version: items/v000.json .. of jxassets export-items
@@ -350,28 +378,60 @@ private:
     std::uint32_t next_id_ = 1;
 };
 
-// KItemGenerator: an item from a table row.  White items (no magic prefix / suffix) and gold
-// items; the random prefix / suffix rolling of Gen_MagicAttrib is not ported yet.
+// The prefix / suffix levels of a piece to make: slot i (even = prefix, odd = suffix) rolls an
+// attribute of that level, 0 ends the list, -1 is a platina socket (pnaryMALevel of the old code)
+using KMagicLevels = std::array<int, 6>;
+
+// KItemGenerator: an item from a table row, with the dice of the old core (KRandom).  Equipment
+// white or with prefixes / suffixes (Gen_MagicAttrib of jx_linux_y 0x0806AF70), medicine, quest
+// items, town portals, script items and gold pieces.
 class KItemGenerator {
 public:
+    // Gen_Equipment gives a rolled set of attributes up to this many tries when magicattrib_limit
+    // rejects it (jx_linux_y 0x0806B3A0: 0x15), then makes no item
+    static constexpr int kGenEquipmentTries = 21;
+
     explicit KItemGenerator(const KItemTemplateSet& set, std::uint32_t version = 0, std::uint32_t seed = 1)
         : set_(set), version_(version), rng_(seed) {}
-    void seed(std::uint32_t s) { rng_.seed(s); }
-    std::optional<KItem> equipment(int detail, int particular, int series, int level);   // Gen_Equipment without magic
+    void seed(std::uint32_t s) noexcept { rng_.seed(s); }
+    [[nodiscard]] std::uint32_t seed() const noexcept { return rng_.seed(); }
+    [[nodiscard]] std::uint32_t version() const noexcept { return version_; }
+
+    // KItemGenerator::Gen_Equipment (jx_linux_y 0x0806B3A0): the row's base attributes rolled,
+    // then - with magic levels, not for a mask - Gen_MagicAttrib and the magicattrib_limit check,
+    // rolled again up to kGenEquipmentTries times.  No levels (or all zero) is a white item.
+    std::optional<KItem> equipment(int detail, int particular, int series, int level, const KMagicLevels* magic_levels = nullptr,
+                                   int luck = 0);
     std::optional<KItem> medicine(int detail, int level);
     std::optional<KItem> quest(int detail, int count);
     std::optional<KItem> town_portal();
     std::optional<KItem> magic_script(int detail, int particular, int level, int series, int count);
     std::optional<KItem> gold(int luck, int row_id);                                    // Gen_GoldEquip on the server
+
+    // KItemGenerator::Gen_MagicAttrib of jx_linux_y (0x0806AF70), the same rule as the old source:
+    // for each slot i while levels[i] != 0 - prefix for even i, suffix for odd i - the candidates
+    // are the rows of magic_candidates(pos, detail, series, level) not used yet on this piece, of
+    // a kind not chosen yet, whose drop rate for this type beats a roll `decide`; one of them is
+    // drawn evenly and its three parameters rolled inside their ranges.  `decide` depends on the
+    // table version the piece comes from (the drop-rate scale of magicattrib.txt changed):
+    //   version 0..1: g_Random(100) / (luck / 10 + 1)
+    //   version 2..3: g_Random(1000000) / (luck / 10 + 1)
+    //   version 4.. : g_Random(1000000) * 100 / (10 * luck + 100)
+    // No candidate ends the list.  Returns false only without levels (never here).
+    bool gen_magic_attrib(int detail, const KMagicLevels& levels, int series, int luck, std::array<KMagicAttrib, 6>& out);
+    // CheckNewItemAttrib (0x08069D10): every rolled attribute against magicattrib_limit
+    [[nodiscard]] bool check_new_item_attrib(const std::array<KMagicAttrib, 6>& magic) const;
+
     // GetRandomNumber(min, max) of the old core: inclusive
-    int random_between(int lo, int hi);
-    int random(int n);   // g_Random(n): 0 .. n-1
+    int random_between(int lo, int hi) noexcept { return rng_.between(lo, hi); }
+    int random(int n) noexcept { return rng_.random(n); }   // g_Random(n): 0 .. n-1
 
 private:
     void set_attrib_cbr(KItem& item, const KItemTemplate& t);   // KItem::SetAttrib_CBR: rolled base attributes + requirements
+    static void set_attrib_ma(KItem& item, const std::array<KMagicAttrib, 6>& magic);   // KItem::SetAttrib_MA
     const KItemTemplateSet& set_;
     std::uint32_t version_;
-    std::minstd_rand rng_;
+    KRandom rng_;
 };
 
 } // namespace jx::zone

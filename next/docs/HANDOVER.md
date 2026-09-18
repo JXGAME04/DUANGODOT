@@ -118,7 +118,7 @@ thu bằng cảm tính.
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
-| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 + C2 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (luật uống thuốc/hồi máu đối chiếu nhị phân Linux); cửa sổ Túi đồ, Thông tin nhân vật (trang Trang bị + Thuộc tính) và chú thích vật phẩm dựng từ bố cục 2.0, icon từ bảng vật phẩm, nhấc–đặt–mặc–cởi–uống qua giao thức; script `AddItem`/`AddGoldItem` đúng thứ tự bản Linux + lệnh GM `?gm ds` (E phần 1); **lát D xong**: quái chết rơi tiền/đồ theo `DropRateFile`/`Treasure` (luật `GenRandomItem` bản Linux), vật thể trên đất (`ObjData`), nhặt/vứt. Còn: phần còn lại của E (`AddStackItem`, `AddItemEx`, `RemoveItem`, móc Lua khi dùng), ma pháp tiền/hậu tố (`Gen_MagicAttrib`) + hoàng kim/bạch kim khi rơi, chia đội, kho đồ/giao dịch. |
+| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 + C2 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (luật uống thuốc/hồi máu đối chiếu nhị phân Linux); cửa sổ Túi đồ, Thông tin nhân vật (trang Trang bị + Thuộc tính) và chú thích vật phẩm dựng từ bố cục 2.0, icon từ bảng vật phẩm, nhấc–đặt–mặc–cởi–uống qua giao thức; script `AddItem`/`AddGoldItem` đúng thứ tự bản Linux + lệnh GM `?gm ds` (E phần 1); **lát D xong**: quái chết rơi tiền/đồ theo `DropRateFile`/`Treasure` (luật `GenRandomItem` bản Linux), vật thể trên đất (`ObjData`), nhặt/vứt; **lát F xong**: ma pháp tiền tố/hậu tố (`Gen_MagicAttrib` + `magicattrib_limit`, đúng nhị phân Linux) và hoàng kim khi rơi. Còn: phần còn lại của E (`AddStackItem`, `AddItemEx`, `RemoveItem`, móc Lua khi dùng), bạch kim (lỗ khảm), chia đội, kho đồ/giao dịch. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
 | **M14** | Xã hội: chat, bạn bè, thư, bang hội, tổ đội, giao dịch, PK | 5 | Test nhiều phiên; giao dịch nguyên tử. |
@@ -137,6 +137,46 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (chiều) — M11 lát F: ma pháp tiền tố / hậu tố khi sinh trang bị (`Gen_MagicAttrib`) — đối chiếu nhị phân Linux từng dòng
+
+Từ lát này trang bị rơi ra (và `AddItem(... magic1..6)`) có thuộc tính ma pháp thật: "Sắc bén", "của Mãnh Hổ"…
+Mọi luật lấy từ `jx_linux_y`, ghi địa chỉ ở `LINUX-SERVER.md` §9; nguồn Windows chỉ dùng để đặt tên.
+Ảnh: `build/shots/auto_item_tip.png` (đã gửi) — client thật, kiếm cấp 5 xin qua
+`?gm ds AddItem(0,0,0,5,0,100,5,5,5,5,5,5)` trên bảng 004 ra 5 dòng ma pháp; `dev.py e2e|screenshot` in
+`AUTO_MAGIC count=N`.
+
+- **Đối chiếu nhị phân**: `KItemGenerator::Gen_MagicAttrib 0x0806AF70` — với mỗi ô i khi `level[i] ≠ 0`: ô chẵn
+  tiền tố (`pos` 1), ô lẻ hậu tố (0); ứng viên = `GetCMIT(pos, loại, hệ, cấp)` (`0x08070B50`, bảng `m_CMAIT` dựng ở
+  `0x08070D00`: dòng vào **mọi hệ** nếu `class = −1`, **mọi cấp từ cấp dòng tới 10**, mọi loại có tỷ lệ ≠ 0 — giống
+  nguồn Windows); loại dòng đã dùng (`m_nUseFlag`) và dòng **cùng kind** với ô trước; giữ dòng có
+  `DropRate[loại] > nDecide`; chọn đều một dòng; ba tham số quay `min + g_Random(max−min+1)`. **`nDecide` tuỳ phiên
+  bản bảng của vật phẩm** (điểm bản JX2 khác Windows — nguồn Windows dùng `MAX_LUCKRAND 100000`):
+  bản ≤ 1: `g_Random(100)/(luck/10+1)`; bản 2–3: `g_Random(1 000 000)/(luck/10+1)`; bản ≥ 4:
+  `g_Random(1 000 000)·100/(10·luck+100)` — khớp thang `DropRate` của từng thư mục (000/001 tối đa 100 000,
+  002+ tối đa 600 000). `Gen_Equipment 0x0806B3A0`: mặt nạ (loại 11) không ma pháp; sau khi quay, **kiểm
+  `magicattrib_limit.txt`** (`0x08069D10`: thuộc tính có dòng giới hạn phải có `min[k] < value[k] < max[k]`, `max −1`
+  = bỏ kiểm; bảng 004 cấm `allskill_v` 139) — rớt thì `g_Random(100)` rồi quay lại, **tối đa 21 lần** rồi không tạo.
+  `SetAttrib_MA 0x08065710`: có `indestructible_b` (43) → độ bền −1. **Phiên bản vật phẩm hiện hành = 4**: ctor
+  `KSubWorldSet 0x080F6A40` ghi `m_nItemVersion = 4` (`0x9777F34`, Lua `ITEM_GetLatestItemVersion`) — `zone.item_version
+  = 0` của ta = bộ mới nhất (004) nên khớp. `g_Random 0x08226AD0` = LCG `seed·3877+29573` của `KRandom.cpp` cũ.
+  `GenRandomItem`: `k = g_Random(4)+3`, ô `i ≤ k` = cấp → **4/5/6/6 ô** (lát D ghi "3–6" là chưa chính xác);
+  quality 1 (hoàng kim) → `Gen_GoldEquip 0x0806A150` với `Detail` là dòng `goldequip.txt` (1-based).
+- **Zone**: `KRandom.h` (mới, theo `Engine/Src/KRandom.h`); `KItemTemplateSet::magic_candidates()` (chỉ mục
+  `m_CMAIT` 2×12×5×10), `magic_limit()` (đọc `magic_limits` của JSON); `KItemGenerator::equipment(detail, particular,
+  series, level, &levels, luck)`, `gen_magic_attrib`, `check_new_item_attrib`, `set_attrib_ma`; `gen_random_item`
+  quay ô ma pháp đúng luật trên và tạo **hoàng kim** cho `Quality 1` (349 dòng trong 77 bảng rơi đồ);
+  `AddItem` của script nhận `magic1..6`. Phẩm chất 2/lỗ khảm (bạch kim) vẫn chưa làm — bảng rơi đồ của server Linux
+  đặt `EnchasableRate 0` khắp nơi nên không gặp. May mắn (`m_nCurLucky`, `Player+0x5958`) chưa có → 0, sẽ có ở M12.
+- **Bộ xuất Go**: `magicattrib_limit.txt` → `magic_limits` trong `items/v00x.json` (004 có một dòng).
+- **Client**: chú thích theo `KItem::GetDesc` cũ + bảng màu `Engine/Text.cpp`: tên **xanh (100,100,255)** khi có
+  tiền/hậu tố, vàng hoàng kim/bạch kim, tím tử tinh, vàng đồ nhiệm vụ, trắng còn lại; trang bị có " [Cấp N]"
+  (`KUiItemView.name_color/title_of`); `--auto` xin thêm kiếm cấp 5 có ma pháp, chụp `auto_item_tip.png`.
+- Test: 4 case mới (KRandom khớp dãy số cũ; chỉ mục CMAIT; Gen_MagicAttrib trên bảng nhỏ: tiền/hậu tố đúng ô, không
+  trùng kind, giá trị trong khoảng, giới hạn làm rớt 21 lần → không có vật phẩm; **bảng thật 004**: 300 kiếm cấp 5
+  quay ra tiền/hậu tố, không bao giờ ra 139); rơi đồ giờ kiểm luôn ô ma pháp; UiCheck +4 (màu tên). ctest 145/145
+  Release + Debug, Go 17 gói, Godot run.gd 262, UiCheck 134, e2e `AUTO_ITEMS count=10 AUTO_MAGIC count=5
+  AUTO_DROP dropped=true picked=true`.
 
 ### 2026-09-18 (trưa) — CI: GCC `-Werror=sign-conversion` ở `KItem.h` (từ lát B) — sửa
 

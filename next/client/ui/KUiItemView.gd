@@ -21,8 +21,12 @@ const REQUIRE_LEVEL := 36
 const REQUIRE_SERIES := 37
 const REQUIRE_SEX := 38
 const REQUIRE_MENPAI := 39
-# the colour of a name by ITEMEXTENDTYPE: white, gold, platina, purple (KItem::GetNameColor)
-const NAME_COLORS := [Color.WHITE, Color8(255, 213, 0), Color8(240, 240, 240), Color8(188, 80, 255)]
+# The colour of a name, KItem::GetDesc of the old core with the named colours of Engine/Text.cpp:
+# equipment by ITEMEXTENDTYPE - gold Yellow (255,255,0), platina Yellow too, purple Purple
+# (188,40,255) - else Blue (100,100,255) when it carries a magic prefix / suffix, White without;
+# a quest item Yellow; everything else White.
+const NAME_COLORS := [Color.WHITE, Color8(255, 255, 0), Color8(255, 255, 0), Color8(188, 40, 255)]
+const NAME_COLOR_MAGIC := Color8(100, 100, 255)
 
 
 # The object a KWndObjContainer draws for an item (at the item's own cells).
@@ -59,17 +63,34 @@ static func usable(item: Dictionary) -> bool:
 
 
 static func name_color(item: Dictionary) -> Color:
+	var genre := int(item.get("genre", 0))
+	if genre == GENRE_TASK:
+		return Color8(255, 255, 0)
+	if genre != GENRE_EQUIP:
+		return Color.WHITE
 	var ex := int(item.get("ex_type", 0))
-	return NAME_COLORS[ex] if ex >= 0 and ex < NAME_COLORS.size() else Color.WHITE
+	if ex > 0:
+		return NAME_COLORS[ex] if ex < NAME_COLORS.size() else Color.WHITE
+	var magic: Array = item.get("magic", [])
+	return NAME_COLOR_MAGIC if magic.size() > 0 and int(magic[0].get("type", 0)) != 0 else Color.WHITE
+
+
+# The first line of the tooltip: the name, " [Cấp N]" for equipment with a level (KItem::GetDesc),
+# " xN" for a stack.
+static func title_of(item: Dictionary) -> String:
+	var name := str(item.get("name", ""))
+	var level := int(item.get("level", 0))
+	if int(item.get("genre", 0)) == GENRE_EQUIP and level > 0:
+		name += " [Cấp %d]" % level
+	var count := int(item.get("count", 1))
+	return name + (" x%d" % count if count > 1 else "")
 
 
 # The lines of the item's tooltip: [{text, color}].  Name first, then what the tables say about
 # it through KMagicDesc, the requirements, the description, the price.
 static func describe(item: Dictionary) -> Array:
 	var lines: Array = []
-	var name := str(item.get("name", ""))
-	var count := int(item.get("count", 1))
-	lines.append({"text": name + (" x%d" % count if count > 1 else ""), "color": name_color(item)})
+	lines.append({"text": title_of(item), "color": name_color(item)})
 	var ok := usable(item)
 	var has_durability: bool = int(item.get("durability", -1)) >= 0 and int(item.get("max_durability", -1)) > 0
 	for a in item.get("base", []):

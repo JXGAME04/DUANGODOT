@@ -163,6 +163,17 @@ type GoldMagic struct {
 	Intro  string  `json:"intro"`
 }
 
+// MagicLimit is one row of magicattrib_limit.txt of the JX2 server (jx_linux_y loader 0x0806BE00):
+// a new item may roll attribute Type only with parameter k strictly inside (Min[k], Max[k]); a
+// Max of -1 (the default of a missing column) turns that check off.  The 004 folder forbids
+// allskill_v (139) with 0..0.
+type MagicLimit struct {
+	Type int    `json:"type"`
+	Min  [3]int `json:"min"`
+	Max  [3]int `json:"max"`
+	Note string `json:"note,omitempty"`
+}
+
 // SuiteActivate is KEQCP_REQ of suite_activate_count.txt: pieces needed to wake a set bonus.
 type SuiteActivate struct {
 	Suite int `json:"suite"`
@@ -202,6 +213,7 @@ type Set struct {
 	Magic      []MagicAttrib          `json:"magic"`
 	GoldMagic  []GoldMagic            `json:"gold_magic"`
 	Suites     []SuiteActivate        `json:"suites"`
+	Limits     []MagicLimit           `json:"magic_limits"`
 	Scripts    []MagicScript          `json:"scripts"`
 	Missing    []string               `json:"missing,omitempty"` // tables the folder does not have
 }
@@ -378,6 +390,22 @@ func Load(dir, version string) (*Set, error) {
 		}
 	} else {
 		s.Missing = append(s.Missing, "suite_activate_count")
+	}
+	if t, _, err := readTable(dir, "magicattrib_limit"); err == nil {
+		for row := 2; row <= t.Height(); row++ {
+			typ := t.GetInteger(row, 1, 0)
+			if typ < 1 || typ > 0x153 { // the server's loader skips those rows
+				continue
+			}
+			l := MagicLimit{Type: typ, Note: vi(t.Get(row, 8))}
+			for k := 0; k < 3; k++ {
+				l.Min[k] = t.GetInteger(row, 2+k*2, -1)
+				l.Max[k] = t.GetInteger(row, 3+k*2, -1)
+			}
+			s.Limits = append(s.Limits, l)
+		}
+	} else {
+		s.Missing = append(s.Missing, "magicattrib_limit")
 	}
 	if t, _, err := readTable(dir, "magicscript"); err == nil {
 		for row := 2; row <= t.Height(); row++ {

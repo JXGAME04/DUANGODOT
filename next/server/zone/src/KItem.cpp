@@ -178,8 +178,70 @@ bool KItemTemplateSet::load(const std::string& path, std::string* error)
     if (const auto it = j.find("suites"); it != j.end()) {
         for (const auto& row : *it) suites_[geti(row, "suite")] = geti(row, "count");
     }
+    limits_.clear();
+    if (const auto it = j.find("magic_limits"); it != j.end()) {
+        for (const auto& row : *it) {
+            KMagicLimit lim;
+            lim.type = geti(row, "type");
+            if (lim.type < 1 || lim.type > 0x153) continue;   // the loader of the JX2 server skips those rows
+            const auto read3 = [&](const char* key, std::array<int, 3>& into) {
+                const auto a = row.find(key);
+                if (a == row.end()) return;
+                std::size_t k = 0;
+                for (const auto& x : *a) {
+                    if (k < 3 && x.is_number()) into[k] = x.get<int>();
+                    ++k;
+                }
+            };
+            read3("min", lim.min);
+            read3("max", lim.max);
+            limits_[lim.type] = lim;   // the last row of a type wins, as in the std::map of the server
+        }
+    }
+    build_magic_index();
     count_ += gold_.size() + medicine_.size() + quest_.size() + town_portal_.size() + scripts_.size();
     return true;
+}
+
+// KLibOfBPT::InitMALib / the m_CMAIT builder of the JX2 server (jx_linux_y 0x08070D00)
+void KItemTemplateSet::build_magic_index()
+{
+    cmait_.assign(static_cast<std::size_t>(2 * kMagicTypes * kMagicSeries * kMagicLevels), {});
+    for (std::size_t i = 0; i < magic_.size(); ++i) {
+        const KMagicTemplate& m = magic_[i];
+        if (m.pos < 0 || m.pos > 1) continue;
+        for (int type = 0; type < kMagicTypes && static_cast<std::size_t>(type) < m.drop_rates.size(); ++type) {
+            if (m.drop_rates[static_cast<std::size_t>(type)] == 0) continue;   // never on this kind of equipment
+            int s0 = m.series, s1 = m.series;
+            if (m.series == -1) {
+                s0 = 0;
+                s1 = kMagicSeries - 1;
+            } else if (m.series < 0 || m.series >= kMagicSeries) {
+                continue;
+            }
+            for (int s = s0; s <= s1; ++s) {
+                for (int level = std::max(m.level, 1); level <= kMagicLevels; ++level) {
+                    const auto at = static_cast<std::size_t>(((m.pos * kMagicTypes + type) * kMagicSeries + s) * kMagicLevels + level - 1);
+                    cmait_[at].push_back(static_cast<int>(i));
+                }
+            }
+        }
+    }
+}
+
+const std::vector<int>* KItemTemplateSet::magic_candidates(int pos, int detail, int series, int level) const
+{
+    if (pos < 0 || pos > 1 || detail < 0 || detail >= kMagicTypes || series < 0 || series >= kMagicSeries || level < 1 ||
+        level > kMagicLevels || cmait_.empty()) {
+        return nullptr;
+    }
+    return &cmait_[static_cast<std::size_t>(((pos * kMagicTypes + detail) * kMagicSeries + series) * kMagicLevels + level - 1)];
+}
+
+const KMagicLimit* KItemTemplateSet::magic_limit(int type) const
+{
+    const auto it = limits_.find(type);
+    return it == limits_.end() ? nullptr : &it->second;
 }
 
 const KItemTemplate* KItemTemplateSet::equipment(int detail, int particular, int level) const
@@ -845,17 +907,6 @@ bool KItemList::cost_money(int m) noexcept
 
 // ---- KItemGenerator -----------------------------------------------------------------------
 
-int KItemGenerator::random_between(int lo, int hi)
-{
-    if (hi <= lo) return lo;
-    return lo + static_cast<int>(rng_() % static_cast<unsigned>(hi - lo + 1));
-}
-
-int KItemGenerator::random(int n)
-{
-    return n <= 1 ? 0 : static_cast<int>(rng_() % static_cast<unsigned>(n));
-}
-
 void KItemGenerator::set_attrib_cbr(KItem& item, const KItemTemplate& t)
 {
     item.genre = t.genre;
@@ -882,15 +933,90 @@ void KItemGenerator::set_attrib_cbr(KItem& item, const KItemTemplate& t)
     }
 }
 
-std::optional<KItem> KItemGenerator::equipment(int detail, int particular, int series, int level)
+// KItem::SetAttrib_MA (jx_linux_y 0x08065710): the six magic attributes; indestructible_b among
+// them makes the piece never wear
+void KItemGenerator::set_attrib_ma(KItem& item, const std::array<KMagicAttrib, 6>& magic)
+{
+    item.magic = magic;
+    for (const auto& a : magic) {
+        if (a.type == magic_indestructible_b) item.durability = -1;
+    }
+}
+
+std::optional<KItem> KItemGenerator::equipment(int detail, int particular, int series, int level, const KMagicLevels* magic_levels, int luck)
 {
     const KItemTemplate* t = set_.equipment(detail, particular, level);
     if (t == nullptr) return std::nullopt;
-    KItem item;
-    set_attrib_cbr(item, *t);
-    if (detail == equip_mask) item.level = level > 0 ? level : 0;
-    else item.series = series;
-    return item;
+    // a mask never carries prefixes / suffixes (nDetailType != 11 in the JX2 server)
+    const bool with_magic = magic_levels != nullptr && detail != equip_mask;
+    for (int attempt = 1;; ++attempt) {
+        KItem item;
+        set_attrib_cbr(item, *t);
+        if (detail == equip_mask) item.level = level > 0 ? level : 0;
+        else item.series = series;
+        if (!with_magic) return item;
+        std::array<KMagicAttrib, 6> magic{};
+        if (!gen_magic_attrib(detail, *magic_levels, series, luck, magic)) return std::nullopt;
+        if (check_new_item_attrib(magic)) {
+            set_attrib_ma(item, magic);
+            return item;
+        }
+        random(100);   // the old code stirs the seed before rolling again
+        if (attempt >= kGenEquipmentTries) return std::nullopt;
+    }
+}
+
+bool KItemGenerator::gen_magic_attrib(int detail, const KMagicLevels& levels, int series, int luck, std::array<KMagicAttrib, 6>& out)
+{
+    out = {};
+    const std::vector<KMagicTemplate>& rows = set_.magic();
+    std::array<const KMagicTemplate*, 6> chosen{};   // pMagicAttrTable: what this piece has already
+    std::vector<int> selected;                       // KBPT_ClassMAIT SelectedMagicTable
+    if (luck < 0) luck = 0;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        if (levels[i] == 0) break;
+        const int pos = 1 - static_cast<int>(i & 1);   // even slots are prefixes (1), odd ones suffixes (0)
+        const std::vector<int>* candidates = set_.magic_candidates(pos, detail, series, levels[i]);
+        if (candidates == nullptr) break;             // "[GenMagicAttrib] GetCMIT Error"
+        int decide;
+        if (version_ > 3) decide = static_cast<int>(static_cast<std::int64_t>(random(1000000)) * 100 / (10 * luck + 100));
+        else if (version_ <= 1) decide = random(100) / (luck / 10 + 1);
+        else decide = random(1000000) / (luck / 10 + 1);
+        selected.clear();
+        for (const int idx : *candidates) {
+            if (idx < 0 || static_cast<std::size_t>(idx) >= rows.size()) continue;
+            const KMagicTemplate& m = rows[static_cast<std::size_t>(idx)];
+            bool used = false;   // m_nUseFlag: a row goes on a piece once
+            for (std::size_t k = 0; k < i; ++k) {
+                if (chosen[k] == &m || (chosen[k] != nullptr && chosen[k]->kind == m.kind)) used = true;
+            }
+            if (used) continue;
+            const int rate = static_cast<std::size_t>(detail) < m.drop_rates.size() ? m.drop_rates[static_cast<std::size_t>(detail)] : 0;
+            if (rate <= decide) continue;
+            selected.push_back(idx);
+        }
+        if (selected.empty()) break;
+        const KMagicTemplate& m = rows[static_cast<std::size_t>(selected[static_cast<std::size_t>(random(static_cast<int>(selected.size())))])];
+        chosen[i] = &m;
+        out[i].type = m.kind;
+        for (std::size_t k = 0; k < 3; ++k) out[i].value[k] = m.ranges[k].first + random(m.ranges[k].second - m.ranges[k].first + 1);
+    }
+    return true;
+}
+
+bool KItemGenerator::check_new_item_attrib(const std::array<KMagicAttrib, 6>& magic) const
+{
+    if (set_.magic_limit_count() == 0) return true;
+    for (const auto& a : magic) {
+        if (a.type <= 0) continue;
+        const KMagicLimit* lim = set_.magic_limit(a.type);
+        if (lim == nullptr) continue;
+        for (std::size_t k = 0; k < 3; ++k) {
+            if (lim->max[k] == -1) continue;
+            if (a.value[k] <= lim->min[k] || lim->max[k] <= a.value[k]) return false;   // "CheckNewItemMagicAttrib: ... Found MagicAttribData"
+        }
+    }
+    return true;
 }
 
 std::optional<KItem> KItemGenerator::medicine(int detail, int level)
@@ -958,7 +1084,8 @@ std::optional<KItem> KItemGenerator::magic_script(int detail, int particular, in
 }
 
 // KItemGenerator::Gen_GoldEquip (server side): the six magic attributes of the piece are rolled
-// from their gold_magic rows; luck (0..200) pushes the roll towards the top of the range.
+// from their gold_magic rows; luck (0..200) pushes the roll towards the top of the range.  (The
+// pieces the drop tables name by quality 1 come here too: KItemSet::Add -> 0x0806A150.)
 std::optional<KItem> KItemGenerator::gold(int luck, int row_id)
 {
     const KItemTemplate* t = set_.gold(row_id);

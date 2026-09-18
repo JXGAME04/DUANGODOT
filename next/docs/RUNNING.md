@@ -97,7 +97,10 @@ Client có vài tham số dòng lệnh (sau `--`) cho test và chụp màn hình
 Ảnh các cửa sổ vật phẩm với dữ liệu mẫu: `godot --path client tests/UiItemPreview.tscn` →
 `user://logs/ui_vat-pham.png`. Trên máy phát triển (`dev.py start` bật `zone.gm_chat`), gõ vào chat
 `?gm ds AddItem(0,0,0,1,0,0)` để zone đưa một món vào túi (`KGMCommand.cpp` cũ: `?gm ds <lua>` chạy
-script cho người gõ, `?gm dw <lua>` cho thế giới); `JX_GM_CHAT=0` khi start để tắt.
+script cho người gõ, `?gm dw <lua>` cho thế giới); `JX_GM_CHAT=0` khi start để tắt. Thứ tự tham số như bản
+Linux: `AddItem(genre, detail, particular, level, series, luck[, magic1..magic6])` — sáu số cuối là cấp của
+tiền tố / hậu tố (`Gen_MagicAttrib`), ví dụ `AddItem(0,0,0,5,0,100,5,5,5,5,5,5)` cho một thanh kiếm cấp 5 đủ
+sáu ô ma pháp; `AddGoldItem(luck, dòng)` cho hoàng kim.
 
 **Hai bản chạy cùng máy** (checkout chính và worktree): đặt `JX_PORT_OFFSET=1000` cho bản thứ hai → zone
 18001, gateway 18100 / 18102, và mọi lệnh `dev.py` của bản đó dùng đúng cổng ấy. Không đặt thì bản thứ hai

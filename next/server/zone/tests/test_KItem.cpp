@@ -4,6 +4,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -19,6 +21,7 @@
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KObj.h"
+#include "jx/zone/KRandom.h"
 #include "jx/zone/KSubWorld.h"
 #include "jx/zone/ScriptFuns.h"
 
@@ -68,7 +71,21 @@ const char* const kTables = R"({
   {"row": 2, "name": "Tui", "genre": 4, "detail": 1, "image": "q.spr", "obj": 41, "w": 1, "h": 1, "intro": "", "particular": 0, "can_sell": 0, "max_stack": 20}
  ],
  "town_portal": [{"row": 1, "name": "Phu", "genre": 5, "image": "t.spr", "obj": 38, "w": 1, "h": 1, "price": 500, "intro": ""}],
- "magic": [],
+ "magic": [
+  {"row": 1, "name": "Sac", "pos": 1, "class": -1, "level": 1, "kind": 100, "ranges": [{"min": 1, "max": 3}, {"min": -1, "max": -1}, {"min": 0, "max": 0}], "intro": "",
+   "drop_rates": [100000, 100000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"row": 2, "name": "Ben", "pos": 1, "class": -1, "level": 1, "kind": 101, "ranges": [{"min": 10, "max": 20}, {"min": -1, "max": -1}, {"min": 0, "max": 0}], "intro": "",
+   "drop_rates": [100000, 0, 100000, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"row": 3, "name": "Hiem", "pos": 1, "class": 2, "level": 3, "kind": 102, "ranges": [{"min": 5, "max": 5}, {"min": -1, "max": -1}, {"min": 0, "max": 0}], "intro": "",
+   "drop_rates": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"row": 4, "name": "cua Manh", "pos": 0, "class": -1, "level": 1, "kind": 200, "ranges": [{"min": 1, "max": 1}, {"min": -1, "max": -1}, {"min": 0, "max": 0}], "intro": "",
+   "drop_rates": [100000, 100000, 100000, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"row": 5, "name": "cua Sac", "pos": 0, "class": -1, "level": 1, "kind": 100, "ranges": [{"min": 7, "max": 7}, {"min": -1, "max": -1}, {"min": 0, "max": 0}], "intro": "",
+   "drop_rates": [100000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"row": 6, "name": "Cam", "pos": 1, "class": -1, "level": 1, "kind": 139, "ranges": [{"min": 1, "max": 1}, {"min": -1, "max": -1}, {"min": 0, "max": 0}], "intro": "",
+   "drop_rates": [0, 0, 0, 100000, 0, 0, 0, 0, 0, 0, 0, 0]}
+ ],
+ "magic_limits": [{"type": 139, "min": [0, 0, 0], "max": [0, 0, 0]}],
  "gold_magic": [
   {"row": 1, "name": "M1", "kind": 126, "ranges": [{"min": 5, "max": 10}, {"min": -1, "max": -1}, {"min": 6, "max": 6}], "intro": ""},
   {"row": 2, "name": "M2", "kind": 85, "ranges": [{"min": 100, "max": 100}, {"min": 0, "max": 0}, {"min": 0, "max": 0}], "intro": ""}
@@ -195,6 +212,120 @@ TEST_CASE("a gold piece rolls its magic within the gold_magic ranges, better wit
     CHECK(high == 200);    // luck 200: always the top
 }
 
+TEST_CASE("KRandom is g_Random of the old engine: the same seed gives the same numbers", "[item]")
+{
+    jx::zone::KRandom r(42);   // nRandomSeed = 42 of KRandom.cpp
+    CHECK(r(100) == 7);        // (42 * 3877 + 29573) % 100
+    CHECK(r(100) == 12);
+    CHECK(r(100) == 89);
+    CHECK(r(1000000) == 494550);
+    CHECK(r(4) == 3);
+    CHECK(r(10) == 8);
+    CHECK(r(0) == 0);          // g_Random(0) is 0 and leaves the seed alone
+    const std::uint32_t s = r.seed();
+    CHECK(r.random(-5) == 0);
+    CHECK(r.seed() == s);
+    CHECK(r.between(7, 7) == 7);
+    r.seed(1);
+    CHECK(r.random(100) == 50);
+    CHECK(r.between(10, 20) >= 10);
+}
+
+TEST_CASE("the magic index lists a row under every type, series and level it allows (m_CMAIT)", "[item]")
+{
+    const KItemTemplateSet set = load_test_set();
+    REQUIRE(set.magic().size() == 6);
+    using V = std::vector<int>;
+    // prefixes for a melee weapon: rows 1 and 2 at level 1, row 3 (series 2, level 3) from level 3 on
+    REQUIRE(set.magic_candidates(1, jx::zone::equip_meleeweapon, 2, 1) != nullptr);
+    CHECK((*set.magic_candidates(1, jx::zone::equip_meleeweapon, 2, 1) == V{0, 1}));
+    CHECK((*set.magic_candidates(1, jx::zone::equip_meleeweapon, 2, 3) == V{0, 1, 2}));
+    CHECK((*set.magic_candidates(1, jx::zone::equip_meleeweapon, 2, 10) == V{0, 1, 2}));
+    CHECK((*set.magic_candidates(1, jx::zone::equip_meleeweapon, 0, 3) == V{0, 1}));   // series 0 never sees row 3
+    // suffixes: an armor has only "cua Manh"; a ring has only the forbidden prefix
+    CHECK((*set.magic_candidates(0, jx::zone::equip_armor, 4, 1) == V{3}));
+    CHECK((*set.magic_candidates(0, jx::zone::equip_meleeweapon, 1, 1) == V{3, 4}));
+    CHECK((*set.magic_candidates(1, jx::zone::equip_ring, 0, 1) == V{5}));
+    CHECK(set.magic_candidates(0, jx::zone::equip_ring, 0, 1)->empty());
+    // outside the table: NULL of GetCMIT
+    CHECK(set.magic_candidates(2, 0, 0, 1) == nullptr);
+    CHECK(set.magic_candidates(1, jx::zone::kMagicTypes, 0, 1) == nullptr);
+    CHECK(set.magic_candidates(1, 0, 5, 1) == nullptr);
+    CHECK(set.magic_candidates(1, 0, 0, 0) == nullptr);
+    CHECK(set.magic_candidates(1, 0, 0, 11) == nullptr);
+    // the limit table
+    REQUIRE(set.magic_limit(139) != nullptr);
+    CHECK(set.magic_limit(139)->max[0] == 0);
+    CHECK(set.magic_limit(100) == nullptr);
+}
+
+TEST_CASE("Gen_MagicAttrib: prefixes on even slots, suffixes on odd ones, no kind twice, values inside the ranges", "[item]")
+{
+    const KItemTemplateSet set = load_test_set();
+    KItemGenerator gen(set, 0, 5);
+    const jx::zone::KMagicLevels four{1, 1, 1, 1, 0, 0};
+    int first_kind_100 = 0, first_kind_101 = 0, with_three = 0;
+    for (int i = 0; i < 200; ++i) {
+        auto item = gen.equipment(jx::zone::equip_meleeweapon, 0, 2, 1, &four, 0);
+        REQUIRE(item.has_value());
+        // slot 0 is a prefix of kind 100 or 101, slot 1 the suffix "cua Manh" (200) or "cua Sac" (100)
+        CHECK((item->magic[0].type == 100 || item->magic[0].type == 101));
+        CHECK((item->magic[1].type == 200 || item->magic[1].type == 100));
+        if (item->magic[0].type == 100) ++first_kind_100;
+        if (item->magic[0].type == 101) ++first_kind_101;
+        std::set<int> kinds;
+        int n = 0;
+        for (const auto& a : item->magic) {
+            if (a.type == 0) continue;
+            CHECK(kinds.insert(a.type).second);   // a kind goes on a piece once
+            CHECK(a.value[1] == -1);
+            CHECK(a.value[2] == 0);
+            if (a.type == 101) {
+                CHECK(a.value[0] >= 10);
+                CHECK(a.value[0] <= 20);
+            }
+            if (a.type == 200) CHECK(a.value[0] == 1);
+            ++n;
+        }
+        CHECK(n >= 2);   // the first prefix and the first suffix always have a candidate
+        CHECK(n <= 3);   // two prefix kinds and two suffix rows sharing a kind with one of them: three at most
+        CHECK(item->magic[3].type == 0);
+        if (n == 3) ++with_three;
+    }
+    CHECK(first_kind_100 > 30);
+    CHECK(first_kind_101 > 30);
+    CHECK(with_three > 30);
+    // a prefix of kind 100 on slot 0 rules the suffix "cua Sac" (kind 100) out
+    // an armor: "Ben" then "cua Manh", then nothing is left for a second prefix
+    const jx::zone::KMagicLevels six{1, 1, 1, 1, 1, 1};
+    for (int i = 0; i < 20; ++i) {
+        auto armor = gen.equipment(jx::zone::equip_armor, 0, 0, 1, &six, 0);
+        REQUIRE(armor.has_value());
+        CHECK(armor->magic[0].type == 101);
+        CHECK(armor->magic[1].type == 200);
+        CHECK(armor->magic[2].type == 0);
+    }
+    // no levels: a white piece; a mask would be white too
+    auto white = gen.equipment(jx::zone::equip_meleeweapon, 0, 2, 1);
+    REQUIRE(white.has_value());
+    CHECK(white->magic[0].type == 0);
+    const jx::zone::KMagicLevels none{};
+    auto still_white = gen.equipment(jx::zone::equip_meleeweapon, 0, 2, 1, &none, 0);
+    REQUIRE(still_white.has_value());
+    CHECK(still_white->magic[0].type == 0);
+    // the ring: its only prefix (allskill_v 139) is forbidden by magicattrib_limit -> after 21 tries no item
+    const jx::zone::KMagicLevels one{1, 0, 0, 0, 0, 0};
+    CHECK_FALSE(gen.equipment(jx::zone::equip_ring, 0, 0, 1, &one, 0).has_value());
+    CHECK(gen.equipment(jx::zone::equip_ring, 0, 0, 1).has_value());
+    // the check itself
+    std::array<jx::zone::KMagicAttrib, 6> magic{};
+    magic[0].type = 139;
+    magic[0].value = {0, 0, 0};
+    CHECK_FALSE(gen.check_new_item_attrib(magic));
+    magic[0].type = 100;
+    CHECK(gen.check_new_item_attrib(magic));
+}
+
 TEST_CASE("the inventory grid places, refuses overlap and finds room column by column", "[item]")
 {
     KInventory inv(6, 10);
@@ -307,6 +438,55 @@ TEST_CASE("the exported item tables load when they are there", "[item]")
     REQUIRE(g.has_value());
     CHECK(g->group > 0);
     CHECK(g->magic[0].type != 0);
+}
+
+TEST_CASE("the real 004 tables: swords of level 5 roll prefixes and suffixes, never the forbidden allskill_v", "[item]")
+{
+    const std::filesystem::path p = std::filesystem::path(JX_NEXT_DIR) / "client" / "assets" / "items" / "v004.json";
+    if (!std::filesystem::exists(p)) {
+        WARN("no exported item tables at " << p.string() << " (python tools/dev.py assets)");
+        return;
+    }
+    KItemTemplateSet set;
+    std::string error;
+    REQUIRE(set.load(p.string(), &error));
+    REQUIRE(set.magic_limit(139) != nullptr);   // "no more +N all skills" of magicattrib_limit.txt
+    REQUIRE(set.magic_candidates(1, jx::zone::equip_meleeweapon, 0, 5) != nullptr);
+    CHECK(set.magic_candidates(1, jx::zone::equip_meleeweapon, 0, 5)->size() > 5);
+    KItemGenerator gen(set, 4, 99);   // version 4: g_Random(1000000) * 100 / (10 * luck + 100) against the 004 rates
+    const jx::zone::KMagicLevels six{5, 5, 5, 5, 5, 5};
+    int made = 0, with_magic = 0, with_four = 0;
+    for (int i = 0; i < 300; ++i) {
+        auto item = gen.equipment(jx::zone::equip_meleeweapon, 0, 0, 5, &six, 50);
+        if (!item) continue;   // the limit rejected 21 rolls: rare, allowed
+        ++made;
+        std::set<int> kinds;
+        int n = 0;
+        for (std::size_t k = 0; k < item->magic.size(); ++k) {
+            const auto& a = item->magic[k];
+            if (a.type == 0) {
+                for (std::size_t m = k; m < item->magic.size(); ++m) CHECK(item->magic[m].type == 0);   // the list ends
+                break;
+            }
+            CHECK(a.type != 139);
+            CHECK(kinds.insert(a.type).second);
+            // the value lies inside the range of some row of that kind at that position
+            bool inside = false;
+            for (const auto& row : set.magic()) {
+                if (row.kind == a.type && row.pos == 1 - static_cast<int>(k & 1) && a.value[0] >= row.ranges[0].first &&
+                    a.value[0] <= row.ranges[0].second) {
+                    inside = true;
+                }
+            }
+            CHECK(inside);
+            ++n;
+        }
+        if (n > 0) ++with_magic;
+        if (n >= 4) ++with_four;
+    }
+    CHECK(made > 250);
+    CHECK(with_magic > made / 2);
+    CHECK(with_four > 0);
 }
 
 TEST_CASE("a character's items survive spawn -> snapshot -> spawn, worn pieces included", "[item][world]")
@@ -980,6 +1160,9 @@ TEST_CASE("a monster killed by a player drops its treasure: money by MoneyRate, 
         REQUIRE(it.has_value());
         CHECK(it->genre == KItemGenre::equip);
         levels.insert(it->level);
+        // the magic slots: k = g_Random(4) + 3 slots at the item level -> the first prefix always rolls
+        CHECK((it->magic[0].type == 100 || it->magic[0].type == 101));
+        CHECK((it->magic[1].type == 200 || it->magic[1].type == 100));
     }
     CHECK((levels == std::set<int>{1, 2}));
     levels.clear();

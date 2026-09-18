@@ -239,7 +239,8 @@
     "rolls": "số lần quay",
     "table": "bảng",
     "lost": "mất",
-    "versions": "các phiên bản"
+    "versions": "các phiên bản",
+    "quality": "phẩm chất"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -426,6 +427,7 @@
     "item picked up": "Nhặt vật phẩm",
     "money picked up": "Nhặt tiền",
     "treasure dropped": "Quái chết rơi đồ",
-    "drop row missing": "Bảng rơi đồ trỏ tới dòng vật phẩm không có"
+    "drop row missing": "Bảng rơi đồ trỏ tới dòng vật phẩm không có",
+    "drop quality not made yet": "Bảng rơi đồ đòi phẩm chất chưa làm được (bạch kim / lỗ khảm)"
   }
 }

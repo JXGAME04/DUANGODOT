@@ -151,8 +151,8 @@ int l_Talk(lua_State* L)
 // a zero in front and hands the nine to Lua_NewItem (0x0811F230) -> KItemSet::Add(genre, series,
 // level, luck, detail, particular, magic levels...), the same order as the source.  The item
 // goes to the first free spot of the bag; a full bag left it on the ground in the old server -
-// that comes with the drops (M11 D), until then it is 0.  The magic prefix / suffix levels are
-// taken but the rolling of Gen_MagicAttrib is not ported yet (KItemGenerator).
+// that comes with the drops (M11 D), until then it is 0.  The magic prefix / suffix levels roll
+// the attributes through Gen_MagicAttrib with luck 0 (Lua_NewItem passes no luck).
 int l_AddItem(lua_State* L)
 {
     const int n = lua_gettop(L);
@@ -167,12 +167,18 @@ int l_AddItem(lua_State* L)
     const auto level = static_cast<int>(luaL_checknumber(L, 4));
     const auto series = static_cast<int>(luaL_checknumber(L, 5));
     const auto luck = static_cast<int>(luaL_checknumber(L, 6));
+    KMagicLevels levels{};
+    bool with_magic = false;
+    for (int i = 0; i < 6 && 7 + i <= n; ++i) {
+        levels[static_cast<std::size_t>(i)] = static_cast<int>(luaL_optnumber(L, 7 + i, 0));
+        with_magic = with_magic || levels[static_cast<std::size_t>(i)] != 0;
+    }
     KSubWorld* w = g_ScriptContext().world;
     auto gen = w->item_generator(w->item_version());
     std::optional<KItem> item;
     if (gen) {
         switch (static_cast<KItemGenre>(genre)) {
-        case KItemGenre::equip: item = gen->equipment(detail, particular, series, level); break;
+        case KItemGenre::equip: item = gen->equipment(detail, particular, series, level, with_magic ? &levels : nullptr, luck); break;
         case KItemGenre::medicine: item = gen->medicine(detail, level); break;
         case KItemGenre::task: item = gen->quest(detail, 1); break;
         case KItemGenre::town_portal: item = gen->town_portal(); break;
