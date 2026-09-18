@@ -4060,6 +4060,11 @@ class PlayerSave:
 		service.field = __final
 		data[__final.tag] = service
 		
+		__tick = PBField.new("tick", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __tick
+		data[__tick.tag] = service
+		
 	var data = {}
 	
 	var __sid: PBField
@@ -4101,6 +4106,19 @@ class PlayerSave:
 		__final.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
 	func set_final(value : bool) -> void:
 		__final.value = value
+	
+	var __tick: PBField
+	func has_tick() -> bool:
+		if __tick.value != null:
+			return true
+		return false
+	func get_tick() -> int:
+		return __tick.value
+	func clear_tick() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__tick.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_tick(value : int) -> void:
+		__tick.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -4612,63 +4630,277 @@ class RoleStats:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
-class RoleItem:
+class ItemMagic:
 	extends RefCounted
 	func _init():
 		var service
 		
-		__item_uid = PBField.new("item_uid", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		__type = PBField.new("type", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
 		service = PBServiceField.new()
-		service.field = __item_uid
-		data[__item_uid.tag] = service
+		service.field = __type
+		data[__type.tag] = service
 		
-		__template_id = PBField.new("template_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		var __value_default: Array[int] = []
+		__value = PBField.new("value", PB_DATA_TYPE.INT32, PB_RULE.REPEATED, 2, true, __value_default)
 		service = PBServiceField.new()
-		service.field = __template_id
-		data[__template_id.tag] = service
+		service.field = __value
+		data[__value.tag] = service
 		
-		__count = PBField.new("count", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+	var data = {}
+	
+	var __type: PBField
+	func has_type() -> bool:
+		if __type.value != null:
+			return true
+		return false
+	func get_type() -> int:
+		return __type.value
+	func clear_type() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__type.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_type(value : int) -> void:
+		__type.value = value
+	
+	var __value: PBField
+	func get_value() -> Array[int]:
+		return __value.value
+	func clear_value() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__value.value.clear()
+	func add_value(value : int) -> void:
+		__value.value.append(value)
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class ItemData:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__id = PBField.new("id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __id
+		data[__id.tag] = service
+		
+		__version = PBField.new("version", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __version
+		data[__version.tag] = service
+		
+		__genre = PBField.new("genre", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __genre
+		data[__genre.tag] = service
+		
+		__detail = PBField.new("detail", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __detail
+		data[__detail.tag] = service
+		
+		__particular = PBField.new("particular", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __particular
+		data[__particular.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__series = PBField.new("series", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __series
+		data[__series.tag] = service
+		
+		__count = PBField.new("count", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
 		service = PBServiceField.new()
 		service.field = __count
 		data[__count.tag] = service
 		
-		__slot = PBField.new("slot", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		__durability = PBField.new("durability", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
 		service = PBServiceField.new()
-		service.field = __slot
-		data[__slot.tag] = service
+		service.field = __durability
+		data[__durability.tag] = service
 		
-		__container = PBField.new("container", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		__ex_type = PBField.new("ex_type", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
 		service = PBServiceField.new()
-		service.field = __container
-		data[__container.tag] = service
+		service.field = __ex_type
+		data[__ex_type.tag] = service
+		
+		__gen_param = PBField.new("gen_param", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 11, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __gen_param
+		data[__gen_param.tag] = service
+		
+		__group = PBField.new("group", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __group
+		data[__group.tag] = service
+		
+		__ex_group = PBField.new("ex_group", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 13, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __ex_group
+		data[__ex_group.tag] = service
+		
+		__group_serial = PBField.new("group_serial", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 14, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __group_serial
+		data[__group_serial.tag] = service
+		
+		var __base_default: Array[ItemMagic] = []
+		__base = PBField.new("base", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 15, true, __base_default)
+		service = PBServiceField.new()
+		service.field = __base
+		service.func_ref = Callable(self, "add_base")
+		data[__base.tag] = service
+		
+		var __require_default: Array[ItemMagic] = []
+		__require = PBField.new("require", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 16, true, __require_default)
+		service = PBServiceField.new()
+		service.field = __require
+		service.func_ref = Callable(self, "add_require")
+		data[__require.tag] = service
+		
+		var __magic_default: Array[ItemMagic] = []
+		__magic = PBField.new("magic", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 17, true, __magic_default)
+		service = PBServiceField.new()
+		service.field = __magic
+		service.func_ref = Callable(self, "add_magic")
+		data[__magic.tag] = service
+		
+		var __magic_ex_default: Array[ItemMagic] = []
+		__magic_ex = PBField.new("magic_ex", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 18, true, __magic_ex_default)
+		service = PBServiceField.new()
+		service.field = __magic_ex
+		service.func_ref = Callable(self, "add_magic_ex")
+		data[__magic_ex.tag] = service
+		
+		__room = PBField.new("room", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 19, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __room
+		data[__room.tag] = service
+		
+		__x = PBField.new("x", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 20, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __x
+		data[__x.tag] = service
+		
+		__y = PBField.new("y", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 21, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __y
+		data[__y.tag] = service
 		
 	var data = {}
 	
-	var __item_uid: PBField
-	func has_item_uid() -> bool:
-		if __item_uid.value != null:
+	var __id: PBField
+	func has_id() -> bool:
+		if __id.value != null:
 			return true
 		return false
-	func get_item_uid() -> int:
-		return __item_uid.value
-	func clear_item_uid() -> void:
+	func get_id() -> int:
+		return __id.value
+	func clear_id() -> void:
 		data[1].state = PB_SERVICE_STATE.UNFILLED
-		__item_uid.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
-	func set_item_uid(value : int) -> void:
-		__item_uid.value = value
+		__id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_id(value : int) -> void:
+		__id.value = value
 	
-	var __template_id: PBField
-	func has_template_id() -> bool:
-		if __template_id.value != null:
+	var __version: PBField
+	func has_version() -> bool:
+		if __version.value != null:
 			return true
 		return false
-	func get_template_id() -> int:
-		return __template_id.value
-	func clear_template_id() -> void:
+	func get_version() -> int:
+		return __version.value
+	func clear_version() -> void:
 		data[2].state = PB_SERVICE_STATE.UNFILLED
-		__template_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
-	func set_template_id(value : int) -> void:
-		__template_id.value = value
+		__version.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_version(value : int) -> void:
+		__version.value = value
+	
+	var __genre: PBField
+	func has_genre() -> bool:
+		if __genre.value != null:
+			return true
+		return false
+	func get_genre() -> int:
+		return __genre.value
+	func clear_genre() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__genre.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_genre(value : int) -> void:
+		__genre.value = value
+	
+	var __detail: PBField
+	func has_detail() -> bool:
+		if __detail.value != null:
+			return true
+		return false
+	func get_detail() -> int:
+		return __detail.value
+	func clear_detail() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__detail.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_detail(value : int) -> void:
+		__detail.value = value
+	
+	var __particular: PBField
+	func has_particular() -> bool:
+		if __particular.value != null:
+			return true
+		return false
+	func get_particular() -> int:
+		return __particular.value
+	func clear_particular() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__particular.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_particular(value : int) -> void:
+		__particular.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __series: PBField
+	func has_series() -> bool:
+		if __series.value != null:
+			return true
+		return false
+	func get_series() -> int:
+		return __series.value
+	func clear_series() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__series.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_series(value : int) -> void:
+		__series.value = value
 	
 	var __count: PBField
 	func has_count() -> bool:
@@ -4678,36 +4910,171 @@ class RoleItem:
 	func get_count() -> int:
 		return __count.value
 	func clear_count() -> void:
-		data[3].state = PB_SERVICE_STATE.UNFILLED
+		data[8].state = PB_SERVICE_STATE.UNFILLED
 		__count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_count(value : int) -> void:
 		__count.value = value
 	
-	var __slot: PBField
-	func has_slot() -> bool:
-		if __slot.value != null:
+	var __durability: PBField
+	func has_durability() -> bool:
+		if __durability.value != null:
 			return true
 		return false
-	func get_slot() -> int:
-		return __slot.value
-	func clear_slot() -> void:
-		data[4].state = PB_SERVICE_STATE.UNFILLED
-		__slot.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
-	func set_slot(value : int) -> void:
-		__slot.value = value
+	func get_durability() -> int:
+		return __durability.value
+	func clear_durability() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__durability.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_durability(value : int) -> void:
+		__durability.value = value
 	
-	var __container: PBField
-	func has_container() -> bool:
-		if __container.value != null:
+	var __ex_type: PBField
+	func has_ex_type() -> bool:
+		if __ex_type.value != null:
 			return true
 		return false
-	func get_container() -> int:
-		return __container.value
-	func clear_container() -> void:
-		data[5].state = PB_SERVICE_STATE.UNFILLED
-		__container.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
-	func set_container(value : int) -> void:
-		__container.value = value
+	func get_ex_type() -> int:
+		return __ex_type.value
+	func clear_ex_type() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__ex_type.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_ex_type(value : int) -> void:
+		__ex_type.value = value
+	
+	var __gen_param: PBField
+	func has_gen_param() -> bool:
+		if __gen_param.value != null:
+			return true
+		return false
+	func get_gen_param() -> int:
+		return __gen_param.value
+	func clear_gen_param() -> void:
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__gen_param.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_gen_param(value : int) -> void:
+		__gen_param.value = value
+	
+	var __group: PBField
+	func has_group() -> bool:
+		if __group.value != null:
+			return true
+		return false
+	func get_group() -> int:
+		return __group.value
+	func clear_group() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__group.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_group(value : int) -> void:
+		__group.value = value
+	
+	var __ex_group: PBField
+	func has_ex_group() -> bool:
+		if __ex_group.value != null:
+			return true
+		return false
+	func get_ex_group() -> int:
+		return __ex_group.value
+	func clear_ex_group() -> void:
+		data[13].state = PB_SERVICE_STATE.UNFILLED
+		__ex_group.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_ex_group(value : int) -> void:
+		__ex_group.value = value
+	
+	var __group_serial: PBField
+	func has_group_serial() -> bool:
+		if __group_serial.value != null:
+			return true
+		return false
+	func get_group_serial() -> int:
+		return __group_serial.value
+	func clear_group_serial() -> void:
+		data[14].state = PB_SERVICE_STATE.UNFILLED
+		__group_serial.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_group_serial(value : int) -> void:
+		__group_serial.value = value
+	
+	var __base: PBField
+	func get_base() -> Array[ItemMagic]:
+		return __base.value
+	func clear_base() -> void:
+		data[15].state = PB_SERVICE_STATE.UNFILLED
+		__base.value.clear()
+	func add_base() -> ItemMagic:
+		var element = ItemMagic.new()
+		__base.value.append(element)
+		return element
+	
+	var __require: PBField
+	func get_require() -> Array[ItemMagic]:
+		return __require.value
+	func clear_require() -> void:
+		data[16].state = PB_SERVICE_STATE.UNFILLED
+		__require.value.clear()
+	func add_require() -> ItemMagic:
+		var element = ItemMagic.new()
+		__require.value.append(element)
+		return element
+	
+	var __magic: PBField
+	func get_magic() -> Array[ItemMagic]:
+		return __magic.value
+	func clear_magic() -> void:
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__magic.value.clear()
+	func add_magic() -> ItemMagic:
+		var element = ItemMagic.new()
+		__magic.value.append(element)
+		return element
+	
+	var __magic_ex: PBField
+	func get_magic_ex() -> Array[ItemMagic]:
+		return __magic_ex.value
+	func clear_magic_ex() -> void:
+		data[18].state = PB_SERVICE_STATE.UNFILLED
+		__magic_ex.value.clear()
+	func add_magic_ex() -> ItemMagic:
+		var element = ItemMagic.new()
+		__magic_ex.value.append(element)
+		return element
+	
+	var __room: PBField
+	func has_room() -> bool:
+		if __room.value != null:
+			return true
+		return false
+	func get_room() -> int:
+		return __room.value
+	func clear_room() -> void:
+		data[19].state = PB_SERVICE_STATE.UNFILLED
+		__room.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_room(value : int) -> void:
+		__room.value = value
+	
+	var __x: PBField
+	func has_x() -> bool:
+		if __x.value != null:
+			return true
+		return false
+	func get_x() -> int:
+		return __x.value
+	func clear_x() -> void:
+		data[20].state = PB_SERVICE_STATE.UNFILLED
+		__x.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_x(value : int) -> void:
+		__x.value = value
+	
+	var __y: PBField
+	func has_y() -> bool:
+		if __y.value != null:
+			return true
+		return false
+	func get_y() -> int:
+		return __y.value
+	func clear_y() -> void:
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_y(value : int) -> void:
+		__y.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -4787,7 +5154,7 @@ class RoleData:
 		service.func_ref = Callable(self, "new_stats")
 		data[__stats.tag] = service
 		
-		var __items_default: Array[RoleItem] = []
+		var __items_default: Array[ItemData] = []
 		__items = PBField.new("items", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 11, true, __items_default)
 		service = PBServiceField.new()
 		service.field = __items
@@ -4823,6 +5190,21 @@ class RoleData:
 		service = PBServiceField.new()
 		service.field = __native_place
 		data[__native_place.tag] = service
+		
+		__next_item_id = PBField.new("next_item_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 18, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __next_item_id
+		data[__next_item_id.tag] = service
+		
+		__money = PBField.new("money", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 19, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __money
+		data[__money.tag] = service
+		
+		__bank_money = PBField.new("bank_money", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 20, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __bank_money
+		data[__bank_money.tag] = service
 		
 	var data = {}
 	
@@ -4959,13 +5341,13 @@ class RoleData:
 		return __stats.value
 	
 	var __items: PBField
-	func get_items() -> Array[RoleItem]:
+	func get_items() -> Array[ItemData]:
 		return __items.value
 	func clear_items() -> void:
 		data[11].state = PB_SERVICE_STATE.UNFILLED
 		__items.value.clear()
-	func add_items() -> RoleItem:
-		var element = RoleItem.new()
+	func add_items() -> ItemData:
+		var element = ItemData.new()
 		__items.value.append(element)
 		return element
 	
@@ -5046,6 +5428,45 @@ class RoleData:
 		__native_place.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_native_place(value : int) -> void:
 		__native_place.value = value
+	
+	var __next_item_id: PBField
+	func has_next_item_id() -> bool:
+		if __next_item_id.value != null:
+			return true
+		return false
+	func get_next_item_id() -> int:
+		return __next_item_id.value
+	func clear_next_item_id() -> void:
+		data[18].state = PB_SERVICE_STATE.UNFILLED
+		__next_item_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_next_item_id(value : int) -> void:
+		__next_item_id.value = value
+	
+	var __money: PBField
+	func has_money() -> bool:
+		if __money.value != null:
+			return true
+		return false
+	func get_money() -> int:
+		return __money.value
+	func clear_money() -> void:
+		data[19].state = PB_SERVICE_STATE.UNFILLED
+		__money.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_money(value : int) -> void:
+		__money.value = value
+	
+	var __bank_money: PBField
+	func has_bank_money() -> bool:
+		if __bank_money.value != null:
+			return true
+		return false
+	func get_bank_money() -> int:
+		return __bank_money.value
+	func clear_bank_money() -> void:
+		data[20].state = PB_SERVICE_STATE.UNFILLED
+		__bank_money.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_bank_money(value : int) -> void:
+		__bank_money.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

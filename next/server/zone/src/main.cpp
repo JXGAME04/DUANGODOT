@@ -126,6 +126,24 @@ int main(int argc, char** argv)
     w.seed = static_cast<std::uint32_t>(cfg.get_int("zone.seed", w.seed));
     w.map_npcs = cfg.get_bool("zone.map_npcs", true);
     const auto test_npcs = cfg.get_int("zone.test_npcs", 0);
+    // the item tables (jxassets export-items): without them players carry nothing and item
+    // scripts do nothing, which is said here once instead of on every AddItem
+    const std::string items_dir = cfg.get_string("zone.items_dir", "client/assets/items");
+    if (!items_dir.empty()) {
+        auto lib = std::make_shared<jx::zone::KItemLibrary>();
+        std::string error;
+        if (lib->load_dir(items_dir, &error)) {
+            std::string versions;
+            for (const auto v : lib->versions()) versions += (versions.empty() ? "" : ",") + std::to_string(v);
+            jx::log::info("boot", "item tables loaded", {jx::log::kv("dir", items_dir), jx::log::kv("versions", versions),
+                                                         jx::log::kv("default_version", lib->default_version()),
+                                                         jx::log::kv("items", lib->set(lib->default_version())->size())});
+            if (!error.empty()) jx::log::warn("boot", "item table skipped", {jx::log::kv("error", error)});
+            w.items = lib;
+        } else {
+            jx::log::warn("boot", "no item tables", {jx::log::kv("dir", items_dir), jx::log::kv("error", error)});
+        }
+    }
     const std::string map_dir = cfg.get_string("zone.map_dir", "");
     if (!map_dir.empty()) {
         std::string error;

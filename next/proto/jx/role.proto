@@ -27,12 +27,37 @@ message RoleStats {
   int32 move_speed = 11;    // units per second
 }
 
-message RoleItem {
-  uint64 item_uid = 1;
-  uint32 template_id = 2;
-  uint32 count = 3;
-  uint32 slot = 4;          // container/slot are decided by the inventory design (phase 2)
-  uint32 container = 5;
+// One attribute of an item (KMagicAttrib of the old core): a type and up to three parameters.
+message ItemMagic {
+  uint32 type = 1;
+  repeated int32 value = 2;   // 3 values
+}
+
+// One item a character holds (KItem + its place in KItemList; docs/OLD-TO-NEW.md).  What made
+// the item is kept (version, genre/detail/particular/level, gen_param) so its table row can be
+// found again, and what was rolled for it (base attributes, magic) so it never re-rolls.
+message ItemData {
+  uint32 id = 1;              // unique within the character, never reused
+  uint32 version = 2;         // the item table set it was made from (settings/item/000..)
+  uint32 genre = 3;           // ITEMGENRE
+  uint32 detail = 4;
+  uint32 particular = 5;
+  uint32 level = 6;
+  int32 series = 7;           // -1 = none
+  uint32 count = 8;           // stack
+  int32 durability = 9;       // -1 = never wears
+  uint32 ex_type = 10;        // 0 normal, 1 gold, 2 platina, 3 purple
+  uint32 gen_param = 11;      // gold: row id; script item: row
+  uint32 group = 12;          // gold: the set
+  uint32 ex_group = 13;
+  uint32 group_serial = 14;
+  repeated ItemMagic base = 15;
+  repeated ItemMagic require = 16;
+  repeated ItemMagic magic = 17;
+  repeated ItemMagic magic_ex = 18;
+  uint32 room = 19;           // KItemRoom: 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = part)
+  uint32 x = 20;
+  uint32 y = 21;
 }
 
 message RoleData {
@@ -46,7 +71,7 @@ message RoleData {
   uint32 faction = 8;
   RolePosition position = 9;
   RoleStats stats = 10;
-  repeated RoleItem items = 11;
+  repeated ItemData items = 11;   // (RoleItem, the placeholder that stood here, was never written by anyone)
   uint64 created_at_ms = 12;
   uint64 last_login_ms = 13;
   uint64 play_time_s = 14;
@@ -58,4 +83,7 @@ message RoleData {
   // Where the character was born (CharCreateReq.native_place, KRoleChiefInfo.NativePlaceId of the
   // old game): the map id of the starting village, the character's home for the revive rules.
   uint32 native_place = 17;
+  uint32 next_item_id = 18;  // KItemList: the id the next item gets (ids never repeat within a character)
+  uint32 money = 19;         // in the bag (KItemList room_equipment money)
+  uint32 bank_money = 20;    // in the repository
 }

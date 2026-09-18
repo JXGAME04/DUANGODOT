@@ -10,6 +10,7 @@ add_executable(jx_zone_tests
     test_KWorldScheduler.cpp
     test_KMath.cpp
     test_KNpcAI.cpp
+    test_KItem.cpp
     test_KLuaScript.cpp
     test_KTrap.cpp
 )

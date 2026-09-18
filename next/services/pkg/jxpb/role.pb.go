@@ -209,31 +209,29 @@ func (x *RoleStats) GetMoveSpeed() int32 {
 	return 0
 }
 
-type RoleItem struct {
+// One attribute of an item (KMagicAttrib of the old core): a type and up to three parameters.
+type ItemMagic struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ItemUid       uint64                 `protobuf:"varint,1,opt,name=item_uid,json=itemUid,proto3" json:"item_uid,omitempty"`
-	TemplateId    uint32                 `protobuf:"varint,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
-	Count         uint32                 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	Slot          uint32                 `protobuf:"varint,4,opt,name=slot,proto3" json:"slot,omitempty"` // container/slot are decided by the inventory design (phase 2)
-	Container     uint32                 `protobuf:"varint,5,opt,name=container,proto3" json:"container,omitempty"`
+	Type          uint32                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	Value         []int32                `protobuf:"varint,2,rep,packed,name=value,proto3" json:"value,omitempty"` // 3 values
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RoleItem) Reset() {
-	*x = RoleItem{}
+func (x *ItemMagic) Reset() {
+	*x = ItemMagic{}
 	mi := &file_jx_role_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RoleItem) String() string {
+func (x *ItemMagic) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RoleItem) ProtoMessage() {}
+func (*ItemMagic) ProtoMessage() {}
 
-func (x *RoleItem) ProtoReflect() protoreflect.Message {
+func (x *ItemMagic) ProtoReflect() protoreflect.Message {
 	mi := &file_jx_role_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -245,42 +243,228 @@ func (x *RoleItem) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RoleItem.ProtoReflect.Descriptor instead.
-func (*RoleItem) Descriptor() ([]byte, []int) {
+// Deprecated: Use ItemMagic.ProtoReflect.Descriptor instead.
+func (*ItemMagic) Descriptor() ([]byte, []int) {
 	return file_jx_role_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RoleItem) GetItemUid() uint64 {
+func (x *ItemMagic) GetType() uint32 {
 	if x != nil {
-		return x.ItemUid
+		return x.Type
 	}
 	return 0
 }
 
-func (x *RoleItem) GetTemplateId() uint32 {
+func (x *ItemMagic) GetValue() []int32 {
 	if x != nil {
-		return x.TemplateId
+		return x.Value
+	}
+	return nil
+}
+
+// One item a character holds (KItem + its place in KItemList; docs/OLD-TO-NEW.md).  What made
+// the item is kept (version, genre/detail/particular/level, gen_param) so its table row can be
+// found again, and what was rolled for it (base attributes, magic) so it never re-rolls.
+type ItemData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`           // unique within the character, never reused
+	Version       uint32                 `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"` // the item table set it was made from (settings/item/000..)
+	Genre         uint32                 `protobuf:"varint,3,opt,name=genre,proto3" json:"genre,omitempty"`     // ITEMGENRE
+	Detail        uint32                 `protobuf:"varint,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	Particular    uint32                 `protobuf:"varint,5,opt,name=particular,proto3" json:"particular,omitempty"`
+	Level         uint32                 `protobuf:"varint,6,opt,name=level,proto3" json:"level,omitempty"`
+	Series        int32                  `protobuf:"varint,7,opt,name=series,proto3" json:"series,omitempty"`                      // -1 = none
+	Count         uint32                 `protobuf:"varint,8,opt,name=count,proto3" json:"count,omitempty"`                        // stack
+	Durability    int32                  `protobuf:"varint,9,opt,name=durability,proto3" json:"durability,omitempty"`              // -1 = never wears
+	ExType        uint32                 `protobuf:"varint,10,opt,name=ex_type,json=exType,proto3" json:"ex_type,omitempty"`       // 0 normal, 1 gold, 2 platina, 3 purple
+	GenParam      uint32                 `protobuf:"varint,11,opt,name=gen_param,json=genParam,proto3" json:"gen_param,omitempty"` // gold: row id; script item: row
+	Group         uint32                 `protobuf:"varint,12,opt,name=group,proto3" json:"group,omitempty"`                       // gold: the set
+	ExGroup       uint32                 `protobuf:"varint,13,opt,name=ex_group,json=exGroup,proto3" json:"ex_group,omitempty"`
+	GroupSerial   uint32                 `protobuf:"varint,14,opt,name=group_serial,json=groupSerial,proto3" json:"group_serial,omitempty"`
+	Base          []*ItemMagic           `protobuf:"bytes,15,rep,name=base,proto3" json:"base,omitempty"`
+	Require       []*ItemMagic           `protobuf:"bytes,16,rep,name=require,proto3" json:"require,omitempty"`
+	Magic         []*ItemMagic           `protobuf:"bytes,17,rep,name=magic,proto3" json:"magic,omitempty"`
+	MagicEx       []*ItemMagic           `protobuf:"bytes,18,rep,name=magic_ex,json=magicEx,proto3" json:"magic_ex,omitempty"`
+	Room          uint32                 `protobuf:"varint,19,opt,name=room,proto3" json:"room,omitempty"` // KItemRoom: 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = part)
+	X             uint32                 `protobuf:"varint,20,opt,name=x,proto3" json:"x,omitempty"`
+	Y             uint32                 `protobuf:"varint,21,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemData) Reset() {
+	*x = ItemData{}
+	mi := &file_jx_role_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemData) ProtoMessage() {}
+
+func (x *ItemData) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_role_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemData.ProtoReflect.Descriptor instead.
+func (*ItemData) Descriptor() ([]byte, []int) {
+	return file_jx_role_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ItemData) GetId() uint32 {
+	if x != nil {
+		return x.Id
 	}
 	return 0
 }
 
-func (x *RoleItem) GetCount() uint32 {
+func (x *ItemData) GetVersion() uint32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *ItemData) GetGenre() uint32 {
+	if x != nil {
+		return x.Genre
+	}
+	return 0
+}
+
+func (x *ItemData) GetDetail() uint32 {
+	if x != nil {
+		return x.Detail
+	}
+	return 0
+}
+
+func (x *ItemData) GetParticular() uint32 {
+	if x != nil {
+		return x.Particular
+	}
+	return 0
+}
+
+func (x *ItemData) GetLevel() uint32 {
+	if x != nil {
+		return x.Level
+	}
+	return 0
+}
+
+func (x *ItemData) GetSeries() int32 {
+	if x != nil {
+		return x.Series
+	}
+	return 0
+}
+
+func (x *ItemData) GetCount() uint32 {
 	if x != nil {
 		return x.Count
 	}
 	return 0
 }
 
-func (x *RoleItem) GetSlot() uint32 {
+func (x *ItemData) GetDurability() int32 {
 	if x != nil {
-		return x.Slot
+		return x.Durability
 	}
 	return 0
 }
 
-func (x *RoleItem) GetContainer() uint32 {
+func (x *ItemData) GetExType() uint32 {
 	if x != nil {
-		return x.Container
+		return x.ExType
+	}
+	return 0
+}
+
+func (x *ItemData) GetGenParam() uint32 {
+	if x != nil {
+		return x.GenParam
+	}
+	return 0
+}
+
+func (x *ItemData) GetGroup() uint32 {
+	if x != nil {
+		return x.Group
+	}
+	return 0
+}
+
+func (x *ItemData) GetExGroup() uint32 {
+	if x != nil {
+		return x.ExGroup
+	}
+	return 0
+}
+
+func (x *ItemData) GetGroupSerial() uint32 {
+	if x != nil {
+		return x.GroupSerial
+	}
+	return 0
+}
+
+func (x *ItemData) GetBase() []*ItemMagic {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
+func (x *ItemData) GetRequire() []*ItemMagic {
+	if x != nil {
+		return x.Require
+	}
+	return nil
+}
+
+func (x *ItemData) GetMagic() []*ItemMagic {
+	if x != nil {
+		return x.Magic
+	}
+	return nil
+}
+
+func (x *ItemData) GetMagicEx() []*ItemMagic {
+	if x != nil {
+		return x.MagicEx
+	}
+	return nil
+}
+
+func (x *ItemData) GetRoom() uint32 {
+	if x != nil {
+		return x.Room
+	}
+	return 0
+}
+
+func (x *ItemData) GetX() uint32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *ItemData) GetY() uint32 {
+	if x != nil {
+		return x.Y
 	}
 	return 0
 }
@@ -297,7 +481,7 @@ type RoleData struct {
 	Faction     uint32                 `protobuf:"varint,8,opt,name=faction,proto3" json:"faction,omitempty"`
 	Position    *RolePosition          `protobuf:"bytes,9,opt,name=position,proto3" json:"position,omitempty"`
 	Stats       *RoleStats             `protobuf:"bytes,10,opt,name=stats,proto3" json:"stats,omitempty"`
-	Items       []*RoleItem            `protobuf:"bytes,11,rep,name=items,proto3" json:"items,omitempty"`
+	Items       []*ItemData            `protobuf:"bytes,11,rep,name=items,proto3" json:"items,omitempty"` // (RoleItem, the placeholder that stood here, was never written by anyone)
 	CreatedAtMs uint64                 `protobuf:"varint,12,opt,name=created_at_ms,json=createdAtMs,proto3" json:"created_at_ms,omitempty"`
 	LastLoginMs uint64                 `protobuf:"varint,13,opt,name=last_login_ms,json=lastLoginMs,proto3" json:"last_login_ms,omitempty"`
 	PlayTimeS   uint64                 `protobuf:"varint,14,opt,name=play_time_s,json=playTimeS,proto3" json:"play_time_s,omitempty"`
@@ -309,13 +493,16 @@ type RoleData struct {
 	// Where the character was born (CharCreateReq.native_place, KRoleChiefInfo.NativePlaceId of the
 	// old game): the map id of the starting village, the character's home for the revive rules.
 	NativePlace   uint32 `protobuf:"varint,17,opt,name=native_place,json=nativePlace,proto3" json:"native_place,omitempty"`
+	NextItemId    uint32 `protobuf:"varint,18,opt,name=next_item_id,json=nextItemId,proto3" json:"next_item_id,omitempty"` // KItemList: the id the next item gets (ids never repeat within a character)
+	Money         uint32 `protobuf:"varint,19,opt,name=money,proto3" json:"money,omitempty"`                               // in the bag (KItemList room_equipment money)
+	BankMoney     uint32 `protobuf:"varint,20,opt,name=bank_money,json=bankMoney,proto3" json:"bank_money,omitempty"`      // in the repository
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RoleData) Reset() {
 	*x = RoleData{}
-	mi := &file_jx_role_proto_msgTypes[3]
+	mi := &file_jx_role_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -327,7 +514,7 @@ func (x *RoleData) String() string {
 func (*RoleData) ProtoMessage() {}
 
 func (x *RoleData) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_role_proto_msgTypes[3]
+	mi := &file_jx_role_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -340,7 +527,7 @@ func (x *RoleData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoleData.ProtoReflect.Descriptor instead.
 func (*RoleData) Descriptor() ([]byte, []int) {
-	return file_jx_role_proto_rawDescGZIP(), []int{3}
+	return file_jx_role_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RoleData) GetPlayerId() uint64 {
@@ -413,7 +600,7 @@ func (x *RoleData) GetStats() *RoleStats {
 	return nil
 }
 
-func (x *RoleData) GetItems() []*RoleItem {
+func (x *RoleData) GetItems() []*ItemData {
 	if x != nil {
 		return x.Items
 	}
@@ -462,6 +649,27 @@ func (x *RoleData) GetNativePlace() uint32 {
 	return 0
 }
 
+func (x *RoleData) GetNextItemId() uint32 {
+	if x != nil {
+		return x.NextItemId
+	}
+	return 0
+}
+
+func (x *RoleData) GetMoney() uint32 {
+	if x != nil {
+		return x.Money
+	}
+	return 0
+}
+
+func (x *RoleData) GetBankMoney() uint32 {
+	if x != nil {
+		return x.BankMoney
+	}
+	return 0
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -485,14 +693,37 @@ const file_jx_role_proto_rawDesc = "" +
 	"\x06energy\x18\n" +
 	" \x01(\x05R\x06energy\x12\x1d\n" +
 	"\n" +
-	"move_speed\x18\v \x01(\x05R\tmoveSpeed\"\x8e\x01\n" +
-	"\bRoleItem\x12\x19\n" +
-	"\bitem_uid\x18\x01 \x01(\x04R\aitemUid\x12\x1f\n" +
-	"\vtemplate_id\x18\x02 \x01(\rR\n" +
-	"templateId\x12\x14\n" +
-	"\x05count\x18\x03 \x01(\rR\x05count\x12\x12\n" +
-	"\x04slot\x18\x04 \x01(\rR\x04slot\x12\x1c\n" +
-	"\tcontainer\x18\x05 \x01(\rR\tcontainer\"\x93\x04\n" +
+	"move_speed\x18\v \x01(\x05R\tmoveSpeed\"5\n" +
+	"\tItemMagic\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\rR\x04type\x12\x14\n" +
+	"\x05value\x18\x02 \x03(\x05R\x05value\"\xc7\x04\n" +
+	"\bItemData\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\rR\aversion\x12\x14\n" +
+	"\x05genre\x18\x03 \x01(\rR\x05genre\x12\x16\n" +
+	"\x06detail\x18\x04 \x01(\rR\x06detail\x12\x1e\n" +
+	"\n" +
+	"particular\x18\x05 \x01(\rR\n" +
+	"particular\x12\x14\n" +
+	"\x05level\x18\x06 \x01(\rR\x05level\x12\x16\n" +
+	"\x06series\x18\a \x01(\x05R\x06series\x12\x14\n" +
+	"\x05count\x18\b \x01(\rR\x05count\x12\x1e\n" +
+	"\n" +
+	"durability\x18\t \x01(\x05R\n" +
+	"durability\x12\x17\n" +
+	"\aex_type\x18\n" +
+	" \x01(\rR\x06exType\x12\x1b\n" +
+	"\tgen_param\x18\v \x01(\rR\bgenParam\x12\x14\n" +
+	"\x05group\x18\f \x01(\rR\x05group\x12\x19\n" +
+	"\bex_group\x18\r \x01(\rR\aexGroup\x12!\n" +
+	"\fgroup_serial\x18\x0e \x01(\rR\vgroupSerial\x12$\n" +
+	"\x04base\x18\x0f \x03(\v2\x10.jx.pb.ItemMagicR\x04base\x12*\n" +
+	"\arequire\x18\x10 \x03(\v2\x10.jx.pb.ItemMagicR\arequire\x12&\n" +
+	"\x05magic\x18\x11 \x03(\v2\x10.jx.pb.ItemMagicR\x05magic\x12+\n" +
+	"\bmagic_ex\x18\x12 \x03(\v2\x10.jx.pb.ItemMagicR\amagicEx\x12\x12\n" +
+	"\x04room\x18\x13 \x01(\rR\x04room\x12\f\n" +
+	"\x01x\x18\x14 \x01(\rR\x01x\x12\f\n" +
+	"\x01y\x18\x15 \x01(\rR\x01y\"\xea\x04\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -506,14 +737,19 @@ const file_jx_role_proto_rawDesc = "" +
 	"\bposition\x18\t \x01(\v2\x13.jx.pb.RolePositionR\bposition\x12&\n" +
 	"\x05stats\x18\n" +
 	" \x01(\v2\x10.jx.pb.RoleStatsR\x05stats\x12%\n" +
-	"\x05items\x18\v \x03(\v2\x0f.jx.pb.RoleItemR\x05items\x12\"\n" +
+	"\x05items\x18\v \x03(\v2\x0f.jx.pb.ItemDataR\x05items\x12\"\n" +
 	"\rcreated_at_ms\x18\f \x01(\x04R\vcreatedAtMs\x12\"\n" +
 	"\rlast_login_ms\x18\r \x01(\x04R\vlastLoginMs\x12\x1e\n" +
 	"\vplay_time_s\x18\x0e \x01(\x04R\tplayTimeS\x12!\n" +
 	"\fdata_version\x18\x0f \x01(\rR\vdataVersion\x12\x1d\n" +
 	"\n" +
 	"fight_mode\x18\x10 \x01(\bR\tfightMode\x12!\n" +
-	"\fnative_place\x18\x11 \x01(\rR\vnativePlaceB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"\fnative_place\x18\x11 \x01(\rR\vnativePlace\x12 \n" +
+	"\fnext_item_id\x18\x12 \x01(\rR\n" +
+	"nextItemId\x12\x14\n" +
+	"\x05money\x18\x13 \x01(\rR\x05money\x12\x1d\n" +
+	"\n" +
+	"bank_money\x18\x14 \x01(\rR\tbankMoneyB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once
@@ -527,24 +763,29 @@ func file_jx_role_proto_rawDescGZIP() []byte {
 	return file_jx_role_proto_rawDescData
 }
 
-var file_jx_role_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_jx_role_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_jx_role_proto_goTypes = []any{
 	(*RolePosition)(nil), // 0: jx.pb.RolePosition
 	(*RoleStats)(nil),    // 1: jx.pb.RoleStats
-	(*RoleItem)(nil),     // 2: jx.pb.RoleItem
-	(*RoleData)(nil),     // 3: jx.pb.RoleData
-	(*Vec2)(nil),         // 4: jx.pb.Vec2
+	(*ItemMagic)(nil),    // 2: jx.pb.ItemMagic
+	(*ItemData)(nil),     // 3: jx.pb.ItemData
+	(*RoleData)(nil),     // 4: jx.pb.RoleData
+	(*Vec2)(nil),         // 5: jx.pb.Vec2
 }
 var file_jx_role_proto_depIdxs = []int32{
-	4, // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
-	0, // 1: jx.pb.RoleData.position:type_name -> jx.pb.RolePosition
-	1, // 2: jx.pb.RoleData.stats:type_name -> jx.pb.RoleStats
-	2, // 3: jx.pb.RoleData.items:type_name -> jx.pb.RoleItem
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
+	2, // 1: jx.pb.ItemData.base:type_name -> jx.pb.ItemMagic
+	2, // 2: jx.pb.ItemData.require:type_name -> jx.pb.ItemMagic
+	2, // 3: jx.pb.ItemData.magic:type_name -> jx.pb.ItemMagic
+	2, // 4: jx.pb.ItemData.magic_ex:type_name -> jx.pb.ItemMagic
+	0, // 5: jx.pb.RoleData.position:type_name -> jx.pb.RolePosition
+	1, // 6: jx.pb.RoleData.stats:type_name -> jx.pb.RoleStats
+	3, // 7: jx.pb.RoleData.items:type_name -> jx.pb.ItemData
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_jx_role_proto_init() }
@@ -559,7 +800,7 @@ func file_jx_role_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_role_proto_rawDesc), len(file_jx_role_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

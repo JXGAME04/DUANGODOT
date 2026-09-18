@@ -249,6 +249,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     grid_.insert(id, start, true);   // a player keeps its neighbourhood awake (SPEC 44, 45)
     players_[sid] = id;
     roles_[sid] = role;
+    load_items(sid, role);
 
     // The newcomer looks around at once: its client gets its own character first, then what is
     // nearest, up to the budget; the rest follows over the next ticks.  Everybody already there
@@ -285,6 +286,7 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     }
     players_.erase(pit);
     roles_.erase(sid);
+    items_.erase(sid);
     return true;
 }
 
@@ -1142,7 +1144,84 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
         out.set_level(e->level);
         out.set_fight_mode(e->fight_mode);   // KNpc::SetFightMode survives a logout like in the old game
     }
+    save_items(sid, out);
     return true;
+}
+
+// ---- items ----------------------------------------------------------------------------------
+
+KItemList* KSubWorld::items_of(std::uint64_t sid)
+{
+    const auto it = items_.find(sid);
+    return it == items_.end() ? nullptr : &it->second;
+}
+
+const KItemList* KSubWorld::items_of(std::uint64_t sid) const
+{
+    const auto it = items_.find(sid);
+    return it == items_.end() ? nullptr : &it->second;
+}
+
+std::optional<KItemGenerator> KSubWorld::item_generator(std::uint32_t version)
+{
+    if (!cfg_.items) return std::nullopt;
+    if (version == 0 || cfg_.items->set(version) == nullptr) version = cfg_.items->default_version();
+    const KItemTemplateSet* set = cfg_.items->set(version);
+    if (set == nullptr) return std::nullopt;
+    return KItemGenerator(*set, version, static_cast<std::uint32_t>(rng_()));
+}
+
+void KSubWorld::load_items(std::uint64_t sid, const pb::RoleData& role)
+{
+    KItemList& list = items_[sid];
+    list.clear();
+    list.set_money(room_equipment, static_cast<int>(role.money()));
+    list.set_money(room_repository, static_cast<int>(role.bank_money()));
+    int lost = 0;
+    for (const auto& data : role.items()) {
+        KItem item;
+        if (!cfg_.items || !KItem::from_proto(data, *cfg_.items, item)) {
+            ++lost;
+            continue;
+        }
+        bool ok = false;
+        if (data.room() == room_body) {
+            // worn: straight onto the part it was on, no requirement check - it passed when it went on
+            const int part = static_cast<int>(data.x());
+            if (part >= 0 && part < itempart_num && list.equipped(part) == 0 && KItemList::fits(item.detail, part)) {
+                const std::uint32_t id = list.add(item, room_equipment);   // through the bag, then onto the body
+                ok = id != 0 && list.wear(id, part);
+                if (id != 0 && !ok) list.remove(id);
+            }
+        } else {
+            ok = list.add(item, static_cast<int>(data.room()), static_cast<int>(data.x()), static_cast<int>(data.y())) != 0;
+            if (!ok) ok = list.add(item, room_equipment) != 0;   // a cell taken (a table changed sizes): anywhere in the bag
+        }
+        if (!ok) ++lost;
+    }
+    if (role.next_item_id() > list.next_id()) list.set_next_id(role.next_item_id());
+    if (lost > 0) {
+        log::ScopedContext ctx(log::Context{sid, role.player_id(), cfg_.zone_id, tick_});
+        log::warn("zone", "items not restored", {log::kv("lost", lost), log::kv("kept", list.size())});
+    }
+}
+
+void KSubWorld::save_items(std::uint64_t sid, pb::RoleData& out) const
+{
+    const auto it = items_.find(sid);
+    if (it == items_.end()) return;
+    const KItemList& list = it->second;
+    out.clear_items();
+    list.each([&](const KItem& item, const KItemPlace& place) {
+        pb::ItemData* data = out.add_items();
+        item.to_proto(*data);
+        data->set_room(static_cast<std::uint32_t>(place.room));
+        data->set_x(static_cast<std::uint32_t>(place.x));
+        data->set_y(static_cast<std::uint32_t>(place.y));
+    });
+    out.set_next_item_id(list.next_id());
+    out.set_money(static_cast<std::uint32_t>(list.money(room_equipment)));
+    out.set_bank_money(static_cast<std::uint32_t>(list.money(room_repository)));
 }
 
 } // namespace jx::zone

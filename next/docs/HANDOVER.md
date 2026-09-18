@@ -118,7 +118,7 @@ thu bằng cảm tính.
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
-| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A xong**: bảng vật phẩm của server cũ đọc đúng cột (`pkg/jxold/item`), xuất 6 bộ / 19 735 dòng. |
+| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`. Còn: giao thức + cửa sổ túi (C), rơi đồ (D), hàm Lua (E), ma pháp tiền/hậu tố. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
 | **M14** | Xã hội: chat, bạn bè, thư, bang hội, tổ đội, giao dịch, PK | 5 | Test nhiều phiên; giao dịch nguyên tử. |
@@ -137,6 +137,29 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (rạng sáng) — M11 lát B: vật phẩm trong zone — mẫu, túi, ô trang bị, sinh vật phẩm, lưu vào nhân vật
+
+Đọc `KItem.h/.cpp`, `KInventory.cpp`, `KItemList.h/.cpp`, `KItemGenerator.cpp`, `GameDataDef.h`,
+`KMagicAttrib.h` của Core cũ và port giữ nguyên số: túi 6×10, kho 6×10, giao dịch 10×4, 3 ô nhanh, 15 ô
+trang bị (`ITEM_PART`); lưới `KInventory` đặt/nhấc/tìm chỗ theo cột như cũ; `GetEquipPlace`/`Fit`
+(nhẫn vào ring1 hoặc ring2); `CanEquip` theo `EnoughAttrib` (sức/thân/ngoại/nội/cấp ≥, hệ/giới/môn phái =);
+`SetAttrib_CBR` quay thuộc tính cơ bản trong [min,max] một lần khi sinh, độ bền từ `magic_durability_v`;
+tra mẫu đúng như `KItemGenerator` (`particular*10+level-1`, mặt nạ theo `particular`, thuốc
+`detail*5+level-1`, nhiệm vụ theo `detail`, hoàng kim theo `row_id`, kịch bản theo `(detail, particular)`);
+hoàng kim quay 6 ma pháp theo `nLuck` đúng công thức `Gen_GoldEquip` (0..200, ≥200 luôn tối đa).
+
+- `server/zone/…/KItem.h/.cpp`: `KItemTemplateSet` + `KItemLibrary` (mọi phiên bản `items/v000..json`,
+  mặc định phiên bản mới nhất), `KItem`, `KInventory`, `KItemList` (add/stack/move/swap/equip/wear/unequip,
+  tiền túi + kho), `KItemGenerator` (trắng + hoàng kim; ma pháp tiền/hậu tố `Gen_MagicAttrib` chưa port).
+- `RoleData.items` = `ItemData` (giữ cả phiên bản, tham số sinh và mọi thuộc tính đã quay → không quay lại),
+  `next_item_id`, `money`, `bank_money`; `KSubWorld::items_of(sid)`, nạp khi spawn (vật phẩm mất bảng bị loại
+  có cảnh báo), lưu trong mọi snapshot. `zone.items_dir` (mặc định `client/assets/items`), log
+  `item tables loaded versions=0,1,2,3,4 default=4 items=14187`.
+- Test: 7 test case/2 696 assertion (tra mẫu, quay thuộc tính, hoàng kim theo may mắn, lưới, danh sách, bảng
+  thật v000, vòng spawn → snapshot → spawn giữ nguyên id/chỗ/giá trị). 134/134 Debug + Release, Go, Godot 262,
+  e2e đạt.
+- `dev.py` in UTF‑8 (trước đây tên tiếng Việt trong output client làm `print` chết trên console cp1252).
 
 ### 2026-09-17 (đêm) — M11 lát A: bảng vật phẩm của server cũ đọc đúng từng cột, xuất JSON
 

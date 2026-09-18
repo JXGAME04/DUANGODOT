@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <random>
 #include <string>
 #include <string_view>
@@ -20,6 +21,7 @@
 #include "jx/core/FixedTick.h"
 #include "jx/entity/EntityTable.h"
 #include "jx/ids.hpp"
+#include "jx/zone/KItem.h"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KNpcAI.h"
@@ -85,6 +87,7 @@ struct KSubWorldConfig {
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
     std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
+    std::shared_ptr<const KItemLibrary> items;          // the item tables (settings\item, every version); optional
     std::shared_ptr<KScriptCache> scripts;              // the old server folder with script\ (level scripts); optional
 };
 
@@ -200,6 +203,13 @@ public:
     [[nodiscard]] std::vector<std::uint64_t> session_ids() const;
     // Copies the stored RoleData with the current position (what PlayerSave sends).
     bool role_snapshot(std::uint64_t sid, pb::RoleData& out) const;
+    // What the player carries (KItemList).  Loaded from RoleData.items when the player spawns
+    // (an item whose table row is gone is dropped with a warning), saved in every snapshot.
+    [[nodiscard]] KItemList* items_of(std::uint64_t sid);
+    [[nodiscard]] const KItemList* items_of(std::uint64_t sid) const;
+    // The item tables and a generator on the default version; null without tables.
+    [[nodiscard]] const KItemLibrary* item_library() const noexcept { return cfg_.items.get(); }
+    [[nodiscard]] std::optional<KItemGenerator> item_generator(std::uint32_t version = 0);
     // KNpcSet::GetRelation (server side): NPC_RELATION bits between two entities.
     [[nodiscard]] int relation(const KNpc& a, const KNpc& b) const noexcept;
 
@@ -279,6 +289,9 @@ private:
     entity::EntityTable<KNpc> entities_;
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
+    std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
+    void load_items(std::uint64_t sid, const pb::RoleData& role);
+    void save_items(std::uint64_t sid, pb::RoleData& out) const;
     std::vector<Packet> outbox_;
     std::uint64_t tick_ = 0;
     std::minstd_rand rng_;

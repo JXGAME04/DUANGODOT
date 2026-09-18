@@ -29,6 +29,14 @@ import subprocess
 import sys
 import time
 
+# the servers and the client log UTF-8 (Vietnamese names): never let a cp1252 console kill a run
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD = os.path.join(ROOT, "build")
 PIDS = os.path.join(BUILD, "dev-pids.json")

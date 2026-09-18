@@ -41,6 +41,9 @@
     "stats_interval_s": 10,
     "test_npcs": 4,
     "seed": 1,
+    // the item tables (settings\item of the old server, every version) exported by dev.py assets
+    // (jxassets export-items); without them players carry nothing. New items use the newest version.
+    "items_dir": "client/assets/items",
     // exported by: python tools/dev.py assets   (empty = plain 8192x8192 grid)
     "map_dir": "client/assets/maps/1",
     // every other map bundle the zone hosts (portals need the target loaded): a list like "3,7,99",

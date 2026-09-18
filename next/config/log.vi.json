@@ -217,7 +217,12 @@
     "saves_s": "lưu/giây",
     "schema": "phiên bản bảng",
     "try": "lần thử",
-    "waiting": "đang chờ"
+    "waiting": "đang chờ",
+    "default_version": "phiên bản mặc định",
+    "items": "vật phẩm",
+    "kept": "giữ được",
+    "lost": "mất",
+    "versions": "các phiên bản"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -386,6 +391,10 @@
     "save backlog": "Hàng đợi lưu nhân vật đang dồn — cơ sở dữ liệu chậm hơn tốc độ lưu",
     "final save lost": "MẤT lần lưu cuối của nhân vật — cơ sở dữ liệu từ chối ba lần",
     "final save retried": "Lưu cuối thất bại, thử lại",
-    "saves flushed": "Đã ghi nốt các lần lưu còn chờ trước khi tắt"
+    "saves flushed": "Đã ghi nốt các lần lưu còn chờ trước khi tắt",
+    "item tables loaded": "Đã nạp bảng vật phẩm",
+    "item table skipped": "Bỏ qua một bảng vật phẩm (lỗi đọc)",
+    "no item tables": "Không có bảng vật phẩm — nhân vật không mang được gì (chạy python tools/dev.py assets)",
+    "items not restored": "Một số vật phẩm của nhân vật không khôi phục được (mất bảng hoặc hết chỗ)"
   }
 }
