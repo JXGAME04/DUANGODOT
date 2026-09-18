@@ -239,8 +239,10 @@ public:
     // How long a map has to stay empty and quiet before its tick stops doing anything at all.
     // Two seconds at 18 Hz: long enough that walking out and back in never sees a frozen map.
     static constexpr std::uint64_t kDormantAfterTicks = 36;
+    // level / series above 0 / -1 override the template's (KNpcSet::Add 0x0813A770 packs template << 16 | level and
+    // hands the series on: the create-npc skill's npc takes the attribute's level and the skill's Series)
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
-                       KNpcKind kind = KNpcKind::npc);
+                       KNpcKind kind = KNpcKind::npc, std::uint32_t level = 0, int series = -1);
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
     bool teleport(EntityId id, Pos p);
     // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.
@@ -472,6 +474,8 @@ public:
     //      0x080833B0, KPlayer::Revive 0x080AD9F0 (docs/LINUX-SERVER.md §16.4) ----
     // C2G_REVIVE (the handler slot 118 -> 0x080AEBC0(player, 12), KPlayer::Revive(0)): back at the revive point
     bool revive_request(std::uint64_t sid, std::uint32_t seq);
+    // KSkill 0x080E8770 - style 4, the npc a skill makes (docs §16.5); the spawn itself waits for the end of the tick
+    bool cast_create_npc(const KSkill& sk, KNpc& launcher, const KCastParams& p);
     // KSubWorldSet 0x080F6D20: the revive / reference point `ref` of `map` in absolute Mps (revivepos.ini), nothing
     // without the table or the point
     [[nodiscard]] std::optional<Pos> revive_point(std::uint32_t map, int ref) const noexcept;
@@ -653,6 +657,12 @@ private:
     [[nodiscard]] std::function<int(int)> attrib_of(const KNpc& e) const;
     void object_tick(KNpc& e, std::vector<EntityId>& expired);   // KObj::Activate for items and money
     void remove_object(EntityId id);
+    // a npc out of the world at once (the 0x3e9 node of the binary, run at the map's next frame 0x080F29A8)
+    void remove_npc(EntityId id);
+    // KPlayer::Clear 0x080B60A0: the summons of a leaving player go, their records are freed
+    void release_summons(EntityId owner);
+    void flush_pending_summons();
+    void flush_doomed();
     [[nodiscard]] Pos free_object_pos(Pos at) const;              // KSubWorld::GetFreeObjPos
     std::unordered_map<std::uint64_t, KItem> ground_items_;       // object entity id -> the item lying there
     std::size_t ground_money_ = 0;
@@ -665,6 +675,18 @@ private:
         std::uint64_t belong = 0;
     };
     std::vector<KPendingDrop> pending_drops_;
+    // a create-npc cast of this tick: KNpcSet::Add ran inside the cast in the binary; here the entity table must not
+    // move under the caller, so the npc is made when the tick ends (its record is already taken)
+    struct KPendingSummon {
+        EntityId launcher;
+        std::uint32_t template_id = 0;
+        std::uint32_t level = 0;
+        int series = -1;
+        Pos at;
+        std::size_t record = 0;
+    };
+    std::vector<KPendingSummon> pending_summons_;
+    std::vector<EntityId> doomed_;   // npcs with remove_on_death whose corpse settled this tick (the 0x3e9 nodes)
     void flush_pending_drops();
     std::uint32_t random_percent() { return static_cast<std::uint32_t>(rng_() % 100); }   // g_Random(100)
     std::vector<Packet> outbox_;

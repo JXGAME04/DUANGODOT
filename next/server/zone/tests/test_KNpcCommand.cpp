@@ -41,6 +41,7 @@ function GetSkillLevelData(levelname, data, level)
     if data == "hit" and levelname == "life_v" then return "-5,0,0" end
     if data == "buff" and levelname == "armordefense_v" then return "10,60,0" end
     if data == "buff" and levelname == "hide" then return "1,60,0" end
+    if data == "summon" and levelname == "createnpc" then return "418,5,0" end
     return ""
 end
 )lua";
@@ -90,6 +91,10 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1112, {{"SkillStyle", "1"}, {"MisslesForm", "12"}, {"ChildSkillId", "1106"}, {"ChildSkillNum", "3"}});
     add(1113, {{"SkillStyle", "1"}, {"MisslesForm", "13"}, {"TargetEnemy", "0"}, {"Param1", "300"}, {"Param2", "6"}});
     add(1114, {{"SkillStyle", "1"}, {"MisslesForm", "8"}, {"ChildSkillId", "1101"}});
+    // 1115..1117 create-npc skills (style 4) of kinds 2, 3 and 4: one npc of template 418 at level 5 at the spot
+    add(1115, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "2"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
+    add(1116, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "3"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
+    add(1117, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "4"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
     return std::make_shared<const KSkillTable>(std::move(t));
 }
 
@@ -704,4 +709,86 @@ TEST_CASE("a player's death: the corpse waits, 2 percent of the level's experien
     CHECK(a.w.calc_damage(*a.h, *a.p, 1000, 1000, damage_physics, true, nullptr, &dealt, 0, false) == 0);
     CHECK(a.w.revive_request(7, 4));
     CHECK(a.h->pos() == a.w.to_local(Pos{2500, 2100}));
+}
+
+// the create-npc skill 0x080E8770 (style 4): a npc of the state attribute createnpc {template, level, time} at the spot,
+// named "<template> [<launcher>]", of the launcher's camp, gone when it dies (+0x1824) or when the player leaves
+// (KPlayer::Clear 0x080B60A0); two records (+0x7d34) per stay, ChildSkillNum of each kind (Param1), G_SkillList_4 when
+// none is free; nothing frees a record before the player leaves (nothing reads the time either)
+TEST_CASE("style 4: the create-npc skill summons a npc at the spot with the launcher's camp; two records, freed on leave", "[command]")
+{
+    Arena a({1, 1115, 1116, 1117});
+    a.h->camp = camp_justice;
+    a.h->current_camp = camp_justice;
+    a.w.take_outbox();
+    REQUIRE(a.w.cast_skill_request(7, 1115, 2050, 2000, EntityId{}, 1));
+    // the cast fires at the cast frame; the npc is made when that tick ends
+    EntityId summon{};
+    for (int i = 0; i < 40 && summon.value == 0; ++i) {
+        a.ticks(1);
+        const KPlayer& pl = a.w.mutable_entity(a.hero)->player;
+        for (const KPlayer::KSummonRecord& r : pl.summons) {
+            if (r.used && r.npc.value != 0) summon = r.npc;
+        }
+    }
+    REQUIRE(summon.value != 0);
+    a.h = a.w.mutable_entity(a.hero);   // the table may have moved
+    a.p = a.w.mutable_entity(a.pig);
+    KNpc* s = a.w.mutable_entity(summon);
+    REQUIRE(s != nullptr);
+    CHECK(s->name == "418 [Hero]");
+    CHECK(s->level == 5);
+    CHECK(s->series == 0);
+    CHECK(s->kind == KNpcKind::monster);
+    CHECK(s->camp == camp_justice);
+    CHECK(s->current_camp == camp_justice);
+    CHECK(s->remove_on_death);
+    CHECK(s->summon_master == a.hero);
+    CHECK(s->pos() == Pos{2050, 2000});
+    CHECK(a.h->player.summon_free == 1);
+    CHECK(a.h->player.summon_count(2) == 1);
+    // a second one of that kind: ChildSkillNum 1 is reached (CanCastSkill 0x080E8F95, the cast itself 0x080E886E)
+    const KSkill* sk = a.w.skills()->get(1115, 1);
+    REQUIRE(sk != nullptr);
+    int p1 = 2050, p2 = 2000;
+    EntityId t{};
+    CHECK_FALSE(a.w.can_cast_skill(*sk, *a.h, p1, p2, t));
+    // another kind takes the last record
+    REQUIRE(a.w.cast_skill_request(7, 1116, 2040, 2010, EntityId{}, 2));
+    for (int i = 0; i < 40 && a.w.mutable_entity(a.hero)->player.summon_free != 0; ++i) a.ticks(1);
+    a.h = a.w.mutable_entity(a.hero);
+    CHECK(a.h->player.summon_free == 0);
+    CHECK(a.h->player.summon_count(3) == 1);
+    // no record left: G_SkillList_4 to the player, no cast (0x080E8FEC / 0x080E8A94)
+    a.w.take_outbox();
+    const KSkill* sk3 = a.w.skills()->get(1117, 1);
+    REQUIRE(sk3 != nullptr);
+    CHECK_FALSE(a.w.can_cast_skill(*sk3, *a.h, p1, p2, t));
+    bool told = false;
+    for (const Packet& pk : a.w.take_outbox()) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_CHAT_MSG)) continue;
+        jx::pb::ChatMsg m;
+        REQUIRE(m.ParseFromString(pk.payload));
+        if (m.text().size() > 20 && m.text()[0] == 'S') told = true;   // "So luong linh danh thue ..." (UTF-8)
+    }
+    CHECK(told);
+    // the summon dies: out of the world when its death frames end, and the record stays used (nothing frees it)
+    s = a.w.mutable_entity(summon);
+    s->cur.life = 1;
+    int dealt = 0;
+    CHECK(a.w.calc_damage(*s, *a.w.mutable_entity(a.pig), 100, 100, damage_physics, true, nullptr, &dealt, 0, false) == 0);
+    for (int i = 0; i < 80 && a.w.mutable_entity(summon) != nullptr; ++i) a.ticks(1);
+    CHECK(a.w.mutable_entity(summon) == nullptr);
+    a.h = a.w.mutable_entity(a.hero);
+    CHECK(a.h->player.summon_free == 0);
+    CHECK(a.h->player.summon_count(2) == 1);
+    // the player leaves: KPlayer::Clear takes the other summon out and frees the records
+    EntityId other{};
+    for (const KPlayer::KSummonRecord& r : a.h->player.summons) {
+        if (r.used && r.npc != summon && r.npc.value != 0) other = r.npc;
+    }
+    REQUIRE(other.value != 0);
+    REQUIRE(a.w.mutable_entity(other) != nullptr);
+    REQUIRE(a.w.remove_player(7));
+    CHECK(a.w.mutable_entity(other) == nullptr);
 }

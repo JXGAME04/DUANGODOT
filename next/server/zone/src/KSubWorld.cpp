@@ -303,6 +303,7 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     if (pit == players_.end()) return false;
     const EntityId id = pit->second;
     drop_viewer(sid);   // first: a client that is leaving is not told about its own departure
+    release_summons(id);   // KPlayer::Clear 0x080B60A0: its summons go with it
     if (KNpc* gone_e = entities_.find(id)) {
         const std::size_t told = gone_e->watchers.size();
         entity_gone(*gone_e);   // exactly the clients that know this player, however crowded the place
@@ -467,7 +468,7 @@ bool KSubWorld::gm_command(std::uint64_t sid, std::string_view text)
     return true;
 }
 
-EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind)
+EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind, std::uint32_t level, int series)
 {
     KNpc e;
     e.kind = kind;
@@ -475,6 +476,8 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     e.template_id = template_id;
     e.speed = cfg_.default_speed / 2;
     e.wander_radius = wander_radius;
+    if (level > 0) e.level = level;                                  // KNpc::Init with the level handed to KNpcSet::Add
+    if (series >= 0) e.series = static_cast<std::uint32_t>(series);
     e.skill_mgr = skills_.get();
     apply_template(e);
     e.home = clamp(pos);
@@ -597,6 +600,8 @@ void KSubWorld::tick()
     for (const EntityId id : expired_objects) remove_object(id);
     activate_missles();      // KRegion::Activate 0x080E2660: the missiles after the npcs
     flush_pending_drops();   // ai + movement integration end here
+    flush_pending_summons();
+    flush_doomed();          // the 0x3e9 nodes: the summons whose corpse settled
 
     {
         // spatial: re-file whatever crossed a cell.  A player that did sees another part of the
@@ -1337,6 +1342,10 @@ void KSubWorld::do_revive(KNpc& e)
     e.frame_cur = 0;
     entity_gone(e);   // every client that saw it die sees the corpse go
     grid_.remove(e.id);
+    if (e.remove_on_death) {   // 0x080833B0 with byte +0x1824: the 0x3e9 node - taken out when the frame ends, never revived
+        log::debug("zone.fight", "summon removed", {log::kv("entity", e.id), log::kv("master", e.summon_master)});
+        doomed_.push_back(e.id);
+    }
 }
 
 // KNpc::Revive: back at the home position with full life.
@@ -1994,6 +2003,44 @@ void KSubWorld::object_tick(KNpc& e, std::vector<EntityId>& expired)
         e.object.belong = 0;   // anybody may take it now
     }
     if (!e.object.forever && --e.object.life_ticks <= 0) expired.push_back(e.id);
+}
+
+void KSubWorld::remove_npc(EntityId id)
+{
+    KNpc* e = entities_.find(id);
+    if (e == nullptr || e->kind == KNpcKind::player) return;
+    if (grid_.contains(id)) {
+        entity_gone(*e);
+        grid_.remove(id);
+    }
+    entities_.destroy(id);
+}
+
+// KPlayer::Clear 0x080B60A0 (0x080B68F0): every used record -> 0x0813A690 posts the 0x3e9 "remove (index, id)" node for
+// the map's next frame (0x080F29A8 skips a npc whose id no longer matches), zeroes the record, puts its node back on the
+// free list and adds one to +0x7d34.  The ids are collected first: destroying a npc may move the owner in the table.
+void KSubWorld::release_summons(EntityId owner_id)
+{
+    std::vector<EntityId> gone;
+    if (KNpc* owner = entities_.find(owner_id); owner != nullptr && owner->kind == KNpcKind::player) {
+        for (KPlayer::KSummonRecord& r : owner->player.summons) {
+            if (!r.used) continue;
+            if (r.npc.value != 0) gone.push_back(r.npc);
+            r = {};
+            ++owner->player.summon_free;
+        }
+    }
+    for (const EntityId id : gone) remove_npc(id);
+}
+
+void KSubWorld::flush_doomed()
+{
+    if (doomed_.empty()) return;
+    std::vector<EntityId> ids;
+    ids.swap(doomed_);
+    for (const EntityId id : ids) {
+        if (KNpc* e = entities_.find(id); e != nullptr && e->kind != KNpcKind::player) entities_.destroy(id);
+    }
 }
 
 void KSubWorld::remove_object(EntityId id)

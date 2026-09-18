@@ -5,7 +5,11 @@
 // (jx_linux_y, docs/LINUX-SERVER.md §10.2 / §10.4; offsets of KPlayer noted).  The zone keeps
 // it inside the player's KNpc (Player[Npc.m_nPlayerIdx] of the old code, without the index).
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+
+#include "jx/ids.hpp"
 
 namespace jx::pb {
 class RoleData;
@@ -44,6 +48,40 @@ struct KPlayer {
     int revive_x = 0;
     int revive_y = 0;
     int revive_ref = 0;        // +0x14
+    // KPlayer+0x7d30..+0x7dbc: the npcs its create-npc skills (style 4, 0x080E8770) made - three records of 36 bytes at
+    // +0x7d38 on a free list (+0x7da4: nodes 2 and 1, so two at most) and a used list (+0x7db0, count +0x7db8); the
+    // ctor 0x080BC1F0 sets +0x7d30 = +0x7d34 = 2 free.  The skill fills one {time = nValue[2] of the attribute, the
+    // launcher, the npc's id and index, kind = Param1}; KPlayer::Clear 0x080B60A0 (0x080B68F0) posts a removal for
+    // each used one and frees them all.  Nothing reads the time (they never expire) and a summon's death frees nothing:
+    // a kind is spent until the character leaves (docs/LINUX-SERVER.md §16.5)
+    struct KSummonRecord {
+        bool used = false;
+        int time = 0;     // +0
+        int kind = 0;     // byte +0x18: Param1 of the skill
+        EntityId npc;     // +0xc / +0x14 its id (+0x10 its index); empty while the spawn waits for the end of the tick
+    };
+    static constexpr int kSummonRecords = 3;
+    static constexpr int kSummonFree = 2;
+    std::array<KSummonRecord, kSummonRecords> summons{};
+    int summon_free = kSummonFree;   // +0x7d34
+    // 0x080E8829 / 0x080E8F5B: the used records of that kind
+    [[nodiscard]] int summon_count(int kind) const noexcept
+    {
+        int n = 0;
+        for (const KSummonRecord& r : summons) {
+            if (r.used && r.kind == kind) ++n;
+        }
+        return n;
+    }
+    // the node the free list hands out (records 1 and 2: node 0 is never on it), nullptr when +0x7d34 == 0
+    [[nodiscard]] KSummonRecord* free_summon() noexcept
+    {
+        if (summon_free <= 0) return nullptr;
+        for (std::size_t i = 1; i < summons.size(); ++i) {
+            if (!summons[i].used) return &summons[i];
+        }
+        return nullptr;
+    }
     // 0x080AFEA0 with a loss (KNpc::OnDeath 0x08088E8D hands -loss): the experience down, never below 0, the level kept
     void lose_exp(std::int64_t loss) noexcept;
     // what the exp bonuses of equipment / states left here (expenhance_v 175 -> a random range

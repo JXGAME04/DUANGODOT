@@ -17,6 +17,10 @@
 
 namespace jx::zone {
 
+// G_SkillList_4 of lang\vn\stringtable_core.txt ([0x978A2A0], loaded at 0x08180075): what the player hears when no
+// summon record is free (0x080E8A94 / 0x080E8FEC send it with 0x081C9220)
+static constexpr const char* kSummonLimitMessage = "S\u1ed1 l\u01b0\u1ee3ng l\u00ednh \u0111\u00e1nh thu\u00ea tuy \u0111\u00e3 \u0111\u1ea1t c\u1ef1c h\u1ea1n, v\u1eabn c\u00f3 th\u1ec3 thu\u00ea th\u00eam! ";
+
 int KSubWorld::skill_list_level(const KNpc& e, int skill_id) const noexcept
 {
     // KSkillList::GetCurrentLevel(list, id, 1) 0x080E4440: the cell's current level with its
@@ -199,9 +203,8 @@ bool KSubWorld::skill_cast(const KSkill& skill, KNpc& launcher, const KCastParam
     case skill_style_passivity_npc_state:
         cast_passivity_skill(skill, launcher, q.extra);
         return true;
-    case skill_style_create_npc:   // 0x080E8770: B2c
-        log::trace("zone.fight", "create npc skill not carried", {log::kv("entity", launcher.id), log::kv("skill", skill.row.id)});
-        return true;
+    case skill_style_create_npc:   // 0x080E8770: a npc made by the skill
+        return cast_create_npc(skill, launcher, q);
     default:   // 5..13: nothing (0x080EA9EC)
         return true;
     }
@@ -323,7 +326,14 @@ bool KSubWorld::can_cast_skill(const KSkill& sk, KNpc& launcher, int& p1, int& p
         if (r.weapon_skill && weapon_physics_skill(launcher) != r.id) return false;
         if (r.eqt_limit != -2 && weapon_eqt_limit(launcher) != r.eqt_limit) return false;
         if (r.horse_limit == 2) return false;   // needs a horse: none in the zone (+0x199c == 0); 1 = on foot, always
-        // style 4: the npcs it made so far against ChildSkillNum and a free record of the player (B3c)
+        if (r.style == skill_style_create_npc) {   // 0x080E8F4E: the records of kind Param1 (a byte) below ChildSkillNum, one free
+            const int count = launcher.player.summon_count(r.param1 & 0xff);
+            if (r.child_skill_num <= count) return false;
+            if (launcher.player.summon_free == 0) {
+                msg_to_player(launcher.sid, kSummonLimitMessage);   // 0x080E8FEC: G_SkillList_4
+                return false;
+            }
+        }
     }
     bool reach;
     switch (r.style) {   // 0x080E8CF0
@@ -1115,6 +1125,77 @@ void KSubWorld::cast_child_skill(KNpc& e, bool style0_only)
     }
     skill_cast(*child, e, p);
     log::trace("zone.fight", "child skill cast", {log::kv("entity", e.id), log::kv("skill", sk->row.id), log::kv("child", child_id), log::kv("level", level)});
+}
+
+// ---- the create-npc skill (style 4) - docs/LINUX-SERVER.md §16.5 --------------------------------------
+
+// KSkill 0x080E8770(skill, launcher, p1, p2) -> 1 / 0.  Only a player launcher (kind +0x24 == 1).  For every one of the
+// twenty state attributes (+0x540) of type createnpc 179 - {template v0, level v1, time v2}; a negative value ends the
+// cast with 0 - the player's used records of kind Param1 (byte +0x50; a kind of 0 counts nothing) must stay below
+// ChildSkillNum (+0xb4) and a free record must be left (+0x7d34; none -> G_SkillList_4 to the player, 0).  Then
+// KNpcSet::Add 0x0813A770(template, level, Series +0x58, the launcher's map, p1, p2, 1 = byte +0x1824, "", 0), the
+// node off the free list (+0x7d34 -= 1, onto the used list), the name "%s [%s]" (template, launcher) to +0x1505 with
+// g_FileName2Id at +0x1528, the record {time, launcher, id, index, kind}, camp +0x21c copied, SetCurrentCamp 0x0807B850
+// (+0x220 + the packet 0x58) and +0x1828 = the launcher.  The binary hands p1 / p2 straight through, so a cast on a npc
+// would put the summon at (-1, index): a cast without a spot goes to the launcher's feet here.  The spawn itself waits
+// for the end of the tick (flush_pending_summons) so the entity table does not move under the caller.
+bool KSubWorld::cast_create_npc(const KSkill& sk, KNpc& launcher, const KCastParams& p)
+{
+    if (launcher.kind != KNpcKind::player) return false;
+    KPlayer& pl = launcher.player;
+    const int kind = sk.row.param1 & 0xff;
+    for (const KMagicAttrib& a : sk.state_attribs) {
+        if (a.type != magic_createnpc) continue;
+        if (a.value[0] < 0 || a.value[1] < 0 || a.value[2] < 0) return false;
+        const int count = kind != 0 ? pl.summon_count(kind) : 0;
+        if (sk.row.child_skill_num <= count) return false;
+        KPlayer::KSummonRecord* rec = pl.free_summon();
+        if (rec == nullptr) {
+            msg_to_player(launcher.sid, kSummonLimitMessage);
+            return false;
+        }
+        --pl.summon_free;
+        rec->used = true;
+        rec->time = a.value[2];
+        rec->kind = kind;
+        rec->npc = EntityId{};
+        pending_summons_.push_back(KPendingSummon{launcher.id, static_cast<std::uint32_t>(a.value[0]), static_cast<std::uint32_t>(a.value[1]),
+                                                  sk.row.series, p.at_pos ? p.pos : launcher.pos(), static_cast<std::size_t>(rec - pl.summons.data())});
+        log::debug("zone.fight", "summon queued", {log::kv("entity", launcher.id), log::kv("skill", sk.row.id), log::kv("template", a.value[0]),
+                                                   log::kv("level", a.value[1]), log::kv("kind", kind), log::kv("free", pl.summon_free)});
+    }
+    return true;
+}
+
+// the end of the tick: the npcs the create-npc casts of this tick asked for (KNpcSet::Add of 0x080E88D8)
+void KSubWorld::flush_pending_summons()
+{
+    if (pending_summons_.empty()) return;
+    std::vector<KPendingSummon> list;
+    list.swap(pending_summons_);
+    for (const KPendingSummon& q : list) {
+        KNpc* owner = entities_.find(q.launcher);
+        if (owner == nullptr || owner->kind != KNpcKind::player) continue;   // gone before the frame ended: its records went with it
+        const KNpcTemplate* t = cfg_.templates ? cfg_.templates->find(q.template_id) : nullptr;
+        std::string name = (t != nullptr ? t->name : std::to_string(q.template_id)) + " [" + owner->name + "]";   // "%s [%s]"
+        const int camp = owner->camp;
+        const int current_camp = owner->current_camp;
+        const EntityId id = spawn_npc(std::move(name), q.at, q.template_id, 0, KNpcKind::monster, q.level, q.series);
+        owner = entities_.find(q.launcher);   // the table may have moved
+        KNpc* n = entities_.find(id);
+        if (owner == nullptr || n == nullptr) {
+            if (n != nullptr) remove_npc(id);
+            continue;
+        }
+        n->camp = camp;                   // +0x21c
+        n->current_camp = current_camp;   // 0x0807B850
+        n->remove_on_death = true;        // +0x1824
+        n->summon_master = q.launcher;    // +0x1828
+        KPlayer::KSummonRecord& rec = owner->player.summons[q.record];
+        rec.npc = id;
+        log::debug("zone.fight", "npc summoned", {log::kv("entity", id), log::kv("master", q.launcher), log::kv("template", q.template_id),
+                                                  log::kv("level", q.level), log::kv("kind", rec.kind), log::kv("x", q.at.x), log::kv("y", q.at.y)});
+    }
 }
 
 } // namespace jx::zone

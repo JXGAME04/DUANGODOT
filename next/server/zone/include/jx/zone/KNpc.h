@@ -261,6 +261,12 @@ struct KNpc {
     // the cast, the death and a mount break it (0x0807D4C0 = KSubWorld::break_hide).
     int hide = 0;                     // +0x19a0
     bool hide_syncing = false;        // +0x19a4: set while the "hidden" packet 0x4f goes out - invisible to itself only then
+    // a npc a create-npc skill (style 4, 0x080E8770) made: KNpcSet::Add 0x0813A770 got 1 as its 7th argument, which
+    // sets byte +0x1824 - KNpc::Revive 0x080833B0 then posts the 0x3e9 "remove (index, id)" node for the map's next
+    // frame (0x080F29A8) instead of reviving it - and the skill writes the launcher's index to +0x1828 (nothing reads
+    // it back; docs/LINUX-SERVER.md §16.5)
+    bool remove_on_death = false;     // +0x1824
+    EntityId summon_master;           // +0x1828
 
     [[nodiscard]] bool alive() const noexcept { return doing != KDoing::death && doing != KDoing::revive; }
     // m_ProcessAI: the ai only decides while the npc stands or walks (DoSkill / DoAttack / DoHurt /
