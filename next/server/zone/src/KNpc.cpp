@@ -214,18 +214,6 @@ void add_state_icon(KNpc& e, int special, int priority) noexcept
     e.state_flag = 1;
 }
 
-// 0x080792C0: one attribute of one skill's states is changed by the npc's state modifier
-void apply_state_modifier(const KNpc& e, int skill_id, KMagicAttrib* states, int count) noexcept
-{
-    const KStateModifier& m = e.state_modifier;
-    if (states == nullptr || m.skill_id != skill_id || count <= 0) return;
-    for (int i = 0; i < count; ++i) {
-        if (states[i].type != m.attrib) continue;
-        if (m.index >= 0 && m.index < 3) states[i].value[static_cast<std::size_t>(m.index)] += m.delta;
-        return;
-    }
-}
-
 } // namespace
 
 // ---- the resists --------------------------------------------------------------------------

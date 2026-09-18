@@ -1088,8 +1088,7 @@ bool KSubWorld::missle_prepare_fly(KMissle& m)
             // Mps2Map of the spot; the binary keeps the old spot when the region is -1 - or 0
             // (0x0807670E: "jle"), the top-left region of the map
             const Pos p{lp.x, y};
-            const Pos local = cfg_.map ? p : p;
-            const bool region_zero = local.x >= 0 && local.y >= 0 && local.x < kMissleCell * 16 && local.y < kMissleCell * 32;
+            const bool region_zero = p.x >= 0 && p.y >= 0 && p.x < kMissleCell * 16 && p.y < kMissleCell * 32;
             if (!region_zero) {
                 KMissle probe = m;
                 if (missle_set_pos(probe, p)) {
