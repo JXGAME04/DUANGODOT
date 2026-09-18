@@ -420,6 +420,12 @@ func _check_item_windows() -> void:
 	var runs := KTextEncode.runs_of("<color=HBlue>a<color=0xff8c27>b<color>c", Color.WHITE)
 	check(runs.size() == 3 and runs[0].color == Color8(100, 100, 255) and runs[1].color == Color8(255, 140, 39) and runs[2].color == Color.WHITE, "HBlue, 0xff8c27, restore: %s" % str(runs))
 	check(KTextEncode.runs_of("<trang bị tổn hại>x", Color.WHITE)[0].text == "<trang bị tổn hại>x", "an unknown tag stays text")
+	# GetEquipEnhance on the client: the worn sword (part 3, water 2) is fed by this metal (0) character -> 1 suffix awake
+	check(KUiItemView.equip_enhance(Game.items[4]) == 1 and KUiItemView.equip_enhance(Game.items[1]) == 0, "a worn piece fed by the character's element wakes one suffix; a bag piece none")
+	var worn: Dictionary = Game.items[4].duplicate(true)
+	worn["magic"] = [{"type": 28, "value": [3, -1, 0]}, {"type": 29, "value": [5, -1, 0]}, {"type": 0, "value": [0, 0, 0]}, {"type": 30, "value": [7, -1, 0]}]
+	var wl2 := KUiItemView.magic_text(worn, KUiItemView.equip_enhance(worn)).split("\n")
+	check(wl2[1].begins_with("<color=HBlue>") and wl2[2].begins_with("<color=DBlue>"), "the first suffix is lit (HBlue), the second not (DBlue): %s" % str(wl2))
 
 	# the bag: 6 x 10 cells of 28 px with a 2 px border, the things of the bag room, the money
 	var bag := UiItem.new()

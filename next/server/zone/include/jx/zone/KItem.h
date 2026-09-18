@@ -358,6 +358,11 @@ public:
     // the same without the requirement check: restoring what was worn when the character was saved
     bool wear(std::uint32_t id, int part);
     bool unequip(int part, int to_room = room_equipment);
+    // KItemList::GetEquipEnhance of the JX2 server (jx_linux_y 0x081FD2C0): how many suffixes of
+    // the piece worn at `part` are awake - one when the character's element feeds the piece's,
+    // one more for each of the two "activating" parts (ms_ActivedEquip, 0x082E7460) whose worn
+    // piece's element feeds it; the horse and the JX2 parts after it always count 3.
+    [[nodiscard]] int equip_enhance(int part, int player_series) const;
     // KItemList::GetWeaponDamage / GetWeaponType
     [[nodiscard]] std::pair<int, int> weapon_damage() const;
     [[nodiscard]] int weapon_type() const;   // -1 none, else the detail type of the weapon worn

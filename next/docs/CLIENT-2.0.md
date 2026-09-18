@@ -68,5 +68,5 @@ trên con trỏ ở nửa dưới. Dựng lại ở `client/ui/uicase/UiMouseHov
 
 - ~~Tên / mô tả vật phẩm lấy từ bảng của client~~ — xong: `items/client_vNNN.json` (`export-items`), `KLibOfBPT.gd`.
   Còn: tên vật thể dưới đất (`KObj.gd`) vẫn là tên server gửi trong `EntityInfo`.
-- `nActive` khi mặc (`KItemList::GetEquipEnhance`: ngũ hành tương sinh giữa nhân vật và món đồ) → hậu tố sáng.
+- ~~`nActive` khi mặc~~ — xong: `KUiItemView.equip_enhance` (bảng và luật của `jx_linux_y 0x081FD2C0`).
 - Dòng giá trong cửa hàng (`[vtable+4]`), khoá / hạn dùng, bộ hoàng kim.

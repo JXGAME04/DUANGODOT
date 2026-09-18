@@ -395,6 +395,15 @@ TEST_CASE("a player's list: add, stack, move, swap, equip with requirements, une
     CHECK_FALSE(list.equip(armor, jx::zone::itempart_body, man));
     CHECK(list.equip(armor, jx::zone::itempart_body, level9));
     CHECK(list.armor_defense() == 50);
+    // GetEquipEnhance: the sword is fire (3) - a wood (1) character feeds it, a metal (0) one does
+    // not; the body's activating parts (ring2, belt) are empty; the horse and beyond count 3
+    CHECK(list.equip_enhance(jx::zone::itempart_weapon, 1) == 1);
+    CHECK(list.equip_enhance(jx::zone::itempart_weapon, 0) == 0);
+    CHECK(list.equip_enhance(jx::zone::itempart_body, 4) == 1);   // earth feeds the metal armor
+    CHECK(list.equip_enhance(jx::zone::itempart_body, 0) == 0);
+    CHECK(list.equip_enhance(jx::zone::itempart_horse, 0) == 3);
+    CHECK(list.equip_enhance(jx::zone::itempart_head, 0) == 0);   // nothing worn there
+    CHECK(list.equip_enhance(99, 0) == 0);
     // a second sword goes on the hand and the first comes back to the bag
     const auto sword2 = list.add(*gen.equipment(jx::zone::equip_meleeweapon, 0, 3, 2), jx::zone::room_equipment);
     CHECK(list.equip(sword2, jx::zone::itempart_weapon, level9));

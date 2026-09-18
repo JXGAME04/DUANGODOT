@@ -37,6 +37,13 @@ const INTRO_WRAP := 40
 const NAME_COLORS := [Color.WHITE, Color8(255, 255, 0), Color8(188, 64, 255), Color8(255, 255, 255)]
 const NAME_COLOR_MAGIC := Color8(100, 100, 255)
 
+# The five elements feeding each other (g_nAccrueSeries: metal -> water -> wood -> fire -> earth ->
+# metal; jx_linux_y 0x0830ED18) and ms_ActivedEquip (0x082E7460): the two worn parts whose element
+# can wake the suffixes of each part - KItemList::GetEquipEnhance, the nActive of a worn piece
+const ACCRUE := [2, 3, 1, 4, 0]
+const ACTIVED_EQUIP := [[1, 6], [8, 2], [9, 5], [6, 1], [3, 0], [4, 7], [2, 8], [3, 0], [5, 9], [4, 7]]
+const ROOM_BODY := 10
+
 # the name colour tags by genre (the table at 0x0081b398 of the client: genre 1 White, 4 Yellow,
 # the rest empty - the text keeps the window's colour; genre 0 is decided by the piece itself)
 const NAME_TAG_BY_GENRE := {1: "<color=White>", 4: "<color=Yellow>"}
@@ -135,6 +142,33 @@ static func title_of(raw: Dictionary) -> String:
 	if genre == GENRE_EQUIP:
 		name += core_string("G_ITEM_22") % int(item.get("level", 0))
 	return name
+
+
+# KItemList::GetEquipEnhance for a piece of Game.items: 0 unless it is worn; then one when the
+# character's element feeds the piece's, one more for each activating part worn with an element
+# that feeds it; the horse and the parts after it (10..) always 3.  (CoreShell passes this as
+# nActive for the equipment window, 0 for the bag.)
+static func equip_enhance(item: Dictionary) -> int:
+	if int(item.get("room", 0)) != ROOM_BODY:
+		return 0
+	var part := int(item.get("x", 0))
+	if part >= EQUIP_HORSE:
+		return 3
+	var me = Game.entities.get(Game.entity_id)
+	var series := int(item.get("series", -1))
+	var n := 0
+	if me != null and _accrues(int(me.get("series", -1)), series):
+		n += 1
+	if part >= 0 and part < ACTIVED_EQUIP.size():
+		for other in ACTIVED_EQUIP[part]:
+			var worn_id: int = Game.item_worn(int(other))
+			if worn_id != 0 and _accrues(int(Game.items[worn_id].get("series", -1)), series):
+				n += 1
+	return n
+
+
+static func _accrues(src: int, des: int) -> bool:
+	return src >= 0 and src < ACCRUE.size() and int(ACCRUE[src]) == des
 
 
 # The "[min-max]" the 2.0 client prints after a magic line: KLibOfBPT::GetMagicRange over the

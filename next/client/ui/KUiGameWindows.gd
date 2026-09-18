@@ -92,7 +92,7 @@ func _on_item_hovered(item) -> void:
 		hover.hide_lines()
 	else:
 		# KItem::GetDesc, then the "\n" the CoreShell wrapper (0x006b66a0) adds after it
-		hover.show_text(KUiItemView.describe_text(item) + "\n", _canvas.get_local_mouse_position())
+		hover.show_text(KUiItemView.describe_text(item, KUiItemView.equip_enhance(item)) + "\n", _canvas.get_local_mouse_position())
 
 
 # A click on an item with nothing on the cursor lifts it (Wnd_SetDragObj).

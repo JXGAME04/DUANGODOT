@@ -12,6 +12,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "jx/zone/KMath.h"
+
 namespace jx::zone {
 
 namespace {
@@ -866,6 +868,36 @@ bool KItemList::unequip(int part, int to_room)
     rooms_[static_cast<std::size_t>(to_room)].place(x, y, id, e.item.width(), e.item.height());
     e.place = KItemPlace{to_room, x, y};
     return true;
+}
+
+// ms_ActivedEquip of KItemList.cpp, checked against jx_linux_y 0x082E7460: the two worn parts
+// that can wake the suffixes of each part (the horse and the JX2 parts point at themselves)
+static constexpr int kActivedEquip[itempart_horse][2] = {
+    {itempart_body, itempart_amulet},    // head
+    {itempart_ring2, itempart_belt},     // body
+    {itempart_pendant, itempart_cuff},   // belt
+    {itempart_amulet, itempart_body},    // weapon
+    {itempart_weapon, itempart_head},    // foot
+    {itempart_foot, itempart_ring1},     // cuff
+    {itempart_belt, itempart_ring2},     // amulet
+    {itempart_weapon, itempart_head},    // ring1
+    {itempart_cuff, itempart_pendant},   // ring2
+    {itempart_foot, itempart_ring1},     // pendant
+};
+
+int KItemList::equip_enhance(int part, int player_series) const
+{
+    if (part < 0 || part >= itempart_num) return 0;
+    if (part >= itempart_horse) return 3;
+    const KItem* piece = find(equipped(part));
+    if (piece == nullptr) return 0;
+    int n = g_IsAccrue(player_series, piece->series) ? 1 : 0;
+    for (const int other : kActivedEquip[part]) {
+        if (const KItem* worn = find(equipped(other))) {
+            if (g_IsAccrue(worn->series, piece->series)) ++n;
+        }
+    }
+    return n;
 }
 
 std::pair<int, int> KItemList::weapon_damage() const

@@ -138,6 +138,17 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-18 (khuya) — hậu tố "kích hoạt" khi mặc: `KItemList::GetEquipEnhance` theo nhị phân Linux
+
+`0x081FD2C0`: số hậu tố sáng của món đang mặc = (hệ nhân vật **sinh** hệ món: 1) + mỗi ô trong hai "ô kích hoạt"
+(`ms_ActivedEquip`, bảng `0x082E7460` khớp nguồn cũ: nón←áo,dây chuyền; áo←nhẫn dưới,đai; đai←ngọc bội,hộ uyển;
+vũ khí←dây chuyền,áo; giày←vũ khí,nón; hộ uyển←giày,nhẫn trên; dây chuyền←đai,nhẫn dưới; nhẫn trên←vũ khí,nón;
+nhẫn dưới←hộ uyển,ngọc bội; ngọc bội←giày,nhẫn trên) có đồ mà hệ đồ đó sinh hệ món (+1); ngựa và các ô JX2 sau
+nó = 3; `+0x4c7c ≠ −1` (kích hoạt toàn bộ — bộ hoàng kim) = 3 (chưa làm). Bảng ngũ hành của server
+(`0x080741D0` → `0x0830ED18` sinh, `0x0830ED2C` khắc) vào `KMath.h` (`kAccrueSeries`, `g_IsAccrue`). Zone
+`KItemList::equip_enhance(part, series)` (M12 sẽ dùng khi áp ma pháp lúc mặc); client `KUiItemView.equip_enhance`
+→ chú thích món đang mặc sáng đúng hậu tố (CoreShell `GetActiveAttribNum` cho `UOC_EQUIPTMENT`). Test cả hai phía.
+
 ### 2026-09-18 (khuya) — M11 lát E phần 2: hàm script vật phẩm nhiệm vụ theo nhị phân Linux
 
 `AddStackItem`, `HaveItem`, `GetItemCount`, `GetItemCountEx`, `DelItem`, `DelItemEx`, `HaveCommonItem`,

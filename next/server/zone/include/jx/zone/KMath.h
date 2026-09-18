@@ -29,6 +29,17 @@ inline constexpr int kCos64[64] = {
     1024,  1019,  1004,   980,   946,   903,   851,   792,   724,   650,   569,   483,   392,   297,   200,   100,
 };
 
+// The five elements (series 0 metal, 1 wood, 2 water, 3 fire, 4 earth) and how they feed and
+// beat each other - g_nAccrueSeries / g_nConquerSeries of the old KMath, the tables jx_linux_y
+// fills at 0x080741D0 (0x0830ED18: metal feeds water, water wood, wood fire, fire earth, earth
+// metal; 0x0830ED2C: metal beats wood, wood earth, earth water, water fire, fire metal).
+inline constexpr int kAccrueSeries[5] = {2, 3, 1, 4, 0};
+inline constexpr int kConquerSeries[5] = {1, 4, 3, 0, 2};
+
+// g_IsAccrue(src, des): src feeds des (jx_linux_y 0x08074190: table[src] == des, src within 0..4)
+inline bool g_IsAccrue(int src, int des) noexcept { return src >= 0 && src < 5 && kAccrueSeries[src] == des; }
+inline bool g_IsConquer(int src, int des) noexcept { return src >= 0 && src < 5 && kConquerSeries[src] == des; }
+
 // g_DirSin / g_DirCos for the 64-direction system (the old ones return -1 for a bad direction).
 inline int g_DirSin(int dir) noexcept { return dir < 0 || dir >= 64 ? -1 : kSin64[dir]; }
 inline int g_DirCos(int dir) noexcept { return dir < 0 || dir >= 64 ? -1 : kCos64[dir]; }
