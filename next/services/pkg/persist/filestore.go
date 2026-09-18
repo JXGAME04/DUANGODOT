@@ -383,9 +383,9 @@ func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.
 	role.Stats = &jxpb.RoleStats{
 		Hp: int32(t.LifeMax), HpMax: int32(t.LifeMax),
 		Mp: int32(t.ManaMax), MpMax: int32(t.ManaMax),
-		Stamina: int32(NewPlayerSet.GetStaminaBase(int(series), int(sex), t.Level)),
+		Stamina:    int32(NewPlayerSet.GetStaminaBase(int(series), int(sex), t.Level)),
 		StaminaMax: int32(NewPlayerSet.GetStaminaBase(int(series), int(sex), t.Level)),
-		Strength: int32(t.Strength), Dexterity: int32(t.Dexterity), Vitality: int32(t.Vitality), Energy: int32(t.Energy),
+		Strength:   int32(t.Strength), Dexterity: int32(t.Dexterity), Vitality: int32(t.Vitality), Energy: int32(t.Energy),
 		Lucky: int32(t.Lucky), AttributePoint: int32(t.AttributePoint), SkillPoint: int32(t.SkillPoint),
 		MoveSpeed: 200,
 	}

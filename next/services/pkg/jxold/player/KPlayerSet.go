@@ -19,9 +19,9 @@ import (
 const (
 	MaxLevel   = 200 // rows of level_exp.txt the JX2 server keeps (KLevelAdd: 200; JX1 had 150)
 	MaxSeries  = 5
-	MaxReborn  = 7               // the 1..7 转 columns of level_exp.txt
-	ExpCap     = 2_000_000_000   // 0x77359400: what a bad cell becomes ("level exp error ... please call program")
-	NewPlayers = 10              // newplayerini00..09: series * 2 + sex (CPlayerCreator::GetRoleData)
+	MaxReborn  = 7             // the 1..7 转 columns of level_exp.txt
+	ExpCap     = 2_000_000_000 // 0x77359400: what a bad cell becomes ("level exp error ... please call program")
+	NewPlayers = 10            // newplayerini00..09: series * 2 + sex (CPlayerCreator::GetRoleData)
 )
 
 // LevelExp is one row of level_exp.txt as KLevelAdd keeps it: the experience the level needs
@@ -83,7 +83,7 @@ type NewPlayerItem struct {
 	Room       int `json:"room"`       // ilocal (3 = the bag)
 	X          int `json:"x"`
 	Y          int `json:"y"`
-	Seed       int `json:"seed"`       // irandseed
+	Seed       int `json:"seed"` // irandseed
 }
 
 // NewPlayerSkill is one Sn/Ln pair of [FSKILLS]: a fight skill a new character knows.
@@ -121,13 +121,13 @@ type NewPlayer struct {
 
 // Set is everything of settings/npc/player the zone and the gateway need.
 type Set struct {
-	Source    string                  `json:"source"`
-	LevelExp  [MaxLevel]LevelExp      `json:"level_exp"`  // index = level - 1
-	LevelAdd  [MaxSeries]LevelAdd     `json:"level_add"`  // index = series
-	Stamina   Stamina                 `json:"stamina"`
-	BaseValue BaseValue               `json:"basevalue"`
-	NewPlayer [NewPlayers]NewPlayer   `json:"new_player"` // index = series * 2 + sex
-	Missing   []string                `json:"missing,omitempty"`
+	Source    string                `json:"source"`
+	LevelExp  [MaxLevel]LevelExp    `json:"level_exp"` // index = level - 1
+	LevelAdd  [MaxSeries]LevelAdd   `json:"level_add"` // index = series
+	Stamina   Stamina               `json:"stamina"`
+	BaseValue BaseValue             `json:"basevalue"`
+	NewPlayer [NewPlayers]NewPlayer `json:"new_player"` // index = series * 2 + sex
+	Missing   []string              `json:"missing,omitempty"`
 }
 
 // Load reads the folder (settings/npc/player of the old server; file names in any case).

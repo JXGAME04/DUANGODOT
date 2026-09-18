@@ -754,7 +754,7 @@ func main() {
 		}
 		sets := itemTableSets()
 		total := 0
-		magic := map[string]any{}   // the prefix / suffix rows of every set, for the client's tooltip
+		magic := map[string]any{} // the prefix / suffix rows of every set, for the client's tooltip
 		for _, s := range sets {
 			set, err := item.Load(s.dir, s.version)
 			if err != nil {
