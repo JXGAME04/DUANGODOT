@@ -316,7 +316,8 @@ func _on_char_list(chars: Array) -> void:
 	if _args.has("auto"):
 		if chars.is_empty():
 			Log.info("auto", "auto create")
-			_on_create_requested("Auto%d" % (randi() % 100000), 0, 0, 0)
+			# --place=<map id>: the starting village (the Id of NativePlaceList.ini; 0 = the default map)
+			_on_create_requested("Auto%d" % (randi() % 100000), 0, 0, int(str(_args.get("place", "0"))))
 		else:
 			Log.info("auto", "auto enter", {"pid": chars[0].pid, "name": chars[0].name})
 			_on_enter_game(0)

@@ -25,7 +25,7 @@ func writeFixture(t *testing.T) string {
 		"stamina.ini":   "[stamina]\n// comment\nNormalAdd=1\nExerciseRunSub=1\nFightRunSub=1\nKillRunSub=18\nSitAdd=10\n",
 		"basevalue.ini": "[Common]\nHurtFrame=12\nRunSpeed=10\nWalkSpeed=5\nAttackFrame=18\nCastFrame=18\n",
 		"newplayerini00.ini": "[ROLE]\nifiveprop=0\nbsex=0\nipower=35\niagility=25\niouter=25\niinside=15\niluck=0\nileftprop=0\nileftfight=0\nifightlevel=1\nimaxinner=16\nimaxlife=204\nimaxstamina=100\n" +
-			"[FSKILLS]\nCOUNT=2\nS1=53\nL1=1\nS2=1\nL2=1\n[ITEMS]\nCOUNT=1\n[ITEM1]\niequipclasscode=0\nidetailtype=0\niparticulartype=4\nilevel=1\nilocal=3\niseries=0\niequipversion=2\nirandseed=4\n",
+			"[FSKILLS]\nCOUNT=2\nS1=53\nL1=1\nS2=1\nL2=1\n[ITEMS]\nCOUNT=1\n[ITEM1]\niequipclasscode=0\niequipcode=4\nidetailtype=0\niparticulartype=4\nilevel=1\nilocal=3\niseries=0\niequipversion=2\nirandseed=4\n",
 		"newplayerini09.ini": "[ROLE]\nifiveprop=4\nbsex=1\nipower=20\niagility=15\niouter=25\niinside=40\nimaxinner=163\nimaxlife=76\n[ITEMS]\nCOUNT=0\n",
 	}
 	for name, body := range files {

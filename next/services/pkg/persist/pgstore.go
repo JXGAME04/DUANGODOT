@@ -304,8 +304,7 @@ func (s *PgStore) CreateCharacter(ctx context.Context, accountID uint64, c NewCh
 	if err := tx.QueryRow(ctx, "SELECT nextval('characters_player_id_seq')").Scan(&pid); err != nil {
 		return nil, fmt.Errorf("persist: pg: %w", err)
 	}
-	role := NewRole(uint64(pid), accountID, c.Name, c.Series, c.Sex)
-	role.NativePlace = c.NativePlace
+	role := NewRole(uint64(pid), accountID, c.Name, c.Series, c.Sex, c.NativePlace)
 	raw, err := encodeRole(role)
 	if err != nil {
 		return nil, err

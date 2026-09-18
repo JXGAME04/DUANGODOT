@@ -183,7 +183,8 @@ func _on_char_list(chars: Array) -> void:
 	_say("%d nhân vật." % chars.size() if not chars.is_empty() else "Chưa có nhân vật - hãy tạo một nhân vật.")
 	if _args.has("auto"):
 		if chars.is_empty():
-			Game.create_char("Auto%d" % (randi() % 100000), 0, 0)
+			# --place=<map id> picks the starting village (the Id of NativePlaceList.ini); 0 = the default map
+			Game.create_char("Auto%d" % (randi() % 100000), 0, 0, int(str(_args.get("place", "0"))))
 		else:
 			Game.enter_world(int(chars[0].pid))
 

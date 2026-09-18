@@ -41,8 +41,8 @@ func TestNewCharacterChoice(t *testing.T) {
 func TestNewRoleStartsFromTheOldTemplates(t *testing.T) {
 	// no templates: the placeholder numbers
 	SetNewPlayerSet(nil)
-	r := NewRole(7, 1, "Ai", 0, 0)
-	if r.Stats.Strength != 10 || len(r.Items) != 0 {
+	r := NewRole(7, 1, "Ai", 0, 0, 0)
+	if r.Stats.Strength != 10 || len(r.Items) != 0 || r.Position.MapId != 0 {
 		t.Fatalf("placeholder role %+v", r.Stats)
 	}
 	// newplayerini00 of the Linux server (Shaolin, male): 35/25/25/15, life 204, mana 16,
@@ -54,7 +54,7 @@ func TestNewRoleStartsFromTheOldTemplates(t *testing.T) {
 		Skills: []player.NewPlayerSkill{{ID: 53, Level: 1}, {ID: 1, Level: 1}, {ID: 2, Level: 1}}}
 	SetNewPlayerSet(set)
 	defer SetNewPlayerSet(nil)
-	r = NewRole(7, 1, "Ai", 0, 1) // the female file is missing: 00 serves
+	r = NewRole(7, 1, "Ai", 0, 1, 20) // the female file is missing: 00 serves; born in Giang Tan Thon (20)
 	s := r.Stats
 	if s.Strength != 35 || s.Dexterity != 25 || s.Vitality != 25 || s.Energy != 15 || s.HpMax != 204 || s.Hp != 204 || s.MpMax != 16 || s.StaminaMax != 180 {
 		t.Fatalf("template role %+v", s)
@@ -62,7 +62,11 @@ func TestNewRoleStartsFromTheOldTemplates(t *testing.T) {
 	if len(r.Skills) != 3 || r.Skills[0].Id != 53 || r.Skills[2].Id != 2 || r.Skills[2].Level != 1 {
 		t.Fatalf("starting skills %+v", r.Skills)
 	}
-	if len(r.Items) != 1 || r.Items[0].Room != 0 || r.Items[0].Particular != 4 || r.Items[0].Version != 2 || r.NextItemId != 2 {
+	if len(r.Items) != 1 || r.Items[0].Room != 0 || r.Items[0].Genre != 0 || r.Items[0].Particular != 4 || r.Items[0].Version != 2 || r.NextItemId != 2 {
 		t.Fatalf("starting items %+v", r.Items)
+	}
+	// CPlayerCreator::GetRoleData: irevivalid = the village picked -> the map entered and the revive map
+	if r.NativePlace != 20 || r.Position.MapId != 20 || r.ReviveMap != 20 {
+		t.Fatalf("native place %+v", r)
 	}
 }

@@ -256,7 +256,12 @@ void KGameServer::handle_session_open(Gateway& gw, const frame::View& view)
     }
     // the saved map when this zone hosts it (g_SubWorldSet.SearchWorld), else the default map
     KMapInstance* target = open.role().has_position() ? instance_of_map(open.role().position().map_id()) : nullptr;
-    if (target == nullptr) target = instances_.front().get();
+    if (target == nullptr) {
+        target = instances_.front().get();
+        if (open.role().has_position() && open.role().position().map_id() != 0) {
+            log::warn("zone", "saved map not hosted", {log::kv("sid", open.sid()), log::kv("map", open.role().position().map_id()), log::kv("instead", target->map_id())});
+        }
+    }
     bind_session(open.sid(), *target, gw.conn->id());
     KCmdSpawnPlayer cmd;
     cmd.sid = open.sid();

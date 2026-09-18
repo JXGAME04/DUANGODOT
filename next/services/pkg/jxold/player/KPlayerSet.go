@@ -74,7 +74,7 @@ type BaseValue struct {
 
 // NewPlayerItem is an [ITEMn] block of newplayerini%02d.ini: what a new character starts with.
 type NewPlayerItem struct {
-	Genre      int `json:"genre"`      // iequipcode (4 = ... the genre the Bishop wrote)
+	Genre      int `json:"genre"`      // iequipclasscode (KPlayerDBFuns.cpp: nItemClass = iequipclasscode; iequipcode (4) is read by nobody)
 	Detail     int `json:"detail"`     // idetailtype
 	Particular int `json:"particular"` // iparticulartype
 	Level      int `json:"level"`      // ilevel
@@ -357,7 +357,7 @@ func parseNewPlayer(data []byte) NewPlayer {
 		}
 		it := func(key string, def int) int { return iniInt(ini, sec, key, def) }
 		p.Items = append(p.Items, NewPlayerItem{
-			Genre: it("iequipcode", 0), Detail: it("idetailtype", 0), Particular: it("iparticulartype", 0),
+			Genre: it("iequipclasscode", 0), Detail: it("idetailtype", 0), Particular: it("iparticulartype", 0),
 			Level: it("ilevel", 1), Series: it("iseries", 0), Version: it("iequipversion", 0),
 			Room: it("ilocal", 0), X: it("ix", 0), Y: it("iy", 0), Seed: it("irandseed", 0),
 		})

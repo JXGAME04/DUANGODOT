@@ -357,7 +357,12 @@ func SetNewPlayerSet(s *player.Set) { NewPlayerSet = s }
 // LifePerVitality + LifePerLevel, energy x ManaPerEnergy + ManaPerLevel of level_add.txt - the
 // file already holds the result), the unspent points and the starting items; the zone rolls the
 // items' attributes and the stamina when the character first enters (KPlayer::LoadFrom).
-func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.RoleData {
+// nativePlace is the village the player picked (CharCreateReq.native_place = the Id of
+// NativePlaceList.ini = its map id): CPlayerCreator::GetRoleData wrote it as irevivalid, so the
+// character enters that map (KPlayerDBFuns.cpp:259 m_sLoginRevivalPos) and revives there; 0 = not
+// chosen, the zone's default map.  (Its irevivalx = GetRevivalID(map) was 10 for 20 and 53 - the
+// switch lacks a break - and 0 elsewhere: a revival reference point the zone does not have yet.)
+func NewRole(playerID, accountID uint64, name string, series, sex, nativePlace uint32) *jxpb.RoleData {
 	now := time.Now().UnixMilli()
 	role := &jxpb.RoleData{
 		PlayerId:    playerID,
@@ -366,7 +371,9 @@ func NewRole(playerID, accountID uint64, name string, series, sex uint32) *jxpb.
 		Level:       1,
 		Series:      series,
 		Sex:         sex,
-		Position:    &jxpb.RolePosition{ZoneId: 0}, // 0 = let the zone choose its spawn point
+		Position:    &jxpb.RolePosition{ZoneId: 0, MapId: nativePlace}, // zone 0 = let the zone choose; the map = the village
+		NativePlace: nativePlace,
+		ReviveMap:   nativePlace,
 		Stats:       &jxpb.RoleStats{Hp: 100, HpMax: 100, Mp: 50, MpMax: 50, Stamina: 100, StaminaMax: 100, Strength: 10, Dexterity: 10, Vitality: 10, Energy: 10, MoveSpeed: 200},
 		CreatedAtMs: uint64(now),
 		DataVersion: CurrentRoleVersion,
@@ -429,8 +436,7 @@ func (s *FileStore) CreateCharacter(_ context.Context, accountID uint64, c NewCh
 	if _, taken := s.names[NormalizeName(name)]; taken {
 		return nil, ErrExists
 	}
-	role := NewRole(s.db.NextPlayer, accountID, name, c.Series, c.Sex)
-	role.NativePlace = c.NativePlace
+	role := NewRole(s.db.NextPlayer, accountID, name, c.Series, c.Sex, c.NativePlace)
 	s.db.NextPlayer++
 	if err := s.saveCharLocked(role); err != nil {
 		return nil, err

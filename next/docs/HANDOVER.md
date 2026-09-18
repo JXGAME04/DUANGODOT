@@ -277,6 +277,9 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 - **`+0x168c` (chế độ chiến đấu) mặc định 0 cho mọi npc** (chỉ `SetFightMode 0x08079B30` đổi): quái vẫn đánh được vì AI gọi thẳng
   `CastSkill` (kiểm `PeaceCanUse` chỉ ở nhánh người chơi); đọc ai ghi một ô trước khi coi nó là điều kiện chung.
 
+- **Bộ xuất phải chép đúng cột máy chủ đọc, không đoán theo tên**: `iequipcode` (4) nghe như "mã trang bị" nhưng máy chủ
+  đọc `iequipclasscode` làm genre (`KPlayerDBFuns.cpp:452`) — sai một cột là mọi nhân vật mới mang "chiếc lá" (genre 4 =
+  nhiệm vụ). Khi xuất một bảng/ini: tìm hàm đọc nó trong nguồn cũ hoặc nhị phân, ghi số dòng vào chú thích trường.
 - **Gói client mới phải mở ở hai danh sách trắng**: gateway `services/internal/gateway/session.go` (`stWorld` → `relay`) và zone
   `server/zone/src/KGameServer.cpp` (`switch (cp.msg_id())` → `inst->post`). Ba gói 1111/1112/1113 của B3a/B3b/B3c-3 bị chặn
   âm thầm (`message not allowed in state` / `unhandled client message`) tới khi chạy e2e thật — test C++ gọi thẳng `KSubWorld`
@@ -466,6 +469,32 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 12) — hai lỗi chủ dự án báo: chọn thôn nào cũng về map 1; đồ tân thủ ra "chiếc lá"
+
+Chủ dự án: "lúc tạo nhân vật chọn thôn để tạo thì thôn nào cũng về map Phượng Tường id 1" và "vũ khí cấp 1 theo phái
+hệ toàn ra item lỗi hình chiếc lá trong hành trang". Luật lấy từ nguồn Bishop cũ (`MultiServer/Bishop/PlayerCreator.cpp`
+— `jx_linux_y` chỉ đọc `NewPlayerBaseAttribute.ini`, việc tạo nhân vật nằm ở Bishop) và 8 tệp
+`settings/npc/player/newplayerini00..09.ini` của máy chủ tham chiếu:
+
+- **Lỗi 1 — thôn**: `CPlayerCreator::GetRoleData` ghi `irevivalid = lpParam->nMapID` (thôn đã chọn = Id của
+  `NativePlaceList.ini` = map id) và `irevivalx = GetRevivalID(map)` (10 cho 20 và 53 vì `switch` thiếu `break`, còn lại 0),
+  rồi máy chủ cho nhân vật vào map đó (`KPlayerDBFuns.cpp:259 m_sLoginRevivalPos`). Gateway `NewRole` của ta chỉ lưu
+  `NativePlace` mà để `Position.map_id = 0` → zone luôn lấy map mặc định (1). Sửa: `NewRole(…, nativePlace)` ghi
+  `Position.map_id` + `revive_map` (+ `NativePlace`), cả `FileStore` lẫn `PgStore`; zone ghi cảnh báo `saved map not hosted`
+  khi map đã lưu không được chứa (trước đây rơi về map đầu tiên không nói gì). Điểm tham chiếu `irevivalx` (10) zone chưa
+  có bảng → vào điểm sinh của map. Client `--auto` nhận `--place=<map>` (`UiShell` lẫn `UiLoginPlain`).
+- **Lỗi 2 — chiếc lá**: bộ xuất `jxold/player` lấy genre của đồ tân thủ từ `iequipcode` (= 4 trong mọi tệp → **genre 4 =
+  vật phẩm nhiệm vụ**, ảnh mặc định chiếc lá), trong khi máy chủ đọc `iequipclasscode` (0 = trang bị; `KPlayerDBFuns.cpp:452
+  nItemClass = iequipclasscode`, `PlayerCreator` không hề đọc `iequipcode`). Sửa bộ xuất; `client/assets/player.json` phải
+  **xuất lại** (`python tools/dev.py assets` hay `jxassets export-player`) — 8/10 mẫu: Kim nam đao (0/0/4), Mộc (1/1 và
+  1/2), Thuỷ nữ (0/5), Hoả (0/2, 0/3), Thổ (0/0, 0/1), cấp 1, bảng 2, túi ô (0,0). (Chính "vật phẩm nhiệm vụ tân thủ" mà
+  phần 11 ghi ở bước vứt đồ là món này — bước vứt đồ giờ bỏ qua genre 4 nhưng không còn gặp.)
+- **Kiểm**: Go test `persist` + `jxold/player` (fixture có `iequipcode=4` → genre 0; `NewRole(…, 20)` → map/revive 20),
+  e2e tài khoản mới `--place=20`: gateway `character created native_place=20`, zone `player spawned` trên map 20 (điểm
+  sinh Giang Tân Thôn), túi có vũ khí thật; ảnh `build/shots/village_20_auto_world.png` / `village_20_auto_items.png` (đã
+  gửi). 8 map thôn xuất thêm vào worktree (`jxassets export-map 20 53 99 100 101 121 153 174` + `export-npcres`).
+- commit: `JX NEXT: sua chon thon -> map (NewRole ghi Position.map_id/revive_map = NativePlace nhu CPlayerCreator) + do tan thu genre iequipclasscode (het chiec la)` (nhánh, `safe/jxnext-2026-09-17`, `main`).
 
 ### 2026-09-18 (phiên tiếp theo, phần 11) — Ảnh test e2e sau M12 B3c, Lua `KillPlayer`, `PKRate.ini rate`, gói 1111/1112/1113 bị chặn
 
