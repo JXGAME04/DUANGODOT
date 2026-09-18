@@ -939,7 +939,7 @@ void KSubWorld::process_state(KNpc& e)
 {
     if (!e.alive() || e.life_replenish == 0 || e.life >= e.life_max) return;
     // jx_linux_y 0x0808B65F: m_CurrentLife += replenish * percent / 100, then both clamps
-    const std::int64_t gain = static_cast<std::int64_t>(e.life_replenish) * e.life_gain_percent / 100;
+    const std::int64_t gain = static_cast<std::int64_t>(e.life_replenish) * e.life_replenish_percent / 100;
     const std::int64_t next = std::clamp<std::int64_t>(static_cast<std::int64_t>(e.life) + gain, 0, e.life_max);
     const auto delta = static_cast<std::int32_t>(next - static_cast<std::int64_t>(e.life));
     if (delta == 0) return;
@@ -1468,7 +1468,7 @@ void KSubWorld::process_potions(KNpc& e)
     --e.life_state.time;
     if (e.life_state.time % static_cast<int>(kGameUpdateTime) == 0) {
         const std::int64_t before = e.life;
-        std::int64_t life = before + static_cast<std::int64_t>(e.life_state.value) * e.life_gain_percent / 100;
+        std::int64_t life = before + static_cast<std::int64_t>(e.life_state.value) * e.life_replenish_percent / 100;
         if (life > e.life_max) life = e.life_max;
         if (life < 0) life = 0;
         e.life = static_cast<std::uint32_t>(life);

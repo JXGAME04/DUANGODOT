@@ -173,5 +173,53 @@ func ui_image_data(tex: Texture2D) -> Image:
 	return _ui_pixels.get(tex, null)
 
 
+# The picture of an item, by the game path its table row names (jxassets export-item-images:
+# assets/items/images.json + items/images/...png).  A KUiImage like a window's picture, null when the
+# old client had no such sprite (the bag then shows the name).
+func item_image(game_path: String):
+	if game_path == "":
+		return null
+	if _item_images.has(game_path):
+		return _item_images[game_path]
+	if _item_index == null:
+		var raw = load_json("%s/items/images.json" % assets_root())
+		_item_index = raw.get("images", {}) if raw is Dictionary else {}
+	var entry = _item_index.get(game_path, null)
+	var img = null
+	if entry is Dictionary:
+		var tex := _item_texture(str(entry.get("file", "")))
+		if tex != null:
+			img = preload("res://ui/KUiImage.gd").new()
+			img.game_path = game_path
+			img.texture = tex
+			img.box = Vector2i(int(entry.get("width", 0)), int(entry.get("height", 0)))
+			img.interval_ms = int(entry.get("interval", 0))
+			img.frames = entry.get("frames", [])
+			if img.frames.is_empty():
+				var sz := tex.get_size()
+				img.frames = [{"x": 0, "y": 0, "w": int(sz.x), "h": int(sz.y), "ox": 0, "oy": 0}]
+	_item_images[game_path] = img
+	return img
+
+
+func _item_texture(file: String) -> Texture2D:
+	if file == "":
+		return null
+	var path := "%s/items/%s" % [assets_root(), file]
+	var img := Image.new()
+	var err := img.load(path)
+	if err != OK:
+		Log.warn("asset", "item picture load failed", {"path": path, "error": error_string(err)})
+		return null
+	var tex := ImageTexture.create_from_image(img)
+	_ui_pixels[tex] = img
+	loaded_bytes += img.get_data_size()
+	return tex
+
+
+var _item_images := {}
+var _item_index = null
+
+
 var _ui_images := {}
 var _ui_pixels := {}

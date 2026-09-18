@@ -5,6 +5,7 @@ extends Node2D
 const NpcScript := preload("res://scenes/KNpc.gd")
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
+const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
 const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
@@ -22,6 +23,7 @@ var _move_count := 0
 var _action_count := 0
 var _scene_w := 8192
 var _scene_h := 8192
+var _windows: KUiGameWindows = null   # the bag, the character window, the tooltip, the item on the cursor
 
 
 func _ready() -> void:
@@ -34,6 +36,9 @@ func _ready() -> void:
 	var has_map := _setup_map()
 
 	_build_hud()
+	_windows = KUiGameWindows.new()
+	_windows.name = "Windows"
+	add_child(_windows)
 	Game.map_changed.connect(_on_map_changed)
 	Game.entity_spawn.connect(_on_spawn)
 	Game.entity_despawn.connect(_on_despawn)
@@ -48,7 +53,7 @@ func _ready() -> void:
 	_update_camera(true)
 	Log.info("ui", "world screen", {"zone": Game.zone_name, "entity": Game.entity_id, "entities": _entities.size(),
 		"map": Game.map_id, "bundle": has_map})
-	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, Esc để thoát.[/color]" % Game.zone_name)
+	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, I túi đồ, C nhân vật, Esc để thoát.[/color]" % Game.zone_name)
 	if "--auto" in OS.get_cmdline_user_args():
 		_auto_run()
 
@@ -184,7 +189,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_zoom(_zoom / 1.15)
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE:
-			_leave()
+			if _windows == null or not _windows.any_open():
+				_leave()
 		elif event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 			if not _chat_input.has_focus():
 				_chat_input.grab_focus()

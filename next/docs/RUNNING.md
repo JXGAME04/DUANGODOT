@@ -43,10 +43,12 @@ C++ tự sinh khi build).
 python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite + giao diện đăng nhập 2.0 -> client/assets (không commit)
 ```
 
-Lệnh này cũng chạy `jxassets export-ui`: đọc bố cục `\Ui\ui3_1024\UiNewLogin\*.ini`, ảnh `.spr`, font
-bitmap và bảng chuỗi của client VLTK 2.0 rồi ghi `client/assets/ui` (JSON + atlas + `.fnt`). Không có
-client 2.0 thì bước này bỏ qua và Godot dùng màn đăng nhập trơn (`UiLoginPlain`). Chi tiết:
-[VLTK20-CLIENT.md](VLTK20-CLIENT.md).
+Lệnh này cũng chạy `jxassets export-ui`: đọc bố cục `\Ui\ui3_1024\UiNewLogin\*.ini` (đăng nhập) và
+`随身物品.ini`, `玩家装备与人物状态*.ini`, `弹出说明文字.ini`, `储物箱.ini` (túi đồ, nhân vật, chú thích, kho), ảnh `.spr`,
+font bitmap, bảng chuỗi, `\settings\magicdesc.ini` (câu mô tả thuộc tính) của client VLTK 2.0 rồi ghi
+`client/assets/ui` (JSON + atlas + `.fnt`); rồi `export-items` (bảng vật phẩm server → `client/assets/items/*.json`)
+và `export-item-images` (2 305 icon vật phẩm → `client/assets/items/images/`). Không có client 2.0 thì bước này bỏ
+qua và Godot dùng màn đăng nhập trơn (`UiLoginPlain`). Chi tiết: [VLTK20-CLIENT.md](VLTK20-CLIENT.md).
 
 Nguồn dữ liệu: `config/oldgame.local.json` (mẫu `config/oldgame.example.json`) trỏ tới **client VLTK 2.0** (thư mục có
 `config.ini` + `data/*.pak`), client dự phòng (`bin/Client`, chỉ cấp file 2.0 thiếu) và **server Linux** (`D:\ServerLinux\server1`:
@@ -82,13 +84,16 @@ python tools/dev.py stop
 
 Client: nhập máy chủ `127.0.0.1:17100`, tài khoản bất kỳ (tự tạo lần đầu, mật khẩu phải giống
 lần sau) → tạo nhân vật → **Vào game** → click chuột trái để đi, Enter để chat, cuộn chuột để zoom,
-Esc để về màn chọn nhân vật. Mở nhiều client cùng lúc để thấy nhau.
+**I** mở túi đồ, **C** mở cửa sổ nhân vật (click nhấc vật phẩm lên tay, click đặt; đúp/chuột phải để mặc,
+uống, cởi), Esc để về màn chọn nhân vật. Mở nhiều client cùng lúc để thấy nhau.
 
 Client có vài tham số dòng lệnh (sau `--`) cho test và chụp màn hình:
 `--auto` (tự đăng nhập, vào game, đi, đánh, thoát — `dev.py e2e` dùng), `--server=host:port`,
 `--account=`, `--password=`, `--shot=<cửa sổ>` (mở thẳng một cửa sổ đăng nhập 2.0 và chụp ảnh:
 `bat-dau`, `chon-may-chu`, `dang-nhap`, `chon-nhan-vat`, `chon-tan-thu-thon`, `tao-nhan-vat`),
 `--serverlist=<tệp>`, `--region=`, `--roles=`, `--series=`. Ví dụ: `godot --path client -- --shot=dang-nhap`.
+Ảnh các cửa sổ vật phẩm với dữ liệu mẫu: `godot --path client tests/UiItemPreview.tscn` →
+`user://logs/ui_vat-pham.png`.
 
 **Hai bản chạy cùng máy** (checkout chính và worktree): đặt `JX_PORT_OFFSET=1000` cho bản thứ hai → zone
 18001, gateway 18100 / 18102, và mọi lệnh `dev.py` của bản đó dùng đúng cổng ấy. Không đặt thì bản thứ hai

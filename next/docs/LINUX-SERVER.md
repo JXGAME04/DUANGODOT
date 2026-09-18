@@ -226,7 +226,7 @@ theo `re_calls.py callers` và theo **offset thành viên** bằng `re_scan.py d
 | `0x0807D210` | `KNpc::ModifyAttrib(this, nIdx, pData, extra)` → hàm trên | 29 nơi gọi |
 | `0x08097E70` | `ProcessFunc[153]` = **LifePotionV**: `time = max(t1,t2)`, `value = (x1·t1 + x2·t2)/time`; `m_LifeState` = `KNpc+0x1f0` (value), `+0x1f8` (time) | giống nguồn Windows từng dòng |
 | `0x08097DE0` | `ProcessFunc[154]` = ManaPotionV: `+0x200` / `+0x208` | |
-| `0x0809A2F0` | `ProcessFunc[190]`: cộng vào `KNpc+0x1194` (phần trăm hồi máu, log `"(Percent)"`) | |
+| `0x0809A2F0` | `ProcessFunc[190]` = `lifereplenish_p`: cộng vào `KNpc+0x1194` (phần trăm hồi máu, log `"(Percent)"`) | |
 | `0x0808B610` | **`KNpc::ProcessState`**: `+0x1184` m_RegionIndex, `+0x1904` m_LoopFrames (% 10), `+0x224` m_Doing (8 = do_sit), `+0x1190` hồi máu tự nhiên × `+0x1194`/100 (`"AddLife: %d * %d%% = %d"`), `+0x118c` m_CurrentLife chặn ở max(`+0x1a14`, `+0x1a18`) và ≥ 0; `+0x11a0`/`+0x11a4` nội lực; rồi các trạng thái mỗi frame: `+0x1c8` độc, `+0x1d8` đóng băng, `+0x1e8` choáng, **`+0x1f8` thuốc máu** (`0x0808B7BC`: `time--`, `% 10 == 0` → `+0x1f0 × percent/100`, chỉ chặn trên), `+0x208` thuốc nội | `disp 1f8`; chuỗi `"AddLifeState: %d * %d%% = %d"` |
 | `0x080DA560` | ctor `KProtocolProcess` (106 ô `ProcessFunc[c2s_…]`) | `pmf` |
 | `0x08204710` | **`KItemList::EatMecidine(this, nIdx)`**: `Player[m_PlayerIdx]` (0x8788 byte, `g_pPlayer` 0x8BAEE60), `Item[]` 0x830D300 (0x368 byte); chết (`m_Doing == 10`) → không; `Check_ItemUsable` trong `\script\item\forbiditem.lua`; genre 1 thuốc → `0x08204858`: cờ `KNpc+0x147a` (forbit_takemedicine), đếm `Player+0x86a4/+0x86a8`, `ApplyMagicAttribToNPC(npc, 3)` (`0x08068560`), `events.lua OnUseItem`, stack (`Item+0x14` xếp chồng, `+0x308` nStack, `+0x30c` max) → `SetItemStack(n−1)` (`0x08200D30`, gói s2c 168) hoặc `Remove` (`0x082006B0`) + `ItemSet.Remove` (`0x0806DB90`); ngồi (8) → đứng (`0x08078AA0`); genre 5 (`0x08204B00`) phù, 6 (`0x082049B8`) kịch bản | chuỗi `"Check_ItemUsable"`, `"OnUseItem"` |
@@ -236,8 +236,9 @@ theo `re_calls.py callers` và theo **offset thành viên** bằng `re_scan.py d
 | `0x08206110` | **`KItemList::ExchangeItem`** (6,8 KB): mô hình tay cầm như Windows; phòng ở `this+0x4ca8/+0x4cc4/+0x4d18`; `FindItem` `0x081F8850`, `PickUpItem` `0x081F8720`, `PlaceItem` `0x081F8520`, `CheckSameDetailType` `0x08065A70`; gói cho client `0x080A8400` | chuỗi `"%s exchange item error"` |
 | `0x080B5180` / `0x08205830` | `KPlayer::AddItem` / `KItemList::Add` (đích của Lua `AddItem` `0x08120D30` → `0x08120B30` → `0x0811F230` đọc 18 đối số Lua → `0x0806E110` sinh vật phẩm) | `re_calls` |
 
-Bảng tên thuộc tính ma pháp của bản JX2 (`g_szMagicAttribName[id]`, 167 tên, id tới 246) được dựng
-lại từ các lệnh `mov [0x0830E43C + id*8], "tên"` — lưu ở
-[`linux/jx_linux_magicattrib.tsv`](linux/jx_linux_magicattrib.tsv); lưu ý bảng này **không** khớp
-chỉ số `ProcessFunc` ở vài id (154 là `physicsresmax_p` trong bảng tên nhưng ManaPotionV trong
-`ProcessFunc`) — khi cần đúng, tin `ProcessFunc`.
+Bảng tên thuộc tính ma pháp của bản JX2 (`MAGIC_ATTRIB_STRING`, ctor `KMagicDesc` `0x080724B0` đổ
+`mov [0x0830E640 + id*4], "tên"`, 0x155 ô, 335 tên, id tới 340) — lưu ở
+[`linux/jx_linux_magicattrib.tsv`](linux/jx_linux_magicattrib.tsv) và trong Go
+`pkg/jxold/item/KMagicAttribNames.go` (client dùng làm khoá tra `\settings\magicdesc.ini`). Khớp
+`ProcessFunc`: 153 `lifepotion_v`, 154 `manapotion_v`, 155 `physicsresmax_p`, 190 `lifereplenish_p`
+(hệ số hồi máu ở `KNpc+0x1194`).

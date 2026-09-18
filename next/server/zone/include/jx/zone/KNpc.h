@@ -66,8 +66,8 @@ struct KNpc {
     };
     PotionState life_state;
     // jx_linux_y KNpc+0x1194: percent applied to the natural life replenish and to potion heals
-    // ("AddLife: %d * %d%% = %d"); 100 unless a magic attribute (ProcessFunc 190) changed it
-    int life_gain_percent = 100;
+    // ("AddLife: %d * %d%% = %d"); 100 unless the attribute lifereplenish_p (id 190) changed it
+    int life_replenish_percent = 100;
     bool forbid_medicine = false;     // KNpc+0x147a: the Lua forbit_takemedicine flag - EatMecidine refuses
     bool potion_counter = false;      // KPlayer+0x86a4 / +0x86a8: StartPotionCounter .. GetPotionCount
     int potion_count = 0;

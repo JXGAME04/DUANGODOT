@@ -24,6 +24,12 @@ const UiConnectInfo := preload("res://ui/uicase/UiConnectInfo.gd")
 const UiSelPlayer := preload("res://ui/uicase/UiSelPlayer.gd")
 const UiSelNativePlace := preload("res://ui/uicase/UiSelNativePlace.gd")
 const UiNewPlayer := preload("res://ui/uicase/UiNewPlayer.gd")
+const UiItem := preload("res://ui/uicase/UiItem.gd")
+const UiStatus := preload("res://ui/uicase/UiStatus.gd")
+const UiMouseHover := preload("res://ui/uicase/UiMouseHover.gd")
+const KWndObjContainer := preload("res://ui/elem/KWndObjContainer.gd")
+const KMagicDesc := preload("res://ui/KMagicDesc.gd")
+const KUiItemView := preload("res://ui/KUiItemView.gd")
 
 const SCREEN := Vector2i(1024, 768)
 
@@ -64,6 +70,7 @@ func _ready() -> void:
 	_check_sel_player()
 	_check_native_place()
 	_check_new_player()
+	_check_item_windows()
 	_finish()
 
 
@@ -338,3 +345,108 @@ func _check_new_player() -> void:
 	w._on_ok()
 	check(asked == [["KiếmKhách", 3, 0, 53]], "create hands over name, element, sex and village: %s" % str(asked))
 	w.queue_free()
+
+
+# ---------------------------------------------------------------- the item windows (M11 C2)
+
+func _check_item_windows() -> void:
+	if not FileAccess.file_exists(Assets.assets_root() + "/ui/tui-do/bo-cuc.json"):
+		print("item windows not exported: skipped")
+		return
+	# a character with a few things in the bag and a sword on, the way G2C_ITEM_LIST fills Game.items
+	Game.entity_id = 7
+	Game.entities[7] = {"id": 7, "name": "Kiếm Khách", "level": 9, "series": 0, "sex": 0, "life": 120, "life_max": 300, "speed": 200}
+	Game.items = {
+		1: {"id": 1, "genre": 0, "detail": 0, "particular": 0, "level": 1, "series": 2, "count": 1, "durability": 20, "max_durability": 20,
+			"ex_type": 0, "room": 0, "x": 0, "y": 0, "w": 1, "h": 3, "name": "Kiếm 1", "image": "", "intro": "", "price": 100,
+			"base": [{"type": 28, "value": [4, 0, 0]}, {"type": 29, "value": [9, 0, 0]}], "require": [{"type": 36, "value": [5, 0, 0]}], "magic": []},
+		2: {"id": 2, "genre": 0, "detail": 2, "particular": 0, "level": 1, "series": 0, "count": 1, "durability": 30, "max_durability": 30,
+			"ex_type": 1, "room": 0, "x": 2, "y": 4, "w": 2, "h": 3, "name": "Áo vàng", "image": "", "intro": "Một chiếc áo", "price": 1000,
+			"base": [], "require": [{"type": 38, "value": [1, 0, 0]}], "magic": [{"type": 153, "value": [10, 100, 0]}]},
+		3: {"id": 3, "genre": 1, "detail": 0, "particular": 0, "level": 1, "series": -1, "count": 5, "durability": -1, "max_durability": -1,
+			"ex_type": 0, "room": 3, "x": 0, "y": 0, "w": 1, "h": 1, "name": "Thuốc", "image": "", "intro": "", "price": 50,
+			"base": [{"type": 153, "value": [10, 100, 0]}], "require": [], "magic": []},
+		4: {"id": 4, "genre": 0, "detail": 0, "particular": 0, "level": 2, "series": 2, "count": 1, "durability": 20, "max_durability": 20,
+			"ex_type": 0, "room": 10, "x": 3, "y": 0, "w": 1, "h": 3, "name": "Kiếm 2", "image": "", "intro": "", "price": 200,
+			"base": [], "require": [], "magic": []},
+	}
+	Game.money = 500
+	Game.bank_money = 70
+
+	# KMagicDesc: the sentence of magicdesc.ini with the value in its hole
+	check(KMagicDesc.name_of(28) == "weapondamagemin_v" and KMagicDesc.name_of(153) == "lifepotion_v", "attribute ids have their JX2 names")
+	var d := KMagicDesc.describe({"type": 28, "value": [4, 0, 0]})
+	check(d.begins_with("Sát thương nhỏ nhất") and d.contains("4"), "weapondamagemin_v reads as its sentence: %s" % d)
+	check(KMagicDesc.describe({"type": 153, "value": [10, 100, 0]}).contains("+10"), "#d1+ shows the sign")
+	check(KMagicDesc.describe({"type": 999, "value": [1, 0, 0]}) == "", "an unknown id has no sentence")
+	var lines := KUiItemView.describe(Game.items[2])
+	check(lines.size() >= 4 and str(lines[0].text) == "Áo vàng" and lines[0].color == KUiItemView.NAME_COLORS[1], "a gold piece is named in gold: %s" % str(lines[0]))
+	check(not KUiItemView.usable(Game.items[2]) and KUiItemView.usable(Game.items[1]), "the armour of a woman is not for this man, the sword is")
+
+	# the bag: 6 x 10 cells of 28 px with a 2 px border, the things of the bag room, the money
+	var bag := UiItem.new()
+	_host.add_child(bag)
+	check(bag.load_scheme(SCREEN), "the bag window builds")
+	check(bag.position == Vector2(800, 163) and bag.size == Vector2(223, 458), "the bag sits at 800,163 (223x458): %s %s" % [str(bag.position), str(bag.size)])
+	check(bag.box.h_units == 6 and bag.box.v_units == 10 and bag.box.unit_w == 28 and bag.box.unit_h == 28 and bag.box.unit_border == 2, "the item box is 6x10 cells of 28 px")
+	check(bag.box.objects.size() == 2, "two items lie in the bag: %d" % bag.box.objects.size())
+	check(bag.box.object_at(0, 2) != null and int(bag.box.object_at(0, 2).id) == 1 and bag.box.object_at(1, 0) == null, "a 1x3 sword covers (0,0)..(0,2)")
+	check(bag._money.text == "500", "the money line shows 500: %s" % bag._money.text)
+	# KWndObjectMatrix::DropObject: a 1x3 item held over row 5 lands centred, rows 4..6; near the bottom it is pushed up
+	bag.set_hand(Vector2i(1, 3))
+	check(bag.box.put_pos_for(Vector2i(2, 5)) == Vector2i(2, 4), "a 1x3 item over row 5 goes to row 4: %s" % str(bag.box.put_pos_for(Vector2i(2, 5))))
+	check(bag.box.put_pos_for(Vector2i(2, 9)) == Vector2i(2, 7), "at the bottom it stays inside: %s" % str(bag.box.put_pos_for(Vector2i(2, 9))))
+	check(bag.box.put_pos_for(Vector2i(0, 0)) == Vector2i(0, 0), "at the top it starts at row 0")
+	bag.set_hand(Vector2i(7, 1))
+	check(bag.box.put_pos_for(Vector2i(0, 0)).x == KWndObjContainer.NO_PUT_POS, "a thing wider than the bag has nowhere to go")
+	bag.set_hand(Vector2i.ZERO)
+	var lifted: Array = []
+	var puts: Array = []
+	bag.item_lift.connect(func(it): lifted.append(int(it.id)))
+	bag.item_put.connect(func(x, y): puts.append([x, y]))
+	bag.box.object_clicked.emit(bag.box.objects[0])
+	check(lifted.size() == 1, "a click on an item lifts it")
+	bag.set_hand(Vector2i(1, 1))
+	bag.box.put_requested.emit(4, 5)
+	check(puts == [[4, 5]], "a click with an item on the cursor asks to put it: %s" % str(puts))
+	check(KWndObjContainer.bg_colors.normal.r8 == 0 and KWndObjContainer.bg_colors.normal.g8 == 93 and KWndObjContainer.bg_colors.putdown.r8 == 138, "the cell colours come from [ObjContColor] of the theme")
+
+	# the character window: pages, the slots, the worn sword in the weapon slot
+	var st := UiStatus.new()
+	_host.add_child(st)
+	check(st.load_scheme(SCREEN), "the character window builds")
+	check(st.size == Vector2(302, 433) and st._page_buttons.size() == 4, "the frame is 302x433 with four page tabs")
+	check(st.page == UiStatus.PAGE_ATTRIB and st._attrib_page.visible and not st._equip_page.visible, "it opens on the attribute page (InitPage=0)")
+	check(st._equip_page.position == Vector2(4, 49) and st._equip_page.size == Vector2(294, 378), "the equipment page is the [Male] window at 4,49: %s" % str(st._equip_page.position))
+	check(st.slots.size() == 17, "seventeen slots (fifteen parts + two JX2 extras): %d" % st.slots.size())
+	check(st.slots["Weapon"].position == Vector2(195, 125) and st.slots["Weapon"].size == Vector2(56, 108), "the weapon slot at 195,125 (56x108)")
+	check(st.slots["Weapon"].objects.size() == 1 and int(st.slots["Weapon"].objects[0].id) == 4 and st.slots["Cap"].objects.is_empty(), "the worn sword shows in the weapon slot, the cap slot is empty")
+	check(st._attrib_texts["Name"].text == "Kiếm Khách" and st._attrib_texts["Level"].text == "9" and st._attrib_texts["Life"].text == "120/300", "name, level and life fill the attribute page")
+	st._on_page_button(true, UiStatus.PAGE_EQUIP)
+	check(st.page == UiStatus.PAGE_EQUIP and st._equip_page.visible and st._page_buttons[1].is_checked() and not st._page_buttons[0].is_checked(), "the equipment tab shows its page")
+	st._on_page_button(true, 2)
+	check(st.page == UiStatus.PAGE_EQUIP and st._page_buttons[1].is_checked() and not st._page_buttons[2].is_checked(), "a page that is not there leaves the tabs as they were")
+	var put_on: Array = []
+	st.item_put_on.connect(func(part): put_on.append(part))
+	st.set_hand(Vector2i(1, 3))
+	st.slots["Weapon"].put_requested.emit(0, 0)
+	st.slots["Seal"].put_requested.emit(0, 0)
+	check(put_on == [3], "a piece dropped on the weapon slot asks for part 3, the JX2 seal slot asks nothing: %s" % str(put_on))
+
+	# the tooltip: width from the longest line, a strip above and below, flips left at the edge
+	var tip := UiMouseHover.new()
+	_host.add_child(tip)
+	check(tip.load_scheme(SCREEN), "the tooltip builds")
+	check(tip.img_width == 12 and tip.img_height == 9 and tip.indent == 6 and tip.font_size == 12, "ImgWidth 12, ImgHeight 9, Indent 6, Font 12")
+	tip.show_lines(lines, Vector2(100, 100))
+	check(tip.visible and tip.position == Vector2(116, 116) and int(tip.size.y) == 13 * lines.size() + 18, "the box opens below right of the cursor, 13 px a line + 2 x 9: %s" % str(tip.size))
+	tip.show_lines(lines, Vector2(1020, 100))
+	check(tip.position.x == 1020 - tip.size.x, "at the right edge it opens to the left")
+	tip.hide_lines()
+	check(not tip.visible, "hidden when there is nothing to say")
+	bag.queue_free()
+	st.queue_free()
+	tip.queue_free()
+	Game.items = {}
+	Game.entities = {}
+	Game.entity_id = 0

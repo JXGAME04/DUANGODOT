@@ -68,6 +68,42 @@ func gamePath(arg string) string {
 	return string(b)
 }
 
+// itemTableSets is settings/item of the old server and every version folder under it (the JX2
+// server keeps 000..004 next to the plain tables): where the item tables are read from.
+func itemTableSets() []struct{ dir, version, file string } {
+	// the client is not needed for this: only ask for it when nothing names the server
+	sdir := *flagServer
+	if sdir == "" {
+		sdir = os.Getenv("JX_OLD_SERVER")
+	}
+	if sdir == "" {
+		sdir = findServer(findClient())
+	}
+	if sdir == "" {
+		fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+	}
+	var itemDir string
+	for _, root := range serverRoots(sdir) {
+		for _, sub := range []string{"settings/item", "Settings/item", "Settings/Item"} {
+			if st, err := os.Stat(filepath.Join(root, sub)); err == nil && st.IsDir() {
+				itemDir = filepath.Join(root, sub)
+				break
+			}
+		}
+		if itemDir != "" {
+			break
+		}
+	}
+	if itemDir == "" {
+		fail("no settings/item under %s", sdir)
+	}
+	sets := []struct{ dir, version, file string }{{itemDir, "", "base"}}
+	for _, v := range item.Versions(itemDir) {
+		sets = append(sets, struct{ dir, version, file string }{filepath.Join(itemDir, v), v, "v" + v})
+	}
+	return sets
+}
+
 func findClient() string {
 	if *flagClient != "" {
 		return *flagClient
@@ -653,36 +689,7 @@ func main() {
 		if out == "" {
 			out = "client/assets"
 		}
-		// the client is not needed for this: only ask for it when nothing names the server
-		sdir := *flagServer
-		if sdir == "" {
-			sdir = os.Getenv("JX_OLD_SERVER")
-		}
-		if sdir == "" {
-			sdir = findServer(findClient())
-		}
-		if sdir == "" {
-			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
-		}
-		var itemDir string
-		for _, root := range serverRoots(sdir) {
-			for _, sub := range []string{"settings/item", "Settings/item", "Settings/Item"} {
-				if st, err := os.Stat(filepath.Join(root, sub)); err == nil && st.IsDir() {
-					itemDir = filepath.Join(root, sub)
-					break
-				}
-			}
-			if itemDir != "" {
-				break
-			}
-		}
-		if itemDir == "" {
-			fail("no settings/item under %s", sdir)
-		}
-		sets := []struct{ dir, version, file string }{{itemDir, "", "base"}}
-		for _, v := range item.Versions(itemDir) {
-			sets = append(sets, struct{ dir, version, file string }{filepath.Join(itemDir, v), v, "v" + v})
-		}
+		sets := itemTableSets()
 		total := 0
 		for _, s := range sets {
 			set, err := item.Load(s.dir, s.version)
@@ -698,6 +705,30 @@ func main() {
 				map[bool]string{true: "  (thieu: " + strings.Join(set.Missing, ",") + ")", false: ""}[len(set.Missing) > 0])
 		}
 		fmt.Printf("export-items: %d bo, %d dong vat pham\n", len(sets), total)
+
+	case "export-item-images":
+		// The sprite of every item the tables name (the 动画文件名 column), out of the old client's
+		// archives, as atlas .png + items/images.json - what the bag and the equipment window draw.
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		var paths []string
+		for _, s := range itemTableSets() {
+			set, err := item.Load(s.dir, s.version)
+			if err != nil {
+				fail("%s: %v", s.dir, err)
+			}
+			paths = append(paths, set.ImagePaths()...)
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		ex := export.New(set, out)
+		written, missing, err := ex.ItemImages(paths)
+		if err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("export-item-images: %d anh ghi ra %s, %d anh client khong co (items/images.json)\n", written, filepath.Join(out, "items", "images"), missing)
 
 	case "export-ui":
 		// The windows of the login flow, as JSON layouts plus the pictures they name.
@@ -717,7 +748,7 @@ func main() {
 		theme, width, height := ex.UiTheme(*flagTheme)
 		fmt.Printf("theme %s (%dx%d)\n", theme, width, height)
 		ok, missing := 0, 0
-		for _, def := range export.LoginScreens {
+		for _, def := range append(append([]export.UiScreenDef{}, export.LoginScreens...), export.GameScreens...) {
 			screen, err := ex.UiByName(def, theme, width, height)
 			if err != nil {
 				missing++
@@ -739,6 +770,10 @@ func main() {
 			{"tan-thu-thon", `\Settings\NativePlaceList.ini`},
 			{"ngu-hanh", `\Ui\五行.ini`},
 			{"thong-diep", `\Ui\Setting.ini`},
+			// the theme's shared settings (KUiBase::Init: fonts, [ObjContColor] of the item cells, cursors)
+			{"cong-cong", theme + `\公共.ini`},
+			// KMagicDesc: the sentence of every attribute an item can carry ("#d1+" = value 1 with its sign)
+			{"mo-ta-ma-phap", `\settings\magicdesc.ini`},
 		} {
 			n, err := ex.UiTable(t.name, t.path)
 			if err != nil {
@@ -747,6 +782,12 @@ func main() {
 				continue
 			}
 			fmt.Printf("  %-20s %d muc  <- %s\n", t.name, n, t.path)
+		}
+		// the attribute ids -> names of the JX2 build, the key into mo-ta-ma-phap
+		if err := ex.UiNames("ten-ma-phap", item.MagicAttribNames); err != nil {
+			fmt.Printf("  %-20s LOI: %v\n", "ten-ma-phap", err)
+		} else {
+			fmt.Printf("  %-20s %d ten  <- jx_linux_y KMagicDesc\n", "ten-ma-phap", len(item.MagicAttribNames))
 		}
 		// the fixed texts the windows look up by key, and the bitmap fonts all text is drawn with
 		if n, err := ex.UiStrings("chuoi-client", `\lang\vn\stringtable_client.txt`); err != nil {

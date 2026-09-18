@@ -430,6 +430,39 @@ func (s *Set) Count() int {
 	return n
 }
 
+// ImagePaths lists the sprite every row names (the 动画文件名 column), each once, in table order.
+func (s *Set) ImagePaths() []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(p string) {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	for _, name := range EquipTables {
+		for _, r := range s.Equipment[name] {
+			add(r.Image)
+		}
+	}
+	for _, r := range s.Gold {
+		add(r.Image)
+	}
+	for _, r := range s.Medicine {
+		add(r.Image)
+	}
+	for _, r := range s.Quest {
+		add(r.Image)
+	}
+	for _, r := range s.TownPortal {
+		add(r.Image)
+	}
+	for _, r := range s.Scripts {
+		add(r.Image)
+	}
+	return out
+}
+
 // Write saves the set as JSON.
 func (s *Set) Write(path string) error {
 	data, err := json.MarshalIndent(s, "", " ")

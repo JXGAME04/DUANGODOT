@@ -68,6 +68,19 @@ var LoginScreens = []UiScreenDef{
 	{"kich-hoat-tai-khoan", "Kích hoạt tài khoản", "KUiActiveAccount", `UiNewLogin\ActiveAccount.ini`},
 }
 
+// GameScreens are the windows of the game itself that the new client has rebuilt so far, in the
+// order the systems came: the bag and the character window with its pages (M11).  The names are
+// the ones gamecl.exe 2.0 asks for below the theme folder (its string table; the pages of the
+// character window are separate files, "<window>_<page>.ini").
+var GameScreens = []UiScreenDef{
+	{"tui-do", "Túi đồ", "KUiItem", `随身物品.ini`},
+	{"thong-tin-nhan-vat", "Thông tin nhân vật (khung + các trang)", "KUiStatus", `玩家装备与人物状态.ini`},
+	{"thong-tin-nhan-vat-trang-bi", "Trang trang bị", "KUiStatus (trang bị)", `玩家装备与人物状态_装备.ini`},
+	{"thong-tin-nhan-vat-thuoc-tinh", "Trang thuộc tính", "KUiStatus (thuộc tính)", `玩家装备与人物状态_属性.ini`},
+	{"chu-thich-vat-pham", "Chú thích vật phẩm / trình đơn chuột phải", "KUiMouseHover", `弹出说明文字.ini`},
+	{"kho-do", "Kho đồ (rương)", "KUiStoreBox", `储物箱.ini`},
+}
+
 // UiImage is one picture of the old client, written out.
 type UiImage struct {
 	GamePath string `json:"game_path"`
@@ -143,15 +156,41 @@ var uiSlugs = map[string]string{
 	"virtualkeyboardtxt": "chu-ban-phim-ao", "agreeinfo": "chu-dong-y", "selserverinfo": "chu-may-chu",
 	"servername": "ten-may-chu", "message": "thong-diep", "btnunlock": "nut-mo-khoa", "rolename": "ten-nhan-vat",
 	"activecode": "o-ma-kich-hoat", "sprimg": "hang", "3dplayrepwarn": "canh-bao-xem-lai",
+	// the bag (随身物品.ini) and the character window (玩家装备与人物状态*.ini)
+	"title": "tieu-de", "closebtn": "nut-dong", "itembox": "o-vat-pham", "money": "tien", "moneytitle": "chu-tien",
+	"goldcoin": "xu", "goldcointitle": "chu-xu", "goldcoinscore": "diem-xu", "scoretitle": "chu-diem",
+	"bindinggold": "kim-dinh", "bindinggoldtitle": "chu-kim-dinh", "getmoneybtn": "nut-goi-tien",
+	"opencurrency": "nut-tien", "openstatus": "nut-thu", "decomposeequip": "nut-ra", "makeadvbtn": "nut-loi-rao",
+	"markpricebtn": "nut-dinh-gia", "makestallbtn": "nut-rao-ban", "settings": "cai-dat-mau",
+	"btnattribpage": "nut-trang-thuoc-tinh", "btnequippage": "nut-trang-trang-bi", "btnjudgepage": "nut-trang-danh-gia",
+	"btnmeridianpage": "nut-trang-kinh-mach", "item": "nut-tui-do",
+	"cap": "o-non", "weapon": "o-vu-khi", "necklace": "o-day-chuyen", "mask": "o-mat-na", "bangle": "o-ho-uyen",
+	"cloth": "o-y-phuc", "sash": "o-dai", "ring1": "o-nhan-1", "ring2": "o-nhan-2", "pendant": "o-ngoc-boi",
+	"shoes": "o-giay", "horse": "o-ngua", "mantle": "o-phi-phong", "signet": "o-an", "shipin": "o-trang-suc",
+	"seal": "o-an-chien", "factionpendant": "o-trang-suc-mon-phai", "pkvalue": "diem-pk", "translife": "chuyen-sinh",
+	"btnlock": "nut-khoa", "btnbinditem": "nut-thao-dinh", "btnlockitem": "nut-khoa-hon",
+	"btnhorsemanage": "nut-thu-cuoi", "btntitlemanage": "nut-danh-hieu", "face": "chan-dung", "clickhere": "chu-chon-hinh",
+	"luck": "may-man", "prestige": "danh-vong", "worldrank": "hang", "life": "sinh-luc", "mana": "noi-luc",
+	"stamina": "the-luc", "status": "trang-thai", "strength": "suc-manh", "vitality": "sinh-khi", "dexterity": "than-phap",
+	"energy": "noi-cong", "addstrength": "nut-cong-suc-manh", "addvitality": "nut-cong-sinh-khi",
+	"adddexterity": "nut-cong-than-phap", "addenergy": "nut-cong-noi-cong", "exp": "kinh-nghiem",
+	"leftdamage": "luc-tay-trai", "rightdamage": "luc-tay-phai", "attack": "chinh-xac", "defense": "ne-tranh",
+	"movespeed": "toc-chay", "attackspeed": "toc-danh", "remainpoint": "diem-con", "resistphy": "phong-thuong",
+	"resistcold": "phong-bang", "resistlighting": "phong-loi", "resistfire": "phong-hoa", "resistpoison": "phong-doc",
+	"mouseoverwnd": "khung-chu-thich", "menu": "trinh-don",
 }
 
 // uiScreenSlugs settles the sections that mean something else from one window to the next: [Login]
 // is the backdrop picture in the background window, the OK button when choosing a server and the
 // login button in the login window.
 var uiScreenSlugs = map[string]map[string]string{
-	"nen-dang-nhap": {"login": "nen-chon-may-chu"},
-	"chon-may-chu":  {"login": "nut-xac-dinh"},
-	"dang-nhap":     {"login": "nut-dang-nhap"},
+	"nen-dang-nhap":      {"login": "nen-chon-may-chu"},
+	"chon-may-chu":       {"login": "nut-xac-dinh"},
+	"dang-nhap":          {"login": "nut-dang-nhap"},
+	"thong-tin-nhan-vat": {"item": "nut-tui-do", "title": "tieu-de"},
+	// the equipment page: [Male] / [Female] are the two backdrops, not the sex buttons of KUiNewPlayer
+	"thong-tin-nhan-vat-trang-bi": {"male": "nen-nam", "female": "nen-nu"},
+	"chu-thich-vat-pham":          {"main": "nen"},
 }
 
 // uiSeries / uiSex are the names KUiSelPlayer::GetRoleImageName builds the file name from, in the
@@ -573,6 +612,24 @@ func (e *Exporter) UiTable(name, gamePath string) (int, error) {
 		return 0, err
 	}
 	return len(out), os.WriteFile(filepath.Join(dir, name+".json"), blob, 0o644)
+}
+
+// UiNames writes a numbered name table (attribute id -> name) as assets/ui/du-lieu/<name>.json,
+// the way UiTable writes a file of the client: {"names": {"28": "weapondamagemin_v", ...}}.
+func (e *Exporter) UiNames(name string, names map[int]string) error {
+	dir := filepath.Join(e.Out, "ui", "du-lieu")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	out := map[string]string{}
+	for id, n := range names {
+		out[strconv.Itoa(id)] = n
+	}
+	blob, err := json.MarshalIndent(map[string]any{"source": "jx_linux_y KMagicDesc (docs/linux/jx_linux_magicattrib.tsv)", "names": out}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, name+".json"), blob, 0o644)
 }
 
 // iniSection keeps the file order, which the old client relies on: the first section is the window

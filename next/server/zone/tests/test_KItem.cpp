@@ -636,7 +636,7 @@ TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the ite
     CHECK(iw.list().find(b) == nullptr);   // a stack of one is the last one
 
     // the percent of the Linux server: 50% halves the heal
-    me->life_gain_percent = 50;
+    me->life_replenish_percent = 50;
     me->life = 100;
     me->life_state = {20, 10};
     for (int i = 0; i < 10; ++i) iw.w->tick();
