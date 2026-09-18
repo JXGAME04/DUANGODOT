@@ -453,6 +453,14 @@ func _auto_items() -> void:
 		_windows.status_window.open_window()
 		_windows.status_window._on_page_button(true, _windows.status_window.PAGE_EQUIP)
 		await _save_screenshot("user://logs/auto_items.png")
+		# the attribute page with the zone's numbers (G2C_PLAYER_ATTRIB): level, points, damage...
+		_windows.status_window._on_page_button(true, _windows.status_window.PAGE_ATTRIB)
+		var a: Dictionary = Game.player_attrib
+		Log.info("auto", "auto attributes", {"level": a.get("level", 0), "strength": a.get("strength", 0), "attack_rating": a.get("attack_rating", 0),
+			"life_max": a.get("life_max", 0), "points": a.get("attribute_point", 0), "exp": a.get("exp", 0), "next": a.get("next_level_exp", 0)})
+		print("AUTO_ATTRIB level=%d strength=%d ar=%d life_max=%d points=%d" % [int(a.get("level", 0)), int(a.get("strength", 0)),
+			int(a.get("attack_rating", 0)), int(a.get("life_max", 0)), int(a.get("attribute_point", 0))])
+		await _save_screenshot("user://logs/auto_status.png")
 		_windows.status_window.hide_window()
 		if not magic_sword.is_empty():
 			# the tooltip of the magic sword, as if the mouse rested on it in the bag
