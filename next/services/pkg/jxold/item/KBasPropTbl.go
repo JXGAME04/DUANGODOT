@@ -174,6 +174,58 @@ type MagicLimit struct {
 	Note string `json:"note,omitempty"`
 }
 
+// DisplayRow is what the 2.0 client's KItem copies out of ITS copy of a table row (KItem::
+// operator=(row), gamecl.exe 0x0062fc20: the name to +0x30, the picture to +0x80, the intro to
+// +0xd0): the text the player sees comes from the client's tables, not the server's.
+type DisplayRow struct {
+	Row   int    `json:"row"`
+	Name  string `json:"name"`
+	Image string `json:"image"`
+	Intro string `json:"intro"`
+}
+
+// Display is the set reduced to those rows, keyed the way the client finds them.
+type Display struct {
+	Version    string                  `json:"version"`
+	Equipment  map[string][]DisplayRow `json:"equipment"`
+	Gold       []DisplayRow            `json:"gold"`
+	Medicine   []DisplayRow            `json:"medicine"`
+	Quest      []DisplayRow            `json:"quest"`
+	TownPortal []DisplayRow            `json:"town_portal"`
+	Scripts    []DisplayRow            `json:"scripts"`
+}
+
+func (s *Set) ToDisplay() *Display {
+	d := &Display{Version: s.Version, Equipment: map[string][]DisplayRow{}}
+	for name, rows := range s.Equipment {
+		for _, e := range rows {
+			d.Equipment[name] = append(d.Equipment[name], DisplayRow{e.Row, e.Name, e.Image, e.Intro})
+		}
+	}
+	for _, e := range s.Gold {
+		d.Gold = append(d.Gold, DisplayRow{e.Row, e.Name, e.Image, e.Intro})
+	}
+	for _, m := range s.Medicine {
+		d.Medicine = append(d.Medicine, DisplayRow{m.Row, m.Name, m.Image, m.Intro})
+	}
+	for _, q := range s.Quest {
+		d.Quest = append(d.Quest, DisplayRow{q.Row, q.Name, q.Image, q.Intro})
+	}
+	for _, t := range s.TownPortal {
+		d.TownPortal = append(d.TownPortal, DisplayRow{t.Row, t.Name, t.Image, t.Intro})
+	}
+	for _, sc := range s.Scripts {
+		d.Scripts = append(d.Scripts, DisplayRow{sc.Row, sc.Name, sc.Image, sc.Intro})
+	}
+	return d
+}
+
+// TableFiles lists every table file a set reads (lower case, without .txt).
+func TableFiles() []string {
+	out := append([]string{}, EquipTables...)
+	return append(out, "goldequip", "potion", "questkey", "townportal", "magicattrib", "magicattrib_ge", "suite_activate_count", "magicscript", "magicattrib_limit")
+}
+
 // MagicRow is the compact form of a magicattrib.txt row the client keeps for its tooltip
 // (items/magic.json): [kind, pos, class, level, min1, max1, rate_type0..rate_typeN].
 type MagicRow []int

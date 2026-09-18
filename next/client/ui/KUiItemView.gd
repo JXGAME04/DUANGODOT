@@ -10,6 +10,7 @@ extends RefCounted
 const KMagicDesc := preload("res://ui/KMagicDesc.gd")
 const KTextEncode := preload("res://ui/KTextEncode.gd")
 const KMagicRange := preload("res://ui/KMagicRange.gd")
+const KLibOfBPT := preload("res://ui/KLibOfBPT.gd")
 
 # ITEMGENRE of KItem.h
 const GENRE_EQUIP := 0
@@ -44,8 +45,10 @@ static var _strings: Dictionary = {}
 static var _strings_loaded := false
 
 
-# The object a KWndObjContainer draws for an item (at the item's own cells).
-static func object_of(item: Dictionary) -> Dictionary:
+# The object a KWndObjContainer draws for an item (at the item's own cells); the picture and the
+# name are the client's own table's (KLibOfBPT) when it has the row.
+static func object_of(raw: Dictionary) -> Dictionary:
+	var item := KLibOfBPT.display(raw)
 	return {
 		"id": int(item.id), "x": int(item.x), "y": int(item.y), "w": maxi(1, int(item.w)), "h": maxi(1, int(item.h)),
 		"image": Assets.item_image(str(item.get("image", ""))), "ex_type": int(item.get("ex_type", 0)),
@@ -123,7 +126,8 @@ static func name_color(item: Dictionary) -> Color:
 
 
 # The first line: the name and " [Cấp N]" (G_ITEM_22) on equipment, as GetDesc writes it
-static func title_of(item: Dictionary) -> String:
+static func title_of(raw: Dictionary) -> String:
+	var item := KLibOfBPT.display(raw)
 	var genre := int(item.get("genre", 0))
 	var name := str(item.get("name", ""))
 	if genre == GENRE_BROKEN or int(item.get("durability", -1)) == 0:
@@ -143,7 +147,8 @@ static func magic_range(item: Dictionary, slot: int, type: int) -> Array:
 # KItem::GetDesc(buf, nUiType = 0, nPriceScale = 1, nActive, ...) of the 2.0 client for a piece in
 # the bag: no price line, `active` suffixes lit (0 in the bag; a worn piece counts its element
 # links, M12), the magic block unless the window is one of the shop / trade ones (19..28).
-static func describe_text(item: Dictionary, active: int = 0, ui_type: int = 0) -> String:
+static func describe_text(raw: Dictionary, active: int = 0, ui_type: int = 0) -> String:
+	var item := KLibOfBPT.display(raw)   # the client's own name and description (KItem copies its table row)
 	var genre := int(item.get("genre", 0))
 	var detail := int(item.get("detail", 0))
 	var durability := int(item.get("durability", -1))

@@ -355,20 +355,21 @@ func _check_item_windows() -> void:
 		print("item windows not exported: skipped")
 		return
 	# a character with a few things in the bag and a sword on, the way G2C_ITEM_LIST fills Game.items
+	# (version 99: no client table of that version, so the names below are the ones shown)
 	Game.entity_id = 7
 	Game.entities[7] = {"id": 7, "name": "Kiếm Khách", "level": 9, "series": 0, "sex": 0, "life": 120, "life_max": 300, "speed": 200}
 	Game.items = {
 		1: {"id": 1, "genre": 0, "detail": 0, "particular": 0, "level": 1, "series": 2, "count": 1, "durability": 20, "max_durability": 20,
-			"ex_type": 0, "room": 0, "x": 0, "y": 0, "w": 1, "h": 3, "name": "Kiếm 1", "image": "", "intro": "", "price": 100,
+			"ex_type": 0, "room": 0, "x": 0, "y": 0, "w": 1, "h": 3, "version": 99, "name": "Kiếm 1", "image": "", "intro": "", "price": 100,
 			"base": [{"type": 28, "value": [4, 0, 0]}, {"type": 29, "value": [9, 0, 0]}], "require": [{"type": 36, "value": [5, 0, 0]}], "magic": []},
 		2: {"id": 2, "genre": 0, "detail": 2, "particular": 0, "level": 1, "series": 0, "count": 1, "durability": 30, "max_durability": 30,
-			"ex_type": 1, "room": 0, "x": 2, "y": 4, "w": 2, "h": 3, "name": "Áo vàng", "image": "", "intro": "Một chiếc áo", "price": 1000,
+			"ex_type": 1, "room": 0, "x": 2, "y": 4, "w": 2, "h": 3, "version": 99, "name": "Áo vàng", "image": "", "intro": "Một chiếc áo", "price": 1000,
 			"base": [], "require": [{"type": 38, "value": [1, 0, 0]}], "magic": [{"type": 153, "value": [10, 100, 0]}]},
 		3: {"id": 3, "genre": 1, "detail": 0, "particular": 0, "level": 1, "series": -1, "count": 5, "durability": -1, "max_durability": -1,
-			"ex_type": 0, "room": 3, "x": 0, "y": 0, "w": 1, "h": 1, "name": "Thuốc", "image": "", "intro": "", "price": 50,
+			"ex_type": 0, "room": 3, "x": 0, "y": 0, "w": 1, "h": 1, "version": 99, "name": "Thuốc", "image": "", "intro": "", "price": 50,
 			"base": [{"type": 153, "value": [10, 100, 0]}], "require": [], "magic": []},
 		4: {"id": 4, "genre": 0, "detail": 0, "particular": 0, "level": 2, "series": 2, "count": 1, "durability": 20, "max_durability": 20,
-			"ex_type": 0, "room": 10, "x": 3, "y": 0, "w": 1, "h": 3, "name": "Kiếm 2", "image": "", "intro": "", "price": 200,
+			"ex_type": 0, "room": 10, "x": 3, "y": 0, "w": 1, "h": 3, "version": 99, "name": "Kiếm 2", "image": "", "intro": "", "price": 200,
 			"base": [], "require": [], "magic": []},
 	}
 	Game.money = 500

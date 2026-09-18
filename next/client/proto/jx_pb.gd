@@ -3040,6 +3040,11 @@ class ItemView:
 		service.field = __version
 		data[__version.tag] = service
 		
+		__gen_param = PBField.new("gen_param", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 24, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __gen_param
+		data[__gen_param.tag] = service
+		
 	var data = {}
 	
 	var __id: PBField
@@ -3334,6 +3339,19 @@ class ItemView:
 		__version.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_version(value : int) -> void:
 		__version.value = value
+	
+	var __gen_param: PBField
+	func has_gen_param() -> bool:
+		if __gen_param.value != null:
+			return true
+		return false
+	func get_gen_param() -> int:
+		return __gen_param.value
+	func clear_gen_param() -> void:
+		data[24].state = PB_SERVICE_STATE.UNFILLED
+		__gen_param.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_gen_param(value : int) -> void:
+		__gen_param.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

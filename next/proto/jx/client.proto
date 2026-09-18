@@ -216,6 +216,7 @@ message ItemView {
   repeated ItemMagic require = 21;
   repeated ItemMagic magic = 22;
   uint32 version = 23;           // the item table set it was made from (items/v00N.json): the tooltip's "[min-max]" ranges
+  uint32 gen_param = 24;         // gold: its goldequip row (1-based); script item: its magicscript row - the client's own table row
 }
 
 message InventorySync {          // G2C_ITEM_LIST ("ItemList" is a Godot class, so not that name)

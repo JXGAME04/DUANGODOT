@@ -1307,6 +1307,7 @@ void KSubWorld::fill_item_view(const KItem& item, const KItemPlace& place, pb::I
     // suffixes (odd slots) by the index, as KItem::GetDesc of the 2.0 client does
     for (const auto& a : item.magic) magic_out(a, out.add_magic());
     out.set_version(item.version);
+    out.set_gen_param(static_cast<std::uint32_t>(item.gen_param));
 }
 
 void KSubWorld::send_item_list(std::uint64_t sid)

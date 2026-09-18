@@ -1642,7 +1642,8 @@ type ItemView struct {
 	Base          []*ItemMagic           `protobuf:"bytes,20,rep,name=base,proto3" json:"base,omitempty"`
 	Require       []*ItemMagic           `protobuf:"bytes,21,rep,name=require,proto3" json:"require,omitempty"`
 	Magic         []*ItemMagic           `protobuf:"bytes,22,rep,name=magic,proto3" json:"magic,omitempty"`
-	Version       uint32                 `protobuf:"varint,23,opt,name=version,proto3" json:"version,omitempty"` // the item table set it was made from (items/v00N.json): the tooltip's "[min-max]" ranges
+	Version       uint32                 `protobuf:"varint,23,opt,name=version,proto3" json:"version,omitempty"`                   // the item table set it was made from (items/v00N.json): the tooltip's "[min-max]" ranges
+	GenParam      uint32                 `protobuf:"varint,24,opt,name=gen_param,json=genParam,proto3" json:"gen_param,omitempty"` // gold: its goldequip row (1-based); script item: its magicscript row - the client's own table row
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1834,6 +1835,13 @@ func (x *ItemView) GetMagic() []*ItemMagic {
 func (x *ItemView) GetVersion() uint32 {
 	if x != nil {
 		return x.Version
+	}
+	return 0
+}
+
+func (x *ItemView) GetGenParam() uint32 {
+	if x != nil {
+		return x.GenParam
 	}
 	return 0
 }
@@ -2802,7 +2810,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\vEntityMoves\x12'\n" +
 	"\x05moves\x18\x01 \x03(\v2\x11.jx.pb.EntityMoveR\x05moves\"\x1d\n" +
 	"\aChatReq\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"\xd4\x04\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"\xf1\x04\n" +
 	"\bItemView\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05genre\x18\x02 \x01(\rR\x05genre\x12\x16\n" +
@@ -2831,7 +2839,8 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04base\x18\x14 \x03(\v2\x10.jx.pb.ItemMagicR\x04base\x12*\n" +
 	"\arequire\x18\x15 \x03(\v2\x10.jx.pb.ItemMagicR\arequire\x12&\n" +
 	"\x05magic\x18\x16 \x03(\v2\x10.jx.pb.ItemMagicR\x05magic\x12\x18\n" +
-	"\aversion\x18\x17 \x01(\rR\aversion\"k\n" +
+	"\aversion\x18\x17 \x01(\rR\aversion\x12\x1b\n" +
+	"\tgen_param\x18\x18 \x01(\rR\bgenParam\"k\n" +
 	"\rInventorySync\x12%\n" +
 	"\x05items\x18\x01 \x03(\v2\x0f.jx.pb.ItemViewR\x05items\x12\x14\n" +
 	"\x05money\x18\x02 \x01(\rR\x05money\x12\x1d\n" +

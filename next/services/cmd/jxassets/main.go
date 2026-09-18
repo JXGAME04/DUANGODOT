@@ -71,6 +71,39 @@ func gamePath(arg string) string {
 
 // itemTableSets is settings/item of the old server and every version folder under it (the JX2
 // server keeps 000..004 next to the plain tables): where the item tables are read from.
+// clientItemSets loads the CLIENT's copies of the item tables (\settings\item\NNN\*.txt in its
+// archives) into a temp folder and reads them like a server folder: the text the player sees.
+func clientItemSets(set *pak.Set) []*item.Set {
+	var out []*item.Set
+	for _, version := range []string{"000", "001", "002", "003", "004"} {
+		tmp := filepath.Join(os.TempDir(), "jxnext-clientitems", version)
+		if err := os.MkdirAll(tmp, 0o755); err != nil {
+			fail("%s: %v", tmp, err)
+		}
+		have := 0
+		for _, name := range item.TableFiles() {
+			data, err := set.ReadFile(gamePath(`\settings\item\` + version + `\` + name + `.txt`))
+			if err != nil {
+				continue
+			}
+			if err := os.WriteFile(filepath.Join(tmp, name+".txt"), data, 0o644); err != nil {
+				fail("%s: %v", name, err)
+			}
+			have++
+		}
+		if have == 0 {
+			continue
+		}
+		cset, err := item.Load(tmp, version)
+		if err != nil {
+			fmt.Printf("  client %s: %v\n", version, err)
+			continue
+		}
+		out = append(out, cset)
+	}
+	return out
+}
+
 func itemTableSets() []struct{ dir, version, file string } {
 	// the client is not needed for this: only ask for it when nothing names the server
 	sdir := *flagServer
@@ -743,6 +776,29 @@ func main() {
 			fail("magic.json: %v", err)
 		}
 		fmt.Printf("export-items: %d bo, %d dong vat pham; items/magic.json cho chu thich\n", len(sets), total)
+		// the CLIENT's own copies (\settings\item\NNN\*.txt inside its archives): the names and
+		// descriptions the player reads are the client's - its 004 says "Chủy thủ bằng sắt, sát
+		// thương kém." where the server's row says "Loại kiếm nhỏ bằng sắt, khả năng sát thương kém."
+		if cdir := findClient(); cdir != "" {
+			if set, err := pak.OpenClientSet(cdir); err == nil {
+				defer set.Close()
+				csets := clientItemSets(set)
+				for _, cset := range csets {
+					blob, err := json.Marshal(cset.ToDisplay())
+					if err != nil {
+						fail("client_v%s.json: %v", cset.Version, err)
+					}
+					p := filepath.Join(out, "items", "client_v"+cset.Version+".json")
+					if err := os.WriteFile(p, blob, 0o644); err != nil {
+						fail("%s: %v", p, err)
+					}
+					fmt.Printf("  client %s: %5d vat pham -> %s\n", cset.Version, cset.Count(), p)
+				}
+				if len(csets) == 0 {
+					fmt.Println("  client: khong co \\settings\\item\\NNN trong kho cua client - ten hien ra dung bang server")
+				}
+			}
+		}
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):
@@ -813,6 +869,10 @@ func main() {
 		}
 		set := openSet(findClient())
 		defer set.Close()
+		// the client's own tables name their pictures too (items/client_vNNN.json)
+		for _, cset := range clientItemSets(set) {
+			paths = append(paths, cset.ImagePaths()...)
+		}
 		ex := export.New(set, out)
 		written, missing, err := ex.ItemImages(paths)
 		if err != nil {
