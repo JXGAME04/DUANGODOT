@@ -374,6 +374,7 @@ void KGameServer::send_save(const KEvPlayerSave& save)
     pb::PlayerSave msg;
     msg.set_sid(save.sid);
     msg.set_final(save.final);
+    msg.set_tick(save.tick);
     *msg.mutable_role() = save.role;
     net::send_urgent(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_PLAYER_SAVE), msg);
     if (save.final) session_gateway_.erase(save.sid);   // the session is finished with this zone
@@ -596,9 +597,16 @@ void KGameServer::tick_once()
         last_stats_tick_ = tick;
         send_stats();
     }
-    if (cfg_.save_interval_s > 0 && tick - last_save_tick_ >= static_cast<std::uint64_t>(cfg_.save_interval_s) * cfg_.world.tick_hz) {
-        last_save_tick_ = tick;
-        for (const auto& [sid, inst] : session_instance_) inst->post(KCmdSaveRequest{sid, false});
+    if (cfg_.save_interval_s > 0) {
+        // Every player is saved once per interval, each in its own tick - (tick + sid) % period
+        // picks the tick - instead of everybody together every save_interval_s.  Saved together,
+        // 20 000 players are 20 000 database writes queued in the same 55 ms and a gateway link
+        // full of PlayerSave for seconds; spread, they are ~19 writes a tick, all day long.  (The
+        // owner's rule for a 20 000 player server: save per character, never in a burst.)
+        const std::uint64_t period = static_cast<std::uint64_t>(cfg_.save_interval_s) * cfg_.world.tick_hz;
+        for (const auto& [sid, inst] : session_instance_) {
+            if ((tick + sid) % period == 0) inst->post(KCmdSaveRequest{sid, false});
+        }
     }
     // the scheduler may move a map to a colder worker between two ticks (SPEC 8, 9)
     if (workers_ > 1 && cfg_.rebalance_interval_s > 0 &&

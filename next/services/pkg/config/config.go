@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -271,10 +272,24 @@ func (c *Config) Flatten() [][2]string {
 			if strings.Contains(lower, "password") || strings.Contains(lower, "secret") || strings.Contains(lower, "token") {
 				value = "***"
 			}
+			value = redactCredentials(value)
 			out = append(out, [2]string{prefix, value})
 		}
 	}
 	walk("", c.root)
 	sort.Slice(out, func(a, b int) bool { return out[a][0] < out[b][0] })
 	return out
+}
+
+var (
+	urlCredentials = regexp.MustCompile(`(://[^:/@\s]+:)[^@\s]+@`)
+	kvPassword     = regexp.MustCompile(`(?i)(password=)\S+`)
+)
+
+// redactCredentials hides a password inside a value: the user:password@ of a connection URL
+// (gateway.db = postgres://jx:secret@host/db) and password=... of a key=value list.  The key
+// does not say "password", the value carries one.
+func redactCredentials(value string) string {
+	value = urlCredentials.ReplaceAllString(value, "${1}***@")
+	return kvPassword.ReplaceAllString(value, "${1}***")
 }

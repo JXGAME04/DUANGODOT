@@ -154,6 +154,29 @@ build/go/jxaccount -data data/gateway list
 
 Chạy `jxaccount` khi gateway đang tắt (cả hai cùng ghi `accounts.json`).
 
+### Kho dữ liệu: tệp hay PostgreSQL
+
+Mặc định tài khoản và nhân vật nằm trong **tệp** dưới `gateway.data_dir` (`accounts.json` +
+`chars/<id>.json`): đủ cho một máy phát triển, nhưng gateway đọc **mọi** nhân vật lúc khởi động (11 461
+tệp mất 31 giây) và ghi lại cả `accounts.json` mỗi lần đăng nhập. Máy chủ thật dùng **PostgreSQL** (M9):
+đặt `gateway.db` (hoặc `JX_GATEWAY__DB`) là chuỗi kết nối, gateway tự tạo bảng (`accounts`,
+`characters`, `schema_version`) lần đầu; nhân vật lưu dạng JSON (`jsonb`, đúng văn bản của tệp cũ) nên
+đọc được bằng `psql`.
+
+```bash
+JX_GATEWAY__DB="postgres://jx:matkhau@127.0.0.1:5432/jxnext?sslmode=disable" python tools/dev.py start
+build/go/jxaccount -db "postgres://jx:matkhau@127.0.0.1:5432/jxnext?sslmode=disable" add thu1 matkhau123
+```
+
+Lưu nhân vật đi theo **từng nhân vật, rải đều**: zone chụp mỗi nhân vật một lần mỗi `zone.save_interval_s`
+ở khe tick riêng của nó (20 000 người = ~19 lần/tick), gateway ghi bằng `gateway.save_workers` worker riêng,
+gộp lần lưu mới đè lần cũ chưa ghi, thử lại lần lưu cuối; xem `saves_s`, `save_queue`, `save_ms` trong dòng
+`gw.stats`. Dòng `setting` trong log in chuỗi kết nối **đã che mật khẩu**. Cùng kho ⇒ nhiều gateway dùng chung một
+cơ sở dữ liệu (không cần chép `data/gateway` như với tệp). Test tuân thủ của kho (`pkg/persist/store_test.go`)
+chạy cho cả hai; với PostgreSQL cần `JX_TEST_PG=postgres://…` — CI chạy nó trong service container,
+tại chỗ không có thì bỏ qua. Máy chưa có PostgreSQL: `docker run -e POSTGRES_PASSWORD=jx -e POSTGRES_USER=jx
+-e POSTGRES_DB=jxnext -p 5432:5432 postgres:17` là đủ để thử.
+
 ## 3c. Bảo vệ phiên
 
 Gateway tự bảo vệ theo `config/gateway.json`: chờ `Hello` 10 s, im lặng ở lobby 300 s, im lặng

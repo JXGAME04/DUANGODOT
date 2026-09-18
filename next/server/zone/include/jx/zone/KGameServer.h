@@ -128,7 +128,6 @@ private:
     // is about two seconds of a busy link, which is already far more than a position is worth.
     static constexpr std::size_t kLinkBacklogLimit = 4 * 1024 * 1024;
     std::uint64_t link_dropped_ = 0;   // positions dropped because a link was behind
-    std::uint64_t last_save_tick_ = 0;
     std::uint64_t last_rebalance_tick_ = 0;
 };
 

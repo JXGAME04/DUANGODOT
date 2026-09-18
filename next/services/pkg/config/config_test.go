@@ -120,3 +120,25 @@ func TestFilesAndErrors(t *testing.T) {
 		t.Fatal("array root must fail")
 	}
 }
+
+// The settings log line must never carry a password: not under a key that says so, and not
+// inside a connection string either.
+func TestFlattenRedactsCredentials(t *testing.T) {
+	c, err := FromJSON([]byte(`{"gateway": {"db": "postgres://jx:s3cret@db:5432/jx?sslmode=disable", "dsn2": "host=db user=jx password=s3cret", "password": "x", "listen": ":17100"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, kv := range c.Flatten() {
+		got[kv[0]] = kv[1]
+	}
+	if got["gateway.db"] != "postgres://jx:***@db:5432/jx?sslmode=disable" {
+		t.Errorf("url credentials not redacted: %q", got["gateway.db"])
+	}
+	if got["gateway.dsn2"] != "host=db user=jx password=***" {
+		t.Errorf("key=value password not redacted: %q", got["gateway.dsn2"])
+	}
+	if got["gateway.password"] != "***" || got["gateway.listen"] != ":17100" {
+		t.Errorf("masking by key: %v", got)
+	}
+}

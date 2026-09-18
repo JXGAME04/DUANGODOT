@@ -39,6 +39,9 @@ type Snapshot struct {
 	FramesIn, FramesOut, BytesIn, BytesOut        uint64
 	Writes                                        uint64
 	ZonePackets, ZoneFanout                       uint64
+	Saves, SaveErrors, SaveCoalesced, SaveLost    uint64
+	SaveQueue, SavePeak                           int64
+	SaveNs                                        uint64
 	ZoneReady                                     bool
 }
 
@@ -52,6 +55,8 @@ func (s *Server) Snapshot() Snapshot {
 		FramesIn: st.FramesIn.Load(), FramesOut: st.FramesOut.Load(), BytesIn: st.BytesIn.Load(), BytesOut: st.BytesOut.Load(),
 		Writes:      st.Writes.Load(),
 		ZonePackets: st.ZonePackets.Load(), ZoneFanout: st.ZoneFanout.Load(),
+		Saves: s.saves.Saves.Load(), SaveErrors: s.saves.Errors.Load(), SaveCoalesced: s.saves.Coalesced.Load(), SaveLost: s.saves.Lost.Load(),
+		SaveQueue: int64(s.saves.Len()), SavePeak: s.saves.Peak(), SaveNs: s.saves.SaveNs.Load(),
 	}
 }
 
@@ -79,8 +84,19 @@ func (s *Server) reportStats(ctx context.Context, every time.Duration) {
 				log.F("writes_s", perSec(cur.Writes, prev.Writes)),
 				log.F("logins", cur.Logins), log.F("login_fails", cur.LoginFails), log.F("kicks", cur.Kicks),
 				log.F("rate_kicks", cur.RateKicks), log.F("timeouts", cur.Timeouts), log.F("replaced", cur.Replaced),
-				log.F("dropped", cur.Dropped), log.F("zone_fanout", cur.ZoneFanout))
+				log.F("dropped", cur.Dropped), log.F("zone_fanout", cur.ZoneFanout),
+				log.F("saves_s", perSec(cur.Saves, prev.Saves)), log.F("save_queue", cur.SaveQueue), log.F("save_peak", cur.SavePeak),
+				log.F("save_ms", saveAvgMs(cur, prev)), log.F("save_errors", cur.SaveErrors), log.F("save_lost", cur.SaveLost))
 			prev, prevAt = cur, now
 		}
 	}
+}
+
+// saveAvgMs is the average time of one save since the previous snapshot, in milliseconds.
+func saveAvgMs(cur, prev Snapshot) float64 {
+	n := cur.Saves + cur.SaveErrors - prev.Saves - prev.SaveErrors
+	if n == 0 {
+		return 0
+	}
+	return float64(cur.SaveNs-prev.SaveNs) / float64(n) / 1e6
 }

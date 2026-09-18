@@ -108,6 +108,7 @@ void KMapInstance::emit_save(std::uint64_t sid, bool final)
     KEvPlayerSave save;
     save.sid = sid;
     save.final = final;
+    save.tick = world_.tick_count();
     if (!world_.role_snapshot(sid, save.role)) return;
     events_.push(std::move(save));
 }

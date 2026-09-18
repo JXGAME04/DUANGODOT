@@ -209,15 +209,9 @@ func (z *zoneLink) handle(f frame.Frame) {
 			log.Error("zone", "bad PlayerSave", log.F("error", err))
 			return
 		}
-		ctx := log.WithContext(context.Background(), log.Context{Sid: save.Sid, Pid: save.Role.PlayerId})
-		if save.Final {
-			defer z.srv.saveArrived(save.Sid)
-		}
-		if err := z.srv.store.SaveCharacter(context.Background(), save.Role); err != nil {
-			log.ErrorCtx(ctx, "db", "save failed", log.F("error", err))
-			return
-		}
-		log.DebugCtx(ctx, "db", "character saved", log.F("final", save.Final), log.F("level", save.Role.Level))
+		// written by the save workers, never here on the link (KSaveQueue); a final save tells
+		// the server it arrived once it is in the store
+		z.srv.saves.push(save.Sid, save.Role, save.Final)
 
 	case jxpb.MsgId_ZG_ZONE_STATS:
 		var st jxpb.ZoneStats

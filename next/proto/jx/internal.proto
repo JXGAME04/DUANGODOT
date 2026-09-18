@@ -68,6 +68,7 @@ message PlayerSave {
   uint64 sid = 1;
   RoleData role = 2;
   bool final = 3;                // true when the player has left the zone
+  uint64 tick = 4;               // the zone tick the snapshot was taken at (saves are spread over ticks)
 }
 
 message ZoneStats {

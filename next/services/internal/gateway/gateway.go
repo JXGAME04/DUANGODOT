@@ -50,6 +50,8 @@ type Config struct {
 	// RESULT_REPLACED, which also frees accounts left behind by a crashed client.
 	RefuseDuplicateLogin bool
 	ShutdownWait         time.Duration // how long to wait for the zone's final saves on shutdown (0 = 3 s)
+	SaveWorkers          int           // database writers for PlayerSave (0 = 4): saves never run on the zone link
+	SaveTimeout          time.Duration // one save may take this long before it counts as failed (0 = 10 s)
 	StatsInterval        time.Duration // one cat=gw.stats line every interval (0 = 30 s, negative = off)
 }
 
@@ -93,6 +95,12 @@ func (c *Config) defaults() {
 	if c.ShutdownWait <= 0 {
 		c.ShutdownWait = 3 * time.Second
 	}
+	if c.SaveWorkers <= 0 {
+		c.SaveWorkers = saveDefaultWork
+	}
+	if c.SaveTimeout <= 0 {
+		c.SaveTimeout = 10 * time.Second
+	}
 	if c.StatsInterval == 0 {
 		c.StatsInterval = 30 * time.Second
 	}
@@ -101,6 +109,7 @@ func (c *Config) defaults() {
 type Server struct {
 	cfg   Config
 	store persist.Store
+	saves *KSaveQueue // PlayerSave from the zone -> the store, off the link (see KSaveQueue)
 	auth  auth.Authenticator
 	zone  *zoneLink
 
@@ -128,6 +137,7 @@ type Server struct {
 func New(cfg Config, store persist.Store, authenticator auth.Authenticator) *Server {
 	cfg.defaults()
 	s := &Server{cfg: cfg, store: store, auth: authenticator, online: map[uint64]*session{}, pendingSave: map[uint64]struct{}{}}
+	s.saves = newSaveQueue(store, cfg.SaveWorkers, cfg.SaveTimeout, s.saveArrived)
 	s.zone = newZoneLink(s, cfg.ZoneAddr)
 	return s
 }
@@ -302,6 +312,10 @@ func (s *Server) shutdown() {
 	if n := s.pendingSaves(); n > 0 {
 		log.Error("boot", "final saves missing at shutdown", log.F("players", n))
 	}
+	// whatever the zone sent is written before the store is closed
+	waiting := s.saves.Len()
+	s.saves.Close()
+	log.Info("boot", "saves flushed", log.F("waiting", waiting), log.F("saves", s.saves.Saves.Load()), log.F("save_errors", s.saves.Errors.Load()))
 }
 
 func (s *Server) session(sid uint64) *session { return s.sessions.get(sid) }

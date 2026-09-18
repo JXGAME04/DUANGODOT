@@ -27,12 +27,13 @@ import (
 )
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: jxaccount [-data DIR] [-min-password N] add|passwd|freeze|unfreeze|expire|list|seed ...")
+	fmt.Fprintln(os.Stderr, "usage: jxaccount [-data DIR | -db DSN] [-min-password N] add|passwd|freeze|unfreeze|expire|list|seed ...")
 	os.Exit(2)
 }
 
 func main() {
 	dataDir := flag.String("data", "data/gateway", "gateway data directory (gateway.data_dir)")
+	dbDSN := flag.String("db", os.Getenv("JX_GATEWAY__DB"), "PostgreSQL connection string (gateway.db); empty = the file store under -data")
 	minPassword := flag.Int("min-password", 6, "minimum password length (LOGIN_PASSWORD_MIN_LEN of the old PaySys)")
 	seedCount := flag.Int("n", 0, "seed: how many accounts")
 	seedFirst := flag.Int("first", 1, "seed: first account number (bot<first> .. bot<first+n-1>)")
@@ -46,7 +47,13 @@ func main() {
 		usage()
 	}
 	_ = log.Init(log.Options{Level: log.LevelWarn, Console: true, Process: "jxaccount"})
-	store, err := persist.OpenFileStore(*dataDir)
+	var store persist.Store
+	var err error
+	if *dbDSN != "" {
+		store, err = persist.OpenPgStore(context.Background(), *dbDSN)
+	} else {
+		store, err = persist.OpenFileStore(*dataDir)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

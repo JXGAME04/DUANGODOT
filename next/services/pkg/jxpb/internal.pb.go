@@ -520,6 +520,7 @@ type PlayerSave struct {
 	Sid           uint64                 `protobuf:"varint,1,opt,name=sid,proto3" json:"sid,omitempty"`
 	Role          *RoleData              `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
 	Final         bool                   `protobuf:"varint,3,opt,name=final,proto3" json:"final,omitempty"` // true when the player has left the zone
+	Tick          uint64                 `protobuf:"varint,4,opt,name=tick,proto3" json:"tick,omitempty"`   // the zone tick the snapshot was taken at (saves are spread over ticks)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -573,6 +574,13 @@ func (x *PlayerSave) GetFinal() bool {
 		return x.Final
 	}
 	return false
+}
+
+func (x *PlayerSave) GetTick() uint64 {
+	if x != nil {
+		return x.Tick
+	}
+	return 0
 }
 
 type ZoneStats struct {
@@ -702,12 +710,13 @@ const file_jx_internal_proto_rawDesc = "" +
 	"ZonePacket\x12\x12\n" +
 	"\x04sids\x18\x01 \x03(\x04R\x04sids\x12\x15\n" +
 	"\x06msg_id\x18\x02 \x01(\rR\x05msgId\x12\x18\n" +
-	"\apayload\x18\x03 \x01(\fR\apayload\"Y\n" +
+	"\apayload\x18\x03 \x01(\fR\apayload\"m\n" +
 	"\n" +
 	"PlayerSave\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12#\n" +
 	"\x04role\x18\x02 \x01(\v2\x0f.jx.pb.RoleDataR\x04role\x12\x14\n" +
-	"\x05final\x18\x03 \x01(\bR\x05final\"\xae\x01\n" +
+	"\x05final\x18\x03 \x01(\bR\x05final\x12\x12\n" +
+	"\x04tick\x18\x04 \x01(\x04R\x04tick\"\xae\x01\n" +
 	"\tZoneStats\x12\x17\n" +
 	"\azone_id\x18\x01 \x01(\rR\x06zoneId\x12\x12\n" +
 	"\x04tick\x18\x02 \x01(\x04R\x04tick\x12\x18\n" +

@@ -206,7 +206,18 @@
     "key": "khoá",
     "series": "hệ",
     "sex": "giới tính",
-    "native_place": "tân thủ thôn"
+    "native_place": "tân thủ thôn",
+    "dsn": "kết nối CSDL",
+    "save_errors": "lỗi lưu",
+    "save_lost": "lưu cuối bị mất",
+    "save_ms": "thời gian lưu (ms)",
+    "save_peak": "hàng đợi lưu cao nhất",
+    "save_queue": "hàng đợi lưu",
+    "saves": "đã lưu",
+    "saves_s": "lưu/giây",
+    "schema": "phiên bản bảng",
+    "try": "lần thử",
+    "waiting": "đang chờ"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -370,6 +381,11 @@
     "client cost": "Chi phí phía client",
     "enter world": "Thời gian vào game",
     "summary": "Tổng kết",
-    "setting": "Thiết lập"
+    "setting": "Thiết lập",
+    "postgres store opened": "Đã mở kho PostgreSQL",
+    "save backlog": "Hàng đợi lưu nhân vật đang dồn — cơ sở dữ liệu chậm hơn tốc độ lưu",
+    "final save lost": "MẤT lần lưu cuối của nhân vật — cơ sở dữ liệu từ chối ba lần",
+    "final save retried": "Lưu cuối thất bại, thử lại",
+    "saves flushed": "Đã ghi nốt các lần lưu còn chờ trước khi tắt"
   }
 }

@@ -118,6 +118,59 @@ jx::pb::RoleData role(std::uint64_t pid, const char* name)
 
 } // namespace
 
+TEST_CASE("periodic saves are spread over the interval, one player per slot", "[zone][net][save]")
+{
+    // 20 000 players saved in the same tick would be 20 000 database writes at once: each player
+    // gets its own tick within save_interval_s, and every player is saved exactly once per interval.
+    Quiet q;
+    asio::io_context io;
+    jx::zone::KGameServerConfig cfg;
+    cfg.listen_address = "127.0.0.1";
+    cfg.port = 0;
+    cfg.world.tick_hz = 20;
+    cfg.world.spawn_point = jx::zone::Pos{1000, 1000};
+    cfg.stats_interval_s = 0;
+    cfg.save_interval_s = 1;   // 20 ticks
+    jx::zone::KGameServer server(io, cfg);
+    REQUIRE(!server.start());
+    FakeGateway gw(io);
+    gw.connect(server.port());
+    jx::pb::ZoneHello hello;
+    hello.set_protocol_version(jx::pb::PROTOCOL_VERSION);
+    hello.set_gateway_id("gw-save");
+    gw.send(jx::pb::GZ_ZONE_HELLO, hello);
+    REQUIRE(gw.run_until([&] { return gw.count(jx::pb::ZG_ZONE_HELLO_ACK) == 1; }));
+    const int players = 10;
+    for (std::uint64_t sid = 1; sid <= players; ++sid) {
+        jx::pb::SessionOpen open;
+        open.set_sid(sid);
+        open.set_account_id(100 + sid);
+        *open.mutable_role() = role(1000 + sid, "P");
+        gw.send(jx::pb::GZ_SESSION_OPEN, open);
+    }
+    REQUIRE(gw.run_until([&] { return gw.count(jx::pb::ZG_SESSION_OPEN_ACK) == players; }));
+    gw.frames.clear();
+    // two full intervals: each player saved twice, never two players in the same tick
+    REQUIRE(gw.run_until([&] { return gw.count(jx::pb::ZG_PLAYER_SAVE) >= players * 2; }, 6000ms));
+    std::map<std::uint64_t, int> per_player;
+    std::map<std::uint64_t, int> per_tick;
+    for (const auto& save : gw.all<jx::pb::PlayerSave>(jx::pb::ZG_PLAYER_SAVE)) {
+        ++per_player[save.sid()];
+        ++per_tick[save.tick()];   // the tick the snapshot was taken at
+        CHECK_FALSE(save.final());
+    }
+    CHECK(per_player.size() == players);
+    for (const auto& [sid, n] : per_player) {
+        INFO("sid " << sid);
+        CHECK(n >= 2);
+        CHECK(n <= 3);
+    }
+    int busiest = 0;
+    for (const auto& [tick, n] : per_tick) busiest = std::max(busiest, n);
+    CHECK(busiest == 1);   // ten players over twenty slots: no tick carries two saves
+    server.stop();
+}
+
 TEST_CASE("gateway handshake, sessions, movement over ticks, save on close", "[zone][net]")
 {
     Quiet q;

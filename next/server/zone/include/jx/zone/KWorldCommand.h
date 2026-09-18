@@ -70,6 +70,7 @@ struct KEvPlayerSave {
     std::uint64_t sid = 0;
     pb::RoleData role;
     bool final = false;
+    std::uint64_t tick = 0;   // the map's tick the snapshot was taken at
 };
 
 // KNpc::ChangeWorld across map instances: the owner already removed the player and saved its

@@ -10,6 +10,15 @@
     "zone": "127.0.0.1:17001",
     "max_chars": 3,
     "data_dir": "data/gateway",
+    // accounts + characters in PostgreSQL (M9): "postgres://jx:mat_khau@127.0.0.1:5432/jxnext?sslmode=disable"
+    // (or the key=value form pgx accepts). Empty = the file store under data_dir, for one developer's machine.
+    // The log prints this setting with the password hidden. JX_GATEWAY__DB=... overrides it.
+    "db": "",
+    // PlayerSave from the zone is written by these workers, never on the zone link; a newer save of the
+    // same character replaces one still waiting, a final save is retried. The zone spreads the periodic
+    // saves over save_interval_s (one player per tick slot), so 20 000 players are ~19 writes a tick.
+    "save_workers": 4,
+    "save_timeout_s": 10,
 
     // accounts: "dev" = the first login of a new name registers it (tests, bots);
     // "strict" = only accounts made with jxaccount (password >= min_password)

@@ -78,7 +78,15 @@ func main() {
 		log.Info("cfg", "setting", log.F("key", kv[0]), log.F("value", kv[1]))
 	}
 
-	store, err := persist.OpenFileStore(cfg.String("gateway.data_dir", "data/gateway"))
+	// accounts and characters: PostgreSQL when gateway.db names one (M9), else the file store of
+	// a developer's machine under gateway.data_dir
+	var store persist.Store
+	var err error
+	if dsn := cfg.String("gateway.db", ""); dsn != "" {
+		store, err = persist.OpenPgStore(context.Background(), dsn)
+	} else {
+		store, err = persist.OpenFileStore(cfg.String("gateway.data_dir", "data/gateway"))
+	}
 	if err != nil {
 		log.Fatal("boot", "cannot open store", log.F("error", err))
 		os.Exit(1)
@@ -125,6 +133,8 @@ func main() {
 		MaxLoginTries:        int(cfg.Int("gateway.max_login_tries", 5)),
 		RefuseDuplicateLogin: cfg.Bool("gateway.refuse_duplicate_login", false),
 		ShutdownWait:         time.Duration(cfg.Int("gateway.shutdown_wait_s", 3)) * time.Second,
+		SaveWorkers:          int(cfg.Int("gateway.save_workers", 4)),
+		SaveTimeout:          time.Duration(cfg.Int("gateway.save_timeout_s", 10)) * time.Second,
 		StatsInterval:        time.Duration(cfg.Int("gateway.stats_interval_s", 30)) * time.Second,
 	}, store, accounts)
 

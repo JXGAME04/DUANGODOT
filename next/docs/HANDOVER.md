@@ -97,7 +97,7 @@ Hoạt ảnh đánh và chết · trang bị hiện lên người · minimap · 
 
 | # | Việc | Giá | Ghi chú |
 |---|---|---|---|
-| O1 | **PostgreSQL thay kho tệp** | lớn | Mỗi nhân vật đang là một tệp JSON; 11 461 tệp từng làm gateway khởi động mất 31 giây. Không dùng thật được. |
+| O1 | **PostgreSQL thay kho tệp** — `PgStore` **xong**, còn đo 20 000 nhân vật | lớn | `gateway.db` = chuỗi kết nối → `persist.PgStore` (pgx, SQL thuần, jsonb); test tuân thủ chung cho tệp + PostgreSQL, CI chạy thật (service container) cả unit lẫn e2e. Chưa đo khởi động với 20 000 nhân vật: máy này không có PostgreSQL. |
 | O2 | Số liệu Prometheus + bảng Grafana | vừa | Zone đã có `jx::Metrics` và `to_json`, chỉ thiếu đầu ra. |
 | O3 | Công cụ quản trị | vừa | |
 | O4 | Docker, sao lưu và khôi phục có test | vừa | |
@@ -116,7 +116,7 @@ thu bằng cảm tính.
 | ~~**M6**~~ **đạt 2026‑09‑17** | N1, N2, N4 | 1 | 3 000 người **một map**: p99 < 55 ms, 0 tick bị rớt → đo được **p99 16,78 ms, 0 tick rớt**. Có test khẳng định vùng nhìn phủ hết màn hình và client không bao giờ giữ bóng ma. |
 | ~~**M7**~~ **đạt 2026‑09‑17 (ở 3 000)** | N3, N5, N6 | 1–2 | 3 000 người **một map**: p99 **20,97 ms** một gateway / **12,52 ms** hai gateway, 0 tick rớt, gateway 337 k gói/s (trước 617 k). 20 000 người trên hai gateway chưa đo được: máy test hết cổng, cần bot từ máy thứ hai. |
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
-| **M9** | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. |
+| **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
 | **M11** | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
@@ -137,6 +137,31 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 (đêm) — M9 phần 1: kho PostgreSQL cho tài khoản + nhân vật, CI chạy thật
+
+- `pkg/persist/pgstore.go`: `PgStore` thực hiện cùng `Store` với kho tệp — pgx v5, SQL thuần (ADR-007),
+  bảng `accounts` (name_key unique không phân biệt hoa thường), `characters` (jsonb = protojson của
+  `RoleData`, `data_version`, `updated_at`), `schema_version`; id từ sequence; tạo nhân vật là một giao dịch;
+  `SaveCharacter` là một `UPDATE` (crash giữa hai lần lưu không mất gì đã xác nhận); bản ghi cũ được
+  `MigrateRole` khi đọc, bản ghi server mới hơn bị từ chối như kho tệp.
+- `store_test.go`: **một kịch bản tuân thủ** chạy cho cả tệp lẫn PostgreSQL (mở lại như gateway khởi động
+  lại); PostgreSQL chạy khi có `JX_TEST_PG`, CI có job `Go + PostgreSQL` (service container postgres:17)
+  và job e2e chạy gateway với `JX_GATEWAY__DB` — kiểm cả dòng log `postgres store opened`.
+- `gateway.db` / `JX_GATEWAY__DB`, `jxaccount -db`; `Config.Flatten` che mật khẩu **trong giá trị**
+  (`postgres://jx:***@…`, `password=***`), có test.
+- **Lưu theo từng nhân vật, không dồn cục** (yêu cầu của chủ dự án cho server 20 000 người): trước đây zone
+  gửi `KCmdSaveRequest` cho **mọi** phiên trong cùng một tick mỗi 60 s, và gateway ghi **đồng bộ ngay trên
+  luồng đọc đường zone** — với PostgreSQL 20 000 người là 20 000 lần ghi dồn vào một tick và đường zone đứng
+  hàng chục giây. Giờ: (1) zone rải lịch, mỗi nhân vật có khe riêng `(tick + sid) % chu_kỳ` → 20 000 người ở
+  60 s là ~19 lần lưu mỗi tick, đều đặn (test: 10 người/20 tick, không tick nào có 2 lần lưu; `PlayerSave.tick`
+  ghi tick chụp); (2) gateway có `KSaveQueue`: `save_workers` (4) worker ghi riêng, lần lưu mới của cùng nhân
+  vật **thay** lần cũ còn chờ (không ghi thừa), lần lưu **cuối** (thoát) không bao giờ bị thay mất, thử lại 3
+  lần rồi mới báo `MẤT lần lưu cuối`, xả hết khi tắt (`saves flushed`), hàng đợi > 1000 thì cảnh báo `save
+  backlog`; thống kê `saves_s / save_queue / save_peak / save_ms / save_errors / save_lost` trong `gw.stats`.
+  Có test cho cả hai đầu.
+- Chưa làm: đo 20 000 nhân vật (máy này không có PostgreSQL/Docker — cài đặt phần mềm lên máy chủ dự án
+  không tự ý làm), sao lưu/khôi phục (O4).
 
 ### 2026-09-17 (đêm) — ADR-007: tuổi thọ công nghệ 5–10 năm; RUNNING.md cập nhật
 

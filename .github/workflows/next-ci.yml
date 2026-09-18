@@ -133,6 +133,43 @@ jobs:
       - name: go build
         run: go build -o ../build/go/ ./cmd/...
 
+  # The PostgreSQL store (M9) against a real database: a service container, Linux only (GitHub
+  # runs containers on Linux runners alone), so it is its own job instead of a matrix entry.
+  go-postgres:
+    name: Go + PostgreSQL
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: jx
+          POSTGRES_PASSWORD: jx
+          POSTGRES_DB: jxtest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: next/services
+        shell: bash
+    env:
+      JX_TEST_PG: postgres://jx:jx@localhost:5432/jxtest?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: next/services/go.mod
+          cache-dependency-path: next/services/go.sum
+      - name: persist against PostgreSQL
+        run: |
+          set -o pipefail
+          mkdir -p ../build
+          go test -count=1 -run 'PgStore|FileStore' -v ./pkg/persist/ 2>&1 | tee ../build/go-pg.log || { python3 ../tools/ci_annotate.py --tail ../build/go-pg.log; exit 1; }
+          grep -q -- '--- PASS: TestPgStoreRoundTrip' ../build/go-pg.log || { echo "::error::TestPgStoreRoundTrip did not run against the database"; exit 1; }
+
   client:
     name: Godot client (headless)
     runs-on: ubuntu-24.04
@@ -162,6 +199,21 @@ jobs:
     name: End to end (Linux)
     runs-on: ubuntu-24.04
     needs: [go, client]
+    # the gateway keeps its accounts and characters in PostgreSQL here (gateway.db), the whole
+    # path a live server takes: login, create, enter the world, save
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: jx
+          POSTGRES_PASSWORD: jx
+          POSTGRES_DB: jxnext
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: next
@@ -170,6 +222,7 @@ jobs:
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-bincache
       JX_PRESET: linux-gcc
       JX_CONFIG: Release
+      JX_GATEWAY__DB: postgres://jx:jx@localhost:5432/jxnext?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: lukka/get-cmake@latest
@@ -215,6 +268,7 @@ jobs:
             python3 tools/ci_annotate.py --tail build/e2e.log logs/zone.log logs/gateway.log
             exit 1
           }
+          grep -q '"postgres store opened"' logs/gateway.log || { echo "::error::the gateway did not use PostgreSQL"; exit 1; }
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
