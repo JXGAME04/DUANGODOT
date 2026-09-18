@@ -1,0 +1,158 @@
+# KMissle - a missile of a cast on the client, drawn the way KMissle::Paint (Core/Src/KMissle.cpp 1519) and
+# KMissleRes::Draw draw it.  The 2.0 client re-runs CastMissles itself from the 0x5a packet; here the zone that already
+# flies the missile tells the client (G2C_MISSLE: born, the first flying frame and every sixth, gone) and the node
+# flies it in between by the vector and the speed (KMissle::OnFly).  A deliberate deviation, docs/CLIENT-2.0.md §11.
+#   - status wait: nothing drawn; fly: AnimFile2 of missles.txt (the fly status), the frame from the frames flown;
+#   - the end: the vanish movie AnimFile3 (CreateSpecialEffect(MS_DoVanish)) plays once at the last spot, then the node
+#     frees itself (KMissle::Paint 1537: the missile stays until its effects have all played);
+#   - MultiShow: the B set of anims at random (KMissle::Init 1704).  Sounds are not played yet.
+extends Node2D
+
+const KMissleResMath := preload("res://scenes/KMissleResMath.gd")
+const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
+const TICK := 1.0 / 18.0
+const STATUS_WAIT := 0
+const STATUS_FLY := 1
+const STATUS_VANISHED := 2
+const ANIM_FLY := 1        # AnimFile2 (MS_DoFly)
+const ANIM_VANISH := 2     # AnimFile3 (MS_DoVanish)
+
+signal gone(index: int)
+
+var index := 0
+var missle_id := 0
+var skill_id := 0
+var scene_pos := Vector2.ZERO
+var z := 0
+var dir64 := 0
+var x_factor := 0
+var y_factor := 0
+var speed := 0
+var life_time := 0
+var start_life_time := 0
+var cur_life := 0
+var status := STATUS_WAIT
+var res := {}                 # the row of missle_res.json
+var anims: Array = []         # the four status anims in use (A or B set)
+var _sprite: Sprite2D = null
+var _vanish_started := -1     # cur_life when the vanish movie began
+var _tick_acc := 0.0
+var _rng := RandomNumberGenerator.new()
+
+
+func _ready() -> void:
+	_sprite = Sprite2D.new()
+	_sprite.visible = false
+	add_child(_sprite)
+	_refresh()
+
+
+static func to_screen(p: Vector2) -> Vector2:
+	return Vector2(p.x, p.y * 0.5)
+
+
+func setup(d: Dictionary, row: Dictionary) -> void:
+	index = int(d.get("index", 0))
+	missle_id = int(d.get("missle_id", 0))
+	skill_id = int(d.get("skill_id", 0))
+	res = row
+	anims = row.get("anims", [])
+	if bool(row.get("multi_show", false)) and row.get("anims_b", []).size() > 0 and _rng.randi_range(0, 1) == 1:
+		anims = row.get("anims_b", [])
+	apply(d)
+
+
+# a sync from the zone: the spot and the frame counters are the zone's word
+func apply(d: Dictionary) -> void:
+	scene_pos = Vector2(float(d.get("x", 0)), float(d.get("y", 0)))
+	z = int(d.get("z", 0))
+	dir64 = clampi(int(d.get("dir", 0)), 0, 63)
+	x_factor = int(d.get("x_factor", 0))
+	y_factor = int(d.get("y_factor", 0))
+	speed = int(d.get("speed", 0))
+	life_time = int(d.get("life_time", 0))
+	start_life_time = int(d.get("start_life_time", 0))
+	cur_life = int(d.get("current_life", 0))
+	if bool(d.get("removed", false)) or int(d.get("status", 0)) == STATUS_VANISHED:
+		_begin_vanish()
+	else:
+		status = int(d.get("status", 0))
+	_tick_acc = 0.0
+	_place()
+	_refresh()
+
+
+func _begin_vanish() -> void:
+	if status == STATUS_VANISHED:
+		return
+	status = STATUS_VANISHED
+	_vanish_started = cur_life
+
+
+func _process(delta: float) -> void:
+	_tick_acc += delta
+	while _tick_acc >= TICK:
+		_tick_acc -= TICK
+		_tick()
+
+
+# one logic frame between two syncs: KMissle::OnFly moves the vector times the speed (1/1024 units); the wait ends
+# at start_life_time and the life at life_time - the zone's word overrides when it comes
+func _tick() -> void:
+	cur_life += 1
+	if status == STATUS_FLY:
+		scene_pos += Vector2(float(x_factor * speed) / 1024.0, float(y_factor * speed) / 1024.0)
+		if cur_life >= life_time:
+			_begin_vanish()
+	elif status == STATUS_WAIT and cur_life >= start_life_time:
+		status = STATUS_FLY
+	_place()
+	_refresh()
+
+
+func _place() -> void:
+	position = to_screen(scene_pos) + Vector2(0, -float(z))
+
+
+func _anim(i: int) -> Dictionary:
+	if i < 0 or i >= anims.size() or not (anims[i] is Dictionary):
+		return {}
+	return anims[i]
+
+
+func _show_frame(anim: Dictionary, frame: int) -> bool:
+	if _sprite == null or frame < 0 or str(anim.get("sprite", "")) == "":
+		return false
+	var atlas = Assets.sprite(str(anim.sprite))
+	if atlas == null or atlas.frame_count() == 0:
+		return false
+	var f := clampi(frame, 0, atlas.frame_count() - 1)
+	var tex: Texture2D = atlas.frame_texture(f)
+	if _sprite.texture != tex:
+		_sprite.texture = tex
+	_sprite.position = -KNpcResNode.ref_spot(atlas.width, atlas.center_x, atlas.center_y) + atlas.frame_offset(f)
+	_sprite.visible = true
+	return true
+
+
+func _refresh() -> void:
+	if _sprite == null:
+		return
+	match status:
+		STATUS_FLY:
+			var a := _anim(ANIM_FLY)
+			var frame := KMissleResMath.frame_index(int(a.get("frames", 0)), int(a.get("dirs", 0)), int(a.get("interval", 1)), dir64,
+				cur_life - start_life_time, life_time - start_life_time, bool(res.get("loop", false)), bool(res.get("sub_loop", false)),
+				int(res.get("sub_start", 0)), int(res.get("sub_stop", 0)))
+			if not _show_frame(a, frame):
+				_sprite.visible = false
+		STATUS_VANISHED:
+			var a := _anim(ANIM_VANISH)
+			var elapsed := cur_life - _vanish_started
+			var frame := KMissleResMath.special_frame(int(a.get("frames", 0)), int(a.get("dirs", 0)), int(a.get("interval", 1)), dir64, elapsed)
+			if frame < 0 or not _show_frame(a, frame):
+				_sprite.visible = false
+				gone.emit(index)
+				queue_free()
+		_:
+			_sprite.visible = false

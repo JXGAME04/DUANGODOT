@@ -45,6 +45,7 @@ signal skills_changed()                 # G2C_SKILL_LIST: the whole book (on ent
 signal mouse_skill_changed()            # left_skill / right_skill set by the weapon rule (0x005FE820)
 signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: one skill (level -1 = gone)
 signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a skill level for its tip arrived
+signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
 signal pong(rtt_ms: int, server_ms: int)
@@ -104,6 +105,9 @@ var _skill_text := {}                   # text/skill_desc.json (G_* strings, [De
 var _skill_text_loaded := false
 var _skill_rows := {}                   # skills.json rows by id (the cells), loaded on first use
 var _skill_rows_loaded := false
+var _missle_res := {}                   # missles/missle_res.json rows by id (the drawing side of missles.txt), loaded on first use
+var _missle_res_loaded := false
+var missle_packets := 0                 # G2C_MISSLE packets seen (the --auto flow counts them)
 # the two mouse skills of the old client (KPlayer::m_nLeftSkillID / m_nRightSkillID, GOI_SET_IMMDIA_SKILL):
 # 0 = the plain attack of the weapon (C2G_ATTACK)
 var left_skill := 0
@@ -451,6 +455,18 @@ func skill_row(skill_id: int) -> Dictionary:
 	return _skill_rows.get(skill_id, {})
 
 
+# the drawing row of a missile (AnimFile* of missles.txt as jxassets export-missle-res wrote them), empty when unknown
+func missle_row(missle_id: int) -> Dictionary:
+	if not _missle_res_loaded:
+		_missle_res_loaded = true
+		var d = Assets.load_json(Assets.assets_root() + "/missles/missle_res.json")
+		if d is Dictionary:
+			_missle_res = d.get("rows", {})
+		else:
+			Log.warn("world", "missile drawings missing", {"file": Assets.assets_root() + "/missles/missle_res.json"})
+	return _missle_res.get(str(missle_id), {})
+
+
 func skill_name(skill_id: int) -> String:
 	return str(skill_row(skill_id).get("SkillName", str(skill_id)))
 
@@ -740,6 +756,17 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			faction_count = m.get_faction_count()
 			Log.info("net", "faction", {"faction": faction, "last": faction_last, "count": faction_count, "camp": camp})
 			faction_changed.emit()
+
+		Proto.MsgId.G2C_MISSLE:
+			var m := Proto.MissleSync.new()
+			if not _decode(m, payload):
+				return
+			missle_packets += 1
+			missle_sync.emit({"index": int(m.get_index()), "missle_id": int(m.get_missle_id()), "skill_id": int(m.get_skill_id()),
+				"level": int(m.get_level()), "launcher": m.get_launcher(), "x": int(m.get_x()), "y": int(m.get_y()), "z": int(m.get_z()),
+				"dir": int(m.get_dir()), "x_factor": int(m.get_x_factor()), "y_factor": int(m.get_y_factor()), "speed": int(m.get_speed()),
+				"life_time": int(m.get_life_time()), "start_life_time": int(m.get_start_life_time()), "current_life": int(m.get_current_life()),
+				"status": int(m.get_status()), "removed": m.get_removed(), "move_kind": int(m.get_move_kind()), "collided": m.get_collided()})
 
 		Proto.MsgId.G2C_SKILL_DESC:
 			var m := Proto.SkillDesc.new()

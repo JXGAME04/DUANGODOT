@@ -70,6 +70,7 @@ enum MsgId {
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
   G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
   G2C_SKILL_DESC = 2123;       // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
+  G2C_MISSLE = 2124;           // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

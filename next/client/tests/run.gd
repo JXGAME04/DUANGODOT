@@ -47,6 +47,7 @@ func _init() -> void:
 	test_shortcut_items()
 	test_magic_desc()
 	test_skill_desc()
+	test_missle_math()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -508,3 +509,23 @@ func test_skill_desc() -> void:
 	var pending: String = D.build(row, {"level": 1}, 20, {}, text, name_of)
 	check(pending.find("Tiêu hao") < 0 and pending.find("Cấp hiện tại: 1") >= 0, "without the zone's answer: the static lines only")
 	check(D.build(row, {"level": 1}, 20, desc, text, name_of).find("(Công kích gần)") < 0 and D.build({"SkillName": "Đấm", "Attrib": "1", "IsMelee": "1"}, {"level": 1}, 20, {}, text, name_of).find("(Công kích gần)") >= 0, "the plain attack words for Attrib 1 / 2 only")
+
+
+# ---- the missile frames (KMissleResMath.gd; KMissleRes::Draw of the old client, kept by the 2.0 one) ----------------
+func test_missle_math() -> void:
+	var M = load("res://scenes/KMissleResMath.gd")
+	# 16 spokes over 64 directions: 4 each, rounding up from the half (KMissleRes::Draw 137..140)
+	check(M.sprite_dir(0, 16) == 0 and M.sprite_dir(1, 16) == 0 and M.sprite_dir(2, 16) == 1 and M.sprite_dir(3, 16) == 1, "spokes of 4")
+	check(M.sprite_dir(63, 16) == 0 and M.sprite_dir(61, 16) == 15 and M.sprite_dir(31, 8) == 4 and M.sprite_dir(5, 1) == 0, "the wrap, 8 spokes, one spoke")
+	check(M.sprite_dir(10, 0) == 0 and M.sprite_dir(10, 100) == 0, "no spokes -> block 0")
+	# a 64-frame sprite of 16 directions (4 a block), one pass over a 10-frame flight: 4 x cur / 10
+	check(M.fly_frame(64, 16, 1, 0, 10, false, false, 0, 0) == 0 and M.fly_frame(64, 16, 1, 5, 10, false, false, 0, 0) == 2 and M.fly_frame(64, 16, 1, 9, 10, false, false, 0, 0) == 3, "one pass")
+	check(M.fly_frame(64, 16, 1, 11, 10, false, false, 0, 0) == -1 and M.fly_frame(64, 16, 1, -1, 10, false, false, 0, 0) == -1, "past the life / before birth")
+	check(M.fly_frame(64, 16, 1, 3, 0, false, false, 0, 0) == 3 and M.fly_frame(64, 16, 1, 4, 0, false, false, 0, 0) == -1, "all 0 = the block once")
+	# LoopPlay: the frame cycles every `interval` frames; SubLoop cycles sub_start..sub_stop after the start
+	check(M.fly_frame(64, 16, 1, 9, 100, true, false, 0, 0) == 1 and M.fly_frame(64, 16, 2, 9, 100, true, false, 0, 0) == 0, "loop, interval")
+	check(M.fly_frame(64, 16, 1, 1, 100, true, true, 2, 4) == 1 and M.fly_frame(64, 16, 1, 2, 100, true, true, 2, 4) == 2 and M.fly_frame(64, 16, 1, 5, 100, true, true, 2, 4) == 3 and M.fly_frame(64, 16, 1, 6, 100, true, true, 2, 4) == 2, "sub loop 2..4")
+	check(M.fly_frame(64, 16, 1, 7, 100, true, true, 3, 3) == 3, "sub loop with one frame")
+	check(M.frame_index(64, 16, 1, 6, 5, 10, false, false, 0, 0) == 2 * 4 + 2 and M.frame_index(64, 16, 1, 6, 11, 10, false, false, 0, 0) == -1, "the sprite frame of direction 6 (block 2)")
+	# the vanish movie: 6 frames of one block, interval 2 -> 12 frames long, one frame every 2
+	check(M.special_frame(6, 1, 2, 20, 0) == 0 and M.special_frame(6, 1, 2, 20, 3) == 1 and M.special_frame(6, 1, 2, 20, 11) == 5 and M.special_frame(6, 1, 2, 20, 12) == -1, "special movie")

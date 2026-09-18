@@ -734,3 +734,61 @@ TEST_CASE("a missile whose launcher left the map or changed camp is dropped", "[
     a.w.tick();
     CHECK(a.w.missle_count() == 0);
 }
+
+TEST_CASE("the clients hear a missile: born, the first flying frame and every sixth, gone (G2C_MISSLE)", "[missle]")
+{
+    // the 2.0 client re-runs CastMissles itself; here the zone tells the watchers of the launcher (docs/CLIENT-2.0.md §11)
+    Arena a;
+    a.h->watchers = {7};   // the hero's own client sees the hero
+    KSkill s = *KSkill::basic_attack(1);   // template 64: WaitTime 5, life 6, speed 20
+    s.row.use_attack_rate = false;
+    s.row.do_hurt = 0;
+    KSubWorld::KCastParams p;
+    p.target = a.pig;
+    a.w.take_outbox();
+    REQUIRE(a.w.skill_cast(s, *a.h, p));
+    const auto packets = [](std::vector<Packet> all) {
+        std::vector<jx::pb::MissleSync> out;
+        for (const Packet& pk : all) {
+            if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_MISSLE)) continue;
+            jx::pb::MissleSync m;
+            REQUIRE(m.ParseFromString(pk.payload));
+            out.push_back(m);
+        }
+        return out;
+    };
+    auto born = packets(a.w.take_outbox());
+    REQUIRE(born.size() == 1);
+    CHECK(born[0].status() == 0);
+    CHECK(born[0].missle_id() == 64);
+    CHECK(born[0].skill_id() == 1);
+    CHECK((born[0].x() == 2000 && born[0].y() == 2000));
+    CHECK(born[0].start_life_time() == 5);
+    CHECK(born[0].life_time() == 11);
+    CHECK(born[0].speed() == 20);
+    CHECK_FALSE(born[0].removed());
+    // frames 0..4 wait: nothing; frame 5 flies (the first flying frame at 2020); frame 11 would be the sixth after
+    a.ticks(7);
+    auto fly = packets(a.w.take_outbox());
+    REQUIRE(fly.size() == 1);
+    CHECK(fly[0].status() == 1);
+    CHECK(fly[0].x() == 2020);
+    CHECK(fly[0].current_life() == 5);
+    CHECK(fly[0].index() == born[0].index());
+    // the life ends at frame 11 (frames 7..11): the removal is told once
+    a.ticks(5);
+    auto gone = packets(a.w.take_outbox());
+    REQUIRE(!gone.empty());
+    CHECK(gone.back().removed());
+    CHECK(gone.back().status() == 2);
+    CHECK(a.w.missle_count() == 0);
+    // the blow at frame 7 (2050, the pig's cell) is told as a collision at the missile's spot
+    bool hit = false;
+    for (const auto& g : gone) {
+        if (g.collided()) {
+            hit = true;
+            CHECK((g.x() == 2050 && !g.removed()));
+        }
+    }
+    CHECK(hit);
+}

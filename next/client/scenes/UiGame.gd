@@ -4,6 +4,8 @@ extends Node2D
 
 const NpcScript := preload("res://scenes/KNpc.gd")
 const ObjScript := preload("res://scenes/KObj.gd")
+const MissleScript := preload("res://scenes/KMissle.gd")
+const MissleEffectScript := preload("res://scenes/KMissleEffect.gd")
 const ENTITY_DROP := 4
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
@@ -55,6 +57,7 @@ func _ready() -> void:
 	Game.entity_despawn.connect(_on_despawn)
 	Game.entity_move.connect(_on_move)
 	Game.entity_action.connect(_on_action)
+	Game.missle_sync.connect(_on_missle)
 	Game.entity_life.connect(_on_life)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
@@ -290,6 +293,49 @@ func _leave() -> void:
 	get_tree().change_scene_to_file("res://scenes/UiShell.tscn")
 
 
+
+# ---- the missiles (G2C_MISSLE): KMissle nodes in the entity layer, one per slot while it lives -----------------
+var _missles := {}
+var _missle_spawns := 0
+var _missle_effects := 0
+
+
+func _on_missle(d: Dictionary) -> void:
+	var idx := int(d.get("index", 0))
+	var node = _missles.get(idx)
+	if bool(d.get("collided", false)):
+		# KMissle::DoCollision: the collision movie (AnimFile4) at the spot; the missile flies on
+		var row := Game.missle_row(int(d.get("missle_id", 0)))
+		var anims: Array = row.get("anims", [])
+		if anims.size() > 3 and anims[3] is Dictionary and str(anims[3].get("sprite", "")) != "":
+			var fx = MissleEffectScript.new()
+			_entity_layer.add_child(fx)
+			fx.setup(anims[3], int(d.get("dir", 0)), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), int(d.get("z", 0)))
+			_missle_effects += 1
+		if node != null:
+			node.apply(d)
+		return
+	if node == null:
+		if bool(d.get("removed", false)):
+			return   # a missile this client never saw fly: nothing to end
+		node = MissleScript.new()
+		_entity_layer.add_child(node)
+		_missles[idx] = node
+		node.gone.connect(func(i: int): _missles.erase(i))
+		node.setup(d, Game.missle_row(int(d.get("missle_id", 0))))
+		_missle_spawns += 1
+		return
+	node.apply(d)
+
+
+func _clear_missles() -> void:
+	for idx in _missles.keys():
+		var node = _missles[idx]
+		if node != null and is_instance_valid(node):
+			node.queue_free()
+	_missles.clear()
+
+
 # ---- world events --------------------------------------------------------------------------
 
 func _add_entity(d: Dictionary) -> void:
@@ -404,6 +450,7 @@ func _auto_run() -> void:
 	await _auto_skills()
 	await _auto_fight()
 	await _auto_death()
+	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size()])
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout
@@ -723,6 +770,18 @@ func _auto_skills() -> void:
 		# makes the pick castable, the way a player does it
 		Game.add_skill_point(pick)
 		await get_tree().create_timer(0.5).timeout
+		# the tip before the cast at the monster: it fights back, and a dead character shows no tip (npc3 kills a level 20 in a second)
+		# the tip of the picked skill (KSkill::GetDesc 0x006FBC90): shown, the zone's numbers asked, shown again with them
+		if _windows != null and pick > 0:
+			_windows._show_skill_tip(pick)
+			await get_tree().create_timer(0.6).timeout
+			_windows._show_skill_tip(pick)
+			await get_tree().create_timer(0.2).timeout
+			await _save_screenshot("user://logs/auto_skill_tip.png")
+			var tip_desc = Game.skill_desc(pick, int(Game.skills.get(pick, {}).get("level", 0)))
+			var tip_text := _windows.skill_tip_text(pick)
+			print("AUTO_SKILL_TIP skill=%d answered=%s cur_attribs=%d next=%s lines=%d" % [pick, tip_desc != null, (tip_desc.cur.attribs.size() if tip_desc != null and tip_desc.get("has_cur", false) else -1), (tip_desc.get("has_next", false) if tip_desc != null else false), tip_text.split("\n").size()])
+			_windows._show_skill_tip(0)
 		var own := _own()
 		var best: Node2D = null
 		var best_d := 400.0
@@ -755,17 +814,6 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_cast.png")
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]
 	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told, "faction": Game.faction_last, "branches": titles})
-	# the tip of the picked skill (KSkill::GetDesc 0x006FBC90): shown, the zone's numbers asked, shown again with them
-	if _windows != null and pick > 0:
-		_windows._show_skill_tip(pick)
-		await get_tree().create_timer(0.6).timeout
-		_windows._show_skill_tip(pick)
-		await get_tree().create_timer(0.2).timeout
-		await _save_screenshot("user://logs/auto_skill_tip.png")
-		var tip_desc = Game.skill_desc(pick, int(Game.skills.get(pick, {}).get("level", 0)))
-		var tip_text := _windows.skill_tip_text(pick)
-		print("AUTO_SKILL_TIP skill=%d answered=%s cur_attribs=%d next=%s lines=%d" % [pick, tip_desc != null, (tip_desc.cur.attribs.size() if tip_desc != null and tip_desc.get("has_cur", false) else -1), (tip_desc.get("has_next", false) if tip_desc != null else false), tip_text.split("\n").size()])
-		_windows._show_skill_tip(0)
 	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s faction=%d branches=%s" % [Game.skills.size(), placed, pick, cast_told, Game.faction_last, "|".join(titles)])
 
 

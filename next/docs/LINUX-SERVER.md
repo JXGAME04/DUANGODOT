@@ -515,6 +515,8 @@ chết của người chơi và PK (`[0x8BADF50]` = `PKRate.ini rate` — đã t
 
 ## 13. Hệ đạn — `CastMissles` / `KMissle` / `missles.txt` (M12 lát B2b, đã kiểm từng dòng)
 
+> Client: server 2.0 không đồng bộ đạn (client tự chạy `CastMissles` từ gói 0x5a); zone mới báo `G2C_MISSLE` khi sinh / bay (mỗi 6 khung) / tan — sai khác có chủ ý, `CLIENT-2.0.md` §11 (M12 lát B4c-3).
+
 Zone: `server/zone/src/KMissle.cpp` (bảng mẫu, sinh đạn 6 hàm, bay, va chạm, sự kiện — đều là hàm thành viên
 `KSubWorld`), `include/jx/zone/KMissle.h` (`KMissleTemplate`, `KMissleTable`, `struct KMissle` tên theo `Core/Src/KMissle.h`
 cũ, ghi kèm offset JX2), test `tests/test_KMissle.cpp` (14 ca, mọi toạ độ/khung tính tay từ lệnh máy). Go:

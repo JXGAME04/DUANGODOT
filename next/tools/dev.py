@@ -293,6 +293,9 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
     # rest of the api) for whoever types it - never on a server players can reach
     if os.environ.get("JX_GM_CHAT", "1") != "0":
         zone_cmd += ["--set", "zone.gm_chat=true"]
+    # JX_ZONE_LOG_LEVEL=trace: the zone's decisions frame by frame (a fight that does nothing, a dropped command)
+    if os.environ.get("JX_ZONE_LOG_LEVEL"):
+        zone_cmd += ["--log-level", os.environ["JX_ZONE_LOG_LEVEL"]]
     # a checkout without the exported game data (CI, a fresh clone): the zone refuses to start
     # with a map it cannot find, so it gets the built-in flat test world instead, and says so
     map_dir = zone_config_string("map_dir")
@@ -473,6 +476,8 @@ def cmd_assets(map_ids: list[str]) -> None:
     if subprocess.call([*jxassets_args(), "export-skill-desc", "-out", out], cwd=ROOT) != 0:
         print("export-skill-desc: no lang/vn/stringtable_core.txt, magicdesc.ini or gamesetting.ini in the client's archives - the skill tip shows the name only")
     # the missile table (settings/missles.txt): the templates the skills fire (the zone's KMissleTable)
+    if subprocess.call([*jxassets_args(), "export-missle-res", "-out", out], cwd=ROOT) != 0:
+        print("export-missle-res: no settings/missles.txt in the client's archives - the missiles fly unseen")
     if subprocess.call([*jxassets_args(), "export-missles", "-out", out], cwd=ROOT) != 0:
         print("export-missles: no settings/missles.txt in the reference server folder - the skills fire the built-in basic attacks only")
     # the weapon -> physical skill table (settings/武器物理攻击对照表.txt): which attack a weapon swings

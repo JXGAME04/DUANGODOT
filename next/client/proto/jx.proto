@@ -461,6 +461,28 @@ message SkillDescLevel {         // what the level script left in the KSkill of 
   repeated SkillDescAppend appends = 6;
 }
 
+message MissleSync {             // G2C_MISSLE: a KMissle of the zone as KMissle::Paint / KMissleRes::Draw of the old client draw it
+  uint32 index = 1;              // the slot of KMissleSet: the key of a missile while it lives
+  uint32 missle_id = 2;          // the row of missles.txt (AnimFile*, LoopPlay, Sub*, MultiShow)
+  uint32 skill_id = 3;
+  uint32 level = 4;
+  uint64 launcher = 5;
+  int32 x = 6;                   // scene units (the cell * 32 + the offset / 1024)
+  int32 y = 7;
+  int32 z = 8;                   // m_nCurrentMapZ (the height >> 10)
+  uint32 dir = 9;                // 0 to 63
+  int32 x_factor = 10;           // the flight vector, x1024 per unit of speed
+  int32 y_factor = 11;
+  int32 speed = 12;              // units a frame
+  int32 life_time = 13;          // frames, the start delay included
+  int32 start_life_time = 14;
+  int32 current_life = 15;       // frames since creation when this was sent
+  uint32 status = 16;            // 0 wait, 1 fly, 2 vanished
+  bool removed = 17;             // the slot is freed: the vanish movie, then nothing
+  uint32 move_kind = 18;
+  bool collided = 19;            // a blow landed this frame at (x, y): the collision movie (AnimFile4) plays there (KMissle::DoCollision)
+}
+
 message SkillDesc {              // G2C_SKILL_DESC
   uint32 skill_id = 1;
   bool with_cur = 2;             // cur is filled (a bool of its own: the C++ generator owns has_cur())
@@ -692,6 +714,7 @@ enum MsgId {
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
   G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
   G2C_SKILL_DESC = 2123;       // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
+  G2C_MISSLE = 2124;           // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

@@ -1585,6 +1585,40 @@ void KSubWorld::skill_desc_request(std::uint64_t sid, int skill_id, int level)
     emit({sid}, static_cast<std::uint16_t>(pb::G2C_SKILL_DESC), d);
 }
 
+// The 2.0 client re-runs CastMissles itself from the 0x5a packet (KMissle of the client, missles.txt of the client) and
+// the server never syncs a missile; the zone already flies them, so here the clients around the launcher hear of each
+// one: born (status wait), flying (the first flying frame, then every 6 frames), gone (the slot freed).  The fields are
+// what KMissle::Paint / KMissleRes::Draw of the old client need.  A deliberate deviation, docs/CLIENT-2.0.md §11.
+void KSubWorld::emit_missle(const KMissle& m, bool removed, bool collided)
+{
+    if (!m.used()) return;
+    const KNpc* launcher = entities_.find(m.launcher);
+    if (launcher == nullptr || launcher->watchers.empty()) return;
+    pb::MissleSync s;
+    s.set_index(static_cast<std::uint32_t>(m.index));
+    s.set_missle_id(static_cast<std::uint32_t>(std::max(0, m.missle_id)));
+    s.set_skill_id(static_cast<std::uint32_t>(std::max(0, m.skill_id)));
+    s.set_level(static_cast<std::uint32_t>(std::max(0, m.level)));
+    s.set_launcher(m.launcher.value);
+    const Pos at = missle_pos(m);
+    s.set_x(at.x);
+    s.set_y(at.y);
+    s.set_z(m.map_z);
+    s.set_dir(static_cast<std::uint32_t>(std::clamp(m.dir, 0, 63)));
+    s.set_x_factor(m.x_factor);
+    s.set_y_factor(m.y_factor);
+    s.set_speed(m.speed);
+    s.set_life_time(m.life_time);
+    s.set_start_life_time(m.start_life_time);
+    s.set_current_life(m.current_life);
+    s.set_status(static_cast<std::uint32_t>(std::max(0, m.status)));
+    s.set_removed(removed);
+    s.set_move_kind(static_cast<std::uint32_t>(std::max(0, m.move_kind)));
+    s.set_collided(collided);
+    log::trace("zone.fight", "missile sync", {log::kv("missle", m.index), log::kv("skill", m.skill_id), log::kv("status", m.status), log::kv("removed", removed), log::kv("collided", collided)});
+    emit(launcher->watchers, static_cast<std::uint16_t>(pb::G2C_MISSLE), s);
+}
+
 // KNpc::SetCamp 0x0807B7B0: m_Camp = camp; a player's hook list +0x8078 (nothing here); the 0x59 packet around
 void KSubWorld::set_camp(KNpc& e, int camp)
 {

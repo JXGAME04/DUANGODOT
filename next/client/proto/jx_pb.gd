@@ -6610,6 +6610,376 @@ class SkillDescLevel:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class MissleSync:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__index = PBField.new("index", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __index
+		data[__index.tag] = service
+		
+		__missle_id = PBField.new("missle_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __missle_id
+		data[__missle_id.tag] = service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__launcher = PBField.new("launcher", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __launcher
+		data[__launcher.tag] = service
+		
+		__x = PBField.new("x", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __x
+		data[__x.tag] = service
+		
+		__y = PBField.new("y", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __y
+		data[__y.tag] = service
+		
+		__z = PBField.new("z", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __z
+		data[__z.tag] = service
+		
+		__dir = PBField.new("dir", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __dir
+		data[__dir.tag] = service
+		
+		__x_factor = PBField.new("x_factor", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __x_factor
+		data[__x_factor.tag] = service
+		
+		__y_factor = PBField.new("y_factor", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 11, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __y_factor
+		data[__y_factor.tag] = service
+		
+		__speed = PBField.new("speed", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __speed
+		data[__speed.tag] = service
+		
+		__life_time = PBField.new("life_time", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 13, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __life_time
+		data[__life_time.tag] = service
+		
+		__start_life_time = PBField.new("start_life_time", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 14, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __start_life_time
+		data[__start_life_time.tag] = service
+		
+		__current_life = PBField.new("current_life", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 15, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __current_life
+		data[__current_life.tag] = service
+		
+		__status = PBField.new("status", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 16, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __status
+		data[__status.tag] = service
+		
+		__removed = PBField.new("removed", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 17, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __removed
+		data[__removed.tag] = service
+		
+		__move_kind = PBField.new("move_kind", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 18, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __move_kind
+		data[__move_kind.tag] = service
+		
+		__collided = PBField.new("collided", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 19, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __collided
+		data[__collided.tag] = service
+		
+	var data = {}
+	
+	var __index: PBField
+	func has_index() -> bool:
+		if __index.value != null:
+			return true
+		return false
+	func get_index() -> int:
+		return __index.value
+	func clear_index() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__index.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_index(value : int) -> void:
+		__index.value = value
+	
+	var __missle_id: PBField
+	func has_missle_id() -> bool:
+		if __missle_id.value != null:
+			return true
+		return false
+	func get_missle_id() -> int:
+		return __missle_id.value
+	func clear_missle_id() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__missle_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_missle_id(value : int) -> void:
+		__missle_id.value = value
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __launcher: PBField
+	func has_launcher() -> bool:
+		if __launcher.value != null:
+			return true
+		return false
+	func get_launcher() -> int:
+		return __launcher.value
+	func clear_launcher() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__launcher.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_launcher(value : int) -> void:
+		__launcher.value = value
+	
+	var __x: PBField
+	func has_x() -> bool:
+		if __x.value != null:
+			return true
+		return false
+	func get_x() -> int:
+		return __x.value
+	func clear_x() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__x.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_x(value : int) -> void:
+		__x.value = value
+	
+	var __y: PBField
+	func has_y() -> bool:
+		if __y.value != null:
+			return true
+		return false
+	func get_y() -> int:
+		return __y.value
+	func clear_y() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_y(value : int) -> void:
+		__y.value = value
+	
+	var __z: PBField
+	func has_z() -> bool:
+		if __z.value != null:
+			return true
+		return false
+	func get_z() -> int:
+		return __z.value
+	func clear_z() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__z.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_z(value : int) -> void:
+		__z.value = value
+	
+	var __dir: PBField
+	func has_dir() -> bool:
+		if __dir.value != null:
+			return true
+		return false
+	func get_dir() -> int:
+		return __dir.value
+	func clear_dir() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__dir.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_dir(value : int) -> void:
+		__dir.value = value
+	
+	var __x_factor: PBField
+	func has_x_factor() -> bool:
+		if __x_factor.value != null:
+			return true
+		return false
+	func get_x_factor() -> int:
+		return __x_factor.value
+	func clear_x_factor() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__x_factor.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_x_factor(value : int) -> void:
+		__x_factor.value = value
+	
+	var __y_factor: PBField
+	func has_y_factor() -> bool:
+		if __y_factor.value != null:
+			return true
+		return false
+	func get_y_factor() -> int:
+		return __y_factor.value
+	func clear_y_factor() -> void:
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__y_factor.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_y_factor(value : int) -> void:
+		__y_factor.value = value
+	
+	var __speed: PBField
+	func has_speed() -> bool:
+		if __speed.value != null:
+			return true
+		return false
+	func get_speed() -> int:
+		return __speed.value
+	func clear_speed() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__speed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_speed(value : int) -> void:
+		__speed.value = value
+	
+	var __life_time: PBField
+	func has_life_time() -> bool:
+		if __life_time.value != null:
+			return true
+		return false
+	func get_life_time() -> int:
+		return __life_time.value
+	func clear_life_time() -> void:
+		data[13].state = PB_SERVICE_STATE.UNFILLED
+		__life_time.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_life_time(value : int) -> void:
+		__life_time.value = value
+	
+	var __start_life_time: PBField
+	func has_start_life_time() -> bool:
+		if __start_life_time.value != null:
+			return true
+		return false
+	func get_start_life_time() -> int:
+		return __start_life_time.value
+	func clear_start_life_time() -> void:
+		data[14].state = PB_SERVICE_STATE.UNFILLED
+		__start_life_time.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_start_life_time(value : int) -> void:
+		__start_life_time.value = value
+	
+	var __current_life: PBField
+	func has_current_life() -> bool:
+		if __current_life.value != null:
+			return true
+		return false
+	func get_current_life() -> int:
+		return __current_life.value
+	func clear_current_life() -> void:
+		data[15].state = PB_SERVICE_STATE.UNFILLED
+		__current_life.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_current_life(value : int) -> void:
+		__current_life.value = value
+	
+	var __status: PBField
+	func has_status() -> bool:
+		if __status.value != null:
+			return true
+		return false
+	func get_status() -> int:
+		return __status.value
+	func clear_status() -> void:
+		data[16].state = PB_SERVICE_STATE.UNFILLED
+		__status.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_status(value : int) -> void:
+		__status.value = value
+	
+	var __removed: PBField
+	func has_removed() -> bool:
+		if __removed.value != null:
+			return true
+		return false
+	func get_removed() -> bool:
+		return __removed.value
+	func clear_removed() -> void:
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__removed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_removed(value : bool) -> void:
+		__removed.value = value
+	
+	var __move_kind: PBField
+	func has_move_kind() -> bool:
+		if __move_kind.value != null:
+			return true
+		return false
+	func get_move_kind() -> int:
+		return __move_kind.value
+	func clear_move_kind() -> void:
+		data[18].state = PB_SERVICE_STATE.UNFILLED
+		__move_kind.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_move_kind(value : int) -> void:
+		__move_kind.value = value
+	
+	var __collided: PBField
+	func has_collided() -> bool:
+		if __collided.value != null:
+			return true
+		return false
+	func get_collided() -> bool:
+		return __collided.value
+	func clear_collided() -> void:
+		data[19].state = PB_SERVICE_STATE.UNFILLED
+		__collided.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_collided(value : bool) -> void:
+		__collided.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class SkillDesc:
 	extends RefCounted
 	func _init():
@@ -8254,6 +8624,7 @@ enum MsgId {
 	G2C_PLAYER_FACTION = 2121,
 	G2C_ENTITY_STATE = 2122,
 	G2C_SKILL_DESC = 2123,
+	G2C_MISSLE = 2124,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

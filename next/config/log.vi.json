@@ -28,6 +28,9 @@
     "bot": "bot"
   },
   "fields": {
+    "status": "trạng thái",
+    "removed": "đã gỡ / tan",
+    "collided": "đạn vừa chạm (một đòn trúng)",
     "account": "tài khoản",
     "account_id": "mã tài khoản",
     "accounts": "số tài khoản",
@@ -569,6 +572,7 @@
     "skill cast refused": "KNpc::CastSkill từ chối thi triển (hết hồi chiêu chưa, mục tiêu, phí, kiểu 1)",
     "skill cast": "Bắt đầu hành động thi triển kỹ năng (bắn ở 60 % số khung)",
     "skill desc": "Trả lời số liệu một cấp kỹ năng cho chú thích của client (chi phí, phạm vi, thuộc tính; gói G2C_SKILL_DESC)",
+    "missile sync": "Báo client một viên đạn: sinh / đang bay (mỗi 6 khung) / tan (gói G2C_MISSLE)",
     "weapon skill table loaded": "Đã nạp bảng vũ khí → kỹ năng vật lý",
     "no weapon skill table": "Không có bảng vũ khí → kỹ năng vật lý (dùng đánh thường 1/2)",
     "faction table loaded": "Đã nạp bảng môn phái (门派设定.ini: 11 môn phái, ngũ hành, phe, tên)",

@@ -425,6 +425,7 @@ KMissle* KSubWorld::missle_fire(const KSkill& skill, const KOrdinSkillParam& ctx
         }
     }
     m->attribs = list;
+    emit_missle(*m, false);   // born: the clients around hear of it (G2C_MISSLE)
     return m;
 }
 
@@ -934,10 +935,12 @@ void KSubWorld::activate_missles()
         KMissle& m = missles_[i];
         if (!m.used()) continue;
         if (m.status == missle_status_vanished) {
+            emit_missle(m, true);
             missle_remove(m);
         } else if (!m.on_map) {
             // a missile HeelAtParent moved off the map sits in the binary with region -1 for good
             log::trace("zone.fight", "missile off the map", {log::kv("missle", m.index), log::kv("skill", m.skill_id)});
+            emit_missle(m, true);
             missle_remove(m);
         }
     }
@@ -995,6 +998,8 @@ void KSubWorld::missle_frame(KMissle& m)
         return;
     }
     missle_activate(m);
+    // the first flying frame and every sixth after it: where it is now (G2C_MISSLE); the client flies it in between
+    if (m.used() && m.status == missle_status_fly && (frame == m.start_life_time || (frame - m.start_life_time) % 6 == 0)) emit_missle(m, false);
     if (m.fly_event) {   // 0x08076AE8: FlySkillId every FlyEventTime frames of flight
         if (m.fly_event_time > 0 && (m.current_life - m.start_life_time) % m.fly_event_time == 0) {
             if (m.level <= 0) return;   // 0x08076B12: without counting the frame
@@ -1469,6 +1474,7 @@ int KSubWorld::missle_process_collision(KMissle& m, int range)
         if (missle_process_damage(m, *e)) ++hits;
         if (m.status == missle_status_vanished) break;
     }
+    if (hits > 0) emit_missle(m, false, true);   // KMissle::DoCollision on the client: the collision movie at the spot
     return hits;
 }
 

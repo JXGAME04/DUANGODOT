@@ -1214,6 +1214,116 @@ func main() {
 		}
 		fmt.Printf("export-skill-desc: %d chuoi G_*, %d mo ta thuoc tinh, %d SkillAttrib, %d WeaponLimit -> %s\n", len(strTable), len(descript), len(skillAttrib), len(weaponLimit), p)
 
+	case "export-missle-res":
+		// the drawing side of \settings\missles.txt for the client (KMissle::Init of the old core, KMissle.cpp 242..282:
+		// AnimFile1..4 / AnimFileInfo "frames,dirs,interval" / SndFile1..4 for the statuses wait, fly, vanish, collision,
+		// the B set MultiShow picks at random, LoopPlay, SubLoop, SubStart, SubStop) -> <out>/missles/missle_res.json,
+		// plus the sprites of the missiles the skills of <out>/skills.json fire (their ChildSkillId).  docs/CLIENT-2.0.md §11
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		f, e, ok := set.Lookup(gamePath("\\settings\\missles.txt"))
+		if !ok {
+			fail("no settings/missles.txt in the client's archives")
+		}
+		data, err := f.Read(e)
+		if err != nil {
+			fail("missles.txt: %v", err)
+		}
+		tab := npcres.ParseTab(data)
+		want := map[int]bool{}
+		if sk, err := os.ReadFile(filepath.Join(out, "skills.json")); err == nil {
+			var doc struct {
+				Rows []struct {
+					Cells map[string]string `json:"cells"`
+				} `json:"rows"`
+			}
+			if json.Unmarshal(sk, &doc) == nil {
+				for _, r := range doc.Rows {
+					if v, err := strconv.Atoi(strings.TrimSpace(r.Cells["ChildSkillId"])); err == nil && v > 0 {
+						want[v] = true
+					}
+				}
+			}
+		}
+		ex := export.New(set, out)
+		type anim struct {
+			Sprite   string `json:"sprite"`
+			Frames   int    `json:"frames"`
+			Dirs     int    `json:"dirs"`
+			Interval int    `json:"interval"`
+			Sound    string `json:"sound"`
+		}
+		parseInfo := func(s string) (int, int, int) {
+			parts := strings.Split(strings.Trim(strings.TrimSpace(s), "\""), ",")
+			get := func(i, def int) int {
+				if i < len(parts) {
+					if v, err := strconv.Atoi(strings.TrimSpace(parts[i])); err == nil {
+						return v
+					}
+				}
+				return def
+			}
+			frames, dirs, interval := get(0, 100), get(1, 16), get(2, 1)
+			if interval <= 0 {
+				interval = 1
+			}
+			return frames, dirs, interval
+		}
+		rows := map[string]any{}
+		sprites := 0
+		for r := 2; r <= tab.Height(); r++ {
+			id, err := strconv.Atoi(strings.TrimSpace(tab.GetByName(r, "MissleId")))
+			if err != nil || id <= 0 {
+				continue
+			}
+			if len(want) > 0 && !want[id] {
+				continue
+			}
+			mk := func(prefix string) []anim {
+				list := make([]anim, 4)
+				for i := 0; i < 4; i++ {
+					n := strconv.Itoa(i + 1)
+					path := strings.TrimSpace(tab.GetByName(r, "AnimFile"+prefix+n))
+					if path == "" {
+						continue
+					}
+					frames, dirs, interval := parseInfo(tab.GetByName(r, "AnimFileInfo"+prefix+n))
+					sid := ex.SpriteID(path)
+					if sid != "" {
+						sprites++
+					}
+					list[i] = anim{Sprite: sid, Frames: frames, Dirs: dirs, Interval: interval, Sound: text.DecodeMixed([]byte(tab.GetByName(r, "SndFile"+prefix+n)))}
+				}
+				return list
+			}
+			num := func(col string) int {
+				v, _ := strconv.Atoi(strings.TrimSpace(tab.GetByName(r, col)))
+				return v
+			}
+			rows[strconv.Itoa(id)] = map[string]any{
+				"name": text.DecodeMixed([]byte(tab.GetByName(r, "MissleName"))), "loop": num("LoopPlay") != 0, "sub_loop": num("SubLoop") != 0,
+				"sub_start": num("SubStart"), "sub_stop": num("SubStop"), "multi_show": num("MultiShow") != 0, "height": num("MissleHeight"),
+				"anims": mk(""), "anims_b": mk("B"),
+			}
+		}
+		p := filepath.Join(out, "missles", "missle_res.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			fail("%v", err)
+		}
+		doc := map[string]any{"source": "the client's archives: \\settings\\missles.txt (the drawing columns)", "rows": rows}
+		js, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(p, js, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-missle-res: %d dan (theo ChildSkillId cua %d ky nang), %d sprite (%d moi) -> %s\n", len(rows), len(want), sprites, ex.Exported, p)
+
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):
 		// data for the zone, sprites for the client -> <out>/objdata.json, <out>/sprites.  With

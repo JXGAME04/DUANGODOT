@@ -161,6 +161,9 @@ func refSpot(width, centerX, centerY int) [2]int {
 	return [2]int{0, 0}
 }
 
+// SpriteID exports a sprite once (the atlas under sprites/) and returns its id, "" when it cannot be read.
+func (e *Exporter) SpriteID(gamePath string) string { return e.spriteID(gamePath) }
+
 // spriteID exports a sprite once and returns its id ("" when it cannot be decoded).
 func (e *Exporter) spriteID(gamePath string) string {
 	if id, ok := e.sprites[gamePath]; ok {

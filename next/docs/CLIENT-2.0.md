@@ -322,3 +322,33 @@ name, v0, v1, v2}], appends[{skill_id, value}]}, has_next, next, max_level}` t�
 `ulCurLevel == 0`); test `[command]` "the skill tip". Client: `KProtocolProcess.skill_desc_request / skill_desc / skill_text / skill_row / skill_name`,
 `KUiSkillDesc.gd` (`build`, `level_lines`, test `test_skill_desc`), `KMagicDesc.describe_line` (bổ sung; `describe({type, value})` của vật phẩm giữ nguyên),
 `KUiGameWindows._show_skill_tip` (sổ + cây; phần tĩnh hiện ngay, số liệu khi zone trả). `--auto` chụp `auto_skill_tip.png` → `AUTO_SKILL_TIP skill=14 answered=true cur_attribs=2 next=true lines=30 (auto_skill_tip.png: tên vàng, mô tả, Võ công lưu phái, Cấp hiện tại, tiêu hao/phạm vi/sát thương/6 dòng tăng kỹ năng, Hạn chế vũ khí, Đẳng cấp tiếp theo đỏ)`.
+
+## 11. Đạn trên client — `KMissle::Paint` / `KMissleRes::Draw` (M12 lát B4c-3; sai khác có chủ ý: zone báo đạn)
+
+Bản 2.0 (như JX1, `Core/Src/KMissle.cpp` biên dịch cho client) **không** nhận đạn từ server: client nhận gói thi triển 0x5a rồi tự chạy `CastMissles`
+(cùng mã với server, `missles.txt` của client) để tạo/bay/vẽ đạn; server chỉ tính va chạm và sát thương. Client mới **không** mô phỏng lại: zone đã bay đạn
+(`LINUX-SERVER.md` §13) nên zone báo cho các client quanh người bắn — `G2C_MISSLE` `MissleSync {index, missle_id, skill_id, level, launcher, x, y, z, dir,
+x_factor, y_factor, speed, life_time, start_life_time, current_life, status, removed, move_kind, collided}` khi **sinh** (trạng thái chờ, cuối `missle_fire`), **khung bay
+đầu tiên và mỗi 6 khung sau** (sau `missle_activate`), **va chạm** (`missle_process_collision` có ≥ 1 đòn trúng → cờ `collided`, đạn bay tiếp) và **tan**
+(`activate_missles` trước `missle_remove`, cả khi rơi khỏi bản đồ). Giữa hai gói client
+tự bay theo `KMissle::OnFly`: `pos += (factor · speed) / 1024` mỗi khung 18 fps; đường bay không thẳng (theo mục tiêu, vòng, quay về) lệch tối đa 6 khung.
+Sai khác có chủ ý so với 2.0 (không đổi hình ảnh, chỉ đổi nguồn dữ liệu); chi phí: một gói ~60 byte mỗi 6 khung mỗi viên đạn.
+
+**Dữ liệu vẽ** (`jxassets export-missle-res` → `client/assets/missles/missle_res.json` + sprite trong `sprites/`): `KMissle::Init` (`KMissle.cpp` 242..282) đọc
+mỗi dòng `missles.txt` bốn trạng thái `MS_DoWait 0, MS_DoFly 1, MS_DoVanish 2, MS_DoCollision 3` (`SkillDef.h` 43): `AnimFile{i+1}`, `AnimFileInfo{i+1}` =
+`"khung,hướng,nhịp"` (mặc định 100, 16, 1), `SndFile{i+1}`; bộ **B** (`AnimFileB*`) dùng thay bộ A với xác suất 1/2 khi `MultiShow` (`KMissle.cpp` 1704); `LoopPlay`,
+`SubLoop`, `SubStart`, `SubStop`. Chỉ xuất các đạn mà kỹ năng dùng (`ChildSkillId` của 451 kỹ năng trong `skills.json` → 423 đạn, 674 lượt sprite); bộ xuất `Exporter.SpriteID` ghi atlas như
+`export-npcres`. Bản zone `missles.json` cố ý bỏ các cột vẽ.
+
+| Mã cũ | Làm gì | Client mới |
+|---|---|---|
+| `KMissle::Paint` (`KMissle.cpp` 1519) | `Map2Mps` → toạ độ; không gia tốc Z → `m_MissleRes.Draw(trạng thái, x, y, z, m_nDir, life − start, cur − start)`; có gia tốc Z → hướng từ vector (`g_GetDirIndex(0,0,XFactor,YFactor)` → `g_DirIndex2Dir(…, 64)`); khi `m_bHaveEnd` và mọi phim đặc biệt đã hết → xoá đạn | `KMissle.gd` (`_place`: `to_screen(pos) − (0, z)`; hướng từ gói; hết phim tan → `gone` + `queue_free`) |
+| `KMissleRes::Draw` (`KMissleRes.cpp` 113) | `MS_DoFly`: `cur < 0` hay `all ≠ 0 && all < cur` → không vẽ; khối hướng `dir / (64/n)`, làm tròn lên khi phần dư `≥ 32/n`, `≥ n` → 0; `perDir = frames/n`; `all == 0 → perDir`; `LoopPlay`: `(cur/nhịp) % perDir` hoặc `SubLoop` (`cur/nhịp < SubStart` → `cur/nhịp`; `SubStart == SubStop` → `SubStart`; else `SubStart + ((cur − SubStart)/nhịp) % (SubStop − SubStart)`); không lặp: `perDir · cur / all`; `> perDir − 1` → không vẽ; khung = `khốiHướng · perDir + khung`; vẽ tại `(x − centerX, y − centerY)` | `KMissleResMath.sprite_dir / fly_frame / frame_index` (test `test_missle_math`) |
+| `KMissle::CreateSpecialEffect` (`KMissle.cpp` 1998) | phim đặc biệt (`MS_DoVanish` khi tan/`ColVanish`, `MS_DoCollision` khi chạm mà không tan): `AnimFile[trạng thái]`, tại `(x, y − 5, z)`, bắt đầu = giờ game, kết thúc = + `nhịp · khung`, hướng `g_DirIndex2Dir(m_nDirIndex, n)`; không có phim → chỉ tiếng | `KMissleResMath.special_frame` (khung = elapsed / nhịp trong khối hướng, hết sau `nhịp · perDir`); phim tan `AnimFile3` do `KMissle.gd` phát khi zone báo tan; phim va chạm `AnimFile4` do `KMissleEffect.gd` phát tại điểm khi zone báo `collided` |
+| `KMissle::DoVanish` (1765) / `DoCollision` (1792) | client: `m_bHaveEnd = TRUE`, `CreateSpecialEffect(MS_DoVanish)` khi `ColVanish`, else `MS_DoCollision` + tiếp tục bay | tan theo gói `removed`; va chạm theo gói `collided` (zone: `missle_process_collision` có ≥ 1 đòn trúng → `emit_missle(m, false, true)`) |
+
+Zone: `KSubWorld::emit_missle` (`KSubWorld.cpp`), gọi trong `missle_fire`, `missle_frame` (sau `missle_activate`), `missle_process_collision`, `activate_missles`; log `missile sync`; test
+`[missle]` "the clients hear a missile". Client: `KProtocolProcess.missle_sync / missle_row`, `scenes/KMissle.gd`, `scenes/KMissleResMath.gd`, `UiGame._on_missle`
+(node trong lớp thực thể, y-sort), `KMissleEffect.gd` (phim va chạm), `--auto` in `AUTO_MISSLE packets=137 spawned=41 effects=7 live=0 (AUTO_FIGHT actions=4 sau khi chuyển bước chú thích kỹ năng lên trước cú thi triển)`. Chưa: tiếng (`SndFile*`), `RedLum/GreenLum/BlueLum/
+LightRadius` (ánh sáng), `MissleHeight` khi bay (z chỉ lấy lúc sinh), gia tốc Z (`Zspeed/Zacc`) và hướng theo vector, đạn kiểu theo mục tiêu/vòng lệch tới
+6 khung, bộ B cho phim va chạm (luôn bộ A).
