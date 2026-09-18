@@ -28,12 +28,13 @@ const (
 type Action int32
 
 const (
-	Action_ACTION_STAND  Action = 0
-	Action_ACTION_ATTACK Action = 1 // frames = swing length in logic frames (18 Hz), dir = facing, target
-	Action_ACTION_HURT   Action = 2 // frames = hurt length (KNpc::DoHurt), pos = where the entity stands
-	Action_ACTION_DEATH  Action = 3 // frames = death animation; the corpse keeps the last frame until despawn
-	Action_ACTION_REVIVE Action = 4
-	Action_ACTION_JUMP   Action = 5 // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
+	Action_ACTION_STAND      Action = 0
+	Action_ACTION_ATTACK     Action = 1 // frames = swing length in logic frames (18 Hz), dir = facing, target
+	Action_ACTION_HURT       Action = 2 // frames = hurt length (KNpc::DoHurt), pos = where the entity stands
+	Action_ACTION_DEATH      Action = 3 // frames = death animation; the corpse keeps the last frame until despawn
+	Action_ACTION_REVIVE     Action = 4
+	Action_ACTION_JUMP       Action = 5 // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
+	Action_ACTION_KNOCK_BACK Action = 6 // KNpc::KnockBack 0x08087940 -> SendSyncAction 0x0807A970 (the 0x56 packet, doing 0x18): aim = the spot pushed to, frames = the frames of the push, target = who pushed
 )
 
 // Enum value maps for Action.
@@ -45,14 +46,16 @@ var (
 		3: "ACTION_DEATH",
 		4: "ACTION_REVIVE",
 		5: "ACTION_JUMP",
+		6: "ACTION_KNOCK_BACK",
 	}
 	Action_value = map[string]int32{
-		"ACTION_STAND":  0,
-		"ACTION_ATTACK": 1,
-		"ACTION_HURT":   2,
-		"ACTION_DEATH":  3,
-		"ACTION_REVIVE": 4,
-		"ACTION_JUMP":   5,
+		"ACTION_STAND":      0,
+		"ACTION_ATTACK":     1,
+		"ACTION_HURT":       2,
+		"ACTION_DEATH":      3,
+		"ACTION_REVIVE":     4,
+		"ACTION_JUMP":       5,
+		"ACTION_KNOCK_BACK": 6,
 	}
 )
 
@@ -4989,14 +4992,15 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04tick\x18\x03 \x01(\x04R\x04tick\"A\n" +
 	"\x04Kick\x12%\n" +
 	"\x06reason\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06reason\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text*t\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text*\x8b\x01\n" +
 	"\x06Action\x12\x10\n" +
 	"\fACTION_STAND\x10\x00\x12\x11\n" +
 	"\rACTION_ATTACK\x10\x01\x12\x0f\n" +
 	"\vACTION_HURT\x10\x02\x12\x10\n" +
 	"\fACTION_DEATH\x10\x03\x12\x11\n" +
 	"\rACTION_REVIVE\x10\x04\x12\x0f\n" +
-	"\vACTION_JUMP\x10\x05*d\n" +
+	"\vACTION_JUMP\x10\x05\x12\x15\n" +
+	"\x11ACTION_KNOCK_BACK\x10\x06*d\n" +
 	"\x0fPlayerAttribute\x12\x13\n" +
 	"\x0fATTRIB_STRENGTH\x10\x00\x12\x14\n" +
 	"\x10ATTRIB_DEXTERITY\x10\x01\x12\x13\n" +

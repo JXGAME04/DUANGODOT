@@ -48,6 +48,7 @@ func _init() -> void:
 	test_magic_desc()
 	test_skill_desc()
 	test_missle_math()
+	test_knock_back()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -57,10 +58,13 @@ func _init() -> void:
 func test_kmath_direction() -> void:
 	check(KMath.get_dir_index(0, 0, 0, 100) == 0, "down is 0")
 	check(KMath.get_dir_index(0, 0, -100, 0) == 16, "left is 16: %d" % KMath.get_dir_index(0, 0, -100, 0))
-	check(KMath.get_dir_index(0, 0, 0, -100) == 31, "up is 31 (x equal): %d" % KMath.get_dir_index(0, 0, 0, -100))
-	check(KMath.get_dir_index(0, 0, 100, 0) == 47, "right is 47: %d" % KMath.get_dir_index(0, 0, 100, 0))
+	check(KMath.get_dir_index(0, 0, 0, -100) == 32, "up is 32 (x equal, 0x005E8DB0: 64 - 32): %d" % KMath.get_dir_index(0, 0, 0, -100))
+	check(KMath.get_dir_index(0, 0, 100, 0) == 48, "right is 48 (64 - 16): %d" % KMath.get_dir_index(0, 0, 100, 0))
 	check(KMath.get_dir_index(0, 0, -100, 100) == 8, "down-left is 8")
-	check(KMath.get_dir_index(0, 0, 100, -100) == 39, "up-right is 39")
+	check(KMath.get_dir_index(0, 0, 100, -100) == 40, "up-right is 40: %d" % KMath.get_dir_index(0, 0, 100, -100))
+	check(KMath.get_dir_index(2000, 2000, 2050, 2000) == 48 and KMath.get_dir_index(2050, 2000, 2000, 2000) == 16, "east 48 / west 16 like the zone")
+	# the nearer cell wins: nsin 726 sits between sin[7] 791 and sin[8] 724 -> 8; (100, 10): nsin 101 -> sin[15] 100 (1 away) not sin[14] 199
+	check(KMath.get_dir_index(0, 0, -100, 10) == 15, "nearest cell: %d" % KMath.get_dir_index(0, 0, -100, 10))
 	check(KMath.get_dir_index(5, 5, 5, 5) == -1, "no movement")
 	check(KMath.dir64_to_sprite(0, 8) == 0 and KMath.dir64_to_sprite(16, 8) == 2 and KMath.dir64_to_sprite(31, 8) == 4
 		and KMath.dir64_to_sprite(63, 8) == 0 and KMath.dir64_to_sprite(47, 8) == 6, "64 directions to 8 sprite directions")
@@ -529,3 +533,18 @@ func test_missle_math() -> void:
 	check(M.frame_index(64, 16, 1, 6, 5, 10, false, false, 0, 0) == 2 * 4 + 2 and M.frame_index(64, 16, 1, 6, 11, 10, false, false, 0, 0) == -1, "the sprite frame of direction 6 (block 2)")
 	# the vanish movie: 6 frames of one block, interval 2 -> 12 frames long, one frame every 2
 	check(M.special_frame(6, 1, 2, 20, 0) == 0 and M.special_frame(6, 1, 2, 20, 3) == 1 and M.special_frame(6, 1, 2, 20, 11) == 5 and M.special_frame(6, 1, 2, 20, 12) == -1, "special movie")
+
+
+# ---- knock back on the client (KNpc::KnockBack 0x005EE950 / OnKnockBack 0x005EFE00 of gamecl.exe) ------------------
+func test_knock_back() -> void:
+	# ((spot - here) << 10) / frames left, truncated toward zero, in 1/1024 units: 96 << 10 = 98304, / 5 = 19660 (not 19660.8)
+	check(KMath.knock_step(Vector2(2050, 2000), Vector2(2146, 2000), 5) == Vector2(19660.0 / 1024.0, 0.0), "a fifth of 96, in 1/1024")
+	check(KMath.knock_step(Vector2(2146, 2000), Vector2(2050, 2000), 5) == Vector2(-19660.0 / 1024.0, 0.0), "toward zero when negative")
+	check(KMath.knock_step(Vector2(2050, 2000), Vector2(2146, 2000), 0) == Vector2(96.0, 0.0), "no frames left: the whole way")
+	# five frames of the zone's test (2050 -> 2146 in 5): the integer part of `here` is what the 2.0 client sees (Map2Mps)
+	var here := Vector2(2050, 2000)
+	for f in 5:
+		here += KMath.knock_step(here, Vector2(2146, 2000), 5 - f)
+	check(absf(here.x - 2146.0) < 1.0 and here.y == 2000.0, "arrives within a unit: %s" % str(here))
+	# facing: from the spot toward here (0x005E8DB0 of here - spot) - the pig pushed east looks west at the hero
+	check(KMath.get_dir_index(2146, 2000, 2050, 2000) == 16, "faces the pusher")

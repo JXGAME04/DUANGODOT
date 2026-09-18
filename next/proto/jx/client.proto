@@ -112,6 +112,7 @@ enum Action {
   ACTION_DEATH = 3;              // frames = death animation; the corpse keeps the last frame until despawn
   ACTION_REVIVE = 4;
   ACTION_JUMP = 5;               // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
+  ACTION_KNOCK_BACK = 6;         // KNpc::KnockBack 0x08087940 -> SendSyncAction 0x0807A970 (the 0x56 packet, doing 0x18): aim = the spot pushed to, frames = the frames of the push, target = who pushed
 }
 
 // An entity started an action (old NPC_HURT_SYNC / NPC_DEATH_SYNC / skill sync).

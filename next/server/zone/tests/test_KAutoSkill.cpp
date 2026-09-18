@@ -9,6 +9,7 @@
 #include <string>
 
 #include "jx/log.hpp"
+#include "jx/client.pb.h"
 #include "jx/msg.pb.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KMapData.h"
@@ -278,9 +279,28 @@ TEST_CASE("the knock back walks toward its spot in steps of the step length and 
     {
         Arena a(map);
         CHECK(a.p->cur.step_length == 12);
+        a.ticks(4);   // the hero's next look (every fourth tick): it learns the pig, spawned after its first look
+        a.w.take_outbox();
         a.w.knock_back(*a.p, *a.h, 5, 100);
         CHECK(a.p->doing == KDoing::knock_back);
         CHECK(a.p->knock_dest == Pos{2146, 2000});   // away from the hero (dir 16 -> right): 2050 + (8 x 12288 >> 10)
+        // SendSyncAction(0x18, x, y, frames, 0) 0x0807A970 - the 0x56 packet {0x56, id, doing, x, y, frames, 0} to the
+        // players around (0x0807A870, 22 bytes): ACTION_KNOCK_BACK with the spot, the frames, who pushed, the facing
+        int told = 0;
+        for (const Packet& pk : a.w.take_outbox()) {
+            if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_ACTION)) continue;
+            jx::pb::EntityAction act;
+            REQUIRE(act.ParseFromString(pk.payload));
+            if (act.entity_id() != a.pig.value || act.action() != jx::pb::ACTION_KNOCK_BACK) continue;
+            ++told;
+            CHECK(act.aim().x() == 2146);
+            CHECK(act.aim().y() == 2000);
+            CHECK(act.frames() == 5);
+            CHECK(act.target() == a.hero.value);
+            CHECK(act.dir() == a.p->dir);
+            CHECK(act.pos().x() == 2050);
+        }
+        CHECK(told == 1);
         a.ticks(5);
         CHECK(a.p->doing == KDoing::stand);
         CHECK(a.p->pos() == Pos{2146, 2000});

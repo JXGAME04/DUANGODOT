@@ -109,7 +109,7 @@ nên không port.
 | `0x00661EBC` (case `0x414` của `0x00661470`, bộ chia `0x005B8400`) | `skill = tham số / 10`, **`nhánh = tham số % 10`**; `0x00607B40(bảng 0x1AB35A0, skill, nhánh, &out)` → map `+0x462124`: skill → **nhánh** → `{ô, bậc}`; không có → `{−1, −1}` | `skill_ui.json` `place[skill][nhánh] = {slot, tier}` |
 | `0x00661E6A` (case `0x413`) | **`GetBranchTitle`**: `0x00604A60(bảng, PlayerData+0x12080 (môn phái gia nhập sau cùng), nhánh)` → 16 byte tên tại `+0x462130 + (môn phái·3 + nhánh)·16` (môn phái ≤ 10, nhánh ≤ 2), không có → rỗng | `skill_ui.json` `titles[faction][nhánh]`; `Game.faction_last` |
 | `0x00607860` | **nạp `\settings\skillui\skillui.txt`** (`KTabFile`): mỗi dòng cột 1 môn phái (≥ 11 → **dừng nạp**), cột 2 nhánh (≥ 3 → dừng), cột 3 tên (16 byte) vào ô tên; cột 4.. = **10 bậc × 3 ô** (`cmp ebx, 0xa`: `低级绝学 高级绝学 入门 10级 20级 30级 40级 50级 镇派 60级`; cột `120级/150级` của tiêu đề **không đọc**); id ≠ 0 → `map[id][nhánh] = {ô = ebp, bậc = ebx}` (`0x00607A30`); **cùng id lặp trong cùng nhánh → thoát nạp ngay** (`0x00607ABF`) | Go `jxold/skill/KSkillUi.go` (`ParseSkillUi`, `PlaceOf(id, nhánh)`, `TitleOf`, `Truncated`), `jxassets export-skill-ui` (23 dòng, 10 môn phái × 2–3 nhánh) |
-| `0x00651280` (ô `0x1f0/4 = 0x7c` của bảng handler `0x0065AEE0`, tức **gói `0x7b`** vì bảng lệch một: ô 0x5a = gói 0x59 camp) | gói `{0x7b, phe, môn phái hiện tại, môn phái sau cùng, dword số lần}`: `SetCamp(npc, byte+1)`, `+0x12078 = int8 +2`, **`+0x12080 = int8 +3`** (sau cùng), `+0x12084 = dword +4`, báo UI; `0x006511B0` (gói `0x7c`): `+0x12078 = −1`, phe 4 | `G2C_PLAYER_FACTION` → `Game.faction / faction_last / faction_count / camp`, tín hiệu `faction_changed` |
+| `0x00651280` (ô `0x1f0/4 = 0x7c` của bảng handler — mảng con trỏ `[obj + 4·(gói+1)]` điền trong hàm tạo `0x0065DCB0`, §12 — tức **gói `0x7b`** vì bảng lệch một: ô 0x5a = gói 0x59 camp) | gói `{0x7b, phe, môn phái hiện tại, môn phái sau cùng, dword số lần}`: `SetCamp(npc, byte+1)`, `+0x12078 = int8 +2`, **`+0x12080 = int8 +3`** (sau cùng), `+0x12084 = dword +4`, báo UI; `0x006511B0` (gói `0x7c`): `+0x12078 = −1`, phe 4 | `G2C_PLAYER_FACTION` → `Game.faction / faction_last / faction_count / camp`, tín hiệu `faction_changed` |
 | `0x006500C0` (ô 0x5a = gói `0x59`) | `{npc id dword +1, phe byte +5}` → `SetCamp` của npc | `G2C_ENTITY_CAMP` → `entities[id].camp / current_camp` |
 | `0x00472360` | `KUiPlayerBar::LoadScheme` 2.0 (`ImediaLeftSkill`, `ImediaRightSkill`) — chưa port | B4b |
 
@@ -352,3 +352,49 @@ Zone: `KSubWorld::emit_missle` (`KSubWorld.cpp`), gọi trong `missle_fire`, `mi
 (node trong lớp thực thể, y-sort), `KMissleEffect.gd` (phim va chạm), `--auto` in `AUTO_MISSLE packets=137 spawned=41 effects=7 live=0 (AUTO_FIGHT actions=4 sau khi chuyển bước chú thích kỹ năng lên trước cú thi triển)`. Chưa: tiếng (`SndFile*`), `RedLum/GreenLum/BlueLum/
 LightRadius` (ánh sáng), `MissleHeight` khi bay (z chỉ lấy lúc sinh), gia tốc Z (`Zspeed/Zacc`) và hướng theo vector, đạn kiểu theo mục tiêu/vòng lệch tới
 6 khung, bộ B cho phim va chạm (luôn bộ A).
+
+## 12. Đánh lùi trên client — gói `0x56` (`SendSyncAction`) → `KNpc::KnockBack` `0x005EE950` / `OnKnockBack` `0x005EFE00` (M12 lát B4c-4, đã đọc từng dòng)
+
+**Server** (`jx_linux_y`): `KNpc::KnockBack 0x08087940` (`LINUX-SERVER.md` §16) kết thúc bằng **`SendSyncAction(this, 0x18, +0x14a0, +0x14a4, max(1, frames), 0)`
+= `0x0807A970`**: gói **`0x56`** 22 byte `{byte 0x56, dword id npc (+1), byte doing (+5), dword x (+6), dword y (+10), dword frames (+14), dword a6 (+18)}`
+→ `0x0807A870(this, gói, 0x16, 0x64, 0)` (người chơi quanh 100 ô). `OnHurt 0x0807F780` gửi cùng gói với doing 9: x/y = vị trí mình (Map2Mps `0x080EF710`),
+frames = `+0x22c`, a6 = 0. Không có bù trễ nào ở server.
+
+**Client 2.0**: bảng handler gói server→client là **mảng con trỏ `[obj + 4·(gói+1)]` điền trong hàm tạo `0x0065DCB0`** (`0x59 → +0x168 = 0x006500C0`,
+`0x7b → +0x1f0 = 0x00651280`, **`0x56 → +0x15c = 0x00650250`**). `0x00650250`: tìm npc theo id (`0x0066C6C0` trên map `0x21a0438`, mảng npc `[0x1ab34f4]`
+bước 0x12bd4) rồi **`KNpc::OnSyncAction 0x005F3300(this, trễ, doing, x, y, frames, a6)`** (stdcall 6 tham số; `trễ` = tham số thứ hai của handler = số khung
+đã trôi từ lúc gói gửi), ghi `npc+0x16b8 = [0x1f178c4]+0x50` (mốc thời gian gói). `OnSyncAction`: `+0x2c == 1 && m_Doing (+0xfc) == 10 && doing ≠ 0x15` → bỏ
+(xác người chơi chỉ nhận hồi sinh); bảng byte `0x5f3474` + bảng nhảy `0x5f3454` theo `doing − 1`: **1** đứng → `0x005EEE30`, `0x005ED9B0`, `0x005EB480`
+(DoStand); **5** kỹ năng → đi tới điểm rồi thi triển (`0x00623860`, `0x005EB800`, `0x005F3050`); **8** ngồi → `0x005EF000`; **9** bị đánh →
+**`DoHurt 0x005EEDB0(trễ, frames, x, y)`**: `m_Frames (+0x104) = frames − trễ` (`0x005E92E0`: tổng (≤ 0 → 1), khung 0, mốc `[0x9bb0f0]`), `SetDoing(9)
+0x005EDDF0` (đang chạy 0x12 → tắt tiếng chạy `0x006DFA00` trên `+0x1a14`, trừ thưởng chạy `+0x13c4` khỏi `+0x1154`), `0x005ED9D0`, **`+0x100 = 7` (cdo_hurt)**,
+`+0x1904/+0x1908 = x, y`, `+0x1900 = +0x34 > 0 ? +0x34 : 0`; **10** chết → `0x005EEBE0(x, 0)`; **21** hồi sinh → `0x005EEE30`, `0x005ED9B0`, `+0x1974 = 1`,
+`0x005EB480`; **24 đánh lùi → `KnockBack 0x005EE950(trễ, frames, x, y)`**; doing 2, 3, 4, 6, 7, 11..20, 22, 23 → **bỏ qua** (`ret 0x18`).
+
+**`KNpc::KnockBack 0x005EE950`**: vùng `+0x1054 < 0`, `m_Doing` 0x18 hay 0xa → thôi; `0x004C4B20(this, &cx, &cy)` = vị trí mình; đích ≠ mình →
+**`+0x1390 = 0x005E8DB0(cx − x, cy − y)`** (hướng **từ đích về mình** = quay mặt về phía kẻ đánh; trùng chỗ → giữ hướng cũ); `SetDoing(0x18)`, `0x005ED9D0`,
+`m_Frames = frames − trễ`, **`+0x100 = 7` (cdo_hurt: đánh lùi dùng hoạt ảnh bị đánh)**, **`+0x13b4/+0x13b8 = đích`** (cùng ô với điểm rơi khi nhảy).
+**Mỗi khung** `0x005F1BF0`: `m_Doing` 4/0x14 giữ `+0x34` (độ cao), khác → 0; `+0x16a0 ≠ 0` → thôi; bảng nhảy `0x5f1c70` theo `m_Doing − 1`: 1 → `0x005ECD70`,
+2 → `0x005F0BE0`, 3 → `0x005F14B0`, 4 → `0x005EF7F0`, 6/7 → `0x005EF2F0`, 8 → `0x005ECE10`, 9 → `0x005F07F0`, 10 → `0x005F07B0`, 14 → `0x005F0990`,
+15 → `0x005F0A20`, 18 → `0x005F1B40`, 19 → `0x005EF950`, 20 → `0x005EFB60`, 21 → `0x005E9450`, 23 → `0x005EF730`, **24 → `OnKnockBack 0x005EFE00`**;
+5, 11..13, 16, 17, 22 → không. **`OnKnockBack 0x005EFE00`**: `0x00620BE0(vùng, +0x13a0, +0x13a4, +0x13ac, +0x13b0, &cx, &cy)` (Map2Mps từ ô + phần
+1/1024); `còn = max(1, tổng (+0x104) − khung (+0x108))`; **`dx = ((đích.x − cx) << 10) / còn`, `dy` như thế → `0x005ECEC0(this, dx, dy)`** (cộng phần
+1/1024 vào `+0x13ac/+0x13b0`, sang ô khi tràn); `WaitForFrame 0x005EA700` hết → `DoStand 0x005EEE30` + `0x005ED9B0`. **`0x005E8DB0(dx, dy)`** (= `g_GetDirIndex`
+của client): cả hai 0 → −1; `len = (int)sqrt`; `t = (dy << 10) / len`; tìm trong `g_nSin` (`[0x820088]`, 64 ô) ô cuối `i` (0..31) có `t ≤ sin[i]`, sang
+`i + 1` khi gần hơn (so với `sin[i+1]`); `dx ≥ 0 && i ≠ 0 → 64 − i` — **cùng luật với server `0x080EEEC0`**, không phải JX1 (`63 − i`, bảng nửa bước).
+
+**Client mới**: `G2C_ENTITY_ACTION` **`ACTION_KNOCK_BACK 6`** (`aim` = đích, `frames`, `target` = kẻ đẩy, `dir` của zone) do `KSubWorld::knock_back` phát thay
+`ACTION_HURT`; `fill_info` (gói 0x4c) chỉ báo doing đánh lùi, không đích → người vào sau thấy loạng choạng tại chỗ (2.0 cũng chỉ có `m_Doing` trong 0x4c).
+`KNpc.gd`: `apply_action` `ACTION_KNOCK_BACK` → hướng `KMath.get_dir_index(đích → mình)`, hoạt ảnh `HURT` `frames` khung; `_tick` mỗi khung **`KMath.knock_step`**
+`= ((đích − mình) << 10) / còn` (1/1024, cắt về 0, `int()` của toạ độ như Map2Mps) rồi đếm khung như bị đánh, hết → đứng. **`KMath.get_dir_index` đổi sang
+luật 2.0 = server** (`SIN64` 64 ô đúng bảng nhị phân, ô gần nhất, `64 − k`: phải = 48, lên = 32, lên-phải = 40; trước là JX1 `63 − k`). Không bù trễ (`trễ`
+của 2.0 cần mốc thời gian trong gói — không có): client bắt đầu khi gói tới, gói `EntityMove` cuối đường của zone chốt vị trí. Test: zone `[autoskill][knockback]`
+"a free way" kiểm gói; client `test_knock_back`, `test_npcres_tables` (hướng).
+
+| Mã cũ / 2.0 | Client mới |
+|---|---|
+| `SendSyncAction 0x0807A970` gói 0x56 (`KnockBack 0x08087940`, `OnHurt 0x0807F780`) | `KSubWorld::emit_action` (`ACTION_KNOCK_BACK` kèm `aim`; `ACTION_HURT` kèm `pos`) |
+| handler `0x00650250` → `OnSyncAction 0x005F3300` | `KProtocolProcess` `G2C_ENTITY_ACTION` → `entity_action` → `UiGame._on_action` → `KNpc.apply_action` |
+| `KNpc::KnockBack 0x005EE950` | `KNpc.apply_action` nhánh `ACTION_KNOCK_BACK` |
+| `OnKnockBack 0x005EFE00` + `0x005ECEC0` | `KNpc._tick` (`_knocked`) + `KMath.knock_step` |
+| `0x005E8DB0` | `KMath.get_dir_index` |

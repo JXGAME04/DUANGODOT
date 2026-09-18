@@ -1897,7 +1897,8 @@ enum Action {
 	HURT = 2,
 	DEATH = 3,
 	REVIVE = 4,
-	JUMP = 5
+	JUMP = 5,
+	KNOCK_BACK = 6
 }
 
 class EntityAction:

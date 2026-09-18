@@ -1031,7 +1031,8 @@ void KSubWorld::knock_back(KNpc& t, const KNpc& launcher, int frames, int distan
     t.frame_total = static_cast<std::uint32_t>(std::max(1, frames));
     t.attack_target = EntityId{};
     if (t.moving) t.set_pos(t.pos());
-    emit_action(t, pb::ACTION_HURT, launcher.id);   // shown as a stagger until the client knows the knock back (B4)
+    // SendSyncAction(0x18, x, y, frames, 0) 0x0807A970: the 0x56 packet {id, doing, spot, frames} to the players around
+    emit_action(t, pb::ACTION_KNOCK_BACK, launcher.id, 0, 0, dest);
 }
 
 bool KSubWorld::knock_back_free_spot(const KNpc& e, Pos& to, int& distance, bool fly) const

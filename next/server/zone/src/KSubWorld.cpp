@@ -201,7 +201,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     case KDoing::magic:
     case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
     case KDoing::hurt: out.set_doing(pb::ACTION_HURT); break;
-    case KDoing::knock_back: out.set_doing(pb::ACTION_HURT); break;   // shown as a stagger until the client knows it (B4)
+    case KDoing::knock_back: out.set_doing(pb::ACTION_KNOCK_BACK); break;   // the 0x4c sync carries m_Doing alone: a late joiner sees the stagger in place
     case KDoing::special_skill:
     case KDoing::special_cast:
     case KDoing::blink: out.set_doing(pb::ACTION_ATTACK); break;   // the animations of the moves of style 1 (a jump lands within a second: stand until then)
@@ -1471,6 +1471,8 @@ void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target, i
         a.set_skill_id(static_cast<std::uint32_t>(skill_id));
         a.set_skill_level(static_cast<std::uint32_t>(std::max(0, skill_level)));
         if (!target.valid()) set_vec(a.mutable_aim(), aim);
+    } else if (action == pb::ACTION_KNOCK_BACK) {
+        set_vec(a.mutable_aim(), aim);   // the 0x56 packet of SendSyncAction 0x0807A970: the spot pushed to (KNpc+0x14a0/+0x14a4)
     }
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_ACTION), a);
 }

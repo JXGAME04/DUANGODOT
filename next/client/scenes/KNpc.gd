@@ -22,6 +22,7 @@ const ACTION_HURT := 2
 const ACTION_DEATH := 3
 const ACTION_REVIVE := 4
 const ACTION_JUMP := 5
+const ACTION_KNOCK_BACK := 6
 const LIFE_BAR := Vector2(40, 4)
 
 var entity_id := 0
@@ -48,6 +49,8 @@ var _res: Node2D
 var _label: Label
 var _tick_acc := 0.0
 var _rng := RandomNumberGenerator.new()
+var _knock_dest := Vector2.ZERO    # KNpc+0x13b4/+0x13b8 of the 2.0 client: where a knock back pushes to
+var _knocked := false
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -116,7 +119,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	if now == ACTION_DEATH:
 		_set_action(KNpcResNode.Doing.DEATH, int(d.get("doing_frames", 1)))
 		cur_frame = total_frame - 1
-	elif now == ACTION_ATTACK or now == ACTION_HURT:
+	elif now == ACTION_ATTACK or now == ACTION_HURT or now == ACTION_KNOCK_BACK:
 		apply_action({"action": now, "frames": d.get("doing_frames", 1), "x": d.x, "y": d.y, "dir": dir64})
 	_tick_acc = 0.0
 	queue_redraw()
@@ -138,6 +141,7 @@ func apply_action(a: Dictionary) -> void:
 	position = to_screen(scene_pos)
 	dir64 = clampi(int(a.get("dir", dir64)), 0, 63)
 	var n := maxi(int(a.get("frames", 1)), 1)
+	_knocked = false
 	match int(a.action):
 		ACTION_ATTACK:
 			# one of the two attack animations at random, like KNpc::DoAttack
@@ -147,6 +151,16 @@ func apply_action(a: Dictionary) -> void:
 		ACTION_DEATH:
 			_set_action(KNpcResNode.Doing.DEATH, n)
 			is_target = false
+		ACTION_KNOCK_BACK:
+			# KNpc::KnockBack of the 2.0 client (gamecl.exe 0x005EE950, the 0x56 packet with doing 0x18): the hurt animation
+			# (action 7 = cdo_hurt) for `frames` frames while OnKnockBack 0x005EFE00 slides it to the spot each frame; it faces
+			# the way it came from (0x005E8DB0 of here - spot) and keeps its facing when the spot is here.  docs/CLIENT-2.0.md §12
+			_knock_dest = Vector2(float(a.get("ax", a.x)), float(a.get("ay", a.y)))
+			_knocked = true
+			var face := KMath.get_dir_index(int(_knock_dest.x), int(_knock_dest.y), int(scene_pos.x), int(scene_pos.y))
+			if face >= 0:
+				dir64 = face
+			_set_action(KNpcResNode.Doing.HURT, n)
 		ACTION_JUMP:
 			# a jump of a style-1 skill (zone KSubWorld::start_jump): to the landing spot within `frames` logic frames;
 			# shown as a run until the jump animation of the 2.0 client is wired (B4)
@@ -241,8 +255,13 @@ func _tick() -> void:
 		if cur_frame < total_frame - 1:
 			cur_frame += 1
 	elif doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.HURT:
+		if _knocked:
+			# KNpc::OnKnockBack 0x005EFE00: a frame's share of the way left, then the frame count as for a hurt
+			scene_pos += KMath.knock_step(scene_pos, _knock_dest, total_frame - cur_frame)
+			position = to_screen(scene_pos)
 		cur_frame += 1
-		if cur_frame >= total_frame:   # KNpc::OnSpecial1 / OnHurt -> DoStand
+		if cur_frame >= total_frame:   # KNpc::OnSpecial1 / OnHurt / OnKnockBack -> DoStand
+			_knocked = false
 			_set_doing(KNpcResNode.Doing.STAND)
 	else:
 		var want: int = KNpcResNode.Doing.STAND
