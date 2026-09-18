@@ -70,3 +70,28 @@ trên con trỏ ở nửa dưới. Dựng lại ở `client/ui/uicase/UiMouseHov
   Còn: tên vật thể dưới đất (`KObj.gd`) vẫn là tên server gửi trong `EntityInfo`.
 - ~~`nActive` khi mặc~~ — xong: `KUiItemView.equip_enhance` (bảng và luật của `jx_linux_y 0x081FD2C0`).
 - Dòng giá trong cửa hàng (`[vtable+4]`), khoá / hạn dùng, bộ hoàng kim.
+
+## 6. Sổ kỹ năng 2.0 — `KUiSkills` / `KUiFightSkill` (M12 lát B4a, đã đọc từng dòng `gamecl.exe`)
+
+Tệp bố cục (tên đúng exe gọi, `client/assets/ui/…` sau `jxassets export-ui`): `技能主窗口.ini` (`ky-nang`: `Main` 519×280
+`技能界面底版.spr`, `Title` "Kỹ Năng", `CloseBtn`, ba nút trang `FightBtn` "Chiêu Thức" / `LiveBtn` "Kỹ năng sống" / `CommonBtn`
+"Thông dụng khác"), `战斗技能分页.ini` (`ky-nang-chien-dau`), `战斗技能细分页.ini`, `生活技能分页.ini`, `技能选择树.ini`
+(`chon-ky-nang`, cây chọn kỹ năng cho chuột), `玩家信息主界面.ini` (`thanh-nhan-vat`: thanh chính có `ImediaLeftSkill` (791,724)
+/ `ImediaRightSkill` (828,724) 36 px, `Item_0..8` ô thuốc nhanh y = 728), `顶部控制条.ini`, `工具控制条.ini`, `技能状态列表.ini`.
+
+| Địa chỉ (`gamecl.exe.unpacked.img`, gốc 0x401000) | Làm gì | Zone / client mới |
+|---|---|---|
+| `0x00494030` | **`KUiFightSkill::LoadScheme`**: `Main`; pad `0x004933A0(this+0x14d88, scheme, 0)`; `RemainPoint`, `RemainPointTitle`; **`ImgSkillBG`** 3 hàng × 10 cột: `SetPosition(x0 + 0x33·cột, y0 + 0x3a·hàng)` (cột 51 px, hàng 58 px); **`ImgSplitLine`** 9 vạch dọc x0 + 51·i; **`ImgColTitle`** + **`TxtColTitle`** 10 cột (x0 + 51·i), chữ `[ColTitle] Title_%d` (1..10: Thấp, Cao, Nhập môn, Lv10, Lv20, Lv30, Lv40, Lv50, Trấn Phái, Lv60; `Tip_%d` chú thích; Title_11/12 = Lv120/Lv150 không được vẽ) | `UiSkills.gd` `_build_fight_page` |
+| `0x004933A0` | **pad ô kỹ năng** `(scheme, mode)`: vòng y (ebx, 0..0x1fe bước 0x33 — 10 cột) trong vòng x (0..0xae bước 0x3a, hay 0x3d ở chế độ 1 — 3 hàng): mỗi ô `KWndObjectBox` `Init(ini, mode ? "CommonSkill" : "Skill")`, `0x45e040(0)`, vị trí mẫu + (cột·51, hàng·58); nút `AddPointBtn`/`AddCommonPointBtn` cạnh phải ô, đáy ngang đáy ô (`x + w ô`, `y + h ô − h nút`); `[SkillText] Font` (12), `Offset` (0,36), `Color`, `ColorAddon` (mặc định "50,50,255"), `ColorCutdown` ("255,50,50") | như trên; chữ cấp dưới ô căn giữa |
+| `0x004938E0` / `0x00493A40` | **`UpdateData`**: `GetGameData(0x3f4 GDI_FIGHT_SKILLS, 50 ô 16 byte {genre, id, cấp học, cấp hiện tại})`; xoá 30 ô; với mỗi kỹ năng: `GetGameData(0x414, &vị trí, id·10 + slot)` cho slot 0..2 → ô `[slot·10 + bậc]` giữ {genre, id, cấp, cấp hiện tại}; màu chữ: hiện tại > học → ColorAddon, < → ColorCutdown; nút cộng điểm hiện khi `+0x590` (điểm còn) > 0 | `UiSkills.refresh` |
+| `0x00493E40` | `WndProc`: `0x512` (click ô) → `OperationRequest(0x20004 GOI_SET_IMMDIA_SKILL?, 0x10, id)`; `0x565` (nút cộng điểm) → `+0x590 −= 1`, `OperationRequest(0x20004, 0xf, id)` = GOI_TONE_UP_SKILL, script `first_add_skill_level` | click trái = kỹ năng chuột trái, phải = chuột phải; nút → `C2G_ADD_SKILL_POINT` |
+| `0x00661EBC` (case 0x414 của `0x00661470`, bộ chia `0x005B8400`) | `skill = tham số / 10`, `slot = tham số % 10`; `0x00607B40(bảng 0x1AB35A0, skill, slot, &out)` → map `+0x462124`: skill → slot → {bậc, …}; không có → out = {−1, −1} | `skill_ui.json` `place[skill] = {tier, slot}` |
+| `0x00607860` | **nạp `\settings\skillui\skillui.txt`** (`KTabFile`): mỗi dòng cột 1 môn phái (< 11), cột 2 nhánh (< 3), cột 3 tên (16 byte), cột 4..39 = 12 bậc × 3 ô id kỹ năng (`低级绝学/高级绝学/入门/10级/20级/30级/40级/50级/镇派/60级/120级/150级` × 1..3); id ≠ 0 → map | Go `jxold/skill/KSkillUi.go` (`ParseSkillUi`, `PlaceOf`), `jxassets export-skill-ui` (23 dòng, 170 kỹ năng có chỗ) |
+| `0x00472360` | `KUiPlayerBar::LoadScheme` 2.0 (`ImediaLeftSkill`, `ImediaRightSkill`) — chưa port | B4b |
+
+Client mới: `client/ui/uicase/UiSkills.gd` (phím **K**), biểu tượng từ cột `SkillIcon` của `skills.txt` qua `jxassets export-skill-images`
+(362 ảnh vào `items/images.json` dùng chung với vật phẩm), `KProtocolProcess.skills` (`G2C_SKILL_LIST/LEVEL/FORBID`),
+`cast_skill(id, mục tiêu, x, y)` (`C2G_CAST_SKILL`), `add_skill_point`, `left_skill`/`right_skill` (= `m_nLeftSkillID`/`m_nRightSkillID`
+của `KPlayer` client cũ, `GOI_SET_IMMDIA_SKILL`): click trái quái thi triển kỹ năng trái (không có → đánh thường), click phải
+thi triển kỹ năng phải vào quái hay vào chỗ. Chưa: thanh nhân vật 2.0 (`玩家信息主界面.ini`) với hai ô kỹ năng chuột, cây chọn
+kỹ năng (`技能选择树.ini`), phím F1..F11 (`ShortcutSkill(%d)`), trang sống / thông dụng, chú thích kỹ năng (`KUiSkillTree`), gói 0x87.

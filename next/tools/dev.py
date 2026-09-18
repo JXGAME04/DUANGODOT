@@ -462,6 +462,12 @@ def cmd_assets(map_ids: list[str]) -> None:
     # from the converted skill scripts (dev.py lua) at run time, like the JX2 server
     if subprocess.call([*jxassets_args(), "export-skills", "-out", out], cwd=ROOT) != 0:
         print("export-skills: no settings/skills.txt in the reference server folder - skills stay unavailable")
+    # the icons of those skills (SkillIcon column) into items/images, for the skill book and the mouse skill slots
+    elif subprocess.call([*jxassets_args(), "export-skill-images", "-out", out], cwd=ROOT) != 0:
+        print("export-skill-images: the skill icons could not be written - the skill book shows names instead")
+    # where the skill book shows each skill (settings/skillui/skillui.txt of the 2.0 client)
+    if subprocess.call([*jxassets_args(), "export-skill-ui", "-out", out], cwd=ROOT) != 0:
+        print("export-skill-ui: no settings/skillui/skillui.txt in the client's archives - the skill book stays empty")
     # the missile table (settings/missles.txt): the templates the skills fire (the zone's KMissleTable)
     if subprocess.call([*jxassets_args(), "export-missles", "-out", out], cwd=ROOT) != 0:
         print("export-missles: no settings/missles.txt in the reference server folder - the skills fire the built-in basic attacks only")

@@ -474,6 +474,9 @@ public:
     //      0x080833B0, KPlayer::Revive 0x080AD9F0 (docs/LINUX-SERVER.md §16.4) ----
     // C2G_REVIVE (the handler slot 118 -> 0x080AEBC0(player, 12), KPlayer::Revive(0)): back at the revive point
     bool revive_request(std::uint64_t sid, std::uint32_t seq);
+    // KPlayer::AddExp 0x080B00C0 on a player (the level-difference rule of a kill; Lua AddExp 0x0811A140): the
+    // experience, a level up with its life sync, the attributes, the passives that open at the new level
+    void give_player_exp(KNpc& e, int exp, int npc_level);
     // KSkill 0x080E8770 - style 4, the npc a skill makes (docs §16.5); the spawn itself waits for the end of the tick
     bool cast_create_npc(const KSkill& sk, KNpc& launcher, const KCastParams& p);
     // KNpc::SetHorse 0x0807D520 (docs §16.6): nothing while frozen_action; mounting while hidden breaks the hiding

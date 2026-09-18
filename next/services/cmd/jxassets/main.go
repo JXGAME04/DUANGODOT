@@ -1141,6 +1141,61 @@ func main() {
 		}
 		fmt.Printf("export-item-images: %d anh ghi ra %s, %d anh client khong co (items/images.json)\n", written, filepath.Join(out, "items", "images"), missing)
 
+	case "export-skill-ui":
+		// \settings\skillui\skillui.txt of the 2.0 client (its archives): where the skill book shows
+		// each skill - faction, branch, then 12 tiers x 3 slots of skill ids, read the way gamecl.exe
+		// 0x00607860 reads it -> <out>/skill_ui.json for the Godot skill book (UiSkills.gd)
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		const skillUiFile = `\settings\skillui\skillui.txt`
+		data, err := set.ReadFile(skillUiFile)
+		if err != nil {
+			fail("no %s in the client's archives (a VLTK 2.0 client): %v", skillUiFile, err)
+		}
+		table := skill.ParseSkillUi(data)
+		table.Source = skillUiFile
+		p := filepath.Join(out, "skill_ui.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-skill-ui: %d dong (%d ky nang co cho) -> %s\n", len(table.Rows), len(table.Place), p)
+
+	case "export-skill-images":
+		// The icon of every skill (the SkillIcon column of settings/skills.txt, `\spr\Ui\技能图标\...spr`)
+		// out of the old client's archives, into the same items/images store the bag icons use
+		// (KUiSkills / KUiPlayerBar draw them through KUiBase::GetObjImage as well).  Reads the
+		// skills.json export-skills wrote next to it.
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		table, err := skill.Read(filepath.Join(out, "skills.json"))
+		if err != nil {
+			fail("no skills.json under %s (run export-skills first): %v", out, err)
+		}
+		var paths []string
+		seen := map[string]bool{}
+		for _, r := range table.Rows {
+			p := r.Cells["SkillIcon"]
+			if p == "" || seen[p] {
+				continue
+			}
+			seen[p] = true
+			paths = append(paths, p)
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		ex := export.New(set, out)
+		written, missing, err := ex.ItemImages(paths)
+		if err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("export-skill-images: %d bieu tuong ky nang ghi vao %s, %d anh client khong co\n", written, filepath.Join(out, "items", "images"), missing)
+
 	case "export-ui":
 		// The windows of the login flow, as JSON layouts plus the pictures they name.
 		//

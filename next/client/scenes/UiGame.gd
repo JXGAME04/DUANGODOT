@@ -184,13 +184,31 @@ func _unhandled_input(event: InputEvent) -> void:
 				_pick_up(hit)
 			elif hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
 				_select_target(hit)
-				var aseq := Game.attack(hit.entity_id)
-				Log.debug("ui", "click attack", {"target": hit.entity_id, "name": hit.display_name, "seq": aseq})
+				# the left mouse skill of the old client (KPlayer::m_nLeftSkillID): a skill picked in the book is cast
+				# (NpcSkillCommand), else the plain attack of the weapon (the swing the zone picks for it)
+				if Game.left_skill > 0 and Game.skills.has(Game.left_skill):
+					var cseq := Game.cast_skill(Game.left_skill, hit.entity_id)
+					Log.debug("ui", "click cast", {"skill": Game.left_skill, "target": hit.entity_id, "name": hit.display_name, "seq": cseq})
+				else:
+					var aseq := Game.attack(hit.entity_id)
+					Log.debug("ui", "click attack", {"target": hit.entity_id, "name": hit.display_name, "seq": aseq})
 			else:
 				var x := clampi(int(p.x), 0, _scene_w - 1)
 				var y := clampi(int(p.y * 2.0), 0, _scene_h - 1)
 				var seq := Game.move_to(x, y)
 				Log.debug("ui", "click move", {"x": x, "y": y, "seq": seq})
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			# the right mouse skill (m_nRightSkillID): on the entity under the cursor, else on the spot
+			if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
+				var p := get_global_mouse_position()
+				var hit := _entity_at(p)
+				var cseq: int
+				if hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
+					_select_target(hit)
+					cseq = Game.cast_skill(Game.right_skill, hit.entity_id)
+				else:
+					cseq = Game.cast_skill(Game.right_skill, 0, clampi(int(p.x), 0, _scene_w - 1), clampi(int(p.y * 2.0), 0, _scene_h - 1))
+				Log.debug("ui", "right click cast", {"skill": Game.right_skill, "seq": cseq})
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_set_zoom(_zoom * 1.15)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -373,6 +391,7 @@ func _auto_run() -> void:
 	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d transport=%s" % [arrived, _entities.size(), _move_count, _map.region_count(), Net.transport])
 	await _save_screenshot("user://logs/auto_world.png")
 	await _auto_items()
+	await _auto_skills()
 	await _auto_fight()
 	await _auto_death()
 	# stability probe: two frames half a second apart while idle must be (almost) identical
@@ -558,6 +577,73 @@ func _auto_death() -> void:
 	print("AUTO_DEATH dead=%s revived=%s life_before=%d life=%d" % [dead, revived, life_before, own.life if own != null else 0])
 	await get_tree().create_timer(0.5).timeout
 	await _save_screenshot("user://logs/auto_revive.png")
+
+
+# --auto: the skill book (K) with what the character holds, its picture, then the first skill the book places
+# (not the plain attacks) becomes the left mouse skill and is cast at the nearest monster; AUTO_SKILLS sums it up.
+func _auto_skills() -> void:
+	var placed := 0
+	var pick := 0
+	# a fresh character holds only the plain attacks and the common skills, which the book does not place: the
+	# development server hands it the Shaolin fist column of skillui.txt (SetSkillLevel of the script api)
+	var before := Game.skills.size()
+	# the fist skills ask for level 10 (ReqLevel): AddExp of the script api lifts the character there first - one
+	# level per call (KPlayer::AddExp caps the gain at the next level's need), so nine calls from level 1
+	for _i in 9:
+		Game.chat("?gm ds AddExp(20000, 1)")
+	for id in [14, 8, 15, 16, 20, 21, 271, 273]:
+		Game.chat("?gm ds SetSkillLevel(%d, 1)" % id)
+	var waited := 0.0
+	while waited < 3.0 and (Game.skills.size() < before + 8 or int(Game.player_attrib.get("level", 1)) < 10):
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	if _windows != null and _windows.ready_ok:
+		_windows.skills_window.open_window()
+		await get_tree().create_timer(0.4).timeout
+		for id in Game.skills:
+			if int(id) <= 2:
+				continue
+			if _windows.skills_window._place.has(int(id)):
+				placed += 1
+				if pick == 0:
+					pick = int(id)
+		await _save_screenshot("user://logs/auto_skills.png")
+		_windows.skills_window.hide_window()
+	var cast_told := false
+	if pick != 0:
+		Game.left_skill = pick
+		var own := _own()
+		var best: Node2D = null
+		var best_d := 400.0
+		if own != null:
+			for node in _entities.values():
+				if node == own or not node.is_attackable():
+					continue
+				var d: float = node.scene_pos.distance_to(own.scene_pos)
+				if d < best_d:
+					best = node
+					best_d = d
+		if best != null:
+			# the 2.0 client walks into the skill's reach before it sends the command: stand next to the target first
+			var dir: Vector2 = (best.scene_pos - own.scene_pos).normalized()
+			var stand: Vector2 = best.scene_pos - dir * 40.0
+			Game.move_to(int(stand.x), int(stand.y))
+			var walked := 0.0
+			while walked < 6.0 and (own.is_moving() or own.scene_pos.distance_to(stand) > 24.0):
+				await get_tree().create_timer(0.25).timeout
+				walked += 0.25
+			# a skill without PeaceCanUse needs the fight stance (KNpc+0x168c): the 2.0 client sets it with its own packet
+			# before the first blow - the Godot client has no toggle yet, the script api stands in (B4b)
+			Game.chat("?gm ds SetFightState(1)")
+			await get_tree().create_timer(0.3).timeout
+			var actions_before := _action_count
+			_select_target(best)
+			Game.cast_skill(pick, best.entity_id)
+			await get_tree().create_timer(1.0).timeout
+			cast_told = _action_count > actions_before
+			await _save_screenshot("user://logs/auto_cast.png")
+	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told})
+	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s" % [Game.skills.size(), placed, pick, cast_told])
 
 
 # Saves the rendered frame (no-op in headless mode); used by tools/dev.py screenshot.

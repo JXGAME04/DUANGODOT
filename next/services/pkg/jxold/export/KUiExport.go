@@ -79,6 +79,19 @@ var GameScreens = []UiScreenDef{
 	{"thong-tin-nhan-vat-thuoc-tinh", "Trang thuộc tính", "KUiStatus (thuộc tính)", `玩家装备与人物状态_属性.ini`},
 	{"chu-thich-vat-pham", "Chú thích vật phẩm / trình đơn chuột phải", "KUiMouseHover", `弹出说明文字.ini`},
 	{"kho-do", "Kho đồ (rương)", "KUiStoreBox", `储物箱.ini`},
+	// M12 B4: the skill book and its pages (KUiSkills, KUiFightSkill / KUiFightSkillSubPage, KUiLiveSkill), the
+	// skill picker of a mouse button (KUiSkillTree), the main bar (KUiPlayerBar: life, mana, the two mouse skills),
+	// the two control bars and the list of states on the character
+	{"ky-nang", "Kỹ năng (khung)", "KUiSkills", `技能主窗口.ini`},
+	{"ky-nang-chien-dau", "Trang kỹ năng chiến đấu", "KUiFightSkill", `战斗技能分页.ini`},
+	{"ky-nang-chien-dau-chi-tiet", "Trang con kỹ năng chiến đấu", "KUiFightSkillSubPage", `战斗技能细分页.ini`},
+	{"ky-nang-doi-song", "Trang kỹ năng sinh hoạt", "KUiLiveSkill", `生活技能分页.ini`},
+	{"chon-ky-nang", "Cây chọn kỹ năng cho chuột", "KUiSkillTree", `技能选择树.ini`},
+	{"thanh-nhan-vat", "Thanh nhân vật (máu, nội, kỹ năng chuột)", "KUiPlayerBar", `玩家信息主界面.ini`},
+	{"thanh-nhan-vat-thu-nho", "Thanh nhân vật thu nhỏ", "KUiPlayerBar (nhỏ)", `玩家信息主界面最小化.ini`},
+	{"thanh-dieu-khien-tren", "Thanh điều khiển trên", "KUiHeaderControlBar", `顶部控制条.ini`},
+	{"thanh-cong-cu", "Thanh công cụ", "KUiToolsControlBar", `工具控制条.ini`},
+	{"trang-thai-ky-nang", "Danh sách trạng thái kỹ năng", "KUiSkillStateList", `技能状态列表.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

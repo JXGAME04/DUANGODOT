@@ -10,6 +10,7 @@ extends CanvasLayer
 
 const UiItem := preload("res://ui/uicase/UiItem.gd")
 const UiStatus := preload("res://ui/uicase/UiStatus.gd")
+const UiSkills := preload("res://ui/uicase/UiSkills.gd")
 const UiMouseHover := preload("res://ui/uicase/UiMouseHover.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
@@ -17,6 +18,7 @@ const KUiScheme := preload("res://ui/KUiScheme.gd")
 
 var item_window: UiItem = null
 var status_window: UiStatus = null
+var skills_window: UiSkills = null
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
 var ready_ok := false
@@ -38,9 +40,10 @@ func _ready() -> void:
 		return
 	item_window = UiItem.new()
 	status_window = UiStatus.new()
+	skills_window = UiSkills.new()
 	hover = UiMouseHover.new()
 	hand = KUiDraggedObject.new()
-	for w in [item_window, status_window]:
+	for w in [item_window, status_window, skills_window]:
 		_canvas.add_child(w)
 		if not w.load_scheme(screen):
 			Log.error("ui", "layout missing", {"window": w.SCHEME})
@@ -56,6 +59,11 @@ func _ready() -> void:
 	status_window.item_lift.connect(_lift)
 	item_window.item_put.connect(_put_in_bag)
 	status_window.item_put_on.connect(_put_on)
+	# the skill book: a left click picks the left mouse skill (GOI_SET_IMMDIA_SKILL 0 of the old client), a right
+	# click the right one; the tooltip shows the name and level
+	skills_window.skill_clicked.connect(_on_skill_clicked.bind(false))
+	skills_window.skill_right_clicked.connect(_on_skill_clicked.bind(true))
+	skills_window.skill_hovered.connect(_on_skill_hovered)
 	Game.item_changed.connect(_on_item_changed)
 	Game.item_removed.connect(_on_item_removed)
 	Game.item_result.connect(_on_item_result)
@@ -73,18 +81,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_C:
 			status_window.toggle_window()
 			get_viewport().set_input_as_handled()
+		KEY_K:
+			skills_window.toggle_window()
+			get_viewport().set_input_as_handled()
 		KEY_ESCAPE:
 			if hand.holding():
 				_drop_hand()
 				get_viewport().set_input_as_handled()
-			elif item_window.visible or status_window.visible:
+			elif item_window.visible or status_window.visible or skills_window.visible:
 				item_window.hide_window()
 				status_window.hide_window()
+				skills_window.hide_window()
 				get_viewport().set_input_as_handled()
 
 
 func any_open() -> bool:
-	return ready_ok and (item_window.visible or status_window.visible)
+	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible)
 
 
 func _on_item_hovered(item) -> void:
@@ -93,6 +105,21 @@ func _on_item_hovered(item) -> void:
 	else:
 		# KItem::GetDesc, then the "\n" the CoreShell wrapper (0x006b66a0) adds after it
 		hover.show_text(KUiItemView.describe_text(item, KUiItemView.equip_enhance(item)) + "\n", _canvas.get_local_mouse_position())
+
+
+func _on_skill_clicked(skill_id: int, right: bool) -> void:
+	if right:
+		Game.right_skill = skill_id
+	else:
+		Game.left_skill = skill_id
+	Log.info("ui", "mouse skill", {"skill": skill_id, "button": "right" if right else "left"})
+
+
+func _on_skill_hovered(skill) -> void:
+	if skill == null:
+		hover.hide_lines()
+	else:
+		hover.show_text("%s  %d/%d\n" % [skill.name, int(skill.current_level), int(skill.max_level)], _canvas.get_local_mouse_position())
 
 
 # A click on an item with nothing on the cursor lifts it (Wnd_SetDragObj).

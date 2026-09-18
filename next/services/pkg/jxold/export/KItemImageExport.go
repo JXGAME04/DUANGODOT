@@ -33,12 +33,20 @@ type ItemImageIndex struct {
 
 // ItemImages writes the sprite of every game path in `paths` under <out>/items/images and the
 // index next to them.  Returns how many were written and how many the client does not have.
+// An index already there keeps its other entries: the item pictures and the skill icons
+// (export-skill-images) share items/images.json, so the client draws both with KUiImage.
 func (e *Exporter) ItemImages(paths []string) (written, missing int, err error) {
 	dir := filepath.Join(e.Out, "items", "images")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return 0, 0, err
 	}
 	index := ItemImageIndex{Images: map[string]*UiImage{}}
+	if old, err := os.ReadFile(filepath.Join(e.Out, "items", "images.json")); err == nil {
+		var prev ItemImageIndex
+		if json.Unmarshal(old, &prev) == nil && prev.Images != nil {
+			index.Images = prev.Images
+		}
+	}
 	seen := map[string]bool{}
 	for _, shown := range paths {
 		if shown == "" || seen[shown] {
@@ -56,6 +64,7 @@ func (e *Exporter) ItemImages(paths []string) (written, missing int, err error) 
 			continue
 		}
 		rel := itemImageFile(shown)
+		delete(index.Images, shown) // written again below (a stale entry of an earlier run goes)
 		full := filepath.Join(dir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 			return written, missing, err

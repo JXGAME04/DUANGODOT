@@ -35,6 +35,8 @@ signal money_changed(money: int, bank_money: int)
 # attack rating, defence, damage, resistances - the CURPLAYER_SYNC of the old game); the
 # dictionary is `player_attrib`
 signal player_attrib_changed(attrib: Dictionary)
+signal skills_changed()                 # G2C_SKILL_LIST: the whole book (on entering the world)
+signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: one skill (level -1 = gone)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
 signal pong(rtt_ms: int, server_ms: int)
@@ -76,6 +78,14 @@ var bank_money := 0
 # life, life_max, mana, mana_max, stamina, stamina_max, attack_rating, defend, min_damage, max_damage,
 # fire_resist.., walk_speed, run_speed, attack_speed, cast_speed)
 var player_attrib := {}
+# The skill book (KSkillList of the zone, s2c_synccurplayerskill of the old client): skill_id -> {id, level,
+# current_level, exp_percent (0..1024), max_level, req_level, forbidden, cool_down_left, only_inc}
+var skills := {}
+var skills_forbidden := false
+# the two mouse skills of the old client (KPlayer::m_nLeftSkillID / m_nRightSkillID, GOI_SET_IMMDIA_SKILL):
+# 0 = the plain attack of the weapon (C2G_ATTACK)
+var left_skill := 0
+var right_skill := 0
 const ROOM_BAG := 0
 const ROOM_REPOSITORY := 1
 const ROOM_TRADE := 2
@@ -148,6 +158,7 @@ func leave_world() -> void:
 		entity_id = 0
 		entities = {}
 		items = {}
+		skills = {}
 		Log.ctx["zone"] = 0
 
 
@@ -174,6 +185,37 @@ func attack(target_id: int) -> int:
 	req.set_seq(_move_seq)
 	Net.send_msg(Proto.MsgId.C2G_ATTACK, req)
 	Log.trace("world", "attack request", {"target": target_id, "seq": _move_seq})
+	return _move_seq
+
+
+# NpcSkillCommand of the old client (KNpc::SendCommand(do_skill) on the server, C2G_CAST_SKILL): a skill on an
+# entity (target_id > 0) or on a spot (x, y in scene units); the zone answers with the actions of the cast
+func cast_skill(skill_id: int, target_id: int, x: int = 0, y: int = 0) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.CastSkillReq.new()
+	req.set_skill_id(skill_id)
+	req.set_target(target_id)
+	req.set_x(x)
+	req.set_y(y)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_CAST_SKILL, req)
+	Log.trace("world", "cast request", {"skill": skill_id, "target": target_id, "x": x, "y": y, "seq": _move_seq})
+	return _move_seq
+
+
+# GOI_TONE_UP_SKILL of the old client: one skill point on a skill (KPlayer::AddSkillPoint of the zone)
+func add_skill_point(skill_id: int, points: int = 1) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.AddSkillPointReq.new()
+	req.set_skill_id(skill_id)
+	req.set_points(points)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ADD_SKILL_POINT, req)
+	Log.trace("world", "skill point request", {"skill": skill_id, "points": points, "seq": _move_seq})
 	return _move_seq
 
 
@@ -627,6 +669,46 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			bank_money = m.get_bank_money()
 			money_changed.emit(money, bank_money)
 
+		Proto.MsgId.G2C_SKILL_LIST:
+			var m := Proto.SkillListSync.new()
+			if not _decode(m, payload):
+				return
+			skills = {}
+			for e in m.get_skills():
+				skills[int(e.get_skill_id())] = _skill_dict(e)
+			skills_forbidden = m.get_forbid_all()
+			Log.debug("player", "skill list", {"count": skills.size(), "forbid_all": skills_forbidden})
+			skills_changed.emit()
+
+		Proto.MsgId.G2C_SKILL_LEVEL:
+			var m := Proto.SkillLevelSync.new()
+			if not _decode(m, payload):
+				return
+			var sid := int(m.get_skill_id())
+			if m.get_level() < 0:
+				skills.erase(sid)   # DelMagic: the skill is gone
+			else:
+				var d: Dictionary = skills.get(sid, {"id": sid, "level": 0, "current_level": 0, "exp_percent": 0, "max_level": 0,
+					"req_level": 0, "forbidden": false, "cool_down_left": 0, "only_inc": false})
+				d.level = m.get_level()
+				if d.current_level < d.level:
+					d.current_level = d.level
+				d.exp_percent = m.get_exp_percent()
+				skills[sid] = d
+			player_attrib.skill_point = m.get_skill_point()
+			Log.debug("player", "skill level", {"skill": sid, "level": m.get_level(), "skill_point": m.get_skill_point(), "seq": m.get_seq(), "level_up": m.get_level_up()})
+			skill_changed.emit(sid)
+
+		Proto.MsgId.G2C_SKILL_FORBID:
+			var m := Proto.SkillForbidSync.new()
+			if not _decode(m, payload):
+				return
+			if m.get_skill_id() == 0:
+				skills_forbidden = m.get_forbid()
+			elif skills.has(int(m.get_skill_id())):
+				skills[int(m.get_skill_id())].forbidden = m.get_forbid()
+			skill_changed.emit(int(m.get_skill_id()))
+
 		Proto.MsgId.G2C_PLAYER_ATTRIB:
 			var m := Proto.PlayerAttribSync.new()
 			if not _decode(m, payload):
@@ -705,6 +787,12 @@ func _magic_list(list: Array) -> Array:
 	for a in list:
 		out.append({"type": int(a.get_type()), "value": Array(a.get_value())})
 	return out
+
+
+func _skill_dict(e) -> Dictionary:
+	return {"id": int(e.get_skill_id()), "level": int(e.get_level()), "current_level": int(e.get_current_level()),
+		"exp_percent": int(e.get_exp_percent()), "max_level": int(e.get_max_level()), "req_level": int(e.get_req_level()),
+		"forbidden": e.get_forbidden(), "cool_down_left": int(e.get_cool_down_left()), "only_inc": e.get_only_inc()}
 
 
 func _item_dict(v) -> Dictionary:

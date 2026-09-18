@@ -741,6 +741,18 @@ int l_GetRideState(lua_State* L)
     return 1;
 }
 
+// AddExp(exp[, npcLevel]): 0x0811A140 - at most two numbers, then KPlayer::AddExp 0x080B00C0(player, exp, npcLevel) on the
+// player's npc (the rule of a kill: the level difference weighs the gain); nothing without a player
+int l_AddExp(lua_State* L)
+{
+    KNpc* p = player_of(L, "AddExp");
+    if (p == nullptr || lua_gettop(L) < 1 || lua_gettop(L) > 2) return 0;
+    const int exp = static_cast<int>(lua_tonumber(L, 1));
+    const int npc_level = lua_gettop(L) >= 2 ? static_cast<int>(lua_tonumber(L, 2)) : 0;
+    g_ScriptContext().world->give_player_exp(*p, exp, npc_level);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -757,7 +769,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},
-    {"KillPlayer", l_KillPlayer},         {"GetRideState", l_GetRideState},
+    {"KillPlayer", l_KillPlayer},         {"GetRideState", l_GetRideState},   {"AddExp", l_AddExp},
     {nullptr, nullptr},
 };
 

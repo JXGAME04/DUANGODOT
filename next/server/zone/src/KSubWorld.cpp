@@ -1103,6 +1103,24 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
 // 0x0809BDD0 (from KNpc::DoDeath): every damage record's player gets m_Experience x its damage /
 // the life max in use, through KPlayer::AddExp with the npc's level (the team share of
 // 0x080B03E0 comes with the teams); the records are then cleared (0x0809BD80).
+void KSubWorld::give_player_exp(KNpc& p, int exp, int npc_level)
+{
+    if (p.kind != KNpcKind::player || !p.player.loaded || exp <= 0) return;
+    const std::uint32_t before = p.level;
+    p.player.add_exp(p, exp, npc_level, tables(), items_of(p.sid),
+                     [](void* ctx, int n) { return static_cast<KSubWorld*>(ctx)->random(n); }, this);
+    log::debug("zone.fight", "experience", {log::kv("entity", p.id), log::kv("exp", exp), log::kv("level", p.level)});
+    if (p.level != before) {
+        log::info("zone.player", "level up", {log::kv("entity", p.id), log::kv("level", p.level)});
+        emit_life(p, 0, EntityId{});
+    }
+    send_player_attrib(p.sid);
+    if (p.level != before) {   // 0x080AFCBC: the passives that open at exactly this level
+        KSkillListHost host = skill_host(p);
+        p.skill_list.cast_passives_at_level(host);
+    }
+}
+
 void KSubWorld::share_experience(KNpc& dead)
 {
     const int life_max = dead.life_max();
@@ -1116,19 +1134,7 @@ void KSubWorld::share_experience(KNpc& dead)
         if (p == nullptr || p->kind != KNpcKind::player || !p->player.loaded) continue;
         const int exp = static_cast<int>(static_cast<double>(dead.cur.experience) * static_cast<double>(r.damage) / static_cast<double>(life_max));
         if (exp <= 0) continue;
-        const std::uint32_t before = p->level;
-        p->player.add_exp(*p, exp, static_cast<int>(dead.level), tables(), items_of(p->sid),
-                          [](void* ctx, int n) { return static_cast<KSubWorld*>(ctx)->random(n); }, this);
-        log::debug("zone.fight", "experience", {log::kv("entity", p->id), log::kv("exp", exp), log::kv("level", p->level)});
-        if (p->level != before) {
-            log::info("zone.player", "level up", {log::kv("entity", p->id), log::kv("level", p->level)});
-            emit_life(*p, 0, EntityId{});
-        }
-        send_player_attrib(p->sid);
-        if (p->level != before) {   // 0x080AFCBC: the passives that open at exactly this level
-            KSkillListHost host = skill_host(*p);
-            p->skill_list.cast_passives_at_level(host);
-        }
+        give_player_exp(*p, exp, static_cast<int>(dead.level));
     }
     dead.clear_damage_records();
 }
