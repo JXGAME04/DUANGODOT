@@ -138,6 +138,17 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-18 (tối) — tên / mô tả vật phẩm lấy từ **bảng của chính client 2.0** (`items/client_vNNN.json`)
+
+Client thật tra bảng `\settings\item\NNN\*.txt` trong kho của nó (`KItem::operator=(row)` chép tên +0x30, ảnh
++0x80, mô tả +0xd0); chữ khác bảng server ("Kiếm cổ thời Đường, thân dài và sắc, chém ngựa như chém bùn." ≠
+"…chém ngựa cũng đơn giản như chặt tay."). `jxassets export-items` nay bung 21 bảng của mỗi thư mục 000–004 từ
+pak ra thư mục tạm, đọc bằng cùng bộ đọc và ghi `client_vNNN.json` (chỉ tên/ảnh/mô tả theo dòng; 004: 25 012
+dòng — client có nhiều hoàng kim/bạch kim hơn server); `export-item-images` lấy cả ảnh các bảng đó (2 675 ảnh).
+Client: `KLibOfBPT.gd` tìm dòng đúng như `KItemGenerator` (trang bị `particular*10+cấp−1`, thuốc `detail*5+cấp−1`,
+hoàng kim/kịch bản theo `gen_param` mới của `ItemView`), `KUiItemView` dùng chữ đó cho túi và chú thích; không có
+dòng → giữ chữ server. Ảnh `build/shots/auto_item_tip.png` chụp lại (mô tả của client, ngắt đều 2 dòng theo `g_StrWrap`).
+
 ### 2026-09-18 (tối) — CI: thêm 4 chỗ `-Werror=sign-conversion` (KItem.cpp) + KSocket; MSVC bật `/w44365` để bắt tại chỗ
 
 Run #76/#77 vẫn đỏ: `equipment_[d]`/`equipment_[detail]` với `int` (KItem.cpp 105/108/109/250) và

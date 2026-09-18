@@ -66,8 +66,7 @@ trên con trỏ ở nửa dưới. Dựng lại ở `client/ui/uicase/UiMouseHov
 
 ## 4. Còn phải mổ tiếp (client)
 
-- Tên / mô tả vật phẩm hiện ra lấy từ **bảng của client** (`\settings\item\004\*.txt` trong pak, chữ khác
-  bảng server: "Chủy thủ bằng sắt…" ≠ "Loại kiếm nhỏ…") — client thật tra bảng của nó theo
-  (genre, detail, particular, cấp); ta đang dùng tên server gửi. Cần xuất bảng client → `items/client_v004.json`.
+- ~~Tên / mô tả vật phẩm lấy từ bảng của client~~ — xong: `items/client_vNNN.json` (`export-items`), `KLibOfBPT.gd`.
+  Còn: tên vật thể dưới đất (`KObj.gd`) vẫn là tên server gửi trong `EntityInfo`.
 - `nActive` khi mặc (`KItemList::GetEquipEnhance`: ngũ hành tương sinh giữa nhân vật và món đồ) → hậu tố sáng.
 - Dòng giá trong cửa hàng (`[vtable+4]`), khoá / hạn dùng, bộ hoàng kim.
