@@ -33,6 +33,7 @@ const (
 	Action_ACTION_HURT   Action = 2 // frames = hurt length (KNpc::DoHurt), pos = where the entity stands
 	Action_ACTION_DEATH  Action = 3 // frames = death animation; the corpse keeps the last frame until despawn
 	Action_ACTION_REVIVE Action = 4
+	Action_ACTION_JUMP   Action = 5 // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
 )
 
 // Enum value maps for Action.
@@ -43,6 +44,7 @@ var (
 		2: "ACTION_HURT",
 		3: "ACTION_DEATH",
 		4: "ACTION_REVIVE",
+		5: "ACTION_JUMP",
 	}
 	Action_value = map[string]int32{
 		"ACTION_STAND":  0,
@@ -50,6 +52,7 @@ var (
 		"ACTION_HURT":   2,
 		"ACTION_DEATH":  3,
 		"ACTION_REVIVE": 4,
+		"ACTION_JUMP":   5,
 	}
 )
 
@@ -3889,13 +3892,14 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04tick\x18\x03 \x01(\x04R\x04tick\"A\n" +
 	"\x04Kick\x12%\n" +
 	"\x06reason\x18\x01 \x01(\x0e2\r.jx.pb.ResultR\x06reason\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text*c\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text*t\n" +
 	"\x06Action\x12\x10\n" +
 	"\fACTION_STAND\x10\x00\x12\x11\n" +
 	"\rACTION_ATTACK\x10\x01\x12\x0f\n" +
 	"\vACTION_HURT\x10\x02\x12\x10\n" +
 	"\fACTION_DEATH\x10\x03\x12\x11\n" +
-	"\rACTION_REVIVE\x10\x04*d\n" +
+	"\rACTION_REVIVE\x10\x04\x12\x0f\n" +
+	"\vACTION_JUMP\x10\x05*d\n" +
 	"\x0fPlayerAttribute\x12\x13\n" +
 	"\x0fATTRIB_STRENGTH\x10\x00\x12\x14\n" +
 	"\x10ATTRIB_DEXTERITY\x10\x01\x12\x13\n" +

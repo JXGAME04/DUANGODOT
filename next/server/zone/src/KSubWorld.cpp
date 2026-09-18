@@ -200,6 +200,9 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
     case KDoing::hurt: out.set_doing(pb::ACTION_HURT); break;
     case KDoing::knock_back: out.set_doing(pb::ACTION_HURT); break;   // shown as a stagger until the client knows it (B4)
+    case KDoing::special_skill:
+    case KDoing::special_cast:
+    case KDoing::blink: out.set_doing(pb::ACTION_ATTACK); break;   // the animations of the moves of style 1 (a jump lands within a second: stand until then)
     case KDoing::death: out.set_doing(pb::ACTION_DEATH); break;
     case KDoing::revive: out.set_doing(pb::ACTION_REVIVE); break;
     default: out.set_doing(pb::ACTION_STAND); break;
@@ -376,10 +379,8 @@ bool KSubWorld::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     // a corpse or a hit character cannot walk; walking interrupts an attack (KNpc::DoWalk)
     if (!e.alive() || e.doing == KDoing::hurt || e.doing == KDoing::knock_back) return false;
     e.attack_target = EntityId{};
-    if (e.doing == KDoing::attack) {
-        e.doing = KDoing::stand;
-        e.frame_cur = 0;
-    }
+    if (e.doing == KDoing::jump || e.doing == KDoing::jump_attack || e.doing == KDoing::blink) return false;   // in the air / vanishing: +0x194c holds the walk back
+    if (e.doing == KDoing::attack || e.doing == KDoing::special_skill || e.doing == KDoing::special_cast || e.doing == KDoing::run) stop_action(e);
     e.move_seq = seq;
     Pos dest = clamp(target);
     std::size_t waypoints = 1;
@@ -841,11 +842,7 @@ void KSubWorld::cast_skill(KNpc& e, KNpc& target)
 // around obstacles.  An unreachable or already reached spot ends in DoStand.
 void KSubWorld::walk_to(KNpc& e, Pos dest)
 {
-    if (e.doing == KDoing::attack || e.doing == KDoing::magic) {   // DoWalk overrides a swing
-        e.doing = KDoing::stand;
-        e.frame_cur = 0;
-        e.attack_target = EntityId{};
-    }
+    stop_action(e);   // DoWalk overrides a swing (and a move of style 1)
     dest = clamp(dest);
     if (cfg_.map) dest = cfg_.map->nearest_walkable(dest);
     if (dest == e.pos()) {
@@ -868,11 +865,7 @@ void KSubWorld::walk_to(KNpc& e, Pos dest)
 // SendCommand(do_stand) -> KNpc::DoStand
 void KSubWorld::do_stand(KNpc& e)
 {
-    if (e.doing == KDoing::attack || e.doing == KDoing::magic) {
-        e.doing = KDoing::stand;
-        e.frame_cur = 0;
-        e.attack_target = EntityId{};
-    }
+    stop_action(e);   // a swing or a move of style 1 ends (and the run bonus comes off)
     if (e.moving) {
         e.set_pos(e.pos());
         emit_move(e);
@@ -951,6 +944,13 @@ void KSubWorld::update_action(KNpc& e)
     case KDoing::hurt:
         if (e.wait_for_frame()) e.doing = KDoing::stand;
         break;
+    // the moves of style 1 (KSkills.cpp; the per-frame table 0x08254A5C: 4, 14, 18, 19, 20, 23)
+    case KDoing::jump: jump_frame(e); break;
+    case KDoing::special_skill: special_skill_frame(e); break;
+    case KDoing::run: run_frame(e); break;
+    case KDoing::special_cast: special_cast_frame(e); break;
+    case KDoing::jump_attack: jump_attack_frame(e); break;
+    case KDoing::blink: blink_frame(e); break;
     case KDoing::knock_back: {
         // do_knockback: pushed along the line to knock_dest, a frame_total-th of the way each frame
         const bool done = e.wait_for_frame();
@@ -1059,6 +1059,7 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
         emit_life(e, 0, killer);
         return;
     }
+    end_run(e);
     if (e.hide > 0) break_hide(e);   // 0x08089359: after the death list, before m_Doing = death - the hiding breaks
     e.doing = KDoing::death;
     e.frame_total = std::max(1u, e.death_frame);
@@ -1253,7 +1254,7 @@ bool KSubWorld::set_pos(EntityId id, Pos p)
 {
     if (!teleport(id, p)) return false;
     KNpc* e = find_mutable(id);
-    if (e->doing == KDoing::attack || e->doing == KDoing::magic) do_stand(*e);   // DoStand(); m_ProcessAI = 1
+    if (e->in_action()) do_stand(*e);   // DoStand(); m_ProcessAI = 1
     return true;
 }
 

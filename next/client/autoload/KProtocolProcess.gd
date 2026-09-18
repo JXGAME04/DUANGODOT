@@ -498,8 +498,11 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.EntityAction.new()
 			if not _decode(m, payload):
 				return
+			var aim = m.get_aim()   # the spot of a spot cast or a jump; null when the action has a target
 			var a := {"id": m.get_entity_id(), "action": int(m.get_action()), "target": m.get_target(), "dir": m.get_dir(),
-				"frames": m.get_frames(), "x": m.get_pos().get_x(), "y": m.get_pos().get_y(), "tick": m.get_tick()}
+				"frames": m.get_frames(), "x": m.get_pos().get_x(), "y": m.get_pos().get_y(), "tick": m.get_tick(),
+				"skill": int(m.get_skill_id()), "ax": aim.get_x() if aim != null else m.get_pos().get_x(),
+				"ay": aim.get_y() if aim != null else m.get_pos().get_y()}
 			var d = entities.get(int(a.id))
 			if d != null:
 				d.doing = a.action

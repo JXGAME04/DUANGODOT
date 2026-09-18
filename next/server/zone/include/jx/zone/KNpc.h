@@ -28,7 +28,10 @@ enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 
 
 // KNpc::m_Doing of the old game, the part the zone simulates (knock_back = do_knockback 0x18 of
 // the JX2 server: pushed over frame_total frames to knock_dest).
-enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic };   // attack = do_attack (7), magic = do_magic (6)
+// The zone's own numbering; the m_Doing of jx_linux_y in brackets: stand (1), walk (3), attack = do_attack (7),
+// hurt (9), death (10), revive (21), knock_back (24), magic = do_magic (6); the moves of a style-1 skill
+// (docs/LINUX-SERVER.md §16.2): jump (4), special_skill (14), run (18), special_cast (19), jump_attack (20), blink (23)
+enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic, jump, special_skill, run, special_cast, jump_attack, blink };
 
 // NPC_COMMAND of the old core: the JX2 ring of five at KNpc+0x169c (24 bytes each) that
 // KNpc::SendCommand 0x0809B750 fills - only do_skill (5) goes through it - and
@@ -147,6 +150,18 @@ struct KNpc {
     int cast_param1 = -1;            // a spot's x, or -1 for a target
     int cast_param2 = 0;             // a spot's y
     EntityId cast_target;            // the npc aimed at when cast_param1 == -1
+    // the moves of style 1 (KNpc 0x08087F70; docs/LINUX-SERVER.md §16.2).  A move overwrites +0x14a0 / +0x14a4
+    // (cast_param1/2, knock_dest) with the spot it goes to; the child skill is cast at the pair kept here.
+    int cast_kept1 = -1;             // +0x14a8: the cast's p1 as given (-1 = a target)
+    int cast_kept2 = 0;              // +0x14ac: its p2 (the spot's y)
+    EntityId cast_kept_target;       // the target when cast_kept1 == -1
+    int jump_steps = 0;              // +0x195c: the frames of a jump = its way / the step length
+    int jump_dir = -1;               // +0x1960: its direction (g_GetDirIndex; -1 on the spot)
+    int jump_arc = 0;                // +0x1938 = 5 x (steps - 1): the constant of the height curve
+    int height = 0;                  // +0x2c: the height in the air this frame (a jump; 0 on the ground)
+    int phase = 0;                   // +0x1964: 0 the jump / 1 the strike of a jump attack; the cast index of a multi cast
+    int run_counter = 0;             // +0x164c: the frames of a run attack so far
+    int run_bonus = 0;               // +0x14b0: the Param1 on the run speed while running (off again when it ends)
     std::deque<KNpcCommand> commands;   // +0x169c..: the do_skill commands waiting (kCommandQueue at most)
     static constexpr std::size_t kCommandQueue = 5;   // the ring of five (+0x171c set when full)
     static constexpr int kCommandLife = 18;           // the 0x12 the skill handler 0x080DD130 hands SendCommand
@@ -251,6 +266,12 @@ struct KNpc {
     // m_ProcessAI: the ai only decides while the npc stands or walks (DoSkill / DoAttack / DoHurt /
     // DoDeath clear the flag, OnSkill / OnHurt / Revive set it again).
     [[nodiscard]] bool process_ai() const noexcept { return doing == KDoing::stand || doing == KDoing::walk; }
+    // +0x194c == 0 of the binary: an action (a swing, a cast, a move of style 1) is under way
+    [[nodiscard]] bool in_action() const noexcept
+    {
+        return doing == KDoing::attack || doing == KDoing::magic || doing == KDoing::jump || doing == KDoing::special_skill ||
+               doing == KDoing::run || doing == KDoing::special_cast || doing == KDoing::jump_attack || doing == KDoing::blink;
+    }
     // KNpc::WaitForFrame: advances the action; true when its frames ran out (counter wraps to 0).
     bool wait_for_frame() noexcept
     {

@@ -21,6 +21,7 @@ const ACTION_ATTACK := 1
 const ACTION_HURT := 2
 const ACTION_DEATH := 3
 const ACTION_REVIVE := 4
+const ACTION_JUMP := 5
 const LIFE_BAR := Vector2(40, 4)
 
 var entity_id := 0
@@ -146,6 +147,13 @@ func apply_action(a: Dictionary) -> void:
 		ACTION_DEATH:
 			_set_action(KNpcResNode.Doing.DEATH, n)
 			is_target = false
+		ACTION_JUMP:
+			# a jump of a style-1 skill (zone KSubWorld::start_jump): to the landing spot within `frames` logic frames;
+			# shown as a run until the jump animation of the 2.0 client is wired (B4)
+			var land := Vector2(float(a.get("ax", a.x)), float(a.get("ay", a.y)))
+			path = [land]
+			speed = maxf(1.0, scene_pos.distance_to(land) / (float(n) / 18.0))
+			_set_doing(KNpcResNode.Doing.RUN)
 		_:
 			_set_doing(KNpcResNode.Doing.STAND)
 

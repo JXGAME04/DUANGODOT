@@ -81,6 +81,15 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1107, {{"ReqLevel", "10"}});
     add(1108, {{"TargetEnemy", "0"}, {"TargetSelf", "1"}, {"PeaceCanUse", "1"}, {"IsPhysical", "0"}, {"LvlSetting1", "hide"}, {"LvlData1", "buff"}});
     t.set_attrib_data(magic_hide, {70, 713, 1108});   // [hide] of attribconstdata.ini: Data0 the transparency, Data1.. the state skills
+    // the moves of style 1 (MisslesForm 8..13): 1109 a jump to a spot, 1110 a jump at the target then the child blow 1106,
+    // 1111 a run at the target with +5 speed then 1106, 1112 the child 1106 three times, 1113 a blink within 300 after
+    // 6 frames, 1114 the child 1101 (any style) at 60 % of an attack action
+    add(1109, {{"SkillStyle", "1"}, {"MisslesForm", "9"}, {"TargetEnemy", "0"}, {"TimePerCast", "30"}});
+    add(1110, {{"SkillStyle", "1"}, {"MisslesForm", "10"}, {"ChildSkillId", "1106"}});
+    add(1111, {{"SkillStyle", "1"}, {"MisslesForm", "11"}, {"ChildSkillId", "1106"}, {"Param1", "5"}, {"WaitTime", "20"}});   // the run lasts WaitTime frames at most (0x080E8650(sk, 0))
+    add(1112, {{"SkillStyle", "1"}, {"MisslesForm", "12"}, {"ChildSkillId", "1106"}, {"ChildSkillNum", "3"}});
+    add(1113, {{"SkillStyle", "1"}, {"MisslesForm", "13"}, {"TargetEnemy", "0"}, {"Param1", "300"}, {"Param2", "6"}});
+    add(1114, {{"SkillStyle", "1"}, {"MisslesForm", "8"}, {"ChildSkillId", "1101"}});
     return std::make_shared<const KSkillTable>(std::move(t));
 }
 
@@ -426,4 +435,169 @@ TEST_CASE("hide on a npc: SetHide, a removal off an unhidden npc changes nothing
     CHECK(a.p->doing == KDoing::death);
     CHECK(a.p->hide == 0);
     CHECK(a.p->state_of(1108) == nullptr);
+}
+
+// The moves of style 1: KNpc 0x08087F70 (the jump table 0x08254AC0 of MisslesForm 8..13), the jump
+// 0x08087CF0 / 0x0807B320 / 0x080818F0, the forms 0x08084930 / 0x080807E0 / 0x08084A10 / 0x08084B40 /
+// 0x08084C90 and their frames - docs/LINUX-SERVER.md §16.2.  Every number is worked out from the binary.
+namespace {
+int jumps_of(Arena& a, std::uint64_t entity, Pos& aim, std::uint32_t& frames)
+{
+    int n = 0;
+    for (const Packet& pk : a.w.take_outbox()) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_ACTION)) continue;
+        jx::pb::EntityAction act;
+        REQUIRE(act.ParseFromString(pk.payload));
+        if (act.entity_id() != entity || act.action() != jx::pb::ACTION_JUMP) continue;
+        ++n;
+        aim = Pos{act.aim().x(), act.aim().y()};
+        frames = act.frames();
+    }
+    return n;
+}
+} // namespace
+
+TEST_CASE("style 1: a jump lands 40 steps away at most, shorter than 20 is none, a blink teleports", "[command]")
+{
+    Arena a({1109, 1113});
+    // form 9 at a spot 200 away: the way is free, 200 / 12 = 16 steps of 12 -> 16 frames in the air,
+    // the landing spot (2192, 2000), the direction east (48), the 0x54 packet = ACTION_JUMP with the spot
+    CHECK(a.w.cast_skill_request(7, 1109, 2200, 2000, EntityId{}, 1));
+    CHECK(a.h->doing == KDoing::jump);
+    CHECK(a.h->frame_total == 16);
+    CHECK(a.h->jump_steps == 16);
+    CHECK(a.h->jump_arc == 75);
+    CHECK(a.h->knock_dest == Pos{2192, 2000});
+    CHECK(a.h->dir == 48);
+    CHECK(a.h->skill_list.next_cast_time(1109) == 30);   // the cool down (TimePerCast 30) taken as the move starts (0x08087FED)
+    Pos aim;
+    std::uint32_t frames = 0;
+    CHECK(jumps_of(a, a.hero.value, aim, frames) == 1);
+    CHECK(aim == Pos{2192, 2000});
+    CHECK(frames == 16);
+    // 0x080817E0: 12 a frame, the height curve 5 f (15 - f) / 8 - 0 at both ends, 26 in the middle
+    a.ticks(1);
+    CHECK(a.h->pos() == Pos{2012, 2000});
+    CHECK(a.h->height == 0);
+    a.ticks(7);
+    CHECK(a.h->pos() == Pos{2096, 2000});
+    CHECK(a.h->height == 5 * 7 * 8 / 8);
+    a.ticks(8);
+    CHECK(a.h->pos() == Pos{2192, 2000});
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->height == 0);
+    // 0x08087D02: 40 x 12 = 480 is as far as a jump goes
+    a.h->skill_list.clear_cool_time(0);
+    CHECK(a.w.cast_skill_request(7, 1109, 3000, 2000, EntityId{}, 2));
+    CHECK(a.h->doing == KDoing::jump);
+    CHECK(a.h->frame_total == 40);
+    CHECK(a.h->knock_dest == Pos{2672, 2000});
+    a.ticks(40);
+    CHECK(a.h->pos() == Pos{2672, 2000});
+    // 0x08087D3E: a way of 20 or less is no jump - the skill fails and the character stands
+    a.h->skill_list.clear_cool_time(0);
+    CHECK(a.w.cast_skill_request(7, 1109, 2680, 2000, EntityId{}, 3));
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->pos() == Pos{2672, 2000});
+    // form 13: a blink within Param1 = 300 after Param2 = 6 frames (0x08084C90 / 0x08080760)
+    CHECK(a.w.cast_skill_request(7, 1113, 2672, 2500, EntityId{}, 4));
+    CHECK(a.h->doing == KDoing::blink);
+    CHECK(a.h->frame_total == 6);
+    CHECK(a.h->knock_dest == Pos{2672, 2300});
+    a.ticks(5);
+    CHECK(a.h->pos() == Pos{2672, 2000});
+    a.ticks(1);
+    CHECK(a.h->pos() == Pos{2672, 2300});
+    CHECK(a.h->doing == KDoing::stand);
+    // a form outside 8..13 of a style-1 skill is refused (0x08087F8E): none in the table here
+}
+
+TEST_CASE("style 1: the jump attack lands by the target and strikes, the run attack runs there with the bonus", "[command]")
+{
+    Arena a({1110, 1111});
+    // form 10 at the pig (2050): the spot x + 1 = 2051 is 51 away -> 4 steps, landing at 2048; then the
+    // strike of 18 attack frames whose child blow (style 0) flies at 60 % and ends the move at once
+    CHECK(a.w.cast_skill_request(7, 1110, -1, 0, a.pig, 1));
+    CHECK(a.h->doing == KDoing::jump_attack);
+    CHECK(a.h->phase == 0);
+    CHECK(a.h->frame_total == 4);
+    CHECK(a.h->knock_dest == Pos{2048, 2000});
+    CHECK(a.h->cast_kept1 == -1);
+    CHECK(a.h->cast_kept_target == a.pig);
+    Pos aim;
+    std::uint32_t frames = 0;
+    CHECK(jumps_of(a, a.hero.value, aim, frames) == 1);
+    a.ticks(4);
+    CHECK(a.h->pos() == Pos{2048, 2000});
+    CHECK(a.h->doing == KDoing::jump_attack);
+    CHECK(a.h->phase == 1);
+    CHECK(a.h->frame_total == 18);
+    REQUIRE(a.actions().size() == 1);   // the strike (ACTION_ATTACK with the skill)
+    a.ticks(9);
+    CHECK(a.h->doing == KDoing::jump_attack);
+    a.ticks(1);   // frame 10 = 60 %: the child blow, then DoStand (0x08084F20)
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->phase == 0);
+    CHECK(a.h->attack_target.value == 0);   // no self-repeat of a move
+    // form 11: a run at the pig with Param1 = 5 more a frame (90 more a second at 18 Hz); the child
+    // blow when it arrives (or after WaitTime 20 frames), then it stands and the bonus comes off (0x080853B0)
+    a.h->set_pos(Pos{2000, 2000});
+    const std::uint32_t speed = a.h->speed;
+    CHECK(a.w.cast_skill_request(7, 1111, -1, 0, a.pig, 2));
+    CHECK(a.h->doing == KDoing::run);
+    CHECK(a.h->moving);
+    CHECK(a.h->run_bonus == 5);
+    CHECK(a.h->speed == speed + 90);
+    CHECK(a.h->knock_dest == Pos{2050, 2000});
+    int ticks = 0;
+    while (a.h->doing == KDoing::run && ticks < 60) {
+        a.w.tick();
+        ++ticks;
+    }
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->run_bonus == 0);
+    CHECK(a.h->speed == speed);
+    CHECK_FALSE(a.h->moving);
+    CHECK(ticks >= 2);
+    CHECK(ticks <= 6);
+    CHECK(a.h->pos() == Pos{2050, 2000});
+}
+
+TEST_CASE("style 1: the multi cast fires the child ChildSkillNum times, the special attack casts it at 60 percent", "[command]")
+{
+    Arena a({1112, 1114});
+    // form 12: three casts, each after the start delay of the i-th missile (none here: 1 frame each)
+    CHECK(a.w.cast_skill_request(7, 1112, -1, 0, a.pig, 1));
+    CHECK(a.h->doing == KDoing::special_cast);
+    CHECK(a.h->phase == 0);
+    CHECK(a.h->frame_total == 1);
+    CHECK(a.actions().size() == 1);
+    a.ticks(1);
+    CHECK(a.h->doing == KDoing::special_cast);
+    CHECK(a.h->phase == 1);
+    a.ticks(1);
+    CHECK(a.h->phase == 2);
+    a.ticks(1);   // the third cast, then 0x08084B61: past ChildSkillNum the npc stands
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->phase == 0);
+    CHECK(a.actions().size() == 2);
+    // form 8: an attack action of 18 frames; the child (1101, an immediate blow of 5 life) at frame 10
+    CHECK(a.w.cast_skill_request(7, 1114, -1, 0, a.pig, 2));
+    CHECK(a.h->doing == KDoing::special_skill);
+    CHECK(a.h->frame_total == 18);
+    a.ticks(9);
+    CHECK(a.p->life() == 1000);
+    a.ticks(1);
+    CHECK(a.p->life() == 995);
+    CHECK(a.h->doing == KDoing::special_skill);
+    a.ticks(8);
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.p->life() == 995);
+    // a move is an action: another command waits (0x0809B840 answers 1 while +0x194c == 0)
+    a.h->skill_list.clear_cool_time(0);
+    CHECK(a.w.cast_skill_request(7, 1114, -1, 0, a.pig, 3));
+    CHECK(a.h->doing == KDoing::special_skill);
+    CHECK(a.w.cast_skill_request(7, 1112, -1, 0, a.pig, 4));
+    CHECK(a.h->commands.size() == 1);
+    CHECK(a.h->doing == KDoing::special_skill);
 }

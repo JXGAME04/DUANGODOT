@@ -110,6 +110,7 @@ enum Action {
   ACTION_HURT = 2;               // frames = hurt length (KNpc::DoHurt), pos = where the entity stands
   ACTION_DEATH = 3;              // frames = death animation; the corpse keeps the last frame until despawn
   ACTION_REVIVE = 4;
+  ACTION_JUMP = 5;               // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
 }
 
 // An entity started an action (old NPC_HURT_SYNC / NPC_DEATH_SYNC / skill sync).

@@ -453,6 +453,11 @@ public:
     void set_hide(KNpc& e, int value);
     // 0x0807D4C0: the hiding breaks - the state skills of [hide] Data1.. come off
     void break_hide(KNpc& e);
+    // ---- the moves of a style-1 skill: KNpc 0x08087F70, MisslesForm 8..13 (docs/LINUX-SERVER.md §16.2) ----
+    // DoSkill's style-1 branch: the move of the form set going (false: no such form, or no way)
+    bool do_special_skill(KNpc& e, const KSkill& sk);
+    static constexpr int kJumpSteps = 40;          // +0x12a0 (KNpc::Init 0x0807DDD4): a jump reaches 40 steps of the step length at most
+    static constexpr int kMoveMinDistance = 20;    // 0x08087D3E / 0x08084D43: a jump or a blink shorter than this is no move
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
@@ -478,6 +483,23 @@ private:
     void look_around(std::uint64_t sid, KViewer& v);       // forget what left, learn what is near, within the budget
     void entity_gone(KNpc& e, bool keep_self = false);     // it leaves the world: every client that knows it is told
     void wake_viewers_near(const KNpc& e);                 // the viewers around it look again next tick (a hiding ended)
+    // the moves of style 1 (KSkills.cpp)
+    void end_run(KNpc& e);                    // the run bonus off: the "m_Doing == 0x12" prologue of DoStand / DoSkill / the moves
+    void stop_action(KNpc& e);                // a swing or a move under way ends (DoStand / DoWalk take over)
+    bool jump_to(KNpc& e, Pos to);            // 0x08087CF0: the way of a jump, its frames and direction
+    void start_jump(KNpc& e);                 // 0x0807B320: m_Doing 4, the 0x54 packet
+    bool jump_frame(KNpc& e);                 // 0x080818F0 + 0x080817E0: a frame in the air; false when it landed
+    bool start_special_skill(KNpc& e);        // 0x08084930 (form 8)
+    void special_skill_frame(KNpc& e);        // 0x08087620
+    bool start_run_attack(KNpc& e);           // 0x08084A10 (form 11)
+    void run_frame(KNpc& e);                  // 0x080853B0
+    bool start_special_cast(KNpc& e);         // 0x08084B40 (form 12)
+    void special_cast_frame(KNpc& e);         // 0x08086E50
+    bool start_blink(KNpc& e);                // 0x08084C90 (form 13)
+    void blink_frame(KNpc& e);                // 0x08080760
+    bool start_jump_attack(KNpc& e);          // 0x080807E0 (form 10)
+    void jump_attack_frame(KNpc& e);          // 0x08084E00
+    void cast_child_skill(KNpc& e, bool style0_only);   // the ChildSkillId at the kept target / spot
     void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
     static constexpr std::uint64_t kSwapEveryLooks = 4;    // ... and it looks for them every 4th routine look (about 0,9 s)
