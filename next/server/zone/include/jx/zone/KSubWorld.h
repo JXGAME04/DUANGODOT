@@ -365,10 +365,21 @@ public:
     // KNpc::OnHurt 0x0807F780: the stagger, shorter with hit recover; 0x0807F9D0 rolls DoHurt first
     void do_hurt(KNpc& e, int anti_hit_recover, EntityId source);
     void do_hurt_chance(KNpc& target, int do_hurt, const KNpc& attacker);
-    // the auto-skill lists of a npc (0x08188BB0; B2b): every frame, when hit, when it hits, when
-    // its life drops under a quarter
-    enum class KAutoSkillList { every_frame, hit_reply, on_hit, life_quarter };
-    void trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId target, EntityId launcher);
+    // 0x08188BB0 over one auto-skill list of `owner` (KAutoSkillList): `self_key` is the npc the
+    // list is walked for - it keys the wait between two casts and is the target of a cast that is
+    // not "at target"; `other` is the target of one that is
+    void trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId self_key, EntityId other);
+    // 0x080821C0: the launcher's on-cast map for a skill it just cast at `level`: every {skill,
+    // percent} of it cast at the same level, target and spot
+    void cast_on_cast_skills(KNpc& launcher, int skill_id, int level, const KCastParams& p);
+    // 0x08081B70: the spot a knock back (or a dash) may reach on the way from the npc to `to`, in
+    // steps of its step length; false when the way is no way (a step of 0, off the map, an unknown
+    // barrier).  `distance` comes back as the way found, `fly` passes jump barriers and npcs.
+    bool knock_back_free_spot(const KNpc& e, Pos& to, int& distance, bool fly) const;
+    // KRegion::GetBarrier 0x080E0A30 through KSubWorld 0x080F0530: the barrier kind under a spot
+    // (the low nibble of the cell; a diagonal cell - high nibble 2..5 - passes on one side of its
+    // line by the offsets inside the cell), 0 when none, -1 off the map
+    [[nodiscard]] int barrier_kind(Pos at) const noexcept;
     // KNpc::ProcessState 0x0808B610 every frame (the regeneration part every GAME_UPDATE_TIME
     // frames when `regen`): the poison ticks, the freeze, the stun, the potions, the states run
     // out.  True when the npc does nothing else this frame (stunned, or the odd frame of a freeze).

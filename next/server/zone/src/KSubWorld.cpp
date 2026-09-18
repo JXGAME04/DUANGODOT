@@ -543,6 +543,7 @@ void KSubWorld::tick()
         const std::uint64_t state_every = awake ? kGameUpdateTime : kGameUpdateTime * 8;   // dormant: rarely
         bool frozen = false;
         if (e.alive()) {   // ProcessState runs only while m_ProcessState (cleared by DoDeath)
+            trigger_auto_skills(e, KAutoSkillList::every_frame, e.id, EntityId{});   // 0x0808BEDF, before ProcessState
             frozen = process_frame_state(e, e.loop_frames % state_every == 0);
             if (e.loop_frames % 18 == 0) per_second_attribs(e);   // 0x0808BFD4
         }

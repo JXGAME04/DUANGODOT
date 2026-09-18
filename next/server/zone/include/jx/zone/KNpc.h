@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -64,6 +65,24 @@ struct KStateNode {
     int special_id = 0;         // +0x164 KSkill::StateSpecialId - the state's icon
     int priority = 0;           // +0x168 KSkill::StatePriority
     std::array<KMagicAttrib, kMaxSkillState> states{};   // +0x24
+};
+
+// The five auto-skill lists of a npc (KNpc+0x182c, +0x1850, +0x1874, +0x1898, +0x18bc; KNpc::Init
+// 0x0807DBD0 names them "auto cast per n frame", 受到攻击自动施放, 攻击命中自动施放, 生命濒危自动施放,
+// 死亡自动施放): every frame (0x0808BE80), when hit and when hitting (ReceiveDamage 0x0808B507 /
+// 0x0808B1D3), when the life falls under a quarter (0x0808B13A); the last is never walked.  The
+// attributes autocastskill 272, autoreplyskill 195 and autoattackskill 196 fill the first three
+// (0x08189000); the every-frame list and the on-cast map are cleared by ClearAttrib (0x0807F5AC).
+enum class KAutoSkillList : int { every_frame = 0, hit_reply, on_hit, life_quarter, on_death };
+inline constexpr std::size_t kAutoSkillLists = 5;
+
+// One entry of such a list (0x3c bytes of the binary), keyed by skill id << 8 | level.
+struct KAutoSkillEntry {
+    int rate = 0;                 // +0x14: the percent, added up by every attribute with the key (a negated one takes it back)
+    int interval = 0;             // +0x18: MinPerCastTime - frames between two casts on the same target
+    bool own_skill = false;       // +0x34: the npc's own skill: its skill list decides (0x080E4540) and its cooldown starts (0x080847B0)
+    int at_target = 0;            // +0x38: 1 = cast on the npc handed over, else on the one the list is walked for
+    std::unordered_map<std::uint64_t, std::uint64_t> next_tick;   // +0x1c: per target, the frame the next cast may come (0x08188A10)
 };
 
 // KNpc+0x19d8..: one attribute of one skill's states is changed by this much when that skill is
@@ -132,6 +151,8 @@ struct KNpc {
     EntityId last_poison_id;                // +0x15a0: who poisoned us last (0x0807BD60)
     std::unordered_map<int, int> skill_enhance;   // +0x115c: map<skill id, percent> added to a cast's damage (0x080E9E90)
     KStateModifier state_modifier;          // +0x19d8..
+    std::array<std::map<int, KAutoSkillEntry>, kAutoSkillLists> auto_skills{};   // +0x182c.. (KAutoSkillList)
+    std::map<int, std::map<int, int>> on_cast_skills;   // +0x18ec: skill id -> {skill id -> percent} cast along with it at its level (oncastskill 274, 0x080821C0)
     int crowd_block_rate = 0;               // +0x1390: min(25, npcs within 256 / addblockrate[0] x addblockrate[1]) once a second (players, 0x0808C078)
     int mana_skill_enhance = 0;             // +0x139c: manatoskill_enhance x mana / mana max once a second (0x0808BFFC); part of a cast's enhance
     // the state icons the client is shown (six, sorted by priority toward the end; 0x08079240):
@@ -216,6 +237,8 @@ struct KNpc {
     void clear_attrib(bool clear_state, int sit_add_per_mille) noexcept
     {
         cur.clear(base, sit_add_per_mille);
+        auto_skills[static_cast<std::size_t>(KAutoSkillList::every_frame)].clear();   // 0x0807F5AC: the every-frame list and
+        on_cast_skills.clear();                                                        // 0x0807F5F3: the on-cast map, always
         if (clear_state) {
             life_state = PotionState{};
             mana_state = PotionState{};

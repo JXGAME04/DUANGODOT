@@ -1122,14 +1122,43 @@ bool KSubWorld::missle_prepare_fly(KMissle& m)
     return true;
 }
 
+int KSubWorld::barrier_kind(Pos at) const noexcept
+{
+    // KRegion::GetBarrier 0x080E0A30(region, mode, cx, cy, ox, oy) after Mps2Map (0x080F0530 /
+    // 0x080F05C0): the cell's dword - its low byte is what obstacle.bin keeps - has the barrier
+    // kind in the low nibble and, in the high nibble, a diagonal shape: 3 passes where ox < oy, 4
+    // where ox > oy, 5 where ox + oy <= 31, 2 where ox + oy > 32 (ox, oy = the offsets inside the
+    // cell in units).  Where it passes, or with no shape and kind 0, the answer is 0 - or 4 when a
+    // npc stands in the cell and the caller's mode asks (the missiles ask and take 4 for nothing;
+    // the knock back's mode is 0 and the global 0x0830CA2C is not read here: neither asks).
+    if (!cfg_.map) return 0;
+    const KMapData& map = *cfg_.map;
+    if (at.x < 0 || at.y < 0) return -1;
+    const int cx = at.x / kMissleCell;
+    const int cy = at.y / kMissleCell;
+    if (!map.in_bounds(cx, cy)) return -1;
+    const int cell = map.obstacle[static_cast<std::size_t>(cy) * static_cast<std::size_t>(map.cells_x) + static_cast<std::size_t>(cx)];
+    const int shape = (cell >> 4) & 0xf;
+    const int ox = at.x - cx * kMissleCell;
+    const int oy = at.y - cy * kMissleCell;
+    bool passes = false;
+    switch (shape) {
+    case 3: passes = ox < oy; break;
+    case 4: passes = ox > oy; break;
+    case 5: passes = ox + oy <= 31; break;
+    case 2: passes = ox + oy > 32; break;
+    default: break;
+    }
+    if (passes) return 0;
+    return cell & 0xf;
+}
+
 bool KSubWorld::missle_test_barrier(const KMissle& m) const noexcept
 {
     // KMissle::TestBarrier: Obstacle_Normal (1) or Obstacle_Jump (3) under the missile (0x080F05C0
     // resolves the cell across regions; -1 off the map is not a barrier)
     if (!cfg_.map || !m.on_map) return false;
-    const KMapData& map = *cfg_.map;
-    if (!map.in_bounds(m.map_x, m.map_y)) return false;
-    const std::uint8_t kind = map.obstacle[static_cast<std::size_t>(m.map_y) * static_cast<std::size_t>(map.cells_x) + static_cast<std::size_t>(m.map_x)];
+    const int kind = barrier_kind(missle_pos(m));
     return kind == 1 || kind == 3;
 }
 

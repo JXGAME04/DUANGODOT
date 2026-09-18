@@ -516,6 +516,8 @@
     "cast by a missile not carried": "Kỹ năng do đạn thi triển ngoài kiểu 0 chưa hỗ trợ",
     "child cast of a wall by a missile refused": "Kỹ năng con của dạng tường do đạn thi triển: từ chối (lỗi gốc của nhị phân)",
     "missile table loaded": "Đã nạp bảng đạn",
-    "no missile table": "Không nạp được bảng đạn"
+    "no missile table": "Không nạp được bảng đạn",
+    "auto skill failed": "Kỹ năng tự động không lên (tỉ lệ)",
+    "auto skill cast": "Kỹ năng tự động thi triển"
   }
 }

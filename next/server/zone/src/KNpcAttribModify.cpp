@@ -37,6 +37,34 @@ void fast_walk_run(KNpc& npc, int v, bool yan) noexcept
     c.run_speed += percent_of(npc.base.run_speed, now);
 }
 
+// 0x08189000(list, key, value, own, at_target): an entry of an auto-skill list.  The percent is
+// the low byte of |value|, negated when value is not positive (a state taken back), the frames
+// between two casts the rest of |value|.  An entry with the key takes the percent (and the new
+// at_target) and goes at 0; a new one is made otherwise - with a negative percent too, as the
+// binary does.
+void auto_skill_modify(KNpc& npc, KAutoSkillList which, int key, int value, bool own_skill, int at_target)
+{
+    auto& list = npc.auto_skills[static_cast<std::size_t>(which)];
+    const int magnitude = std::abs(value);
+    const int percent = value > 0 ? (magnitude & 0xff) : -(magnitude & 0xff);
+    const int interval = magnitude >> 8;
+    if (const auto it = list.find(key); it != list.end()) {
+        it->second.rate += percent;
+        if (it->second.rate == 0) {
+            list.erase(it);
+            return;
+        }
+        it->second.at_target = at_target;
+        return;
+    }
+    KAutoSkillEntry e;
+    e.rate = percent;
+    e.interval = interval;
+    e.own_skill = own_skill;
+    e.at_target = at_target;
+    list.emplace(key, std::move(e));
+}
+
 } // namespace
 
 bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttribModifyContext& ctx)
@@ -341,6 +369,42 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
         return true;
     case magic_melee_returnres_p: c.melee_return_res += v0; return true;                   // 299 (0x08096390)
     case magic_range_returnres_p: c.range_return_res += v0; return true;                   // 300 (0x080963B0)
+    // ---- the auto-skill lists (0x08189000: the key is |nValue[0]| = skill id << 8 | level, the
+    // percent the low byte of |nValue[2]| - negative when the values are a state's taken back -
+    // and the frames between two casts the rest of it)
+    case magic_autocastskill: {                                                            // 272 (0x08097420): every frame
+        const int key = std::abs(v0);
+        auto_skill_modify(npc, KAutoSkillList::every_frame, key, v2, v1 == 1, 0);
+        if (v0 > 0) {   // 0x08188A10: the wait before the first cast on itself starts now
+            auto& list = npc.auto_skills[static_cast<std::size_t>(KAutoSkillList::every_frame)];
+            if (const auto it = list.find(key); it != list.end()) {
+                it->second.next_tick[npc.id.value] = ctx.tick + static_cast<std::uint64_t>(it->second.interval);
+            }
+        }
+        return true;
+    }
+    case magic_autoreplyskill:                                                             // 195 (0x080973D0): when hit; the top byte of |nValue[0]| says "at the attacker"
+        auto_skill_modify(npc, KAutoSkillList::hit_reply, std::abs(v0) & 0xffffff, v2, v1 == 1, std::abs(v0) >> 24);
+        return true;
+    case magic_autoattackskill:                                                            // 196 (0x08097380): when hitting
+        auto_skill_modify(npc, KAutoSkillList::on_hit, std::abs(v0), v2, false, 0);
+        return true;
+    case magic_oncastskill: {                                                              // 274 (0x0809AE60): [|v0|][|v2|] += v1; out at 0 or below
+        const int cast_id = std::abs(v0);
+        const int with_id = std::abs(v2);
+        const auto outer = npc.on_cast_skills.find(cast_id);
+        if (outer == npc.on_cast_skills.end()) {
+            if (v1 > 0) npc.on_cast_skills[cast_id][with_id] = v1;
+            return true;
+        }
+        if (const auto inner = outer->second.find(with_id); inner != outer->second.end()) {
+            inner->second += v1;
+            if (inner->second <= 0) outer->second.erase(inner);   // the outer node stays, as in the binary
+        } else if (v1 > 0) {
+            outer->second[with_id] = v1;
+        }
+        return true;
+    }
     default:
         return false;
     }

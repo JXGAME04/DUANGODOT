@@ -16,6 +16,8 @@
 
 #include "jx/zone/KMagicAttrib.h"
 
+#include <cstdint>
+
 namespace jx::zone {
 
 struct KNpc;
@@ -26,6 +28,7 @@ struct KNpcAttribModifyContext {
     const KPlayerSet* tables = nullptr;   // the level tables (strength_v .. energy_v of a player)
     const KItemList* items = nullptr;     // the player's items (SetNpcPhysicsDamage after a strength change)
     bool removing = false;                // the values are the negated ones of a piece taken off
+    std::uint64_t tick = 0;               // the frame (autocastskill starts its wait from it, 0x08188A10)
 };
 
 class KNpcAttribModify {

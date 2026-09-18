@@ -50,7 +50,8 @@ struct KNpcAttrib {
     int physics_resist_max = 0;    // +0x1618
     int walk_speed = 5;            // m_WalkSpeed         +0x161c
     int run_speed = 10;            // m_RunSpeed          +0x1620
-    int attack_radius = 0;         // m_AttackRadius      +0x1624
+    int attack_radius = 0;         // the JX1 m_AttackRadius (the zone's active skill radius; the JX2 binary keeps it in the skill)
+    int step_length = 12;          // +0x1624: KNpc::Init 0x0807E005 sets 12; the knock back walks in steps of it (0x08081B70) - nothing else writes it
     int attack_speed = 0;          // m_AttackSpeed       +0x1628
     int cast_speed = 0;            // m_CastSpeed         +0x162c
     int vision_radius = 0;         // m_VisionRadius      +0x1630
@@ -100,7 +101,8 @@ struct KNpcCurrentAttrib {
     int run_speed = 0;                       // m_CurrentRunSpeed            +0x128c
     int no_move_speed = 0;                   // nomovespeed 182              +0x1294
     int no_move_speed_ex = 0;                // +0x1298
-    int attack_radius = 0;                   // m_CurrentAttackRadius        +0x129c
+    int attack_radius = 0;                   // the JX1 m_CurrentAttackRadius: the active skill's radius (KNpcAI; nothing in jx_linux_y writes a skill radius into the npc)
+    int step_length = 12;                    // +0x129c: ClearAttrib copies +0x1624 (0x0807F0CD); the step of the knock back search 0x08081B70 and of 0x08087CF0
     int vision_radius = 0;                   // m_CurrentVisionRadius        +0x12a4
     int active_radius = 0;                   // m_CurrentActiveRadius        +0x12ac
     KAttribPair anti_hit_recover{};          // anti_hitrecover 219          +0x12b0
@@ -253,6 +255,7 @@ struct KNpcCurrentAttrib {
         fire_resist_max = base.fire_resist_max;
         hit_recover = hit_recover_yan = base.hit_recover;
         attack_radius = base.attack_radius;
+        step_length = base.step_length;
         life_replenish = base.life_replenish;
         light_resist = base.light_resist;
         light_resist_max = base.light_resist_max;

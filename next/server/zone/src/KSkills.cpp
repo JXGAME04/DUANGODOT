@@ -133,7 +133,7 @@ bool KSubWorld::cast_passivity_skill(const KSkill& skill, KNpc& launcher, int ex
 void KSubWorld::skill_start_event(const KSkill& skill, KNpc& launcher, const KCastParams& p)
 {
     // 0x080EAB90: StartSkillId cast at EventSkillLevel (-1 = this level) with the same target,
-    // then the launcher's auto-skill map for this skill (0x080821C0, B2b)
+    // then the launcher's on-cast map for this skill (0x080821C0)
     if (skill.row.start_event && skill.row.start_skill_id > 0) {
         int level = skill.row.event_skill_level;
         if (level == -1) level = skill.level;
@@ -145,6 +145,30 @@ void KSubWorld::skill_start_event(const KSkill& skill, KNpc& launcher, const KCa
                 skill_cast(*sk, launcher, q);
             }
         }
+    }
+    cast_on_cast_skills(launcher, skill.row.id, skill.level, p);
+}
+
+void KSubWorld::cast_on_cast_skills(KNpc& launcher, int skill_id, int level, const KCastParams& p)
+{
+    // 0x080821C0(npc, skill, level, p1, p2): the entries under the skill in the npc's map (+0x18ec)
+    // roll their percent; each skill that comes up (1..1999 at this level 1..63, of style 0, 1, 2
+    // or 14) is cast with the same target or spot.  The casts may change the map: a copy is walked.
+    const auto it = launcher.on_cast_skills.find(skill_id);
+    if (it == launcher.on_cast_skills.end()) return;
+    const std::map<int, int> entries = it->second;
+    for (const auto& [id, rate] : entries) {
+        if (!(rate > random(100))) continue;
+        if (level <= 0 || id < 1 || id > 1999 || level > 63) continue;
+        const KSkill* sk = skills_ ? skills_->get(id, level) : nullptr;
+        if (sk == nullptr) continue;
+        const int style = sk->row.style;
+        if (style < 0 || style > skill_style_jx2_14 || ((1 << style) & 0x4007) == 0) continue;
+        KCastParams q = p;
+        q.wait_time = 0;
+        q.extra = 0;
+        skill_cast(*sk, launcher, q);
+        // (the cast sync 0x85 to the clients: B4)
     }
 }
 

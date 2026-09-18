@@ -361,7 +361,7 @@ void KSubWorld::append_skill_effect(const KNpc& n, bool physical, bool melee, co
 void KSubWorld::modify_attrib(KNpc& target, EntityId launcher, const KMagicAttrib& m, bool removing)
 {
     (void)launcher;   // KNpc::ModifyAttrib(nLauncher, ...) hands it to the table; no entry the zone carries reads it
-    const KNpcAttribModifyContext ctx{&tables(), target.sid != 0 ? items_of(target.sid) : nullptr, removing};
+    const KNpcAttribModifyContext ctx{&tables(), target.sid != 0 ? items_of(target.sid) : nullptr, removing, tick_};
     if (!KNpcAttribModify::modify(target, m, ctx)) {
         log::trace("zone.fight", "magic attribute not carried", {log::kv("entity", target.id), log::kv("attrib", m.type)});
     }
@@ -961,9 +961,9 @@ void KSubWorld::knock_back(KNpc& t, const KNpc& launcher, int frames, int distan
     }
     t.dir = dir < 0 ? 0u : static_cast<std::uint32_t>(dir);
     Pos dest{p1.x - ((g_DirCos(dir) * distance) >> 10), p1.y - ((g_DirSin(dir) * distance) >> 10)};
-    // (0x08081B70 finds the free spot along the way: until it is read, the map's nearest walkable spot)
-    dest = clamp(dest);
-    if (cfg_.map) dest = cfg_.map->nearest_walkable(dest);
+    // 0x08087AD5: the way that is free, flying over jump barriers and npcs; none -> no knock back
+    int way = distance;
+    if (!knock_back_free_spot(t, dest, way, true)) return;
     t.knock_from = p1;
     t.knock_dest = dest;
     t.doing = KDoing::knock_back;
@@ -974,14 +974,94 @@ void KSubWorld::knock_back(KNpc& t, const KNpc& launcher, int frames, int distan
     emit_action(t, pb::ACTION_HURT, launcher.id);   // shown as a stagger until the client knows the knock back (B4)
 }
 
-void KSubWorld::trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId target, EntityId launcher)
+bool KSubWorld::knock_back_free_spot(const KNpc& e, Pos& to, int& distance, bool fly) const
 {
-    // 0x08188BB0 over the four lists KNpc+0x182c / +0x1850 / +0x1874 / +0x1898: {skill, rate}
-    // pairs cast at their chance - the lists are filled by the auto skill attributes (B2b)
-    (void)owner;
-    (void)which;
-    (void)target;
-    (void)launcher;
+    // 0x08081B70(npc, &x, &y, &distance, fly): from the npc's spot toward (x, y) in steps of its
+    // step length (1..32, else no way), at most min(way, distance) / step of them.  A step onto a
+    // cell of the region's scripted-cell map (0x080E0990; the zone has none) is where the way
+    // ends; else the barrier under the step decides (0x080F0530): none - the step is good; 1 or 2
+    // - the way ends at the last good step; 3 or 4 (a jump barrier, a npc standing there) - the
+    // same unless `fly`, which flies over without making the step a good one; anything else (off
+    // the map too) - no way.
+    const int step = e.cur.step_length;
+    if (step < 1 || step > 32) return false;
+    if (distance <= 0) return false;
+    const Pos from = e.pos();
+    const std::int64_t dx = to.x - from.x;
+    const std::int64_t dy = to.y - from.y;
+    const int len = static_cast<int>(std::sqrt(static_cast<double>(dx * dx + dy * dy)));
+    if (len == 0) return false;
+    const auto step_x = static_cast<int>(((dx * step) << 10) / len);
+    const auto step_y = static_cast<int>(((dy * step) << 10) / len);
+    const int n = std::min(len, distance) / step;
+    auto result = [&](int good) {
+        distance = good * step;
+        to = Pos{from.x + ((good * step_x) >> 10), from.y + ((good * step_y) >> 10)};
+        return true;
+    };
+    if (n <= 0) return result(0);
+    std::int64_t ax = static_cast<std::int64_t>(from.x) << 10;
+    std::int64_t ay = static_cast<std::int64_t>(from.y) << 10;
+    int good = 0;
+    for (int i = 1; i <= n; ++i) {
+        ax += step_x;
+        ay += step_y;
+        const Pos at{static_cast<std::int32_t>(ax >> 10), static_cast<std::int32_t>(ay >> 10)};
+        const int kind = barrier_kind(at);
+        if (kind < 0 || kind > 4) return false;   // (byte)-1 and anything past the table 0x08254A48
+        switch (kind) {
+        case 0: good = i; break;                    // 0x08081DA8
+        case 1:
+        case 2: return result(good);                // 0x08081D62
+        default:                                    // 3, 4: 0x08081D58
+            if (!fly) return result(good);
+            break;
+        }
+    }
+    return result(good);
+}
+
+void KSubWorld::trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId self_key, EntityId other)
+{
+    // 0x08188BB0(list, index, target): every entry whose wait for `index` is over rolls its
+    // percent, then its skill (a style 0..4 or 14 one; an own skill only when the skill list
+    // allows it) is cast on `index` - or on `target` when the entry says so - and the wait for
+    // `index` starts again.  The casts may change the list: the keys are taken first.
+    if (!self_key.valid()) return;
+    auto& list = owner.auto_skills[static_cast<std::size_t>(which)];
+    if (list.empty()) return;
+    std::vector<int> keys;
+    keys.reserve(list.size());
+    for (const auto& [key, entry] : list) keys.push_back(key);
+    for (const int key : keys) {
+        const auto it = list.find(key);
+        if (it == list.end()) continue;
+        const KAutoSkillEntry& e = it->second;
+        if (const auto w = e.next_tick.find(self_key.value); w != e.next_tick.end() && tick_ < w->second) continue;
+        if (!(e.rate > random(100))) {
+            log::trace("zone.fight", "auto skill failed", {log::kv("entity", owner.id), log::kv("skill", key >> 8), log::kv("level", key & 0xff), log::kv("percent", e.rate)});
+            continue;
+        }
+        const int id = key >> 8;
+        const int level = key & 0xff;
+        log::trace("zone.fight", "auto skill cast", {log::kv("entity", owner.id), log::kv("skill", id), log::kv("level", level), log::kv("percent", e.rate)});
+        if (e.own_skill) {
+            // 0x080E4540 KSkillList: the npc must have the skill with a level, not locked, past its
+            // cooldown and at the level it needs (a player's list comes with B3: none yet)
+            if (owner.kind == KNpcKind::player || skill_list_level(owner, id) <= 0) continue;
+        }
+        if (id < 1 || id > 1999 || level < 1 || level > 63) continue;
+        const KSkill* sk = skills_ ? skills_->get(id, level) : nullptr;
+        if (sk == nullptr) continue;
+        if (sk->row.style != skill_style_jx2_14 && sk->row.style > skill_style_create_npc) continue;
+        KCastParams p;
+        p.target = e.at_target == 1 ? other : self_key;
+        if (!skill_cast(*sk, owner, p)) continue;
+        // (0x080847B0: an own skill's cooldown starts - B3; the cast sync 0x85 to the clients - B4)
+        if (const auto again = list.find(key); again != list.end()) {
+            again->second.next_tick[self_key.value] = tick_ + static_cast<std::uint64_t>(again->second.interval);
+        }
+    }
 }
 
 void KSubWorld::sync_life(const KNpc& e, int life_before, EntityId source)

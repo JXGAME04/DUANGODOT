@@ -112,12 +112,19 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   tức thời style 14, thi triển từ đạn); `g_GetDirIndex` + bảng sin/cos thay bằng **bản JX2** (phải = 48, bảng cắt 979);
   đánh thường là đạn thật (mẫu 64/65 có sẵn khi không có bảng); quái test không mẫu là `camp_animal`; test
   `test_KMissle.cpp` 14 ca / 319 kiểm, ctest 183/183, Go 5/5.
+- **M12 lát B2c (xong 2026-09-18)**: **kỹ năng tự động + ô trống khi đánh lùi đúng từng lệnh** (`LINUX-SERVER.md` §14):
+  5 danh sách `KNpc::auto_skills` (mỗi khung, bị đánh, đánh trúng, máu tụt, chết) nạp bởi `autocastskill`/`autoreplyskill`/
+  `autoattackskill` (`0x08189000`, khoá `id<<8|cấp`, % byte thấp, khung chờ theo mục tiêu), duyệt `0x08188BB0` (mỗi khung trước
+  `ProcessState`, trong `ReceiveDamage` với đối số thật: danh sách đánh trúng bắn vào nạn nhân), bản đồ `oncastskill`
+  (`0x080821C0` cuối `StartEvent`), `knock_back_free_spot` (`0x08081B70`: bước 12 = `step_length` `+0x129c` — **đính chính**
+  `+0x129c` không phải bán kính kỹ năng), `barrier_kind` (`0x080E0A30`: nửa ô chéo 2..5, nhị phân đạn dùng chung); đã đọc và
+  ghi (chưa port): `CanCastSkill 0x080E8AE0`, kỹ năng tạo npc `0x080E8770`; test `test_KAutoSkill.cpp` 5 ca / 84 kiểm, ctest 188/188.
 
 ### 0.4 Chưa làm — và làm như thế nào
 
 | Việc | Cách làm (đã biết địa chỉ / nguồn) |
 |---|---|
-| **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13) | **B2c**: kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3 — kỹ năng của nhân vật**: `KSkillList` `KNpc+0x248` (79 ô × 0x30: id +0, cấp +4, cấp hiện tại +0x18; `GetLevel 0x080E4440`; `ClearAttrib` hạ cấp hiện tại về cấp), `Player+0x5994`, `SetSkillLevel`, điểm kỹ năng (`+0x5928`), kỹ năng khởi đầu `newplayerini [FSKILLS]`, kinh nghiệm kỹ năng `0x080E5D90`, lưu `RoleData` (thêm `repeated SkillData`), client gửi kỹ năng đánh (1 gần / 2 xa theo vũ khí — tạm chọn ở `swing_skill`), `Abrade` khi bị đánh, chết của người chơi `0x080B2790` + PK (`[0x8BADF50]`). **B4** client: ô kỹ năng / phím tắt theo bố cục 2.0, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng). **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
+| **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; cần bảng `武器物理攻击对照表.txt` → kỹ năng đánh theo vũ khí, thay `swing_skill` tạm) và kỹ năng tạo npc `0x080E8770` (đã đọc §14; cần sổ npc tạo của `KPlayer +0x7d34..` và đếm ngược thời gian — chưa đọc), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3 — kỹ năng của nhân vật**: `KSkillList` `KNpc+0x248` (79 ô × 0x30: id +0, cấp +4, cấp hiện tại +0x18; `GetLevel 0x080E4440`; `ClearAttrib` hạ cấp hiện tại về cấp), `Player+0x5994`, `SetSkillLevel`, điểm kỹ năng (`+0x5928`), kỹ năng khởi đầu `newplayerini [FSKILLS]`, kinh nghiệm kỹ năng `0x080E5D90`, lưu `RoleData` (thêm `repeated SkillData`), client gửi kỹ năng đánh (1 gần / 2 xa theo vũ khí — tạm chọn ở `swing_skill`), `Abrade` khi bị đánh, chết của người chơi `0x080B2790` + PK (`[0x8BADF50]`). **B4** client: ô kỹ năng / phím tắt theo bố cục 2.0, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng). **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
 | **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); bộ nạp hằng PK `[0x8BADF50]`; `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ngồi (`m_Doing 8`) và chạy (`0x12`, thưởng `+0x14b0`, thể lực `[0x8BADF80..]`) chưa có trạng thái trong zone. |
 | Trạng thái (độc / băng / choáng / thuốc) | `KNpc::ProcessState 0x0808B610` (§9), trang trạng thái `KNpc+0x234` (20 ô × 16 byte), `ReCalcStateEffect 0x0807D270` (áp lại với dấu âm), `+0x1bc..+0x1fc` các bộ đếm. Zone mới có `life_state/mana_state` và ô giữ chỗ `poison/freeze/stun_state`. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
@@ -182,6 +189,14 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   sự kiện; và `load_skill_level_data` chỉ áp "0" khi **có tên** script cấp (không tên → bỏ, không tải) — test phải cho `LvlSetScript`.
 - **Lệnh Bash `cmd.exe /c "next_env.cmd cmake ..."` không chạy gì** (cmd không nhận `%*`); phải gọi từ PowerShell
   `& cmd.exe /c "$S\next_env.cmd" cmake --build ...`. Kiểm bằng dòng cuối log (`Linking`), đừng tin "không lỗi".
+- **CI Linux đỏ vì hàm tĩnh không dùng** (`apply_state_modifier` trong `KNpc.cpp`, `-Werror=unused-function`; MSVC không báo): mỗi
+  hàm trong `namespace {}` phải có nơi gọi; và **log CI đọc được không cần token**: mở trang run trên GitHub bằng trình duyệt tích
+  hợp (`Annotations` liệt kê đúng dòng lỗi) — đừng đoán mò nguyên nhân.
+- **Nhãn offset sai kéo theo luật sai**: §10.1 ghi `+0x129c` = bán kính kỹ năng; `re_scan disp` cho thấy chỉ `Init` (=12) và `ClearAttrib`
+  ghi nó, `0x08081B70` dùng làm **bước** → nếu tin nhãn, đánh lùi sẽ "không bao giờ" (bán kính > 32). Trước khi dùng một ô làm luật,
+  `re_scan disp` xem ai ghi.
+- **Kỹ năng tự động đáp đòn vô hạn**: `[autoreplyskill]`/`[autoattackskill]` của `attribconstdata.ini` chính là danh sách kỹ năng
+  **không** đánh thức lại danh sách; test dựng tay thiếu nó → tràn stack (nhị phân cũng thế). Dữ liệu test phải có `set_attrib_data`.
 
 ### 0.6 Cách làm đang tốt — giữ nguyên
 
@@ -341,6 +356,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 4) — M12 lát B2c: kỹ năng tự động, bản đồ thi triển kèm, ô trống khi đánh lùi
+
+- **Mổ nhị phân** (`LINUX-SERVER.md` §14): `KNpc::Init 0x0807DBD0` dựng 5 danh sách (`0x08188F60`, tên GBK), nút `0x08189000` (khoá `id<<8|cấp`, % byte thấp của |v2|, khung chờ `|v2|>>8`, cờ `+0x34` kỹ năng của mình, `+0x38` bắn vào mục tiêu), ProcessFunc 272/195/196 (`0x08097420/0x080973D0/0x08097380`, `0x08188A10` chờ lần đầu), duyệt `0x08188BB0` (cây con mục tiêu → khung, `0x080E4540` KSkillList, `0x080847B0` hồi chiêu, gói `0x85`), đối số thật của 4 chỗ gọi (`0x0808BEDF`, `0x0808B507`, `0x0808B1D3` nạn nhân, `0x0808B13A`), `oncastskill 0x0809AE60` + `0x080821C0` (style `& 0x4007`), `ClearAttrib` xoá `+0x1830`/`+0x18e8`; **`0x08081B70`** ô trống (bước `+0x129c` = 12, `0x080F1E50/0x080E0990` bản đồ script, `0x080F0530/0x080E0A30` loại chướng ngại + hình chéo, bảng `0x08254A48`, `KnockBack` không đánh lùi khi thất bại); `CanCastSkill 0x080E8AE0` và tạo npc `0x080E8770` đọc trọn, ghi §14, chưa port; `+0x1624/+0x129c` đính chính = bước đi.
+- **Zone**: `KNpc.h` (`KAutoSkillList` 5, `KAutoSkillEntry`, `auto_skills`, `on_cast_skills`, `clear_attrib` xoá đúng hai thứ), `KNpcAttrib::step_length` (+0x1624/+0x129c), `KNpcAttribModify` 272/195/196/274 (+ `tick` trong ngữ cảnh), `trigger_auto_skills` (port thật, danh sách mỗi khung gọi trong `tick` trước `process_frame_state`), `cast_on_cast_skills` cuối `skill_start_event`, `knock_back` dùng `knock_back_free_spot` (thất bại → không đánh lùi), `barrier_kind` (ô chéo; `TestBarrier` đạn dùng chung); CI Linux sửa (`apply_state_modifier` không dùng, commit `016e977`).
+- **Test**: `test_KAutoSkill.cpp` 5 ca / 84 kiểm (thêm/bớt nút kể cả số âm và giữ cờ, chờ theo mục tiêu 0x08188A10, mỗi khung 5/10/15, bị đánh → 901 vào kẻ đánh + đánh trúng → 902 vào nạn nhân với `attribconstdata` chặn lặp, bản đồ thi triển kèm, đánh lùi 8×12 / dừng trước loại 1 / bay qua loại 3 / ô chéo 3 và 5 / bước 0); ctest 188/188, `check_log_catalog` 0 thiếu, `check_includes` 0 thiếu.
+- **Chưa**: `CanCastSkill` + bảng vũ khí→kỹ năng, tạo npc + đếm ngược, `0x081FEE60`, gói 0x85, `KSkillList` (B3), client (B4).
+- commit: `JX NEXT: M12 lat B2c - ky nang tu dong, o trong khi danh lui` (nhánh, `safe/jxnext-2026-09-17`, `main`).
 
 ### 2026-09-18 (phiên tiếp theo, phần 3) — M12 lát B2b: hệ đạn (`KMissle`) đúng từng lệnh `jx_linux_y`
 
