@@ -48,3 +48,21 @@ func TestGBK(t *testing.T) {
 		t.Errorf("gbk encode: % x %v", b, err)
 	}
 }
+
+func TestDecodeMixedKeepsBothSidesOfALine(t *testing.T) {
+	vn, _ := UTF8ToTCVN3("Thiết Trúc")
+	zh, _ := UTF8ToGBK("铁竹")
+	line := append(append([]byte{}, vn...), []byte(" - ")...)
+	line = append(line, zh...)
+	if got := DecodeMixed(line); got != "Thiết Trúc - 铁竹" {
+		t.Fatalf("mixed line: %q", got)
+	}
+	if got := DecodeMixed([]byte("plain ascii")); got != "plain ascii" {
+		t.Fatalf("ascii: %q", got)
+	}
+	// Word's curly quotes inside Vietnamese do not turn the line into GBK
+	quoted := append(append([]byte{0x93}, vn...), 0x94)
+	if got := DecodeMixed(quoted); got != "\u201cThiết Trúc\u201d" {
+		t.Fatalf("punctuation: %q", got)
+	}
+}

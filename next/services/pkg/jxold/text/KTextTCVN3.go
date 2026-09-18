@@ -118,3 +118,88 @@ func GBKToUTF8(b []byte) string {
 func UTF8ToGBK(s string) ([]byte, error) {
 	return simplifiedchinese.GBK.NewEncoder().Bytes([]byte(s))
 }
+
+// cp1252Punct: the "smart" punctuation Word leaves in a TCVN3 file (dec2.py of the owner's
+// ReverseTools).  They are not TCVN3 letters, but a line that carries them is still Vietnamese.
+var cp1252Punct = map[byte]rune{
+	0x82: '\u201a', 0x84: '\u201e', 0x85: '\u2026', 0x8B: '\u2039',
+	0x91: '\u2018', 0x92: '\u2019', 0x93: '\u201c', 0x94: '\u201d',
+	0x95: '\u2022', 0x96: '\u2013', 0x97: '\u2014', 0x9B: '\u203a',
+}
+
+func isTCVN3Loose(b []byte) bool {
+	run := 0
+	for _, c := range b {
+		if c < 0x80 {
+			run = 0
+			continue
+		}
+		if _, punct := cp1252Punct[c]; !punct && tcvn3[c-0x80] == 0 {
+			return false
+		}
+		run++
+		if run > 3 {
+			return false
+		}
+	}
+	return true
+}
+
+func tcvn3Loose(b []byte) string {
+	var sb strings.Builder
+	for _, c := range b {
+		switch {
+		case c < 0x80:
+			sb.WriteByte(c)
+		case tcvn3[c-0x80] != 0:
+			sb.WriteRune(tcvn3[c-0x80])
+		default:
+			if r, ok := cp1252Punct[c]; ok {
+				sb.WriteRune(r)
+			} else {
+				sb.WriteRune(utf8.RuneError)
+			}
+		}
+	}
+	return sb.String()
+}
+
+// DecodeMixed decodes one line of the old server's files, which may hold TWO encodings at once:
+// Vietnamese TCVN3 on one side and Chinese GBK on the other (a name followed by a Chinese
+// comment, a quoted Vietnamese string in a Chinese script).  Guessing per line breaks one side,
+// so the line is cut at '"' and '-' - bytes no GBK pair and no TCVN3 letter ever contains - and
+// every piece is guessed on its own (decline2 of the owner's dec2.py).
+func DecodeMixed(b []byte) string {
+	high := false
+	for _, c := range b {
+		if c >= 0x80 {
+			high = true
+			break
+		}
+	}
+	if !high {
+		return string(b)
+	}
+	var sb strings.Builder
+	start := 0
+	flush := func(end int) {
+		if end <= start {
+			return
+		}
+		seg := b[start:end]
+		if isTCVN3Loose(seg) {
+			sb.WriteString(tcvn3Loose(seg))
+		} else {
+			sb.WriteString(GBKToUTF8(seg))
+		}
+	}
+	for i, c := range b {
+		if c == '"' || c == '-' {
+			flush(i)
+			sb.WriteByte(c)
+			start = i + 1
+		}
+	}
+	flush(len(b))
+	return sb.String()
+}

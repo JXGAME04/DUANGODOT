@@ -118,7 +118,7 @@ thu bằng cảm tính.
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
-| **M11** | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. |
+| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A xong**: bảng vật phẩm của server cũ đọc đúng cột (`pkg/jxold/item`), xuất 6 bộ / 19 735 dòng. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
 | **M14** | Xã hội: chat, bạn bè, thư, bang hội, tổ đội, giao dịch, PK | 5 | Test nhiều phiên; giao dịch nguyên tử. |
@@ -137,6 +137,24 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-17 (đêm) — M11 lát A: bảng vật phẩm của server cũ đọc đúng từng cột, xuất JSON
+
+Đọc `Core/Src/KBasPropTbl.cpp` (`KLibOfBPT::Init`, từng `LoadRecord` đọc **theo số cột**) và đối chiếu
+tiêu đề bảng thật của `D:\ServerLinux\server1\settings\item` (46 cột trang bị, 28 thuốc, 9 nhiệm vụ
+với cột 9 = `ParticularType` khác bản JX1, 23 cột ma pháp — thêm cột "ngựa", 53 cột hoàng kim + `所在套装`).
+Server JX2 giữ **6 bộ bảng**: `settings/item` (gốc, không có hoàng kim) và `000..004` (mỗi bộ đầy đủ,
+kể cả `goldequip`, `magicattrib_ge`, `suite_activate_count`, `magicscript`).
+
+- `pkg/jxold/item/KBasPropTbl.go`: `item.Load(dir, version)` → `item.Set` (12 bảng trang bị theo
+  `EQUIPDETAILTYPE`, thuốc, nhiệm vụ, thổ địa phù, ma pháp tiền/hậu tố với `drop_rates` theo bề rộng tệp,
+  hoàng kim + ma pháp hoàng kim + số món kích hoạt bộ, vật phẩm kịch bản); tên/mô tả giải mã sang UTF-8.
+  Test tổng hợp theo đúng cột cũ + test trên dữ liệu thật (6 bộ).
+- `text.DecodeMixed`: port `decline2` của `ReverseTools/port_3hd/dec2.py` (cắt tại `"`/`-`, đoán từng
+  đoạn, dấu câu CP1252 trong TCVN3) — trước đó 330 dòng quest + 12 hoàng kim của v004 có byte hỏng, giờ 0.
+- `jxassets export-items` (trong `dev.py assets`) → `client/assets/items/{base,v000..v004}.json`
+  (không commit): 19 735 dòng; v004: 5 938 hoàng kim, 4 995 vật phẩm kịch bản, 903 mặt nạ.
+- Kế tiếp: lát B — `KItemTemplate` + `KItemList` (túi, ô trang bị) trong zone, lưu vào `RoleData`.
 
 ### 2026-09-17 (đêm) — M9 phần 1: kho PostgreSQL cho tài khoản + nhân vật, CI chạy thật
 

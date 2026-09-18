@@ -432,6 +432,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     # to its plain login, so a failure here is reported and does not stop the rest.
     if subprocess.call([*jxassets_args(), "export-ui", "-out", out], cwd=ROOT) != 0:
         print("export-ui: no login layouts in this client (need the VLTK 2.0 client) - the plain login will be used")
+    # the item tables of the old server (settings/item and its version folders), for the zone
+    # and for the client's bag window
+    if subprocess.call([*jxassets_args(), "export-items", "-out", out], cwd=ROOT) != 0:
+        print("export-items: no settings/item in the reference server folder - items stay unavailable")
     print("assets ok")
 
 

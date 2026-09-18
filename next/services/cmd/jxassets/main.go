@@ -10,6 +10,7 @@
 //	region <mapid | gamepath> <x> <y> parsed Region_C.dat as JSON
 //	objects <mapid | gamepath> <x> <y> [text]  raw cover/buildin records + sprite headers of one region
 //	export-npcres [mapid...] -out <dir>   npc/character appearance tables + sprites used on those maps
+//	export-items -out <dir>          the item tables of the old server (settings/item, every version) as JSON
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/export"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/item"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/spr"
@@ -641,6 +643,61 @@ func main() {
 			fail("%v", err)
 		}
 		fmt.Printf("ghi ra %s\n", out)
+
+	case "export-items":
+		// The item tables (KBasPropTbl.cpp of the old core: MeleeWeapon.txt .. Mask.txt, potion,
+		// questkey, townportal, magicattrib, goldequip + magicattrib_ge + suites, magicscript),
+		// read by column number the way the old loaders did, one JSON per set: the plain
+		// settings/item as "base" and every version folder 000.. of the JX2 server.
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		// the client is not needed for this: only ask for it when nothing names the server
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		var itemDir string
+		for _, root := range serverRoots(sdir) {
+			for _, sub := range []string{"settings/item", "Settings/item", "Settings/Item"} {
+				if st, err := os.Stat(filepath.Join(root, sub)); err == nil && st.IsDir() {
+					itemDir = filepath.Join(root, sub)
+					break
+				}
+			}
+			if itemDir != "" {
+				break
+			}
+		}
+		if itemDir == "" {
+			fail("no settings/item under %s", sdir)
+		}
+		sets := []struct{ dir, version, file string }{{itemDir, "", "base"}}
+		for _, v := range item.Versions(itemDir) {
+			sets = append(sets, struct{ dir, version, file string }{filepath.Join(itemDir, v), v, "v" + v})
+		}
+		total := 0
+		for _, s := range sets {
+			set, err := item.Load(s.dir, s.version)
+			if err != nil {
+				fail("%s: %v", s.dir, err)
+			}
+			p := filepath.Join(out, "items", s.file+".json")
+			if err := set.Write(p); err != nil {
+				fail("%s: %v", p, err)
+			}
+			total += set.Count()
+			fmt.Printf("  %-6s %5d vat pham, %3d ma phap, %3d hoang kim, %3d bo  -> %s%s\n", s.file, set.Count(), len(set.Magic), len(set.Gold), len(set.Suites), p,
+				map[bool]string{true: "  (thieu: " + strings.Join(set.Missing, ",") + ")", false: ""}[len(set.Missing) > 0])
+		}
+		fmt.Printf("export-items: %d bo, %d dong vat pham\n", len(sets), total)
 
 	case "export-ui":
 		// The windows of the login flow, as JSON layouts plus the pictures they name.
