@@ -374,6 +374,7 @@ func _auto_run() -> void:
 	await _save_screenshot("user://logs/auto_world.png")
 	await _auto_items()
 	await _auto_fight()
+	await _auto_death()
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout
@@ -428,7 +429,14 @@ func _auto_items() -> void:
 	# throw one on the ground and pick it up again: the ground objects end to end
 	if Game.items.size() > 0:
 		var had := Game.items.size()
-		Game.item_drop(int(Game.items.keys()[0]))
+		# the first thing lying in the bag that may be thrown: not a worn piece, not the task item a fresh
+		# character starts with (KItemGenre::task 4 - the zone answers RESULT_BAD_REQUEST)
+		var drop_id := 0
+		for id in Game.items:
+			if int(Game.items[id].room) == Game.ROOM_BAG and int(Game.items[id].genre) != 4:
+				drop_id = int(id)
+				break
+		Game.item_drop(drop_id)
 		var ground: Node2D = null
 		waited = 0.0
 		while waited < 3.0 and ground == null:
@@ -515,6 +523,41 @@ func _auto_fight() -> void:
 	print("AUTO_FIGHT target=%d name=%s life_before=%d life_after=%d actions=%d dead=%s" % [best.entity_id if alive else 0,
 		best.display_name if alive else "?", life_before, life_after, _action_count - actions_before, dead])
 	await _save_screenshot("user://logs/auto_fight_end.png")
+
+
+# --auto: "?gm ds KillPlayer()" makes the zone run the script function KillPlayer (0x08117BC0: an
+# unblockable hit of 200 000 000 from oneself) - the character falls (ACTION_DEATH, the exp / money loss
+# of KNpc::OnDeath), its picture is taken, then C2G_REVIVE stands it up at its revive point
+# (KPlayer::Revive(0)) and another picture follows; AUTO_DEATH sums it up for tools/dev.py.
+func _auto_death() -> void:
+	var own := _own()
+	if own == null:
+		print("AUTO_DEATH none")
+		return
+	var life_before: int = own.life
+	Game.chat("?gm ds KillPlayer()")
+	var waited := 0.0
+	while waited < 5.0 and is_instance_valid(own) and not own.is_dead():
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	var dead: bool = is_instance_valid(own) and own.is_dead()
+	await get_tree().create_timer(0.8).timeout   # the death animation runs to its last frame
+	await _save_screenshot("user://logs/auto_death.png")
+	Game.revive()
+	waited = 0.0
+	while waited < 5.0:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+		own = _own()
+		if own != null and not own.is_dead() and own.life > 0:
+			break
+	own = _own()
+	var revived: bool = own != null and not own.is_dead() and own.life > 0
+	Log.info("auto", "auto death", {"life_before": life_before, "dead": dead, "revived": revived,
+		"life": own.life if own != null else 0, "doing": own.doing if own != null else -1})
+	print("AUTO_DEATH dead=%s revived=%s life_before=%d life=%d" % [dead, revived, life_before, own.life if own != null else 0])
+	await get_tree().create_timer(0.5).timeout
+	await _save_screenshot("user://logs/auto_revive.png")
 
 
 # Saves the rendered frame (no-op in headless mode); used by tools/dev.py screenshot.

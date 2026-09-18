@@ -171,13 +171,17 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   +1 ca / 33 kiểm, ctest 209/209. Đã đọc, chưa port (B3c-4): vật phẩm/script hồi sinh tại chỗ `0x080B2790`, PK (`0x0807A350`,
   bảng bảo hộ `Player+0x809c`, điểm PK `Player+0x5a50` `0x080C3930`), phạt PK `0x080B9FA0` (bảng `0x08256EE0/0x8BB2A34`, nhà
   tù `[0x9777F08..]`, rơi đồ `0x08203BE0`/`0x08203530`), đấu trường `Player+0x384`, `Player+0x5994` = tông (hạng `0x080CC620`).
+- **Ảnh test e2e + `KillPlayer` + `PKRate.ini` (2026-09-18)**: `build/shots/auto_*.png` (đã gửi; `dev.py screenshot` trên cổng
+  lệch 1000), Lua `KillPlayer 0x08117BC0` (`l_KillPlayer`), `[0x8BADF50]` = `PKRate.ini rate` 20 (`KNpcSet::Init 0x080A0810`,
+  `pk_damage_percent` 20, nhân 64-bit), gateway `session.go` + zone `KGameServer.cpp` giờ chuyển `C2G_ADD_SKILL_POINT` /
+  `C2G_CAST_SKILL` / `C2G_REVIVE` (trước bị chặn), `--auto` có bước chết → hồi sinh (`AUTO_DEATH`); ctest 210/210.
 
 ### 0.4 Chưa làm — và làm như thế nào
 
 | Việc | Cách làm (đã biết địa chỉ / nguồn) |
 |---|---|
 | **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; cần bảng `武器物理攻击对照表.txt` → kỹ năng đánh theo vũ khí, thay `swing_skill` tạm) và kỹ năng tạo npc `0x080E8770` (đã đọc §14; cần sổ npc tạo của `KPlayer +0x7d34..` và đếm ngược thời gian — chưa đọc), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` vẫn `g_GetDirIndex` JX1 (`63−k`, bảng làm tròn) — chỉ để vẽ, đồng bộ ở B4. **B3a xong 2026-09-18** (sổ `KSkillList` + điểm/kinh nghiệm kỹ năng + Lua; §15). **B3b xong 2026-09-18** (đường lệnh thi triển + `CanCastSkill` + bảng vũ khí + kỹ năng khởi đầu; §16). **B3c-0 xong 2026-09-18** (ẩn thân `[hide]` 200: `SetHide 0x0807FF80`, `IsInvisibleTo 0x08079200`, vỡ `0x0807D4C0`; §16.1). **B3c-1 xong 2026-09-18** (thân pháp style 1 sáu dạng; §16.2). **B3c-2 xong 2026-09-18** (mòn đồ `0x08201940` + `AbradeRate.ini`; §16.3; còn: bảng phế phẩm `g_ItemGenerator+0x1e88` của `0x08067540`, cấp ngọc bội `+0x344` trong bộ sinh). **B3c**: ngựa `0x0807D520` (`+0x199c`; lên ngựa làm vỡ ẩn thân), mượn dáng 186 `0x08099170`, gói 0x85/aura `0x080873B0`, `NpcSetHide` (chờ quy ước chỉ số npc của API script), `0x080B12C0`, kỹ năng tạo npc `0x080E8770` + đếm `Player+0x7db0`, đồng hành (loại 2, `npc+0x1698`), **B3c-3 xong 2026-09-18** (chết/hồi sinh thường; §16.4) — còn PK: `0x0807A350`, bảng bảo hộ `Player+0x809c`, điểm PK `Player+0x5a50` (`0x080C3930`), phạt `0x080B9FA0` (nhà tù, rơi đồ, `0x08256EE0`/`0x8BB2A34`), đấu trường `Player+0x384`, hồi sinh tại chỗ `0x080B2790`; `Player+0x5994` = tông (hạng `0x080CC620`), bảng chuyển sinh `0x0830CA14` (**đã kiểm**: không nơi ghi → 0), `0x080AEBC0`/`0x081D0C00` (**đã đọc**: bộ phát sự kiện script `Player+0x86e0`, mã 1/3/9/10/11/12 — cần bảng đăng ký script, M13). **Dữ liệu cần xin chủ dự án**: `settings/武器物理攻击对照表.txt` (vũ khí → kỹ năng vật lý; máy này chỉ có `clientweaponskill.txt`). **B4** client: ô kỹ năng / phím tắt theo bố cục 2.0, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), đánh lùi (`KDoing::knock_back` đang gửi như choáng). **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
-| **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); bộ nạp hằng PK `[0x8BADF50]`; `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ngồi (`m_Doing 8`) và chạy (`0x12`, thưởng `+0x14b0`, thể lực `[0x8BADF80..]`) chưa có trạng thái trong zone. |
+| **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); hằng PK `[0x8BADF50]` = `PKRate.ini rate` 20 (đã tìm: `KNpcSet::Init 0x080A0810`, §16.4; `pk_damage_percent`); `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ngồi (`m_Doing 8`) và chạy (`0x12`, thưởng `+0x14b0`, thể lực `[0x8BADF80..]`) chưa có trạng thái trong zone. |
 | Trạng thái (độc / băng / choáng / thuốc) | `KNpc::ProcessState 0x0808B610` (§9), trang trạng thái `KNpc+0x234` (20 ô × 16 byte), `ReCalcStateEffect 0x0807D270` (áp lại với dấu âm), `+0x1bc..+0x1fc` các bộ đếm. Zone mới có `life_state/mana_state` và ô giữ chỗ `poison/freeze/stun_state`. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
 | Hình phạt chết của người chơi | `KNpc::OnDeath 0x08088B60` phần đầu (mất kinh nghiệm `GetLevelExp/100·2 × (7−PK)/7`, trần 0x1FBD0; `0x080B9FA0` mất tiền/đồ theo PK). |
@@ -272,6 +276,13 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   2.0 tự đi tới rồi mới gửi gói; zone giữ `attack_request` cũ tự đi tới cho client Godot đến B4.
 - **`+0x168c` (chế độ chiến đấu) mặc định 0 cho mọi npc** (chỉ `SetFightMode 0x08079B30` đổi): quái vẫn đánh được vì AI gọi thẳng
   `CastSkill` (kiểm `PeaceCanUse` chỉ ở nhánh người chơi); đọc ai ghi một ô trước khi coi nó là điều kiện chung.
+
+- **Gói client mới phải mở ở hai danh sách trắng**: gateway `services/internal/gateway/session.go` (`stWorld` → `relay`) và zone
+  `server/zone/src/KGameServer.cpp` (`switch (cp.msg_id())` → `inst->post`). Ba gói 1111/1112/1113 của B3a/B3b/B3c-3 bị chặn
+  âm thầm (`message not allowed in state` / `unhandled client message`) tới khi chạy e2e thật — test C++ gọi thẳng `KSubWorld`
+  nên không bắt được. Mỗi lát thêm gói: chạy `python tools/dev.py e2e` (hoặc `screenshot`) trước khi commit.
+- **Số lớn nhân hằng phần trăm**: nhị phân `imul` 32-bit tràn (`KillPlayer` 200 000 000 × `rate` 20 hồi máu thay vì giết);
+  zone phải nhân `std::int64_t` rồi mới chia — đã sửa ở `calc_damage` (PK), soát các chỗ `× percent / 100` khác khi gặp.
 
 ### 0.6 Cách làm đang tốt — giữ nguyên
 
@@ -455,6 +466,41 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 11) — Ảnh test e2e sau M12 B3c, Lua `KillPlayer`, `PKRate.ini rate`, gói 1111/1112/1113 bị chặn
+
+Chủ dự án hỏi "làm được những phần nào, chưa thấy ảnh test" → chạy lại toàn bộ hệ trong worktree (`python tools/dev.py assets`
+xuất lại 232 MB, `JX_PORT_OFFSET=1000 JX_CONFIG=Release python tools/dev.py screenshot`) và gửi ảnh
+`build/shots/auto_world.png`, `auto_items.png`, `auto_item_tip.png`, `auto_status.png`, `auto_drop.png`, `auto_fight.png`,
+`auto_fight_end.png`, **`auto_death.png`** (xác nằm, máu 0/204), **`auto_revive.png`** (đứng dậy 204/204 tại điểm sinh).
+Để chụp được cái chết, port thêm Lua **`KillPlayer()`** và trên đường đi lòi ra ba lỗi thật:
+
+- **Mổ nhị phân** (`LINUX-SERVER.md` §16.4): `KillPlayer 0x08117BC0` = 20 ô `KMagicAttrib` (`seriesdamage_p 100`,
+  `attackrating_v 50000`, `ignoredefense_p 1`, ô vật lý `200 000 000..200 000 000`) → `KNpc::ReceiveDamage(chính mình, series 0,
+  không cận chiến, không kiểm AR, nDoHurt 1, quan hệ 0x1f, skill 0)`; `KillNpc 0x08117E00` / `KillNpcWithIdx 0x081181D0` →
+  `0x08117CE0` (chờ quy ước chỉ số npc). **`[0x8BADF50]` đã tìm ra bộ nạp**: `KNpcSet::Init 0x080A0810` đọc
+  `\settings\npc\PKRate.ini [PK]` (`rate` → `g_NpcSet 0x8BACAC0 + 0x1490`, mặc định 20, tệp máy chủ tham chiếu 20; chín khoá
+  PK còn lại `+0x1494..` ghi ở §16.4 cho B3c-4). `CalcDamage 0x0808A368` nhân **32-bit** `dmg × rate` → đòn ≥ 107 374 183
+  giữa hai người chơi tràn số âm: chính `KillPlayer` của nhị phân (200 000 000 × 20) **hồi máu thay vì giết** — zone nhân 64-bit
+  (sai khác có chủ ý, ghi §16.4), `pk_damage_percent` mặc định 100 → **20**.
+- **Lỗi thật 1 — gói client bị chặn hai lớp**: gateway `services/internal/gateway/session.go` (`message not allowed in state`)
+  và zone `KGameServer.cpp` (`unhandled client message`) đều có danh sách trắng gói `C2G_*` ở trạng thái world; ba gói mới của
+  B3a/B3b/B3c-3 (`C2G_ADD_SKILL_POINT 1111`, `C2G_CAST_SKILL 1112`, `C2G_REVIVE 1113`) **chưa được thêm** → client cộng
+  điểm kỹ năng / thi triển / hồi sinh chưa bao giờ tới zone. Đã thêm cả hai chỗ (test gateway xanh).
+- **Lỗi thật 2 — bước vứt đồ của `--auto`** vứt `Game.items.keys()[0]` = vật phẩm nhiệm vụ tân thủ (`KItemGenre::task` 4) →
+  zone trả `RESULT_BAD_REQUEST` → `AUTO_DROP dropped=false` (trước đây trùng hợp qua vì tài khoản `shot1` cũ có túi khác) →
+  chọn món đầu trong túi không phải nhiệm vụ.
+- **Lỗi thật 3 — `dmg × pk_damage_percent` tràn `int`** trong zone (UB) → `std::int64_t`.
+- **Zone**: `l_KillPlayer` (`ScriptFuns.cpp`), `KSubWorldConfig::pk_damage_percent = 20`, `KGameServer.cpp` chuyển 1111/1112/1113
+  tới map. **Client**: `UiGame._auto_death()` (`?gm ds KillPlayer()` → chờ chết → ảnh → `Game.revive()` → chờ sống → ảnh,
+  in `AUTO_DEATH`), bước vứt đồ chọn đồ trong túi. **Gateway**: `session.go` relay ba gói.
+- **Test**: `test_KNpcCommand.cpp` +1 ca (`KillPlayer` qua `?gm ds`, 14 kiểm; `small_world()` bật `gm_chat`), ctest **210/210**,
+  Go vet/test gateway xanh, Godot run.gd 262/262; e2e: `AUTO_ITEMS count=10 AUTO_MAGIC count=6 AUTO_DROP dropped=true picked=true
+  AUTO_FIGHT actions=6 AUTO_DEATH dead=true revived=true life=204`.
+- **Ghi nhận, chưa xem**: trong `--auto` nhân vật cấp 1 (204 máu) chết vì `npc4` (AI 4 đánh trả) ngay trong bước đánh trước
+  cả `KillPlayer`; 4 npc thử `1000+i` có 200 000 máu, 6 đòn của nhân vật (AR 72) không thấy máu giảm ở client — cần xem
+  `CheckHitTarget`/đồng bộ máu npc sau (B4).
+- commit: `JX NEXT: anh test e2e + Lua KillPlayer + PKRate.ini rate + go 1111/1112/1113 bi chan` (nhánh, `safe/jxnext-2026-09-17`, `main`).
 
 ### 2026-09-18 (phiên tiếp theo, phần 10) — M12 lát B3c-3: chết và hồi sinh của người chơi
 

@@ -89,9 +89,10 @@ struct KSubWorldConfig {
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
-    // the percent of a blow between players (and partners), KNpc::CalcDamage 0x0808A368 reads it
-    // from the global 0x08BADF50; its loader is not found yet (B3, the PK rules) - 100 = as is
-    int pk_damage_percent = 100;
+    // the percent of a blow between players (and partners): KNpc::CalcDamage 0x0808A368 reads NpcSet+0x1490
+    // ([0x8BADF50]), which KNpcSet::Init 0x080A0810 (0x080A0926) fills from \settings\npc\PKRate.ini [PK]
+    // rate, default 20 - the reference server's file says 20 too (the other nine keys are the PK rules of B3c-4)
+    int pk_damage_percent = 20;
     std::shared_ptr<const KMapData> map;  // optional: walkability + spawn + npcs override the fields above
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own

@@ -687,8 +687,10 @@ int KSubWorld::calc_damage(KNpc& t, KNpc& a, int min, int max, int type, bool me
         }
         calc_damage(a, t, ret, ret, damage_return, melee, nullptr, nullptr, 0, is_return);
     }
-    // 0x08089E31: between players (and partners) the PK rate [0x8BADF50]
-    if (player_or_partner(t) && player_or_partner(a)) dmg = dmg * cfg_.pk_damage_percent / 100;
+    // 0x08089E31 / 0x0808A350: between players (and partners) the PK rate NpcSet+0x1490 ([0x8BADF50] =
+    // PKRate.ini [PK] rate, 20).  The binary multiplies in 32 bits, so the 200 000 000 of KillPlayer wraps
+    // negative and heals; the zone keeps the product whole (the only blow that large)
+    if (player_or_partner(t) && player_or_partner(a)) dmg = static_cast<int>(static_cast<std::int64_t>(dmg) * cfg_.pk_damage_percent / 100);
     // (0x08089E44: a player's damage counter +0x86ac / +0x86b0 - B3)
     t.last_damage_id = a.id;   // +0x1598
     if (type == damage_poison && c.poison_dec_mana_percent != 0) {   // 0x0808A0C8: Posion2Mana

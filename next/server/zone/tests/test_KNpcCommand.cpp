@@ -104,6 +104,7 @@ KSubWorldConfig small_world()
     c.spawn_point = Pos{2000, 2000};
     c.default_speed = 200;
     c.map_npcs = false;
+    c.gm_chat = true;   // "?gm ds <lua>" runs the script api for the hero (KillPlayer below)
     c.skills = skill_table();
     c.scripts = std::make_shared<KScriptCache>(make_scripts());
     return c;
@@ -604,6 +605,37 @@ TEST_CASE("style 1: the multi cast fires the child ChildSkillNum times, the spec
 
 // The death of a player: KNpc 0x08089920 / DoDeath 0x080896C0 (the plain way, no PK), OnDeath 0x08088D50 (the
 // experience and the money), the corpse 0x080833B0, KPlayer::Revive 0x080AD9F0 - docs/LINUX-SERVER.md §16.4
+// Lua KillPlayer 0x08117BC0: KNpc::ReceiveDamage from oneself with twenty cells - seriesdamage_p 100,
+// attackrating_v 50000, ignoredefense_p 1 and 200 000 000 .. 200 000 000 in the physics slot (type 0), no
+// AR check, relation 0x1f: nothing blocks it, the character dies at once and the death of 16.4 follows
+TEST_CASE("KillPlayer() of the script api: the unblockable self-hit kills, the corpse settles, the revive stands the character up", "[command][lua]")
+{
+    Arena a;
+    a.h->player.exp = 0;   // nothing to lose: the point here is the hit
+    a.h->cur.life = 5000;
+    a.h->cur.defend = 100000;   // ignored: the AR check is off and the defense is ignored (cell 2)
+    a.w.take_outbox();
+    REQUIRE(a.w.chat(7, "?gm ds KillPlayer()"));
+    CHECK(a.h->doing == KDoing::death);
+    CHECK(a.h->cur.life == 0);
+    bool death_told = false;
+    for (const Packet& pk : a.w.take_outbox()) {
+        if (pk.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_ACTION)) continue;
+        jx::pb::EntityAction act;
+        REQUIRE(act.ParseFromString(pk.payload));
+        if (act.entity_id() == a.hero.value && act.action() == jx::pb::ACTION_DEATH) death_told = true;
+    }
+    CHECK(death_told);
+    // a second KillPlayer on the corpse changes nothing (ReceiveDamage refuses m_Doing 0xa / 0x15)
+    REQUIRE(a.w.chat(7, "?gm ds KillPlayer()"));
+    CHECK(a.h->doing == KDoing::death);
+    a.ticks(static_cast<int>(a.h->frame_total) + 1);
+    CHECK(a.h->doing == KDoing::revive);
+    CHECK(a.w.revive_request(7, 1));
+    CHECK(a.h->doing == KDoing::stand);
+    CHECK(a.h->cur.life == a.h->life_max());
+}
+
 TEST_CASE("a player's death: the corpse waits, 2 percent of the level's experience and half the money go, the revive puts it back", "[command]")
 {
     Arena a;

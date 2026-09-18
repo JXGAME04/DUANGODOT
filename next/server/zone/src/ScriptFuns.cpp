@@ -8,6 +8,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <utility>
 
@@ -707,6 +708,24 @@ int l_SetRevPos(lua_State* L)
     return 0;
 }
 
+// KillPlayer(): 0x08117BC0 - the character takes a hit from itself that nothing softens: twenty damage
+// cells, [0] seriesdamage_p 100, [1] attackrating_v 50000, [2] ignoredefense_p 1, [3] (the physics slot,
+// type left 0) 200 000 000 .. 200 000 000, through KNpc::ReceiveDamage(self, series 0, not melee, no AR
+// check, do_hurt 1, relation 0x1f, skill 0); the death of 16.4 follows (KillNpc / KillNpcWithIdx
+// 0x08117E00 / 0x081181D0 -> 0x08117CE0 wait for the npc handle of the script api)
+int l_KillPlayer(lua_State* L)
+{
+    KNpc* p = player_of(L, "KillPlayer");
+    if (p == nullptr) return 0;
+    std::array<KMagicAttrib, kSkillAttribs> dmg{};
+    dmg[0] = KMagicAttrib{magic_seriesdamage_p, {100, 0, 0}};
+    dmg[1] = KMagicAttrib{magic_attackrating_v, {50000, 0, 0}};
+    dmg[2] = KMagicAttrib{magic_ignoredefense_p, {1, 0, 0}};
+    dmg[3] = KMagicAttrib{0, {200000000, 0, 200000000}};
+    g_ScriptContext().world->receive_damage(*p, *p, 0, false, dmg.data(), false, 1, 0x1f, 0);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -723,6 +742,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},
+    {"KillPlayer", l_KillPlayer},
     {nullptr, nullptr},
 };
 
