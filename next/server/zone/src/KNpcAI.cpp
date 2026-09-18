@@ -210,6 +210,8 @@ bool KNpcAI::set_active_skill(KNpc& e, int slot)
     if (slot <= 0 || slot >= 5) return false;
     const KNpcSkillSlot& s = e.skills[slot];
     if (s.id == 0 || s.level <= 0) return false;
+    // 0x08086D90: the cell must hold the skill with a current level (a level 0 cell is a skill unlearned)
+    if (const KNpcSkill* c = e.skill_list.cell(slot); c == nullptr || c->id == 0 || c->current_level == 0) return false;
     e.active_skill_id = s.id;
     if (s.known) {   // g_SkillManager.GetSkill != NULL
         e.cur.attack_radius = s.attack_radius;

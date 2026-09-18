@@ -19,6 +19,7 @@ add_library(jx_zone_core STATIC
     src/KPlayerSet.cpp
     src/KSkill.cpp
     src/KSkills.cpp
+    src/KSkillList.cpp
     src/KNpc.cpp
     src/KMissle.cpp
     src/KObj.cpp

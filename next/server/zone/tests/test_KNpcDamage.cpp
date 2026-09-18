@@ -488,7 +488,7 @@ TEST_CASE("CastInitiativeSkill lands the blow and the state on an enemy, the pay
     s.immediate_attribs[0] = attrib(magic_life_v, -3, 0, 0);
     s.immediate_attrib_count = 1;
     h.cur.physics_damage.value = {10, 0, 10};
-    h.skill_enhance[500] = 100;   // the per-skill enhance map: the physics doubles
+    h.skill_list.enhance[500] = 100;   // the per-skill enhance map (KSkillList +0xf14): the physics doubles
     const int life = t.life();
     KSubWorld::KCastParams p;
     p.target = a.pig;

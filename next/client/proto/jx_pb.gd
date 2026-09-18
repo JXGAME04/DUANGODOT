@@ -4159,6 +4159,542 @@ class AddPointReq:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class AddSkillPointReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__points = PBField.new("points", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __points
+		data[__points.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __points: PBField
+	func has_points() -> bool:
+		if __points.value != null:
+			return true
+		return false
+	func get_points() -> int:
+		return __points.value
+	func clear_points() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__points.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_points(value : int) -> void:
+		__points.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class SkillLevelSync:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__skill_point = PBField.new("skill_point", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_point
+		data[__skill_point.tag] = service
+		
+		__exp_percent = PBField.new("exp_percent", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __exp_percent
+		data[__exp_percent.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+		__level_up = PBField.new("level_up", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __level_up
+		data[__level_up.tag] = service
+		
+	var data = {}
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __skill_point: PBField
+	func has_skill_point() -> bool:
+		if __skill_point.value != null:
+			return true
+		return false
+	func get_skill_point() -> int:
+		return __skill_point.value
+	func clear_skill_point() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__skill_point.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_point(value : int) -> void:
+		__skill_point.value = value
+	
+	var __exp_percent: PBField
+	func has_exp_percent() -> bool:
+		if __exp_percent.value != null:
+			return true
+		return false
+	func get_exp_percent() -> int:
+		return __exp_percent.value
+	func clear_exp_percent() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__exp_percent.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_exp_percent(value : int) -> void:
+		__exp_percent.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	var __level_up: PBField
+	func has_level_up() -> bool:
+		if __level_up.value != null:
+			return true
+		return false
+	func get_level_up() -> bool:
+		return __level_up.value
+	func clear_level_up() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__level_up.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_level_up(value : bool) -> void:
+		__level_up.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class SkillEntry:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__current_level = PBField.new("current_level", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __current_level
+		data[__current_level.tag] = service
+		
+		__exp_percent = PBField.new("exp_percent", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __exp_percent
+		data[__exp_percent.tag] = service
+		
+		__max_level = PBField.new("max_level", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __max_level
+		data[__max_level.tag] = service
+		
+		__req_level = PBField.new("req_level", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __req_level
+		data[__req_level.tag] = service
+		
+		__forbidden = PBField.new("forbidden", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __forbidden
+		data[__forbidden.tag] = service
+		
+		__cool_down_left = PBField.new("cool_down_left", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __cool_down_left
+		data[__cool_down_left.tag] = service
+		
+		__only_inc = PBField.new("only_inc", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __only_inc
+		data[__only_inc.tag] = service
+		
+	var data = {}
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __current_level: PBField
+	func has_current_level() -> bool:
+		if __current_level.value != null:
+			return true
+		return false
+	func get_current_level() -> int:
+		return __current_level.value
+	func clear_current_level() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__current_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_current_level(value : int) -> void:
+		__current_level.value = value
+	
+	var __exp_percent: PBField
+	func has_exp_percent() -> bool:
+		if __exp_percent.value != null:
+			return true
+		return false
+	func get_exp_percent() -> int:
+		return __exp_percent.value
+	func clear_exp_percent() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__exp_percent.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_exp_percent(value : int) -> void:
+		__exp_percent.value = value
+	
+	var __max_level: PBField
+	func has_max_level() -> bool:
+		if __max_level.value != null:
+			return true
+		return false
+	func get_max_level() -> int:
+		return __max_level.value
+	func clear_max_level() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__max_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_max_level(value : int) -> void:
+		__max_level.value = value
+	
+	var __req_level: PBField
+	func has_req_level() -> bool:
+		if __req_level.value != null:
+			return true
+		return false
+	func get_req_level() -> int:
+		return __req_level.value
+	func clear_req_level() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__req_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_req_level(value : int) -> void:
+		__req_level.value = value
+	
+	var __forbidden: PBField
+	func has_forbidden() -> bool:
+		if __forbidden.value != null:
+			return true
+		return false
+	func get_forbidden() -> bool:
+		return __forbidden.value
+	func clear_forbidden() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__forbidden.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_forbidden(value : bool) -> void:
+		__forbidden.value = value
+	
+	var __cool_down_left: PBField
+	func has_cool_down_left() -> bool:
+		if __cool_down_left.value != null:
+			return true
+		return false
+	func get_cool_down_left() -> int:
+		return __cool_down_left.value
+	func clear_cool_down_left() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__cool_down_left.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_cool_down_left(value : int) -> void:
+		__cool_down_left.value = value
+	
+	var __only_inc: PBField
+	func has_only_inc() -> bool:
+		if __only_inc.value != null:
+			return true
+		return false
+	func get_only_inc() -> bool:
+		return __only_inc.value
+	func clear_only_inc() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__only_inc.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_only_inc(value : bool) -> void:
+		__only_inc.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class SkillListSync:
+	extends RefCounted
+	func _init():
+		var service
+		
+		var __skills_default: Array[SkillEntry] = []
+		__skills = PBField.new("skills", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 1, true, __skills_default)
+		service = PBServiceField.new()
+		service.field = __skills
+		service.func_ref = Callable(self, "add_skills")
+		data[__skills.tag] = service
+		
+		__forbid_all = PBField.new("forbid_all", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __forbid_all
+		data[__forbid_all.tag] = service
+		
+	var data = {}
+	
+	var __skills: PBField
+	func get_skills() -> Array[SkillEntry]:
+		return __skills.value
+	func clear_skills() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skills.value.clear()
+	func add_skills() -> SkillEntry:
+		var element = SkillEntry.new()
+		__skills.value.append(element)
+		return element
+	
+	var __forbid_all: PBField
+	func has_forbid_all() -> bool:
+		if __forbid_all.value != null:
+			return true
+		return false
+	func get_forbid_all() -> bool:
+		return __forbid_all.value
+	func clear_forbid_all() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__forbid_all.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_forbid_all(value : bool) -> void:
+		__forbid_all.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class SkillForbidSync:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+		__forbid = PBField.new("forbid", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __forbid
+		data[__forbid.tag] = service
+		
+	var data = {}
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	var __forbid: PBField
+	func has_forbid() -> bool:
+		if __forbid.value != null:
+			return true
+		return false
+	func get_forbid() -> bool:
+		return __forbid.value
+	func clear_forbid() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__forbid.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_forbid(value : bool) -> void:
+		__forbid.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class PlayerAttribSync:
 	extends RefCounted
 	func _init():
@@ -6286,6 +6822,7 @@ enum MsgId {
 	C2G_ITEM_DROP = 1108,
 	C2G_PICK_UP = 1109,
 	C2G_ADD_POINT = 1110,
+	C2G_ADD_SKILL_POINT = 1111,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,
@@ -6308,6 +6845,9 @@ enum MsgId {
 	G2C_ITEM_RESULT = 2113,
 	G2C_MONEY = 2114,
 	G2C_PLAYER_ATTRIB = 2115,
+	G2C_SKILL_LIST = 2116,
+	G2C_SKILL_LEVEL = 2117,
+	G2C_SKILL_FORBID = 2118,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,
@@ -7186,6 +7726,88 @@ class ItemData:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class RoleSkill:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__id = PBField.new("id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __id
+		data[__id.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__exp = PBField.new("exp", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __exp
+		data[__exp.tag] = service
+		
+	var data = {}
+	
+	var __id: PBField
+	func has_id() -> bool:
+		if __id.value != null:
+			return true
+		return false
+	func get_id() -> int:
+		return __id.value
+	func clear_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_id(value : int) -> void:
+		__id.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __exp: PBField
+	func has_exp() -> bool:
+		if __exp.value != null:
+			return true
+		return false
+	func get_exp() -> int:
+		return __exp.value
+	func clear_exp() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__exp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_exp(value : int) -> void:
+		__exp.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class RoleData:
 	extends RefCounted
 	func _init():
@@ -7294,6 +7916,13 @@ class RoleData:
 		service = PBServiceField.new()
 		service.field = __bank_money
 		data[__bank_money.tag] = service
+		
+		var __skills_default: Array[RoleSkill] = []
+		__skills = PBField.new("skills", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 21, true, __skills_default)
+		service = PBServiceField.new()
+		service.field = __skills
+		service.func_ref = Callable(self, "add_skills")
+		data[__skills.tag] = service
 		
 	var data = {}
 	
@@ -7556,6 +8185,17 @@ class RoleData:
 		__bank_money.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_bank_money(value : int) -> void:
 		__bank_money.value = value
+	
+	var __skills: PBField
+	func get_skills() -> Array[RoleSkill]:
+		return __skills.value
+	func clear_skills() -> void:
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__skills.value.clear()
+	func add_skills() -> RoleSkill:
+		var element = RoleSkill.new()
+		__skills.value.append(element)
+		return element
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

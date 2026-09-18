@@ -140,6 +140,13 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.add_point_request(cmd.sid, static_cast<int>(req.attribute()), static_cast<int>(std::min<std::uint32_t>(req.points(), 1000u)), req.seq());
         break;
     }
+    case pb::C2G_ADD_SKILL_POINT: {
+        pb::AddSkillPointReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.add_skill_point_request(cmd.sid, static_cast<int>(std::min<std::uint32_t>(req.skill_id(), 2000u)),
+                                       static_cast<int>(std::min<std::uint32_t>(req.points(), 1000u)), req.seq());
+        break;
+    }
     default:
         log::debug("zone", "client message not handled by the world",
                    {log::kv("sid", cmd.sid), log::kv("msg", cmd.msg_id), log::kv("map", world_.map_id())});

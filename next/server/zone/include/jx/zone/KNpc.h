@@ -15,6 +15,7 @@
 #include "jx/zone/KObj.h"
 #include "jx/zone/KPlayer.h"
 #include "jx/zone/KRegion.h"
+#include "jx/zone/KSkillList.h"
 
 namespace jx::zone {
 
@@ -149,7 +150,6 @@ struct KNpc {
     bool boss_flag = false;                 // +0x181c: a boss - the attacker's add_boss_damage counts (0x08079750 == 3)
     EntityId last_damage_id;                // m_nLastDamageIdx +0x1598 (CalcDamage)
     EntityId last_poison_id;                // +0x15a0: who poisoned us last (0x0807BD60)
-    std::unordered_map<int, int> skill_enhance;   // +0x115c: map<skill id, percent> added to a cast's damage (0x080E9E90)
     KStateModifier state_modifier;          // +0x19d8..
     std::array<std::map<int, KAutoSkillEntry>, kAutoSkillLists> auto_skills{};   // +0x182c.. (KAutoSkillList)
     std::map<int, std::map<int, int>> on_cast_skills;   // +0x18ec: skill id -> {skill id -> percent} cast along with it at its level (oncastskill 274, 0x080821C0)
@@ -189,7 +189,11 @@ struct KNpc {
     int active_skill_id = 0;          // m_ActiveSkillID
     bool active_skill_melee = false;
     bool active_skill_self = false;
-    KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4]
+    KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4] as KNpcAI sees them (the template's facts)
+    // m_SkillList +0x248 (KSkillList.h): every skill held with its levels, cool downs, increments and the
+    // per-skill damage enhance map (+0x115c); a npc's Skill1..4 sit in cells 1..4 like the binary's
+    KSkillList skill_list;
+    KSkillManager* skill_mgr = nullptr;   // g_SkillManager of the map, for what the list does on its own (ClearAttrib)
     std::array<KDamageRecord, kDamageRecordCells> damage_records{};
     // KDamageRecord::Add: the attacker's own cell, else a free one, else nothing
     void add_damage_record(EntityId who, int damage) noexcept
@@ -237,6 +241,7 @@ struct KNpc {
     void clear_attrib(bool clear_state, int sit_add_per_mille) noexcept
     {
         cur.clear(base, sit_add_per_mille);
+        skill_list.clear_attrib(skill_mgr);   // 0x0807F341: the current levels back to the learned ones
         auto_skills[static_cast<std::size_t>(KAutoSkillList::every_frame)].clear();   // 0x0807F5AC: the every-frame list and
         on_cast_skills.clear();                                                        // 0x0807F5F3: the on-cast map, always
         if (clear_state) {

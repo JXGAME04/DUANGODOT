@@ -78,23 +78,24 @@ type MsgId int32
 const (
 	MsgId_MSG_NONE MsgId = 0
 	// client -> gateway
-	MsgId_C2G_HELLO        MsgId = 1001
-	MsgId_C2G_LOGIN        MsgId = 1002
-	MsgId_C2G_CHAR_LIST    MsgId = 1003
-	MsgId_C2G_CHAR_CREATE  MsgId = 1004
-	MsgId_C2G_ENTER_WORLD  MsgId = 1005
-	MsgId_C2G_LEAVE_WORLD  MsgId = 1006
-	MsgId_C2G_PING         MsgId = 1007
-	MsgId_C2G_MOVE         MsgId = 1101 // (zone)
-	MsgId_C2G_CHAT         MsgId = 1102 // (zone)
-	MsgId_C2G_ATTACK       MsgId = 1103 // (zone)
-	MsgId_C2G_ITEM_MOVE    MsgId = 1104 // (zone) an item to another cell / room
-	MsgId_C2G_ITEM_EQUIP   MsgId = 1105 // (zone) wear an item from the bag
-	MsgId_C2G_ITEM_UNEQUIP MsgId = 1106 // (zone) take a worn item off into the bag
-	MsgId_C2G_ITEM_USE     MsgId = 1107 // (zone) eat a medicine / use an item
-	MsgId_C2G_ITEM_DROP    MsgId = 1108 // (zone) throw an item away: it lies on the ground for a while
-	MsgId_C2G_PICK_UP      MsgId = 1109 // (zone) pick up an item / money from the ground
-	MsgId_C2G_ADD_POINT    MsgId = 1110 // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
+	MsgId_C2G_HELLO           MsgId = 1001
+	MsgId_C2G_LOGIN           MsgId = 1002
+	MsgId_C2G_CHAR_LIST       MsgId = 1003
+	MsgId_C2G_CHAR_CREATE     MsgId = 1004
+	MsgId_C2G_ENTER_WORLD     MsgId = 1005
+	MsgId_C2G_LEAVE_WORLD     MsgId = 1006
+	MsgId_C2G_PING            MsgId = 1007
+	MsgId_C2G_MOVE            MsgId = 1101 // (zone)
+	MsgId_C2G_CHAT            MsgId = 1102 // (zone)
+	MsgId_C2G_ATTACK          MsgId = 1103 // (zone)
+	MsgId_C2G_ITEM_MOVE       MsgId = 1104 // (zone) an item to another cell / room
+	MsgId_C2G_ITEM_EQUIP      MsgId = 1105 // (zone) wear an item from the bag
+	MsgId_C2G_ITEM_UNEQUIP    MsgId = 1106 // (zone) take a worn item off into the bag
+	MsgId_C2G_ITEM_USE        MsgId = 1107 // (zone) eat a medicine / use an item
+	MsgId_C2G_ITEM_DROP       MsgId = 1108 // (zone) throw an item away: it lies on the ground for a while
+	MsgId_C2G_PICK_UP         MsgId = 1109 // (zone) pick up an item / money from the ground
+	MsgId_C2G_ADD_POINT       MsgId = 1110 // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
+	MsgId_C2G_ADD_SKILL_POINT MsgId = 1111 // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK       MsgId = 2001
 	MsgId_G2C_LOGIN_RES       MsgId = 2002
@@ -118,6 +119,9 @@ const (
 	MsgId_G2C_ITEM_RESULT     MsgId = 2113 // a request that changed nothing, with why
 	MsgId_G2C_MONEY           MsgId = 2114 // money in the bag and the repository
 	MsgId_G2C_PLAYER_ATTRIB   MsgId = 2115 // the character's own numbers (CURPLAYER_SYNC + PLAYER_ATTRIBUTE_SYNC + PLAYER_LEVEL_UP_SYNC of the old game)
+	MsgId_G2C_SKILL_LIST      MsgId = 2116 // every skill the character holds (s2c_synccurplayerskill)
+	MsgId_G2C_SKILL_LEVEL     MsgId = 2117 // one skill's level / experience / the skill points left (the 0x5e packet)
+	MsgId_G2C_SKILL_FORBID    MsgId = 2118 // a skill (or all) locked or freed (the 0x63 packet)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -151,6 +155,7 @@ var (
 		1108: "C2G_ITEM_DROP",
 		1109: "C2G_PICK_UP",
 		1110: "C2G_ADD_POINT",
+		1111: "C2G_ADD_SKILL_POINT",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -173,6 +178,9 @@ var (
 		2113: "G2C_ITEM_RESULT",
 		2114: "G2C_MONEY",
 		2115: "G2C_PLAYER_ATTRIB",
+		2116: "G2C_SKILL_LIST",
+		2117: "G2C_SKILL_LEVEL",
+		2118: "G2C_SKILL_FORBID",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -202,6 +210,7 @@ var (
 		"C2G_ITEM_DROP":       1108,
 		"C2G_PICK_UP":         1109,
 		"C2G_ADD_POINT":       1110,
+		"C2G_ADD_SKILL_POINT": 1111,
 		"G2C_HELLO_ACK":       2001,
 		"G2C_LOGIN_RES":       2002,
 		"G2C_CHAR_LIST_RES":   2003,
@@ -224,6 +233,9 @@ var (
 		"G2C_ITEM_RESULT":     2113,
 		"G2C_MONEY":           2114,
 		"G2C_PLAYER_ATTRIB":   2115,
+		"G2C_SKILL_LIST":      2116,
+		"G2C_SKILL_LEVEL":     2117,
+		"G2C_SKILL_FORBID":    2118,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
 		"GZ_SESSION_OPEN":     9003,
@@ -270,7 +282,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xf2\a\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xce\b\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -290,7 +302,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fC2G_ITEM_USE\x10\xd3\b\x12\x12\n" +
 	"\rC2G_ITEM_DROP\x10\xd4\b\x12\x10\n" +
 	"\vC2G_PICK_UP\x10\xd5\b\x12\x12\n" +
-	"\rC2G_ADD_POINT\x10\xd6\b\x12\x12\n" +
+	"\rC2G_ADD_POINT\x10\xd6\b\x12\x18\n" +
+	"\x13C2G_ADD_SKILL_POINT\x10\xd7\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +
@@ -312,7 +325,10 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\rG2C_ITEM_MOVE\x10\xc0\x10\x12\x14\n" +
 	"\x0fG2C_ITEM_RESULT\x10\xc1\x10\x12\x0e\n" +
 	"\tG2C_MONEY\x10\xc2\x10\x12\x16\n" +
-	"\x11G2C_PLAYER_ATTRIB\x10\xc3\x10\x12\x12\n" +
+	"\x11G2C_PLAYER_ATTRIB\x10\xc3\x10\x12\x13\n" +
+	"\x0eG2C_SKILL_LIST\x10\xc4\x10\x12\x14\n" +
+	"\x0fG2C_SKILL_LEVEL\x10\xc5\x10\x12\x15\n" +
+	"\x10G2C_SKILL_FORBID\x10\xc6\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +

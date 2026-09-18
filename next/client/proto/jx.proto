@@ -286,6 +286,43 @@ message AddPointReq {            // C2G_ADD_POINT: KPlayer::AddBaseStrength / De
   uint32 seq = 3;                // answered with G2C_PLAYER_ATTRIB (nothing changes when the points are not there)
 }
 
+message AddSkillPointReq {       // C2G_ADD_SKILL_POINT: KPlayer::AddSkillPoint (jx_linux_y 0x080BD460)
+  uint32 skill_id = 1;
+  uint32 points = 2;
+  uint32 seq = 3;                // answered with G2C_SKILL_LEVEL when the old server answered (not for a skill not held / an exp skill)
+}
+
+message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server
+  uint32 skill_id = 1;
+  int32 level = 2;               // -1: the skill was taken away (DelMagic)
+  uint32 skill_point = 3;        // m_nSkillPoint left
+  uint32 exp_percent = 4;        // the experience bar of an exp skill, 0..1024 (1/1024 of the level's need)
+  uint32 seq = 5;                // the AddSkillPointReq.seq this answers, 0 otherwise
+  bool level_up = 6;             // the level moved by experience (the old server showed a message here)
+}
+
+message SkillEntry {
+  uint32 skill_id = 1;
+  int32 level = 2;               // SkillLevel: what was learned
+  int32 current_level = 3;       // CurrentSkillLevel: with the increments of equipment / states
+  uint32 exp_percent = 4;        // 0..1024
+  int32 max_level = 5;
+  int32 req_level = 6;           // the character level the skill asks for
+  bool forbidden = 7;
+  uint32 cool_down_left = 8;     // frames until it can be cast again
+  bool only_inc = 9;             // held through increments only (level 0)
+}
+
+message SkillListSync {          // G2C_SKILL_LIST: every skill held, on entering the world (s2c_synccurplayerskill)
+  repeated SkillEntry skills = 1;
+  bool forbid_all = 2;
+}
+
+message SkillForbidSync {        // G2C_SKILL_FORBID: the 0x63 packet (ForbitSkill: skill_id 0 = every skill)
+  uint32 skill_id = 1;
+  bool forbid = 2;
+}
+
 // Everything the character window shows about the character itself, sent on entering the
 // world and whenever it changes (a level, a point spent, a piece worn or taken off, damage
 // taken updates only life through EntityLife).  The base numbers are the character's own,
@@ -513,6 +550,7 @@ enum MsgId {
   C2G_ITEM_DROP = 1108;        // (zone) throw an item away: it lies on the ground for a while
   C2G_PICK_UP = 1109;          // (zone) pick up an item / money from the ground
   C2G_ADD_POINT = 1110;        // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
+  C2G_ADD_SKILL_POINT = 1111;  // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -537,6 +575,9 @@ enum MsgId {
   G2C_ITEM_RESULT = 2113;      // a request that changed nothing, with why
   G2C_MONEY = 2114;            // money in the bag and the repository
   G2C_PLAYER_ATTRIB = 2115;    // the character's own numbers (CURPLAYER_SYNC + PLAYER_ATTRIBUTE_SYNC + PLAYER_LEVEL_UP_SYNC of the old game)
+  G2C_SKILL_LIST = 2116;       // every skill the character holds (s2c_synccurplayerskill)
+  G2C_SKILL_LEVEL = 2117;      // one skill's level / experience / the skill points left (the 0x5e packet)
+  G2C_SKILL_FORBID = 2118;     // a skill (or all) locked or freed (the 0x63 packet)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;
@@ -619,6 +660,15 @@ message ItemData {
   uint32 y = 21;
 }
 
+// One skill of the character's KSkillList (jx_linux_y 0x080E48D0 writes {int16 id, int16 level,
+// int32 exp}, KPlayer::LoadPlayerFightSkillList 0x080C0240 reads it back through KSkillList::Add);
+// cells that live on increments only are not saved.
+message RoleSkill {
+  uint32 id = 1;
+  uint32 level = 2;
+  uint32 exp = 3;
+}
+
 message RoleData {
   uint64 player_id = 1;
   uint64 account_id = 2;
@@ -645,5 +695,6 @@ message RoleData {
   uint32 next_item_id = 18;  // KItemList: the id the next item gets (ids never repeat within a character)
   uint32 money = 19;         // in the bag (KItemList room_equipment money)
   uint32 bank_money = 20;    // in the repository
+  repeated RoleSkill skills = 21;   // the fight skill list (KSkillList; DBSkillData of the old server)
 }
 

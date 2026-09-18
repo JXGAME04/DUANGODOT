@@ -287,6 +287,43 @@ message AddPointReq {            // C2G_ADD_POINT: KPlayer::AddBaseStrength / De
   uint32 seq = 3;                // answered with G2C_PLAYER_ATTRIB (nothing changes when the points are not there)
 }
 
+message AddSkillPointReq {       // C2G_ADD_SKILL_POINT: KPlayer::AddSkillPoint (jx_linux_y 0x080BD460)
+  uint32 skill_id = 1;
+  uint32 points = 2;
+  uint32 seq = 3;                // answered with G2C_SKILL_LEVEL when the old server answered (not for a skill not held / an exp skill)
+}
+
+message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server
+  uint32 skill_id = 1;
+  int32 level = 2;               // -1: the skill was taken away (DelMagic)
+  uint32 skill_point = 3;        // m_nSkillPoint left
+  uint32 exp_percent = 4;        // the experience bar of an exp skill, 0..1024 (1/1024 of the level's need)
+  uint32 seq = 5;                // the AddSkillPointReq.seq this answers, 0 otherwise
+  bool level_up = 6;             // the level moved by experience (the old server showed a message here)
+}
+
+message SkillEntry {
+  uint32 skill_id = 1;
+  int32 level = 2;               // SkillLevel: what was learned
+  int32 current_level = 3;       // CurrentSkillLevel: with the increments of equipment / states
+  uint32 exp_percent = 4;        // 0..1024
+  int32 max_level = 5;
+  int32 req_level = 6;           // the character level the skill asks for
+  bool forbidden = 7;
+  uint32 cool_down_left = 8;     // frames until it can be cast again
+  bool only_inc = 9;             // held through increments only (level 0)
+}
+
+message SkillListSync {          // G2C_SKILL_LIST: every skill held, on entering the world (s2c_synccurplayerskill)
+  repeated SkillEntry skills = 1;
+  bool forbid_all = 2;
+}
+
+message SkillForbidSync {        // G2C_SKILL_FORBID: the 0x63 packet (ForbitSkill: skill_id 0 = every skill)
+  uint32 skill_id = 1;
+  bool forbid = 2;
+}
+
 // Everything the character window shows about the character itself, sent on entering the
 // world and whenever it changes (a level, a point spent, a piece worn or taken off, damage
 // taken updates only life through EntityLife).  The base numbers are the character's own,

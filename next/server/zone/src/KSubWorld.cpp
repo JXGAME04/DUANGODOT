@@ -233,6 +233,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.sex = role.sex();
     e.sid = sid;
     e.player_id = role.player_id();
+    e.skill_mgr = skills_.get();
     e.speed = role.stats().move_speed() > 0 ? static_cast<std::uint32_t>(role.stats().move_speed()) : cfg_.default_speed;
     e.fight_mode = role.fight_mode();
     // basevalue.ini of the old server ([Common] AttackFrame 18, HurtFrame 12, CastFrame 18)
@@ -258,6 +259,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     load_items(sid, role);
     // KPlayer::LoadFrom: the points, the level tables and the equipment make the numbers
     entities_.at(id).player.load_from(entities_.at(id), role, tables(), items_of(sid));
+    load_skills(entities_.at(id), role);   // KPlayer::LoadPlayerFightSkillList: the skills, each through KSkillList::Add
 
     // The newcomer looks around at once: its client gets its own character first, then what is
     // nearest, up to the budget; the rest follows over the next ticks.  Everybody already there
@@ -270,8 +272,9 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     v.next_look = tick_ + 1 + sid % std::max<std::uint32_t>(1, cfg_.interest_period);
     // then what the character carries (s2c_syncitem of the old server followed the player sync)
     send_item_list(sid);
-    // and the character's own numbers (CURPLAYER_SYNC)
+    // and the character's own numbers (CURPLAYER_SYNC), then its skills (s2c_synccurplayerskill)
     send_player_attrib(sid);
+    send_skill_list(sid);
 
     entity_out = id;
     pos_out = start;
@@ -461,6 +464,7 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     e.template_id = template_id;
     e.speed = cfg_.default_speed / 2;
     e.wander_radius = wander_radius;
+    e.skill_mgr = skills_.get();
     apply_template(e);
     e.home = clamp(pos);
     if (cfg_.map) e.home = cfg_.map->nearest_walkable(e.home);
@@ -719,6 +723,7 @@ void KSubWorld::apply_template(KNpc& e) const
             slot.attack_radius = s.attack_radius;
             slot.melee = s.melee;
             slot.target_self = s.target_self;
+            e.skill_list.set_npc_skill(i, s.id, level);   // KSkillList::SetNpcSkill 0x080E4310 (cells 1..4)
             if (s.known && s.attack_radius > max_radius) max_radius = s.attack_radius;
         }
         e.ai_param[KNpcAI::kMaxAiParam - 1] = max_radius * max_radius;   // KNpc::Init: the reach of the farthest skill
@@ -1085,6 +1090,10 @@ void KSubWorld::share_experience(KNpc& dead)
             emit_life(*p, 0, EntityId{});
         }
         send_player_attrib(p->sid);
+        if (p->level != before) {   // 0x080AFCBC: the passives that open at exactly this level
+            KSkillListHost host = skill_host(*p);
+            p->skill_list.cast_passives_at_level(host);
+        }
     }
     dead.clear_damage_records();
 }
@@ -1309,6 +1318,7 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
         out.set_level(e->level);
         out.set_fight_mode(e->fight_mode);   // KNpc::SetFightMode survives a logout like in the old game
         if (e->player.loaded) e->player.save_to(*e, out);   // the points, the base maxima, life / mana / stamina, exp
+        save_skills(*e, out);
     }
     save_items(sid, out);
     return true;

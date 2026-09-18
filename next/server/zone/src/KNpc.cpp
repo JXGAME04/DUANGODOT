@@ -361,7 +361,8 @@ void KSubWorld::append_skill_effect(const KNpc& n, bool physical, bool melee, co
 void KSubWorld::modify_attrib(KNpc& target, EntityId launcher, const KMagicAttrib& m, bool removing)
 {
     (void)launcher;   // KNpc::ModifyAttrib(nLauncher, ...) hands it to the table; no entry the zone carries reads it
-    const KNpcAttribModifyContext ctx{&tables(), target.sid != 0 ? items_of(target.sid) : nullptr, removing, tick_};
+    KSkillListHost host = skill_host(target);
+    const KNpcAttribModifyContext ctx{&tables(), target.sid != 0 ? items_of(target.sid) : nullptr, removing, tick_, &host};
     if (!KNpcAttribModify::modify(target, m, ctx)) {
         log::trace("zone.fight", "magic attribute not carried", {log::kv("entity", target.id), log::kv("attrib", m.type)});
     }
@@ -881,13 +882,19 @@ int KSubWorld::receive_damage(KNpc& t, KNpc& a, int series, bool melee, const KM
     } else if (t.cur.life < life_before && t.kind == KNpcKind::player && skill_id != kNoCounterSkill) {
         // 0x080AEBC0(Player, 10): B3
     }
-    // slots 16 / 17: the skill experience of the blow (KSkillList 0x080E5D90 - B3)
+    // 0x0808AA38, slots 16 / 17 (addskillexp1 / 2): six blows in ten give the skill its experience
+    // (KSkillList::AddSkillExp 0x080E5D90) - to the attacker when a player or a partner, or to the
+    // target when nValue[2] bit 1 says so and the target is a player (or the attacker a partner)
     for (int slot = damage_slot_add_skill_exp1; slot <= damage_slot_add_skill_exp2; ++slot) {
         const KMagicAttrib& x = dmg[slot];
         if (x.value[0] <= 0 || random(100) > 59) continue;
-        const bool to_target = (x.value[2] & 2) != 0 && (t.kind == KNpcKind::player || old_kind(a) == kind_partner);
-        if (!to_target && !player_or_partner(a)) continue;
-        log::trace("zone.fight", "skill exp", {log::kv("entity", to_target ? t.id : a.id), log::kv("skill", x.value[0]), log::kv("exp", x.value[1])});
+        KNpc* to = nullptr;
+        if ((x.value[2] & 2) != 0) {
+            if (t.kind == KNpcKind::player || old_kind(a) == kind_partner) to = &t;
+        } else if (player_or_partner(a)) {
+            to = &a;
+        }
+        if (to != nullptr) give_skill_exp(*to, x, false);
     }
     restore_resists();
     if ((relation & 0xc) == relation_enemy) {   // 0x0808B190: the auto skills, unless the skill is excluded
@@ -1045,10 +1052,11 @@ void KSubWorld::trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId 
         const int id = key >> 8;
         const int level = key & 0xff;
         log::trace("zone.fight", "auto skill cast", {log::kv("entity", owner.id), log::kv("skill", id), log::kv("level", level), log::kv("percent", e.rate)});
-        if (e.own_skill) {
-            // 0x080E4540 KSkillList: the npc must have the skill with a level, not locked, past its
-            // cooldown and at the level it needs (a player's list comes with B3: none yet)
-            if (owner.kind == KNpcKind::player || skill_list_level(owner, id) <= 0) continue;
+        const bool own = e.own_skill;
+        if (own) {
+            // 0x080E4540 KSkillList::CanCast(list, id, frame, level): held with a current level,
+            // not forbidden, past its cool down and at the level the cell asks for
+            if (!owner.skill_list.can_cast(id, tick_, static_cast<int>(owner.level))) continue;
         }
         if (id < 1 || id > 1999 || level < 1 || level > 63) continue;
         const KSkill* sk = skills_ ? skills_->get(id, level) : nullptr;
@@ -1057,7 +1065,7 @@ void KSubWorld::trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId 
         KCastParams p;
         p.target = e.at_target == 1 ? other : self_key;
         if (!skill_cast(*sk, owner, p)) continue;
-        // (0x080847B0: an own skill's cooldown starts - B3; the cast sync 0x85 to the clients - B4)
+        if (own) set_skill_cool_time(owner, id, level);   // 0x080847B0: an own skill's cool down starts (the cast sync 0x85 - B4)
         if (const auto again = list.find(key); again != list.end()) {
             again->second.next_tick[self_key.value] = tick_ + static_cast<std::uint64_t>(again->second.interval);
         }

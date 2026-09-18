@@ -383,6 +383,15 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
         }
         return true;
     }
+    // ---- the skill list (KSkillList.h)
+    case magic_allskill_v:                                                                 // 139 (0x080993A0): nValue[0] levels for skill nValue[2] (0 = every skill)
+        if (ctx.skill_host != nullptr) npc.skill_list.add_level_inc(v2, v0, *ctx.skill_host);   // KSkillList::AddSkillLevelInc 0x080E5BF0
+        return true;
+    case magic_reduceskillcd1:                                                             // 288..290 (0x08097250): nValue[2] frames off the cool down of skill nValue[0]
+    case magic_reduceskillcd2:
+    case magic_reduceskillcd3:
+        if (v0 >= 0) npc.skill_list.reduce_cool_time(v0, v2);   // (the 0xdd packet to the clients around - B4)
+        return true;
     case magic_autoreplyskill:                                                             // 195 (0x080973D0): when hit; the top byte of |nValue[0]| says "at the attacker"
         auto_skill_modify(npc, KAutoSkillList::hit_reply, std::abs(v0) & 0xffffff, v2, v1 == 1, std::abs(v0) >> 24);
         return true;

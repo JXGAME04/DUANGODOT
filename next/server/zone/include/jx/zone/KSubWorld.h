@@ -181,6 +181,28 @@ public:
     bool add_point_request(std::uint64_t sid, int attribute, int points, std::uint32_t seq);
     // G2C_PLAYER_ATTRIB: the character's own numbers to its client
     void send_player_attrib(std::uint64_t sid, std::uint32_t seq = 0);
+    // C2G_ADD_SKILL_POINT: KPlayer::AddSkillPoint (jx_linux_y 0x080BD460) - the skill's level-up
+    // script when it names one, else `points` levels against m_nSkillPoint, MaxLevel (+ a reborn
+    // character's addon), the character's level (level + points <= level + 1 - ReqLevel) and the
+    // reborn table; answered with G2C_SKILL_LEVEL where the old server sent its 0x5e packet
+    bool add_skill_point_request(std::uint64_t sid, int skill_id, int points, std::uint32_t seq);
+    // G2C_SKILL_LIST: every skill the character holds (s2c_synccurplayerskill), on entering the world
+    void send_skill_list(std::uint64_t sid);
+    // G2C_SKILL_LEVEL: the 0x5e packet {skill, level, m_nSkillPoint, exp in 1/1024} (a level of -1 = removed)
+    void send_skill_level(std::uint64_t sid, int skill_id, int level, int exp_percent, std::uint32_t seq = 0, bool level_up = false);
+    // KSkillList::AddSkillExp 0x080E5D90 with the player's part: the sync when the bar moved by
+    // 8/1024 or the level, the skill's OnLevelUp script.  True when the level moved.
+    bool give_skill_exp(KNpc& e, const KMagicAttrib& attrib, bool percent_mode);
+    // KNpc 0x080847B0: the cool down of a skill just cast (TimePerCast of the level, less the
+    // state modifier of skill_mintimepercast_v) starts at this frame
+    void set_skill_cool_time(KNpc& e, int skill_id, int level);
+    // KPlayer::ForbitSkill 0x080B2950 / SetAForbitSkill 0x080AE9E0: every skill / one skill locked
+    // or freed, the client told (G2C_SKILL_FORBID, the 0x63 packet)
+    void forbit_skill(KNpc& e, bool forbid);
+    void set_a_forbit_skill(KNpc& e, int skill_id, int forbid);
+    // what KSkillList needs of the world for this npc: the skill manager, its level, the cast of a
+    // passive skill on itself (Cast(sk, idx, -1, idx, 0, 0, 1)) and the removal of a state
+    [[nodiscard]] KSkillListHost skill_host(KNpc& e);
     bool item_drop_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
     // KPlayer::ServerPickUpItem: the thing on the ground goes into the bag (or the purse)
     bool pick_up_request(std::uint64_t sid, EntityId object, std::uint32_t seq);
@@ -532,6 +554,8 @@ private:
     std::vector<int> free_missles_;
     std::size_t live_missles_ = 0;
     void load_items(std::uint64_t sid, const pb::RoleData& role);
+    void load_skills(KNpc& e, const pb::RoleData& role);   // KPlayer::LoadPlayerFightSkillList 0x080C0240
+    void save_skills(const KNpc& e, pb::RoleData& out) const;   // KSkillList 0x080E48D0
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);
     void item_moved(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);

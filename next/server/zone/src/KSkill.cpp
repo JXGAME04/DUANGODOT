@@ -381,6 +381,15 @@ const KSkillRow* KSkillTable::info(int id) const
     return it == info_.end() ? nullptr : &it->second;
 }
 
+int KSkillTable::id_of(const std::string& name) const
+{
+    if (name.empty()) return 0;
+    for (const auto& [id, row] : info_) {
+        if (row.name == name) return id;
+    }
+    return 0;
+}
+
 const std::vector<int>* KSkillTable::attrib_data(int attrib_id) const noexcept
 {
     const auto it = attrib_data_.find(attrib_id);

@@ -35,6 +35,7 @@ struct KPlayer {
     std::int64_t exp = 0;      // m_nExp           +0x595c
     std::int64_t next_level_exp = 0;   // m_nNextLevelExp +0x5964: what the current level needs to become the next
     int reborn = 0;            // +0x86b8 (<= 7): the experience table and the resistance floor
+    int skill_max_level_addons = 0;   // +0x8600 (SetSkillMaxLevelAddons, <= 99): what a reborn character may add to every skill's MaxLevel
     bool loaded = false;       // LoadFrom ran (a player's npc; false for every other npc)
     // what the exp bonuses of equipment / states left here (expenhance_v 175 -> a random range
     // +0xc8..+0xcc, expenhance_p 176 -> +0xd0, add120skillexpenhance_p 206 -> +0xd4); cleared by

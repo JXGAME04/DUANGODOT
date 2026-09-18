@@ -13,7 +13,10 @@ extern "C" {
 
 #include "jx/log.hpp"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KSkill.h"
+#include "jx/zone/KSkillList.h"
 #include "jx/zone/KSubWorld.h"
 
 namespace jx::zone {
@@ -408,6 +411,250 @@ int l_AddStackItem(lua_State* L)
     return 1;
 }
 
+// ---- the skill list (KSkillList.h; the JX2 script api of jx_linux_y, docs/LINUX-SERVER.md §15) ----
+
+// the skill of argument `idx`: a number, or the name of a row of Skills.txt (the old code:
+// KTabFile::GetInteger(szRowName, "SkillId")); 0 when neither
+int skill_id_arg(lua_State* L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) return static_cast<int>(lua_tonumber(L, idx));
+    const char* name = lua_tostring(L, idx);
+    KSubWorld* w = g_ScriptContext().world;
+    if (name == nullptr || w == nullptr || w->skills() == nullptr || w->skills()->table() == nullptr) return 0;
+    return w->skills()->table()->id_of(name);
+}
+
+// SetSkillLevel(id | name [, level]): KSkillList::Add(id, level, 0, 0, 0, 0), then the 0x5e packet
+int l_SetSkillLevel(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetSkillLevel");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = skill_id_arg(L, 1);
+    if (id <= 0) return 0;
+    const int level = lua_gettop(L) >= 2 ? static_cast<int>(lua_tonumber(L, 2)) : 0;
+    if (level > 1 && id > 1999) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    KSkillListHost host = w->skill_host(*p);
+    const int addon = p->player.reborn != 0 ? p->player.skill_max_level_addons : 0;
+    if (p->skill_list.add(id, level, 0, 0, addon, host) == 0) return 0;
+    log::debug("lua", "skill level set", {log::kv("entity", p->id), log::kv("skill", id), log::kv("level", level)});
+    w->send_skill_level(p->sid, id, p->skill_list.get_level(id), 0);
+    return 0;
+}
+
+// HaveMagic(id | name) -> the level held, -1 when not held (0x0811C930)
+int l_HaveMagic(lua_State* L)
+{
+    KNpc* p = player_of(L, "HaveMagic");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = skill_id_arg(L, 1);
+    if (id <= 0) return 0;
+    if (id > 1999 || p->skill_list.find_same(id) == 0) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    lua_pushnumber(L, p->skill_list.get_level(id));
+    return 1;
+}
+
+// DelMagic(id | name): KSkillList::Remove, then the 0x5e packet with a level of -1 (0x0811C7E0)
+int l_DelMagic(lua_State* L)
+{
+    KNpc* p = player_of(L, "DelMagic");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = skill_id_arg(L, 1);
+    if (id <= 0) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    KSkillListHost host = w->skill_host(*p);
+    p->skill_list.remove(id, host);
+    log::debug("lua", "skill removed", {log::kv("entity", p->id), log::kv("skill", id)});
+    w->send_skill_level(p->sid, id, -1, 0);
+    return 0;
+}
+
+// GetCurrentMagicLevel(id | name [, withInc = 1]) -> KSkillList::GetCurrentLevel (0x0811C3A0)
+int l_GetCurrentMagicLevel(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetCurrentMagicLevel");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = skill_id_arg(L, 1);
+    if (id <= 0) return 0;
+    const int with_inc = lua_gettop(L) >= 2 ? static_cast<int>(lua_tonumber(L, 2)) : 1;
+    lua_pushnumber(L, p->skill_list.get_current_level(id, with_inc != 0));
+    return 1;
+}
+
+// GetSkillMaxLevel(id) -> MaxLevel of the row (0 without one; -1 without an argument) (0x080FDAD0)
+int l_GetSkillMaxLevel(lua_State* L)
+{
+    if (lua_gettop(L) < 1) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    KSubWorld* w = g_ScriptContext().world;
+    int max_level = 0;
+    if (id >= 1 && id <= 2000 && w != nullptr && w->skills() != nullptr && w->skills()->table() != nullptr) max_level = w->skills()->table()->max_level(id);
+    lua_pushnumber(L, max_level);
+    return 1;
+}
+
+// GetSkillExp(id) -> the experience held; -1 for a bad id / no row / not an exp skill (0x0812AB40)
+int l_GetSkillExp(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetSkillExp");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    KSubWorld* w = g_ScriptContext().world;
+    const KSkill* sk = id >= 1 && id <= 1999 && w->skills() != nullptr ? w->skills()->get(id, 1) : nullptr;
+    if (sk == nullptr || !sk->row.is_exp_skill) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    const int idx = p->skill_list.find_same(id);
+    lua_pushnumber(L, idx != 0 ? p->skill_list.cell(idx)->exp : 0);
+    return 1;
+}
+
+// GetSkillNextExp(id) -> skill_skillexp_v of the instance at the current level without the
+// increments; 0 when none / not an exp skill (0x0812AC50)
+int l_GetSkillNextExp(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetSkillNextExp");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    const int level = p->skill_list.get_current_level(id, false);
+    KSubWorld* w = g_ScriptContext().world;
+    if (id < 1 || id > 1999 || level <= 0 || level > 63 || w->skills() == nullptr) return 0;
+    const KSkill* sk = w->skills()->get(id, level);
+    if (sk == nullptr || !sk->row.is_exp_skill) return 0;
+    lua_pushnumber(L, sk->skill_exp);
+    return 1;
+}
+
+// AddSkillExp(id, exp [, levelUp [, percent]]) -> 1 / 0 (KSkillList::AddSkillExp), -1 for bad
+// arguments: addskillexp1 {id, exp, levelUp == 0}, the fourth argument = the percent mode (0x08129DC0)
+int l_AddSkillExp(lua_State* L)
+{
+    const int argc = lua_gettop(L);
+    if (argc <= 1) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    KNpc* p = player_of(L, "AddSkillExp");
+    if (p == nullptr) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    KSubWorld* w = g_ScriptContext().world;
+    const KSkill* sk = id >= 1 && id <= 1999 && w->skills() != nullptr ? w->skills()->get(id, 1) : nullptr;
+    if (sk == nullptr || !sk->row.is_exp_skill) {
+        lua_pushnumber(L, -1);
+        return 1;
+    }
+    int no_level_up = 1;
+    int percent = 0;
+    if (argc >= 3) no_level_up = static_cast<int>(lua_tonumber(L, 3)) == 0 ? 1 : 0;
+    if (argc >= 4) percent = static_cast<int>(lua_tonumber(L, 4));
+    KMagicAttrib x;
+    x.type = magic_addskillexp1;
+    x.value = {id, static_cast<int>(lua_tonumber(L, 2)), no_level_up};
+    lua_pushnumber(L, w->give_skill_exp(*p, x, percent != 0) ? 1 : 0);
+    return 1;
+}
+
+// RollbackSkill() -> the levels taken back (the points a script gives back), then the 0x5e packet (0x0811C640)
+int l_RollbackSkill(lua_State* L)
+{
+    KNpc* p = player_of(L, "RollbackSkill");
+    if (p == nullptr) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    KSkillListHost host = w->skill_host(*p);
+    const int sum = p->skill_list.rollback(host);
+    log::debug("lua", "skills rolled back", {log::kv("entity", p->id), log::kv("level", sum)});
+    w->send_skill_level(p->sid, 0, 0, 0);
+    lua_pushnumber(L, sum);
+    return 1;
+}
+
+// ForbitSkill(n): every skill locked (n ~= 0) or freed (0x08121620)
+int l_ForbitSkill(lua_State* L)
+{
+    KNpc* p = player_of(L, "ForbitSkill");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    g_ScriptContext().world->forbit_skill(*p, static_cast<int>(lua_tonumber(L, 1)) != 0);
+    return 0;
+}
+
+// SetAForbitSkill(id, n): one skill locked / freed (0x08121580)
+int l_SetAForbitSkill(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetAForbitSkill");
+    if (p == nullptr || lua_gettop(L) < 2) return 0;
+    g_ScriptContext().world->set_a_forbit_skill(*p, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)));
+    return 0;
+}
+
+// SetSkillMaxLevelAddons(n): Player+0x8600, at most 99 (0x08108B70); GetSkillMaxLevelAddons() reads it
+int l_SetSkillMaxLevelAddons(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetSkillMaxLevelAddons");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int n = static_cast<int>(lua_tonumber(L, 1));
+    if (n > 99) return 0;
+    p->player.skill_max_level_addons = n;
+    return 0;
+}
+
+int l_GetSkillMaxLevelAddons(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetSkillMaxLevelAddons");
+    if (p == nullptr) return 0;
+    lua_pushnumber(L, p->player.skill_max_level_addons);
+    return 1;
+}
+
+// GetSkillCount([all]) -> KSkillList::GetCount(all) (0x0811C510); GetTotalSkill() -> the levels held (0x0811C5D0)
+int l_GetSkillCount(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetSkillCount");
+    if (p == nullptr) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    const bool all = lua_gettop(L) >= 1 && static_cast<int>(lua_tonumber(L, 1)) != 0;
+    lua_pushnumber(L, p->skill_list.get_count(all, g_ScriptContext().world->skills()));
+    return 1;
+}
+
+int l_GetTotalSkill(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetTotalSkill");
+    lua_pushnumber(L, p == nullptr ? 0 : p->skill_list.get_total_level(g_ScriptContext().world->skills()));
+    return 1;
+}
+
+// IsExpSkill(id) -> true / false (0x0812CF30)
+int l_IsExpSkill(lua_State* L)
+{
+    if (lua_gettop(L) < 1 || player_of(L, "IsExpSkill") == nullptr) return 0;
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    KSubWorld* w = g_ScriptContext().world;
+    const KSkill* sk = id >= 1 && id <= 1999 && w->skills() != nullptr ? w->skills()->get(id, 1) : nullptr;
+    if (sk == nullptr) return 0;
+    lua_pushboolean(L, sk->row.is_exp_skill ? 1 : 0);
+    return 1;
+}
+
+// UpdateSkill(): the JX2 server does nothing here (0x08114A10); the zone resends the list so a
+// client follows what a script changed
+int l_UpdateSkill(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "UpdateSkill")) g_ScriptContext().world->send_skill_list(p->sid);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -416,7 +663,13 @@ const luaL_Reg kGameScriptFuns[] = {
     {"AddGoldItem", l_AddGoldItem},     {"AddStackItem", l_AddStackItem},   {"HaveItem", l_HaveItem},
     {"GetItemCount", l_GetItemCount},   {"GetItemCountEx", l_GetItemCountEx}, {"DelItem", l_DelItem},
     {"DelItemEx", l_DelItemEx},         {"HaveCommonItem", l_HaveCommonItem}, {"DelCommonItem", l_DelCommonItem},
-    {"GetTotalItemCount", l_GetTotalItemCount}, {nullptr, nullptr},
+    {"GetTotalItemCount", l_GetTotalItemCount},
+    {"SetSkillLevel", l_SetSkillLevel},   {"HaveMagic", l_HaveMagic},           {"DelMagic", l_DelMagic},
+    {"GetCurrentMagicLevel", l_GetCurrentMagicLevel}, {"GetSkillMaxLevel", l_GetSkillMaxLevel}, {"GetSkillExp", l_GetSkillExp},
+    {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},
+    {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
+    {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
+    {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {nullptr, nullptr},
 };
 
 } // namespace

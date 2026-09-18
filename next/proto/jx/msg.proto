@@ -33,6 +33,7 @@ enum MsgId {
   C2G_ITEM_DROP = 1108;        // (zone) throw an item away: it lies on the ground for a while
   C2G_PICK_UP = 1109;          // (zone) pick up an item / money from the ground
   C2G_ADD_POINT = 1110;        // (zone) spend attribute points (KPlayer::AddBaseStrength.. of the old c2s_playeraddattribute)
+  C2G_ADD_SKILL_POINT = 1111;  // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -57,6 +58,9 @@ enum MsgId {
   G2C_ITEM_RESULT = 2113;      // a request that changed nothing, with why
   G2C_MONEY = 2114;            // money in the bag and the repository
   G2C_PLAYER_ATTRIB = 2115;    // the character's own numbers (CURPLAYER_SYNC + PLAYER_ATTRIBUTE_SYNC + PLAYER_LEVEL_UP_SYNC of the old game)
+  G2C_SKILL_LIST = 2116;       // every skill the character holds (s2c_synccurplayerskill)
+  G2C_SKILL_LEVEL = 2117;      // one skill's level / experience / the skill points left (the 0x5e packet)
+  G2C_SKILL_FORBID = 2118;     // a skill (or all) locked or freed (the 0x63 packet)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

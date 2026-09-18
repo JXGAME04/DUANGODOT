@@ -261,6 +261,9 @@ public:
     void set_attrib_data(int attrib_id, std::vector<int> values) { attrib_data_[attrib_id] = std::move(values); }
     // m_SkillInfo[id - 1]; nullptr when the id has no row
     [[nodiscard]] const KSkillRow* info(int id) const;
+    // the SkillId of the row named so - the scripts' SetSkillLevel("name") goes through
+    // KTabFile::GetInteger(Skills.txt, szRowName, "SkillId"); 0 when no row has the name
+    [[nodiscard]] int id_of(const std::string& name) const;
     [[nodiscard]] int max_level(int id) const;    // KSkillManager::GetSkillMaxLevel: 0 without a row
     [[nodiscard]] int style(int id) const;        // KSkillManager::GetSkillStyle: -1 without a row
     [[nodiscard]] std::size_t size() const noexcept { return info_.size(); }

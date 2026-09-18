@@ -275,7 +275,9 @@
     "missle": "đạn",
     "missles": "số đạn",
     "child": "kỹ năng con",
-    "style": "kiểu"
+    "style": "kiểu",
+    "forbid": "khoá",
+    "held": "đang giữ"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -503,7 +505,7 @@
     "state added": "Thêm trạng thái kỹ năng",
     "state removed": "Gỡ trạng thái kỹ năng",
     "state ran out": "Trạng thái kỹ năng hết hạn",
-    "skill exp": "Kinh nghiệm kỹ năng từ đòn đánh (chưa có sổ kỹ năng)",
+    "skill exp": "Kinh nghiệm kỹ năng từ đòn đánh / script (KSkillList::AddSkillExp)",
     "magic attribute not carried": "Thuộc tính ma pháp chưa được zone xử lý",
     "cast wait below zero": "Thời gian chờ thi triển âm: lấy 0",
     "create npc skill not carried": "Kỹ năng tạo npc chưa hỗ trợ",
@@ -518,6 +520,14 @@
     "missile table loaded": "Đã nạp bảng đạn",
     "no missile table": "Không nạp được bảng đạn",
     "auto skill failed": "Kỹ năng tự động không lên (tỉ lệ)",
-    "auto skill cast": "Kỹ năng tự động thi triển"
+    "auto skill cast": "Kỹ năng tự động thi triển",
+    "skill list loaded": "Đã nạp sổ kỹ năng của nhân vật từ dữ liệu lưu",
+    "skill level up": "Kỹ năng lên cấp nhờ kinh nghiệm",
+    "skills locked": "Khoá / mở khoá kỹ năng (ForbitSkill / SetAForbitSkill)",
+    "skill points refused": "Từ chối cộng điểm kỹ năng (lý do ở trường reason)",
+    "skill points spent": "Đã cộng điểm kỹ năng",
+    "skill level set": "Script đặt cấp kỹ năng (SetSkillLevel)",
+    "skill removed": "Script gỡ kỹ năng (DelMagic)",
+    "skills rolled back": "Script thu hồi cấp kỹ năng (RollbackSkill)"
   }
 }
