@@ -290,7 +290,7 @@ public:
     [[nodiscard]] std::optional<KItemPlace> place_of(std::uint32_t id) const;
     [[nodiscard]] std::uint32_t item_at(int room, int x, int y) const;     // 0 = nothing there
     [[nodiscard]] std::uint32_t equipped(int part) const;                  // KItemList::GetEquipment
-    [[nodiscard]] const KInventory& room(int room) const { return rooms_[room]; }
+    [[nodiscard]] const KInventory& room(int room) const { return rooms_[static_cast<std::size_t>(room)]; }
     void each(const std::function<void(const KItem&, const KItemPlace&)>& fn) const;
 
     // The next id a new item gets (persisted with the player so ids never repeat after a reload)
@@ -333,8 +333,8 @@ public:
     [[nodiscard]] int armor_defense() const;  // every worn piece's armordefense_v added up
 
     // money of the bag and the repository (KItemList::GetMoney / AddMoney / CostMoney)
-    [[nodiscard]] int money(int room = room_equipment) const noexcept { return rooms_[room].money(); }
-    void set_money(int room, int m) noexcept { rooms_[room].set_money(m); }
+    [[nodiscard]] int money(int room = room_equipment) const noexcept { return rooms_[static_cast<std::size_t>(room)].money(); }
+    void set_money(int room, int m) noexcept { rooms_[static_cast<std::size_t>(room)].set_money(m); }
     bool add_money(int room, int m) noexcept;
     bool cost_money(int m) noexcept;          // from the bag
 

@@ -138,6 +138,13 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-18 (trưa) — CI: GCC `-Werror=sign-conversion` ở `KItem.h` (từ lát B) — sửa
+
+CI Linux đỏ từ commit ad86985 (lát B) vì `rooms_[room]` với `room` là `int` trong ba hàm inline của `KItemList`
+(`room()`, `money()`, `set_money()`) — MSVC không bắt, GCC `-Wsign-conversion` bắt. Đã ép kiểu `std::size_t`.
+Bài học: sau mỗi lát phải mở trang Actions (API bị giới hạn 60 lượt/giờ, dùng trình duyệt) — lần này bốn lát
+liền không xem. Các job khác (MSVC, Go ×3, Godot) vẫn xanh.
+
 ### 2026-09-18 (trưa) — M11 lát D: rơi đồ, vật thể trên đất, nhặt, vứt — luật theo nhị phân Linux
 
 Ảnh: `build/shots/auto_drop.png` (đã gửi) — client thật vứt kiếm xuống đất (vật thể `obj_wq_001.spr` của
