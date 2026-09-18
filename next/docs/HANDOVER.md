@@ -265,6 +265,11 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `+0xa74` chỉ do `skill_appendskill` (11) đẩy, cờ `ShowEvent +0x4ec` (cột / `skill_showevent`), "Chiêu N:" đếm từ 1 → "Chiêu 2:", đệ quy), `G_Skills_38` cấp có cộng thêm,
   `G_Skills_39` = map tăng `sổ+0xf14` (= `KSkillList::enhance` zone), dòng addskilldamage lọc `ShowAddition` của kỹ năng đích. Zone `G2C_SKILL_DESC` thêm `related`,
   `level_inc`, `enhance`, `held_level`. Còn: `G_Skills_76` (Player+0x1278/+0x1148, +0x12ac8) — chưa có nguồn.
+- **Sửa B4c-3 (2026-09-18)**: đạn/hiệu ứng vẽ lệch nửa khung vì `Sprite2D.centered` mặc định — đặt `centered = false` (`KMissle.gd`, `KMissleEffect.gd`); chủ dự án phát
+  hiện từ ảnh `auto_cast.png` (Hàng Long Bất Vũ, form 7 = CastZone tại người bắn, phải bao quanh nhân vật). Hai dòng "Tăng cho kỹ năng Long Trảo Hổ Trảo" trong chú
+  thích là **đúng dữ liệu**: `shaolin.lua` `xinglong_buyu` addskilldamage3/4 = kỹ năng 271 và 272, hai dòng `skills.txt` cùng tên (2.0 cũng in theo tên). Theo lời chủ
+  dự án: quái thử nghiệm đổi thành thú yếu (`zone.test_npc_templates` "11,42,5,9" Heo rừng/Hươu đốm/Sói xám/Hồ ly, `zone.test_npc_level` 10; `dev.py assets` xuất
+  hình theo cấu hình) và `--auto` thi triển một lần ở chỗ trống phía trên đường (`auto_cast_open.png`, `AUTO_CAST_OPEN`) trước khi đi tới quái.
 - **M12 lát B3c-6 (xong 2026-09-18)**: **ngựa** (`LINUX-SERVER.md` §16.6): `KNpc::SetHorse 0x0807D520` (`frozen_action` khoá, `+0x199c`,
   lên ngựa vỡ ẩn thân), mặc ô 10 `0x081FE752` → 1 (qua bảng ngựa `0x080688B0` — zone chưa có, mọi ngựa cưỡi được), cởi `0x08200311`
   → 0, `LoadFrom 0x080C1F83`, `ReCalcEquip 0x080AF4EA` chỉ tính ngựa khi cưỡi, lên/xuống theo gói `0x080AEFA0` (ngồi/`0x08078E00`/
@@ -302,6 +307,12 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 
 ### 0.5 Lỗi đã mắc — để phiên sau tránh
 
+- **`Sprite2D` của Godot mặc định `centered = true`** — bộ vẽ cũ (`KRepresentShell2::DrawPrimitives` RU_T_IMAGE, REF_SPOT) vẽ khung **từ góc trên trái** tại
+  `điểm − tâm + offset khung`; `KNpcRes`/`KObj`/`KScenePlaceC` đều đặt `centered = false`, `KMissle.gd`/`KMissleEffect.gd` (B4c-3) quên → đạn/hiệu ứng lệch nửa khung
+  (100 px với spr 320) — chủ dự án nhìn ảnh thấy "skill lệch với người chơi". Mọi `Sprite2D.new()` cho ảnh cũ phải `centered = false`; ảnh chụp e2e phải được soi
+  kỹ (và `--auto` nay in vị trí khung so với nhân vật để so bằng số).
+- **Quái thử nghiệm 1000..1003 là boss `lowchallenge_boss.lua` với `LifeParam3 = 200000` bất kể cấp** → nhân vật mới chết một đòn, e2e đánh không ra số; đổi sang
+  thú (`zone.test_npc_templates` 11,42,5,9, `zone.test_npc_level` 10) theo lời chủ dự án ("chỉnh quái test yếu lại").
 - **e2e `AUTO_FIGHT actions=0` ba lần liền, nghi lát đạn** — thật ra từ B4c-2: hai bước chú thích thêm ~1,6 s chờ **sau** cú thi triển vào npc3,
   npc3 phản đòn giết nhân vật (`"player corpse"` trong zone log trước bước đánh) → `attack_request` từ chối vì đã chết. Soi bằng `JX_ZONE_LOG_LEVEL=trace`
   (`tools/dev.py` mới nhận) và so `AUTO_FIGHT` của các lần chạy trước; bước chú thích chuyển lên trước cú thi triển. Khi một số e2e tụt, so log
@@ -606,6 +617,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 28) — sửa B4c-3: đạn vẽ lệch nửa khung (Sprite2D.centered); quái thử nghiệm yếu; thi triển ở chỗ trống
+
+- Chủ dự án xem `auto_cast.png`: "khi đánh skill lệch với người chơi (đúng là skill hiển thị xung quanh người chơi)". Nguyên nhân: `KMissle.gd`/`KMissleEffect.gd`
+  tạo `Sprite2D` mà không `centered = false` → khung vẽ quanh điểm `−tâm + offset` thay vì từ góc trên trái (bộ vẽ cũ `KRepresentShell2.cpp` 2004: REF_SPOT trừ tâm,
+  cộng offset khung, vẽ từ góc). Sửa hai dòng; §11 `CLIENT-2.0.md` ghi luật REF_SPOT. `--auto` in `AUTO_CAST_OPEN/AUTO_CAST_SHOT` = tâm khung so với nhân vật
+  (`m66:1@(3,-14)222x145`: phim 222×145 của Hàng Long Bất Vũ nằm đúng trên nhân vật).
+- Câu hỏi "2 dòng Tăng cho kỹ năng Long Trảo Hổ Trảo": đúng dữ liệu — `script/skill/shaolin.lua` `xinglong_buyu` addskilldamage3 = 271, addskilldamage4 = 272, hai dòng
+  `skills.txt` cùng tên (218/271/272 đều "Long Trảo Hổ Trảo"); 2.0 in theo tên nên cũng hai dòng.
+- "Chỉnh quái test yếu lại, di chuyển ra khu vực trống": 1000..1003 là boss `lowchallenge_boss.lua` `LifeParam3 = 200000` bất kể cấp → `zone.test_npc_templates`
+  ("11,42,5,9": Heo rừng, Hươu đốm, Sói xám, Hồ ly — `animal.lua`) + `zone.test_npc_level` 10 (`main.cpp`, `dev.py assets` xuất `npcres` theo cấu hình; log `zone ready`
+  thêm `test_npc_level`); `--auto` đi lên đường (spawn + (−90, −190)) thi triển một lần tại chỗ, chụp khi có đạn đang vẽ (`KMissle.is_drawn`), rồi mới đi tới quái.
+  Kết quả: `AUTO_FIGHT npc2 life 69 → 29 actions=13` (trước: 200000, chết một đòn).
+- **Kiểm**: Godot 368/368; build MSVC xanh (main.cpp); e2e AUTO_CAST_OPEN after=0.75 drawn=true m66:1@(3,-14)222x145, AUTO_SKILLS cast=true, AUTO_FIGHT npc2 life 69 → 29 actions=13, AUTO_MISSLE packets=157 spawned=44 effects=7, exit=0.
+- commit: `JX NEXT: sua B4c-3 - dan/hieu ung ve lech nua khung (Sprite2D.centered = false theo REF_SPOT cua bo ve cu); quai thu nghiem yeu; thi trien o cho trong`.
 
 ### 2026-09-18 (phiên tiếp theo, phần 27) — M12 lát B4c-5: phần chú thích còn thiếu (0x006FAA00 / 0x006F7F70, G_Skills_38/39, ShowAddition)
 

@@ -439,9 +439,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     for mid in map_ids or ["1"]:
         subprocess.check_call([*jxassets_args(), "export-map", mid, "-out", out], cwd=ROOT)
     # npc / character appearance (npcs.txt + Settings/npcres) for the npcs placed on those maps
-    # plus the templates the zone's test npcs use (1000 + i, see server/zone/src/main.cpp)
+    # plus the templates the zone's test npcs use (zone.test_npc_templates, see server/zone/src/main.cpp)
     subprocess.check_call([*jxassets_args(), "export-npcres", *(map_ids or ["1"]),
-                           "-templates", "1000,1001,1002,1003", "-out", out], cwd=ROOT)
+                           "-templates", zone_config_string("test_npc_templates") or "11,42,5,9", "-out", out], cwd=ROOT)
     # the windows of the login flow (layouts, pictures, the game's bitmap fonts, its sentences).
     # They only exist in a VLTK 2.0 client; with another kind of client the Godot client falls back
     # to its plain login, so a failure here is reported and does not stop the rest.

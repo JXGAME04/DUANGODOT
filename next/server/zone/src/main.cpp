@@ -8,7 +8,9 @@
 #include <exception>
 #include <filesystem>
 #include <map>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "jx/config.hpp"
 #include "jx/log.hpp"
@@ -129,6 +131,22 @@ int main(int argc, char** argv)
     w.seed = static_cast<std::uint32_t>(cfg.get_int("zone.seed", w.seed));
     w.map_npcs = cfg.get_bool("zone.map_npcs", true);
     const auto test_npcs = cfg.get_int("zone.test_npcs", 0);
+    // their level: the real templates are level-200 monsters (200000 life, a blow kills a fresh character); the
+    // owner asked for weak ones to try skills on (2026-09-18)
+    const auto test_npc_level = static_cast<std::uint32_t>(std::clamp<std::int64_t>(cfg.get_int("zone.test_npc_level", 10), 1, 200));
+    // their templates, "id,id,..." taken in turn (the animals of npcs.txt by default; dev.py assets exports their looks)
+    std::vector<std::uint32_t> test_npc_templates;
+    {
+        std::stringstream parts(cfg.get_string("zone.test_npc_templates", "11,42,5,9"));
+        std::string part;
+        while (std::getline(parts, part, ',')) {
+            try {
+                test_npc_templates.push_back(static_cast<std::uint32_t>(std::stoul(part)));
+            } catch (const std::exception&) {
+            }
+        }
+    }
+    if (test_npc_templates.empty()) test_npc_templates = {11, 42, 5, 9};
     // the item tables (jxassets export-items): without them players carry nothing and item
     // scripts do nothing, which is said here once instead of on every AddItem
     const std::string items_dir = cfg.get_string("zone.items_dir", "client/assets/items");
@@ -341,13 +359,14 @@ int main(int argc, char** argv)
         return 1;
     }
     // a ring of wandering npcs around the (map-adjusted) spawn point so a fresh client sees movement;
-    // templates 1000 + i are exported by `dev.py assets` (jxassets export-npcres -templates ...)
+    // their templates are exported by `dev.py assets` (jxassets export-npcres -templates ...)
     const jx::zone::Pos spawn = server.world().config().spawn_point;
     for (std::int64_t i = 0; i < test_npcs; ++i) {
         const std::int32_t dx = static_cast<std::int32_t>((i % 4) * 160) - 240;
         const std::int32_t dy = static_cast<std::int32_t>((i / 4) * 160) - 80;
+        const std::uint32_t tpl = test_npc_templates[static_cast<std::size_t>(i) % test_npc_templates.size()];
         const jx::EntityId id = server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
-                                                        static_cast<std::uint32_t>(1000 + i), 200, jx::zone::KNpcKind::monster);   // attackable
+                                                        tpl, 200, jx::zone::KNpcKind::monster, test_npc_level);   // attackable, wander 200
         // the templates are active hunters (AIMode 1, vision 1200): passive here (AIMode 4, strike back only)
         // so a fresh character can look around the spawn point; the real monsters keep their data
         server.world().set_ai_mode(id, 4);
@@ -363,7 +382,7 @@ int main(int argc, char** argv)
         io.stop();
     });
 
-    jx::log::info("boot", "zone ready", {jx::log::kv("port", server.port()), jx::log::kv("test_npcs", test_npcs),
+    jx::log::info("boot", "zone ready", {jx::log::kv("port", server.port()), jx::log::kv("test_npcs", test_npcs), jx::log::kv("test_npc_level", test_npc_level),
                                          jx::log::kv("map", map_dir.empty() ? "(grid)" : map_dir), jx::log::kv("entities", server.world().entity_count())});
     io.run();
     jx::log::info("boot", "zone exit");

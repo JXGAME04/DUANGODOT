@@ -328,6 +328,27 @@ func _on_missle(d: Dictionary) -> void:
 	node.apply(d)
 
 
+# --auto: where the drawn missiles' frames sit against the character (the frame's centre, screen px; 0,0 = on the character)
+func _missle_shot_info() -> String:
+	var own := _own()
+	var parts := []
+	for node in _missles.values():
+		if node == null or not is_instance_valid(node) or not node.is_drawn():
+			continue
+		var r: Rect2 = node.drawn_rect()
+		var c := r.get_center() - (own.position if own != null else Vector2.ZERO)
+		parts.append("m%d:%s@(%d,%d)%dx%d" % [node.missle_id, node.status, int(c.x), int(c.y), int(r.size.x), int(r.size.y)])
+	return " ".join(parts)
+
+
+# --auto: is any missile showing a frame right now (its AnimFile2 while it flies, AnimFile3 while it vanishes)?
+func _missle_drawn() -> bool:
+	for node in _missles.values():
+		if node != null and is_instance_valid(node) and node.is_drawn():
+			return true
+	return false
+
+
 func _clear_missles() -> void:
 	for idx in _missles.keys():
 		var node = _missles[idx]
@@ -795,6 +816,26 @@ func _auto_skills() -> void:
 				if d < best_d:
 					best = node
 					best_d = d
+		if own != null and pick > 0:
+			# the cast movie in the open (the owner: "move to an empty area so it shows"): up the street from the spawn point,
+			# away from the roof whose sort hides a frame; the skill at the character's own spot needs the fight stance
+			# (PeaceCanUse 0); the shot when a missile draws
+			var open_spot: Vector2 = own.scene_pos + Vector2(-90, -190)
+			Game.move_to(int(open_spot.x), int(open_spot.y))
+			var walked_open := 0.0
+			while walked_open < 4.0 and (own.is_moving() or own.scene_pos.distance_to(open_spot) > 24.0):
+				await get_tree().create_timer(0.25).timeout
+				walked_open += 0.25
+			Game.chat("?gm ds SetFightState(1)")
+			await get_tree().create_timer(0.3).timeout
+			Game.cast_skill(pick, 0, int(own.scene_pos.x), int(own.scene_pos.y))
+			var open_wait := 0.0
+			while open_wait < 1.5 and not _missle_drawn():
+				await get_tree().create_timer(0.05).timeout
+				open_wait += 0.05
+			await _save_screenshot("user://logs/auto_cast_open.png")
+			print("AUTO_CAST_OPEN after=%.2f drawn=%s %s" % [open_wait, _missle_drawn(), _missle_shot_info()])
+			await get_tree().create_timer(maxf(1.2 - open_wait, 0.1)).timeout
 		if best != null:
 			# the 2.0 client walks into the skill's reach before it sends the command: stand next to the target first
 			var dir: Vector2 = (best.scene_pos - own.scene_pos).normalized()
@@ -811,9 +852,16 @@ func _auto_skills() -> void:
 			var actions_before := _action_count
 			_select_target(best)
 			Game.cast_skill(pick, best.entity_id)
-			await get_tree().create_timer(1.0).timeout
-			cast_told = _action_count > actions_before
+			# the shot while the cast movie plays: the request queues a command (up to 18 frames), the missile waits the skill's
+			# WaitTime unseen, then its AnimFile2 shows - wait for the first drawn missile (1.5 s at most), shoot, then wait the rest
+			var shown := 0.0
+			while shown < 1.5 and not _missle_drawn():
+				await get_tree().create_timer(0.05).timeout
+				shown += 0.05
 			await _save_screenshot("user://logs/auto_cast.png")
+			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s" % [shown, _missle_drawn(), _missle_shot_info()])
+			await get_tree().create_timer(maxf(1.0 - shown, 0.1)).timeout
+			cast_told = _action_count > actions_before
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]
 	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told, "faction": Game.faction_last, "branches": titles})
 	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s faction=%d branches=%s" % [Game.skills.size(), placed, pick, cast_told, Game.faction_last, "|".join(titles)])

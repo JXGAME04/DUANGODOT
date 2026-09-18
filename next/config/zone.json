@@ -40,6 +40,10 @@
     "save_interval_s": 60,
     "stats_interval_s": 10,
     "test_npcs": 4,
+    // their templates ("id,id,...", taken in turn) and level: weak animals to try skills on (the owner, 2026-09-18;
+    // 1000..1003 were level-200 bosses with 200000 life whatever the level). dev.py assets exports their looks.
+    "test_npc_templates": "11,42,5,9",
+    "test_npc_level": 10,
     "seed": 1,
     // the item tables (settings\item of the old server, every version) exported by dev.py assets
     // (jxassets export-items); without them players carry nothing. New items use the newest version.

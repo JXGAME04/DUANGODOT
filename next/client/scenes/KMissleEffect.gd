@@ -22,6 +22,7 @@ func setup(a: Dictionary, direction: int, scene_pos: Vector2, z: int) -> void:
 
 func _ready() -> void:
 	_sprite = Sprite2D.new()
+	_sprite.centered = false   # the old renderer draws a frame from its top-left: spot - centre + frame offset (KRepresentShell2.cpp 2004)
 	add_child(_sprite)
 	_refresh()
 

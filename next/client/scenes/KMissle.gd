@@ -42,6 +42,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_sprite = Sprite2D.new()
+	_sprite.centered = false   # the old renderer draws a frame from its top-left: spot - centre + frame offset (KRepresentShell2.cpp 2004)
 	_sprite.visible = false
 	add_child(_sprite)
 	_refresh()
@@ -108,6 +109,17 @@ func _tick() -> void:
 		status = STATUS_FLY
 	_place()
 	_refresh()
+
+
+func is_drawn() -> bool:
+	return _sprite != null and _sprite.visible
+
+
+# the frame's rectangle on the scene (the node's position + the sprite's top-left, the texture's size)
+func drawn_rect() -> Rect2:
+	if not is_drawn() or _sprite.texture == null:
+		return Rect2(position, Vector2.ZERO)
+	return Rect2(position + _sprite.position, _sprite.texture.get_size())
 
 
 func _place() -> void:
