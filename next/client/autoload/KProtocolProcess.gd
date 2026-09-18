@@ -21,6 +21,7 @@ signal entity_move(mv: Dictionary)
 signal entity_action(a: Dictionary)
 signal map_changed(info: Dictionary)   # the zone moved us to another map bundle
 signal entity_life(l: Dictionary)
+signal entity_ride(r: Dictionary)   # G2C_ENTITY_RIDE: a npc mounted or dismounted (drawn from B4 on)
 signal chat_msg(msg: Dictionary)
 # items (M11): the bag model below changed; `items_changed` after the whole list, `item_changed`
 # for one item (added, moved, a stack changed), `item_removed`, `item_result` when a request
@@ -186,6 +187,19 @@ func revive() -> int:
 	req.set_seq(_move_seq)
 	Net.send_msg(Proto.MsgId.C2G_REVIVE, req)
 	Log.trace("world", "revive request", {"seq": _move_seq})
+	return _move_seq
+
+
+# C2G_RIDE: mount (true) or dismount the worn horse - the ride toggle of the old client (0x080AEFA0)
+func ride(on: bool) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.RideReq.new()
+	req.set_on(on)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_RIDE, req)
+	Log.trace("world", "ride request", {"on": on, "seq": _move_seq})
 	return _move_seq
 
 
@@ -537,6 +551,15 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d.life_max = l.life_max
 			entity_life.emit(l)
 
+		Proto.MsgId.G2C_ENTITY_RIDE:
+			var m := Proto.EntityRide.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null:
+				d.riding = m.get_riding()
+			entity_ride.emit({"id": m.get_entity_id(), "riding": m.get_riding()})
+
 		Proto.MsgId.G2C_CHAT_MSG:
 			var m := Proto.ChatMsg.new()
 			if not _decode(m, payload):
@@ -708,4 +731,4 @@ func _entity_dict(e) -> Dictionary:
 		"speed": e.get_move_speed(), "level": e.get_level(), "series": e.get_series(), "sex": e.get_sex(),
 		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir(),
 		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames(),
-		"count": e.get_count()}
+		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false}

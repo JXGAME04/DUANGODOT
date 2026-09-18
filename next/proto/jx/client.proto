@@ -156,6 +156,12 @@ message EntityInfo {
   uint32 doing_frames = 16;
   uint32 count = 17;             // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
   int32 hide = 18;               // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
+  bool riding = 19;              // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
+}
+
+message EntityRide {             // G2C_ENTITY_RIDE: a npc mounted or dismounted (the flag of the next 0x4c / 0x4d sync in the old game)
+  uint64 entity_id = 1;
+  bool riding = 2;
 }
 
 message PickUpReq {              // C2G_PICK_UP: take the thing on the ground into the bag (KPlayer::ServerPickUpItem)
@@ -308,6 +314,11 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
 
 message ReviveReq {              // C2G_REVIVE: the revive request of the old client (KPlayer::Revive 0x080AD9F0, type 0)
   uint32 seq = 1;
+}
+
+message RideReq {                // C2G_RIDE: mount (on) or dismount the worn horse (the ride toggle 0x080AEFA0 of the old game)
+  bool on = 1;
+  uint32 seq = 2;
 }
 
 message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server

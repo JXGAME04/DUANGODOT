@@ -2329,6 +2329,11 @@ class EntityInfo:
 		service.field = __hide
 		data[__hide.tag] = service
 		
+		__riding = PBField.new("riding", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 19, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __riding
+		data[__riding.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2564,6 +2569,83 @@ class EntityInfo:
 		__hide.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_hide(value : int) -> void:
 		__hide.value = value
+	
+	var __riding: PBField
+	func has_riding() -> bool:
+		if __riding.value != null:
+			return true
+		return false
+	func get_riding() -> bool:
+		return __riding.value
+	func clear_riding() -> void:
+		data[19].state = PB_SERVICE_STATE.UNFILLED
+		__riding.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_riding(value : bool) -> void:
+		__riding.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class EntityRide:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__riding = PBField.new("riding", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __riding
+		data[__riding.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __riding: PBField
+	func has_riding() -> bool:
+		if __riding.value != null:
+			return true
+		return false
+	func get_riding() -> bool:
+		return __riding.value
+	func clear_riding() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__riding.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_riding(value : bool) -> void:
+		__riding.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -4455,6 +4537,70 @@ class ReviveReq:
 		return __seq.value
 	func clear_seq() -> void:
 		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class RideReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__on = PBField.new("on", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __on
+		data[__on.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __on: PBField
+	func has_on() -> bool:
+		if __on.value != null:
+			return true
+		return false
+	func get_on() -> bool:
+		return __on.value
+	func clear_on() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__on.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_on(value : bool) -> void:
+		__on.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
 		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_seq(value : int) -> void:
 		__seq.value = value
@@ -7064,6 +7210,7 @@ enum MsgId {
 	C2G_ADD_SKILL_POINT = 1111,
 	C2G_CAST_SKILL = 1112,
 	C2G_REVIVE = 1113,
+	C2G_RIDE = 1114,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,
@@ -7089,6 +7236,7 @@ enum MsgId {
 	G2C_SKILL_LIST = 2116,
 	G2C_SKILL_LEVEL = 2117,
 	G2C_SKILL_FORBID = 2118,
+	G2C_ENTITY_RIDE = 2119,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

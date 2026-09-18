@@ -732,6 +732,15 @@ int l_KillPlayer(lua_State* L)
     return 0;
 }
 
+// GetRideState(): 0x08111730 - KNpc+0x199c of the player's npc (1 while riding)
+int l_GetRideState(lua_State* L)
+{
+    KNpc* p = player_of(L, "GetRideState");
+    if (p == nullptr) return 0;
+    lua_pushnumber(L, p->horse);
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -748,7 +757,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},
-    {"KillPlayer", l_KillPlayer},
+    {"KillPlayer", l_KillPlayer},         {"GetRideState", l_GetRideState},
     {nullptr, nullptr},
 };
 

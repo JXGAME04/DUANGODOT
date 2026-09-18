@@ -476,6 +476,10 @@ public:
     bool revive_request(std::uint64_t sid, std::uint32_t seq);
     // KSkill 0x080E8770 - style 4, the npc a skill makes (docs §16.5); the spawn itself waits for the end of the tick
     bool cast_create_npc(const KSkill& sk, KNpc& launcher, const KCastParams& p);
+    // KNpc::SetHorse 0x0807D520 (docs §16.6): nothing while frozen_action; mounting while hidden breaks the hiding
+    void set_horse(KNpc& e, int n);
+    // the ride toggle 0x080AEFA0 (C2G_RIDE): true when the state changed
+    bool ride_request(std::uint64_t sid, bool on, std::uint32_t seq);
     // KSubWorldSet 0x080F6D20: the revive / reference point `ref` of `map` in absolute Mps (revivepos.ini), nothing
     // without the table or the point
     [[nodiscard]] std::optional<Pos> revive_point(std::uint32_t map, int ref) const noexcept;
@@ -615,6 +619,7 @@ private:
     void revive(KNpc& e);
     void emit_action(const KNpc& e, pb::Action action, EntityId target, int skill_id = 0, int skill_level = 0, Pos aim = Pos{});
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
+    void emit_ride(const KNpc& e);
     // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
     void recalc_player(KNpc& e);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)

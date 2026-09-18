@@ -267,6 +267,10 @@ struct KNpc {
     // it back; docs/LINUX-SERVER.md §16.5)
     bool remove_on_death = false;     // +0x1824
     EntityId summon_master;           // +0x1828
+    // KNpc::SetHorse 0x0807D520: 1 while the worn horse is ridden (the equip 0x081FE380 / unequip 0x081FFFB0 of part 10,
+    // the ride toggle 0x080AEFA0); the 0x20 flag of the 0x4c / 0x4d sync, HorseLimit of CanCastSkill, the horse column of
+    // SetSkillCoolTime, KPlayer::ReCalcEquip counts the horse only while ridden (docs/LINUX-SERVER.md §16.6)
+    int horse = 0;                    // +0x199c
 
     [[nodiscard]] bool alive() const noexcept { return doing != KDoing::death && doing != KDoing::revive; }
     // m_ProcessAI: the ai only decides while the npc stands or walks (DoSkill / DoAttack / DoHurt /

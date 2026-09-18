@@ -155,6 +155,12 @@ message EntityInfo {
   uint32 doing_frames = 16;
   uint32 count = 17;             // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
   int32 hide = 18;               // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
+  bool riding = 19;              // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
+}
+
+message EntityRide {             // G2C_ENTITY_RIDE: a npc mounted or dismounted (the flag of the next 0x4c / 0x4d sync in the old game)
+  uint64 entity_id = 1;
+  bool riding = 2;
 }
 
 message PickUpReq {              // C2G_PICK_UP: take the thing on the ground into the bag (KPlayer::ServerPickUpItem)
@@ -307,6 +313,11 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
 
 message ReviveReq {              // C2G_REVIVE: the revive request of the old client (KPlayer::Revive 0x080AD9F0, type 0)
   uint32 seq = 1;
+}
+
+message RideReq {                // C2G_RIDE: mount (on) or dismount the worn horse (the ride toggle 0x080AEFA0 of the old game)
+  bool on = 1;
+  uint32 seq = 2;
 }
 
 message SkillLevelSync {         // G2C_SKILL_LEVEL: the 0x5e packet of the old server
@@ -570,6 +581,7 @@ enum MsgId {
   C2G_ADD_SKILL_POINT = 1111;  // (zone) spend skill points on a skill (KPlayer::AddSkillPoint)
   C2G_CAST_SKILL = 1112;       // (zone) cast a skill at a target or a spot (NpcSkillCommand -> KNpc::SendCommand(do_skill))
   C2G_REVIVE = 1113;           // (zone) a dead character asks to revive at its revive point (the handler slot 118 -> KPlayer::Revive(0))
+  C2G_RIDE = 1114;             // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -597,6 +609,7 @@ enum MsgId {
   G2C_SKILL_LIST = 2116;       // every skill the character holds (s2c_synccurplayerskill)
   G2C_SKILL_LEVEL = 2117;      // one skill's level / experience / the skill points left (the 0x5e packet)
   G2C_SKILL_FORBID = 2118;     // a skill (or all) locked or freed (the 0x63 packet)
+  G2C_ENTITY_RIDE = 2119;      // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

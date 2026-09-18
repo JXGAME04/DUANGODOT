@@ -325,7 +325,10 @@ bool KSubWorld::can_cast_skill(const KSkill& sk, KNpc& launcher, int& p1, int& p
     if (launcher.kind == KNpcKind::player) {   // 0x080E8BC8
         if (r.weapon_skill && weapon_physics_skill(launcher) != r.id) return false;
         if (r.eqt_limit != -2 && weapon_eqt_limit(launcher) != r.eqt_limit) return false;
-        if (r.horse_limit == 2) return false;   // needs a horse: none in the zone (+0x199c == 0); 1 = on foot, always
+        // 0x080E8C9F: HorseLimit 1 (0x080E8ED2) refuses a rider, 2 (0x080E8CBB) refuses anybody on foot; other values refuse
+        if (r.horse_limit == 1 && launcher.horse != 0) return false;
+        if (r.horse_limit == 2 && launcher.horse == 0) return false;
+        if (r.horse_limit != 0 && r.horse_limit != 1 && r.horse_limit != 2) return false;
         if (r.style == skill_style_create_npc) {   // 0x080E8F4E: the records of kind Param1 (a byte) below ChildSkillNum, one free
             const int count = launcher.player.summon_count(r.param1 & 0xff);
             if (r.child_skill_num <= count) return false;
@@ -696,14 +699,16 @@ bool KSubWorld::give_skill_exp(KNpc& e, const KMagicAttrib& x, bool percent_mode
 
 void KSubWorld::set_skill_cool_time(KNpc& e, int skill_id, int level)
 {
-    // 0x080847B0: TimePerCast of the level (on a horse the other column), less the state
-    // modifier when it is on this skill's skill_mintimepercast_v (+0x19e4 on foot)
+    // 0x080847B0: TimePerCast of the level (0x0808482E: GetTimePerCast(bHorse) - the OnHorse column while riding), less
+    // the state modifier when it is on this skill's skill_mintimepercast_v (0x080847F9: +0x19e0 on a horse, +0x19e4 on foot)
     int mod = 0;
-    if (e.state_modifier.skill_id == skill_id && e.state_modifier.attrib == magic_skill_mintimepercast_v) mod = e.state_modifier.delta;
+    if (e.state_modifier.skill_id == skill_id && e.state_modifier.attrib == magic_skill_mintimepercast_v) {
+        mod = e.horse != 0 ? e.state_modifier.index : e.state_modifier.delta;
+    }
     if (skill_id < 1 || skill_id > 1999 || level < 1 || level > 63) return;
     const KSkill* sk = skills_ ? skills_->get(skill_id, level) : nullptr;
     if (sk == nullptr) return;
-    e.skill_list.set_next_cast_time(skill_id, tick_, sk->row.time_per_cast - mod);
+    e.skill_list.set_next_cast_time(skill_id, tick_, (e.horse != 0 ? sk->row.time_per_cast_on_horse : sk->row.time_per_cast) - mod);
 }
 
 void KSubWorld::forbit_skill(KNpc& e, bool forbid)

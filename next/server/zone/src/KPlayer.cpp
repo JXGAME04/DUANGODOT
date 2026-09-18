@@ -96,6 +96,9 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     npc.base.hit_recover = 0;
     loaded = true;
     // KNpc::Init (0x08082680) then the current life / mana / stamina of the role data
+    // 0x080C1F83: SetHorse(0), then the equip pass of the worn pieces mounts the horse (0x081FE78E: 1 when the horse
+    // table knows it - every horse here)
+    npc.horse = items != nullptr && items->equipped(itempart_horse) != 0 ? 1 : 0;
     updata_cur_data(npc, true, tables, items);
     npc.cur.life = s.hp() > 0 ? std::min(s.hp(), npc.life_max()) : npc.life_max();
     npc.cur.mana = s.mp() > 0 ? std::min(s.mp(), npc.mana_max()) : npc.mana_max();
@@ -237,6 +240,7 @@ void KPlayer::updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tab
         for (int part = 0; part < itempart_num; ++part) {
             const KItem* piece = items->find(items->equipped(part));
             if (piece == nullptr) continue;
+            if (part == itempart_horse && npc.horse == 0) continue;   // 0x080AF4EA: a horse not ridden gives nothing
             apply_base_attribs(*piece, npc, ctx);
             apply_magic_attribs(*piece, npc, items->equip_enhance(part, static_cast<int>(npc.series)), ctx);
         }

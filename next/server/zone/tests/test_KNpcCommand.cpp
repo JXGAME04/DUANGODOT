@@ -95,6 +95,9 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1115, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "2"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
     add(1116, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "3"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
     add(1117, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "4"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
+    // 1118 only on foot (HorseLimit 1), 1119 only on a horse (HorseLimit 2): the cool down differs on a horse
+    add(1118, {{"HorseLimit", "1"}, {"TimePerCast", "30"}, {"TimePerCastOnHorse", "12"}});
+    add(1119, {{"HorseLimit", "2"}, {"TimePerCast", "30"}, {"TimePerCastOnHorse", "12"}});
     return std::make_shared<const KSkillTable>(std::move(t));
 }
 
@@ -791,4 +794,42 @@ TEST_CASE("style 4: the create-npc skill summons a npc at the spot with the laun
     REQUIRE(a.w.mutable_entity(other) != nullptr);
     REQUIRE(a.w.remove_player(7));
     CHECK(a.w.mutable_entity(other) == nullptr);
+}
+
+// KNpc::SetHorse 0x0807D520 from the fight side: mounting while hidden breaks the hiding (0x0807D4C0), HorseLimit 1 / 2
+// of CanCastSkill (0x080E8ED2 / 0x080E8CBB), SetSkillCoolTime 0x0808482E takes the OnHorse column while riding
+TEST_CASE("a horse and the skills: mounting breaks the hiding, HorseLimit 1 / 2, the cool down of the horse column", "[command]")
+{
+    Arena a({1, 1101, 1108, 1118, 1119});
+    // [hide] 1 on oneself (skill 1108, see the hide test), then the mount
+    REQUIRE(a.w.cast_skill_request(7, 1108, -1, 0, a.hero, 1));
+    for (int i = 0; i < 40 && a.h->hide == 0; ++i) a.ticks(1);
+    REQUIRE(a.h->hide > 0);
+    a.w.set_horse(*a.h, 1);
+    CHECK(a.h->horse == 1);
+    CHECK(a.h->hide == 0);
+    // HorseLimit: 1118 only on foot, 1119 only on a horse
+    const KSkill* foot = a.w.skills()->get(1118, 1);
+    const KSkill* rider = a.w.skills()->get(1119, 1);
+    REQUIRE((foot != nullptr && rider != nullptr));
+    int p1 = -1, p2 = 0;
+    EntityId t = a.pig;
+    CHECK_FALSE(a.w.can_cast_skill(*foot, *a.h, p1, p2, t));
+    p1 = -1; t = a.pig;
+    CHECK(a.w.can_cast_skill(*rider, *a.h, p1, p2, t));
+    // the cool down on a horse: TimePerCastOnHorse 12 instead of 30
+    a.w.set_skill_cool_time(*a.h, 1119, 1);
+    CHECK(a.h->skill_list.next_cast_time(1119) == a.w.tick_count() + 12);
+    a.w.set_horse(*a.h, 0);
+    CHECK(a.h->horse == 0);
+    p1 = -1; t = a.pig;
+    CHECK(a.w.can_cast_skill(*foot, *a.h, p1, p2, t));
+    p1 = -1; t = a.pig;
+    CHECK_FALSE(a.w.can_cast_skill(*rider, *a.h, p1, p2, t));
+    a.w.set_skill_cool_time(*a.h, 1118, 1);
+    CHECK(a.h->skill_list.next_cast_time(1118) == a.w.tick_count() + 30);
+    // frozen_action: SetHorse does nothing
+    a.h->cur.frozen_action = true;
+    a.w.set_horse(*a.h, 1);
+    CHECK(a.h->horse == 0);
 }

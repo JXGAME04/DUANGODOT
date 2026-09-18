@@ -320,7 +320,8 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     case pb::C2G_ADD_POINT:
     case pb::C2G_ADD_SKILL_POINT:
     case pb::C2G_CAST_SKILL:
-    case pb::C2G_REVIVE: {
+    case pb::C2G_REVIVE:
+    case pb::C2G_RIDE: {
         KCmdClientPacket cmd;
         cmd.sid = cp.sid();
         cmd.msg_id = cp.msg_id();

@@ -767,7 +767,7 @@ zone `max(1, …)`; (8) bảng vũ khí thiếu → đánh thường 1/2, `bare`
 | `0x080873B0` | `(this, id kỹ năng, a3)`: `a3 > 0 && +0x19a0 > 0` → thôi (npc ẩn không phát gói **0x85** hiệu ứng kỹ năng); gói 0x85 25 byte → `0x0807A870`; kỹ năng `IsAura` (vtable+0x4c) → `InstanceSkill(mgr, sk+0xb8, cấp)` → `+0x118 = 1; Cast(sk, +4, x, y, 0, 0, 0); +0x118 = 0` (aura thi triển kỹ năng con lên chính mình) | chưa port (gói 0x85, aura — B4) |
 | `0x08099170` | **ProcessFunc 186 `stealfeature`** (mượn dáng): launcher ≠ 0, `0x08078A80(launcher) > 0`, `0x08079170(npc)`; `[0x830AE40] DisguiseMask/ForbitFeature` (danh sách `+0x14d8` bị cấm, tách dấu phẩy); `KItemList 0x081FB240(Player+0x3fc, {2, 0xb})` → đồ `+0xe4 == 0xbb` và `+0xe8 > 0` → `+0x88 = +0x14d8` của mục tiêu, `+0xe8 −= 1`, gói 0xc4 16 byte tới người chơi, rồi `0x0807AF10(npc, {0x10, 1, 0, …, +0x14d8})` | chưa port (hệ dáng/mặt nạ) |
 | `0x08099370` | **ProcessFunc 187 `addstealfeatureskill`**: `AddSkillLevelInc(list, v1, v1 > 0 ? 1 : −1)` — cộng 1 cấp cho kỹ năng `v1` khi trạng thái còn (gỡ → `−v1` → trừ) | `magic_addstealfeatureskill` → `add_level_inc(v1, ±1)` |
-| `0x0807D520` | **lên/xuống ngựa** `(this, n)`: byte `+0x1479` (khoá hành động) → thôi; `+0x199c = n`; người chơi → `0x080AEBC0(player, 3)`; `n ≠ 0 && +0x19a0 > 0` → `0x0807D4C0`. Gọi từ `0x081FE380`, `0x080AEFA0`, `0x080C16D0` (LoadFrom), `0x081FFFB0` | chưa port (ngựa) |
+| `0x0807D520` | **lên/xuống ngựa** `(this, n)` — **port §16.6** (`KSubWorld::set_horse`): byte `+0x1479` (khoá hành động) → thôi; `+0x199c = n`; người chơi → `0x080AEBC0(player, 3)`; `n ≠ 0 && +0x19a0 > 0` → `0x0807D4C0`. Gọi từ `0x081FE380`, `0x080AEFA0`, `0x080C16D0` (LoadFrom), `0x081FFFB0` | chưa port (ngựa) |
 | `0x08082680` / `0x0807EE60` | `Init/ResetCurData` và `ClearAttrib` đặt `+0x19a0 = +0x19a4 = 0` (không gửi gì; trạng thái áp lại sẽ `SetHide` lại) | `KNpc::clear_attrib` |
 
 Sai khác có chủ ý: (1) người xung quanh nhận `G2C_ENTITY_DESPAWN` thay gói 0x4f, và **học lại** npc hết ẩn ở khung sau
@@ -889,3 +889,23 @@ Không ai đọc: thời gian `+0` của bản ghi (npc triệu hồi **không h
 trả sổ**: một kind chỉ triệu hồi tối đa ChildSkillNum lần cho tới khi nhân vật rời (`Clear`). Sai khác có chủ ý: (1) npc tạo cuối
 tick (nhị phân tạo ngay trong cast; bảng thực thể của zone có thể dời khi chèn); (2) thi triển vào mục tiêu → chân người thi
 triển thay cho (−1, idx); (3) gói 0x58 (camp hiện tại) chưa ra client; (4) `Series −1` giữ hệ của mẫu.
+
+### 16.6 Ngựa — `KNpc::SetHorse 0x0807D520`, `+0x199c`, mặc/cởi ngựa, lên/xuống ngựa, `HorseLimit` (M12 lát B3c-6, đã kiểm từng dòng)
+
+| Địa chỉ | Nhị phân làm gì | Zone |
+|---|---|---|
+| `0x0807D520` | **`KNpc::SetHorse(this, n)`**: byte `+0x1479` (`frozen_action` 251) ≠ 0 → thôi; `+0x199c = n`; người chơi → `0x080AEBC0(player, 3)` (sự kiện script 3); `n ≠ 0 && +0x19a0 > 0` → `0x0807D4C0` (ẩn thân vỡ). Không gửi gói (cờ 0x20 đi theo gói 0x4c/0x4d kỳ sau) | `KSubWorld::set_horse` (+ `G2C_ENTITY_RIDE` ngay khi đổi) |
+| `0x081FE380` (`KItemList` mặc, ô 10 ngựa, `0x081FE752`) | `0x080688B0(g_ItemSet, item+0xc cấp, item+0x24)` ≥ 0 → `SetHorse(npc, 1)`, < 0 → `SetHorse(npc, 0)`. **`0x080688B0(set, cấp, k)`**: `k == 0` → −1; không thì `KTabFile::GetInteger(set+0x80, dòng k + cấp·10 + 2, cột 2, mặc định 2)` − 2 (bảng ngựa của `KItemSet+0x80` — chưa xuất) | `item_equip_request`: ô `itempart_horse` → `set_horse(1)` rồi `recalc_player` (mọi ngựa đều cưỡi được — chưa có bảng) |
+| `0x081FFFB0` (cởi, `0x08200311`) | ô 10 → `+0x14e8 = −1`, `SetHorse(npc, 0)` | `item_unequip_request` → `set_horse(0)` |
+| `0x080C1F83` (`KPlayer::LoadFrom`) | `+0x14e8 = 0x080688B0(set, 0, 0)` = −1, `SetHorse(npc, 0)`; đồ mặc nạp qua đường mặc → ngựa đang mặc thì cưỡi | `KPlayer::load_from`: `npc.horse = ngựa đang mặc ? 1 : 0` trước `updata_cur_data` |
+| `0x080AF3E0` (`KPlayer::ReCalcEquip`, `0x080AF4EA`) | ô 10 (ngựa) chỉ cộng thuộc tính khi `+0x199c ≠ 0`; `+0x19e8 = 0` cuối hàm | `updata_cur_data`: bỏ qua `itempart_horse` khi `horse == 0` |
+| `0x080AEFA0` (từ handler `0x080DBA90`) | **lên/xuống ngựa theo gói client** `(player, gói)`: `0x080A9400(player, 1)` ≠ 0 → thôi; npc `m_Doing == 8` (ngồi) → thôi; `0x08078E00(npc, 8)` ≠ 0 → thôi; `+0x1479` → thôi; trạng thái hiện tại == yêu cầu (byte `gói+0xa`) → thôi; `Player+0x458` (chỉ số ngựa đang mặc) ≤ 0 → thôi; **gói 0x9c** 16 byte `{0x9c, gói+0..+0xb, word +0xc, byte +0xe}` cho người chơi (`0x080A8400`); `SetHorse(npc, byte gói+0xa == 0)`. Không `UpdataCurData` (thuộc tính ngựa đổi ở lần tính sau) | `ride_request(sid, on, seq)` (`C2G_RIDE`): `frozen_action`, cùng trạng thái, không ngựa → từ chối; `set_horse` + `recalc_player` ngay (sai khác có chủ ý); ngồi / `0x08078E00` chưa có |
+| `0x080E8C9F` (`CanCastSkill`) | `HorseLimit +0xac`: 0 → qua; **1 → `0x080E8ED2`: `+0x199c ≠ 0` → 0** (chỉ khi đi bộ); **2 → `0x080E8CBB`: `+0x199c == 0` → 0** (chỉ khi cưỡi); khác → 0 | `can_cast_skill` (trước: 1 luôn qua, 2 luôn từ chối) |
+| `0x080847B0` (`SetSkillCoolTime`, `0x080847F9` / `0x0808482E`) | `+0x19d8 == id && +0x19dc == 3` → `mod = +0x199c ? +0x19e0 : +0x19e4`; `GetTimePerCast(bHorse = +0x199c)` (vtable+0x58) − mod | `set_skill_cool_time`: cột `TimePerCastOnHorse` + `state_modifier.index` (+0x19e0) khi cưỡi |
+| `0x0807BF20` / `0x080810C0` | gói 0x4c / 0x4d: bit 0x20 của byte cờ = `+0x199c ≠ 0` | `EntityInfo.riding`, `EntityRide` |
+| `0x08111730` | Lua **`GetRideState()`** → `+0x199c` | `l_GetRideState` |
+| `0x080DC300` | handler ngồi (`0x08078AA0(npc, 1|8 …)`): **đang cưỡi → từ chối** | ngồi chưa có |
+| `0x080CAD40`, `0x080FABA0` | đọc `+0x199c` (`0x080FABA0`: cùng `vtable+0x58` GetTimePerCast(bHorse) khi tính hồi chiêu chỗ khác; `0x080CAD40`: trả −1 khi …) — chưa cần | — |
+
+Sai khác có chủ ý: (1) không có bảng ngựa `KItemSet+0x80` → mọi ngựa mặc vào là cưỡi được; (2) đổi trạng thái gửi `G2C_ENTITY_RIDE`
+ngay và tính lại thuộc tính ngay; (3) sự kiện script 3, gói 0x9c, ngồi, `0x08078E00` chưa có; client chưa vẽ ngựa (B4).

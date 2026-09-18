@@ -193,6 +193,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_template_id(e.template_id);
     out.set_dir(e.dir);
     out.set_hide(e.hide);   // the hide bit of the 0x4d status packet (0x08081230); only its own client gets a hidden npc
+    out.set_riding(e.horse != 0);   // the 0x20 flag (0x0807C07E / 0x080814ED)
     out.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
     out.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
     switch (e.doing) {
@@ -1464,6 +1465,48 @@ void KSubWorld::emit_action(const KNpc& e, pb::Action action, EntityId target, i
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_ACTION), a);
 }
 
+void KSubWorld::emit_ride(const KNpc& e)
+{
+    pb::EntityRide r;
+    r.set_entity_id(e.id.value);
+    r.set_riding(e.horse != 0);
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_RIDE), r);
+}
+
+// KNpc::SetHorse 0x0807D520: byte +0x1479 (frozen_action) set -> nothing; +0x199c = n; a player's event script 3
+// (0x080AEBC0 - no script registry yet); n != 0 while hidden (+0x19a0 > 0) -> 0x0807D4C0, the hiding breaks.  The binary
+// sends nothing here (the next 0x4c / 0x4d sync carries the 0x20 flag): the zone tells the clients around at once.
+void KSubWorld::set_horse(KNpc& e, int n)
+{
+    if (e.cur.frozen_action) return;
+    const int was = e.horse;
+    e.horse = n;
+    if (n != 0 && e.hide > 0) break_hide(e);
+    if (was != n) {
+        log::debug("zone.player", "horse", {log::kv("entity", e.id), log::kv("horse", n)});
+        emit_ride(e);
+    }
+}
+
+// the ride toggle 0x080AEFA0(player, packet) from the client (0x080DBA90): the character must not sit (m_Doing 8 -
+// no sitting in the zone yet), 0x08078E00(npc, 8) must be clear (a state kind the zone does not carry), frozen_action
+// clear, the state must differ from the request and a horse must be worn (Player+0x458); then the packet 0x9c back to
+// the player and SetHorse.  The binary leaves the attributes to the next UpdataCurData; the zone recalculates at once.
+bool KSubWorld::ride_request(std::uint64_t sid, bool on, std::uint32_t seq)
+{
+    (void)seq;
+    const auto pit = players_.find(sid);
+    KNpc* me = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    KItemList* list = items_of(sid);
+    if (me == nullptr || list == nullptr) return false;
+    if (me->cur.frozen_action) return false;
+    if ((me->horse != 0) == on) return false;
+    if (list->equipped(itempart_horse) == 0) return false;
+    set_horse(*me, on ? 1 : 0);
+    if (KNpc* me2 = entities_.find(players_.at(sid))) recalc_player(*me2);
+    return true;
+}
+
 void KSubWorld::emit_life(const KNpc& e, std::int32_t delta, EntityId source)
 {
     pb::EntityLife l;
@@ -1717,7 +1760,12 @@ bool KSubWorld::item_equip_request(std::uint64_t sid, std::uint32_t id, int part
     }
     item_moved(sid, id, seq);
     if (worn != 0) item_moved(sid, worn, 0);
-    if (KNpc* me2 = entities_.find(players_.at(sid))) recalc_player(*me2);   // KPlayer::UpdataCurData after Equip
+    if (KNpc* me2 = entities_.find(players_.at(sid))) {
+        // 0x081FE752: the horse part -> SetHorse(1) when the horse table 0x080688B0 knows the piece (row detail +
+        // level x 10 + 2 of KItemSet+0x80; the zone has no such table: every horse rides), then UpdataCurData
+        if (part == itempart_horse) set_horse(*me2, 1);
+        recalc_player(*me2);   // KPlayer::UpdataCurData after Equip
+    }
     return true;
 }
 
@@ -1734,7 +1782,10 @@ bool KSubWorld::item_unequip_request(std::uint64_t sid, int part, std::uint32_t 
         return false;
     }
     item_moved(sid, id, seq);
-    if (KNpc* me = entities_.find(players_.at(sid))) recalc_player(*me);   // KItemList::UnEquip takes the attributes off
+    if (KNpc* me = entities_.find(players_.at(sid))) {
+        if (part == itempart_horse) set_horse(*me, 0);   // 0x08200311: the horse comes off -> SetHorse(0)
+        recalc_player(*me);   // KItemList::UnEquip takes the attributes off
+    }
     return true;
 }
 

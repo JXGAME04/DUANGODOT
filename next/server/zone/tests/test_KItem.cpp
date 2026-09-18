@@ -38,6 +38,10 @@ namespace {
 const char* const kTables = R"({
  "version": "000",
  "equipment": {
+  "horse": [
+   {"row": 1, "name": "Ngua", "genre": 0, "detail": 10, "particular": 0, "image": "h.spr", "obj": 9, "w": 2, "h": 2, "intro": "",
+    "series": -1, "price": 100, "level": 1, "basics": [{"type": 30, "range": {"min": 7, "max": 7}}], "reqs": []}
+  ],
   "meleeweapon": [
    {"row": 1, "name": "Kiem 1", "genre": 0, "detail": 0, "particular": 0, "image": "a.spr", "obj": 9, "w": 1, "h": 3, "intro": "",
     "series": 2, "price": 100, "level": 1,
@@ -118,7 +122,7 @@ TEST_CASE("item tables are looked up the way KItemGenerator picked its rows", "[
 {
     const KItemTemplateSet set = load_test_set();
     CHECK(set.version() == "000");
-    CHECK(set.size() == 11);
+    CHECK(set.size() == 12);   // the horse row came with B3c-6
     // equipment: row = particular * 10 + level - 1
     REQUIRE(set.equipment(jx::zone::equip_meleeweapon, 0, 1) != nullptr);
     CHECK(set.equipment(jx::zone::equip_meleeweapon, 0, 1)->name == "Kiem 1");
@@ -786,6 +790,64 @@ TEST_CASE("equip and unequip requests: the part its kind goes to, requirements, 
     REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_MOVE).size() == 1);
     REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_RESULT).size() == 1);
     CHECK(decode_packet<jx::pb::ItemResult>(packets(out, 1, jx::pb::G2C_ITEM_RESULT)[0]).result() == jx::pb::RESULT_NOT_FOUND);
+}
+
+// KNpc::SetHorse 0x0807D520 through the equip 0x081FE380 (part 10 -> 1) / unequip 0x081FFFB0 (-> 0) of the horse, the ride
+// toggle 0x080AEFA0, KPlayer::ReCalcEquip 0x080AF4EA (the horse counts only while ridden), frozen_action +0x1479
+TEST_CASE("a horse: worn = ridden, its defence counts only while riding, the ride toggle, frozen_action", "[item][world]")
+{
+    ItemWorld iw;
+    auto g = iw.gen();
+    const auto horse = iw.w->give_item(1, *g.equipment(jx::zone::equip_horse, 0, 1, 1));
+    REQUIRE(horse);
+    jx::zone::KNpc* me = iw.w->mutable_entity(iw.id);
+    REQUIRE(me != nullptr);
+    const int defend = me->cur.defend;
+    CHECK(me->horse == 0);
+    iw.w->take_outbox();
+    REQUIRE(iw.w->item_equip_request(1, horse, -1, 41));
+    me = iw.w->mutable_entity(iw.id);
+    CHECK(iw.list().equipped(jx::zone::itempart_horse) == horse);
+    CHECK(me->horse == 1);
+    CHECK(me->cur.defend == defend + 7);
+    auto out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ENTITY_RIDE).size() == 1);
+    CHECK(decode_packet<jx::pb::EntityRide>(packets(out, 1, jx::pb::G2C_ENTITY_RIDE)[0]).riding());
+    // dismount: the horse stays worn but gives nothing (0x080AF4EA)
+    REQUIRE(iw.w->ride_request(1, false, 42));
+    me = iw.w->mutable_entity(iw.id);
+    CHECK(me->horse == 0);
+    CHECK(iw.list().equipped(jx::zone::itempart_horse) == horse);
+    CHECK(me->cur.defend == defend);
+    out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ENTITY_RIDE).size() == 1);
+    CHECK_FALSE(decode_packet<jx::pb::EntityRide>(packets(out, 1, jx::pb::G2C_ENTITY_RIDE)[0]).riding());
+    // the same state again: nothing (0x080AF060)
+    CHECK_FALSE(iw.w->ride_request(1, false, 43));
+    CHECK(packets(iw.w->take_outbox(), 1, jx::pb::G2C_ENTITY_RIDE).empty());
+    // mount again; frozen_action (+0x1479) locks SetHorse both ways
+    REQUIRE(iw.w->ride_request(1, true, 44));
+    CHECK(iw.w->mutable_entity(iw.id)->horse == 1);
+    CHECK(iw.w->mutable_entity(iw.id)->cur.defend == defend + 7);
+    iw.w->mutable_entity(iw.id)->cur.frozen_action = true;
+    CHECK_FALSE(iw.w->ride_request(1, false, 45));
+    CHECK(iw.w->mutable_entity(iw.id)->horse == 1);
+    iw.w->mutable_entity(iw.id)->cur.frozen_action = false;
+    // the horse comes off: dismounted (0x08200311); without a horse the toggle is refused (0x080AF066)
+    REQUIRE(iw.w->item_unequip_request(1, jx::zone::itempart_horse, 46));
+    CHECK(iw.w->mutable_entity(iw.id)->horse == 0);
+    CHECK(iw.w->mutable_entity(iw.id)->cur.defend == defend);
+    CHECK_FALSE(iw.w->ride_request(1, true, 47));
+    // a character that logs in with the horse worn is riding (0x080C1F83 + the equip pass)
+    REQUIRE(iw.w->item_equip_request(1, horse, -1, 48));
+    jx::pb::RoleData saved;
+    REQUIRE(iw.w->role_snapshot(1, saved));
+    REQUIRE(iw.w->remove_player(1));
+    jx::EntityId again;
+    jx::zone::Pos at;
+    REQUIRE(iw.w->spawn_player(1, saved, again, at) == jx::pb::RESULT_OK);
+    CHECK(iw.w->mutable_entity(again)->horse == 1);
+    CHECK(iw.w->mutable_entity(again)->cur.defend == defend + 7);
 }
 
 TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the item goes or its stack shrinks", "[item][world]")
