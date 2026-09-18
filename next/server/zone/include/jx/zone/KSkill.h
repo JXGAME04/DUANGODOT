@@ -88,7 +88,7 @@ struct KSkillRow {
     int param2 = 0;                       // Param2           +0x54
     int series = 0;                       // Series           +0x58 (JX2)
     int do_hurt = 100;                    // DoHurt           +0x5c, default 0x64 (JX1 defaulted to 1)
-    bool client_send = false;             // ClientSend       +0x60
+    int client_send = 0;                  // ClientSend       +0x60 (1: no payload is made, 2: the client casts it alone - CastMissles 0x080ECB10)
     int state_special_id = 0;             // StateSpecialId   +0x64
     int state_priority = 0;               // StatePriority    +0x68 (JX2)
     int req_level = 0;                    // ReqLevel         +0x6c (WORD)

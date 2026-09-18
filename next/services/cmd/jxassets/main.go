@@ -15,6 +15,8 @@
 //	                                 basevalue.ini, newplayerini%02d) as player.json for the zone and the gateway
 //	export-skills -out <dir>         settings/skills.txt of the old server (every row, every column the JX2
 //	                                 server reads) as skills.json for the zone's KSkillManager
+//	export-missles -out <dir>        settings/missles.txt of the old server (the missile templates the skills
+//	                                 fire) as missles.json for the zone's KMissleTable
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -35,6 +37,7 @@ import (
 
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/export"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/item"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/missle"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
@@ -922,6 +925,49 @@ func main() {
 		}
 		fmt.Printf("export-skills: %d dong ky nang (%d cot, %d script cap, bo qua %d dong, %d muc attribconstdata) tu %s -> %s\n",
 			len(table.Rows), len(table.Columns), len(scripts), table.Skipped, len(table.AttribData), file, p)
+
+	case "export-missles":
+		// \settings\missles.txt of the old server, every row with a MissleId 1..999 and every
+		// column, read the way 0x0805D210 / 0x08074300 of jx_linux_y read it -> <out>/missles.json
+		// for the zone's KMissleTable (docs/LINUX-SERVER.md §13)
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		var file string
+		for _, root := range serverRoots(sdir) {
+			for _, rel := range []string{"settings/missles.txt", "Settings/Missles.txt", "settings/Missles.txt", "Settings/missles.txt"} {
+				if st, err := os.Stat(filepath.Join(root, rel)); err == nil && !st.IsDir() {
+					file = filepath.Join(root, rel)
+					break
+				}
+			}
+			if file != "" {
+				break
+			}
+		}
+		if file == "" {
+			fail("no settings/missles.txt under %s", sdir)
+		}
+		table, err := missle.Load(file)
+		if err != nil {
+			fail("%s: %v", file, err)
+		}
+		p := filepath.Join(out, "missles.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-missles: %d dong dan (%d cot, bo qua %d dong) tu %s -> %s\n", len(table.Rows), len(table.Columns), table.Skipped, file, p)
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):

@@ -153,6 +153,7 @@ struct KNpcCurrentAttrib {
     int enhance_hit_effect_rate = 0;         // enhancehiteffect_rate 275    +0x1410
     int add_damage_percent = 100;            // add_damage_p 249             +0x1414
     int fatally_strike = 0;                  // fatallystrike_p 71 / 152     +0x1418
+    int missle_vanish_rate = 0;              // +0x141c: a missile without ColVanish still vanishes on a hit at this percent (0x0807EE20); no attribute writes it in jx_linux_y
     int freeze_time_reduce = 0;              // freezetimereduce_p 106       +0x1420
     int poison_time_reduce = 0;              // poisontimereduce_p 108       +0x1424
     int stun_time_reduce = 0;                // stuntimereduce_p 110         +0x1428

@@ -1026,6 +1026,7 @@ std::shared_ptr<jx::zone::KNpcTemplateSet> test_templates()
     t.id = 418;
     t.name = "pig";
     t.treasure = 3;
+    t.camp = jx::zone::camp_animal;   // what a beginner may fight (g_GenOneRelation); the missile only reaches an enemy
     t.drop_rate_file = "\\settings\\item\\test.ini";
     set->add(t);
     jx::zone::KNpcDropRate r;

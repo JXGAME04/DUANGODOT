@@ -499,7 +499,7 @@ void KSubWorld::tick()
     // no observable state to advance, so the tick returns before it even lists the entities.  A
     // zone hosting 980 maps otherwise walks 110 730 npcs 18 times a second to skip every one.
     // The A* buffers (13 bytes per cell, 11 MB on Phượng Tường) go back to the allocator too.
-    if (players_.empty() && awake_entities_ == 0) {
+    if (players_.empty() && awake_entities_ == 0 && live_missles_ == 0) {
         if (++idle_ticks_ > kDormantAfterTicks) {
             if (!dormant_) {
                 dormant_ = true;
@@ -578,6 +578,7 @@ void KSubWorld::tick()
     }
     ai_phase.reset();
     for (const EntityId id : expired_objects) remove_object(id);
+    activate_missles();      // KRegion::Activate 0x080E2660: the missiles after the npcs
     flush_pending_drops();   // ai + movement integration end here
 
     {
@@ -652,6 +653,12 @@ void KSubWorld::apply_template(KNpc& e) const
         e.base.life_max = e.kind == KNpcKind::monster ? 30 : 100;
         e.clear_attrib(false, tables().stamina().sit_add);
         e.cur.life = e.life_max();
+        if (e.kind == KNpcKind::monster) {
+            // the low monsters of npcs.txt are animals; a beginner (camp_begin) fights nothing
+            // else (g_GenOneRelation), and a missile only reaches what its relation allows
+            e.camp = camp_animal;
+            e.current_camp = e.camp;
+        }
         return;
     }
     e.attack_frame = t->attack_frame;
@@ -927,18 +934,9 @@ void KSubWorld::update_action(KNpc& e)
             if (e.attack_target == e.id) {
                 on_skill(e, e);
             } else {
+                // the missile the skill fires decides whether the target is still in reach
                 KNpc* t = entities_.find(e.attack_target);
-                if (t != nullptr && t->alive()) {
-                    // the old melee missile only reaches so far: a target that stepped away is missed
-                    const std::int64_t dx = e.pos().x - t->pos().x;
-                    const std::int64_t dy = e.pos().y - t->pos().y;
-                    const std::int64_t reach = reach_of(e) + KNpcAI::kMiniAttackRange;
-                    if (dx * dx + dy * dy <= reach * reach) {
-                        on_skill(e, *t);
-                    } else {
-                        log::trace("zone.fight", "swing missed", {log::kv("attacker", e.id), log::kv("target", e.attack_target)});
-                    }
-                }
+                if (t != nullptr && t->alive()) on_skill(e, *t);
             }
         }
         break;

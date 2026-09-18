@@ -271,7 +271,11 @@
     "now_frames": "độc mới: khung",
     "now_interval": "độc mới: khoảng",
     "mana": "nội lực",
-    "states": "số trạng thái"
+    "states": "số trạng thái",
+    "missle": "đạn",
+    "missles": "số đạn",
+    "child": "kỹ năng con",
+    "style": "kiểu"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -336,7 +340,6 @@
     "move request": "Yêu cầu di chuyển",
     "chat": "Chat",
     "attack request": "Yêu cầu tấn công",
-    "swing missed": "Đánh trượt",
     "dodged": "Mục tiêu né được",
     "hit": "Đánh trúng",
     "heal": "Hồi máu",
@@ -503,8 +506,16 @@
     "skill exp": "Kinh nghiệm kỹ năng từ đòn đánh (chưa có sổ kỹ năng)",
     "magic attribute not carried": "Thuộc tính ma pháp chưa được zone xử lý",
     "cast wait below zero": "Thời gian chờ thi triển âm: lấy 0",
-    "cast at a spot not carried": "Thi triển vào toạ độ chưa hỗ trợ (chờ hệ đạn)",
     "create npc skill not carried": "Kỹ năng tạo npc chưa hỗ trợ",
-    "no skill for the swing": "Không có kỹ năng cho đòn đánh"
+    "no skill for the swing": "Không có kỹ năng cho đòn đánh",
+    "no free missile": "Hết chỗ cho đạn mới trên bản đồ",
+    "missile off the map": "Đạn rơi ra ngoài bản đồ: bỏ",
+    "missile missed": "Đạn trượt (tỉ lệ trượt)",
+    "missile hit roll": "Đạn qua được tỉ lệ trượt",
+    "missile hits left": "Đạn còn số lần trúng",
+    "cast by a missile not carried": "Kỹ năng do đạn thi triển ngoài kiểu 0 chưa hỗ trợ",
+    "child cast of a wall by a missile refused": "Kỹ năng con của dạng tường do đạn thi triển: từ chối (lỗi gốc của nhị phân)",
+    "missile table loaded": "Đã nạp bảng đạn",
+    "no missile table": "Không nạp được bảng đạn"
   }
 }

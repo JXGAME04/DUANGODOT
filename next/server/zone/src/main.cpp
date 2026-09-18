@@ -171,6 +171,17 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no skill table", {jx::log::kv("file", skills_file), jx::log::kv("error", error)});
         }
     }
+    // the missile table (jxassets export-missles): the rows of settings\missles.txt the skills fire
+    const std::string missles_file = cfg.get_string("zone.missles_file", "client/assets/missles.json");
+    if (!missles_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KMissleTable::load(missles_file, &error)) {
+            w.missles = std::make_shared<const jx::zone::KMissleTable>(std::move(*t));
+            jx::log::info("boot", "missile table loaded", {jx::log::kv("file", missles_file), jx::log::kv("missles", w.missles->size())});
+        } else {
+            jx::log::warn("boot", "no missile table", {jx::log::kv("file", missles_file), jx::log::kv("error", error)});
+        }
+    }
     // the ground objects (jxassets export-objdata): without them nothing can be dropped
     const std::string objdata = cfg.get_string("zone.objdata", "client/assets/objdata.json");
     if (!objdata.empty()) {

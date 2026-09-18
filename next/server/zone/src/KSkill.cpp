@@ -131,7 +131,7 @@ KSkillRow KSkillRow::from_cells(const std::unordered_map<std::string, std::strin
     r.max_shadow_num = cell_int(cells, "MaxShadowNum", 0);
     r.attack_radius = cell_int(cells, "AttackRadius", 50);
     r.wait_time = cell_int(cells, "WaitTime", 0);
-    r.client_send = cell_int(cells, "ClientSend", 0) != 0;
+    r.client_send = cell_int(cells, "ClientSend", 0);
     r.target_self = cell_int(cells, "TargetSelf", 0) != 0;
     r.stop_when_move = cell_int(cells, "StopWhenMove", 0);
     r.heel_at_parent = cell_int(cells, "HeelAtParent", 0) != 0;

@@ -462,6 +462,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # from the converted skill scripts (dev.py lua) at run time, like the JX2 server
     if subprocess.call([*jxassets_args(), "export-skills", "-out", out], cwd=ROOT) != 0:
         print("export-skills: no settings/skills.txt in the reference server folder - skills stay unavailable")
+    # the missile table (settings/missles.txt): the templates the skills fire (the zone's KMissleTable)
+    if subprocess.call([*jxassets_args(), "export-missles", "-out", out], cwd=ROOT) != 0:
+        print("export-missles: no settings/missles.txt in the reference server folder - the skills fire the built-in basic attacks only")
     print("assets ok")
 
 

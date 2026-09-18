@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <random>
@@ -33,6 +34,7 @@
 #include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
+#include "jx/zone/KMissle.h"
 
 namespace jx::zone {
 
@@ -108,6 +110,11 @@ struct KSubWorldConfig {
     // settings/skills.txt of the old server (skills.json of jxassets export-skills): every skill's
     // row; the numbers per level come from the skill scripts (KScriptCache) at run time.  Optional.
     std::shared_ptr<const KSkillTable> skills;
+    // settings/missles.txt of the old server (missles.json of jxassets export-missles): the missile
+    // templates the skills fire (KSkill::CreateMissle).  Optional; a skill whose template is
+    // missing fires the zero template, which falls to the ground at once (like the binary's
+    // unfilled array cell).
+    std::shared_ptr<const KMissleTable> missles;
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -277,13 +284,53 @@ public:
         EntityId target;      // the npc aimed at (nParam1 == -1, nParam2 = its index of the old call)
         Pos pos;              // or a spot on the map (nParam1 / nParam2 = x / y) when at_pos
         bool at_pos = false;
+        int dir = -1;         // or a direction 0..64 to fire in (nParam1 == -2, nParam2 = the direction)
         int wait_time = 0;    // nWaitTime (negative is taken as 0)
         int extra = 0;        // the 7th argument of KSkill::Cast, handed on to the state as its 8th
     };
-    // KSkill::Cast 0x080EA920 for a npc launcher.  Styles 2 (CastInitiativeSkill 0x080EAC90) and
-    // 3 (CastPassivitySkill 0x080E8530) are complete; 0 and 14 - the missiles - land their payload
-    // on the target at once (KMissle::ProcessDamage) until the missiles come (B2b).
+    // TOrdinSkillParam of the old KSkills.cpp: what CastMissles hands its generators (the block at
+    // [ebp-0x5c] of 0x080ECAC0)
+    struct KOrdinSkillParam {
+        EntityId launcher;        // +0    the npc that fires
+        int launcher_type = 0;    // +8    always 0 (a generator refuses anything else)
+        int parent_missle = 0;    // +0xc  the missile the cast came from (0 = the npc), the children's m_nParentMissleIndex
+        int parent_type = 0;      // +0x10 2 when a missile casts (the launcher type of the child casts)
+        int wait_time = 0;        // +0x20 nWaitTime of the cast
+        EntityId target;          // +0x24 the npc aimed at (none = -1 of the old call)
+    };
+    // KSkill::Cast 0x080EA920 for a npc launcher (eLauncherType 0): style 0 CastMissles 0x080ECAC0,
+    // 2 CastInitiativeSkill 0x080EAC90, 3 CastPassivitySkill 0x080E8530, 14 the instant missile
+    // 0x080EA720; 1 and 5..13 nothing, 4 (a npc made) not yet.
     bool skill_cast(const KSkill& skill, KNpc& launcher, const KCastParams& p);
+    // the same for a missile launcher (eLauncherType 2: the events of a missile and the child casts
+    // of a cast that came from one).  Only style 0 is meant for it in the binary - the other styles
+    // would take the missile's index for a npc's - so they are refused here.
+    bool missle_skill_cast(const KSkill& skill, int missle_index, const KCastParams& p);
+    // KSkill::CastMissles 0x080ECAC0: the missiles of a cast by the skill's MisslesForm, then the
+    // start event; `by` is the missile that casts (eLauncherType 2), null for the npc `launcher`
+    // (which, for a missile, is the npc that fired that missile).  1 like the binary, 0 refused.
+    int cast_missles(const KSkill& skill, KMissle* by, KNpc& launcher, const KCastParams& p);
+    // the instant missile of a style 14 skill (0x080EA720): the start event, one missile at the
+    // target's spot that deals its area blow and vanishes in the same call
+    int cast_instant_missle(const KSkill& skill, KNpc& launcher, const KCastParams& p);
+    // KMissleSet::Activate 0x08076EB0: every missile's frame (0x08076950), then the vanished ones
+    // are taken out (the deferred nodes 0xfa1 of the binary).  KSubWorld::tick calls it after the
+    // npcs, as KRegion::Activate 0x080E2660 does.
+    void activate_missles();
+    [[nodiscard]] const KMissle* missle(int index) const noexcept
+    {
+        return index > 0 && static_cast<std::size_t>(index) < missles_.size() && missles_[static_cast<std::size_t>(index)].used()
+                   ? &missles_[static_cast<std::size_t>(index)] : nullptr;
+    }
+    [[nodiscard]] std::size_t missle_count() const noexcept { return live_missles_; }
+    [[nodiscard]] const std::deque<KMissle>& missles() const noexcept { return missles_; }
+    // Map2Mps of a missile (0x08074940): its position in scene units
+    [[nodiscard]] static Pos missle_pos(const KMissle& m) noexcept
+    {
+        return Pos{m.map_x * kMissleCell + (m.x_offset >> 10), m.map_y * kMissleCell + (m.y_offset >> 10)};
+    }
+    // the start delay of the i-th missile of a cast (0x080E8650, the jump table 0x08258424 on MslsGenerate)
+    int missle_start_life_time(const KSkill& skill, int i);
     bool cast_initiative_skill(const KSkill& skill, KNpc& launcher, int param1, EntityId target, int wait_time, int extra,
                                int time_override = 0, bool refresh = false, int param10 = 0, int param12 = 0);
     bool cast_passivity_skill(const KSkill& skill, KNpc& launcher, int extra);
@@ -292,9 +339,6 @@ public:
     // KSkill::CreateMissleMagicAttribsData 0x080E9E90: the skill's payload for this launcher, then
     // the payloads of its appended skills; false when the skill is ClientSend
     bool create_missle_magic_attribs_data(const KSkill& skill, KNpc& launcher, KMissleMagicAttribsList& out);
-    // KMissle::ProcessDamage 0x080753F0 without the missile: the payload lands on one target;
-    // true when a blow went through (the missile counts its hits by this)
-    bool deliver_attribs(const KMissleMagicAttribsList& list, KNpc& launcher, KNpc& target, int series, bool melee, bool use_ar, int do_hurt, int relation);
     // KNpc::ReceiveDamage 0x0808A4A0: 1 = the blow landed (states may follow), 0 = nothing happened
     int receive_damage(KNpc& target, KNpc& attacker, int series, bool melee, const KMagicAttrib* damage, bool use_ar, int do_hurt, int relation, int skill_id);
     // KNpc::CalcDamage 0x08089C90: 1 = still alive (or nothing to do), 0 = dead or refused
@@ -402,6 +446,46 @@ private:
     [[nodiscard]] int skill_list_level(const KNpc& e, int skill_id) const noexcept;   // KSkillList::GetLevel(list, id, 1) 0x080E4440
     void sync_life(const KNpc& e, int life_before, EntityId source);   // G2C_ENTITY_LIFE when the life moved
     void tick_state_skills(KNpc& e);   // the state list part of ProcessState (0x0808B8B6)
+    // ---- the missiles (KMissle.cpp; docs/LINUX-SERVER.md §13) ----
+    [[nodiscard]] int missle_cells_x() const noexcept;   // the map in 32-unit cells (the old regions x 16)
+    [[nodiscard]] int missle_cells_y() const noexcept;
+    [[nodiscard]] const KSkill* skill_of(int id, int level);   // 0x08076CE0: id 1..1999, level 1..63, instanced on first use
+    [[nodiscard]] const KMissleTemplate* missle_template(int id) const noexcept;
+    KMissle* missle_add(Pos at);                                  // KMissleSet::Add 0x08076F00
+    void missle_remove(KMissle& m);                               // KMissleSet::Remove 0x08076E00 + 0x08074CF0
+    bool missle_set_pos(KMissle& m, Pos p) noexcept;              // Mps2Map 0x080EF7F0 into the missile
+    bool missle_set_pos_fine(KMissle& m, std::int64_t x1024, std::int64_t y1024) noexcept;   // the same in 1/1024 units (a npc's spot)
+    void create_missle(const KSkill& skill, KNpc& launcher, int missle_id, KMissle& m);   // KSkill::CreateMissle 0x080EA310
+    std::shared_ptr<const KMissleMagicAttribsList> missle_attribs(const KSkill& skill, KNpc& launcher);   // 0x080EA2D0
+    // the per-missile part of the generators: the slot, CreateMissle, the target, the delay, the vector
+    KMissle* missle_fire(const KSkill& skill, const KOrdinSkillParam& ctx, KNpc& launcher, Pos at, int dir, int dir_index, int i,
+                         const std::shared_ptr<const KMissleMagicAttribsList>& list, const int* vector, bool vector_always);
+    int cast_wall(const KSkill& skill, const KOrdinSkillParam& ctx, int dir, Pos at);                    // 0x080EBB20
+    int cast_line(const KSkill& skill, const KOrdinSkillParam& ctx, int dir, Pos at);                    // 0x080EC2F0
+    int cast_extractive_line_missle(const KSkill& skill, const KOrdinSkillParam& ctx, int dir, Pos from, int ux, int uy, Pos to);   // 0x080EBF00
+    int cast_spread(const KSkill& skill, const KOrdinSkillParam& ctx, int dir, Pos at);                  // 0x080EB150
+    int cast_circle(const KSkill& skill, const KOrdinSkillParam& ctx, int dir, Pos at);                  // 0x080EB720
+    int cast_zone(const KSkill& skill, const KOrdinSkillParam& ctx, int dir, Pos at);                    // 0x080EC690
+    int cast_child_skill(const KSkill& skill, const KOrdinSkillParam& ctx, int px, int py, int i);      // 0x080EAFF0
+    EntityId cast_target_position(const KCastParams& p, Pos& out) const;                                // 0x080EED70
+    void missle_frame(KMissle& m);                    // 0x08076950: one missile's frame
+    void missle_activate(KMissle& m);                 // KMissle::Activate 0x080760E0
+    bool missle_prepare_fly(KMissle& m);              // PrePareFly 0x08076550
+    int missle_on_fly(KMissle& m, int speed, bool check);   // OnFly 0x080758E0: 0 flew, 1 collided, 2 vanish
+    bool missle_test_barrier(const KMissle& m) const noexcept;   // TestBarrier 0x080F05C0: Obstacle_Normal / Obstacle_Jump under it
+    bool missle_check_beyond_region(KMissle& m, int dx, int dy);   // 0x08074F10: the move in 1/1024 units; false = off the map
+    bool missle_relative_base(const KMissle& m, Pos& out) const;   // 0x08074D70: the anchor of RelativePosType
+    int missle_check_collision(KMissle& m);           // CheckCollision 0x08075770: -1 the ground, 0 nothing, 1 something
+    [[nodiscard]] bool missle_relation_ok(const KNpc& npc, const KNpc& launcher, int flags) const;   // the filter of 0x080F2280 / 0x080F2610 / 0x080E20B0
+    EntityId npc_at_cell(int cx, int cy, const KNpc& launcher, int flags) const;      // 0x080E20B0
+    EntityId first_npc_in_square(const KMissle& m, const KNpc& launcher, int range) const;   // 0x080748A0 + 0x080F2610
+    EntityId missle_exact_target(const KMissle& m, const KNpc& launcher) const;       // 0x080749A0
+    int missle_process_collision(KMissle& m, int range);   // 0x08075630: the blows within `range` cells, -1 when the interval is not due
+    int missle_process_collision(KMissle& m);              // 0x08075710: the same with DmgRange, nothing for a ClientSend missile
+    bool missle_process_damage(KMissle& m, KNpc& target);  // ProcessDamage 0x080753F0
+    void missle_do_collision(KMissle& m);                  // DoCollision 0x08075340
+    void missle_do_vanish(KMissle& m, bool event);         // DoVanish 0x08075210
+    void missle_event(const KSkill& skill, int type, KMissle& m);   // OnMissleEvent 0x080EE810: 2 fly, 3 collide, 4 vanished
     void do_revive(KNpc& e);
     void revive(KNpc& e);
     void emit_action(const KNpc& e, pb::Action action, EntityId target);
@@ -431,6 +515,11 @@ private:
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)
     std::unique_ptr<KSkillManager> skills_;                    // g_SkillManager: one per map (its Lua states are this map's)
+    // g_MissleSet of this map: slot 0 is never used (a missile index of 0 means none, as in the
+    // binary); a deque so that a cast during the missile frame never moves the missiles under it
+    std::deque<KMissle> missles_;
+    std::vector<int> free_missles_;
+    std::size_t live_missles_ = 0;
     void load_items(std::uint64_t sid, const pb::RoleData& role);
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);

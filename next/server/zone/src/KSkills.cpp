@@ -1,10 +1,8 @@
 // KSkills.cpp - KSkill::Cast of the old core (Core/Src/KSkills.cpp) the way the JX2 server casts
 // (jx_linux_y; docs/LINUX-SERVER.md §12): Cast 0x080EA920 for a npc launcher, CastInitiativeSkill
-// 0x080EAC90, CastPassivitySkill 0x080E8530, the StartEvent 0x080EAB90,
-// CreateMissleMagicAttribsData 0x080E9E90, and the part of KMissle::ProcessDamage 0x080753F0
-// that lands a payload on one target.  The missiles themselves (CastMissles 0x080ECAC0, the
-// flight, the collision, missles.txt) are B2b: until then a style 0 or 14 skill lands its
-// payload on the target at once, at the 60 % frame of the swing.
+// 0x080EAC90, CastPassivitySkill 0x080E8530, the StartEvent 0x080EAB90 and
+// CreateMissleMagicAttribsData 0x080E9E90.  The missiles a style 0 / 14 skill fires are KMissle.cpp
+// (CastMissles 0x080ECAC0, §13).
 #include "jx/zone/KSubWorld.h"
 
 #include <algorithm>
@@ -68,24 +66,6 @@ bool KSubWorld::create_missle_magic_attribs_data(const KSkill& skill, KNpc& laun
         if (sk != nullptr) create_missle_magic_attribs_data(*sk, launcher, out);
     }
     return true;
-}
-
-bool KSubWorld::deliver_attribs(const KMissleMagicAttribsList& list, KNpc& launcher, KNpc& target, int series, bool melee, bool use_ar, int do_hurt, int relation)
-{
-    // 0x0807540A: every node of the payload; after a blow that landed its states (when it has
-    // any) and its immediate attributes
-    bool any = false;
-    const int before = target.cur.life;
-    for (const KMissleMagicAttribsData& node : list) {
-        if (receive_damage(target, launcher, series, melee, node.damage_attribs.data(), use_ar, do_hurt, relation, node.skill_id) == 0) continue;
-        any = true;
-        if (node.state_count > 0) {
-            set_state_skill_effect(target, launcher.id, node.skill_id, node.level, node.state_attribs.data(), node.state_count, node.state_attribs[0].value[1]);
-        }
-        if (node.immediate_count > 0) set_immediately_skill_effect(target, launcher.id, node.immediate_attribs.data(), node.immediate_count);
-    }
-    sync_life(target, before, launcher.id);
-    return any;
 }
 
 bool KSubWorld::cast_initiative_skill(const KSkill& skill, KNpc& launcher, int param1, EntityId target, int wait_time, int extra,
@@ -170,9 +150,10 @@ void KSubWorld::skill_start_event(const KSkill& skill, KNpc& launcher, const KCa
 
 bool KSubWorld::skill_cast(const KSkill& skill, KNpc& launcher, const KCastParams& p)
 {
-    // KSkill::Cast 0x080EA920 with a npc launcher (eLauncherType 0): the target must exist on
-    // this map, a negative wait is 0, then the style decides
-    if (!p.at_pos && entities_.find(p.target) == nullptr) return false;
+    // KSkill::Cast 0x080EA920 with a npc launcher (eLauncherType 0): a cast on a npc needs it on
+    // this map (0x080EA956), a cast in a direction a direction (0x080EA9D4), a negative wait is 0
+    // (logged), a style above 14 is nothing, then the jump table 0x0825843C on the style
+    if (!p.at_pos && p.dir < 0 && entities_.find(p.target) == nullptr) return false;
     KCastParams q = p;
     if (q.wait_time < 0) {
         log::trace("zone.fight", "cast wait below zero", {log::kv("entity", launcher.id), log::kv("skill", skill.row.id)});
@@ -181,24 +162,12 @@ bool KSubWorld::skill_cast(const KSkill& skill, KNpc& launcher, const KCastParam
     const int style = skill.row.style;
     if (style > skill_style_jx2_14) return true;
     switch (style) {
-    case skill_style_missles:
-    case skill_style_jx2_14: {
-        // CastMissles 0x080ECAC0 / the instant missile 0x080EA720 come with the missiles (B2b);
-        // the payload the missile would carry lands on the target now
-        if (q.at_pos) {
-            log::trace("zone.fight", "cast at a spot not carried", {log::kv("entity", launcher.id), log::kv("skill", skill.row.id)});
-            return false;
-        }
-        KNpc* t = entities_.find(q.target);
-        if (t == nullptr) return false;
-        if (style == skill_style_jx2_14) skill_start_event(skill, launcher, q);   // 0x080EA79E: before the missile
-        KMissleMagicAttribsList list;
-        if (create_missle_magic_attribs_data(skill, launcher, list)) {
-            deliver_attribs(list, launcher, *t, skill.row.series, skill.row.is_melee, skill.row.use_attack_rate, skill.row.do_hurt, skill.row.relation);
-        }
-        if (style == skill_style_missles) skill_start_event(skill, launcher, q);   // 0x080ECB62: after the missiles
+    case skill_style_missles:   // 0x080EAAF8: CastMissles
+        cast_missles(skill, nullptr, launcher, q);
         return true;
-    }
+    case skill_style_jx2_14:    // 0x080EAAD0: the instant missile
+        cast_instant_missle(skill, launcher, q);
+        return true;
     case skill_style_melee:   // 1: nothing on the server
         return true;
     case skill_style_initiative_npc_state:

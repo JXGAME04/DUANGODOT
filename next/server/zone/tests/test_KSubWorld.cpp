@@ -316,13 +316,19 @@ TEST_CASE("melee attack: swing, hit at 60 percent, death animation, corpse gone,
     CHECK(swing.action() == jx::pb::ACTION_ATTACK);
     CHECK(swing.target() == pig.value);
     CHECK(swing.frames() == 18);   // BaseValue AttackFrame 18, attack speed 0
-    CHECK(swing.dir() == 47);      // the pig is to the right (g_GetDirIndex)
+    CHECK(swing.dir() == 48);      // the pig is to the right (g_GetDirIndex of the JX2 server)
 
-    // nothing lands before frame 60% (18 * 60 / 100 = 10)
-    for (int i = 0; i < 9; ++i) w.tick();
+    // the skill is cast at frame 60% (18 * 60 / 100 = 10) and fires the melee missile (template 64,
+    // WaitTime 5): it waits five frames, flies 20 a frame and reaches the pig's cell on its third
+    // frame of flight - nothing lands before the 17th tick; the blow itself has the 95 percent
+    // hit roll, so it is waited for within a few swings
+    for (int i = 0; i < 16; ++i) w.tick();
     CHECK(to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_LIFE).empty());
-    w.tick();
-    auto lifes = to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_LIFE);
+    std::vector<Packet> lifes;
+    for (int guard = 0; guard < 200 && lifes.empty(); ++guard) {
+        w.tick();
+        lifes = to_hero(w.take_outbox(), jx::pb::G2C_ENTITY_LIFE);
+    }
     REQUIRE(lifes.size() == 1);
     const auto l = decode<jx::pb::EntityLife>(lifes[0]);
     CHECK(l.entity_id() == pig.value);

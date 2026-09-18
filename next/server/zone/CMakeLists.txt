@@ -20,6 +20,7 @@ add_library(jx_zone_core STATIC
     src/KSkill.cpp
     src/KSkills.cpp
     src/KNpc.cpp
+    src/KMissle.cpp
     src/KObj.cpp
     src/KMapInstance.cpp
     src/KWorldScheduler.cpp
