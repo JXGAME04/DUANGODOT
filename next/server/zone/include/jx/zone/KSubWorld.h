@@ -30,6 +30,7 @@
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPathFinder.h"
+#include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KScriptCache.h"
 
 namespace jx::zone {
@@ -97,6 +98,9 @@ struct KSubWorldConfig {
     // the world.  Only while this is on (a development server); accounts with a GM flag come later.
     bool gm_chat = false;
     std::shared_ptr<KScriptCache> scripts;              // the old server folder with script\ (level scripts); optional
+    // settings/npc/player of the old server (player.json): level tables, stamina.ini, basevalue.ini;
+    // optional - without it the built-in defaults of KPlayerSet apply
+    std::shared_ptr<const KPlayerSet> player_set;
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -294,6 +298,10 @@ private:
     [[nodiscard]] bool in_reach(const KNpc& a, const KNpc& b) const noexcept;
     void start_attack(KNpc& e, KNpc& target);
     void begin_action(KNpc& e, KNpc& target, std::uint32_t frames);
+    // the frames of a swing: base x 100 / (100 + m_CurrentAttackSpeed), at least one
+    [[nodiscard]] static std::uint32_t attack_length(const KNpc& e, std::uint32_t base) noexcept;
+    // the player tables (KSubWorldConfig::player_set, or the defaults)
+    [[nodiscard]] const KPlayerSet& tables() const noexcept;
     void approach(KNpc& e, const KNpc& target);
     void hit(KNpc& attacker, KNpc& target);
     bool check_hit_target(int ar, int df, int ignore = 0);   // KNpc::CheckHitTarget

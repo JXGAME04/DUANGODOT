@@ -184,8 +184,8 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_sex(e.sex);
     out.set_template_id(e.template_id);
     out.set_dir(e.dir);
-    out.set_life(e.life);
-    out.set_life_max(e.life_max);
+    out.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
+    out.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
     switch (e.doing) {
     case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
     case KDoing::hurt: out.set_doing(pb::ACTION_HURT); break;
@@ -216,14 +216,8 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     KNpc e;
     e.kind = KNpcKind::player;
     e.npc_kind = kind_player;
-    e.camp = camp_begin;   // BaseInfo.iteam of the old RoleData is not carried yet: every player is a beginner
-    e.current_camp = camp_begin;
-    // placeholders until KPlayer attributes and equipment set them (KPlayer::UpdateBaseData)
-    e.min_damage = 10;
-    e.max_damage = 20;
-    e.attack_rating = 100;
-    e.defend = 0;
-    e.life_replenish = static_cast<int>((e.level + 5) / 6);   // KNpc.cpp:3971 for players
+    e.camp = role.stats().camp() != 0 ? static_cast<int>(role.stats().camp()) : camp_begin;   // BaseInfo.iteam
+    e.current_camp = e.camp;
     e.name = role.name();
     e.level = role.level() == 0 ? 1u : role.level();
     e.series = role.series();
@@ -232,16 +226,11 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.player_id = role.player_id();
     e.speed = role.stats().move_speed() > 0 ? static_cast<std::uint32_t>(role.stats().move_speed()) : cfg_.default_speed;
     e.fight_mode = role.fight_mode();
-    // BaseValue.ini of the old client ([Common] AttackFrame 18, HurtFrame 12); life and damage are
-    // placeholders until the attribute system
-    e.attack_frame = 18;
-    e.hurt_frame = 12;
+    // basevalue.ini of the old server ([Common] AttackFrame 18, HurtFrame 12, CastFrame 18)
+    e.attack_frame = static_cast<std::uint32_t>(std::max(1, tables().base_value().attack_frame));
+    e.cast_frame = static_cast<std::uint32_t>(std::max(1, tables().base_value().cast_frame));
+    e.hurt_frame = static_cast<std::uint32_t>(std::max(1, tables().base_value().hurt_frame));
     e.death_frame = 15;
-    e.hit_recover = 12;
-    e.life_max = 100;
-    e.life = e.life_max;
-    e.min_damage = 5;
-    e.max_damage = 10;
 
     Pos start = cfg_.spawn_point;
     if (at != nullptr) {
@@ -258,6 +247,8 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     players_[sid] = id;
     roles_[sid] = role;
     load_items(sid, role);
+    // KPlayer::LoadFrom: the points, the level tables and the equipment make the numbers
+    entities_.at(id).player.load_from(entities_.at(id), role, tables(), items_of(sid));
 
     // The newcomer looks around at once: its client gets its own character first, then what is
     // nearest, up to the budget; the rest follows over the next ticks.  Everybody already there
@@ -465,7 +456,7 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     e.set_pos(e.home);
     e.next_wander_tick = tick_ + static_cast<std::uint64_t>(rng_() % (cfg_.tick_hz * 5 + 1));
     const Pos home = e.home;
-    max_vision_ = std::max(max_vision_, e.vision_radius);
+    max_vision_ = std::max(max_vision_, e.cur.vision_radius);
     const EntityId id = entities_.insert(std::move(e));
     entities_.at(id).id = id;
     grid_.insert(id, home);
@@ -623,7 +614,7 @@ bool KSubWorld::is_awake(const KNpc& e) const
     // busy npcs never fall asleep mid action
     if (e.moving || e.doing != KDoing::stand || e.attack_target.value != 0) return true;
     // nor does one that still has to walk back home (KNpcAI::KeepActiveRange)
-    const int radius = e.current_active_radius > 0 ? e.current_active_radius : e.active_radius;
+    const int radius = e.cur.active_radius > 0 ? e.cur.active_radius : e.base.active_radius;
     if (radius > 0) {
         const std::int64_t dx = e.pos().x - e.home.x;
         const std::int64_t dy = e.pos().y - e.home.y;
@@ -643,29 +634,45 @@ void KSubWorld::apply_template(KNpc& e) const
 {
     const KNpcTemplate* t = cfg_.templates ? cfg_.templates->find(e.template_id) : nullptr;
     if (t == nullptr) {
-        e.life_max = e.kind == KNpcKind::monster ? 30u : 100u;
-        e.life = e.life_max;
+        e.base.life_max = e.kind == KNpcKind::monster ? 30 : 100;
+        e.clear_attrib(false, tables().stamina().sit_add);
+        e.cur.life = e.life_max();
         return;
     }
     e.attack_frame = t->attack_frame;
     e.cast_frame = t->cast_frame;
     e.hurt_frame = t->hurt_frame;
     e.death_frame = t->death_frame;
-    e.hit_recover = t->hit_recover;
     e.revive_frame = t->revive_frame;
     // KNpc::Init -> InitNpcLevelData -> LoadDataFromTemplate: the level data through the level script
     const KNpcLevelData& d = level_data_of(*t, static_cast<int>(std::max(1u, e.level)), static_cast<int>(e.series));
     e.level_data_from_script = d.from_script;
-    e.min_damage = d.min_damage;
-    e.max_damage = std::max(d.min_damage, d.max_damage);
-    e.attack_rating = d.attack_rating;
-    e.defend = d.defend;
-    e.physics_resist = d.physics_resist;
-    e.life_replenish = d.life_replenish;
-    e.exp = d.exp;
-    e.treasure = t->treasure;
-    e.life_max = std::max(1u, d.life_max);
-    e.life = e.life_max;
+    // KNpc::SetTemplate (jx_linux_y 0x08082E20): the base block from the template row, then
+    // KNpc::Init (0x08082680) copies it into the current block and fills life, mana, stamina
+    e.base.hit_recover = static_cast<int>(t->hit_recover);
+    e.base.attack_rating = static_cast<int>(d.attack_rating);
+    e.base.defend = static_cast<int>(d.defend);
+    e.base.physics_resist = d.physics_resist;
+    e.base.fire_resist = d.fire_resist;
+    e.base.cold_resist = d.cold_resist;
+    e.base.light_resist = d.light_resist;
+    e.base.poison_resist = d.poison_resist;
+    e.base.life_replenish = d.life_replenish;
+    e.base.experience = static_cast<int>(d.exp);
+    e.base.treasure = t->treasure;
+    e.base.life_max = static_cast<int>(std::max(1u, d.life_max));
+    e.base.vision_radius = t->vision_radius;
+    e.base.active_radius = t->active_radius;
+    e.base.walk_speed = t->walk_speed;
+    e.base.run_speed = t->run_speed;
+    e.clear_attrib(false, tables().stamina().sit_add);
+    e.cur.physics_damage.value[0] = static_cast<int>(d.min_damage);
+    e.cur.physics_damage.value[2] = static_cast<int>(std::max(d.min_damage, d.max_damage));
+    e.cur.experience = e.base.experience;
+    e.cur.treasure = e.base.treasure;
+    e.cur.life = e.life_max();
+    e.cur.mana = e.mana_max();
+    e.cur.stamina = e.cur.stamina_max;
     if (e.kind != KNpcKind::player) {
         // the server side of KNpc::Init from the template: camp, ai and the skill list
         e.npc_kind = t->kind;
@@ -674,11 +681,6 @@ void KSubWorld::apply_template(KNpc& e) const
         e.ai_mode = t->ai_mode;
         for (int i = 0; i < 10; ++i) e.ai_param[i] = t->ai_param[i];
         e.ai_max_time = std::max(1u, t->ai_max_time);
-        e.vision_radius = t->vision_radius;
-        e.active_radius = t->active_radius;
-        e.current_active_radius = e.active_radius;
-        e.walk_speed = t->walk_speed;
-        e.run_speed = t->run_speed;
         e.speed = static_cast<std::uint32_t>(std::max(1, t->walk_speed)) * cfg_.tick_hz;   // ServeMove: WalkSpeed units per frame
         int max_radius = 0;
         for (int i = 1; i < 5; ++i) {
@@ -703,7 +705,7 @@ void KSubWorld::apply_template(KNpc& e) const
 int KSubWorld::reach_of(const KNpc& e) const noexcept
 {
     if (e.kind == KNpcKind::player) return kMeleeReach;
-    return std::max(e.current_attack_radius, KNpcAI::kMiniAttackRange);
+    return std::max(e.cur.attack_radius, KNpcAI::kMiniAttackRange);
 }
 
 bool KSubWorld::in_reach(const KNpc& a, const KNpc& b) const noexcept
@@ -769,7 +771,7 @@ void KSubWorld::approach(KNpc& e, const KNpc& target)
 // KNpc::DoAttack: the swing lasts AttackFrame * 100 / (100 + attack speed) frames.
 void KSubWorld::start_attack(KNpc& e, KNpc& target)
 {
-    begin_action(e, target, std::max(1u, e.attack_frame * 100 / (100 + e.attack_speed)));
+    begin_action(e, target, attack_length(e, e.attack_frame));
 }
 
 void KSubWorld::begin_action(KNpc& e, KNpc& target, std::uint32_t frames)
@@ -797,7 +799,7 @@ void KSubWorld::cast_skill(KNpc& e, KNpc& target)
         emit_move(e);
     }
     const std::uint32_t base = e.active_skill_melee ? e.attack_frame : e.cast_frame;
-    begin_action(e, target, std::max(1u, base * 100 / (100 + e.attack_speed)));
+    begin_action(e, target, attack_length(e, base));
 }
 
 // SendCommand(do_walk) -> ProcCommand -> Goto -> NewPath + DoWalk.  The old npcs steer straight at
@@ -958,30 +960,43 @@ void KSubWorld::update_action(KNpc& e)
 void KSubWorld::hit(KNpc& attacker, KNpc& target)
 {
     // KNpc::ReceiveDamage: the attack rating check first (闪过攻击 = dodged, nothing else happens)
-    if (!check_hit_target(static_cast<int>(attacker.attack_rating), static_cast<int>(target.defend))) {
+    if (!check_hit_target(attacker.cur.attack_rating, target.cur.defend)) {
         log::trace("zone.fight", "dodged", {log::kv("attacker", attacker.id), log::kv("target", target.id)});
         return;
     }
     target.people_id = attacker.id;   // m_nPeopleIdx = nLauncher (passive ais strike back at it)
     // KNpc::CalcDamage(damage_physics): the blow, then the physics resistance (MAX_RESIST); the
     // shields, damage return, mana and the PK rate come with the skill system
-    const int min = static_cast<int>(attacker.min_damage);
-    const int max = static_cast<int>(attacker.max_damage);
+    const int min = attacker.cur.min_damage();
+    const int max = attacker.cur.max_damage();
     if (min + max <= 0) return;
     int dmg = max - min < 0 ? max + random(min - max) : min + random(max - min);
-    const int res = std::min(target.physics_resist, kMaxResist);
+    const int res = std::min(target.cur.physics_resist_v(), kMaxResist);
     dmg = dmg * (100 - res) / 100;
     if (dmg <= 0) return;
     // m_CurrentLife -= nDamage; DoDeath only below zero: a blow that leaves exactly 0 leaves it standing
-    const bool dies = static_cast<std::uint32_t>(dmg) > target.life;
-    target.life = dies ? 0u : target.life - static_cast<std::uint32_t>(dmg);
-    log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("resist", res), log::kv("life", target.life)});
+    const bool dies = dmg > target.life();
+    target.cur.life = dies ? 0 : target.life() - dmg;
+    log::debug("zone.fight", "hit", {log::kv("attacker", attacker.id), log::kv("target", target.id), log::kv("damage", dmg), log::kv("resist", res), log::kv("life", target.life())});
     emit_life(target, -dmg, attacker.id);
     if (dies) {
         do_death(target, attacker.id);
     } else {
         do_hurt(target, attacker.id);
     }
+}
+
+std::uint32_t KSubWorld::attack_length(const KNpc& e, std::uint32_t base) noexcept
+{
+    const int speed = std::max(-99, e.cur.attack_speed_v());
+    const int frames = static_cast<int>(base) * 100 / (100 + speed);
+    return static_cast<std::uint32_t>(std::max(1, frames));
+}
+
+const KPlayerSet& KSubWorld::tables() const noexcept
+{
+    static const KPlayerSet defaults;
+    return cfg_.player_set ? *cfg_.player_set : defaults;
 }
 
 // KNpc::CheckHitTarget: hit chance from the attack rating against the (partly ignored) defence.
@@ -996,13 +1011,13 @@ bool KSubWorld::check_hit_target(int ar, int df, int ignore)
 // KNpc::ProcessState every GAME_UPDATE_TIME frames: 生命自然回复 (the life replenish of the level data).
 void KSubWorld::process_state(KNpc& e)
 {
-    if (!e.alive() || e.life_replenish == 0 || e.life >= e.life_max) return;
+    if (!e.alive() || e.cur.life_replenish == 0 || e.life() >= e.life_max()) return;
     // jx_linux_y 0x0808B65F: m_CurrentLife += replenish * percent / 100, then both clamps
-    const std::int64_t gain = static_cast<std::int64_t>(e.life_replenish) * e.life_replenish_percent / 100;
-    const std::int64_t next = std::clamp<std::int64_t>(static_cast<std::int64_t>(e.life) + gain, 0, e.life_max);
-    const auto delta = static_cast<std::int32_t>(next - static_cast<std::int64_t>(e.life));
+    const std::int64_t gain = static_cast<std::int64_t>(e.cur.life_replenish) * e.cur.life_replenish_percent / 100;
+    const std::int64_t next = std::clamp<std::int64_t>(static_cast<std::int64_t>(e.life()) + gain, 0, e.life_max());
+    const auto delta = static_cast<std::int32_t>(next - static_cast<std::int64_t>(e.life()));
     if (delta == 0) return;
-    e.life = static_cast<std::uint32_t>(next);
+    e.cur.life = static_cast<int>(next);
     emit_life(e, delta, EntityId{});
 }
 
@@ -1024,10 +1039,10 @@ const KNpcLevelData& KSubWorld::level_data_of(const KNpcTemplate& t, int level, 
 // brings the real formula: a fifth of the maximum.
 void KSubWorld::heal(KNpc& e)
 {
-    if (!e.alive() || e.life >= e.life_max) return;
-    const std::uint32_t amount = std::min(std::max(1u, e.life_max / 5), e.life_max - e.life);
-    e.life += amount;
-    log::debug("zone.fight", "heal", {log::kv("entity", e.id), log::kv("amount", amount), log::kv("life", e.life)});
+    if (!e.alive() || e.life() >= e.life_max()) return;
+    const int amount = std::min(std::max(1, e.life_max() / 5), e.life_max() - e.life());
+    e.cur.life += amount;
+    log::debug("zone.fight", "heal", {log::kv("entity", e.id), log::kv("amount", amount), log::kv("life", e.life())});
     emit_life(e, static_cast<std::int32_t>(amount), e.id);
 }
 
@@ -1035,11 +1050,12 @@ void KSubWorld::heal(KNpc& e)
 void KSubWorld::do_hurt(KNpc& e, EntityId source)
 {
     if (e.doing == KDoing::hurt || !e.alive()) return;
-    if (e.hit_recover >= 100) return;
-    const std::uint32_t chance = kMinHurtPercent + e.hit_recover * (100 - kMinHurtPercent) / 100;
+    const int hit_recover = std::max(0, e.cur.hit_recover_v());
+    if (hit_recover >= 100) return;
+    const std::uint32_t chance = kMinHurtPercent + static_cast<std::uint32_t>(hit_recover) * (100 - kMinHurtPercent) / 100;
     if (rng_() % 100 >= chance) return;   // g_RandPercent
     e.doing = KDoing::hurt;
-    e.frame_total = std::max(1u, e.hurt_frame * (100 - e.hit_recover) / 100);
+    e.frame_total = std::max(1u, e.hurt_frame * (100 - static_cast<std::uint32_t>(hit_recover)) / 100);
     e.frame_cur = 0;
     if (e.moving) e.set_pos(e.pos());   // the hit interrupts walking
     emit_action(e, pb::ACTION_HURT, source);
@@ -1051,7 +1067,7 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
 {
     if (e.doing == KDoing::death) return;
     if (e.kind == KNpcKind::player) {
-        e.life = 1;
+        e.cur.life = 1;
         emit_life(e, 0, killer);
         return;
     }
@@ -1079,7 +1095,7 @@ void KSubWorld::do_revive(KNpc& e)
 // KNpc::Revive: back at the home position with full life.
 void KSubWorld::revive(KNpc& e)
 {
-    e.life = e.life_max;
+    e.cur.life = e.life_max();
     e.doing = KDoing::stand;
     e.frame_total = 0;
     e.frame_cur = 0;
@@ -1089,8 +1105,8 @@ void KSubWorld::revive(KNpc& e)
     e.ai_add_life_time = 0;
     e.current_camp = e.camp;
     e.active_skill_id = 0;
-    e.current_attack_radius = 30;
-    e.current_active_radius = e.active_radius;
+    e.cur.attack_radius = 30;
+    e.cur.active_radius = e.base.active_radius;
     e.next_ai_time = 0;
     e.set_pos(e.home);
     grid_.insert(e.id, e.home);   // back in the world: the clients around find it at their next look
@@ -1191,8 +1207,8 @@ void KSubWorld::emit_life(const KNpc& e, std::int32_t delta, EntityId source)
 {
     pb::EntityLife l;
     l.set_entity_id(e.id.value);
-    l.set_life(e.life);
-    l.set_life_max(e.life_max);
+    l.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
+    l.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
     l.set_delta(delta);
     l.set_source(source.value);
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_LIFE), l);
@@ -1209,6 +1225,7 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
         set_vec(out.mutable_position()->mutable_pos(), e->pos());
         out.set_level(e->level);
         out.set_fight_mode(e->fight_mode);   // KNpc::SetFightMode survives a logout like in the old game
+        if (e->player.loaded) e->player.save_to(*e, out);   // the points, the base maxima, life / mana / stamina, exp
     }
     save_items(sid, out);
     return true;
@@ -1469,7 +1486,7 @@ bool KSubWorld::item_use_request(std::uint64_t sid, std::uint32_t id, std::uint3
         item_result(sid, seq, pb::RESULT_BAD_REQUEST);
         return false;
     }
-    if (me->forbid_medicine) {
+    if (me->cur.forbid_medicine) {
         item_result(sid, seq, pb::RESULT_WRONG_STATE);
         return false;
     }
@@ -1544,11 +1561,11 @@ void KSubWorld::process_potions(KNpc& e)
 {
     --e.life_state.time;
     if (e.life_state.time % static_cast<int>(kGameUpdateTime) == 0) {
-        const std::int64_t before = e.life;
-        std::int64_t life = before + static_cast<std::int64_t>(e.life_state.value) * e.life_replenish_percent / 100;
-        if (life > e.life_max) life = e.life_max;
+        const std::int64_t before = e.life();
+        std::int64_t life = before + static_cast<std::int64_t>(e.life_state.value) * e.cur.life_replenish_percent / 100;
+        if (life > e.life_max()) life = e.life_max();
         if (life < 0) life = 0;
-        e.life = static_cast<std::uint32_t>(life);
+        e.cur.life = static_cast<int>(life);
         if (life != before) emit_life(e, static_cast<std::int32_t>(life - before), EntityId{});
     }
     if (e.life_state.time <= 0) e.life_state = {};
@@ -1603,7 +1620,9 @@ EntityId KSubWorld::drop_item(KItem item, Pos at, std::uint64_t belong)
     e.object.forever = t->life_time <= 0;
     e.ai_mode = 0;
     e.speed = 0;
-    e.life = e.life_max = 1;
+    e.base.life_max = 1;
+    e.cur.life_max = e.cur.life_max_yan = 1;
+    e.cur.life = 1;
     e.home = free_object_pos(at);
     e.set_pos(e.home);
     const Pos home = e.home;
@@ -1631,7 +1650,9 @@ EntityId KSubWorld::drop_money(int amount, Pos at, std::uint64_t belong)
     e.object.life_ticks = t->life_time;
     e.object.forever = t->life_time <= 0;
     e.speed = 0;
-    e.life = e.life_max = 1;
+    e.base.life_max = 1;
+    e.cur.life_max = e.cur.life_max_yan = 1;
+    e.cur.life = 1;
     e.home = free_object_pos(at);
     e.set_pos(e.home);
     const Pos home = e.home;
@@ -1722,16 +1743,16 @@ bool KSubWorld::pick_up_request(std::uint64_t sid, EntityId object, std::uint32_
 // ([Main] IsTeamShare) waits for the team system.
 void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
 {
-    if (dead.kind == KNpcKind::player || dead.treasure <= 0 || !cfg_.templates) return;
+    if (dead.kind == KNpcKind::player || dead.cur.treasure <= 0 || !cfg_.templates) return;
     const KNpc* k = entities_.find(killer);
     if (k == nullptr || k->kind != KNpcKind::player) return;
     const KNpcTemplate* t = cfg_.templates->find(dead.template_id);
     const KNpcDropRate* table = t && !t->drop_rate_file.empty() ? cfg_.templates->drop_rate(t->drop_rate_file) : nullptr;
     if (table == nullptr) return;
     int items = 0, money = 0;
-    for (int i = 0; i < dead.treasure; ++i) {
+    for (int i = 0; i < dead.cur.treasure; ++i) {
         if (random_percent() < static_cast<std::uint32_t>(table->money_rate)) {
-            const std::int64_t amount = static_cast<std::int64_t>(dead.exp) * table->money_scale / 100 * cfg_.money_rate_percent / 100;
+            const std::int64_t amount = static_cast<std::int64_t>(dead.cur.experience) * table->money_scale / 100 * cfg_.money_rate_percent / 100;
             if (amount > 0) {
                 pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), k->player_id});
                 ++money;
@@ -1741,7 +1762,7 @@ void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
             ++items;
         }
     }
-    log::debug("zone.fight", "treasure dropped", {log::kv("entity", dead.id), log::kv("killer", killer), log::kv("rolls", dead.treasure),
+    log::debug("zone.fight", "treasure dropped", {log::kv("entity", dead.id), log::kv("killer", killer), log::kv("rolls", dead.cur.treasure),
                                                    log::kv("items", items), log::kv("money", money)});
 }
 

@@ -52,7 +52,7 @@ std::int64_t distance_square(const KNpc& a, const KNpc& b) noexcept
 void KNpcAI::activate(KSubWorld& w, KNpc& e)
 {
     if (e.kind == KNpcKind::player) return;   // ProcessPlayer() is empty on the server
-    if (e.life_max == 0) return;
+    if (e.life_max() == 0) return;
     if (e.next_ai_time > w.tick_) return;
     e.next_ai_time = w.tick_ + e.ai_max_time;
     switch (e.ai_mode) {
@@ -70,7 +70,7 @@ void KNpcAI::activate(KSubWorld& w, KNpc& e)
 
 bool KNpcAI::in_eyeshot(const KNpc& e, const KNpc& other) noexcept
 {
-    return e.vision_radius > distance(e, other);
+    return e.cur.vision_radius > distance(e, other);
 }
 
 // GetNearestNpc(relation_enemy): the old code scans the 32-unit cells of the vision radius in a
@@ -78,13 +78,13 @@ bool KNpcAI::in_eyeshot(const KNpc& e, const KNpc& other) noexcept
 // (+i,-j)) and returns the first enemy it meets; the same order is reproduced with a sort key.
 EntityId KNpcAI::nearest_enemy(const KSubWorld& w, const KNpc& e)
 {
-    const int range = e.vision_radius / kOldCell;
+    const int range = e.cur.vision_radius / kOldCell;
     if (range <= 0) return EntityId{};
     const int cx = e.pos().x / kOldCell;   // m_MapX / m_MapY as absolute cells
     const int cy = e.pos().y / kOldCell;
     EntityId best;
     std::tuple<int, int, int, std::uint64_t> best_key;
-    w.grid_.for_each_within(e.pos(), e.vision_radius, [&](EntityId id) {
+    w.grid_.for_each_within(e.pos(), e.cur.vision_radius, [&](EntityId id) {
         if (id == e.id) return;
         const KNpc* found = w.entities_.find(id);
         if (found == nullptr) return;
@@ -140,12 +140,12 @@ KNpc* KNpcAI::attacker(KSubWorld& w, KNpc& e)
 bool KNpcAI::keep_active_range(KSubWorld& w, KNpc& e)
 {
     const int range = g_GetDistance(e.home.x, e.home.y, e.pos().x, e.pos().y);
-    if (e.active_radius < range) e.current_active_radius = e.active_radius / 2;
-    if (e.current_active_radius < range) {
+    if (e.base.active_radius < range) e.cur.active_radius = e.base.active_radius / 2;
+    if (e.cur.active_radius < range) {
         w.walk_to(e, e.home);
         return true;
     }
-    e.current_active_radius = e.active_radius;
+    e.cur.active_radius = e.base.active_radius;
     return false;
 }
 
@@ -159,8 +159,8 @@ void KNpcAI::common_action(KSubWorld& w, KNpc& e)
     }
     int ox = 0, oy = 0;
     if (!w.rand_percent(80)) {
-        ox = w.random(e.current_active_radius / 2);
-        oy = w.random(e.current_active_radius / 2);
+        ox = w.random(e.cur.active_radius / 2);
+        oy = w.random(e.cur.active_radius / 2);
         if (ox & 1) ox = -ox;
         if (oy & 1) oy = -oy;
     }
@@ -177,7 +177,7 @@ void KNpcAI::follow_attack(KSubWorld& w, KNpc& e, KNpc& enemy)
         keep_attack_range(w, e, enemy, kMiniAttackRange);
         return;
     }
-    if (dist <= e.current_attack_radius && in_eyeshot(e, enemy)) {
+    if (dist <= e.cur.attack_radius && in_eyeshot(e, enemy)) {
         w.cast_skill(e, enemy);
         return;
     }
@@ -200,7 +200,7 @@ void KNpcAI::flee(KSubWorld& w, KNpc& e, const KNpc& enemy)
 {
     const Pos p1 = e.pos();
     const Pos p2 = enemy.pos();
-    log::debug("zone.ai", "flee", {log::kv("entity", e.id), log::kv("from", enemy.id), log::kv("life", e.life)});
+    log::debug("zone.ai", "flee", {log::kv("entity", e.id), log::kv("from", enemy.id), log::kv("life", e.life())});
     w.walk_to(e, Pos{p1.x * 2 - p2.x, p1.y * 2 - p2.y});
 }
 
@@ -212,7 +212,7 @@ bool KNpcAI::set_active_skill(KNpc& e, int slot)
     if (s.id == 0 || s.level <= 0) return false;
     e.active_skill_id = s.id;
     if (s.known) {   // g_SkillManager.GetSkill != NULL
-        e.current_attack_radius = s.attack_radius;
+        e.cur.attack_radius = s.attack_radius;
         e.active_skill_melee = s.melee;
         e.active_skill_self = s.target_self;
     }
@@ -240,7 +240,7 @@ bool KNpcAI::low_life_action(KSubWorld& w, KNpc& e, KNpc& enemy, bool heal)
 {
     const int* p = e.ai_param;
     // 检测剩余生命是否符合条件，生命太少一定概率使用补血/攻击技能或逃跑
-    if (e.life_max == 0 || static_cast<std::int64_t>(e.life) * 100 / e.life_max >= p[1]) return false;
+    if (e.life_max() == 0 || static_cast<std::int64_t>(e.life()) * 100 / e.life_max() >= p[1]) return false;
     if (!w.rand_percent(p[2])) return false;
     if (heal) {
         if (e.ai_add_life_time < p[9] && w.rand_percent(p[3])) {   // 使用补血技能

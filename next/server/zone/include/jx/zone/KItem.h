@@ -24,6 +24,7 @@
 
 #include "jx/role.pb.h"
 #include "jx/zone/KRandom.h"
+#include "jx/zone/KMagicAttrib.h"
 
 namespace jx::zone {
 
@@ -95,31 +96,7 @@ constexpr int kRepositoryRoomWidth = 6, kRepositoryRoomHeight = 10;
 constexpr int kTradeRoomWidth = 10, kTradeRoomHeight = 4;
 constexpr int kImmediacyRoomWidth = 3, kImmediacyRoomHeight = 1;
 
-// MAGIC_ATTRIB of KMagicAttrib.h - the ids the item tables use
-enum KMagic : int {
-    magic_weapondamagemin_v = 28,
-    magic_weapondamagemax_v = 29,
-    magic_armordefense_v = 30,
-    magic_durability_v = 31,
-    magic_requirestr = 32,
-    magic_requiredex = 33,
-    magic_requirevit = 34,
-    magic_requireeng = 35,
-    magic_requirelevel = 36,
-    magic_requireseries = 37,
-    magic_requiresex = 38,
-    magic_requiremenpai = 39,
-    magic_indestructible_b = 43,   // KItem::SetAttrib_MA: the piece never wears (durability -1)
-    magic_lifepotion_v = 153,
-    magic_manapotion_v = 154,
-};
-
-// KMagicAttrib: one attribute with up to three parameters
-struct KMagicAttrib {
-    int type = 0;
-    std::array<int, 3> value{0, 0, 0};
-    [[nodiscard]] bool empty() const noexcept { return type == 0; }
-};
+// MAGIC_ATTRIB ids (magic_weapondamagemin_v = 28 ...) and KMagicAttrib: KMagicAttrib.h
 
 // One row of an item table (KBASICPROP_* of KBasPropTbl.h, all kinds in one shape)
 struct KItemTemplate {
@@ -363,8 +340,9 @@ public:
     // one more for each of the two "activating" parts (ms_ActivedEquip, 0x082E7460) whose worn
     // piece's element feeds it; the horse and the JX2 parts after it always count 3.
     [[nodiscard]] int equip_enhance(int part, int player_series) const;
-    // KItemList::GetWeaponDamage / GetWeaponType
-    [[nodiscard]] std::pair<int, int> weapon_damage() const;
+    // KItemList::GetWeaponDamage (jx_linux_y 0x081F9310) / GetWeaponType: the weapon's damage with
+    // its magic and enhance, or bare hands (cur_strength / 5 + 1)
+    [[nodiscard]] std::pair<int, int> weapon_damage(int cur_strength = 0) const;
     [[nodiscard]] int weapon_type() const;   // -1 none, else the detail type of the weapon worn
     [[nodiscard]] int armor_defense() const;  // every worn piece's armordefense_v added up
 

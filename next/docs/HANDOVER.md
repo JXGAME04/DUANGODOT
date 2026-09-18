@@ -138,6 +138,32 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 — M12 lát A phần 2: **thuộc tính nhân vật trong zone theo nhị phân Linux**
+
+- `KNpcAttrib.h`: `KNpc::base` (m_XXX) / `KNpc::cur` (m_CurrentXXX) với offset nhị phân từng trường, cặp
+  "yan" (`life_max_v()` = max); `KNpc::clear_attrib` = `ClearAttrib 0x0807EE60`. Các trường phẳng cũ
+  (`life`, `attack_rating`, `min_damage`…) đổi hết sang khối mới (KSubWorld, KNpcAI, test).
+- `KMagicAttribId.h` sinh từ 335 tên của nhị phân (`tools/gen_magic_ids.py`); `KMagicAttrib.h` tách khỏi `KItem.h`.
+- `KNpcAttribModify::modify`: **217 ProcessFunc đọc từng thân hàm** (bản gọn 2 832 dòng), viết lại đúng phép
+  toán: `_p` nhân giá trị gốc (`lifemax_p`: `+= v × m_LifeMax / 100`), `staminamax_*` tính lại `SitAdd`,
+  băng: thời gian đóng băng `min(54, 4·(v/5)+10)`, độc 60/10, `sorbdamage` kẹp 0..500, cặp `anti_*` giữ
+  tổng ở hai ô, cờ `forbit_*` chỉ khi giá trị **== 1**, `add_boss_damage` gán không cộng, `addphysicsdamage_p`
+  theo loại vũ khí (0..5, 10→6), `fastwalkrun_p/yan` gỡ bonus cũ − cộng bonus mới trên **gốc** × max(p, yan),
+  `nomovespeed` trừ (`sub ecx, edx`), `strength_v/dexterity_v/vitality_v/energy_v` chỉ người chơi →
+  `ChangeCurXXX` (nhanh nhẹn: `+4n` chính xác, `+n/4` phòng thủ). Chưa làm: kỹ năng (139–144, 183–189,
+  195–198, 207–216, 272–274, 288–290, 295–297) — chờ lát kỹ năng.
+- `KPlayer` (trong `KNpc::player`): `load_from` đúng thứ tự `LoadFrom 0x080C16D0`, `set_npc_physics_damage`
+  (= `0x080AF740` + `GetWeaponDamage 0x081F9310`: `(gốc + Σmin_v) × (100 + Σenhance_p) / 100`, cận chiến `+
+  sức mạnh/5`, xa `+ nhanh nhẹn/5`, tay không `sức mạnh/5+1`), `updata_cur_data` (ClearAttrib → điểm hiện
+  tại = gốc → ReCalcEquip: 7 thuộc tính cơ bản + 6 ma pháp, hậu tố lẻ theo `GetEquipEnhance`), `level_up`
+  (±5 điểm, ±1 kỹ năng, `level_add`, đổ đầy máu/thể/nội), `add_base_*` (kiểm điểm, sinh lực ×
+  `LifePerVitality`…), `save_to` cho PlayerSave.
+- `KPlayerSet` (zone) + `jxold/player` (Go) + `jxassets export-player` → `client/assets/player.json`;
+  gateway `NewRole` tạo nhân vật mới từ `newplayerini%02d` (Thiếu Lâm 35/25/25/15, máu 204, nội 16, vũ khí
+  khởi đầu); `RoleStats` thêm may mắn, điểm thuộc tính, điểm kỹ năng, trùng sinh, camp.
+- Test mới `test_KPlayer.cpp` (5 case, 160 khẳng định) + Go `player` package; mọi test cũ qua (69 → 74 case).
+  Chưa có: gói đồng bộ thuộc tính cho client, lệnh cộng điểm từ client, kinh nghiệm khi giết (lát tiếp).
+
 ### 2026-09-19 — M12 lát A phần 1: **bản đồ `KNpc`/`KPlayer` của nhị phân Linux** (`LINUX-SERVER.md` §10)
 
 Công cụ mới `tools/re/re_attribmod.py`: duyệt 217 `ProcessFunc` của `KNpcAttribModify`, cho mỗi id

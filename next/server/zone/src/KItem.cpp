@@ -900,16 +900,27 @@ int KItemList::equip_enhance(int part, int player_series) const
     return n;
 }
 
-std::pair<int, int> KItemList::weapon_damage() const
+// KItemList::GetWeaponDamage of the JX2 server (jx_linux_y 0x081F9310): the weapon's base min
+// (m_aryBaseAttrib[0]) and max ([1]) plus its weapondamagemin_v / weapondamagemax_v magic, both
+// x (100 + weapondamageenhance_p) / 100; bare hands hit m_nCurStrength / 5 + 1.
+std::pair<int, int> KItemList::weapon_damage(int cur_strength) const
 {
     const KItem* w = find(equip_[itempart_weapon]);
-    if (w == nullptr) return {0, 0};
-    int lo = 0, hi = 0;
+    if (w == nullptr) {
+        const int bare = cur_strength / 5 + 1;
+        return {bare, bare};
+    }
+    int lo = 0, hi = 0, enhance = 0;
     for (const auto& a : w->base) {
         if (a.type == magic_weapondamagemin_v) lo = a.value[0];
         if (a.type == magic_weapondamagemax_v) hi = a.value[0];
     }
-    return {lo, hi};
+    for (const auto& a : w->magic) {
+        if (a.type == magic_weapondamagemin_v) lo += a.value[0];
+        else if (a.type == magic_weapondamagemax_v) hi += a.value[0];
+        else if (a.type == magic_weapondamageenhance_p) enhance += a.value[0];
+    }
+    return {lo * (100 + enhance) / 100, hi * (100 + enhance) / 100};
 }
 
 int KItemList::weapon_type() const

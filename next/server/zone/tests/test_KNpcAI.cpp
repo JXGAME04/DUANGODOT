@@ -46,6 +46,15 @@ jx::pb::RoleData role(std::uint64_t pid, const std::string& name, Pos at)
     r.set_player_id(pid);
     r.set_name(name);
     r.set_level(5);
+    // a strong, sure-footed hero: attack rating 4 x 100 - 28 = 372 against the template-less
+    // monster's defence 10 (KNpc::Init) reaches the 95 percent cap, life 500 (KPlayer::LoadFrom)
+    r.mutable_stats()->set_strength(100);
+    r.mutable_stats()->set_dexterity(100);
+    r.mutable_stats()->set_vitality(50);
+    r.mutable_stats()->set_energy(10);
+    r.mutable_stats()->set_hp_max(500);
+    r.mutable_stats()->set_hp(500);
+    r.mutable_stats()->set_mp_max(50);
     r.mutable_position()->set_zone_id(1);
     r.mutable_position()->mutable_pos()->set_x(at.x);
     r.mutable_position()->mutable_pos()->set_y(at.y);
@@ -178,7 +187,7 @@ TEST_CASE("an active monster (AIMode 1) hunts the player in sight and strikes", 
     REQUIRE(total.attacked);
     CHECK(w.find_entity(boar)->people_id == hero);
     CHECK(w.find_entity(boar)->active_skill_id == 53);
-    CHECK(w.find_entity(boar)->current_attack_radius == 75);
+    CHECK(w.find_entity(boar)->cur.attack_radius == 75);
 
     // the swing lands at 60 % of the frames: the hero loses life
     bool lost = false;
@@ -187,7 +196,7 @@ TEST_CASE("an active monster (AIMode 1) hunts the player in sight and strikes", 
         lost = scan(w, boar, hero).hurt_hero;
     }
     CHECK(lost);
-    CHECK(w.find_player(7)->life < 100);
+    CHECK(w.find_player(7)->life() < w.find_player(7)->life_max());
 }
 
 TEST_CASE("a passive monster (AIMode 4) ignores the player until it is hurt, then strikes back", "[ai][world]")
@@ -251,11 +260,11 @@ TEST_CASE("KeepActiveRange walks a pulled monster home and halves its radius mea
     const jx::zone::KNpc* b = w.find_entity(boar);
     CHECK(b->moving);
     CHECK(b->destination() == Pos{3000, 3000});
-    CHECK(b->current_active_radius == 350);
+    CHECK(b->cur.active_radius == 350);
     for (int i = 0; i < 400 && w.find_entity(boar)->moving; ++i) w.tick();
     CHECK(w.find_entity(boar)->pos() == Pos{3000, 3000});
     for (int i = 0; i < 3; ++i) w.tick();
-    CHECK(w.find_entity(boar)->current_active_radius == 700);   // back inside: the full radius again
+    CHECK(w.find_entity(boar)->cur.active_radius == 700);   // back inside: the full radius again
 }
 
 TEST_CASE("a coward (AIMode 3, life below the threshold) flees straight away from the enemy", "[ai][world]")

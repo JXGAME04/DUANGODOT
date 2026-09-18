@@ -46,7 +46,9 @@ python tools/dev.py assets             # map 1 (Phượng Tường) + 267 sprite
 Lệnh này cũng chạy `jxassets export-ui`: đọc bố cục `\Ui\ui3_1024\UiNewLogin\*.ini` (đăng nhập) và
 `随身物品.ini`, `玩家装备与人物状态*.ini`, `弹出说明文字.ini`, `储物箱.ini` (túi đồ, nhân vật, chú thích, kho), ảnh `.spr`,
 font bitmap, bảng chuỗi, `\settings\magicdesc.ini` (câu mô tả thuộc tính) của client VLTK 2.0 rồi ghi
-`client/assets/ui` (JSON + atlas + `.fnt`); rồi `export-items` (bảng vật phẩm server → `client/assets/items/*.json`)
+`client/assets/ui` (JSON + atlas + `.fnt`); `export-player` (`settings/npc/player` → `client/assets/player.json`:
+kinh nghiệm cấp, cộng theo cấp/điểm, `stamina.ini`, `basevalue.ini`, 10 mẫu nhân vật mới — zone `zone.player_file`,
+gateway `gateway.player_file`); rồi `export-items` (bảng vật phẩm server → `client/assets/items/*.json`)
 và `export-item-images` (2 305 icon vật phẩm → `client/assets/items/images/`), `export-objdata` (`ObjData.txt`
 + `MoneyObj.txt` của server → `client/assets/objdata.json` + sprite vật thể trên đất). Không có client 2.0 thì bước
 này bỏ qua và Godot dùng màn đăng nhập trơn (`UiLoginPlain`). Chi tiết: [VLTK20-CLIENT.md](VLTK20-CLIENT.md).

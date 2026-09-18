@@ -789,9 +789,9 @@ TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the ite
     auto g = iw.gen();
     jx::zone::KNpc* me = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
     REQUIRE(me != nullptr);
-    me->life_max = 1000;
-    me->life = 100;
-    me->life_replenish = 0;
+    me->cur.life_max = me->cur.life_max_yan = 1000;
+    me->cur.life = 100;
+    me->cur.life_replenish = 0;
     const auto med = iw.w->give_item(1, *g.medicine(0, 1));   // 10 life every 10 frames for 100 frames
     REQUIRE(med != 0);
     iw.w->take_outbox();
@@ -805,17 +805,17 @@ TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the ite
 
     // KNpc::ProcessState: time-- each frame, +value when time % 10 == 0 -> the first heal after 10 frames
     for (int i = 0; i < 9; ++i) iw.w->tick();
-    CHECK(me->life == 100);
+    CHECK(me->life() == 100);
     iw.w->tick();
-    CHECK(me->life == 110);
+    CHECK(me->life() == 110);
     out = iw.w->take_outbox();
     REQUIRE(packets(out, 1, jx::pb::G2C_ENTITY_LIFE).size() == 1);
     CHECK(decode_packet<jx::pb::EntityLife>(packets(out, 1, jx::pb::G2C_ENTITY_LIFE)[0]).delta() == 10);
     for (int i = 0; i < 90; ++i) iw.w->tick();
-    CHECK(me->life == 200);   // 10 heals in all
+    CHECK(me->life() == 200);   // 10 heals in all
     CHECK(me->life_state.time == 0);
     iw.w->tick();
-    CHECK(me->life == 200);   // and no more
+    CHECK(me->life() == 200);   // and no more
 
     // a second potion while one works: time = max, value = weighted (KNpcAttribModify::LifePotionV)
     const auto a = iw.w->give_item(1, *g.medicine(0, 1));    // 10 x 100
@@ -829,11 +829,11 @@ TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the ite
     CHECK(iw.list().find(b) == nullptr);   // a stack of one is the last one
 
     // the percent of the Linux server: 50% halves the heal
-    me->life_replenish_percent = 50;
-    me->life = 100;
+    me->cur.life_replenish_percent = 50;
+    me->cur.life = 100;
     me->life_state = {20, 10};
     for (int i = 0; i < 10; ++i) iw.w->tick();
-    CHECK(me->life == 110);
+    CHECK(me->life() == 110);
 
     // a stack of three: one goes each time, the client sees the new count, then the removal
     KItem stack = *g.medicine(0, 2);
@@ -854,9 +854,9 @@ TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the ite
     const auto d = iw.w->give_item(1, *g.medicine(0, 1));
     const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));
     iw.w->take_outbox();
-    me->forbid_medicine = true;
+    me->cur.forbid_medicine = true;
     REQUIRE_FALSE(iw.w->item_use_request(1, d, 47));
-    me->forbid_medicine = false;
+    me->cur.forbid_medicine = false;
     REQUIRE_FALSE(iw.w->item_use_request(1, sword, 48));
     REQUIRE_FALSE(iw.w->item_drop_request(1, sword, 49));   // no ground yet (M11 D)
     out = iw.w->take_outbox();
@@ -1217,6 +1217,9 @@ TEST_CASE("a monster killed by a player drops its treasure: money by MoneyRate, 
     role.set_player_id(11);
     role.set_name("Hero");
     role.set_level(9);
+    role.mutable_stats()->set_strength(100);   // hits hard and surely (see test_KSubWorld's role())
+    role.mutable_stats()->set_dexterity(100);
+    role.mutable_stats()->set_hp_max(500);
     jx::EntityId hero;
     jx::zone::Pos at;
     REQUIRE(w.spawn_player(7, role, hero, at) == jx::pb::RESULT_OK);
@@ -1225,9 +1228,9 @@ TEST_CASE("a monster killed by a player drops its treasure: money by MoneyRate, 
         const jx::EntityId pig = w.spawn_npc("pig", jx::zone::Pos{2050, 2000}, 418, 0, jx::zone::KNpcKind::monster);
         jx::zone::KNpc* e = const_cast<jx::zone::KNpc*>(w.find_entity(pig));
         REQUIRE(e != nullptr);
-        CHECK(e->treasure == 3);
-        e->exp = 1000;
-        e->life = 1;
+        CHECK(e->cur.treasure == 3);
+        e->cur.experience = 1000;
+        e->cur.life = 1;
         REQUIRE(w.attack_request(7, pig, static_cast<std::uint32_t>(kill + 1)));
         for (int i = 0; i < 20 && w.find_entity(pig) != nullptr && w.find_entity(pig)->alive(); ++i) w.tick();
         REQUIRE((w.find_entity(pig) == nullptr || !w.find_entity(pig)->alive()));

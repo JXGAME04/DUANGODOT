@@ -147,6 +147,18 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no item tables", {jx::log::kv("dir", items_dir), jx::log::kv("error", error)});
         }
     }
+    // the player tables (jxassets export-player: level_exp, level_add, stamina.ini, basevalue.ini)
+    const std::string player_file = cfg.get_string("zone.player_file", "client/assets/player.json");
+    if (!player_file.empty()) {
+        auto ps = std::make_shared<jx::zone::KPlayerSet>();
+        std::string error;
+        if (ps->load(player_file, &error)) {
+            w.player_set = ps;
+            jx::log::info("boot", "player tables loaded", {jx::log::kv("file", player_file), jx::log::kv("level_2_exp", static_cast<std::int64_t>(ps->level_exp(2)))});
+        } else {
+            jx::log::warn("boot", "no player tables", {jx::log::kv("file", player_file), jx::log::kv("error", error)});
+        }
+    }
     // the ground objects (jxassets export-objdata): without them nothing can be dropped
     const std::string objdata = cfg.get_string("zone.objdata", "client/assets/objdata.json");
     if (!objdata.empty()) {

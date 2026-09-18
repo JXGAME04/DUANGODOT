@@ -8,7 +8,9 @@
 
 #include "jx/ids.hpp"
 #include "jx/zone/KMath.h"
+#include "jx/zone/KNpcAttrib.h"
 #include "jx/zone/KObj.h"
+#include "jx/zone/KPlayer.h"
 #include "jx/zone/KRegion.h"
 
 namespace jx::zone {
@@ -45,10 +47,18 @@ struct KNpc {
     std::uint32_t speed = 0;       // world units per second
     std::uint32_t move_seq = 0;    // last MoveReq.seq (players)
 
-    std::uint32_t level = 1;
-    std::uint32_t series = 0;
-    std::uint32_t sex = 0;
+    std::uint32_t level = 1;       // m_Level (KNpc+0x20)
+    std::uint32_t series = 0;      // m_Series (+0x28)
+    std::uint32_t sex = 0;         // m_nSex (+0x152c)
     std::uint32_t template_id = 0;
+
+    // The numbers the npc fights with (KNpcAttrib.h): `base` is what the template, the role data
+    // and the level tables gave (m_LifeMax ...), `cur` what equipment, skills and states made of
+    // it (m_CurrentLifeMax ...); KNpcAttribModify changes `cur`, clear_attrib() rebuilds it.
+    KNpcAttrib base;
+    KNpcCurrentAttrib cur;
+    // the player behind a player's npc (KPlayer.h): points, experience, level-ups
+    KPlayer player;
 
     // combat / animation state (KNpc::m_Doing, m_Frames).  One frame = one zone tick: the zone
     // ticks at 18 Hz like the old logic loop, so the frame counts of npcs.txt keep their meaning.
@@ -57,8 +67,6 @@ struct KNpc {
     std::uint32_t frame_cur = 0;     // m_Frames.nCurrentFrame
     EntityId attack_target;          // kept attacking until it dies or we are told to move
     std::uint32_t approach_tries = 0;   // walks toward an out-of-reach target, a few times at most
-    std::uint32_t life = 0;          // m_CurrentLife (never below 0 here; death when a blow exceeds it)
-    std::uint32_t life_max = 0;      // m_CurrentLifeMax
     // m_LifeState: a medicine at work - `value` life every GAME_UPDATE_TIME frames for `time`
     // frames (KNpcAttribModify::LifePotionV, KNpc::ProcessState; jx_linux_y 0x08097E70 / 0x0808B7BC)
     struct PotionState {
@@ -66,10 +74,10 @@ struct KNpc {
         int time = 0;
     };
     PotionState life_state;
-    // jx_linux_y KNpc+0x1194: percent applied to the natural life replenish and to potion heals
-    // ("AddLife: %d * %d%% = %d"); 100 unless the attribute lifereplenish_p (id 190) changed it
-    int life_replenish_percent = 100;
-    bool forbid_medicine = false;     // KNpc+0x147a: the Lua forbit_takemedicine flag - EatMecidine refuses
+    PotionState mana_state;           // m_ManaState (+0x200 / +0x208)
+    PotionState poison_state;         // +0x1c0 / +0x1c8 (poisondamagereduce_v eats its value)
+    PotionState freeze_state;         // +0x1d8
+    PotionState stun_state;           // +0x1e8
     bool potion_counter = false;      // KPlayer+0x86a4 / +0x86a8: StartPotionCounter .. GetPotionCount
     int potion_count = 0;
     std::uint64_t loop_frames = 0;   // m_LoopFrames: ticks alive, for the periodic state update
@@ -78,43 +86,26 @@ struct KNpc {
     std::uint32_t cast_frame = 20;   // m_CastFrame: length of a non-melee skill (KNpc::DoSkill)
     std::uint32_t hurt_frame = 10;
     std::uint32_t death_frame = 15;
-    std::uint32_t hit_recover = 12;
     std::uint32_t revive_frame = 2400;
-    std::uint32_t attack_speed = 0;  // m_CurrentAttackSpeed (percent)
-    // the level data (KNpcTemplate::InitNpcLevelData through the level script; placeholders for players)
-    std::uint32_t min_damage = 1;    // m_PhysicsDamage.nValue[0]
-    std::uint32_t max_damage = 3;    // m_PhysicsDamage.nValue[2]
-    std::uint32_t attack_rating = 100;   // m_AttackRating (m_CurrentAttackRating)
-    std::uint32_t defend = 0;        // m_Defend (m_CurrentDefend)
-    int physics_resist = 0;          // m_PhysicsResist (m_CurrentPhysicsResist)
-    int life_replenish = 0;          // m_LifeReplenish: life per GAME_UPDATE_TIME frames (KNpc::ProcessState)
-    std::uint32_t exp = 0;           // m_Experience: what killing it is worth
     bool level_data_from_script = false;
 
     // KNpcAI state (server side of KNpc.h), named after the old members
     int npc_kind = 0;                 // NPCKIND of npcs.txt (0 normal, 2 partner, 3 dialoger, 4 bird, 5 mouse); players are kind_player
-    int camp = 4;                     // m_Camp (NPCCAMP; KNpc::Init: camp_free)
-    int current_camp = 4;             // m_CurrentCamp
+    int camp = 4;                     // m_Camp (NPCCAMP; KNpc::Init: camp_free)  +0x21c
+    int current_camp = 4;             // m_CurrentCamp  +0x220
     int ai_mode = 0;                  // m_AiMode (AIMode column; 0 = no ai)
     int ai_param[11] = {};            // m_AiParam[MAX_AI_PARAM]: [0..9] = AIParam1..10, [10] = max skill radius squared
     std::uint32_t ai_max_time = 25;   // m_AIMAXTime: ticks between two decisions
     std::uint64_t next_ai_time = 0;   // m_NextAITime
     int ai_add_life_time = 0;         // m_AiAddLifeTime: heals cast so far
     EntityId people_id;               // m_nPeopleIdx: the enemy locked on, or the last one that hurt us
-    int vision_radius = 40;           // m_VisionRadius
-    int active_radius = 30;           // m_ActiveRadius
-    int current_active_radius = 30;   // m_CurrentActiveRadius
-    int current_attack_radius = 30;   // m_CurrentAttackRadius (KNpc::Init 30, then the active skill's radius)
     int active_skill_id = 0;          // m_ActiveSkillID
     bool active_skill_melee = false;
     bool active_skill_self = false;
     KNpcSkillSlot skills[5];          // m_SkillList.m_Skills[1..4]
-    int walk_speed = 5;               // m_WalkSpeed: scene units per frame (KNpc::ServeMove)
-    int run_speed = 10;
     // KNpcKind::drop - an object on the ground (KObj): what the zone keeps of it; the item itself
     // lives in KSubWorld::ground_items_
     KGroundObject object;
-    int treasure = 0;                 // m_CurrentTreasure: drop rolls when a player kills it
     // players: KPlayer / trap state
     bool fight_mode = false;          // m_FightMode (SetFightState of the gate scripts)
     std::uint32_t trap_script_id = 0; // m_TrapScriptID: the trap under the feet, so a trap fires once per entry
@@ -133,6 +124,26 @@ struct KNpc {
     }
     // KNpc::IsReachFrame
     [[nodiscard]] bool reach_frame(std::uint32_t percent) const noexcept { return frame_cur == frame_total * percent / 100; }
+
+    // KNpc::ClearAttrib (jx_linux_y 0x0807EE60): the current block from the base block, the
+    // skill levels back to their own, the potion states dropped when `clear_state` (the
+    // equipment, skills and states are applied again by the caller - KPlayer::UpdataCurData).
+    void clear_attrib(bool clear_state, int sit_add_per_mille) noexcept
+    {
+        cur.clear(base, sit_add_per_mille);
+        if (clear_state) {
+            life_state = PotionState{};
+            mana_state = PotionState{};
+            poison_state = PotionState{};
+            freeze_state = PotionState{};
+            stun_state = PotionState{};
+        }
+    }
+    // the shorthands the rest of the zone reads
+    [[nodiscard]] int life() const noexcept { return cur.life; }
+    [[nodiscard]] int life_max() const noexcept { return cur.life_max_v(); }
+    [[nodiscard]] int mana() const noexcept { return cur.mana; }
+    [[nodiscard]] int mana_max() const noexcept { return cur.mana_max_v(); }
 
     std::uint64_t sid = 0;         // gateway session (players only)
     std::uint64_t player_id = 0;

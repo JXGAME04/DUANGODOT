@@ -51,6 +51,9 @@
     "gm_chat": false,
     // ObjData.txt / MoneyObj.txt of the old server (jxassets export-objdata): what dropped things look like
     "objdata": "client/assets/objdata.json",
+    // settings/npc/player of the old server (jxassets export-player): level_exp, level_add, stamina.ini,
+    // basevalue.ini - the numbers of KPlayer::LoadFrom / LevelUp; without the file built-in defaults apply
+    "player_file": "client/assets/player.json",
     // [ServerConfig] MoneyRate of gamesetting.ini: money dropped by monsters x this / 100
     "money_rate_percent": 100,
     // exported by: python tools/dev.py assets   (empty = plain 8192x8192 grid)

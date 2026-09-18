@@ -240,6 +240,7 @@
     "table": "bảng",
     "lost": "mất",
     "versions": "các phiên bản",
+    "level_2_exp": "kinh nghiệm để lên cấp 2",
     "quality": "phẩm chất"
   },
   "messages": {
@@ -425,6 +426,10 @@
     "gm command": "Lệnh GM",
     "object data loaded": "Đã nạp bảng vật thể trên đất (ObjData / MoneyObj)",
     "no object data": "Không có bảng vật thể trên đất — không rơi / vứt đồ được (chạy jxassets export-objdata)",
+    "player tables loaded": "Đã nạp bảng người chơi (kinh nghiệm cấp, cộng theo cấp, thể lực)",
+    "no player tables": "Không có bảng người chơi — dùng số mặc định trong mã (chạy jxassets export-player)",
+    "new character templates loaded": "Đã nạp mẫu nhân vật mới (newplayerini%02d của server cũ)",
+    "new character templates not loaded": "Không nạp được mẫu nhân vật mới — nhân vật mới dùng số tạm",
     "no ground object for item": "Vật phẩm không có vật thể trên đất tương ứng (thiếu dòng ObjData)",
     "dropped item lost": "Vật phẩm vứt ra không đặt được xuống đất — đã mất",
     "item picked up": "Nhặt vật phẩm",

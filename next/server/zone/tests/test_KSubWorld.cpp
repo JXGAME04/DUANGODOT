@@ -58,6 +58,15 @@ jx::pb::RoleData role(std::uint64_t pid, const std::string& name, Pos at, std::u
     r.set_player_id(pid);
     r.set_name(name);
     r.set_level(5);
+    // a strong, sure-footed hero: attack rating 4 x 100 - 28 = 372 against the template-less
+    // monster's defence 10 (KNpc::Init) reaches the 95 percent cap, life 500 (KPlayer::LoadFrom)
+    r.mutable_stats()->set_strength(100);
+    r.mutable_stats()->set_dexterity(100);
+    r.mutable_stats()->set_vitality(50);
+    r.mutable_stats()->set_energy(10);
+    r.mutable_stats()->set_hp_max(500);
+    r.mutable_stats()->set_hp(500);
+    r.mutable_stats()->set_mp_max(50);
     r.mutable_position()->set_zone_id(zone);
     r.mutable_position()->mutable_pos()->set_x(at.x);
     r.mutable_position()->mutable_pos()->set_y(at.y);
@@ -331,7 +340,7 @@ TEST_CASE("melee attack: swing, hit at 60 percent, death animation, corpse gone,
     REQUIRE(died);
     const jx::zone::KNpc* corpse = w.find_entity(pig);
     REQUIRE(corpse != nullptr);
-    CHECK(corpse->life == 0);
+    CHECK(corpse->life() == 0);
     CHECK(corpse->doing == jx::zone::KDoing::death);
 
     // after DeathFrame (15) ticks the corpse leaves sight; after ReviveFrame (2400) it is back with full life
