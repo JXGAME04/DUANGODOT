@@ -221,6 +221,15 @@
     "default_version": "phiên bản mặc định",
     "items": "vật phẩm",
     "kept": "giữ được",
+    "code": "mã lệnh",
+    "command": "lệnh",
+    "detail": "loại chi tiết",
+    "genre": "loại vật phẩm",
+    "hint": "gợi ý",
+    "luck": "may mắn",
+    "ok": "thành công",
+    "particular": "loại riêng",
+    "row": "dòng",
     "lost": "mất",
     "versions": "các phiên bản"
   },
@@ -395,6 +404,12 @@
     "item tables loaded": "Đã nạp bảng vật phẩm",
     "item table skipped": "Bỏ qua một bảng vật phẩm (lỗi đọc)",
     "no item tables": "Không có bảng vật phẩm — nhân vật không mang được gì (chạy python tools/dev.py assets)",
-    "items not restored": "Một số vật phẩm của nhân vật không khôi phục được (mất bảng hoặc hết chỗ)"
+    "items not restored": "Một số vật phẩm của nhân vật không khôi phục được (mất bảng hoặc hết chỗ)",
+    "AddItem: no such item": "Script AddItem: không có vật phẩm như vậy trong bảng",
+    "AddItem: bag full": "Script AddItem: túi đầy, không đưa được vật phẩm",
+    "AddGoldItem: no such row": "Script AddGoldItem: không có dòng hoàng kim này",
+    "code failed": "Đoạn mã Lua chạy lỗi",
+    "gm chat commands on": "Lệnh GM qua chat đang BẬT (?gm ds <lua> chạy cho bất kỳ ai) — chỉ dùng máy phát triển",
+    "gm command": "Lệnh GM"
   }
 }

@@ -93,7 +93,9 @@ Client có vài tham số dòng lệnh (sau `--`) cho test và chụp màn hình
 `bat-dau`, `chon-may-chu`, `dang-nhap`, `chon-nhan-vat`, `chon-tan-thu-thon`, `tao-nhan-vat`),
 `--serverlist=<tệp>`, `--region=`, `--roles=`, `--series=`. Ví dụ: `godot --path client -- --shot=dang-nhap`.
 Ảnh các cửa sổ vật phẩm với dữ liệu mẫu: `godot --path client tests/UiItemPreview.tscn` →
-`user://logs/ui_vat-pham.png`.
+`user://logs/ui_vat-pham.png`. Trên máy phát triển (`dev.py start` bật `zone.gm_chat`), gõ vào chat
+`?gm ds AddItem(0,0,0,1,0,0)` để zone đưa một món vào túi (`KGMCommand.cpp` cũ: `?gm ds <lua>` chạy
+script cho người gõ, `?gm dw <lua>` cho thế giới); `JX_GM_CHAT=0` khi start để tắt.
 
 **Hai bản chạy cùng máy** (checkout chính và worktree): đặt `JX_PORT_OFFSET=1000` cho bản thứ hai → zone
 18001, gateway 18100 / 18102, và mọi lệnh `dev.py` của bản đó dùng đúng cổng ấy. Không đặt thì bản thứ hai

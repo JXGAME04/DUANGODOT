@@ -332,6 +332,7 @@ func _auto_run() -> void:
 		"rtt_ms": Game.last_rtt_ms, "regions": _map.region_count(), "sprites": Assets.stats().sprites})
 	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d transport=%s" % [arrived, _entities.size(), _move_count, _map.region_count(), Net.transport])
 	await _save_screenshot("user://logs/auto_world.png")
+	await _auto_items()
 	await _auto_fight()
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
@@ -358,6 +359,28 @@ func _auto_run() -> void:
 	Game.leave_world()
 	await get_tree().create_timer(0.3).timeout
 	get_tree().quit(0 if arrived else 1)
+
+
+# --auto: ask the zone for a sword and a potion through the GM chat (a development server has
+# zone.gm_chat on), wait for G2C_ITEM_ADD, open the bag and take its picture.  AUTO_ITEMS says how
+# many the character carries afterwards: 0 when the zone has no item tables or gm_chat is off.
+func _auto_items() -> void:
+	var before := Game.items.size()
+	Game.chat("?gm ds AddItem(0,0,0,1,0,0)")
+	Game.chat("?gm ds AddItem(1,0,0,1,0,0)")
+	var waited := 0.0
+	while waited < 3.0 and Game.items.size() < before + 2:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	Log.info("auto", "auto items", {"before": before, "after": Game.items.size()})
+	print("AUTO_ITEMS count=%d" % Game.items.size())
+	if _windows != null and _windows.ready_ok and Game.items.size() > 0:
+		_windows.item_window.open_window()
+		_windows.status_window.open_window()
+		_windows.status_window._on_page_button(true, _windows.status_window.PAGE_EQUIP)
+		await _save_screenshot("user://logs/auto_items.png")
+		_windows.item_window.hide_window()
+		_windows.status_window.hide_window()
 
 
 # --auto: walk up to the nearest monster in sight and attack it until it dies (or 8 s pass);

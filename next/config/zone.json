@@ -44,6 +44,11 @@
     // the item tables (settings\item of the old server, every version) exported by dev.py assets
     // (jxassets export-items); without them players carry nothing. New items use the newest version.
     "items_dir": "client/assets/items",
+    // which table set new items are made from (the JX2 server keeps 000..004): 0 = the newest
+    "item_version": 0,
+    // "?gm ds <lua>" / "?gm dw <lua>" in the chat run Lua for anyone (KGMCommand.cpp) - a development
+    // server only; dev.py start turns it on
+    "gm_chat": false,
     // exported by: python tools/dev.py assets   (empty = plain 8192x8192 grid)
     "map_dir": "client/assets/maps/1",
     // every other map bundle the zone hosts (portals need the target loaded): a list like "3,7,99",

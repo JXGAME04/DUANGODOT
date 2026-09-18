@@ -118,7 +118,7 @@ thu bằng cảm tính.
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
-| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 + C2 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (luật uống thuốc/hồi máu đối chiếu nhị phân Linux); cửa sổ Túi đồ, Thông tin nhân vật (trang Trang bị + Thuộc tính) và chú thích vật phẩm dựng từ bố cục 2.0, icon từ bảng vật phẩm, nhấc–đặt–mặc–cởi–uống qua giao thức. Còn: rơi đồ (D), hàm Lua vật phẩm (E — `AddItem` bản Linux cần ≥ 9 tham số, chưa mổ xong), ma pháp tiền/hậu tố, kho đồ/giao dịch. |
+| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 + C2 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (luật uống thuốc/hồi máu đối chiếu nhị phân Linux); cửa sổ Túi đồ, Thông tin nhân vật (trang Trang bị + Thuộc tính) và chú thích vật phẩm dựng từ bố cục 2.0, icon từ bảng vật phẩm, nhấc–đặt–mặc–cởi–uống qua giao thức; script `AddItem`/`AddGoldItem` đúng thứ tự bản Linux + lệnh GM `?gm ds` (E phần 1). Còn: rơi đồ (D), phần còn lại của E (`AddStackItem`, `AddItemEx`, `RemoveItem`, móc Lua khi dùng), ma pháp tiền/hậu tố, kho đồ/giao dịch. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
 | **M14** | Xã hội: chat, bạn bè, thư, bang hội, tổ đội, giao dịch, PK | 5 | Test nhiều phiên; giao dịch nguyên tử. |
@@ -137,6 +137,28 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (sáng) — M11 lát E phần 1: `AddItem` / `AddGoldItem` cho script + lệnh GM `?gm ds <lua>` qua chat
+
+Ảnh: `build/shots/auto_items.png` (đã gửi) — client thật trong map 1 nhận kiếm + thuốc do zone sinh qua
+`?gm ds AddItem(...)`; `dev.py e2e` giờ in `AUTO_ITEMS count=2` trên cả TCP và WebSocket.
+
+- **Đối chiếu nhị phân Linux** `AddItem` (`0x08120D30` → `0x08120B30`): < 6 số → 0; bản JX2 **chèn** ba giá trị lên
+  đầu (phiên bản bảng hiện hành `g_SubWorldSet+0x34`, seed 0, 0) rồi gọi `Lua_NewItem` (`0x0811F230`, đòi ≥ 9 vì
+  vậy) → `KItemSet::Add(genre, series, level, luck, detail, particular, magic[6]…)` — **cùng thứ tự nguồn Windows**
+  `AddItem(genre, detail, particular, level, series, luck[, magic1..6])`; kiểm chứng thêm bằng 100+ chỗ gọi trong
+  `D:\ServerLinux\server1\script` (`AddItem(6,1,18,1,0,0,0)`, `AddGoldItem(0, i)`, `AddGoldItem(szWhere, 0, 178)`).
+  Seed ≠ 0 → `srand(seed)` trước khi sinh (chưa port — script không dùng). `AddItem` genre > 4 bị bản Linux từ chối
+  (`cmp edi,4; ja`) nhưng script gọi `AddItem(6,…)` cho vật phẩm kịch bản → giữ theo script (genre 0/1/4/5/6).
+- Zone: `ScriptFuns.cpp` thêm `AddItem`, `AddGoldItem` (`give_item` → túi; túi đầy → 0, bản cũ thả xuống đất — lát D);
+  `KLuaScript::do_string` (LoadBuffer + ExecuteCode); `KSubWorld::gm_command` port `KGMCommand.cpp`: `?gm ds <lua>`
+  (DoSct, chạy cho người gõ) / `?gm dw <lua>` (world), trả lời `GM: ok` / lỗi Lua, không phát ra chat; chỉ khi
+  `zone.gm_chat` (mặc định tắt; `dev.py start` bật, `JX_GM_CHAT=0` để tắt); `zone.item_version` (0 = mới nhất) là
+  chỗ của `g_SubWorldSet+0x34` (chưa tìm ra bản Linux đọc số này từ đâu).
+- Test: 1 case (AddItem 5 loại, thiếu tham số/dòng sai → 0, AddGoldItem hai cách viết, GM tắt = chat thường, GM
+  bật = ok/lỗi/không phát); zone 63/63. Client `--auto` thêm bước xin đồ + chụp `auto_items.png`.
+- Còn của lát E: `AddStackItem`, `AddItemEx`, `RemoveItem*`, `GetItem*`, `Check_ItemUsable`/`OnUseItem`, `forbit_takemedicine`,
+  `*PotionCounter` (đã có trường trong KNpc), ma pháp tiền/hậu tố `Gen_MagicAttrib`.
 
 ### 2026-09-18 (sáng) — M11 lát C2: túi đồ, cửa sổ nhân vật, chú thích vật phẩm — dựng từ bố cục client 2.0
 

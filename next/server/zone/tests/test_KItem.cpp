@@ -16,7 +16,9 @@
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KLuaScript.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/ScriptFuns.h"
 
 using jx::zone::KInventory;
 using jx::zone::KItem;
@@ -673,4 +675,93 @@ TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the ite
     CHECK(decode_packet<jx::pb::ItemResult>(results[1]).result() == jx::pb::RESULT_BAD_REQUEST);
     CHECK(decode_packet<jx::pb::ItemResult>(results[2]).result() == jx::pb::RESULT_BAD_REQUEST);
     CHECK(iw.list().find(d) != nullptr);
+}
+
+
+// ---- the script api and the GM chat (M11 E, part 1) ----------------------------------------
+
+TEST_CASE("AddItem / AddGoldItem give the player what the tables describe; ?gm ds runs them from the chat", "[item][world][lua]")
+{
+    ItemWorld iw;
+    iw.w->take_outbox();
+    // KScriptContext the way execute_script sets it up for a trap script
+    jx::zone::KLuaScript script;
+    REQUIRE(script.init(""));
+    jx::zone::KScriptContext& ctx = jx::zone::g_ScriptContext();
+    ctx.world = iw.w.get();
+    ctx.player = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
+    ctx.sid = 1;
+    REQUIRE(ctx.player != nullptr);
+
+    // AddItem(genre, detail, particular, level, series, luck): a sword of the table into the bag
+    CHECK(script.call_number("AddItem", {0.0, 0.0, 0.0, 2.0, 2.0, 0.0}) == 1.0);
+    CHECK(iw.list().size() == 1);
+    REQUIRE(iw.list().find(1) != nullptr);
+    CHECK(iw.list().find(1)->name() == "Kiem 2");
+    CHECK(iw.list().find(1)->level == 2);
+    // a medicine, a quest item (count 1), the town portal, a script item
+    CHECK(script.call_number("AddItem", {1.0, 0.0, 0.0, 1.0, 0.0, 0.0}) == 1.0);
+    CHECK(script.call_number("AddItem", {4.0, 1.0, 0.0, 1.0, 0.0, 0.0}) == 1.0);
+    CHECK(script.call_number("AddItem", {5.0, 0.0, 0.0, 1.0, 0.0, 0.0}) == 1.0);
+    CHECK(script.call_number("AddItem", {6.0, 0.0, 7.0, 1.0, 0.0, 0.0}) == 1.0);
+    CHECK(iw.list().size() == 5);
+    // fewer than six numbers, a row that is not there: 0 and nothing given
+    CHECK(script.call_number("AddItem", {0.0, 0.0, 0.0, 1.0, 2.0}) == 0.0);
+    CHECK(script.call_number("AddItem", {0.0, 0.0, 0.0, 9.0, 2.0, 0.0}) == 0.0);
+    CHECK(iw.list().size() == 5);
+    // AddGoldItem(luck, row) and the script spelling AddGoldItem("where", luck, row)
+    CHECK(script.call_number("AddGoldItem", {50.0, 1.0}) == 1.0);
+    CHECK(script.call_number("AddGoldItem", {std::string("bag"), 200.0, 1.0}) == 1.0);
+    CHECK(script.call_number("AddGoldItem", {0.0, 9.0}) == 0.0);
+    CHECK(iw.list().size() == 7);
+    int gold = 0;
+    iw.list().each([&](const KItem& it, const jx::zone::KItemPlace&) { if (it.ex_type == 1) ++gold; });
+    CHECK(gold == 2);
+    // the client heard about every one of them
+    auto out = iw.w->take_outbox();
+    CHECK(packets(out, 1, jx::pb::G2C_ITEM_ADD).size() == 7);
+    ctx = jx::zone::KScriptContext{};
+
+    // the chat: "?gm ds <lua>" runs for the player only while gm_chat is on
+    REQUIRE(iw.w->chat(1, "?gm ds AddItem(0,0,0,1,2,0)"));
+    out = iw.w->take_outbox();
+    CHECK(iw.list().size() == 7);                                   // off: it was said, not run
+    CHECK(packets(out, 1, jx::pb::G2C_CHAT_MSG).size() == 1);
+    CHECK(decode_packet<jx::pb::ChatMsg>(packets(out, 1, jx::pb::G2C_CHAT_MSG)[0]).text() == "?gm ds AddItem(0,0,0,1,2,0)");
+
+    jx::zone::KSubWorldConfig cfg;
+    cfg.zone_id = 1;
+    cfg.width = cfg.height = 4096;
+    cfg.spawn_point = jx::zone::Pos{2000, 2000};
+    cfg.items = iw.lib;
+    cfg.gm_chat = true;
+    jx::zone::KSubWorld gm(cfg);
+    jx::pb::RoleData role;
+    role.set_player_id(12);
+    role.set_name("GM");
+    role.set_level(9);
+    jx::EntityId id;
+    jx::zone::Pos p;
+    REQUIRE(gm.spawn_player(1, role, id, p) == jx::pb::RESULT_OK);
+    gm.take_outbox();
+    REQUIRE(gm.chat(1, "?gm ds AddItem(0,0,0,1,2,0)"));
+    CHECK(gm.items_of(1)->size() == 1);
+    out = gm.take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_ADD).size() == 1);
+    REQUIRE(packets(out, 1, jx::pb::G2C_CHAT_MSG).size() == 1);   // "GM: ok" to the player, nothing broadcast
+    CHECK(decode_packet<jx::pb::ChatMsg>(packets(out, 1, jx::pb::G2C_CHAT_MSG)[0]).text() == "GM: ok");
+    // a wrong line answers with the Lua error, an unknown command with a word; neither is chat
+    REQUIRE(gm.chat(1, "?gm ds AddItem("));
+    REQUIRE(gm.chat(1, "?gm xx 1"));
+    out = gm.take_outbox();
+    const auto said = packets(out, 1, jx::pb::G2C_CHAT_MSG);
+    REQUIRE(said.size() == 2);
+    CHECK(decode_packet<jx::pb::ChatMsg>(said[0]).text().rfind("GM: ", 0) == 0);
+    CHECK(decode_packet<jx::pb::ChatMsg>(said[0]).text() != "GM: ok");
+    CHECK(decode_packet<jx::pb::ChatMsg>(said[1]).text() == "GM: unknown command");
+    CHECK(gm.items_of(1)->size() == 1);
+    // ordinary talk still goes out as talk
+    REQUIRE(gm.chat(1, "xin chao"));
+    out = gm.take_outbox();
+    CHECK(decode_packet<jx::pb::ChatMsg>(packets(out, 1, jx::pb::G2C_CHAT_MSG)[0]).name() == "GM");
 }

@@ -289,6 +289,10 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
     zone_cmd = [zone_exe(), "--config", "config/zone.json"]
     if PORT_OFFSET:
         zone_cmd += ["--set", f"zone.port={ZONE_PORT}"]
+    # a development server: "?gm ds <lua>" in the chat runs a script action (AddItem(...) and the
+    # rest of the api) for whoever types it - never on a server players can reach
+    if os.environ.get("JX_GM_CHAT", "1") != "0":
+        zone_cmd += ["--set", "zone.gm_chat=true"]
     # a checkout without the exported game data (CI, a fresh clone): the zone refuses to start
     # with a map it cannot find, so it gets the built-in flat test world instead, and says so
     map_dir = zone_config_string("map_dir")

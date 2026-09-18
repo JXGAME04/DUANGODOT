@@ -7,7 +7,11 @@ extern "C" {
 #include <lua.h>
 }
 
+#include <optional>
+#include <utility>
+
 #include "jx/log.hpp"
+#include "jx/zone/KItem.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KSubWorld.h"
 
@@ -140,11 +144,86 @@ int l_Talk(lua_State* L)
     return 0;
 }
 
+// AddItem(genre, detail, particular, level, series, luck [, magic1 [, magic2 .. magic6]]) -> 1 / 0
+//
+// LuaAddItem of the old ScriptFuns.cpp, and jx_linux_y 0x08120D30 -> 0x08120B30: fewer than six
+// numbers is 0; the JX2 build puts the current table version (g_SubWorldSet+0x34), a zero seed and
+// a zero in front and hands the nine to Lua_NewItem (0x0811F230) -> KItemSet::Add(genre, series,
+// level, luck, detail, particular, magic levels...), the same order as the source.  The item
+// goes to the first free spot of the bag; a full bag left it on the ground in the old server -
+// that comes with the drops (M11 D), until then it is 0.  The magic prefix / suffix levels are
+// taken but the rolling of Gen_MagicAttrib is not ported yet (KItemGenerator).
+int l_AddItem(lua_State* L)
+{
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "AddItem");
+    if (p == nullptr || n < 6) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const auto genre = static_cast<int>(luaL_checknumber(L, 1));
+    const auto detail = static_cast<int>(luaL_checknumber(L, 2));
+    const auto particular = static_cast<int>(luaL_checknumber(L, 3));
+    const auto level = static_cast<int>(luaL_checknumber(L, 4));
+    const auto series = static_cast<int>(luaL_checknumber(L, 5));
+    const auto luck = static_cast<int>(luaL_checknumber(L, 6));
+    KSubWorld* w = g_ScriptContext().world;
+    auto gen = w->item_generator(w->item_version());
+    std::optional<KItem> item;
+    if (gen) {
+        switch (static_cast<KItemGenre>(genre)) {
+        case KItemGenre::equip: item = gen->equipment(detail, particular, series, level); break;
+        case KItemGenre::medicine: item = gen->medicine(detail, level); break;
+        case KItemGenre::task: item = gen->quest(detail, 1); break;
+        case KItemGenre::town_portal: item = gen->town_portal(); break;
+        case KItemGenre::magic_script: item = gen->magic_script(detail, particular, level, series, 1); break;
+        default: break;
+        }
+    }
+    if (!item) {
+        log::warn("lua", "AddItem: no such item", {log::kv("genre", genre), log::kv("detail", detail), log::kv("particular", particular),
+                                                    log::kv("level", level), log::kv("series", series), log::kv("luck", luck)});
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const std::uint32_t id = w->give_item(g_ScriptContext().sid, std::move(*item));
+    if (id == 0) log::info("lua", "AddItem: bag full", {log::kv("entity", p->id), log::kv("genre", genre), log::kv("detail", detail)});
+    lua_pushinteger(L, id != 0 ? 1 : 0);
+    return 1;
+}
+
+// AddGoldItem(luck, id) -> 1 / 0 (jx_linux_y 0x0811F210; the scripts also write
+// AddGoldItem(where, luck, id) - the leading string is skipped): Gen_GoldEquip row `id`
+int l_AddGoldItem(lua_State* L)
+{
+    int first = 1;
+    if (lua_type(L, 1) == LUA_TSTRING) first = 2;
+    KNpc* p = player_of(L, "AddGoldItem");
+    if (p == nullptr || lua_gettop(L) < first + 1) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const auto luck = static_cast<int>(luaL_checknumber(L, first));
+    const auto row = static_cast<int>(luaL_checknumber(L, first + 1));
+    KSubWorld* w = g_ScriptContext().world;
+    auto gen = w->item_generator(w->item_version());
+    std::optional<KItem> item = gen ? gen->gold(luck, row) : std::nullopt;
+    if (!item) {
+        log::warn("lua", "AddGoldItem: no such row", {log::kv("row", row), log::kv("luck", luck)});
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const std::uint32_t id = w->give_item(g_ScriptContext().sid, std::move(*item));
+    lua_pushinteger(L, id != 0 ? 1 : 0);
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
     {"Msg2Player", l_Msg2Player},       {"AddStation", l_AddStation},       {"AddTermini", l_AddTermini},
-    {"Say", l_Say},                     {"Talk", l_Talk},                   {nullptr, nullptr},
+    {"Say", l_Say},                     {"Talk", l_Talk},                   {"AddItem", l_AddItem},
+    {"AddGoldItem", l_AddGoldItem},     {nullptr, nullptr},
 };
 
 } // namespace

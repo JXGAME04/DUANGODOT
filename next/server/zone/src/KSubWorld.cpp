@@ -1,3 +1,4 @@
+#include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSubWorld.h"
 
 #include <algorithm>
@@ -387,6 +388,7 @@ bool KSubWorld::chat(std::uint64_t sid, std::string_view text)
 {
     const auto pit = players_.find(sid);
     if (pit == players_.end()) return false;
+    if (cfg_.gm_chat && gm_command(sid, text)) return true;   // TextGMFilter runs before the text is spoken
     const KNpc& e = entities_.at(pit->second);
     pb::ChatMsg msg;
     msg.set_entity_id(e.id.value);
@@ -397,6 +399,48 @@ bool KSubWorld::chat(std::uint64_t sid, std::string_view text)
     emit(e.watchers, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
     log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
     log::debug("zone.chat", "chat", {log::kv("entity", e.id), log::kv("len", text.size()), log::kv("receivers", e.watchers.size())});
+    return true;
+}
+
+// KGMCommand.cpp: "?gm <command> <text>" - `ds` (DoSct) runs the text as the player's script
+// action, `dw` runs it as a world script (no player).  Anything else is not a command.
+bool KSubWorld::gm_command(std::uint64_t sid, std::string_view text)
+{
+    if (text.size() < 5 || (text.substr(0, 4) != "?gm " && text.substr(0, 4) != "?GM ")) return false;
+    std::string_view rest = text.substr(4);
+    const auto space = rest.find(' ');
+    const std::string_view cmd = rest.substr(0, space);
+    const std::string_view param = space == std::string_view::npos ? std::string_view{} : rest.substr(space + 1);
+    const bool for_player = cmd == "ds" || cmd == "DoSct";
+    const bool for_world = cmd == "dw";
+    if (!for_player && !for_world) {
+        msg_to_player(sid, "GM: unknown command");
+        return true;
+    }
+    if (param.empty() || param.size() >= 300) {   // szScriptAction[300]
+        msg_to_player(sid, "GM: nothing to run");
+        return true;
+    }
+    if (!gm_script_) {
+        gm_script_ = std::make_unique<KLuaScript>();
+        if (!gm_script_->init(cfg_.scripts ? cfg_.scripts->roots().empty() ? "" : cfg_.scripts->roots().front() : "")) {
+            gm_script_.reset();
+            msg_to_player(sid, "GM: no script state");
+            return true;
+        }
+    }
+    KNpc* me = find_mutable(players_.at(sid));
+    KScriptContext& ctx = g_ScriptContext();
+    const KScriptContext saved = ctx;
+    ctx.world = this;
+    ctx.player = for_player ? me : nullptr;
+    ctx.sid = for_player ? sid : 0;
+    std::string error;
+    const bool ok = gm_script_->do_string(std::string(param), for_player ? "gm ds" : "gm dw", &error);
+    ctx = saved;
+    log::ScopedContext lctx(log::Context{sid, me ? me->player_id : 0, cfg_.zone_id, tick_});
+    log::info("zone.gm", "gm command", {log::kv("command", std::string(cmd)), log::kv("code", std::string(param)), log::kv("ok", ok)});
+    msg_to_player(sid, ok ? "GM: ok" : "GM: " + error);
     return true;
 }
 

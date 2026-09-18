@@ -154,6 +154,21 @@ bool KLuaScript::include(const std::string& game_path)
     return run_file(resolve(root_, game_path), "Include");
 }
 
+bool KLuaScript::do_string(const std::string& code, const char* name, std::string* error)
+{
+    if (L_ == nullptr) return false;
+    const int top = lua_gettop(L_);
+    if (luaL_loadbuffer(L_, code.data(), code.size(), name) != LUA_OK || lua_pcall(L_, 0, 0, 0) != LUA_OK) {
+        const char* msg = lua_tostring(L_, -1);
+        if (error) *error = msg ? msg : "?";
+        log::warn("lua", "code failed", {log::kv("what", name), log::kv("error", msg ? msg : "?")});
+        lua_settop(L_, top);
+        return false;
+    }
+    lua_settop(L_, top);
+    return true;
+}
+
 bool KLuaScript::has_function(const char* name) const
 {
     if (L_ == nullptr) return false;

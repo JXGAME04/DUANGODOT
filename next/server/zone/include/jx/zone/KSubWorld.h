@@ -22,6 +22,7 @@
 #include "jx/entity/EntityTable.h"
 #include "jx/ids.hpp"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KNpcAI.h"
@@ -88,6 +89,10 @@ struct KSubWorldConfig {
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
     std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
     std::shared_ptr<const KItemLibrary> items;          // the item tables (settings\item, every version); optional
+    std::uint32_t item_version = 0;                     // the table set new items are made from (g_SubWorldSet+0x34 of jx_linux_y); 0 = the newest
+    // KGMCommand.cpp: a chat line "?gm ds <lua>" runs the code for the player, "?gm dw <lua>" for
+    // the world.  Only while this is on (a development server); accounts with a GM flag come later.
+    bool gm_chat = false;
     std::shared_ptr<KScriptCache> scripts;              // the old server folder with script\ (level scripts); optional
 };
 
@@ -223,6 +228,9 @@ public:
     // The item tables and a generator on the default version; null without tables.
     [[nodiscard]] const KItemLibrary* item_library() const noexcept { return cfg_.items.get(); }
     [[nodiscard]] std::optional<KItemGenerator> item_generator(std::uint32_t version = 0);
+    [[nodiscard]] std::uint32_t item_version() const noexcept { return cfg_.item_version; }
+    // TextGMFilter of KGMCommand.cpp: true when the text was a GM command (handled, not chat)
+    bool gm_command(std::uint64_t sid, std::string_view text);
     // KNpcSet::GetRelation (server side): NPC_RELATION bits between two entities.
     [[nodiscard]] int relation(const KNpc& a, const KNpc& b) const noexcept;
 
@@ -303,6 +311,7 @@ private:
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
+    std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)
     void load_items(std::uint64_t sid, const pb::RoleData& role);
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);

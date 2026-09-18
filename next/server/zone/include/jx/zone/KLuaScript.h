@@ -35,6 +35,9 @@ public:
     // CallFunction with numbers / strings in and one number out (nullopt when the function is
     // missing, raises an error or returns nothing numeric).
     std::optional<double> call_number(const char* name, const std::vector<Arg>& args);
+    // KLuaScript::LoadBuffer + ExecuteCode: runs a piece of code in this state (the GM's
+    // `?gm ds Say("abc")`); the error text is returned through `error` when it fails.
+    bool do_string(const std::string& code, const char* name, std::string* error = nullptr);
 
     [[nodiscard]] const std::string& file() const noexcept { return file_; }
     [[nodiscard]] const std::string& root() const noexcept { return root_; }
