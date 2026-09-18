@@ -3,13 +3,20 @@
 // exported tables are there, on the real ones.
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
+#include "jx/client.pb.h"
+#include "jx/log.hpp"
+#include "jx/msg.pb.h"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KSubWorld.h"
 
 using jx::zone::KInventory;
 using jx::zone::KItem;
@@ -48,7 +55,9 @@ const char* const kTables = R"({
  ],
  "medicine": [
   {"row": 1, "name": "Thuoc 1", "genre": 1, "detail": 0, "particular": 0, "image": "p.spr", "obj": 18, "w": 1, "h": 1, "intro": "",
-   "price": 50, "level": 1, "attribs": [{"attrib": 153, "value": 10, "time": 100}]}
+   "price": 50, "level": 1, "stackable": 0, "attribs": [{"attrib": 153, "value": 10, "time": 100}]},
+  {"row": 2, "name": "Thuoc 2", "genre": 1, "detail": 0, "particular": 0, "image": "p.spr", "obj": 18, "w": 1, "h": 1, "intro": "",
+   "price": 80, "level": 2, "stackable": 1, "max_stack": 10, "attribs": [{"attrib": 153, "value": 30, "time": 50}, {"attrib": 154, "value": 5, "time": 50}, {"attrib": 153, "value": 999, "time": 999}]}
  ],
  "quest": [
   {"row": 1, "name": "Tram", "genre": 4, "detail": 0, "image": "q.spr", "obj": 41, "w": 1, "h": 1, "intro": "", "particular": 0, "can_sell": 0, "max_stack": 0},
@@ -88,7 +97,7 @@ TEST_CASE("item tables are looked up the way KItemGenerator picked its rows", "[
 {
     const KItemTemplateSet set = load_test_set();
     CHECK(set.version() == "000");
-    CHECK(set.size() == 10);
+    CHECK(set.size() == 11);
     // equipment: row = particular * 10 + level - 1
     REQUIRE(set.equipment(jx::zone::equip_meleeweapon, 0, 1) != nullptr);
     CHECK(set.equipment(jx::zone::equip_meleeweapon, 0, 1)->name == "Kiem 1");
@@ -98,7 +107,9 @@ TEST_CASE("item tables are looked up the way KItemGenerator picked its rows", "[
     CHECK(set.equipment(jx::zone::equip_armor, 0, 1)->width == 2);
     // medicine: row = detail * 5 + level - 1; quest: row = detail; gold: row id
     CHECK(set.medicine(0, 1)->name == "Thuoc 1");
-    CHECK(set.medicine(0, 2) == nullptr);
+    CHECK(set.medicine(0, 2)->name == "Thuoc 2");
+    CHECK(set.medicine(0, 2)->stackable);
+    CHECK(set.medicine(0, 3) == nullptr);
     CHECK(set.quest(1)->max_stack == 20);
     CHECK(set.quest(2) == nullptr);
     CHECK(set.gold(1)->group == 21);
@@ -294,9 +305,6 @@ TEST_CASE("the exported item tables load when they are there", "[item]")
     CHECK(g->magic[0].type != 0);
 }
 
-#include "jx/log.hpp"
-#include "jx/zone/KSubWorld.h"
-
 TEST_CASE("a character's items survive spawn -> snapshot -> spawn, worn pieces included", "[item][world]")
 {
     jx::log::Options lo;
@@ -369,4 +377,300 @@ TEST_CASE("a character's items survive spawn -> snapshot -> spawn, worn pieces i
     REQUIRE(w.remove_player(2));
     REQUIRE(w.spawn_player(3, broken, id, p) == jx::pb::RESULT_OK);
     CHECK(w.items_of(3)->size() == 3);
+}
+
+// ---- the item protocol of the world (M11 C1) -------------------------------------------------
+
+namespace {
+
+template <class Msg>
+Msg decode_packet(const jx::zone::Packet& p)
+{
+    Msg m;
+    REQUIRE(m.ParseFromString(p.payload));
+    return m;
+}
+
+std::vector<jx::zone::Packet> packets(const std::vector<jx::zone::Packet>& all, std::uint64_t sid, jx::pb::MsgId id)
+{
+    std::vector<jx::zone::Packet> out;
+    for (const auto& p : all) {
+        if (p.msg_id == id && std::find(p.sids.begin(), p.sids.end(), sid) != p.sids.end()) out.push_back(p);
+    }
+    return out;
+}
+
+struct ItemWorld {
+    std::shared_ptr<jx::zone::KItemLibrary> lib = std::make_shared<jx::zone::KItemLibrary>();
+    std::unique_ptr<jx::zone::KSubWorld> w;
+    jx::EntityId id;
+    jx::zone::Pos p;
+
+    ItemWorld()
+    {
+        jx::log::Options lo;
+        lo.console = false;
+        lo.default_level = jx::log::Level::warn;
+        jx::log::init(lo);
+        KItemTemplateSet set;
+        std::string error;
+        REQUIRE(set.load(write_tables(), &error));
+        lib->add(1, std::move(set));
+        jx::zone::KSubWorldConfig cfg;
+        cfg.zone_id = 1;
+        cfg.width = cfg.height = 4096;
+        cfg.spawn_point = jx::zone::Pos{2000, 2000};
+        cfg.items = lib;
+        w = std::make_unique<jx::zone::KSubWorld>(cfg);
+        jx::pb::RoleData role;
+        role.set_player_id(11);
+        role.set_name("A");
+        role.set_level(9);
+        role.set_money(500);
+        REQUIRE(w->spawn_player(1, role, id, p) == jx::pb::RESULT_OK);
+    }
+    KItemList& list() { return *w->items_of(1); }
+    jx::zone::KItemGenerator gen() { return *w->item_generator(); }
+};
+
+} // namespace
+
+TEST_CASE("entering the world brings the whole item list, then every change is told once", "[item][world]")
+{
+    ItemWorld iw;
+    auto out = iw.w->take_outbox();
+    const auto lists = packets(out, 1, jx::pb::G2C_ITEM_LIST);
+    REQUIRE(lists.size() == 1);
+    auto sync = decode_packet<jx::pb::InventorySync>(lists[0]);
+    CHECK(sync.items_size() == 0);
+    CHECK(sync.money() == 500);
+
+    // a script gives a sword: G2C_ITEM_ADD carries the whole view (name, size, attributes)
+    auto g = iw.gen();
+    const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));
+    REQUIRE(sword != 0);
+    out = iw.w->take_outbox();
+    const auto adds = packets(out, 1, jx::pb::G2C_ITEM_ADD);
+    REQUIRE(adds.size() == 1);
+    const auto view = decode_packet<jx::pb::ItemAdd>(adds[0]).item();
+    CHECK(view.id() == sword);
+    CHECK(view.name() == "Kiem 1");
+    CHECK(view.width() == 1);
+    CHECK(view.height() == 3);
+    CHECK(view.room() == jx::zone::room_equipment);
+    CHECK(view.max_durability() == 20);
+    CHECK(view.base_size() == 3);
+    CHECK(view.require_size() == 2);
+    CHECK(view.price() == 100);
+
+    // the next entry brings the sword in the list
+    jx::pb::RoleData saved;
+    REQUIRE(iw.w->role_snapshot(1, saved));
+    REQUIRE(iw.w->remove_player(1));
+    jx::EntityId id2;
+    jx::zone::Pos p2;
+    REQUIRE(iw.w->spawn_player(2, saved, id2, p2) == jx::pb::RESULT_OK);
+    out = iw.w->take_outbox();
+    const auto lists2 = packets(out, 2, jx::pb::G2C_ITEM_LIST);
+    REQUIRE(lists2.size() == 1);
+    sync = decode_packet<jx::pb::InventorySync>(lists2[0]);
+    REQUIRE(sync.items_size() == 1);
+    CHECK(sync.items(0).id() == sword);
+    CHECK(sync.items(0).name() == "Kiem 1");
+}
+
+TEST_CASE("a move request: free cells, an item under the target trades places, refusals carry the seq", "[item][world]")
+{
+    ItemWorld iw;
+    auto g = iw.gen();
+    const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));   // 1 x 3 at (0,0)
+    const auto ring = iw.w->give_item(1, *g.equipment(jx::zone::equip_ring, 0, 0, 1));           // 1 x 1, column by column: (0,3)
+    REQUIRE((sword && ring));
+    REQUIRE(iw.list().place_of(sword)->x == 0);
+    REQUIRE(iw.list().place_of(ring)->x == 0);
+    REQUIRE(iw.list().place_of(ring)->y == 3);
+    iw.w->take_outbox();
+
+    // to a free spot
+    REQUIRE(iw.w->item_move_request(1, ring, jx::zone::room_equipment, 4, 5, 21));
+    auto out = iw.w->take_outbox();
+    auto moves = packets(out, 1, jx::pb::G2C_ITEM_MOVE);
+    REQUIRE(moves.size() == 1);
+    auto mv = decode_packet<jx::pb::ItemMove>(moves[0]);
+    CHECK(mv.id() == ring);
+    CHECK(mv.x() == 4);
+    CHECK(mv.y() == 5);
+    CHECK(mv.seq() == 21);
+
+    // onto the sword's cells: the sword takes the ring's old place (it fits there: 1 x 3 at (4,5))
+    REQUIRE(iw.w->item_move_request(1, ring, jx::zone::room_equipment, 0, 1, 22));
+    out = iw.w->take_outbox();
+    moves = packets(out, 1, jx::pb::G2C_ITEM_MOVE);
+    REQUIRE(moves.size() == 2);
+    CHECK(iw.list().place_of(ring)->x == 0);
+    CHECK(iw.list().place_of(ring)->y == 1);
+    CHECK(iw.list().place_of(sword)->x == 4);
+    CHECK(iw.list().place_of(sword)->y == 5);
+
+    // outside the grid: refused with the seq and a reason; nothing moved
+    REQUIRE_FALSE(iw.w->item_move_request(1, ring, jx::zone::room_equipment, 6, 0, 23));
+    REQUIRE_FALSE(iw.w->item_move_request(1, sword, jx::zone::room_equipment, 5, 9, 24));   // 1 x 3 would hang out
+    out = iw.w->take_outbox();
+    auto results = packets(out, 1, jx::pb::G2C_ITEM_RESULT);
+    REQUIRE(results.size() == 2);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).seq() == 23);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).result() == jx::pb::RESULT_FULL);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[1]).seq() == 24);
+    CHECK(packets(out, 1, jx::pb::G2C_ITEM_MOVE).empty());
+
+    // an unknown item, the trade box, the quick slots for a sword
+    REQUIRE_FALSE(iw.w->item_move_request(1, 999, jx::zone::room_equipment, 0, 0, 25));
+    REQUIRE_FALSE(iw.w->item_move_request(1, ring, jx::zone::room_trade, 0, 0, 26));
+    REQUIRE_FALSE(iw.w->item_move_request(1, sword, jx::zone::room_immediacy, 0, 0, 27));
+    out = iw.w->take_outbox();
+    results = packets(out, 1, jx::pb::G2C_ITEM_RESULT);
+    REQUIRE(results.size() == 3);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).result() == jx::pb::RESULT_NOT_FOUND);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[1]).result() == jx::pb::RESULT_BAD_REQUEST);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[2]).result() == jx::pb::RESULT_BAD_REQUEST);
+
+    // the repository is reachable; the quick slots take one medicine of a kind
+    REQUIRE(iw.w->item_move_request(1, ring, jx::zone::room_repository, 2, 2, 28));
+    const auto med1 = iw.w->give_item(1, *g.medicine(0, 1));
+    const auto med2 = iw.w->give_item(1, *g.medicine(0, 1));
+    REQUIRE((med1 && med2 && med1 != med2));
+    REQUIRE(iw.w->item_move_request(1, med1, jx::zone::room_immediacy, 0, 0, 29));
+    REQUIRE_FALSE(iw.w->item_move_request(1, med2, jx::zone::room_immediacy, 1, 0, 30));   // same detail type already there
+    out = iw.w->take_outbox();
+    results = packets(out, 1, jx::pb::G2C_ITEM_RESULT);
+    REQUIRE(results.size() == 1);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).seq() == 30);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).result() == jx::pb::RESULT_ALREADY_EXISTS);
+}
+
+TEST_CASE("equip and unequip requests: the part its kind goes to, requirements, the piece that comes off", "[item][world]")
+{
+    ItemWorld iw;   // level 9, series 0, sex 0
+    auto g = iw.gen();
+    const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));   // needs level 5, strength 20
+    const auto sword2 = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 2));
+    const auto armor = iw.w->give_item(1, *g.equipment(jx::zone::equip_armor, 0, 0, 1));         // needs sex 1
+    REQUIRE((sword && sword2 && armor));
+    iw.w->take_outbox();
+
+    REQUIRE(iw.w->item_equip_request(1, sword, -1, 31));
+    CHECK(iw.list().equipped(jx::zone::itempart_weapon) == sword);
+    auto out = iw.w->take_outbox();
+    auto moves = packets(out, 1, jx::pb::G2C_ITEM_MOVE);
+    REQUIRE(moves.size() == 1);
+    CHECK(decode_packet<jx::pb::ItemMove>(moves[0]).room() == jx::zone::room_body);
+    CHECK(decode_packet<jx::pb::ItemMove>(moves[0]).x() == jx::zone::itempart_weapon);
+
+    // the second sword replaces the first, which goes back to the bag: two moves
+    REQUIRE(iw.w->item_equip_request(1, sword2, jx::zone::itempart_weapon, 32));
+    CHECK(iw.list().equipped(jx::zone::itempart_weapon) == sword2);
+    CHECK(iw.list().place_of(sword)->room == jx::zone::room_equipment);
+    out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_MOVE).size() == 2);
+
+    // wrong sex for the armor, a sword on the head: refused
+    REQUIRE_FALSE(iw.w->item_equip_request(1, armor, -1, 33));
+    REQUIRE_FALSE(iw.w->item_equip_request(1, sword, jx::zone::itempart_head, 34));
+    out = iw.w->take_outbox();
+    auto results = packets(out, 1, jx::pb::G2C_ITEM_RESULT);
+    REQUIRE(results.size() == 2);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).result() == jx::pb::RESULT_BAD_REQUEST);
+
+    REQUIRE(iw.w->item_unequip_request(1, jx::zone::itempart_weapon, 35));
+    CHECK(iw.list().equipped(jx::zone::itempart_weapon) == 0);
+    REQUIRE_FALSE(iw.w->item_unequip_request(1, jx::zone::itempart_weapon, 36));   // nothing there now
+    out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_MOVE).size() == 1);
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_RESULT).size() == 1);
+    CHECK(decode_packet<jx::pb::ItemResult>(packets(out, 1, jx::pb::G2C_ITEM_RESULT)[0]).result() == jx::pb::RESULT_NOT_FOUND);
+}
+
+TEST_CASE("eating a medicine: LifePotionV merges, heals every 10 frames, the item goes or its stack shrinks", "[item][world]")
+{
+    ItemWorld iw;
+    auto g = iw.gen();
+    jx::zone::KNpc* me = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
+    REQUIRE(me != nullptr);
+    me->life_max = 1000;
+    me->life = 100;
+    me->life_replenish = 0;
+    const auto med = iw.w->give_item(1, *g.medicine(0, 1));   // 10 life every 10 frames for 100 frames
+    REQUIRE(med != 0);
+    iw.w->take_outbox();
+
+    REQUIRE(iw.w->item_use_request(1, med, 41));
+    CHECK(me->life_state.value == 10);
+    CHECK(me->life_state.time == 100);
+    auto out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_REMOVE).size() == 1);   // not stackable: the potion is gone
+    CHECK(iw.list().find(med) == nullptr);
+
+    // KNpc::ProcessState: time-- each frame, +value when time % 10 == 0 -> the first heal after 10 frames
+    for (int i = 0; i < 9; ++i) iw.w->tick();
+    CHECK(me->life == 100);
+    iw.w->tick();
+    CHECK(me->life == 110);
+    out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ENTITY_LIFE).size() == 1);
+    CHECK(decode_packet<jx::pb::EntityLife>(packets(out, 1, jx::pb::G2C_ENTITY_LIFE)[0]).delta() == 10);
+    for (int i = 0; i < 90; ++i) iw.w->tick();
+    CHECK(me->life == 200);   // 10 heals in all
+    CHECK(me->life_state.time == 0);
+    iw.w->tick();
+    CHECK(me->life == 200);   // and no more
+
+    // a second potion while one works: time = max, value = weighted (KNpcAttribModify::LifePotionV)
+    const auto a = iw.w->give_item(1, *g.medicine(0, 1));    // 10 x 100
+    const auto b = iw.w->give_item(1, *g.medicine(0, 2));    // 30 x 50 (stackable), the third attribute is beyond what the server reads
+    REQUIRE((a && b));
+    CHECK(iw.list().find(b)->base[2].empty());
+    REQUIRE(iw.w->item_use_request(1, a, 42));
+    REQUIRE(iw.w->item_use_request(1, b, 43));
+    CHECK(me->life_state.time == 100);
+    CHECK(me->life_state.value == (10 * 100 + 30 * 50) / 100);
+    CHECK(iw.list().find(b) == nullptr);   // a stack of one is the last one
+
+    // the percent of the Linux server: 50% halves the heal
+    me->life_gain_percent = 50;
+    me->life = 100;
+    me->life_state = {20, 10};
+    for (int i = 0; i < 10; ++i) iw.w->tick();
+    CHECK(me->life == 110);
+
+    // a stack of three: one goes each time, the client sees the new count, then the removal
+    KItem stack = *g.medicine(0, 2);
+    stack.count = 3;
+    const auto c = iw.w->give_item(1, stack);
+    REQUIRE(c != 0);
+    iw.w->take_outbox();
+    REQUIRE(iw.w->item_use_request(1, c, 44));
+    CHECK(iw.list().find(c)->count == 2);
+    out = iw.w->take_outbox();
+    REQUIRE(packets(out, 1, jx::pb::G2C_ITEM_ADD).size() == 1);
+    CHECK(decode_packet<jx::pb::ItemAdd>(packets(out, 1, jx::pb::G2C_ITEM_ADD)[0]).item().count() == 2);
+    REQUIRE(iw.w->item_use_request(1, c, 45));
+    REQUIRE(iw.w->item_use_request(1, c, 46));
+    CHECK(iw.list().find(c) == nullptr);
+
+    // forbit_takemedicine, a dead player, a sword: refused
+    const auto d = iw.w->give_item(1, *g.medicine(0, 1));
+    const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));
+    iw.w->take_outbox();
+    me->forbid_medicine = true;
+    REQUIRE_FALSE(iw.w->item_use_request(1, d, 47));
+    me->forbid_medicine = false;
+    REQUIRE_FALSE(iw.w->item_use_request(1, sword, 48));
+    REQUIRE_FALSE(iw.w->item_drop_request(1, sword, 49));   // no ground yet (M11 D)
+    out = iw.w->take_outbox();
+    const auto results = packets(out, 1, jx::pb::G2C_ITEM_RESULT);
+    REQUIRE(results.size() == 3);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[0]).result() == jx::pb::RESULT_WRONG_STATE);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[1]).result() == jx::pb::RESULT_BAD_REQUEST);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[2]).result() == jx::pb::RESULT_BAD_REQUEST);
+    CHECK(iw.list().find(d) != nullptr);
 }

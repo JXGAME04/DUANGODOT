@@ -142,6 +142,7 @@ struct KItemTemplate {
     std::string script;                        // script item
     int skill = 0;
     int max_stack = 0;
+    bool stackable = false;      // 是否叠放 of potion.txt / magicscript.txt: EatMecidine takes one off the stack, else the item
     int can_sell = 1;
 };
 
@@ -306,6 +307,13 @@ public:
     bool remove(std::uint32_t id);                                    // KItemList::Remove
     bool move(std::uint32_t id, int room, int x, int y);              // ExchangeItem for an empty target
     bool swap(std::uint32_t id, std::uint32_t other);                 // two items trade places when both fit
+    // KItemList::ExchangeItem in one step: the item goes to (room, x, y); the one item under that
+    // rectangle, if any, takes the item's old place (the hand of the old game put it back there).
+    // False when two items lie under the target, the other does not fit the old place, or the
+    // item comes off the body (that is unequip).  `displaced` gets the other item's id.
+    bool exchange(std::uint32_t id, int room, int x, int y, std::uint32_t* displaced);
+    // KInventory::CheckSameDetailType: an item of that genre and detail type in the room (not `except`)
+    [[nodiscard]] std::uint32_t same_detail_in(int room, KItemGenre genre, int detail, std::uint32_t except = 0) const;
 
     // Equipment.  KItemList::GetEquipPlace / Fit: which part a detail type goes to
     [[nodiscard]] static int equip_place(int detail) noexcept;

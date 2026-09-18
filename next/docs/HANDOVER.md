@@ -118,7 +118,7 @@ thu bằng cảm tính.
 | ~~**M8**~~ **đạt 2026‑09‑17** | U1–U5 | 2–3 | Đăng nhập, chọn và tạo nhân vật đúng bố cục bản 2.0; ảnh chụp màn hình đối chiếu → **99,98 % / 99,88 %** điểm ảnh trên hai màn chụp được từ client thật, 95 kiểm tra giao diện. |
 | **M9** *(đang làm)* | O1 (PostgreSQL) | 2 | 20 000 nhân vật, gateway khởi động < 3 giây; test crash giữa chừng không mất dữ liệu. **Kho PostgreSQL xong + CI thật**; số đo 20 000 cần một PostgreSQL tại chỗ (Docker) — chưa có trên máy này. |
 | ~~**M10**~~ **đạt 2026‑09‑17** | Mổ nhị phân bản Linux: kỹ năng + hàm script | 3–4 | 1506 hàm script (game) + 438 (gateway), **chữ ký đọc bằng máy cho cả 1506** (1149 đối số cố định, 1496 biết số trả về); **109 tệp settings, 104 nối được cột/khoá mã đọc (736)**; hai lớp `KTabFile`/`KIniFile` đặt tên từng phương thức; 431 stub PLT có tên. Công cụ `re_elf/re_calls/re_luasig/re_tables`, [LINUX-SERVER.md]. |
-| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`. Còn: giao thức + cửa sổ túi (C), rơi đồ (D), hàm Lua (E), ma pháp tiền/hậu tố. |
+| **M11** *(đang làm)* | Vật phẩm, túi đồ, trang bị, rơi đồ | 4 | Test tính chất: không âm, không nhân bản. **Lát A + B + C1 xong**: bảng vật phẩm đọc đúng cột và xuất JSON (`pkg/jxold/item`); zone có `KItem`/`KInventory`/`KItemList`/`KItemGenerator` theo luật cũ, lưu/nạp qua `RoleData.items`; giao thức vật phẩm client ↔ zone (danh sách khi vào, chuyển ô, mặc/cởi, uống thuốc — luật uống thuốc và trạng thái hồi máu đối chiếu nhị phân Linux). Còn: cửa sổ túi Godot (C2), rơi đồ (D), hàm Lua (E), ma pháp tiền/hậu tố. |
 | **M12** | Chiến đấu và kỹ năng theo công thức cũ | 6 | **Đối chiếu số với Core cũ**: cùng đầu vào, cùng kết quả. |
 | **M13** | Nhiệm vụ trên Lua + bộ hàm script | 4 | Mỗi hàm binding có test; replay nhiệm vụ khớp. |
 | **M14** | Xã hội: chat, bạn bè, thư, bang hội, tổ đội, giao dịch, PK | 5 | Test nhiều phiên; giao dịch nguyên tử. |
@@ -137,6 +137,58 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (sáng) — M11 lát C1: giao thức vật phẩm client ↔ zone; luật uống thuốc đối chiếu nhị phân Linux
+
+Chủ dự án yêu cầu giữa chừng: *mọi thứ đối chiếu bản nhị phân Linux cho đồng bộ*. Nên trước khi viết,
+từng luật của lát này được tìm trong `jx_linux_y` (mổ bằng `tools/re/re_elf.py` + hai script quét mới,
+xem `docs/LINUX-SERVER.md` §9) và đối chiếu với nguồn Windows:
+
+- **`KNpcAttribModify::LifePotionV`** = `0x08097E70`: `time = max(t1, t2)`, `value = (x1·t1 + x2·t2) / time`
+  — giống nguồn Windows từng dòng. Bảng `ProcessFunc` của `KNpcAttribModify` (ctor `0x08099600`, đối tượng
+  toàn cục `0x08BAC120`, phần tử 8 byte từ +4): id 153 = LifePotionV, 154 = ManaPotionV (`0x08097DE0`),
+  190 cộng vào phần trăm hồi máu.
+- **Khối thuốc trong `KNpc::ProcessState`** = `0x0808B7BC`: mỗi frame `time--`; khi `time % 10 == 0`
+  cộng `value * percent / 100` (percent ở `KNpc+0x1194`, mặc định 100, log `"AddLifeState: %d * %d%% = %d"`),
+  chặn trên ở max(`+0x1a14`, `+0x1a18`). Hồi máu tự nhiên (`0x0808B65F`) cũng nhân percent đó. Chỉ chạy khi
+  `m_ProcessState` (DoDeath xoá, Revive bật); `DoRevive` → `ClearNormalState` xoá trạng thái thuốc.
+  **Khác nguồn Windows**: có hệ số percent và hai giá trị max — port thêm `KNpc::life_gain_percent`.
+- **`KItemList::EatMecidine`** = `0x08204710`: người chết (`m_Doing == do_death`) không uống; cờ
+  `KNpc+0x147a` (Lua `forbit_takemedicine`) → từ chối; đếm thuốc `KPlayer+0x86a4/+0x86a8`
+  (`StartPotionCounter`…); gọi script `\script\item\forbiditem.lua` `Check_ItemUsable(map, genre,
+  particular, level)` (chưa port — M11 E); `ApplyMagicAttribToNPC(npc, 3)` (`0x08068560`); móc
+  `events.lua OnUseItem` (M11 E); **stack**: nếu dòng bảng *是否叠放* (`Item+0x14`) và `nStack > 1` thì
+  `SetItemStack(nStack-1)` (`0x08200D30`, gói s2c 168), bằng 1 thì `Remove`; không xếp chồng → `Remove`;
+  đang ngồi → đứng dậy. Nguồn Windows chỉ `Remove` — bản Linux mới có stack; dữ liệu phát hành:
+  `potion.txt` mọi phiên bản đều *是否叠放 = 0* nên thuốc dùng một lần vẫn mất.
+- **`KBPT_Medicine` đọc dòng** = `0x081ED430`: mảng mô tả 19 cột (kiểu 0 số, 1 chuỗi, 2 bỏ qua) →
+  server Linux đọc đúng cột 1–13 và **hai** thuộc tính (14–19), bỏ ảnh/giới thiệu; cột 13 = 是否叠放.
+  Bộ xuất Go giờ ghi `stackable` cho thuốc và kịch bản; zone chỉ lấy hai thuộc tính đầu.
+- **`KItemList::ExchangeItem`** = `0x08206110` (6,8 KB): vẫn mô hình "tay cầm" như Windows (nhấc ô →
+  đặt → cái bị đè lên tay); các phòng, `CheckSameDetailType` cho ô nhanh, chỉ giao dịch khi đang giao dịch.
+  Giao thức mới gộp hai bước thành một: `C2G_ITEM_MOVE(id, room, x, y)` — ô trống thì đặt; đúng một vật
+  phẩm nằm dưới thì nó về chỗ cũ của vật phẩm được kéo (chính là bước "đặt lại từ tay" của client cũ).
+
+Giao thức (`proto/jx/client.proto`, `msg.proto`; `godobuf` không cho tên `ItemList` vì trùng lớp Godot →
+`InventorySync`): `C2G_ITEM_MOVE/EQUIP/UNEQUIP/USE/DROP` (1104–1108), `G2C_ITEM_LIST/ADD/REMOVE/MOVE/RESULT`,
+`G2C_MONEY` (2109–2114). `ItemView` mang đủ để client vẽ (tên, ảnh `\spr\item\…`, giới thiệu, kích cỡ ô,
+độ bền/max, giá, thuộc tính cơ bản/yêu cầu/ma pháp).
+
+- Zone: `KSubWorld::send_item_list` sau spawn (sau gói spawn của chính mình), `item_move_request`
+  (`KItemList::exchange` mới + luật ô nhanh), `item_equip_request` (part −1 = `GetEquipPlace`; cái đang mặc
+  về túi → hai `G2C_ITEM_MOVE`), `item_unequip_request`, `item_use_request` (theo bản Linux ở trên),
+  `item_drop_request` (từ chối tới lát D), `give_item`/`take_item` cho script và rơi đồ sau này; `KNpc`
+  thêm `life_state`, `life_gain_percent`, `forbid_medicine`, `potion_counter/potion_count`;
+  `process_potions` mỗi frame; `do_revive` xoá thuốc. `KMapInstance`/`KGameServer`/gateway relay nối 5 lệnh.
+- Client: `KProtocolProcess` giữ `items{}` (id → dict), `money/bank_money`, `item_move/equip/unequip/use/drop`,
+  `item_worn`, `item_at`, tín hiệu `items_changed/item_changed/item_removed/item_result/money_changed`.
+  Cửa sổ túi (`UiItem*.ini` của 2.0) là lát C2.
+- Test: 4 test case mới (danh sách khi vào và sau khi vào lại; chuyển ô/đổi chỗ/từ chối kèm `seq`; mặc/cởi;
+  uống thuốc: gộp LifePotionV, hồi mỗi 10 frame, percent, stack 3 → 2 → 1 → mất, từ chối khi cấm/chết/kiếm)
+  + harness `KGameServer` thấy `G2C_ITEM_LIST`. Zone Release 62/62 (25 153 assertion).
+- Chưa làm trong lát này: ma pháp `manapotion_v` (chưa có nội lực — M12), `Check_ItemUsable`/`OnUseItem`
+  (Lua — M11 E), ngồi/đứng, kho đồ chỉ mở tại NPC ngân hàng (chưa có NPC ngân hàng: hiện chuyển được tự do),
+  giao dịch (từ chối). Mọi chỗ này có ghi chú trong mã.
 
 ### 2026-09-18 (rạng sáng) — M11 lát B: vật phẩm trong zone — mẫu, túi, ô trang bị, sinh vật phẩm, lưu vào nhân vật
 

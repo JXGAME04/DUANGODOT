@@ -1556,6 +1556,764 @@ func (x *ChatReq) GetText() string {
 	return ""
 }
 
+// One item as the client sees it: what the character holds (KItem) plus what its table row says
+// (name, picture, size, price) so the bag window needs no table of its own.
+type ItemView struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Genre         uint32                 `protobuf:"varint,2,opt,name=genre,proto3" json:"genre,omitempty"` // ITEMGENRE: 0 equipment, 1 medicine, 4 quest, 5 town portal, 6 script item
+	Detail        uint32                 `protobuf:"varint,3,opt,name=detail,proto3" json:"detail,omitempty"`
+	Particular    uint32                 `protobuf:"varint,4,opt,name=particular,proto3" json:"particular,omitempty"`
+	Level         uint32                 `protobuf:"varint,5,opt,name=level,proto3" json:"level,omitempty"`
+	Series        int32                  `protobuf:"varint,6,opt,name=series,proto3" json:"series,omitempty"`
+	Count         uint32                 `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`
+	Durability    int32                  `protobuf:"varint,8,opt,name=durability,proto3" json:"durability,omitempty"` // -1 = never wears
+	MaxDurability int32                  `protobuf:"varint,9,opt,name=max_durability,json=maxDurability,proto3" json:"max_durability,omitempty"`
+	ExType        uint32                 `protobuf:"varint,10,opt,name=ex_type,json=exType,proto3" json:"ex_type,omitempty"` // 0 normal, 1 gold, 2 platina, 3 purple
+	Room          uint32                 `protobuf:"varint,11,opt,name=room,proto3" json:"room,omitempty"`                   // 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = part)
+	X             uint32                 `protobuf:"varint,12,opt,name=x,proto3" json:"x,omitempty"`
+	Y             uint32                 `protobuf:"varint,13,opt,name=y,proto3" json:"y,omitempty"`
+	Width         uint32                 `protobuf:"varint,14,opt,name=width,proto3" json:"width,omitempty"` // cells
+	Height        uint32                 `protobuf:"varint,15,opt,name=height,proto3" json:"height,omitempty"`
+	Name          string                 `protobuf:"bytes,16,opt,name=name,proto3" json:"name,omitempty"`
+	Image         string                 `protobuf:"bytes,17,opt,name=image,proto3" json:"image,omitempty"` // \spr\item\... of the old client
+	Intro         string                 `protobuf:"bytes,18,opt,name=intro,proto3" json:"intro,omitempty"`
+	Price         uint32                 `protobuf:"varint,19,opt,name=price,proto3" json:"price,omitempty"`
+	Base          []*ItemMagic           `protobuf:"bytes,20,rep,name=base,proto3" json:"base,omitempty"`
+	Require       []*ItemMagic           `protobuf:"bytes,21,rep,name=require,proto3" json:"require,omitempty"`
+	Magic         []*ItemMagic           `protobuf:"bytes,22,rep,name=magic,proto3" json:"magic,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemView) Reset() {
+	*x = ItemView{}
+	mi := &file_jx_client_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemView) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemView) ProtoMessage() {}
+
+func (x *ItemView) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemView.ProtoReflect.Descriptor instead.
+func (*ItemView) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ItemView) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ItemView) GetGenre() uint32 {
+	if x != nil {
+		return x.Genre
+	}
+	return 0
+}
+
+func (x *ItemView) GetDetail() uint32 {
+	if x != nil {
+		return x.Detail
+	}
+	return 0
+}
+
+func (x *ItemView) GetParticular() uint32 {
+	if x != nil {
+		return x.Particular
+	}
+	return 0
+}
+
+func (x *ItemView) GetLevel() uint32 {
+	if x != nil {
+		return x.Level
+	}
+	return 0
+}
+
+func (x *ItemView) GetSeries() int32 {
+	if x != nil {
+		return x.Series
+	}
+	return 0
+}
+
+func (x *ItemView) GetCount() uint32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *ItemView) GetDurability() int32 {
+	if x != nil {
+		return x.Durability
+	}
+	return 0
+}
+
+func (x *ItemView) GetMaxDurability() int32 {
+	if x != nil {
+		return x.MaxDurability
+	}
+	return 0
+}
+
+func (x *ItemView) GetExType() uint32 {
+	if x != nil {
+		return x.ExType
+	}
+	return 0
+}
+
+func (x *ItemView) GetRoom() uint32 {
+	if x != nil {
+		return x.Room
+	}
+	return 0
+}
+
+func (x *ItemView) GetX() uint32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *ItemView) GetY() uint32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *ItemView) GetWidth() uint32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *ItemView) GetHeight() uint32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *ItemView) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ItemView) GetImage() string {
+	if x != nil {
+		return x.Image
+	}
+	return ""
+}
+
+func (x *ItemView) GetIntro() string {
+	if x != nil {
+		return x.Intro
+	}
+	return ""
+}
+
+func (x *ItemView) GetPrice() uint32 {
+	if x != nil {
+		return x.Price
+	}
+	return 0
+}
+
+func (x *ItemView) GetBase() []*ItemMagic {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
+func (x *ItemView) GetRequire() []*ItemMagic {
+	if x != nil {
+		return x.Require
+	}
+	return nil
+}
+
+func (x *ItemView) GetMagic() []*ItemMagic {
+	if x != nil {
+		return x.Magic
+	}
+	return nil
+}
+
+type InventorySync struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*ItemView            `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Money         uint32                 `protobuf:"varint,2,opt,name=money,proto3" json:"money,omitempty"`
+	BankMoney     uint32                 `protobuf:"varint,3,opt,name=bank_money,json=bankMoney,proto3" json:"bank_money,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventorySync) Reset() {
+	*x = InventorySync{}
+	mi := &file_jx_client_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventorySync) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventorySync) ProtoMessage() {}
+
+func (x *InventorySync) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventorySync.ProtoReflect.Descriptor instead.
+func (*InventorySync) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *InventorySync) GetItems() []*ItemView {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *InventorySync) GetMoney() uint32 {
+	if x != nil {
+		return x.Money
+	}
+	return 0
+}
+
+func (x *InventorySync) GetBankMoney() uint32 {
+	if x != nil {
+		return x.BankMoney
+	}
+	return 0
+}
+
+type ItemAdd struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Item          *ItemView              `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemAdd) Reset() {
+	*x = ItemAdd{}
+	mi := &file_jx_client_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemAdd) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemAdd) ProtoMessage() {}
+
+func (x *ItemAdd) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemAdd.ProtoReflect.Descriptor instead.
+func (*ItemAdd) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ItemAdd) GetItem() *ItemView {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+type ItemRemove struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemRemove) Reset() {
+	*x = ItemRemove{}
+	mi := &file_jx_client_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemRemove) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemRemove) ProtoMessage() {}
+
+func (x *ItemRemove) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemRemove.ProtoReflect.Descriptor instead.
+func (*ItemRemove) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ItemRemove) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type ItemMove struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Room          uint32                 `protobuf:"varint,2,opt,name=room,proto3" json:"room,omitempty"`
+	X             uint32                 `protobuf:"varint,3,opt,name=x,proto3" json:"x,omitempty"`
+	Y             uint32                 `protobuf:"varint,4,opt,name=y,proto3" json:"y,omitempty"`
+	Seq           uint32                 `protobuf:"varint,5,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemMove) Reset() {
+	*x = ItemMove{}
+	mi := &file_jx_client_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemMove) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemMove) ProtoMessage() {}
+
+func (x *ItemMove) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemMove.ProtoReflect.Descriptor instead.
+func (*ItemMove) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ItemMove) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ItemMove) GetRoom() uint32 {
+	if x != nil {
+		return x.Room
+	}
+	return 0
+}
+
+func (x *ItemMove) GetX() uint32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *ItemMove) GetY() uint32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *ItemMove) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+type ItemEquipReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Part          int32                  `protobuf:"varint,2,opt,name=part,proto3" json:"part,omitempty"` // ITEM_PART; -1 = the part its kind goes to (KItemList::GetEquipPlace)
+	Seq           uint32                 `protobuf:"varint,3,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemEquipReq) Reset() {
+	*x = ItemEquipReq{}
+	mi := &file_jx_client_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemEquipReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemEquipReq) ProtoMessage() {}
+
+func (x *ItemEquipReq) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemEquipReq.ProtoReflect.Descriptor instead.
+func (*ItemEquipReq) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ItemEquipReq) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ItemEquipReq) GetPart() int32 {
+	if x != nil {
+		return x.Part
+	}
+	return 0
+}
+
+func (x *ItemEquipReq) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+type ItemUnequipReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Part          uint32                 `protobuf:"varint,1,opt,name=part,proto3" json:"part,omitempty"`
+	Seq           uint32                 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemUnequipReq) Reset() {
+	*x = ItemUnequipReq{}
+	mi := &file_jx_client_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemUnequipReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemUnequipReq) ProtoMessage() {}
+
+func (x *ItemUnequipReq) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemUnequipReq.ProtoReflect.Descriptor instead.
+func (*ItemUnequipReq) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ItemUnequipReq) GetPart() uint32 {
+	if x != nil {
+		return x.Part
+	}
+	return 0
+}
+
+func (x *ItemUnequipReq) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+type ItemUseReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Seq           uint32                 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemUseReq) Reset() {
+	*x = ItemUseReq{}
+	mi := &file_jx_client_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemUseReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemUseReq) ProtoMessage() {}
+
+func (x *ItemUseReq) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemUseReq.ProtoReflect.Descriptor instead.
+func (*ItemUseReq) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ItemUseReq) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ItemUseReq) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+type ItemDropReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Seq           uint32                 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemDropReq) Reset() {
+	*x = ItemDropReq{}
+	mi := &file_jx_client_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemDropReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemDropReq) ProtoMessage() {}
+
+func (x *ItemDropReq) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemDropReq.ProtoReflect.Descriptor instead.
+func (*ItemDropReq) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ItemDropReq) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ItemDropReq) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+type ItemResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Seq           uint32                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
+	Result        Result                 `protobuf:"varint,2,opt,name=result,proto3,enum=jx.pb.Result" json:"result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ItemResult) Reset() {
+	*x = ItemResult{}
+	mi := &file_jx_client_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ItemResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ItemResult) ProtoMessage() {}
+
+func (x *ItemResult) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ItemResult.ProtoReflect.Descriptor instead.
+func (*ItemResult) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ItemResult) GetSeq() uint32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *ItemResult) GetResult() Result {
+	if x != nil {
+		return x.Result
+	}
+	return Result_RESULT_OK
+}
+
+type MoneySync struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Money         uint32                 `protobuf:"varint,1,opt,name=money,proto3" json:"money,omitempty"`
+	BankMoney     uint32                 `protobuf:"varint,2,opt,name=bank_money,json=bankMoney,proto3" json:"bank_money,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MoneySync) Reset() {
+	*x = MoneySync{}
+	mi := &file_jx_client_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MoneySync) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MoneySync) ProtoMessage() {}
+
+func (x *MoneySync) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MoneySync.ProtoReflect.Descriptor instead.
+func (*MoneySync) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *MoneySync) GetMoney() uint32 {
+	if x != nil {
+		return x.Money
+	}
+	return 0
+}
+
+func (x *MoneySync) GetBankMoney() uint32 {
+	if x != nil {
+		return x.BankMoney
+	}
+	return 0
+}
+
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
 // The client drops every entity, loads the bundle and waits for the EntitySpawn of the new
 // surroundings (which includes the player itself).
@@ -1572,7 +2330,7 @@ type ChangeMap struct {
 
 func (x *ChangeMap) Reset() {
 	*x = ChangeMap{}
-	mi := &file_jx_client_proto_msgTypes[22]
+	mi := &file_jx_client_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +2342,7 @@ func (x *ChangeMap) String() string {
 func (*ChangeMap) ProtoMessage() {}
 
 func (x *ChangeMap) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[22]
+	mi := &file_jx_client_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +2355,7 @@ func (x *ChangeMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeMap.ProtoReflect.Descriptor instead.
 func (*ChangeMap) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{22}
+	return file_jx_client_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ChangeMap) GetMapId() uint32 {
@@ -1646,7 +2404,7 @@ type ChatMsg struct {
 
 func (x *ChatMsg) Reset() {
 	*x = ChatMsg{}
-	mi := &file_jx_client_proto_msgTypes[23]
+	mi := &file_jx_client_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1658,7 +2416,7 @@ func (x *ChatMsg) String() string {
 func (*ChatMsg) ProtoMessage() {}
 
 func (x *ChatMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[23]
+	mi := &file_jx_client_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1671,7 +2429,7 @@ func (x *ChatMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatMsg.ProtoReflect.Descriptor instead.
 func (*ChatMsg) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{23}
+	return file_jx_client_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ChatMsg) GetEntityId() uint64 {
@@ -1704,7 +2462,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_jx_client_proto_msgTypes[24]
+	mi := &file_jx_client_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1716,7 +2474,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[24]
+	mi := &file_jx_client_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1729,7 +2487,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{24}
+	return file_jx_client_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *Ping) GetClientMs() uint64 {
@@ -1750,7 +2508,7 @@ type Pong struct {
 
 func (x *Pong) Reset() {
 	*x = Pong{}
-	mi := &file_jx_client_proto_msgTypes[25]
+	mi := &file_jx_client_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1762,7 +2520,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[25]
+	mi := &file_jx_client_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1775,7 +2533,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{25}
+	return file_jx_client_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Pong) GetClientMs() uint64 {
@@ -1809,7 +2567,7 @@ type Kick struct {
 
 func (x *Kick) Reset() {
 	*x = Kick{}
-	mi := &file_jx_client_proto_msgTypes[26]
+	mi := &file_jx_client_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1821,7 +2579,7 @@ func (x *Kick) String() string {
 func (*Kick) ProtoMessage() {}
 
 func (x *Kick) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[26]
+	mi := &file_jx_client_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1834,7 +2592,7 @@ func (x *Kick) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kick.ProtoReflect.Descriptor instead.
 func (*Kick) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{26}
+	return file_jx_client_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *Kick) GetReason() Result {
@@ -1855,7 +2613,7 @@ var File_jx_client_proto protoreflect.FileDescriptor
 
 const file_jx_client_proto_rawDesc = "" +
 	"\n" +
-	"\x0fjx/client.proto\x12\x05jx.pb\x1a\x0fjx/common.proto\"\x92\x01\n" +
+	"\x0fjx/client.proto\x12\x05jx.pb\x1a\x0fjx/common.proto\x1a\rjx/role.proto\"\x92\x01\n" +
 	"\x05Hello\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12%\n" +
 	"\x0eclient_version\x18\x02 \x01(\tR\rclientVersion\x12\x1a\n" +
@@ -1972,7 +2730,73 @@ const file_jx_client_proto_rawDesc = "" +
 	"\vEntityMoves\x12'\n" +
 	"\x05moves\x18\x01 \x03(\v2\x11.jx.pb.EntityMoveR\x05moves\"\x1d\n" +
 	"\aChatReq\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"\x90\x01\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"\xba\x04\n" +
+	"\bItemView\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
+	"\x05genre\x18\x02 \x01(\rR\x05genre\x12\x16\n" +
+	"\x06detail\x18\x03 \x01(\rR\x06detail\x12\x1e\n" +
+	"\n" +
+	"particular\x18\x04 \x01(\rR\n" +
+	"particular\x12\x14\n" +
+	"\x05level\x18\x05 \x01(\rR\x05level\x12\x16\n" +
+	"\x06series\x18\x06 \x01(\x05R\x06series\x12\x14\n" +
+	"\x05count\x18\a \x01(\rR\x05count\x12\x1e\n" +
+	"\n" +
+	"durability\x18\b \x01(\x05R\n" +
+	"durability\x12%\n" +
+	"\x0emax_durability\x18\t \x01(\x05R\rmaxDurability\x12\x17\n" +
+	"\aex_type\x18\n" +
+	" \x01(\rR\x06exType\x12\x12\n" +
+	"\x04room\x18\v \x01(\rR\x04room\x12\f\n" +
+	"\x01x\x18\f \x01(\rR\x01x\x12\f\n" +
+	"\x01y\x18\r \x01(\rR\x01y\x12\x14\n" +
+	"\x05width\x18\x0e \x01(\rR\x05width\x12\x16\n" +
+	"\x06height\x18\x0f \x01(\rR\x06height\x12\x12\n" +
+	"\x04name\x18\x10 \x01(\tR\x04name\x12\x14\n" +
+	"\x05image\x18\x11 \x01(\tR\x05image\x12\x14\n" +
+	"\x05intro\x18\x12 \x01(\tR\x05intro\x12\x14\n" +
+	"\x05price\x18\x13 \x01(\rR\x05price\x12$\n" +
+	"\x04base\x18\x14 \x03(\v2\x10.jx.pb.ItemMagicR\x04base\x12*\n" +
+	"\arequire\x18\x15 \x03(\v2\x10.jx.pb.ItemMagicR\arequire\x12&\n" +
+	"\x05magic\x18\x16 \x03(\v2\x10.jx.pb.ItemMagicR\x05magic\"k\n" +
+	"\rInventorySync\x12%\n" +
+	"\x05items\x18\x01 \x03(\v2\x0f.jx.pb.ItemViewR\x05items\x12\x14\n" +
+	"\x05money\x18\x02 \x01(\rR\x05money\x12\x1d\n" +
+	"\n" +
+	"bank_money\x18\x03 \x01(\rR\tbankMoney\".\n" +
+	"\aItemAdd\x12#\n" +
+	"\x04item\x18\x01 \x01(\v2\x0f.jx.pb.ItemViewR\x04item\"\x1c\n" +
+	"\n" +
+	"ItemRemove\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\"\\\n" +
+	"\bItemMove\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
+	"\x04room\x18\x02 \x01(\rR\x04room\x12\f\n" +
+	"\x01x\x18\x03 \x01(\rR\x01x\x12\f\n" +
+	"\x01y\x18\x04 \x01(\rR\x01y\x12\x10\n" +
+	"\x03seq\x18\x05 \x01(\rR\x03seq\"D\n" +
+	"\fItemEquipReq\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
+	"\x04part\x18\x02 \x01(\x05R\x04part\x12\x10\n" +
+	"\x03seq\x18\x03 \x01(\rR\x03seq\"6\n" +
+	"\x0eItemUnequipReq\x12\x12\n" +
+	"\x04part\x18\x01 \x01(\rR\x04part\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\rR\x03seq\".\n" +
+	"\n" +
+	"ItemUseReq\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\rR\x03seq\"/\n" +
+	"\vItemDropReq\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x10\n" +
+	"\x03seq\x18\x02 \x01(\rR\x03seq\"E\n" +
+	"\n" +
+	"ItemResult\x12\x10\n" +
+	"\x03seq\x18\x01 \x01(\rR\x03seq\x12%\n" +
+	"\x06result\x18\x02 \x01(\x0e2\r.jx.pb.ResultR\x06result\"@\n" +
+	"\tMoneySync\x12\x14\n" +
+	"\x05money\x18\x01 \x01(\rR\x05money\x12\x1d\n" +
+	"\n" +
+	"bank_money\x18\x02 \x01(\rR\tbankMoney\"\x90\x01\n" +
 	"\tChangeMap\x12\x15\n" +
 	"\x06map_id\x18\x01 \x01(\rR\x05mapId\x12\x1d\n" +
 	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x17\n" +
@@ -2012,68 +2836,86 @@ func file_jx_client_proto_rawDescGZIP() []byte {
 }
 
 var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_jx_client_proto_goTypes = []any{
-	(Action)(0),           // 0: jx.pb.Action
-	(*Hello)(nil),         // 1: jx.pb.Hello
-	(*HelloAck)(nil),      // 2: jx.pb.HelloAck
-	(*LoginReq)(nil),      // 3: jx.pb.LoginReq
-	(*LoginRes)(nil),      // 4: jx.pb.LoginRes
-	(*CharSummary)(nil),   // 5: jx.pb.CharSummary
-	(*CharListReq)(nil),   // 6: jx.pb.CharListReq
-	(*CharListRes)(nil),   // 7: jx.pb.CharListRes
-	(*CharCreateReq)(nil), // 8: jx.pb.CharCreateReq
-	(*CharCreateRes)(nil), // 9: jx.pb.CharCreateRes
-	(*EnterWorldReq)(nil), // 10: jx.pb.EnterWorldReq
-	(*EnterWorldRes)(nil), // 11: jx.pb.EnterWorldRes
-	(*LeaveWorldReq)(nil), // 12: jx.pb.LeaveWorldReq
-	(*MoveReq)(nil),       // 13: jx.pb.MoveReq
-	(*AttackReq)(nil),     // 14: jx.pb.AttackReq
-	(*EntityAction)(nil),  // 15: jx.pb.EntityAction
-	(*EntityLife)(nil),    // 16: jx.pb.EntityLife
-	(*EntityInfo)(nil),    // 17: jx.pb.EntityInfo
-	(*EntitySpawn)(nil),   // 18: jx.pb.EntitySpawn
-	(*EntityDespawn)(nil), // 19: jx.pb.EntityDespawn
-	(*EntityMove)(nil),    // 20: jx.pb.EntityMove
-	(*EntityMoves)(nil),   // 21: jx.pb.EntityMoves
-	(*ChatReq)(nil),       // 22: jx.pb.ChatReq
-	(*ChangeMap)(nil),     // 23: jx.pb.ChangeMap
-	(*ChatMsg)(nil),       // 24: jx.pb.ChatMsg
-	(*Ping)(nil),          // 25: jx.pb.Ping
-	(*Pong)(nil),          // 26: jx.pb.Pong
-	(*Kick)(nil),          // 27: jx.pb.Kick
-	(Result)(0),           // 28: jx.pb.Result
-	(*Vec2)(nil),          // 29: jx.pb.Vec2
-	(EntityType)(0),       // 30: jx.pb.EntityType
+	(Action)(0),            // 0: jx.pb.Action
+	(*Hello)(nil),          // 1: jx.pb.Hello
+	(*HelloAck)(nil),       // 2: jx.pb.HelloAck
+	(*LoginReq)(nil),       // 3: jx.pb.LoginReq
+	(*LoginRes)(nil),       // 4: jx.pb.LoginRes
+	(*CharSummary)(nil),    // 5: jx.pb.CharSummary
+	(*CharListReq)(nil),    // 6: jx.pb.CharListReq
+	(*CharListRes)(nil),    // 7: jx.pb.CharListRes
+	(*CharCreateReq)(nil),  // 8: jx.pb.CharCreateReq
+	(*CharCreateRes)(nil),  // 9: jx.pb.CharCreateRes
+	(*EnterWorldReq)(nil),  // 10: jx.pb.EnterWorldReq
+	(*EnterWorldRes)(nil),  // 11: jx.pb.EnterWorldRes
+	(*LeaveWorldReq)(nil),  // 12: jx.pb.LeaveWorldReq
+	(*MoveReq)(nil),        // 13: jx.pb.MoveReq
+	(*AttackReq)(nil),      // 14: jx.pb.AttackReq
+	(*EntityAction)(nil),   // 15: jx.pb.EntityAction
+	(*EntityLife)(nil),     // 16: jx.pb.EntityLife
+	(*EntityInfo)(nil),     // 17: jx.pb.EntityInfo
+	(*EntitySpawn)(nil),    // 18: jx.pb.EntitySpawn
+	(*EntityDespawn)(nil),  // 19: jx.pb.EntityDespawn
+	(*EntityMove)(nil),     // 20: jx.pb.EntityMove
+	(*EntityMoves)(nil),    // 21: jx.pb.EntityMoves
+	(*ChatReq)(nil),        // 22: jx.pb.ChatReq
+	(*ItemView)(nil),       // 23: jx.pb.ItemView
+	(*InventorySync)(nil),  // 24: jx.pb.InventorySync
+	(*ItemAdd)(nil),        // 25: jx.pb.ItemAdd
+	(*ItemRemove)(nil),     // 26: jx.pb.ItemRemove
+	(*ItemMove)(nil),       // 27: jx.pb.ItemMove
+	(*ItemEquipReq)(nil),   // 28: jx.pb.ItemEquipReq
+	(*ItemUnequipReq)(nil), // 29: jx.pb.ItemUnequipReq
+	(*ItemUseReq)(nil),     // 30: jx.pb.ItemUseReq
+	(*ItemDropReq)(nil),    // 31: jx.pb.ItemDropReq
+	(*ItemResult)(nil),     // 32: jx.pb.ItemResult
+	(*MoneySync)(nil),      // 33: jx.pb.MoneySync
+	(*ChangeMap)(nil),      // 34: jx.pb.ChangeMap
+	(*ChatMsg)(nil),        // 35: jx.pb.ChatMsg
+	(*Ping)(nil),           // 36: jx.pb.Ping
+	(*Pong)(nil),           // 37: jx.pb.Pong
+	(*Kick)(nil),           // 38: jx.pb.Kick
+	(Result)(0),            // 39: jx.pb.Result
+	(*Vec2)(nil),           // 40: jx.pb.Vec2
+	(EntityType)(0),        // 41: jx.pb.EntityType
+	(*ItemMagic)(nil),      // 42: jx.pb.ItemMagic
 }
 var file_jx_client_proto_depIdxs = []int32{
-	28, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
-	28, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
+	39, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
+	39, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
 	5,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
-	28, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
+	39, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
 	5,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
-	28, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
-	29, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
-	29, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
+	39, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
+	40, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
+	40, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
 	0,  // 8: jx.pb.EntityAction.action:type_name -> jx.pb.Action
-	29, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
-	30, // 10: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
-	29, // 11: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
-	29, // 12: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	29, // 13: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	40, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
+	41, // 10: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
+	40, // 11: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
+	40, // 12: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
+	40, // 13: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
 	0,  // 14: jx.pb.EntityInfo.doing:type_name -> jx.pb.Action
 	17, // 15: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	29, // 16: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	29, // 17: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	29, // 18: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	40, // 16: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	40, // 17: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	40, // 18: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
 	20, // 19: jx.pb.EntityMoves.moves:type_name -> jx.pb.EntityMove
-	29, // 20: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
-	28, // 21: jx.pb.Kick.reason:type_name -> jx.pb.Result
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	42, // 20: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
+	42, // 21: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
+	42, // 22: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
+	23, // 23: jx.pb.InventorySync.items:type_name -> jx.pb.ItemView
+	23, // 24: jx.pb.ItemAdd.item:type_name -> jx.pb.ItemView
+	39, // 25: jx.pb.ItemResult.result:type_name -> jx.pb.Result
+	40, // 26: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
+	39, // 27: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_jx_client_proto_init() }
@@ -2082,13 +2924,14 @@ func file_jx_client_proto_init() {
 		return
 	}
 	file_jx_common_proto_init()
+	file_jx_role_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_client_proto_rawDesc), len(file_jx_client_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   27,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

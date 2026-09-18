@@ -5,6 +5,7 @@ package jx.pb;
 option go_package = "github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpb";
 
 import "jx/common.proto";
+import "jx/role.proto";
 
 // ---- handshake / auth ------------------------------------------------------------------
 
@@ -179,6 +180,88 @@ message EntityMoves {
 
 message ChatReq {
   string text = 1;
+}
+
+// ---- items (M11) ----
+
+// One item as the client sees it: what the character holds (KItem) plus what its table row says
+// (name, picture, size, price) so the bag window needs no table of its own.
+message ItemView {
+  uint32 id = 1;
+  uint32 genre = 2;              // ITEMGENRE: 0 equipment, 1 medicine, 4 quest, 5 town portal, 6 script item
+  uint32 detail = 3;
+  uint32 particular = 4;
+  uint32 level = 5;
+  int32 series = 6;
+  uint32 count = 7;
+  int32 durability = 8;          // -1 = never wears
+  int32 max_durability = 9;
+  uint32 ex_type = 10;           // 0 normal, 1 gold, 2 platina, 3 purple
+  uint32 room = 11;              // 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = part)
+  uint32 x = 12;
+  uint32 y = 13;
+  uint32 width = 14;             // cells
+  uint32 height = 15;
+  string name = 16;
+  string image = 17;             // \spr\item\... of the old client
+  string intro = 18;
+  uint32 price = 19;
+  repeated ItemMagic base = 20;
+  repeated ItemMagic require = 21;
+  repeated ItemMagic magic = 22;
+}
+
+message InventorySync {          // G2C_ITEM_LIST ("ItemList" is a Godot class, so not that name)
+  repeated ItemView items = 1;
+  uint32 money = 2;
+  uint32 bank_money = 3;
+}
+
+message ItemAdd {                // G2C_ITEM_ADD
+  ItemView item = 1;
+}
+
+message ItemRemove {             // G2C_ITEM_REMOVE
+  uint32 id = 1;
+}
+
+message ItemMove {               // C2G_ITEM_MOVE (the wish) and G2C_ITEM_MOVE (what happened)
+  uint32 id = 1;
+  uint32 room = 2;
+  uint32 x = 3;
+  uint32 y = 4;
+  uint32 seq = 5;
+}
+
+message ItemEquipReq {           // C2G_ITEM_EQUIP
+  uint32 id = 1;
+  int32 part = 2;                // ITEM_PART; -1 = the part its kind goes to (KItemList::GetEquipPlace)
+  uint32 seq = 3;
+}
+
+message ItemUnequipReq {         // C2G_ITEM_UNEQUIP
+  uint32 part = 1;
+  uint32 seq = 2;
+}
+
+message ItemUseReq {             // C2G_ITEM_USE
+  uint32 id = 1;
+  uint32 seq = 2;
+}
+
+message ItemDropReq {            // C2G_ITEM_DROP
+  uint32 id = 1;
+  uint32 seq = 2;
+}
+
+message ItemResult {             // G2C_ITEM_RESULT: the request changed nothing
+  uint32 seq = 1;
+  Result result = 2;
+}
+
+message MoneySync {              // G2C_MONEY
+  uint32 money = 1;
+  uint32 bank_money = 2;
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).

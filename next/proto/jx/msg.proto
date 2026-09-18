@@ -26,6 +26,11 @@ enum MsgId {
   C2G_MOVE = 1101;             // (zone)
   C2G_CHAT = 1102;             // (zone)
   C2G_ATTACK = 1103;           // (zone)
+  C2G_ITEM_MOVE = 1104;        // (zone) an item to another cell / room
+  C2G_ITEM_EQUIP = 1105;       // (zone) wear an item from the bag
+  C2G_ITEM_UNEQUIP = 1106;     // (zone) take a worn item off into the bag
+  C2G_ITEM_USE = 1107;         // (zone) eat a medicine / use an item
+  C2G_ITEM_DROP = 1108;        // (zone) throw an item away
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -43,6 +48,12 @@ enum MsgId {
   G2C_ENTITY_LIFE = 2106;
   G2C_CHANGE_MAP = 2107;       // the zone moved the player to another map (NewWorld of a trap script)
   G2C_ENTITY_MOVES = 2108;     // several EntityMove in one frame: what moved far from the receiver, every few ticks (N3)
+  G2C_ITEM_LIST = 2109;        // everything the character carries, on entering the world
+  G2C_ITEM_ADD = 2110;         // a new item, or a stack that changed (same id, new count)
+  G2C_ITEM_REMOVE = 2111;      // an item is gone (used up, dropped)
+  G2C_ITEM_MOVE = 2112;        // an item lies somewhere else now (also the answer to C2G_ITEM_MOVE / EQUIP / UNEQUIP)
+  G2C_ITEM_RESULT = 2113;      // a request that changed nothing, with why
+  G2C_MONEY = 2114;            // money in the bag and the repository
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

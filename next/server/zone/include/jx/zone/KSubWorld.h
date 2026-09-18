@@ -144,6 +144,19 @@ public:
     bool move_request(std::uint64_t sid, Pos target, std::uint32_t seq);
     bool attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq);
     bool chat(std::uint64_t sid, std::string_view text);
+    // Items (M11).  Each answers the client: G2C_ITEM_MOVE / ADD / REMOVE when something changed,
+    // G2C_ITEM_RESULT with the reason when nothing did.
+    bool item_move_request(std::uint64_t sid, std::uint32_t id, int room, int x, int y, std::uint32_t seq);
+    bool item_equip_request(std::uint64_t sid, std::uint32_t id, int part, std::uint32_t seq);
+    bool item_unequip_request(std::uint64_t sid, int part, std::uint32_t seq);
+    bool item_use_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
+    bool item_drop_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
+    // Give an item to a player (a script, a drop picked up, a quest reward): into the bag, onto a
+    // stack where it can; the client is told.  0 when it does not fit.
+    std::uint32_t give_item(std::uint64_t sid, KItem item);
+    bool take_item(std::uint64_t sid, std::uint32_t id);   // the item is gone (used up, taken by a script)
+    void send_item_list(std::uint64_t sid);
+    void fill_item_view(const KItem& item, const KItemPlace& place, pb::ItemView& out) const;
 
     static constexpr std::uint32_t kAttackEffectPercent = 60;   // ATTACKACTION_EFFECT_PERCENT (KNpc.cpp)
     static constexpr std::uint32_t kMinHurtPercent = 50;        // MIN_HURT_PERCENT (KNpc::DoHurt)
@@ -292,6 +305,13 @@ private:
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     void load_items(std::uint64_t sid, const pb::RoleData& role);
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
+    void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);
+    void item_moved(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
+    void item_changed(std::uint64_t sid, std::uint32_t id);   // G2C_ITEM_ADD with the item as it is now (a stack changed)
+    void send_money(std::uint64_t sid);
+    // KItemList::EnoughAttrib needs the player's numbers
+    [[nodiscard]] std::function<int(int)> attrib_of(const KNpc& e) const;
+    void process_potions(KNpc& e);   // the 补血状态 block of KNpc::ProcessState, every frame
     std::vector<Packet> outbox_;
     std::uint64_t tick_ = 0;
     std::minstd_rand rng_;

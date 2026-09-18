@@ -78,16 +78,21 @@ type MsgId int32
 const (
 	MsgId_MSG_NONE MsgId = 0
 	// client -> gateway
-	MsgId_C2G_HELLO       MsgId = 1001
-	MsgId_C2G_LOGIN       MsgId = 1002
-	MsgId_C2G_CHAR_LIST   MsgId = 1003
-	MsgId_C2G_CHAR_CREATE MsgId = 1004
-	MsgId_C2G_ENTER_WORLD MsgId = 1005
-	MsgId_C2G_LEAVE_WORLD MsgId = 1006
-	MsgId_C2G_PING        MsgId = 1007
-	MsgId_C2G_MOVE        MsgId = 1101 // (zone)
-	MsgId_C2G_CHAT        MsgId = 1102 // (zone)
-	MsgId_C2G_ATTACK      MsgId = 1103 // (zone)
+	MsgId_C2G_HELLO        MsgId = 1001
+	MsgId_C2G_LOGIN        MsgId = 1002
+	MsgId_C2G_CHAR_LIST    MsgId = 1003
+	MsgId_C2G_CHAR_CREATE  MsgId = 1004
+	MsgId_C2G_ENTER_WORLD  MsgId = 1005
+	MsgId_C2G_LEAVE_WORLD  MsgId = 1006
+	MsgId_C2G_PING         MsgId = 1007
+	MsgId_C2G_MOVE         MsgId = 1101 // (zone)
+	MsgId_C2G_CHAT         MsgId = 1102 // (zone)
+	MsgId_C2G_ATTACK       MsgId = 1103 // (zone)
+	MsgId_C2G_ITEM_MOVE    MsgId = 1104 // (zone) an item to another cell / room
+	MsgId_C2G_ITEM_EQUIP   MsgId = 1105 // (zone) wear an item from the bag
+	MsgId_C2G_ITEM_UNEQUIP MsgId = 1106 // (zone) take a worn item off into the bag
+	MsgId_C2G_ITEM_USE     MsgId = 1107 // (zone) eat a medicine / use an item
+	MsgId_C2G_ITEM_DROP    MsgId = 1108 // (zone) throw an item away
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK       MsgId = 2001
 	MsgId_G2C_LOGIN_RES       MsgId = 2002
@@ -104,6 +109,12 @@ const (
 	MsgId_G2C_ENTITY_LIFE     MsgId = 2106
 	MsgId_G2C_CHANGE_MAP      MsgId = 2107 // the zone moved the player to another map (NewWorld of a trap script)
 	MsgId_G2C_ENTITY_MOVES    MsgId = 2108 // several EntityMove in one frame: what moved far from the receiver, every few ticks (N3)
+	MsgId_G2C_ITEM_LIST       MsgId = 2109 // everything the character carries, on entering the world
+	MsgId_G2C_ITEM_ADD        MsgId = 2110 // a new item, or a stack that changed (same id, new count)
+	MsgId_G2C_ITEM_REMOVE     MsgId = 2111 // an item is gone (used up, dropped)
+	MsgId_G2C_ITEM_MOVE       MsgId = 2112 // an item lies somewhere else now (also the answer to C2G_ITEM_MOVE / EQUIP / UNEQUIP)
+	MsgId_G2C_ITEM_RESULT     MsgId = 2113 // a request that changed nothing, with why
+	MsgId_G2C_MONEY           MsgId = 2114 // money in the bag and the repository
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -130,6 +141,11 @@ var (
 		1101: "C2G_MOVE",
 		1102: "C2G_CHAT",
 		1103: "C2G_ATTACK",
+		1104: "C2G_ITEM_MOVE",
+		1105: "C2G_ITEM_EQUIP",
+		1106: "C2G_ITEM_UNEQUIP",
+		1107: "C2G_ITEM_USE",
+		1108: "C2G_ITEM_DROP",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -145,6 +161,12 @@ var (
 		2106: "G2C_ENTITY_LIFE",
 		2107: "G2C_CHANGE_MAP",
 		2108: "G2C_ENTITY_MOVES",
+		2109: "G2C_ITEM_LIST",
+		2110: "G2C_ITEM_ADD",
+		2111: "G2C_ITEM_REMOVE",
+		2112: "G2C_ITEM_MOVE",
+		2113: "G2C_ITEM_RESULT",
+		2114: "G2C_MONEY",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -167,6 +189,11 @@ var (
 		"C2G_MOVE":            1101,
 		"C2G_CHAT":            1102,
 		"C2G_ATTACK":          1103,
+		"C2G_ITEM_MOVE":       1104,
+		"C2G_ITEM_EQUIP":      1105,
+		"C2G_ITEM_UNEQUIP":    1106,
+		"C2G_ITEM_USE":        1107,
+		"C2G_ITEM_DROP":       1108,
 		"G2C_HELLO_ACK":       2001,
 		"G2C_LOGIN_RES":       2002,
 		"G2C_CHAR_LIST_RES":   2003,
@@ -182,6 +209,12 @@ var (
 		"G2C_ENTITY_LIFE":     2106,
 		"G2C_CHANGE_MAP":      2107,
 		"G2C_ENTITY_MOVES":    2108,
+		"G2C_ITEM_LIST":       2109,
+		"G2C_ITEM_ADD":        2110,
+		"G2C_ITEM_REMOVE":     2111,
+		"G2C_ITEM_MOVE":       2112,
+		"G2C_ITEM_RESULT":     2113,
+		"G2C_MONEY":           2114,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
 		"GZ_SESSION_OPEN":     9003,
@@ -228,7 +261,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xd6\x05\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xb4\a\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -242,6 +275,11 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\bC2G_CHAT\x10\xce\b\x12\x0f\n" +
 	"\n" +
 	"C2G_ATTACK\x10\xcf\b\x12\x12\n" +
+	"\rC2G_ITEM_MOVE\x10\xd0\b\x12\x13\n" +
+	"\x0eC2G_ITEM_EQUIP\x10\xd1\b\x12\x15\n" +
+	"\x10C2G_ITEM_UNEQUIP\x10\xd2\b\x12\x11\n" +
+	"\fC2G_ITEM_USE\x10\xd3\b\x12\x12\n" +
+	"\rC2G_ITEM_DROP\x10\xd4\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +
@@ -257,6 +295,12 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x0fG2C_ENTITY_LIFE\x10\xba\x10\x12\x13\n" +
 	"\x0eG2C_CHANGE_MAP\x10\xbb\x10\x12\x15\n" +
 	"\x10G2C_ENTITY_MOVES\x10\xbc\x10\x12\x12\n" +
+	"\rG2C_ITEM_LIST\x10\xbd\x10\x12\x11\n" +
+	"\fG2C_ITEM_ADD\x10\xbe\x10\x12\x14\n" +
+	"\x0fG2C_ITEM_REMOVE\x10\xbf\x10\x12\x12\n" +
+	"\rG2C_ITEM_MOVE\x10\xc0\x10\x12\x14\n" +
+	"\x0fG2C_ITEM_RESULT\x10\xc1\x10\x12\x0e\n" +
+	"\tG2C_MONEY\x10\xc2\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +

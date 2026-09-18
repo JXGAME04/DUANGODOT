@@ -161,7 +161,8 @@ TEST_CASE("map npcs are placed from the bundle", "[map][world]")
     Pos at;
     REQUIRE(w.spawn_player(1, role, id, at) == jx::pb::RESULT_OK);
     const auto out = w.take_outbox();
-    REQUIRE(out.size() == 1);
+    REQUIRE(out.size() == 2);   // the spawn and the item list
+    REQUIRE(out[0].msg_id == jx::pb::G2C_ENTITY_SPAWN);
     jx::pb::EntitySpawn spawn;
     REQUIRE(spawn.ParseFromString(out[0].payload));
     CHECK(spawn.entities_size() == 3);

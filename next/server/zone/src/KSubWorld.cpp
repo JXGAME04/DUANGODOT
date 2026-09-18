@@ -260,6 +260,8 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     look_around(sid, v);
     // routine looks of players that arrive together are spread over the period, not all on one tick
     v.next_look = tick_ + 1 + sid % std::max<std::uint32_t>(1, cfg_.interest_period);
+    // then what the character carries (s2c_syncitem of the old server followed the player sync)
+    send_item_list(sid);
 
     entity_out = id;
     pos_out = start;
@@ -482,6 +484,7 @@ void KSubWorld::tick()
         ++e.loop_frames;
         const std::uint64_t state_every = awake ? kGameUpdateTime : kGameUpdateTime * 8;   // dormant: rarely
         if (e.loop_frames % state_every == 0) process_state(e);
+        if (e.life_state.time > 0 && e.alive()) process_potions(e);   // ProcessState runs only while m_ProcessState (cleared by DoDeath)
         // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
         if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
         if (awake && e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
@@ -935,7 +938,9 @@ bool KSubWorld::check_hit_target(int ar, int df, int ignore)
 void KSubWorld::process_state(KNpc& e)
 {
     if (!e.alive() || e.life_replenish == 0 || e.life >= e.life_max) return;
-    const std::int64_t next = std::clamp<std::int64_t>(static_cast<std::int64_t>(e.life) + e.life_replenish, 0, e.life_max);
+    // jx_linux_y 0x0808B65F: m_CurrentLife += replenish * percent / 100, then both clamps
+    const std::int64_t gain = static_cast<std::int64_t>(e.life_replenish) * e.life_gain_percent / 100;
+    const std::int64_t next = std::clamp<std::int64_t>(static_cast<std::int64_t>(e.life) + gain, 0, e.life_max);
     const auto delta = static_cast<std::int32_t>(next - static_cast<std::int64_t>(e.life));
     if (delta == 0) return;
     e.life = static_cast<std::uint32_t>(next);
@@ -1004,6 +1009,7 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
 void KSubWorld::do_revive(KNpc& e)
 {
     e.doing = KDoing::revive;
+    e.life_state = {};   // KNpc::DoRevive -> ClearNormalState
     e.frame_total = std::max(1u, e.revive_frame);
     e.frame_cur = 0;
     entity_gone(e);   // every client that saw it die sees the corpse go
@@ -1204,6 +1210,271 @@ void KSubWorld::load_items(std::uint64_t sid, const pb::RoleData& role)
         log::ScopedContext ctx(log::Context{sid, role.player_id(), cfg_.zone_id, tick_});
         log::warn("zone", "items not restored", {log::kv("lost", lost), log::kv("kept", list.size())});
     }
+}
+
+// ---- item requests ------------------------------------------------------------------------
+
+void KSubWorld::fill_item_view(const KItem& item, const KItemPlace& place, pb::ItemView& out) const
+{
+    out.set_id(item.id);
+    out.set_genre(static_cast<std::uint32_t>(item.genre));
+    out.set_detail(static_cast<std::uint32_t>(item.detail));
+    out.set_particular(static_cast<std::uint32_t>(item.particular));
+    out.set_level(static_cast<std::uint32_t>(item.level));
+    out.set_series(item.series);
+    out.set_count(static_cast<std::uint32_t>(item.count));
+    out.set_durability(item.durability);
+    out.set_max_durability(item.max_durability());
+    out.set_ex_type(static_cast<std::uint32_t>(item.ex_type));
+    out.set_room(static_cast<std::uint32_t>(place.room));
+    out.set_x(static_cast<std::uint32_t>(place.x));
+    out.set_y(static_cast<std::uint32_t>(place.y));
+    out.set_width(static_cast<std::uint32_t>(item.width()));
+    out.set_height(static_cast<std::uint32_t>(item.height()));
+    out.set_name(item.name());
+    if (item.tpl != nullptr) {
+        out.set_image(item.tpl->image);
+        out.set_intro(item.tpl->intro);
+    }
+    out.set_price(static_cast<std::uint32_t>(item.price()));
+    const auto magic_out = [](const KMagicAttrib& a, pb::ItemMagic* m) {
+        m->set_type(static_cast<std::uint32_t>(a.type));
+        for (const int v : a.value) m->add_value(v);
+    };
+    for (const auto& a : item.base) if (!a.empty()) magic_out(a, out.add_base());
+    for (const auto& a : item.require) if (!a.empty()) magic_out(a, out.add_require());
+    for (const auto& a : item.magic) if (!a.empty()) magic_out(a, out.add_magic());
+}
+
+void KSubWorld::send_item_list(std::uint64_t sid)
+{
+    const KItemList* list = items_of(sid);
+    if (list == nullptr) return;
+    pb::InventorySync msg;
+    list->each([&](const KItem& item, const KItemPlace& place) { fill_item_view(item, place, *msg.add_items()); });
+    msg.set_money(static_cast<std::uint32_t>(list->money(room_equipment)));
+    msg.set_bank_money(static_cast<std::uint32_t>(list->money(room_repository)));
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_ITEM_LIST), msg);
+}
+
+void KSubWorld::item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result)
+{
+    pb::ItemResult r;
+    r.set_seq(seq);
+    r.set_result(result);
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_ITEM_RESULT), r);
+}
+
+void KSubWorld::item_moved(std::uint64_t sid, std::uint32_t id, std::uint32_t seq)
+{
+    const KItemList* list = items_of(sid);
+    const auto place = list ? list->place_of(id) : std::nullopt;
+    if (!place) return;
+    pb::ItemMove m;
+    m.set_id(id);
+    m.set_room(static_cast<std::uint32_t>(place->room));
+    m.set_x(static_cast<std::uint32_t>(place->x));
+    m.set_y(static_cast<std::uint32_t>(place->y));
+    m.set_seq(seq);
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_ITEM_MOVE), m);
+}
+
+void KSubWorld::item_changed(std::uint64_t sid, std::uint32_t id)
+{
+    const KItemList* list = items_of(sid);
+    const KItem* item = list ? list->find(id) : nullptr;
+    if (item == nullptr) return;
+    pb::ItemAdd add;
+    fill_item_view(*item, *list->place_of(id), *add.mutable_item());
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_ITEM_ADD), add);
+}
+
+void KSubWorld::send_money(std::uint64_t sid)
+{
+    const KItemList* list = items_of(sid);
+    if (list == nullptr) return;
+    pb::MoneySync m;
+    m.set_money(static_cast<std::uint32_t>(list->money(room_equipment)));
+    m.set_bank_money(static_cast<std::uint32_t>(list->money(room_repository)));
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_MONEY), m);
+}
+
+std::function<int(int)> KSubWorld::attrib_of(const KNpc& e) const
+{
+    // KItemList::EnoughAttrib read the player's strength / dexterity / vitality / energy, the
+    // npc's level, series and sex, the faction.  The attribute points are not in the world yet
+    // (M12): they read as "enough", the rest is real.
+    const int level = static_cast<int>(e.level), series = static_cast<int>(e.series), sex = static_cast<int>(e.sex);
+    return [level, series, sex](int type) {
+        switch (type) {
+        case magic_requirelevel: return level;
+        case magic_requireseries: return series;
+        case magic_requiresex: return sex;
+        case magic_requiremenpai: return 0;
+        default: return 1 << 20;
+        }
+    };
+}
+
+bool KSubWorld::item_move_request(std::uint64_t sid, std::uint32_t id, int room, int x, int y, std::uint32_t seq)
+{
+    KItemList* list = items_of(sid);
+    const KItem* item = list ? list->find(id) : nullptr;
+    if (item == nullptr) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    if (room < 0 || room >= room_num || room == room_trade) {   // the trade box waits for the trade (KItemList::ExchangeItem: only while trading)
+        item_result(sid, seq, pb::RESULT_BAD_REQUEST);
+        return false;
+    }
+    // the quick slots take medicine and town portals only, one of each detail type
+    // (ExchangeItem pos_immediacy: CheckSameDetailType)
+    if (room == room_immediacy) {
+        if (item->genre != KItemGenre::medicine && item->genre != KItemGenre::town_portal) {
+            item_result(sid, seq, pb::RESULT_BAD_REQUEST);
+            return false;
+        }
+        if (list->same_detail_in(room_immediacy, item->genre, item->detail, id) != 0) {
+            item_result(sid, seq, pb::RESULT_ALREADY_EXISTS);
+            return false;
+        }
+    }
+    std::uint32_t displaced = 0;
+    if (!list->exchange(id, room, x, y, &displaced)) {
+        item_result(sid, seq, pb::RESULT_FULL);
+        return false;
+    }
+    item_moved(sid, id, seq);
+    if (displaced != 0) item_moved(sid, displaced, 0);
+    return true;
+}
+
+bool KSubWorld::item_equip_request(std::uint64_t sid, std::uint32_t id, int part, std::uint32_t seq)
+{
+    KItemList* list = items_of(sid);
+    const KNpc* me = find_player(sid);
+    const KItem* item = list ? list->find(id) : nullptr;
+    if (item == nullptr || me == nullptr) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    if (part < 0) part = KItemList::equip_place(item->detail);   // KItemList::Equip(nIdx, -1): the part its kind goes to
+    const std::uint32_t worn = list->equipped(part);
+    if (!list->equip(id, part, attrib_of(*me))) {
+        item_result(sid, seq, list->can_equip(*item, part, attrib_of(*me)) ? pb::RESULT_FULL : pb::RESULT_BAD_REQUEST);
+        return false;
+    }
+    item_moved(sid, id, seq);
+    if (worn != 0) item_moved(sid, worn, 0);
+    return true;
+}
+
+bool KSubWorld::item_unequip_request(std::uint64_t sid, int part, std::uint32_t seq)
+{
+    KItemList* list = items_of(sid);
+    const std::uint32_t id = list ? list->equipped(part) : 0;
+    if (id == 0) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    if (!list->unequip(part)) {
+        item_result(sid, seq, pb::RESULT_FULL);   // no room in the bag
+        return false;
+    }
+    item_moved(sid, id, seq);
+    return true;
+}
+
+// KItemList::EatMecidine as the Linux server has it (jx_linux_y 0x08204710): a dead player eats
+// nothing; a medicine is refused while forbit_takemedicine is set, counts towards the potion
+// counter, applies its attributes to the npc (KItem::ApplyMagicAttribToNPC), then one is taken
+// off the stack when the row is stackable, else the item goes.  Town portals and script items
+// come with their systems (M11 E).
+bool KSubWorld::item_use_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq)
+{
+    KItemList* list = items_of(sid);
+    KItem* item = list ? list->find_mutable(id) : nullptr;
+    const auto pit = players_.find(sid);
+    KNpc* me = pit == players_.end() ? nullptr : find_mutable(pit->second);
+    if (item == nullptr || me == nullptr) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    if (!me->alive() || item->genre != KItemGenre::medicine) {
+        item_result(sid, seq, pb::RESULT_BAD_REQUEST);
+        return false;
+    }
+    if (me->forbid_medicine) {
+        item_result(sid, seq, pb::RESULT_WRONG_STATE);
+        return false;
+    }
+    if (me->potion_counter) ++me->potion_count;
+    for (const auto& a : item->base) {
+        if (a.type == magic_lifepotion_v && a.value[1] > 0) {
+            // KNpcAttribModify::LifePotionV: a second potion merges with the one at work
+            const int x1 = me->life_state.value, y1 = me->life_state.time, x2 = a.value[0], y2 = a.value[1];
+            me->life_state.time = std::max(y1, y2);
+            me->life_state.value = (x1 * y1 + x2 * y2) / me->life_state.time;
+        }
+        // manapotion_v and the rest wait for their attributes (M12)
+    }
+    if (item->tpl != nullptr && item->tpl->stackable && item->count > 1) {
+        --item->count;   // KItemList::SetItemStack(nIdx, nStack - 1)
+        item_changed(sid, id);
+        return true;
+    }
+    return take_item(sid, id);
+}
+
+bool KSubWorld::item_drop_request(std::uint64_t sid, std::uint32_t id, std::uint32_t seq)
+{
+    KItemList* list = items_of(sid);
+    if (list == nullptr || list->find(id) == nullptr) {
+        item_result(sid, seq, pb::RESULT_NOT_FOUND);
+        return false;
+    }
+    // dropping puts the item on the ground for others (KPlayer::DropItem + a map object): the
+    // ground side comes with the drops (M11 D); until then the client is told no
+    item_result(sid, seq, pb::RESULT_BAD_REQUEST);
+    return false;
+}
+
+std::uint32_t KSubWorld::give_item(std::uint64_t sid, KItem item)
+{
+    KItemList* list = items_of(sid);
+    if (list == nullptr) return 0;
+    int stacked = 0;
+    const std::uint32_t id = list->add_or_stack(std::move(item), room_equipment, &stacked);
+    if (id == 0) return 0;
+    item_changed(sid, id);
+    return id;
+}
+
+bool KSubWorld::take_item(std::uint64_t sid, std::uint32_t id)
+{
+    KItemList* list = items_of(sid);
+    if (list == nullptr || !list->remove(id)) return false;
+    pb::ItemRemove r;
+    r.set_id(id);
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_ITEM_REMOVE), r);
+    return true;
+}
+
+// The 补血状态 block of KNpc::ProcessState (jx_linux_y 0x0808B7BC): the time counts down every
+// frame; every GAME_UPDATE_TIME frames value * percent / 100 life is added, capped at the maximum.
+void KSubWorld::process_potions(KNpc& e)
+{
+    --e.life_state.time;
+    if (e.life_state.time % static_cast<int>(kGameUpdateTime) == 0) {
+        const std::int64_t before = e.life;
+        std::int64_t life = before + static_cast<std::int64_t>(e.life_state.value) * e.life_gain_percent / 100;
+        if (life > e.life_max) life = e.life_max;
+        if (life < 0) life = 0;
+        e.life = static_cast<std::uint32_t>(life);
+        if (life != before) emit_life(e, static_cast<std::int32_t>(life - before), EntityId{});
+    }
+    if (e.life_state.time <= 0) e.life_state = {};
 }
 
 void KSubWorld::save_items(std::uint64_t sid, pb::RoleData& out) const

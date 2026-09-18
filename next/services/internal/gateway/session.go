@@ -381,7 +381,8 @@ func (s *session) handle(f frame.Frame) bool {
 		return true
 	case stWorld:
 		switch id {
-		case jxpb.MsgId_C2G_MOVE, jxpb.MsgId_C2G_CHAT, jxpb.MsgId_C2G_ATTACK:
+		case jxpb.MsgId_C2G_MOVE, jxpb.MsgId_C2G_CHAT, jxpb.MsgId_C2G_ATTACK,
+			jxpb.MsgId_C2G_ITEM_MOVE, jxpb.MsgId_C2G_ITEM_EQUIP, jxpb.MsgId_C2G_ITEM_UNEQUIP, jxpb.MsgId_C2G_ITEM_USE, jxpb.MsgId_C2G_ITEM_DROP:
 			return s.relay(id, f.Payload)
 		case jxpb.MsgId_C2G_LEAVE_WORLD:
 			s.leaveZone()

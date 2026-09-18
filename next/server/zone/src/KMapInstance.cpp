@@ -96,6 +96,36 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.chat(cmd.sid, req.text());
         break;
     }
+    case pb::C2G_ITEM_MOVE: {
+        pb::ItemMove req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.item_move_request(cmd.sid, req.id(), static_cast<int>(req.room()), static_cast<int>(req.x()), static_cast<int>(req.y()), req.seq());
+        break;
+    }
+    case pb::C2G_ITEM_EQUIP: {
+        pb::ItemEquipReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.item_equip_request(cmd.sid, req.id(), req.part(), req.seq());
+        break;
+    }
+    case pb::C2G_ITEM_UNEQUIP: {
+        pb::ItemUnequipReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.item_unequip_request(cmd.sid, static_cast<int>(req.part()), req.seq());
+        break;
+    }
+    case pb::C2G_ITEM_USE: {
+        pb::ItemUseReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.item_use_request(cmd.sid, req.id(), req.seq());
+        break;
+    }
+    case pb::C2G_ITEM_DROP: {
+        pb::ItemDropReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.item_drop_request(cmd.sid, req.id(), req.seq());
+        break;
+    }
     default:
         log::debug("zone", "client message not handled by the world",
                    {log::kv("sid", cmd.sid), log::kv("msg", cmd.msg_id), log::kv("map", world_.map_id())});

@@ -47,6 +47,7 @@ KItemTemplate common(const json& j, KItemGenre genre)
     t.price = geti(j, "price");
     t.level = geti(j, "level");
     t.max_stack = geti(j, "max_stack");
+    t.stackable = geti(j, "stackable") != 0;
     t.can_sell = geti(j, "can_sell", 1);
     return t;
 }
@@ -639,6 +640,59 @@ bool KItemList::swap(std::uint32_t id, std::uint32_t other)
     return false;
 }
 
+bool KItemList::exchange(std::uint32_t id, int room, int x, int y, std::uint32_t* displaced)
+{
+    if (displaced) *displaced = 0;
+    const auto it = items_.find(id);
+    if (it == items_.end() || room < 0 || room >= room_num) return false;
+    Entry& a = it->second;
+    KInventory& inv = rooms_[static_cast<std::size_t>(room)];
+    const int aw = a.item.width(), ah = a.item.height();
+    if (x < 0 || y < 0 || x + aw > inv.width() || y + ah > inv.height()) return false;
+    std::uint32_t other = 0;
+    for (int cy = y; cy < y + ah; ++cy) {
+        for (int cx = x; cx < x + aw; ++cx) {
+            const std::uint32_t c = inv.at(cx, cy);
+            if (c == 0 || c == id) continue;
+            if (other != 0 && other != c) return false;   // two items under it: nowhere to put both
+            other = c;
+        }
+    }
+    if (other == 0) return move(id, room, x, y);
+    if (a.place.room == room_body) return false;
+    Entry& b = items_.at(other);
+    const KItemPlace pa = a.place;
+    const int bw = b.item.width(), bh = b.item.height();
+    if (!take_off_cells(a)) return false;
+    if (!take_off_cells(b)) {
+        rooms_[static_cast<std::size_t>(pa.room)].place(pa.x, pa.y, id, aw, ah);
+        return false;
+    }
+    const KItemPlace pb = b.place;
+    bool ok = inv.place(x, y, id, aw, ah);
+    if (ok && !rooms_[static_cast<std::size_t>(pa.room)].place(pa.x, pa.y, other, bw, bh)) {
+        inv.pick_up(id, x, y, aw, ah);
+        ok = false;
+    }
+    if (!ok) {
+        rooms_[static_cast<std::size_t>(pa.room)].place(pa.x, pa.y, id, aw, ah);
+        rooms_[static_cast<std::size_t>(pb.room)].place(pb.x, pb.y, other, bw, bh);
+        return false;
+    }
+    a.place = KItemPlace{room, x, y};
+    b.place = pa;
+    if (displaced) *displaced = other;
+    return true;
+}
+
+std::uint32_t KItemList::same_detail_in(int room, KItemGenre genre, int detail, std::uint32_t except) const
+{
+    for (const auto& [id, e] : items_) {
+        if (id != except && e.place.room == room && e.item.genre == genre && e.item.detail == detail) return id;
+    }
+    return 0;
+}
+
 int KItemList::equip_place(int detail) noexcept
 {
     switch (detail) {
@@ -850,9 +904,11 @@ std::optional<KItem> KItemGenerator::medicine(int detail, int level)
     item.level = t->level;
     item.tpl = t;
     item.version = version_;
+    // KBPT_Medicine of the Linux server reads two attributes (columns 14..19; jx_linux_y
+    // 0x081ED430), whatever the file holds beyond them
     std::size_t i = 0;
     for (const auto& a : t->med_attribs) {
-        if (i < item.base.size()) item.base[i++] = a;
+        if (i < 2) item.base[i++] = a;
     }
     return item;
 }

@@ -305,7 +305,12 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     switch (cp.msg_id()) {
     case pb::C2G_MOVE:
     case pb::C2G_CHAT:
-    case pb::C2G_ATTACK: {
+    case pb::C2G_ATTACK:
+    case pb::C2G_ITEM_MOVE:
+    case pb::C2G_ITEM_EQUIP:
+    case pb::C2G_ITEM_UNEQUIP:
+    case pb::C2G_ITEM_USE:
+    case pb::C2G_ITEM_DROP: {
         KCmdClientPacket cmd;
         cmd.sid = cp.sid();
         cmd.msg_id = cp.msg_id();

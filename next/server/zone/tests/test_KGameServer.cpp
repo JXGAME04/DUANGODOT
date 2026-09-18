@@ -223,6 +223,13 @@ TEST_CASE("gateway handshake, sessions, movement over ticks, save on close", "[z
     CHECK(ack1.entity_id() != 0);
     CHECK(ack1.pos().x() == 1000);
     REQUIRE(gw.run_until([&] { return gw.zone_packets(1, jx::pb::G2C_ENTITY_SPAWN).size() == 1; }));
+    // and what the character carries (nothing yet, and no tables in this harness) comes with it
+    REQUIRE(gw.run_until([&] { return gw.zone_packets(1, jx::pb::G2C_ITEM_LIST).size() == 1; }));
+    {
+        jx::pb::InventorySync bag;
+        REQUIRE(bag.ParseFromString(gw.zone_packets(1, jx::pb::G2C_ITEM_LIST)[0].payload()));
+        CHECK(bag.items_size() == 0);
+    }
 
     // session 2 enters next to it
     jx::pb::SessionOpen open2;

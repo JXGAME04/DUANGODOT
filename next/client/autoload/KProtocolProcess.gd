@@ -22,6 +22,14 @@ signal entity_action(a: Dictionary)
 signal map_changed(info: Dictionary)   # the zone moved us to another map bundle
 signal entity_life(l: Dictionary)
 signal chat_msg(msg: Dictionary)
+# items (M11): the bag model below changed; `items_changed` after the whole list, `item_changed`
+# for one item (added, moved, a stack changed), `item_removed`, `item_result` when a request
+# changed nothing (seq of the request, Proto.Result), `money_changed`
+signal items_changed()
+signal item_changed(item: Dictionary)
+signal item_removed(id: int)
+signal item_result(seq: int, result: int)
+signal money_changed(money: int, bank_money: int)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
 signal pong(rtt_ms: int, server_ms: int)
@@ -52,6 +60,17 @@ var chars: Array = []
 # entity_id -> Dictionary; the model of what the zone shows us.  Kept here (not in the scene) so
 # packets that arrive before the world scene is loaded are not lost.
 var entities := {}
+# item id -> Dictionary (see _item_dict): everything the character carries, as the zone last
+# said (G2C_ITEM_LIST after entering the world, then ADD / MOVE / REMOVE).  Rooms as the zone
+# numbers them: 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = ITEM_PART).
+var items := {}
+var money := 0
+var bank_money := 0
+const ROOM_BAG := 0
+const ROOM_REPOSITORY := 1
+const ROOM_TRADE := 2
+const ROOM_IMMEDIACY := 3
+const ROOM_BODY := 10
 
 var _account := ""
 var _password := ""
@@ -118,6 +137,7 @@ func leave_world() -> void:
 		_set_state("lobby")
 		entity_id = 0
 		entities = {}
+		items = {}
 		Log.ctx["zone"] = 0
 
 
@@ -153,6 +173,94 @@ func chat(text: String) -> void:
 	var req := Proto.ChatReq.new()
 	req.set_text(text)
 	Net.send_msg(Proto.MsgId.C2G_CHAT, req)
+
+
+# ---- items: the requests share the move sequence so a G2C_ITEM_RESULT can be matched ----
+
+# Put an item at (room, x, y).  An item lying exactly under the target trades places with it
+# (the zone answers G2C_ITEM_MOVE for both), otherwise G2C_ITEM_RESULT says why not.
+func item_move(id: int, room: int, x: int, y: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.ItemMove.new()
+	req.set_id(id)
+	req.set_room(room)
+	req.set_x(x)
+	req.set_y(y)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ITEM_MOVE, req)
+	Log.trace("item", "move request", {"id": id, "room": room, "x": x, "y": y, "seq": _move_seq})
+	return _move_seq
+
+
+# Wear an item; part -1 = the part its kind goes to (a ring: the first ring slot).
+func item_equip(id: int, part: int = -1) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.ItemEquipReq.new()
+	req.set_id(id)
+	req.set_part(part)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ITEM_EQUIP, req)
+	Log.trace("item", "equip request", {"id": id, "part": part, "seq": _move_seq})
+	return _move_seq
+
+
+func item_unequip(part: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.ItemUnequipReq.new()
+	req.set_part(part)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ITEM_UNEQUIP, req)
+	Log.trace("item", "unequip request", {"part": part, "seq": _move_seq})
+	return _move_seq
+
+
+# Eat a medicine / use an item (KItemList::EatMecidine): the zone answers with the item's new
+# stack (G2C_ITEM_ADD) or G2C_ITEM_REMOVE when it was the last one.
+func item_use(id: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.ItemUseReq.new()
+	req.set_id(id)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ITEM_USE, req)
+	Log.trace("item", "use request", {"id": id, "seq": _move_seq})
+	return _move_seq
+
+
+func item_drop(id: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.ItemDropReq.new()
+	req.set_id(id)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_ITEM_DROP, req)
+	Log.trace("item", "drop request", {"id": id, "seq": _move_seq})
+	return _move_seq
+
+
+# The item worn on a part (0 = none), and what lies on a cell of a room (0 = nothing)
+func item_worn(part: int) -> int:
+	for id in items:
+		var it: Dictionary = items[id]
+		if it.room == ROOM_BODY and it.x == part:
+			return int(id)
+	return 0
+
+
+func item_at(room: int, x: int, y: int) -> int:
+	for id in items:
+		var it: Dictionary = items[id]
+		if it.room == room and x >= it.x and x < it.x + it.w and y >= it.y and y < it.y + it.h:
+			return int(id)
+	return 0
 
 
 func ping() -> void:
@@ -381,6 +489,67 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				return
 			chat_msg.emit({"id": m.get_entity_id(), "name": m.get_name(), "text": m.get_text()})
 
+		Proto.MsgId.G2C_ITEM_LIST:
+			var m := Proto.InventorySync.new()
+			if not _decode(m, payload):
+				return
+			items = {}
+			for v in m.get_items():
+				var d := _item_dict(v)
+				items[int(d.id)] = d
+			money = m.get_money()
+			bank_money = m.get_bank_money()
+			Log.debug("item", "item list", {"count": items.size(), "money": money, "bank_money": bank_money})
+			items_changed.emit()
+			money_changed.emit(money, bank_money)
+
+		Proto.MsgId.G2C_ITEM_ADD:
+			var m := Proto.ItemAdd.new()
+			if not _decode(m, payload):
+				return
+			var d := _item_dict(m.get_item())
+			items[int(d.id)] = d
+			Log.debug("item", "item added", {"id": d.id, "name": d.name, "count": d.count, "room": d.room, "x": d.x, "y": d.y})
+			item_changed.emit(d)
+
+		Proto.MsgId.G2C_ITEM_REMOVE:
+			var m := Proto.ItemRemove.new()
+			if not _decode(m, payload):
+				return
+			var rid := int(m.get_id())
+			items.erase(rid)
+			Log.debug("item", "item removed", {"id": rid})
+			item_removed.emit(rid)
+
+		Proto.MsgId.G2C_ITEM_MOVE:
+			var m := Proto.ItemMove.new()
+			if not _decode(m, payload):
+				return
+			var d = items.get(int(m.get_id()))
+			if d == null:
+				Log.warn("item", "moved item unknown", {"id": m.get_id()})
+				return
+			d.room = int(m.get_room())
+			d.x = int(m.get_x())
+			d.y = int(m.get_y())
+			Log.debug("item", "item moved", {"id": d.id, "room": d.room, "x": d.x, "y": d.y, "seq": m.get_seq()})
+			item_changed.emit(d)
+
+		Proto.MsgId.G2C_ITEM_RESULT:
+			var m := Proto.ItemResult.new()
+			if not _decode(m, payload):
+				return
+			Log.debug("item", "item request refused", {"seq": m.get_seq(), "result": int(m.get_result())})
+			item_result.emit(m.get_seq(), int(m.get_result()))
+
+		Proto.MsgId.G2C_MONEY:
+			var m := Proto.MoneySync.new()
+			if not _decode(m, payload):
+				return
+			money = m.get_money()
+			bank_money = m.get_bank_money()
+			money_changed.emit(money, bank_money)
+
 		Proto.MsgId.G2C_PONG:
 			var m := Proto.Pong.new()
 			if not _decode(m, payload):
@@ -423,6 +592,23 @@ func _apply_move(m) -> void:
 		d.speed = mv.speed
 		d.path = mv.path
 	entity_move.emit(mv)
+
+
+func _magic_list(list: Array) -> Array:
+	var out: Array = []
+	for a in list:
+		out.append({"type": int(a.get_type()), "value": Array(a.get_value())})
+	return out
+
+
+func _item_dict(v) -> Dictionary:
+	return {"id": int(v.get_id()), "genre": int(v.get_genre()), "detail": int(v.get_detail()),
+		"particular": int(v.get_particular()), "level": int(v.get_level()), "series": int(v.get_series()),
+		"count": int(v.get_count()), "durability": int(v.get_durability()), "max_durability": int(v.get_max_durability()),
+		"ex_type": int(v.get_ex_type()), "room": int(v.get_room()), "x": int(v.get_x()), "y": int(v.get_y()),
+		"w": int(v.get_width()), "h": int(v.get_height()), "name": v.get_name(), "image": v.get_image(),
+		"intro": v.get_intro(), "price": int(v.get_price()), "base": _magic_list(v.get_base()),
+		"require": _magic_list(v.get_require()), "magic": _magic_list(v.get_magic())}
 
 
 func _path_list(points: Array) -> Array:

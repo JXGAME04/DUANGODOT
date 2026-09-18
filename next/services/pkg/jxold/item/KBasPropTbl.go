@@ -106,7 +106,8 @@ type Medicine struct {
 	Intro      string      `json:"intro"`
 	Price      int         `json:"price"`
 	Level      int         `json:"level"`
-	Attribs    []MedAttrib `json:"attribs"`
+	Stackable  int         `json:"stackable"` // 是否叠放 (column 13): eating takes one off the stack instead of the item
+	Attribs    []MedAttrib `json:"attribs"`   // the Linux server reads the first two only
 }
 
 // Quest is KBASICPROP_QUEST (questkey.txt).  The old core read column 9 as bCanSell and 10 as
@@ -185,6 +186,7 @@ type MagicScript struct {
 	SkillID    int    `json:"skill"`
 	ShowLevel  int    `json:"show_level"`
 	ShortKey   int    `json:"short_key"`
+	Stackable  int    `json:"stackable"` // 是否叠放 (column 13)
 	MaxStack   int    `json:"max_stack"`
 	RegSeries  int    `json:"reg_series"`
 }
@@ -308,7 +310,7 @@ func Load(dir, version string) (*Set, error) {
 		for row := 2; row <= t.Height(); row++ {
 			m := Medicine{Row: row - 1, Name: vi(t.Get(row, 1)), Genre: atoi(t.Get(row, 2)), Detail: atoi(t.Get(row, 3)), Particular: atoi(t.Get(row, 4)),
 				Image: t.Get(row, 5), ObjIdx: atoi(t.Get(row, 6)), Width: atoi(t.Get(row, 7)), Height: atoi(t.Get(row, 8)), Intro: vi(t.Get(row, 9)),
-				Price: atoi(t.Get(row, 11)), Level: atoi(t.Get(row, 12))}
+				Price: atoi(t.Get(row, 11)), Level: atoi(t.Get(row, 12)), Stackable: atoi(t.Get(row, 13))}
 			// the old core read two attributes (columns 14..19); the JX2 file has five (..28): keep them all
 			for c := 14; c+2 <= t.Width(); c += 3 {
 				if a := atoi(t.Get(row, c)); a != 0 {
@@ -381,7 +383,7 @@ func Load(dir, version string) (*Set, error) {
 		for row := 2; row <= t.Height(); row++ {
 			s.Scripts = append(s.Scripts, MagicScript{Row: row - 1, Name: vi(t.Get(row, 1)), Genre: atoi(t.Get(row, 2)), Detail: atoi(t.Get(row, 3)),
 				Particular: atoi(t.Get(row, 4)), Image: t.Get(row, 5), ObjIdx: atoi(t.Get(row, 6)), Width: atoi(t.Get(row, 7)), Height: atoi(t.Get(row, 8)),
-				Intro: vi(t.Get(row, 9)), Price: atoi(t.Get(row, 11)), Script: t.Get(row, 14), SkillID: atoi(t.Get(row, 15)),
+				Intro: vi(t.Get(row, 9)), Price: atoi(t.Get(row, 11)), Stackable: atoi(t.Get(row, 13)), Script: t.Get(row, 14), SkillID: atoi(t.Get(row, 15)),
 				ShowLevel: atoi(t.Get(row, 18)), ShortKey: atoi(t.Get(row, 19)), MaxStack: atoi(t.Get(row, 21)), RegSeries: atoi(t.Get(row, 23))})
 		}
 	} else {

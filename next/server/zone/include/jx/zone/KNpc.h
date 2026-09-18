@@ -58,6 +58,19 @@ struct KNpc {
     std::uint32_t approach_tries = 0;   // walks toward an out-of-reach target, a few times at most
     std::uint32_t life = 0;          // m_CurrentLife (never below 0 here; death when a blow exceeds it)
     std::uint32_t life_max = 0;      // m_CurrentLifeMax
+    // m_LifeState: a medicine at work - `value` life every GAME_UPDATE_TIME frames for `time`
+    // frames (KNpcAttribModify::LifePotionV, KNpc::ProcessState; jx_linux_y 0x08097E70 / 0x0808B7BC)
+    struct PotionState {
+        int value = 0;
+        int time = 0;
+    };
+    PotionState life_state;
+    // jx_linux_y KNpc+0x1194: percent applied to the natural life replenish and to potion heals
+    // ("AddLife: %d * %d%% = %d"); 100 unless a magic attribute (ProcessFunc 190) changed it
+    int life_gain_percent = 100;
+    bool forbid_medicine = false;     // KNpc+0x147a: the Lua forbit_takemedicine flag - EatMecidine refuses
+    bool potion_counter = false;      // KPlayer+0x86a4 / +0x86a8: StartPotionCounter .. GetPotionCount
+    int potion_count = 0;
     std::uint64_t loop_frames = 0;   // m_LoopFrames: ticks alive, for the periodic state update
     // KNpc::Load from the template (KNpcTemplate); the AttackSpeed column is the attack length
     std::uint32_t attack_frame = 20;

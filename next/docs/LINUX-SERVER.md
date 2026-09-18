@@ -47,6 +47,7 @@ sau constructor của đối tượng toàn cục): cả 5 đúng. Vậy **183 s
 | `re_luasig.py` | **Chữ ký** từng hàm script (§5): đối số đọc bằng API Lua 4.0 nào, có xem `lua_gettop` không, có cần nhân vật không, đẩy gì, trả mấy giá trị; theo cả hàm bọc (tail-jump và gọi thường với `L`), cả khối nằm sau epilogue | `callees`, `sig <tên>`, `all <out.tsv>` |
 | `re_tables.py` | **Bảng settings ↔ cột/khoá** (§6): nối `KTabFile::Load(obj, path)` với mọi `Get*(obj, row, "Cột")` qua đồ thị gọi hàm, kể cả bảng truyền qua đối số, đường dẫn ghép lúc chạy, đọc theo chỉ số cột, ghi/`Save` | `objects`, `columns`, `report <out.md>` |
 | `re_settings.py` | Bản thô hơn: hàm nào nhắc tới đường dẫn + các hằng chuỗi hàm đó dùng (giữ để tra nhanh) | `list`, `file <text>`, `all` |
+| `re_scan.py` | Ba phép quét mọi hàm (§9): **ai đọc/ghi thành viên ở offset** (`disp 1f8`), **hàm nào đổ bảng con trỏ hàm thành viên** (`pmf` — tìm ctor của `KNpcAttribModify`, `KProtocolProcess`), **lệnh có hình dạng** (`ins <regex>`) | `disp <hex>[,…] [mnemonic]`, `pmf [min]`, `ins <regex> [max]` |
 
 Chạy: `python re_<tool>.py D:/ServerLinux/server1/jx_linux_y <lệnh>` (cần `pip install capstone`).
 
@@ -210,3 +211,33 @@ M10 xong: **liệt kê + phân loại + định vị + chữ ký + cột**. M11�
 từ `jx_settings_cot.md`, chữ ký các hàm Lua của hệ từ `jx_linux_luasig.tsv`, hiện thực trong zone mới
 với **cùng tên, cùng số**, đối chiếu kết quả với server Linux đang chạy. Khi cần đọc sâu một hàm:
 `re_elf.py func <va>` (đã có tên PLT), `re_calls.py callers <va>` để biết ai gọi.
+
+## 9. Đã tìm thấy khi làm M11 (vật phẩm) — địa chỉ đã kiểm từng thân hàm
+
+Cách tìm khi không có tên hàm: (1) hàm đổ **bảng con trỏ hàm thành viên** lộ ra bằng `re_scan.py pmf`
+(nhiều `mov [reg+disp], imm(mã)` liên tiếp; phần tử 8 byte {ptr, adj}); (2) từ một hàm đã biết, lần
+theo `re_calls.py callers` và theo **offset thành viên** bằng `re_scan.py disp`; (3) chuỗi RTTI
+`NKBPT_…` → typeinfo → vtable (4 ô: dtor, đọc dòng, tìm dòng, nạp) cho các lớp bảng vật phẩm.
+
+| Địa chỉ | Là gì | Bằng chứng |
+|---|---|---|
+| `0x08099600` | ctor `KNpcAttribModify` (217 ô `ProcessFunc[]`, đối tượng toàn cục `0x08BAC120`, bảng từ +4, phần tử 8 byte: chỉ số = (disp − 4) / 8) | `pmf`; static init `0x08099E90` |
+| `0x08095B40` | `KNpcAttribModify::ModifyAttrib(this, nIdx, pNpc, pMagic, extra)` — `type ≤ 0x12d`, gọi `ProcessFunc[type]` | đọc `[ebx + type*8 + 4]` rồi `call ecx` |
+| `0x0807D210` | `KNpc::ModifyAttrib(this, nIdx, pData, extra)` → hàm trên | 29 nơi gọi |
+| `0x08097E70` | `ProcessFunc[153]` = **LifePotionV**: `time = max(t1,t2)`, `value = (x1·t1 + x2·t2)/time`; `m_LifeState` = `KNpc+0x1f0` (value), `+0x1f8` (time) | giống nguồn Windows từng dòng |
+| `0x08097DE0` | `ProcessFunc[154]` = ManaPotionV: `+0x200` / `+0x208` | |
+| `0x0809A2F0` | `ProcessFunc[190]`: cộng vào `KNpc+0x1194` (phần trăm hồi máu, log `"(Percent)"`) | |
+| `0x0808B610` | **`KNpc::ProcessState`**: `+0x1184` m_RegionIndex, `+0x1904` m_LoopFrames (% 10), `+0x224` m_Doing (8 = do_sit), `+0x1190` hồi máu tự nhiên × `+0x1194`/100 (`"AddLife: %d * %d%% = %d"`), `+0x118c` m_CurrentLife chặn ở max(`+0x1a14`, `+0x1a18`) và ≥ 0; `+0x11a0`/`+0x11a4` nội lực; rồi các trạng thái mỗi frame: `+0x1c8` độc, `+0x1d8` đóng băng, `+0x1e8` choáng, **`+0x1f8` thuốc máu** (`0x0808B7BC`: `time--`, `% 10 == 0` → `+0x1f0 × percent/100`, chỉ chặn trên), `+0x208` thuốc nội | `disp 1f8`; chuỗi `"AddLifeState: %d * %d%% = %d"` |
+| `0x080DA560` | ctor `KProtocolProcess` (106 ô `ProcessFunc[c2s_…]`) | `pmf` |
+| `0x08204710` | **`KItemList::EatMecidine(this, nIdx)`**: `Player[m_PlayerIdx]` (0x8788 byte, `g_pPlayer` 0x8BAEE60), `Item[]` 0x830D300 (0x368 byte); chết (`m_Doing == 10`) → không; `Check_ItemUsable` trong `\script\item\forbiditem.lua`; genre 1 thuốc → `0x08204858`: cờ `KNpc+0x147a` (forbit_takemedicine), đếm `Player+0x86a4/+0x86a8`, `ApplyMagicAttribToNPC(npc, 3)` (`0x08068560`), `events.lua OnUseItem`, stack (`Item+0x14` xếp chồng, `+0x308` nStack, `+0x30c` max) → `SetItemStack(n−1)` (`0x08200D30`, gói s2c 168) hoặc `Remove` (`0x082006B0`) + `ItemSet.Remove` (`0x0806DB90`); ngồi (8) → đứng (`0x08078AA0`); genre 5 (`0x08204B00`) phù, 6 (`0x082049B8`) kịch bản | chuỗi `"Check_ItemUsable"`, `"OnUseItem"` |
+| `0x08068560` | `KItem::ApplyMagicAttribToNPC(npc, nActive)` = `0x080669B0` (7 thuộc tính cơ bản, `Item+0xe4`) + `0x08066890` (6 ma pháp `Item+0x154`, hậu tố lẻ đếm `nActive`); `0x08068440` gỡ (giá trị đảo dấu) | |
+| `0x081FD880` | `KItemList::UnEquip` bản JX2 (ô trang bị `this + place*8 + 0xc`, gỡ thuộc tính, tính lại bộ 15 ô — bộ đồ) | |
+| `0x081ED430` | **`KBPT_Medicine` đọc dòng** qua bộ đọc chung `0x081ECF40` (mảng mô tả 12 byte {kiểu, đích, mặc định}; kiểu 0 số → `GetInteger(row+2, col)`, 1 chuỗi, 2 **bỏ cột**): 19 cột = tên(+0, 0x50), genre +0x50, detail +0x54, particular +0x58, [ảnh bỏ], obj +0x5c, rộng +0x60, cao +0x64, [giới thiệu bỏ], hệ +0x68, giá +0x6c, cấp +0x70, **是否叠放 +0x74**, 2 thuộc tính (+0xa4…+0xb8). Dòng 0xbc byte; `FindRecord(detail, level)` = `0x081ED5D0` | RTTI `13KBPT_Medicine`, vtable `0x0826A758` |
+| `0x08206110` | **`KItemList::ExchangeItem`** (6,8 KB): mô hình tay cầm như Windows; phòng ở `this+0x4ca8/+0x4cc4/+0x4d18`; `FindItem` `0x081F8850`, `PickUpItem` `0x081F8720`, `PlaceItem` `0x081F8520`, `CheckSameDetailType` `0x08065A70`; gói cho client `0x080A8400` | chuỗi `"%s exchange item error"` |
+| `0x080B5180` / `0x08205830` | `KPlayer::AddItem` / `KItemList::Add` (đích của Lua `AddItem` `0x08120D30` → `0x08120B30` → `0x0811F230` đọc 18 đối số Lua → `0x0806E110` sinh vật phẩm) | `re_calls` |
+
+Bảng tên thuộc tính ma pháp của bản JX2 (`g_szMagicAttribName[id]`, 167 tên, id tới 246) được dựng
+lại từ các lệnh `mov [0x0830E43C + id*8], "tên"` — lưu ở
+[`linux/jx_linux_magicattrib.tsv`](linux/jx_linux_magicattrib.tsv); lưu ý bảng này **không** khớp
+chỉ số `ProcessFunc` ở vài id (154 là `physicsresmax_p` trong bảng tên nhưng ManaPotionV trong
+`ProcessFunc`) — khi cần đúng, tin `ProcessFunc`.
