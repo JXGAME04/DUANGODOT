@@ -312,6 +312,11 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
   uint32 seq = 5;
 }
 
+message SkillDescReq {           // C2G_SKILL_DESC: the tip of a skill (KSkill::GetDesc of the 2.0 client needs the level script's numbers)
+  uint32 skill_id = 1;
+  uint32 level = 2;              // the level shown (0 = not held: the next level only, as KSkill::GetDesc with ulCurLevel 0)
+}
+
 message ReviveReq {              // C2G_REVIVE: the revive request of the old client (KPlayer::Revive 0x080AD9F0, type 0)
   uint32 seq = 1;
 }
@@ -433,6 +438,37 @@ message EntityState {            // G2C_ENTITY_STATE
   uint32 special_id = 5;         // KSkill::StateSpecialId
   bool removed = 6;
   repeated StateAttrib states = 7;
+}
+
+message SkillDescAttrib {        // one KMagicAttrib of a skill level, named as the tables spell it (magic_attrib_name)
+  int32 group = 1;               // 0 immediate, 1 damage, 2 state - the order KSkill::GetDescAboutLevel prints them
+  string name = 2;
+  int32 v0 = 3;
+  int32 v1 = 4;
+  int32 v2 = 5;
+}
+
+message SkillDescAppend {        // addskilldamage 1 to 6 of the level: "Tang cho ky nang <name>: <value> percent"
+  int32 skill_id = 1;
+  int32 value = 2;
+}
+
+message SkillDescLevel {         // what the level script left in the KSkill of one level
+  uint32 level = 1;
+  int32 cost = 2;                // CostValue after skill_cost_v
+  int32 cost_type = 3;           // 0 mana, 1 stamina, 2 life
+  int32 attack_radius = 4;
+  repeated SkillDescAttrib attribs = 5;
+  repeated SkillDescAppend appends = 6;
+}
+
+message SkillDesc {              // G2C_SKILL_DESC
+  uint32 skill_id = 1;
+  bool with_cur = 2;             // cur is filled (a bool of its own: the C++ generator owns has_cur())
+  SkillDescLevel cur = 3;        // the level asked for (1 to the max level)
+  bool with_next = 4;
+  SkillDescLevel next = 5;       // the level after it, when there is one
+  uint32 max_level = 6;
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).

@@ -44,6 +44,7 @@ signal player_attrib_changed(attrib: Dictionary)
 signal skills_changed()                 # G2C_SKILL_LIST: the whole book (on entering the world)
 signal mouse_skill_changed()            # left_skill / right_skill set by the weapon rule (0x005FE820)
 signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: one skill (level -1 = gone)
+signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a skill level for its tip arrived
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
 signal pong(rtt_ms: int, server_ms: int)
@@ -98,6 +99,11 @@ var camp := 0
 # special_id, states}
 var states := {}
 var skills_forbidden := false
+var skill_descs := {}                   # "id:level" -> the G2C_SKILL_DESC answer as a Dictionary (the tip's numbers)
+var _skill_text := {}                   # text/skill_desc.json (G_* strings, [Descript], [SkillAttrib]...), loaded on first use
+var _skill_text_loaded := false
+var _skill_rows := {}                   # skills.json rows by id (the cells), loaded on first use
+var _skill_rows_loaded := false
 # the two mouse skills of the old client (KPlayer::m_nLeftSkillID / m_nRightSkillID, GOI_SET_IMMDIA_SKILL):
 # 0 = the plain attack of the weapon (C2G_ATTACK)
 var left_skill := 0
@@ -405,6 +411,61 @@ func update_weapon_skill() -> void:
 	mouse_skill_changed.emit()
 
 
+# C2G_SKILL_DESC: the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level
+# script itself; the zone runs it for this client) - the answer lands in skill_descs and skill_desc_received
+func skill_desc_request(skill_id: int, level: int) -> void:
+	if state != "world":
+		return
+	var req := Proto.SkillDescReq.new()
+	req.set_skill_id(skill_id)
+	req.set_level(maxi(0, level))
+	Net.send_msg(Proto.MsgId.C2G_SKILL_DESC, req)
+	Log.trace("player", "skill desc request", {"skill": skill_id, "level": level})
+
+
+# the answer kept for (skill, level), null while none arrived
+func skill_desc(skill_id: int, level: int):
+	return skill_descs.get("%d:%d" % [skill_id, maxi(0, level)])
+
+
+# text/skill_desc.json of jxassets export-skill-desc: {strings (G_*), descript, skill_attrib, skill_type, weapon_limit}
+func skill_text() -> Dictionary:
+	if not _skill_text_loaded:
+		_skill_text_loaded = true
+		var d = Assets.load_json(Assets.assets_root() + "/text/skill_desc.json")
+		if d is Dictionary:
+			_skill_text = d
+		else:
+			Log.warn("player", "skill texts missing", {"file": Assets.assets_root() + "/text/skill_desc.json"})
+	return _skill_text
+
+
+# the cells of a skills.json row (SkillName, SkillDesc, ReqLevel, Attrib, ...), empty for an unknown id
+func skill_row(skill_id: int) -> Dictionary:
+	if not _skill_rows_loaded:
+		_skill_rows_loaded = true
+		var tab = Assets.load_json("%s/skills.json" % Assets.assets_root())
+		if tab is Dictionary:
+			for r in tab.get("rows", []):
+				_skill_rows[int(r.get("id", 0))] = r.get("cells", {})
+	return _skill_rows.get(skill_id, {})
+
+
+func skill_name(skill_id: int) -> String:
+	return str(skill_row(skill_id).get("SkillName", str(skill_id)))
+
+
+func _skill_desc_level(l) -> Dictionary:
+	var attribs := []
+	for a in l.get_attribs():
+		attribs.append({"group": int(a.get_group()), "name": str(a.get_name()), "v0": int(a.get_v0()), "v1": int(a.get_v1()), "v2": int(a.get_v2())})
+	var appends := []
+	for p in l.get_appends():
+		appends.append({"skill_id": int(p.get_skill_id()), "value": int(p.get_value())})
+	return {"level": int(l.get_level()), "cost": int(l.get_cost()), "cost_type": int(l.get_cost_type()),
+		"attack_radius": int(l.get_attack_radius()), "attribs": attribs, "appends": appends}
+
+
 # The item worn on a part (0 = none), and what lies on a cell of a room (0 = nothing)
 func item_worn(part: int) -> int:
 	for id in items:
@@ -679,6 +740,20 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			faction_count = m.get_faction_count()
 			Log.info("net", "faction", {"faction": faction, "last": faction_last, "count": faction_count, "camp": camp})
 			faction_changed.emit()
+
+		Proto.MsgId.G2C_SKILL_DESC:
+			var m := Proto.SkillDesc.new()
+			if not _decode(m, payload):
+				return
+			var d := {"skill_id": int(m.get_skill_id()), "max_level": int(m.get_max_level()), "has_cur": m.get_with_cur(), "has_next": m.get_with_next()}
+			if m.get_with_cur():
+				d["cur"] = _skill_desc_level(m.get_cur())
+			if m.get_with_next():
+				d["next"] = _skill_desc_level(m.get_next())
+			var level: int = int(d.cur.level) if m.get_with_cur() else 0
+			skill_descs["%d:%d" % [d.skill_id, level]] = d
+			Log.debug("player", "skill desc", {"skill": d.skill_id, "level": level, "max": d.max_level})
+			skill_desc_received.emit(int(d.skill_id))
 
 		Proto.MsgId.G2C_ENTITY_STATE:
 			# the 0x87 handler of the 2.0 client (0x006526E0 -> KNpc::SetStateSkillEffect 0x005EDFC0): the character's own states

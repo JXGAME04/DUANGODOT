@@ -485,6 +485,8 @@ public:
     void set_horse(KNpc& e, int n);
     // the ride toggle 0x080AEFA0 (C2G_RIDE): true when the state changed
     bool ride_request(std::uint64_t sid, bool on, std::uint32_t seq);
+    // C2G_SKILL_DESC: the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client; docs/CLIENT-2.0.md §10)
+    void skill_desc_request(std::uint64_t sid, int skill_id, int level);
     // KPlayer::SetFaction 0x080AEEC0 (docs §16.7): the faction named `name` joined - its camp on the npc, the 0x7b packet;
     // false when the table has no such name or refuses the character's series
     bool set_faction(KNpc& e, std::string_view name);

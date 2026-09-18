@@ -1106,3 +1106,40 @@ TEST_CASE("the 0x87 packet: a skill's state on a player goes to its client, its 
     REQUIRE(w.set_state_skill_effect(*p, hero, 1101, 1, states.data(), 2, 36, 0, false, 0, false, 0) == 0);
     CHECK(faction_packets<jx::pb::EntityState>(w.take_outbox(), jx::pb::G2C_ENTITY_STATE).empty());
 }
+
+TEST_CASE("the skill tip: the zone answers cost, range and the level's attributes for the level shown and the next", "[command]")
+{
+    // KSkill::GetDesc 0x006FBC90 of the 2.0 client asks the level script for the numbers; here the zone's own KSkill
+    Arena a;
+    a.w.take_outbox();
+    a.w.skill_desc_request(7, 1101, 1);
+    auto descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    const auto& d = descs[0];
+    CHECK(d.skill_id() == 1101);
+    CHECK(d.max_level() == 20);
+    REQUIRE(d.with_cur());
+    CHECK(d.cur().level() == 1);
+    CHECK(d.cur().cost() == 10);             // the fixture: 10 mana
+    CHECK(d.cur().attack_radius() == 100);
+    bool life = false;
+    for (const auto& at : d.cur().attribs()) {
+        if (at.name() == "life_v") life = true;
+    }
+    CHECK(life);                             // LvlSetting1 life_v of the level script
+    REQUIRE(d.with_next());
+    CHECK(d.next().level() == 2);
+    // not held (level 0): the next level only; the top level: no next; an unknown skill: an empty answer
+    a.w.skill_desc_request(7, 1101, 0);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK((!descs[0].with_cur() && descs[0].with_next() && descs[0].next().level() == 1));
+    a.w.skill_desc_request(7, 1101, 20);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK((descs[0].with_cur() && !descs[0].with_next()));
+    a.w.skill_desc_request(7, 1999, 1);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK((!descs[0].with_cur() && !descs[0].with_next() && descs[0].max_level() == 0));
+}

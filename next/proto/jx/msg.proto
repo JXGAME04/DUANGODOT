@@ -37,6 +37,7 @@ enum MsgId {
   C2G_CAST_SKILL = 1112;       // (zone) cast a skill at a target or a spot (NpcSkillCommand -> KNpc::SendCommand(do_skill))
   C2G_REVIVE = 1113;           // (zone) a dead character asks to revive at its revive point (the handler slot 118 -> KPlayer::Revive(0))
   C2G_RIDE = 1114;             // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
+  C2G_SKILL_DESC = 1115;       // (zone) the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level script; the zone answers)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -68,6 +69,7 @@ enum MsgId {
   G2C_ENTITY_CAMP = 2120;      // a npc's camp changed (the 0x59 packet)
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
   G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
+  G2C_SKILL_DESC = 2123;       // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

@@ -11,6 +11,7 @@
 
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
+#include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/ScriptFuns.h"
 
@@ -1530,6 +1531,58 @@ void KSubWorld::emit_state(const KNpc& e, const KStateNode& node, bool removed)
         }
     }
     emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_STATE), s);
+}
+
+// KSkill::GetDesc of the 2.0 client (0x006FBC90) and its GetDescAboutLevel (0x006FB140 -> 0x006F82F0 -> 0x006F6E30)
+// print the cost, the range and the attribute lines of a level after running the level script on the client; the
+// zone runs that script itself (LoadSkillLevelData), so the client asks for the numbers of the level it shows and of
+// the next one (KSkill::GetDesc of JX1: ulCurLevel 0 -> the next level only).  docs/CLIENT-2.0.md §10.
+void KSubWorld::skill_desc_request(std::uint64_t sid, int skill_id, int level)
+{
+    if (sid == 0 || skills() == nullptr) return;
+    pb::SkillDesc d;
+    d.set_skill_id(static_cast<std::uint32_t>(std::max(0, skill_id)));
+    const int max = skills()->table() != nullptr ? skills()->table()->max_level(skill_id) : 0;   // KSkillManager::GetSkillMaxLevel
+    d.set_max_level(static_cast<std::uint32_t>(std::max(0, max)));
+    const auto fill = [](pb::SkillDescLevel& out, const KSkill& sk) {
+        out.set_level(static_cast<std::uint32_t>(std::max(0, sk.level)));
+        out.set_cost(sk.row.cost);
+        out.set_cost_type(sk.row.cost_type);
+        out.set_attack_radius(sk.row.attack_radius);
+        const auto put = [&out](int group, const KMagicAttrib& m) {
+            if (m.type == 0) return;
+            pb::SkillDescAttrib* a = out.add_attribs();
+            a->set_group(group);
+            a->set_name(magic_attrib_name(m.type));
+            a->set_v0(m.value[0]);
+            a->set_v1(m.value[1]);
+            a->set_v2(m.value[2]);
+        };
+        for (int i = 0; i < sk.immediate_attrib_count && i < static_cast<int>(sk.immediate_attribs.size()); ++i) put(0, sk.immediate_attribs[static_cast<std::size_t>(i)]);
+        for (const KMagicAttrib& m : sk.damage_attribs) put(1, m);   // fixed slots: only the filled ones have a type
+        for (int i = 0; i < sk.state_attrib_count && i < static_cast<int>(sk.state_attribs.size()); ++i) put(2, sk.state_attribs[static_cast<std::size_t>(i)]);
+        for (const auto& ad : sk.add_skill_damage) {
+            if (ad.skill_id == 0) continue;
+            pb::SkillDescAppend* p = out.add_appends();
+            p->set_skill_id(ad.skill_id);
+            p->set_value(ad.value);
+        }
+    };
+    if (level >= 1 && level <= max) {
+        if (const KSkill* sk = skill_of(skill_id, level)) {
+            d.set_with_cur(true);
+            fill(*d.mutable_cur(), *sk);
+        }
+    }
+    const int next = std::max(level, 0) + 1;
+    if (next <= max) {
+        if (const KSkill* sk = skill_of(skill_id, next)) {
+            d.set_with_next(true);
+            fill(*d.mutable_next(), *sk);
+        }
+    }
+    log::debug("skill", "skill desc", {log::kv("sid", sid), log::kv("skill", skill_id), log::kv("level", level), log::kv("max", max)});
+    emit({sid}, static_cast<std::uint16_t>(pb::G2C_SKILL_DESC), d);
 }
 
 // KNpc::SetCamp 0x0807B7B0: m_Camp = camp; a player's hook list +0x8078 (nothing here); the 0x59 packet around

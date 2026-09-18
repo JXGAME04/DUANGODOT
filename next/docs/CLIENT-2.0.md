@@ -269,3 +269,39 @@ Client mới: `client/ui/uicase/UiSkillState.gd` (dưới thanh trên, 10 buff +
 `client/ui/KUiStateMath.gd`, `KUiGameWindows.state_window`, `KProtocolProcess.states / state_changed`; zone `emit_state` (`KSubWorld.cpp`), proto
 `EntityState` / `StateAttrib` (2122); `--auto` (đệ tử cấp 20, `add_sl(30)`) thi triển Bất Động Minh Vương (15) lên mình → `auto_state.png`. Chưa: đồng hành
 (`+0x1698`), hiệu ứng hình ảnh trạng thái trên npc (client `0x005EDFC0`), `+0x13/+0x17` của gói (a9).
+
+## 10. Chú thích kỹ năng — `KSkill::GetDesc` (`0x006FBC90`; M12 lát B4c-1, đã đọc từng dòng `gamecl.exe`)
+
+Rê chuột lên ô kỹ năng (sổ, cây) → `ShowObjectTip 0x0044EBC0(obj {genre, id}, x, y)`: chọn kiểu 1..4 theo phím (`0x004463E0`: Shift → 3, Ctrl/Alt → 2/4,
+`GetGameData 0xbbd`), rồi `GetGameData(kiểu, &obj, &buf)` (dải 1..12 → `0x00663990`; genre `0x40004` = kỹ năng → `0x006FBC90(id, cấp, buf, chỉ số chủ,
+cờ, lệch cấp, −1)` hoặc `0x007036B0` chỉ tên) và đổ vào cửa sổ chú thích `0x8329e8` (`0x0044E5C0`…). Bản 2.0 tính số theo cấp **bằng Lua ngay trên client**
+(`0x006FC7A0`: `LvlSetScript`, `LvlSetting%d`/`LvlData%d`, gọi `GetSkillLevelData(levelname, data, level)` "ssd" của `\script\skill\*.lua` — cùng script
+server chạy); client mới hỏi zone (`C2G_SKILL_DESC` → `G2C_SKILL_DESC`, zone đã chạy `LoadSkillLevelData`).
+
+**Dữ liệu chữ** (`jxassets export-skill-desc` → `client/assets/text/skill_desc.json`): bảng chuỗi toàn cục `\lang\vn\stringtable_core.txt` (`key\tvalue`, TCVN3,
+1360 dòng; nạp bởi `0x005DBA60(tên tệp)` từ `0x005CAB29` `"\lang\%s\stringtable_core.txt"` với thư mục ngôn ngữ = bảng `0x80ec60[chỉ số]` (5 = `vn`); mỗi khoá
+`G_*` → ô `0x9bfXXX`, `\n` trong tệp là hai ký tự và được đổi thành xuống dòng); `[Descript]` của `\settings\magicdesc.ini` (`0x00608BD0` nạp; đã có sẵn ở
+`ui/du-lieu/mo-ta-ma-phap.json` cho vật phẩm); `[SkillAttrib]` / `[SkillType]` / `[WeaponLimit]` của `\settings\gamesetting.ini` (KIniFile `0x24ec3e8`).
+
+| Địa chỉ | Làm gì (thứ tự ghép chuỗi) | Client mới (`KUiSkillDesc.build`) |
+|---|---|---|
+| `0x006FBD3D` | `"<color=Yellow>"` + `SkillName` (+4); nếu `+0x7a4 == 75` (thuộc tính `seriesdamage_p` của cấp) và `Series (+0x58) ≠ −1` → `" "` + `G_S_GOLD..G_S_EARTH[Series]` (`0x9bf45c..`) | tên vàng, + ngũ hành khi có `seriesdamage_p` |
+| `0x006FBEEA` | `"\n<bclr=Black><color>"` | như vậy |
+| `0x006FBF2F` | `ReqLevel (+0x6c, word) > cấp nhân vật` → `sprintf(G_SkillList_6 "Đẳng cấp yêu cầu: %d", ReqLevel)` | như vậy |
+| `0x006FBF83` | `"\n"` + `SkillDesc (+0x114)` + `"\n\n"` (`[0x7afd6c]`) | như vậy |
+| `0x006FC022` | `_itoa(Attrib (+0x4e8))` → `GetString("SkillAttrib", số)` của `gamesetting.ini` + `"\n"` (vd 202 = "Võ công lưu phái: <color=Cyan>Quyền pháp (Ngoại công)<color>") | `skill_attrib[Attrib]` |
+| `0x006FC085` | `Attrib == 1` hoặc `2` (đánh thường): `IsMelee (+0x3c) ≠ 0` → `G_Skills_35 " (Công kích gần) \n"` else `G_Skills_36` | như vậy |
+| `0x006FC114` | `IsAura (vtable +0x4c) ≠ 0` → nhảy tới hạn chế vũ khí (không dòng cấp, không cấp kế). Không aura: lệch cấp (tham số) = 0 → `G_Skills_37 "Cấp hiện tại: %d"` + `"\n"`; ≠ 0 → `"<color=Blue>"` + `G_Skills_38 "Cấp hiện tại: %d (%d+%d)"` + `"\n<bclr=Black><color>"` | dòng 37 (client mới không có cộng cấp) |
+| `0x006FC27F` | `0x00602420(sổ +0x124, id)` > 0 → `G_Skills_39 "Tăng tỉ kỹ năng: %d%%"`; `[SkillType][Attrib]` 1/2 → tổng `Player+0x1278 + +0x1148` → `"%s%d%%\n"` với `G_Skills_76`; `0x005EC4F0`/`0x0060A2B0(0x1f17408)` | chưa (zone không có các số này) |
+| `0x006FC473` | `IsExpSkill (+0x44)` → `0x006F7190(sổ, id)` × 100 → `G_Skills_40 "Độ tu luyện: %d%%"` | `exp_percent` của kỹ năng đang giữ |
+| `0x006FC504` → **`0x006FB140` `GetDescAboutLevel(cấp hiện)`** | `"\n"` + `+0xb30` (chuỗi cấp, thường rỗng); `+0x7a4 == 75` → `G_Skills_75 "Ngũ Hành Tương Khắc: %d%%"` với `+0x7a8`; `GetSkillCost (vtable +0x1c)` ≠ 0 → theo `SkillCostType (+0x9c)`: 0 `G_Skills_45` nội lực, 1 `G_Skills_46` thể lực, 2 `G_Skills_47` sinh lực; `GetAttackRadius (vtable +0x44)` ≠ 0 → `G_Skills_48`; **`0x006FAA00` → `0x006F82F0`**: ba nhóm thuộc tính `0x006F6E30(buf, mảng, n)` — tức thời `+0x7d8`/`+0x918`, sát thương `+0x694` 20 ô cố định, trạng thái `+0x91c`/`+0x0a5c` — mỗi mục `KMagicDesc::GetDesc 0x0060A2B0` (`[Descript][tên]`, rỗng → bỏ) + `"\n"`; rồi 6 mục `+0x4fc` (addskilldamage) → `G_Skills_49 "Tăng cho kỹ năng %s: %d%%"`; `0x006F7F70` với `+0xa74` (kỹ năng liên quan, `G_Skills_50..69 "Chiêu N:"`) và cờ `+0x4ec` | `level_lines(cur)`: chi phí/phạm vi/thuộc tính (zone gửi `attribs` nhóm 0/1/2 + `appends`); chưa: `+0xa74`, `+0x4ec`, `+0xb30`, `G_Skills_75` |
+| `0x006FC527` | `EqtLimit (+0xac)`: −2 → bỏ; ≥ 0 → khoá `"%d"`; < 0 → `"F%d"` (−1 → `F1` Tay không) → `GetString("WeaponLimit", khoá)` → `G_Skills_41 "Hạn chế vũ khí:"` + chữ + `"\n"` | như vậy (khoá chữ thường) |
+| `0x006FC617` | `HorseLimit (+0xb0)`: 1 → `G_Skills_42`, 2 → `G_Skills_43` | như vậy |
+| `0x006FC697` | không aura, tham số "cấp kế" và có kỹ năng cấp kế → `G_Skills_44 "\n<color=Red> Đẳng cấp tiếp theo \n"` + `0x006FB140(cấp kế)` | `has_next` → `level_lines(next)` |
+| `0x0060A2B0` (`KMagicDesc::GetDesc` 2.0) | `GetString("Descript", tên thuộc tính)`; duyệt `#`: dấu `+`/`~` (`0x00608BE0`), chữ số 1..9 → `0x00608C00`: `idx = c − '1'`, giá trị `value[idx % 3]`, `idx/3` = 0 nguyên, 1 `>> 8`, 2 `& 0xff`; chữ cái → `0x0060A110` (d/f/k/s/m/x/l như `KMagicDesc.cpp` cũ; mỗi dấu **luôn 4 ký tự** nên `[#l1]` nuốt `]`) | `KMagicDesc.describe_line` (thuần, test `test_magic_desc`) |
+
+Zone: `KSubWorld::skill_desc_request(sid, id, cấp)` → `G2C_SKILL_DESC {skill_id, has_cur, cur {level, cost, cost_type, attack_radius, attribs[{group 0/1/2,
+name, v0, v1, v2}], appends[{skill_id, value}]}, has_next, next, max_level}` từ `skill_of(id, cấp)` (cấp 0 = chưa giữ → chỉ cấp kế, như `GetDesc` JX1 với
+`ulCurLevel == 0`); test `[command]` "the skill tip". Client: `KProtocolProcess.skill_desc_request / skill_desc / skill_text / skill_row / skill_name`,
+`KUiSkillDesc.gd` (`build`, `level_lines`, test `test_skill_desc`), `KMagicDesc.describe_line` (bổ sung; `describe({type, value})` của vật phẩm giữ nguyên),
+`KUiGameWindows._show_skill_tip` (sổ + cây; phần tĩnh hiện ngay, số liệu khi zone trả). `--auto` chụp `auto_skill_tip.png` → `AUTO_SKILL_TIP skill=14 answered=true cur_attribs=2 next=true lines=30 (auto_skill_tip.png: tên vàng, mô tả, Võ công lưu phái, Cấp hiện tại, tiêu hao/phạm vi/sát thương/6 dòng tăng kỹ năng, Hạn chế vũ khí, Đẳng cấp tiếp theo đỏ)`.

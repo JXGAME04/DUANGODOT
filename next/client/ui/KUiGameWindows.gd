@@ -18,6 +18,7 @@ const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
+const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
@@ -34,6 +35,7 @@ var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]])
 var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
 var shortcuts := KUiShortcut.new()      # the nine shortcut skills (Q W E A S D Z X C), kept per character
 var quick := KUiShortcutItem.new()      # the nine quick slots of the bottom bar (keys 1..9), kept per character
+var _tip_skill := 0                     # the skill whose tip the mouse hover shows (0 = none); the zone's numbers may arrive later
 signal quick_skill(skill_id: int)       # ShortcutUseItem on a cell holding a skill: cast it at the cursor (the scene knows where)
 var hover: UiMouseHover = null
 var hand: KUiDraggedObject = null
@@ -95,6 +97,7 @@ func _ready() -> void:
 	Game.player_attrib_changed.connect(func(_a): _refresh_bars())
 	Game.skills_changed.connect(_refresh_mouse_skills)
 	Game.mouse_skill_changed.connect(_refresh_mouse_skills)
+	Game.skill_desc_received.connect(func(id: int): if id == _tip_skill: _show_skill_tip(id))
 	Game.skill_changed.connect(func(_id): _refresh_mouse_skills())
 	_refresh_bars()
 	_refresh_mouse_skills()
@@ -373,19 +376,34 @@ func _on_state_hovered(text: String) -> void:
 
 
 func _on_tree_hovered(skill_id: int) -> void:
-	if skill_id <= 0 or not Game.skills.has(skill_id):
-		hover.hide_lines()
-		return
-	var sk = Game.skills[skill_id]
-	var info := skills_window.skill_info(skill_id)
-	hover.show_text("%s  %d/%d\n" % [info.name, int(sk.current_level), int(sk.max_level)], _canvas.get_local_mouse_position())
+	_show_skill_tip(skill_id if skill_id > 0 and Game.skills.has(skill_id) else 0)
 
 
 func _on_skill_hovered(skill) -> void:
-	if skill == null:
+	_show_skill_tip(int(skill.id) if skill != null else 0)
+
+
+# the tip of a skill (ShowObjectTip 0x0044EBC0 genre 4 -> KSkill::GetDesc 0x006FBC90): the static part at once, the level
+# numbers when the zone answers (G2C_SKILL_DESC), the answer kept per (skill, level)
+func _show_skill_tip(skill_id: int) -> void:
+	_tip_skill = skill_id
+	if skill_id <= 0:
 		hover.hide_lines()
-	else:
-		hover.show_text("%s  %d/%d\n" % [skill.name, int(skill.current_level), int(skill.max_level)], _canvas.get_local_mouse_position())
+		return
+	var held: Dictionary = Game.skills.get(skill_id, {})
+	var level := int(held.get("level", 0))
+	var desc = Game.skill_desc(skill_id, level)
+	if desc == null:
+		Game.skill_desc_request(skill_id, level)
+		desc = {}
+	var text := KUiSkillDesc.build(Game.skill_row(skill_id), held, int(Game.player_attrib.get("level", 1)), desc, Game.skill_text(), Game.skill_name)
+	hover.show_text(text, _canvas.get_local_mouse_position())
+
+
+func skill_tip_text(skill_id: int) -> String:
+	var held: Dictionary = Game.skills.get(skill_id, {})
+	var desc = Game.skill_desc(skill_id, int(held.get("level", 0)))
+	return KUiSkillDesc.build(Game.skill_row(skill_id), held, int(Game.player_attrib.get("level", 1)), desc if desc != null else {}, Game.skill_text(), Game.skill_name)
 
 
 # A click on an item with nothing on the cursor lifts it (Wnd_SetDragObj).

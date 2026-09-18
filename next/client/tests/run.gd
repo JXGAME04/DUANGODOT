@@ -45,6 +45,8 @@ func _init() -> void:
 	test_shortcuts()
 	test_weapon_skill()
 	test_shortcut_items()
+	test_magic_desc()
+	test_skill_desc()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -449,3 +451,60 @@ func test_shortcut_items() -> void:
 	check(int(again.slot(5).id) == 11 and int(again.slot(5).detail) == 0 and int(again.slot(4).id) == 14, "round trip")
 	q.remove(5)
 	check(int(q.slot(5).genre) == 0, "remove")
+
+
+# ---- the "#" grammar of magicdesc.ini (KMagicDesc.gd; KMagicDesc::GetDesc, gamecl.exe 2.0 0x0060A2B0 / 0x00608C00) ----
+func test_magic_desc() -> void:
+	var K = load("res://ui/KMagicDesc.gd")
+	var ctx := {"series": ["Kim", "Mộc", "Thuỷ", "Hoả", "Thổ"], "series_none": "Vô hệ", "cost_types": ["Nội lực", "Sinh lực", "Thể lực", "Tiền"],
+		"sex": ["Nam", "Nữ"], "factions": {0: "Thiếu Lâm"}, "skill_name": func(id: int) -> String: return "Kỹ năng %d" % id, "own_skill": "Võ công vốn có"}
+	check(K.describe_line("Sát thương vật lý: #d1- đến #d3- điểm", [12, 0, 30], ctx) == "Sát thương vật lý: 12 đến 30 điểm", "d1 / d3")
+	check(K.describe_line("Nộ trảnh: #d1+%", [15, 0, 0], ctx) == "Nộ trảnh: +15%", "the + sign")
+	check(K.describe_line("Thời gian: #d1~%", [20, 0, 0], ctx) == "Thời gian: -20%", "the ~ sign on a positive")
+	check(K.describe_line("x #d1~", [-5, 0, 0], ctx) == "x +5", "the ~ sign negates a negative")
+	check(K.describe_line("#d4-/#d7-", [0x0102, 0, 0], ctx) == "1/2", "digits 4..6 shift, 7..9 mask")
+	check(K.describe_line("#f6-s", [0, 0, 36 * 256], ctx) == "2.00s", "f6: frames to seconds")
+	check(K.describe_line("Loại: #k1-", [2, 0, 0], ctx) == "Loại: Thể lực" and K.describe_line("#s1-", [3, 0, 0], ctx) == "Hoả" and K.describe_line("#s1-", [9, 0, 0], ctx) == "Vô hệ", "k and s")
+	check(K.describe_line("#m1- #x1-", [0, 0, 0], ctx) == "Thiếu Lâm Nam" and K.describe_line("#x1-", [1, 0, 0], ctx) == "Nữ", "m and x")
+	# a marker is always four characters: the "]" after "#l1" is its sign slot (KMagicDesc.cpp pTempDesc += 4), as in the game
+	check(K.describe_line("Tăng [#l1] h#d3-%", [14, 0, 7], ctx) == "Tăng [[ Kỹ năng 14 ] h7%" and K.describe_line("[#l1]", [0, 0, 0], ctx) == "[Võ công vốn có", "l: a skill name or the own words")
+	check(K.describe_line("không có dấu", [1, 2, 3], ctx) == "không có dấu" and K.describe_line("#d1", [1, 0, 0], ctx) == "#d1", "plain text; a marker needs four characters")
+
+
+# ---- the skill tip (KUiSkillDesc.gd; gamecl.exe 2.0 KSkill::GetDesc 0x006FBC90) ----------------------------------
+func test_skill_desc() -> void:
+	var D = load("res://ui/KUiSkillDesc.gd")
+	var text := {"strings": {"G_SkillList_6": "Đẳng cấp yêu cầu: %d", "G_Skills_37": "Cấp hiện tại: %d", "G_Skills_45": "Tiêu hao nội lực: %d\n",
+		"G_Skills_48": "Khoảng cách hiệu quả: %d\n", "G_Skills_44": "\n<color=Red> Đẳng cấp tiếp theo \n", "G_Skills_41": "Hạn chế vũ khí:",
+		"G_Skills_42": "Trong lúc cưỡi ngựa không thể thi triển \n", "G_Skills_35": " (Công kích gần) \n", "G_Skills_49": "Tăng cho kỹ năng %s: %d%%\n"},
+		"descript": {"physicsdamage_v": "Sát thương vật lý: #d1- đến #d3- điểm", "attackrating_p": "Độ chính xác: #d1-%"},
+		"skill_attrib": {"202": "Võ công lưu phái: <color=Cyan>Quyền pháp<color>"}, "weapon_limit": {"f1": "<color=White>Tay không<color>", "2": "Côn"}}
+	var row := {"SkillName": "Hàng Long Bất Vũ", "SkillDesc": "Võ công nhập môn", "ReqLevel": "10", "Attrib": "202", "IsAura": "0", "Series": "0",
+		"EqtLimit": "-1", "HorseLimit": "1", "IsMelee": "0", "IsExpSkill": "0"}
+	var desc := {"skill_id": 14, "max_level": 20, "has_cur": true, "has_next": true,
+		"cur": {"level": 1, "cost": 10, "cost_type": 0, "attack_radius": 90, "attribs": [{"group": 1, "name": "physicsdamage_v", "v0": 12, "v1": 0, "v2": 30}, {"group": 0, "name": "attackrating_p", "v0": 5, "v1": 0, "v2": 0}], "appends": [{"skill_id": 10, "value": 7}]},
+		"next": {"level": 2, "cost": 11, "cost_type": 0, "attack_radius": 90, "attribs": [{"group": 1, "name": "physicsdamage_v", "v0": 14, "v1": 0, "v2": 33}], "appends": []}}
+	var name_of := func(id: int) -> String: return "Kim Cang Phục Ma" if id == 10 else str(id)
+	var t: String = D.build(row, {"level": 1, "exp_percent": 0}, 20, desc, text, name_of)
+	var lines := t.split("\n")
+	check(lines[0] == "<color=Yellow>Hàng Long Bất Vũ" and lines[1] == "<bclr=Black><color>", "the title in yellow, the black outline back: %s" % [lines.slice(0, 2)])
+	check(lines[2] == "Võ công nhập môn" and lines[3] == "", "the description after a blank")
+	check(lines[4] == "Võ công lưu phái: <color=Cyan>Quyền pháp<color>" and lines[5] == "Cấp hiện tại: 1", "the SkillAttrib line and the level")
+	check(t.find("Tiêu hao nội lực: 10\n") >= 0 and t.find("Khoảng cách hiệu quả: 90\n") >= 0, "cost and range")
+	# the immediate attribute (group 0) is printed before the damage one (group 1)
+	check(t.find("Độ chính xác: 5%") < t.find("Sát thương vật lý: 12 đến 30 điểm") and t.find("Độ chính xác: 5%") >= 0, "attribute order and texts")
+	check(t.find("Tăng cho kỹ năng Kim Cang Phục Ma: 7%") >= 0, "the append line")
+	check(t.find("Hạn chế vũ khí:<color=White>Tay không<color>\n") >= 0 and t.find("Trong lúc cưỡi ngựa") >= 0, "weapon and horse limits")
+	var next_at := t.find("<color=Red> Đẳng cấp tiếp theo")
+	check(next_at >= 0 and t.find("Sát thương vật lý: 14 đến 33 điểm") > next_at, "the next level after its red header")
+	check(t.find("Đẳng cấp yêu cầu") < 0, "no requirement line at level 20")
+	# a low character sees the requirement; an aura shows no level line and no next level; no answer yet -> the static part
+	var low: String = D.build(row, {"level": 1}, 5, desc, text, name_of)
+	check(low.find("Đẳng cấp yêu cầu: 10") >= 0, "the requirement line at level 5")
+	var aura_row := row.duplicate()
+	aura_row["IsAura"] = "1"
+	var au: String = D.build(aura_row, {"level": 1}, 20, desc, text, name_of)
+	check(au.find("Cấp hiện tại") < 0 and au.find("Đẳng cấp tiếp theo") < 0 and au.find("Tiêu hao nội lực: 10") >= 0, "an aura: no level, no next, its cost")
+	var pending: String = D.build(row, {"level": 1}, 20, {}, text, name_of)
+	check(pending.find("Tiêu hao") < 0 and pending.find("Cấp hiện tại: 1") >= 0, "without the zone's answer: the static lines only")
+	check(D.build(row, {"level": 1}, 20, desc, text, name_of).find("(Công kích gần)") < 0 and D.build({"SkillName": "Đấm", "Attrib": "1", "IsMelee": "1"}, {"level": 1}, 20, {}, text, name_of).find("(Công kích gần)") >= 0, "the plain attack words for Attrib 1 / 2 only")

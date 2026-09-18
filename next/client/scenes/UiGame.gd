@@ -746,6 +746,17 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_cast.png")
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]
 	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told, "faction": Game.faction_last, "branches": titles})
+	# the tip of the picked skill (KSkill::GetDesc 0x006FBC90): shown, the zone's numbers asked, shown again with them
+	if _windows != null and pick > 0:
+		_windows._show_skill_tip(pick)
+		await get_tree().create_timer(0.6).timeout
+		_windows._show_skill_tip(pick)
+		await get_tree().create_timer(0.2).timeout
+		await _save_screenshot("user://logs/auto_skill_tip.png")
+		var tip_desc = Game.skill_desc(pick, int(Game.skills.get(pick, {}).get("level", 0)))
+		var tip_text := _windows.skill_tip_text(pick)
+		print("AUTO_SKILL_TIP skill=%d answered=%s cur_attribs=%d next=%s lines=%d" % [pick, tip_desc != null, (tip_desc.cur.attribs.size() if tip_desc != null and tip_desc.get("has_cur", false) else -1), (tip_desc.get("has_next", false) if tip_desc != null else false), tip_text.split("\n").size()])
+		_windows._show_skill_tip(0)
 	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s faction=%d branches=%s" % [Game.skills.size(), placed, pick, cast_told, Game.faction_last, "|".join(titles)])
 
 

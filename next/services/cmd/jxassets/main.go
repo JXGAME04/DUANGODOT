@@ -23,6 +23,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -56,6 +57,7 @@ var (
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
 	flagAll    = flag.Bool("all", false, "export-objdata: every row's picture, not only the ones items and money use")
 	flagTheme  = flag.String("theme", "", "export-ui: a fragment of the theme folder name (1024, 800); default: the largest")
+	flagLang   = flag.String("lang", "vn", "export-skill-desc: the \\lang\\<lang> folder of the client (gamecl.exe 2.0 picks it by its language index at 0x80ec60: vn)")
 	flagServer = flag.String("server", "", "old server folder(s) 'a;b' (package.ini + pak/maps.pak, Settings, script): the first with a pak serves the regions, plain files come from the first that has them; default: the Server folder next to the client")
 )
 
@@ -1137,6 +1139,80 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-weapon-skill: %d dong vu khi -> ky nang (bo qua %d) tu %s -> %s\n", len(table.Rows), table.Skipped, file, p)
+
+	case "export-skill-desc":
+		// the texts KSkill::GetDesc 0x006FBC90 of the 2.0 client puts in a skill's tip: the G_* string table
+		// \lang\<lang>\stringtable_core.txt (loaded by 0x005DBA60), [Descript] of \settings\magicdesc.ini (KMagicDesc
+		// 0x0060A2B0) and [SkillAttrib] / [SkillType] / [WeaponLimit] of \settings\gamesetting.ini (docs/CLIENT-2.0.md §10)
+		// -> <out>/text/skill_desc.json.  The Vietnamese files are TCVN3; the ini keys come out lower-cased (ParseIni).
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		read := func(p string) []byte {
+			f, e, ok := set.Lookup(gamePath(p))
+			if !ok {
+				fail("not found in the client's archives: %s", p)
+			}
+			data, err := f.Read(e)
+			if err != nil {
+				fail("%s: %v", p, err)
+			}
+			return data
+		}
+		decode := func(b []byte) string {
+			b = bytes.TrimSpace(b)
+			if text.IsTCVN3(b) {
+				return text.TCVN3ToUTF8(b)
+			}
+			return text.DecodeMixed(b)
+		}
+		strTable := map[string]string{}
+		for i, line := range bytes.Split(read("\\lang\\"+*flagLang+"\\stringtable_core.txt"), []byte{'\n'}) {
+			line = bytes.TrimRight(line, "\r")
+			tab := bytes.IndexByte(line, '\t')
+			if tab <= 0 || (i == 0 && string(line[:tab]) == "key") {
+				continue
+			}
+			// the table writes a line break as the two characters backslash-n (G_Skills_35 " (Cong kich gan ) \n"):
+			// KStringTable of the client turns them into real breaks before sprintf sees them
+			strTable[string(line[:tab])] = strings.ReplaceAll(decode(line[tab+1:]), "\\n", "\n")
+		}
+		section := func(ini map[string]map[string]string, name string) map[string]string {
+			m := map[string]string{}
+			for k, v := range ini[strings.ToLower(name)] {
+				m[k] = decode([]byte(v))
+			}
+			return m
+		}
+		magic := npcres.ParseIni(read("\\settings\\magicdesc.ini"))
+		game := npcres.ParseIni(read("\\settings\\gamesetting.ini"))
+		descript := section(magic, "Descript")
+		skillAttrib := section(game, "SkillAttrib")
+		weaponLimit := section(game, "WeaponLimit")
+		doc := map[string]any{
+			"source":       "the client's archives: \\lang\\" + *flagLang + "\\stringtable_core.txt, \\settings\\magicdesc.ini, \\settings\\gamesetting.ini",
+			"lang":         *flagLang,
+			"strings":      strTable,
+			"descript":     descript,
+			"skill_attrib": skillAttrib,
+			"skill_type":   section(game, "SkillType"),
+			"weapon_limit": weaponLimit,
+		}
+		p := filepath.Join(out, "text", "skill_desc.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			fail("%v", err)
+		}
+		data, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(p, data, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-skill-desc: %d chuoi G_*, %d mo ta thuoc tinh, %d SkillAttrib, %d WeaponLimit -> %s\n", len(strTable), len(descript), len(skillAttrib), len(weaponLimit), p)
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):
