@@ -115,7 +115,9 @@ struct KNpcCurrentAttrib {
     KAttribPair anti_do_hurt{};              // 260                          +0x1338
     KAttribPair do_hurt{};                   // 259                          +0x1340
     KAttribPair anti_poison_time_reduce{};   // 258                          +0x1348
-    std::array<KAttribPair, 5> reserved_pairs{};   // +0x1350 (cleared with the anti_* block, no writer found)
+    // +0x1350: the anti pairs against the resist MAXIMUMS, in the order of anti_resist (cleared
+    // with the anti_* block; read by the resist of CalcDamage 0x0807BB20, no writer found)
+    std::array<KAttribPair, 5> anti_resist_max{};
     int treasure = 0;                        // m_CurrentTreasure            +0x1378
     int melee_damage_return_mana = 0;        // 286                          +0x137c
     int range_damage_return_mana = 0;        // 287                          +0x1380
@@ -159,7 +161,10 @@ struct KNpcCurrentAttrib {
     int poison_enhance = 0;                  // poisonenhance_p 164          +0x1434
     int light_enhance = 0;                   // lightingenhance_p 163        +0x1438
     int add_physics_damage = 0;              // addphysicsdamage_v 121       +0x143c
-    std::array<int, 7> add_physics_damage_percent{};   // addphysicsdamage_p 126 by weapon kind (0..5, 10 -> 6)  +0x1440
+    // addphysicsdamage_p 126 by weapon kind: [0..6] +0x1440..+0x1458 (kinds 0..5 and 10 -> 6),
+    // [7] +0x145c ranged weapons, [8] +0x1460 bare hands (0x0809A7F0; KPlayer 0x080B0D50 picks
+    // the slot of the weapon worn)
+    std::array<int, 9> add_physics_damage_percent{};
     int dynamic_magic_shield = 0;            // dynamicmagicshield_v 181     +0x1464
     int static_magic_shield = 0;             // staticmagicshield_v/_p 203/204  +0x1468
     int ignore_skill = 0;                    // ignoreskill_p 191            +0x146c

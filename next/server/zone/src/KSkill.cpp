@@ -288,7 +288,17 @@ void KSkill::load_skill_level_data(int lvl, KScriptCache* scripts)
     }
     KLuaScript* script = scripts != nullptr ? scripts->get(row.level_set_script) : nullptr;
     if (script == nullptr) {
+        // The binary dies here (0x080EE52A).  This machine lacks 156 of the 285 level scripts
+        // (docs/HANDOVER.md §0.4), among them the basic attacks', so the settings are given
+        // 0 - what the JX1 fallback scripts of bin/Server answer - and the skill stays usable.
         log::warn("skill", "skill level script missing", {log::kv("skill", row.id), log::kv("name", row.name), log::kv("script", row.level_set_script)});
+        for (int i = 0; i < kSkillLevelSettings; ++i) {
+            const std::string& setting = row.level_setting[static_cast<std::size_t>(i)];
+            const std::string& data = row.level_data[static_cast<std::size_t>(i)];
+            if (setting.empty()) continue;
+            if (!data.empty() && data[0] == '0') continue;
+            parse_string_to_magic_attrib(setting, "0");
+        }
         return;
     }
     for (int i = 0; i < kSkillLevelSettings; ++i) {   // 0x080EE5D2, i = 1..20
@@ -347,6 +357,18 @@ std::optional<KSkillTable> KSkillTable::load(const std::string& file, std::strin
             row.id = id;
             table.info_[id] = std::move(row);
         }
+        // attribconstdata.ini (jxassets export-skills): {"name": [Data0, Data1, ...]} by attribute name
+        if (const auto d = j.find("attrib_data"); d != j.end() && d->is_object()) {
+            for (const auto& [name, values] : d->items()) {
+                const int id = magic_attrib_id(name);
+                if (id < 0 || !values.is_array()) continue;
+                std::vector<int> v;
+                for (const auto& x : values) {
+                    if (x.is_number_integer()) v.push_back(x.get<int>());
+                }
+                table.attrib_data_[id] = std::move(v);
+            }
+        }
     } catch (const std::exception& e) {
         return fail(std::string("skills.json fields: ") + e.what());
     }
@@ -357,6 +379,51 @@ const KSkillRow* KSkillTable::info(int id) const
 {
     const auto it = info_.find(id);
     return it == info_.end() ? nullptr : &it->second;
+}
+
+const std::vector<int>* KSkillTable::attrib_data(int attrib_id) const noexcept
+{
+    const auto it = attrib_data_.find(attrib_id);
+    return it == attrib_data_.end() ? nullptr : &it->second;
+}
+
+const KSkill* KSkill::basic_attack(int id)
+{
+    // Skills.txt of the Linux server, rows 2 and 3 (every column the server reads), the level
+    // numbers at 0 - what special\长兵物理攻击.lua / 远程物理攻击.lua of the JX1 fallback answer
+    static const auto make = [](int skill_id) {
+        std::unordered_map<std::string, std::string> cells = {
+            {"SkillName", skill_id == 1 ? "Cong kich vat ly" : "Cong kich vat ly (xa)"},
+            {"SkillId", std::to_string(skill_id)}, {"Attrib", "1"}, {"SkillStyle", "0"},
+            {"StateSpecialId", "0"}, {"StatePriority", "0"}, {"IsAura", "0"}, {"LRSkill", "0"}, {"NeedShadow", "0"},
+            {"AttackRadius", skill_id == 1 ? "100" : "320"}, {"MaxShadowNum", "0"}, {"MslsGenerate", "0"}, {"MslsGenerateData", "0"},
+            {"CharClass", "0"}, {"MisslesForm", "1"}, {"ChildSkillId", skill_id == 1 ? "64" : "65"}, {"ChildSkillLevel", "-1"},
+            {"ChildSkillNum", "1"}, {"BaseSkill", "1"}, {"CharAnimId", "9"}, {"EventSkillLevel", "0"}, {"IsMelee", "1"},
+            {"WaitTime", "5"}, {"ClientSend", "0"}, {"SkillCostType", "0"}, {"CostValue", "0"}, {"TimePerCast", "0"},
+            {"TimePerCastOnHorse", "0"}, {"IsPhysical", "1"}, {"TargetOnly", "1"}, {"TargetEnemy", "1"}, {"TargetAlly", "0"},
+            {"TargetSelf", "0"}, {"TargetOther", "0"}, {"TargetObj", "0"}, {"TargetNoNpc", "0"}, {"ByMissle", "0"},
+            {"IsUseAR", "1"}, {"StartEvent", "0"}, {"StartSkillId", "0"}, {"FlyEvent", "0"}, {"FlySkillId", "0"},
+            {"FlyEventTime", "0"}, {"CollideEvent", "0"}, {"CollidSkillId", "0"}, {"VanishedEvent", "0"}, {"VanishedSkillId", "0"},
+            {"ReqLevel", "0"}, {"MaxLevel", "0"}, {"EqtLimit", "-2"}, {"HorseLimit", "0"}, {"DoHurt", "80"}, {"WeaponSkill", "1"},
+            {"Param1", "0"}, {"Param2", "0"}, {"PeaceCanUse", "0"}, {"ShowEvent", "0"}, {"IsExpSkill", "0"}, {"Series", "-1"},
+            {"ShowAddition", "1"},
+            {"LvlSetScript", skill_id == 1 ? "\\script\\skill\\special\\changbing_wuli_gongji.lua" : "\\script\\skill\\special\\yuancheng_wuli_gongji.lua"},
+            {"LvlSetting1", "physicsenhance_p"}, {"LvlSetting2", "attackrating_p"}, {"LvlSetting3", "skill_cost_v"},
+        };
+        KSkill s;
+        s.row = KSkillRow::from_cells(cells);
+        s.row.row = skill_id + 1;
+        s.level = 1;
+        for (const std::string& setting : s.row.level_setting) {
+            if (!setting.empty()) s.parse_string_to_magic_attrib(setting, "0");
+        }
+        return s;
+    };
+    static const KSkill melee = make(1);
+    static const KSkill ranged = make(2);
+    if (id == 1) return &melee;
+    if (id == 2) return &ranged;
+    return nullptr;
 }
 
 int KSkillTable::max_level(int id) const

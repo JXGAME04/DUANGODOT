@@ -343,7 +343,8 @@ public:
     // KItemList::GetWeaponDamage (jx_linux_y 0x081F9310) / GetWeaponType: the weapon's damage with
     // its magic and enhance, or bare hands (cur_strength / 5 + 1)
     [[nodiscard]] std::pair<int, int> weapon_damage(int cur_strength = 0) const;
-    [[nodiscard]] int weapon_type() const;   // -1 none, else the detail type of the weapon worn
+    [[nodiscard]] int weapon_type() const;   // -1 none, else the detail type of the weapon worn (0x081F92E0: 0 melee, 1 ranged)
+    [[nodiscard]] int weapon_particular() const;   // -1 none, else the particular (the kind of weapon) of the weapon worn (0x081F9F70)
     [[nodiscard]] int armor_defense() const;  // every worn piece's armordefense_v added up
 
     // money of the bag and the repository (KItemList::GetMoney / AddMoney / CostMoney)

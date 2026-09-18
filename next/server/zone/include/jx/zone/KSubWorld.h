@@ -87,6 +87,9 @@ struct KSubWorldConfig {
     std::uint32_t default_speed = 200;   // units per second
     std::uint32_t max_players = 2000;
     std::uint32_t seed = 1;              // npc wander rng
+    // the percent of a blow between players (and partners), KNpc::CalcDamage 0x0808A368 reads it
+    // from the global 0x08BADF50; its loader is not found yet (B3, the PK rules) - 100 = as is
+    int pk_damage_percent = 100;
     std::shared_ptr<const KMapData> map;  // optional: walkability + spawn + npcs override the fields above
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
@@ -246,6 +249,8 @@ public:
     [[nodiscard]] std::size_t player_count() const noexcept { return players_.size(); }
     [[nodiscard]] std::size_t entity_count() const noexcept { return entities_.size(); }
     [[nodiscard]] const KNpc* find_entity(EntityId id) const;
+    // the entity to change (the script api and the tests set numbers on it)
+    [[nodiscard]] KNpc* mutable_entity(EntityId id);
     [[nodiscard]] const KNpc* find_player(std::uint64_t sid) const;
     [[nodiscard]] std::vector<std::uint64_t> session_ids() const;
     // Copies the stored RoleData with the current position (what PlayerSave sends).
@@ -265,6 +270,71 @@ public:
     [[nodiscard]] KSkillManager* skills() noexcept { return skills_.get(); }
     // KNpcSet::GetRelation (server side): NPC_RELATION bits between two entities.
     [[nodiscard]] int relation(const KNpc& a, const KNpc& b) const noexcept;
+
+    // ---- the fight, function by function from the JX2 server (jx_linux_y; the addresses in
+    // docs/LINUX-SERVER.md §12).  KSkills.cpp holds the casts, KNpc.cpp the blows and the states.
+    struct KCastParams {
+        EntityId target;      // the npc aimed at (nParam1 == -1, nParam2 = its index of the old call)
+        Pos pos;              // or a spot on the map (nParam1 / nParam2 = x / y) when at_pos
+        bool at_pos = false;
+        int wait_time = 0;    // nWaitTime (negative is taken as 0)
+        int extra = 0;        // the 7th argument of KSkill::Cast, handed on to the state as its 8th
+    };
+    // KSkill::Cast 0x080EA920 for a npc launcher.  Styles 2 (CastInitiativeSkill 0x080EAC90) and
+    // 3 (CastPassivitySkill 0x080E8530) are complete; 0 and 14 - the missiles - land their payload
+    // on the target at once (KMissle::ProcessDamage) until the missiles come (B2b).
+    bool skill_cast(const KSkill& skill, KNpc& launcher, const KCastParams& p);
+    bool cast_initiative_skill(const KSkill& skill, KNpc& launcher, int param1, EntityId target, int wait_time, int extra,
+                               int time_override = 0, bool refresh = false, int param10 = 0, int param12 = 0);
+    bool cast_passivity_skill(const KSkill& skill, KNpc& launcher, int extra);
+    // 0x080EAB90: the StartEvent cast and the launcher's auto-skill map (0x080821C0, B2b)
+    void skill_start_event(const KSkill& skill, KNpc& launcher, const KCastParams& p);
+    // KSkill::CreateMissleMagicAttribsData 0x080E9E90: the skill's payload for this launcher, then
+    // the payloads of its appended skills; false when the skill is ClientSend
+    bool create_missle_magic_attribs_data(const KSkill& skill, KNpc& launcher, KMissleMagicAttribsList& out);
+    // KMissle::ProcessDamage 0x080753F0 without the missile: the payload lands on one target;
+    // true when a blow went through (the missile counts its hits by this)
+    bool deliver_attribs(const KMissleMagicAttribsList& list, KNpc& launcher, KNpc& target, int series, bool melee, bool use_ar, int do_hurt, int relation);
+    // KNpc::ReceiveDamage 0x0808A4A0: 1 = the blow landed (states may follow), 0 = nothing happened
+    int receive_damage(KNpc& target, KNpc& attacker, int series, bool melee, const KMagicAttrib* damage, bool use_ar, int do_hurt, int relation, int skill_id);
+    // KNpc::CalcDamage 0x08089C90: 1 = still alive (or nothing to do), 0 = dead or refused
+    int calc_damage(KNpc& target, KNpc& attacker, int min, int max, int type, bool melee, const int* dynamic_shield, int* dealt, int do_hurt, bool is_return);
+    // 0x0807BCD0: the resist of the target against a damage type, 0..95
+    [[nodiscard]] static int calc_resist(const KNpc& target, const KNpc* attacker, int type, bool melee, bool is_return) noexcept;
+    // KNpc::AppendSkillEffect 0x0807CE70 with its five element helpers: the launcher's numbers
+    // merged into the skill's damage attributes, one slot per kind (KDamageSlot)
+    void append_skill_effect(const KNpc& launcher, bool physical, bool melee, const std::array<KMagicAttrib, kSkillAttribs>& src,
+                             std::array<KMagicAttrib, kSkillAttribs>& des, int enhance);
+    // KNpc::SetStateSkillEffect 0x08086260: returns -1 (refused), the frames the state had left
+    // (it was there already) or 0
+    int set_state_skill_effect(KNpc& target, EntityId launcher, int skill_id, int level, const KMagicAttrib* states, int count, int time,
+                               int param8 = 0, bool refresh = false, int param10 = 0, bool reflected = false, int param12 = 0);
+    void set_immediately_skill_effect(KNpc& target, EntityId launcher, const KMagicAttrib* attribs, int count);   // 0x0807D5A0
+    void remove_state_skill_effect(KNpc& target, int skill_id, bool notify);                                      // 0x0807D310
+    void modify_attrib(KNpc& target, EntityId launcher, const KMagicAttrib& m, bool removing);                    // KNpc::ModifyAttrib 0x0807D210
+    // 0x0807BD60: the poison state set, or merged with the one running
+    void set_poison(KNpc& target, EntityId launcher, int damage, int time, int interval);
+    // 0x0807BAA0: the five resist maximums moved by a five-elements blow
+    void modify_five_resist_max(KNpc& target, int enhance, int p);
+    // KNpc::KnockBack 0x08087940: pushed `distance` away from the launcher over `frames` frames
+    void knock_back(KNpc& target, const KNpc& launcher, int frames, int distance);
+    // KNpc::OnHurt 0x0807F780: the stagger, shorter with hit recover; 0x0807F9D0 rolls DoHurt first
+    void do_hurt(KNpc& e, int anti_hit_recover, EntityId source);
+    void do_hurt_chance(KNpc& target, int do_hurt, const KNpc& attacker);
+    // the auto-skill lists of a npc (0x08188BB0; B2b): every frame, when hit, when it hits, when
+    // its life drops under a quarter
+    enum class KAutoSkillList { every_frame, hit_reply, on_hit, life_quarter };
+    void trigger_auto_skills(KNpc& owner, KAutoSkillList which, EntityId target, EntityId launcher);
+    // KNpc::ProcessState 0x0808B610 every frame (the regeneration part every GAME_UPDATE_TIME
+    // frames when `regen`): the poison ticks, the freeze, the stun, the potions, the states run
+    // out.  True when the npc does nothing else this frame (stunned, or the odd frame of a freeze).
+    bool process_frame_state(KNpc& e, bool regen);
+    // 0x0808BFD4: once a second (m_LoopFrames % 18) the crowd block rate and the mana skill enhance
+    void per_second_attribs(KNpc& e);
+    // the skill a swing carries: the npc's active skill, a player's basic attack (1 melee / 2 ranged)
+    [[nodiscard]] const KSkill* swing_skill(const KNpc& e);
+    // KNpc::OnSkill: the cast at 60 % of the swing (the active skill on the target)
+    void on_skill(KNpc& e, KNpc& target);
 
     [[nodiscard]] Pos clamp(Pos p) const noexcept;
     // Mps2Map / Map2Mps: the old absolute scene coordinates (what scripts pass to SetPos / NewWorld)
@@ -315,15 +385,23 @@ private:
     // the player tables (KSubWorldConfig::player_set, or the defaults)
     [[nodiscard]] const KPlayerSet& tables() const noexcept;
     void approach(KNpc& e, const KNpc& target);
-    void hit(KNpc& attacker, KNpc& target);
-    bool check_hit_target(int ar, int df, int ignore = 0);   // KNpc::CheckHitTarget
+    bool check_hit_target(int ar, int df, int ignore = 0);   // KNpc::CheckHitTarget 0x0807ED60
     void check_trap(KNpc& e);                                // KNpc::CheckTrap (players, every frame with m_ProcessAI)
-    void process_state(KNpc& e);                            // KNpc::ProcessState: natural life regeneration
+    void process_state(KNpc& e);                            // the every-GAME_UPDATE_TIME part of KNpc::ProcessState: the regeneration
     // KNpc::Init -> g_pNpcTemplate[id][level]: the level data of a template, computed once per (id, level, series)
     [[nodiscard]] const KNpcLevelData& level_data_of(const KNpcTemplate& t, int level, int series) const;
-    void heal(KNpc& e);
-    void do_hurt(KNpc& e, EntityId source);
     void do_death(KNpc& e, EntityId killer);
+    // the helpers of KNpc.cpp
+    void add_five_resists(KNpc& e, int delta) noexcept;
+    void refresh_state(KNpc& target, EntityId launcher, KStateNode& node, const KMagicAttrib* states, int count);
+    bool apply_special_state(KNpc& target, int attrib_id);   // the state of [returnskill_p] / [ignoreskill_p] on oneself
+    [[nodiscard]] const std::vector<int>* attrib_data(int attrib_id) const noexcept;   // attribconstdata.ini through the skill table
+    [[nodiscard]] bool in_attrib_data(int attrib_id, int value, std::size_t from) const noexcept;
+    [[nodiscard]] int count_npcs_within(const KNpc& e, int radius) const;   // 0x0807A0E0
+    [[nodiscard]] int weapon_enhance_percent(const KNpc& e);   // KPlayer 0x080B0D50: addphysicsdamage_p of the weapon worn
+    [[nodiscard]] int skill_list_level(const KNpc& e, int skill_id) const noexcept;   // KSkillList::GetLevel(list, id, 1) 0x080E4440
+    void sync_life(const KNpc& e, int life_before, EntityId source);   // G2C_ENTITY_LIFE when the life moved
+    void tick_state_skills(KNpc& e);   // the state list part of ProcessState (0x0808B8B6)
     void do_revive(KNpc& e);
     void revive(KNpc& e);
     void emit_action(const KNpc& e, pb::Action action, EntityId target);
@@ -361,7 +439,6 @@ private:
     void send_money(std::uint64_t sid);
     // KItemList::EnoughAttrib needs the player's numbers
     [[nodiscard]] std::function<int(int)> attrib_of(const KNpc& e) const;
-    void process_potions(KNpc& e);   // the 补血状态 block of KNpc::ProcessState, every frame
     void object_tick(KNpc& e, std::vector<EntityId>& expired);   // KObj::Activate for items and money
     void remove_object(EntityId id);
     [[nodiscard]] Pos free_object_pos(Pos at) const;              // KSubWorld::GetFreeObjPos

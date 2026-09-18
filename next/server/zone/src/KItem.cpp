@@ -929,6 +929,12 @@ int KItemList::weapon_type() const
     return w == nullptr ? -1 : w->detail;
 }
 
+int KItemList::weapon_particular() const
+{
+    const KItem* w = find(equip_[itempart_weapon]);
+    return w == nullptr ? -1 : w->particular;
+}
+
 int KItemList::armor_defense() const
 {
     int total = 0;

@@ -187,11 +187,23 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
             c.poison_damage.value[2] = 0xa;
         }
         return true;
-    case magic_addphysicsdamage_p: {                                          // 126 (0x0809A7F0): percent by weapon kind (value[2])
-        static constexpr int kKinds[11] = {0, 1, 2, 3, 4, 5, -1, -1, -1, -1, 6};
-        const int kind = std::abs(v2);
-        if (kind > 10 || kKinds[kind] < 0) return true;
-        c.add_physics_damage_percent[static_cast<std::size_t>(kKinds[kind])] += v0;
+    case magic_addphysicsdamage_p: {                                          // 126 (0x0809A7F0): percent by weapon kind |value[2]|
+        // the jump table 0x082557E0 over kinds 0..10 and the map {0..5 -> 0..5, 10 -> 6} of
+        // the cells +0x1440..+0x1458; 7 is the ranged cell +0x145c, 8 the bare hands +0x1460
+        auto& a = c.add_physics_damage_percent;
+        switch (std::abs(v2)) {
+        case 0: case 1: case 2: case 3: case 4: case 5: a[static_cast<std::size_t>(std::abs(v2))] += v0; break;
+        case 10: a[6] += v0; break;
+        case 6:                                                               // 0x0809AE02: every kind, bare hands and ranged
+            for (std::size_t i = 0; i < 7; ++i) a[i] += v0;
+            a[8] += v0;
+            a[7] += v0;
+            break;
+        case 7: a[7] += v0; break;                                            // 0x0809ACBC: the ranged weapons
+        case 8: for (std::size_t i = 0; i < 7; ++i) a[i] += v0; break;       // 0x0809ACEB: every melee kind
+        case 9: a[8] += v0; a[6] += v0; break;                                // 0x0809AD28: bare hands, then the map's kind 10
+        default: break;                                                       // above 10: nothing (0x0809AA30)
+        }
         return true;
     }
     case magic_addphysicsmagic_v: c.physics_magic.value[0] += v0; c.physics_magic.value[2] += v0; return true;   // 168 (0x08097A10)

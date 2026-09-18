@@ -1235,7 +1235,8 @@ TEST_CASE("a monster killed by a player drops its treasure: money by MoneyRate, 
         e->cur.experience = 1000;
         e->cur.life = 1;
         REQUIRE(w.attack_request(7, pig, static_cast<std::uint32_t>(kill + 1)));
-        for (int i = 0; i < 20 && w.find_entity(pig) != nullptr && w.find_entity(pig)->alive(); ++i) w.tick();
+        // a swing lands at 95 percent at best (MAX_HIT_PERCENT): room for a few more swings
+        for (int i = 0; i < 200 && w.find_entity(pig) != nullptr && w.find_entity(pig)->alive(); ++i) w.tick();
         REQUIRE((w.find_entity(pig) == nullptr || !w.find_entity(pig)->alive()));
         total_objects += static_cast<int>(w.ground_object_count());   // the drops land at the end of the tick the death happened in
         for (int i = 0; i < 40; ++i) w.tick();   // everything on the ground is gone after 40 frames

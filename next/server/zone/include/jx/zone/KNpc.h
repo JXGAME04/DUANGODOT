@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -22,8 +23,9 @@ inline constexpr std::int64_t kSub = 256;
 
 enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 };
 
-// KNpc::m_Doing of the old game, the part the zone simulates.
-enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive };
+// KNpc::m_Doing of the old game, the part the zone simulates (knock_back = do_knockback 0x18 of
+// the JX2 server: pushed over frame_total frames to knock_dest).
+enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back };
 
 // KSkillList::m_Skills[1..4] of a npc (Skill1..4 / Level1..4 of npcs.txt) as far as KNpcAI needs it.
 struct KNpcSkillSlot {
@@ -46,6 +48,32 @@ struct KDamageRecord {
 };
 inline constexpr int kDamageRecordCells = 3;
 inline constexpr int kDamageRecordTtl = 0x4B0;
+
+// KStateNode of the old core: one skill's timed state on this npc (m_StateSkillList, KNpc+0x234
+// of jx_linux_y; a node is 0x170 bytes).  `states` keeps the NEGATED values the skill applied, so
+// taking the state off is applying them once more (KNpc::SetStateSkillEffect 0x08086260,
+// RemoveStateSkillEffect 0x0807D310, the countdown at the end of ProcessState 0x0808B8A8).
+inline constexpr int kMaxSkillState = 20;   // MAX_SKILL_STATE
+struct KStateNode {
+    int skill_id = 0;           // +0x10
+    int level = 0;              // +0x14
+    int left_time = 0;          // +0x18  frames left; -1 = until removed (a passive skill)
+    bool refresh = false;       // +0x1c  SetStateSkillEffect's 9th argument
+    int param = 0;              // +0x20  its 10th
+    int extra = 0;              // +0x16c its 12th
+    int special_id = 0;         // +0x164 KSkill::StateSpecialId - the state's icon
+    int priority = 0;           // +0x168 KSkill::StatePriority
+    std::array<KMagicAttrib, kMaxSkillState> states{};   // +0x24
+};
+
+// KNpc+0x19d8..: one attribute of one skill's states is changed by this much when that skill is
+// cast (0x080792C0, called by CreateMissleMagicAttribsData and CastPassivitySkill).
+struct KStateModifier {
+    int skill_id = 0;   // +0x19d8
+    int attrib = 0;     // +0x19dc  the MAGIC_ATTRIB id to change
+    int index = 0;      // +0x19e0  which nValue
+    int delta = 0;      // +0x19e4
+};
 
 struct KNpc {
     EntityId id;
@@ -79,6 +107,8 @@ struct KNpc {
     std::uint32_t frame_total = 0;   // m_Frames.nTotalFrame
     std::uint32_t frame_cur = 0;     // m_Frames.nCurrentFrame
     EntityId attack_target;          // kept attacking until it dies or we are told to move
+    Pos knock_dest;                  // +0x14a0 / +0x14a4: where a knock back (KDoing::knock_back) ends
+    Pos knock_from;                  // where it started (the way between is walked frame by frame)
     std::uint32_t approach_tries = 0;   // walks toward an out-of-reach target, a few times at most
     // m_LifeState: a medicine at work - `value` life every GAME_UPDATE_TIME frames for `time`
     // frames (KNpcAttribModify::LifePotionV, KNpc::ProcessState; jx_linux_y 0x08097E70 / 0x0808B7BC)
@@ -88,9 +118,32 @@ struct KNpc {
     };
     PotionState life_state;
     PotionState mana_state;           // m_ManaState (+0x200 / +0x208)
-    PotionState poison_state;         // +0x1c0 / +0x1c8 (poisondamagereduce_v eats its value)
+    // m_PoisonState: `value` = damage per tick (+0x1c0), `time` = frames left (+0x1c8), and the
+    // frames between two ticks (+0x1c4); set and merged by 0x0807BD60 from ReceiveDamage
+    PotionState poison_state;
+    int poison_interval = 0;
     PotionState freeze_state;         // +0x1d8
     PotionState stun_state;           // +0x1e8
+    // the skills' timed states (KStateNode) and what the combat code keeps between two blows
+    std::vector<KStateNode> state_skills;   // m_StateSkillList +0x234
+    int damage_lock = 0;                    // +0x1694: ReceiveDamage refuses while it is not 0
+    bool boss_flag = false;                 // +0x181c: a boss - the attacker's add_boss_damage counts (0x08079750 == 3)
+    EntityId last_damage_id;                // m_nLastDamageIdx +0x1598 (CalcDamage)
+    EntityId last_poison_id;                // +0x15a0: who poisoned us last (0x0807BD60)
+    std::unordered_map<int, int> skill_enhance;   // +0x115c: map<skill id, percent> added to a cast's damage (0x080E9E90)
+    KStateModifier state_modifier;          // +0x19d8..
+    int crowd_block_rate = 0;               // +0x1390: min(25, npcs within 256 / addblockrate[0] x addblockrate[1]) once a second (players, 0x0808C078)
+    int mana_skill_enhance = 0;             // +0x139c: manatoskill_enhance x mana / mana max once a second (0x0808BFFC); part of a cast's enhance
+    // the state icons the client is shown (six, sorted by priority toward the end; 0x08079240):
+    // +0x54 the cells, +0x50 the first used cell (6 = none, KNpc::Init), +0x4c what changed
+    // (1 = an icon came, 2 = a state came or went; the sync sets it back to 0)
+    struct KStateIcon {
+        int id = 0;
+        int priority = 0;
+    };
+    std::array<KStateIcon, 6> state_icons{};
+    int state_icon_first = 6;
+    int state_flag = 0;
     bool potion_counter = false;      // KPlayer+0x86a4 / +0x86a8: StartPotionCounter .. GetPotionCount
     int potion_count = 0;
     std::uint64_t loop_frames = 0;   // m_LoopFrames: ticks alive, for the periodic state update
@@ -167,9 +220,18 @@ struct KNpc {
             life_state = PotionState{};
             mana_state = PotionState{};
             poison_state = PotionState{};
+            poison_interval = 0;
             freeze_state = PotionState{};
             stun_state = PotionState{};
         }
+    }
+    // the KStateNode of a skill, if it holds a state on this npc
+    [[nodiscard]] KStateNode* state_of(int skill_id) noexcept
+    {
+        for (KStateNode& n : state_skills) {
+            if (n.skill_id == skill_id) return &n;
+        }
+        return nullptr;
     }
     // the shorthands the rest of the zone reads
     [[nodiscard]] int life() const noexcept { return cur.life; }

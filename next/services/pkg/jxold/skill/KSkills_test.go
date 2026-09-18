@@ -85,3 +85,20 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestParseAttribConstReadsCountAndData(t *testing.T) {
+	ini := "; the sections KSkillManager::Init reads\n[ignoreskill_p]\nCount=4\n;state\nData0=724\nData1=15\nData2=67\nData3=64\n\n[staticmagicshield_v]\nCount=1\nData0=721\n\n[empty]\nCount=0\n\n[short]\nCount=3\nData0=5\n"
+	d := ParseAttribConst([]byte(ini))
+	if got := d["ignoreskill_p"]; len(got) != 4 || got[0] != 724 || got[1] != 15 || got[3] != 64 {
+		t.Fatalf("ignoreskill_p: %v", got)
+	}
+	if got := d["staticmagicshield_v"]; len(got) != 1 || got[0] != 721 {
+		t.Fatalf("staticmagicshield_v: %v", got)
+	}
+	if _, ok := d["empty"]; ok {
+		t.Error("a Count of 0 has no data")
+	}
+	if got := d["short"]; len(got) != 3 || got[0] != 5 || got[1] != 0 || got[2] != 0 {
+		t.Fatalf("a missing Data reads as 0 (KIniFile::GetInteger default): %v", got)
+	}
+}

@@ -181,16 +181,84 @@ public:
     // KSG_StringSkipSymbol('"') + KSG_StringGetInt, ',', GetInt, ',', GetInt (0x08226BC0 / 0x08226C20):
     // "25,-1,2" -> {25, -1, 2}; a value that is not a number is 0 and stops the rest ("25.0,3" -> {25, 0, 0})
     [[nodiscard]] static std::array<int, 3> parse_values(const std::string& value);
+
+    // The basic attacks of Skills.txt (row 2 = skill 1 melee, row 3 = skill 2 ranged) at level 1
+    // with every level number 0, for a map without a skill table (tests) and for a machine
+    // without their level scripts: the row's own columns, and physicsenhance_p / attackrating_p
+    // at 0 - what the JX1 fallback scripts of bin/Server answer.  nullptr for any other id.
+    [[nodiscard]] static const KSkill* basic_attack(int id);
+};
+
+// The damage types of KNpc::CalcDamage (the jump tables 0x082549E4 / 0x08254A34 of the resists:
+// 0 physics, 1 fire, 2 cold, 3 light, 4 poison; 5 = magic, 6 = the damage returned).
+enum KDamageType : int {
+    damage_physics = 0,
+    damage_fire = 1,
+    damage_cold = 2,
+    damage_light = 3,
+    damage_poison = 4,
+    damage_magic = 5,
+    damage_return = 6,
 };
 
 // MAGIC_ATTRIB name -> id, the map KMagicDesc's constructor fills next to its name table
 // (0x0830EB98; the names of KMagicAttribId.h); -1 when unknown.
 [[nodiscard]] int magic_attrib_id(const std::string& name);
 
+// The damage attributes a cast carries, as KNpc::AppendSkillEffect (0x0807CE70) lays them out for
+// KNpc::ReceiveDamage (0x0808A4A0): one fixed slot per kind.  The skill's own list
+// (KSkill::damage_attribs, KSkill::damage_slot) holds the same kinds one slot earlier, with
+// seriesdamage_p last.
+enum KDamageSlot : int {
+    damage_slot_series = 0,          // seriesdamage_p 75 + the launcher's seriesenhance_p
+    damage_slot_attack_rating = 1,   // attackrating_v 56: the launcher's rating (+ base x attackrating_p)
+    damage_slot_ignore_defense = 2,  // ignoredefense_p 58
+    damage_slot_physics = 3,         // physicsdamage_v 59 (from physicsenhance_p 65 or physicsdamage_v)
+    damage_slot_cold = 4,            // colddamage_v 60
+    damage_slot_fire = 5,            // firedamage_v 61
+    damage_slot_light = 6,           // lightingdamage_v 62
+    damage_slot_poison = 7,          // poisondamage_v 63
+    damage_slot_magic = 8,           // magicdamage_v 64
+    damage_slot_steal_life = 9,      // steallife_p 66 (physical skills)
+    damage_slot_steal_mana = 10,     // stealmana_p 67
+    damage_slot_steal_stamina = 11,  // stealstamina_p 68
+    damage_slot_knock_back = 12,     // knockback_p 69
+    damage_slot_deadly_strike = 13,  // deadlystrike_p 70 (physical skills)
+    damage_slot_fatally_strike = 14, // fatallystrike_p 71
+    damage_slot_stun = 15,           // stun_p 72
+    damage_slot_add_skill_exp1 = 16, // addskillexp1 73
+    damage_slot_add_skill_exp2 = 17, // addskillexp2 74
+    damage_slot_count = 18,
+};
+
+// KMissleMagicAttribsData of the old core as the JX2 server builds it
+// (KSkill::CreateMissleMagicAttribsData 0x080E9E90; a node is 0x29c bytes): everything one cast
+// carries to the npcs it reaches - the skill's state attributes (copied), its immediate ones, and
+// the damage attributes with the launcher's numbers merged in.  The appended skills of the cast
+// (skill_appendskill) follow as further nodes (+0x298), each carried to the same targets.
+struct KMissleMagicAttribsData {
+    int skill_id = 0;                                                  // +0
+    int level = 0;                                                     // +4
+    std::array<KMagicAttrib, kSkillAttribs> state_attribs{};           // +0x8
+    int state_count = 0;                                               // +0x148
+    std::array<KMagicAttrib, kSkillAttribs> immediate_attribs{};       // +0x14c (a pointer into the KSkill there)
+    int immediate_count = 0;                                           // +0x150
+    std::array<KMagicAttrib, kSkillAttribs> damage_attribs{};          // +0x154 (KDamageSlot layout)
+    int damage_count = 0;                                              // +0x294
+};
+using KMissleMagicAttribsList = std::vector<KMissleMagicAttribsData>;
+
 // The rows of skills.json (jxassets export-skills) the way KSkillManager::Init keeps them.
 class KSkillTable {
 public:
     static std::optional<KSkillTable> load(const std::string& file, std::string* error);
+    // \settings\attribconstdata.ini as KSkillManager::Init reads it (0x080E7532: for every
+    // MAGIC_ATTRIB name a section with Count and Data0..): the numbers of an attribute, or
+    // nullptr.  The fight uses [returnskill_p] / [ignoreskill_p] (the state skill, its frames,
+    // then the skills they answer), [autoreplyskill] / [autoattackskill] (the skills that do NOT
+    // wake the auto skills) and [staticmagicshield_v] (the states that go when the shield breaks).
+    [[nodiscard]] const std::vector<int>* attrib_data(int attrib_id) const noexcept;
+    void set_attrib_data(int attrib_id, std::vector<int> values) { attrib_data_[attrib_id] = std::move(values); }
     // m_SkillInfo[id - 1]; nullptr when the id has no row
     [[nodiscard]] const KSkillRow* info(int id) const;
     [[nodiscard]] int max_level(int id) const;    // KSkillManager::GetSkillMaxLevel: 0 without a row
@@ -200,6 +268,7 @@ public:
 
 private:
     std::unordered_map<int, KSkillRow> info_;
+    std::unordered_map<int, std::vector<int>> attrib_data_;
 };
 
 // g_SkillManager: the per-level instances.  One per map instance, because the level data is

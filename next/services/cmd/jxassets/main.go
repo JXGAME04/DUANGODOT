@@ -895,6 +895,21 @@ func main() {
 		if err != nil {
 			fail("%s: %v", file, err)
 		}
+		// attribconstdata.ini next to the table (KSkillManager::Init reads it right after)
+		attribConst := ""
+		for _, name := range []string{"attribconstdata.ini", "AttribConstData.ini", "Attribconstdata.ini"} {
+			if st, err := os.Stat(filepath.Join(filepath.Dir(file), name)); err == nil && !st.IsDir() {
+				attribConst = filepath.Join(filepath.Dir(file), name)
+				break
+			}
+		}
+		if attribConst != "" {
+			if table.AttribData, err = skill.LoadAttribConst(attribConst); err != nil {
+				fail("%s: %v", attribConst, err)
+			}
+		} else {
+			fmt.Printf("export-skills: khong thay attribconstdata.ini canh %s (bang tra/bo qua ky nang se trong)\n", file)
+		}
 		p := filepath.Join(out, "skills.json")
 		if err := table.Write(p); err != nil {
 			fail("%s: %v", p, err)
@@ -905,8 +920,8 @@ func main() {
 				scripts[s] = true
 			}
 		}
-		fmt.Printf("export-skills: %d dong ky nang (%d cot, %d script cap, bo qua %d dong) tu %s -> %s\n",
-			len(table.Rows), len(table.Columns), len(scripts), table.Skipped, file, p)
+		fmt.Printf("export-skills: %d dong ky nang (%d cot, %d script cap, bo qua %d dong, %d muc attribconstdata) tu %s -> %s\n",
+			len(table.Rows), len(table.Columns), len(scripts), table.Skipped, len(table.AttribData), file, p)
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):

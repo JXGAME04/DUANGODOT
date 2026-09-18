@@ -59,6 +59,41 @@ type Table struct {
 	Columns []string `json:"columns"`
 	Rows    []Row    `json:"rows"`
 	Skipped int      `json:"skipped"` // rows with an id outside 1..2000 or a negative style
+	// AttribData is \settings\attribconstdata.ini by section (a MAGIC_ATTRIB name): its
+	// Data0..Data<Count-1> (LoadAttribConst); the zone's fight reads returnskill_p,
+	// ignoreskill_p, autoreplyskill, autoattackskill and staticmagicshield_v from it
+	AttribData map[string][]int `json:"attrib_data,omitempty"`
+}
+
+// AttribConstFile is the game path of the ini KSkillManager::Init reads after the tables.
+const AttribConstFile = `\settings\attribconstdata.ini`
+
+// LoadAttribConst reads attribconstdata.ini the way KSkillManager::Init does (jx_linux_y
+// 0x080E7532): every section is a MAGIC_ATTRIB name with Count and Data0..Data<Count-1>, read
+// with KIniFile::GetInteger (a missing Data is 0).
+func LoadAttribConst(path string) (map[string][]int, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttribConst(data), nil
+}
+
+// ParseAttribConst is LoadAttribConst on bytes already read.
+func ParseAttribConst(data []byte) map[string][]int {
+	out := map[string][]int{}
+	for name, keys := range npcres.ParseIni(data) {
+		count, _ := strconv.Atoi(strings.TrimSpace(keys["count"]))
+		if count <= 0 {
+			continue
+		}
+		v := make([]int, count)
+		for i := range v {
+			v[i], _ = strconv.Atoi(strings.TrimSpace(keys["data"+strconv.Itoa(i)]))
+		}
+		out[name] = v
+	}
+	return out
 }
 
 // Parse reads the raw bytes of skills.txt.
