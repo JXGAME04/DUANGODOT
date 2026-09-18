@@ -123,6 +123,7 @@ KSkillRow KSkillRow::from_cells(const std::unordered_map<std::string, std::strin
     r.param2 = cell_int(cells, "Param2", 0);
     r.child_skill_level = cell_int(cells, "ChildSkillLevel", 0);
     r.event_skill_level = cell_int(cells, "EventSkillLevel", 0);
+    r.show_event = cell_int(cells, "ShowEvent", 0);   // the tip of the 2.0 client (0x006FAA00); the server ignores it
     r.is_melee = cell_int(cells, "IsMelee", 0) != 0;
     r.fly_event_time = cell_int(cells, "FlyEventTime", 0);
     r.is_exp_skill = cell_int(cells, "IsExpSkill", 0) != 0;
@@ -243,7 +244,8 @@ void KSkill::add_attrib(const KMagicAttrib& m)
         case 314: row.vanished_event = v1 > 0; row.vanished_skill_id = v3; break;// skill_vanishedevent -> +0xe8 / +0xf8
         case 315: row.do_hurt = v1; break;                                       // skill_dohurt -> +0x5c
         case 316: row.by_missle = v1 != 0; break;                                // skill_bymissle -> +0xc4
-        default: break;                                                          // skill_showevent (317), 319..322: nothing
+        case 317: row.show_event = v1; break;                                    // skill_showevent: nothing here (0x080EDCC0); the 2.0 client's 323 -> +0x4ec, read by its tip
+        default: break;                                                          // 319..322: nothing
         }
         return;
     }

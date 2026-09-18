@@ -481,7 +481,9 @@ func test_skill_desc() -> void:
 	var D = load("res://ui/KUiSkillDesc.gd")
 	var text := {"strings": {"G_SkillList_6": "Đẳng cấp yêu cầu: %d", "G_Skills_37": "Cấp hiện tại: %d", "G_Skills_45": "Tiêu hao nội lực: %d\n",
 		"G_Skills_48": "Khoảng cách hiệu quả: %d\n", "G_Skills_44": "\n<color=Red> Đẳng cấp tiếp theo \n", "G_Skills_41": "Hạn chế vũ khí:",
-		"G_Skills_42": "Trong lúc cưỡi ngựa không thể thi triển \n", "G_Skills_35": " (Công kích gần) \n", "G_Skills_49": "Tăng cho kỹ năng %s: %d%%\n"},
+		"G_Skills_42": "Trong lúc cưỡi ngựa không thể thi triển \n", "G_Skills_35": " (Công kích gần) \n", "G_Skills_49": "Tăng cho kỹ năng %s: %d%%\n",
+		"G_Skills_38": "Cấp hiện tại: %d (%d+%d)", "G_Skills_39": "Tăng từ kỹ năng: %d%%\n", "G_Skills_50": "<color=Blue> Chiêu 1: <color>", "G_Skills_51": "<color=Blue> Chiêu 2: <color>",
+		"G_Skills_52": "<color=Blue> Chiêu 3: <color>", "G_ITEM_22": "[Cấp %d]"},
 		"descript": {"physicsdamage_v": "Sát thương vật lý: #d1- đến #d3- điểm", "attackrating_p": "Độ chính xác: #d1-%"},
 		"skill_attrib": {"202": "Võ công lưu phái: <color=Cyan>Quyền pháp<color>"}, "weapon_limit": {"f1": "<color=White>Tay không<color>", "2": "Côn"}}
 	var row := {"SkillName": "Hàng Long Bất Vũ", "SkillDesc": "Võ công nhập môn", "ReqLevel": "10", "Attrib": "202", "IsAura": "0", "Series": "0",
@@ -489,7 +491,7 @@ func test_skill_desc() -> void:
 	var desc := {"skill_id": 14, "max_level": 20, "has_cur": true, "has_next": true,
 		"cur": {"level": 1, "cost": 10, "cost_type": 0, "attack_radius": 90, "attribs": [{"group": 1, "name": "physicsdamage_v", "v0": 12, "v1": 0, "v2": 30}, {"group": 0, "name": "attackrating_p", "v0": 5, "v1": 0, "v2": 0}], "appends": [{"skill_id": 10, "value": 7}]},
 		"next": {"level": 2, "cost": 11, "cost_type": 0, "attack_radius": 90, "attribs": [{"group": 1, "name": "physicsdamage_v", "v0": 14, "v1": 0, "v2": 33}], "appends": []}}
-	var name_of := func(id: int) -> String: return "Kim Cang Phục Ma" if id == 10 else str(id)
+	var name_of := func(id: int) -> String: return "Kim Cang Phục Ma" if id == 10 else ("La Hán Trận" if id == 11 else str(id))
 	var t: String = D.build(row, {"level": 1, "exp_percent": 0}, 20, desc, text, name_of)
 	var lines := t.split("\n")
 	check(lines[0] == "<color=Yellow>Hàng Long Bất Vũ" and lines[1] == "<bclr=Black><color>", "the title in yellow, the black outline back: %s" % [lines.slice(0, 2)])
@@ -513,6 +515,29 @@ func test_skill_desc() -> void:
 	var pending: String = D.build(row, {"level": 1}, 20, {}, text, name_of)
 	check(pending.find("Tiêu hao") < 0 and pending.find("Cấp hiện tại: 1") >= 0, "without the zone's answer: the static lines only")
 	check(D.build(row, {"level": 1}, 20, desc, text, name_of).find("(Công kích gần)") < 0 and D.build({"SkillName": "Đấm", "Attrib": "1", "IsMelee": "1"}, {"level": 1}, 20, {}, text, name_of).find("(Công kích gần)") >= 0, "the plain attack words for Attrib 1 / 2 only")
+	# the skills a level names (0x006FAA00 -> 0x006F7F70): the append skill held (flags 1: no "Chieu N:"), an event skill
+	# (flags 0: "Chieu 2:" first - the counter starts at 1), an auto skill (flags 5: the name alone), each with its own lines
+	var rel := desc.duplicate(true)
+	rel.cur["related"] = [{"skill_id": 10, "level": 3, "flags": 1, "attribs": [{"group": 0, "name": "attackrating_p", "v0": 9, "v1": 0, "v2": 0}]},
+		{"skill_id": 11, "level": 1, "flags": 0, "attribs": []}, {"skill_id": 12, "level": 2, "flags": 5, "attribs": []}]
+	var tr: String = D.build(row, {"level": 1}, 20, rel, text, name_of)
+	check(tr.find("<color=yellow>Kim Cang Phục Ma<color><color=blue>[Cấp 3]<color>\nĐộ chính xác: 9%\n") >= 0, "the append skill: name, level, its lines: %s" % tr)
+	check(tr.find("<color=Blue> Chiêu 2: <color><color=yellow>La Hán Trận<color><color=blue>[Cấp 1]<color>\n") >= 0, "the event skill after Chieu 2: %s" % tr)
+	check(tr.find("<color=yellow>12<color>\n") >= 0 and tr.find("Chiêu 3") < 0 and tr.find("Chiêu 1") < 0, "the auto skill: its name alone, no third counter")
+	check(tr.find("Kim Cang Phục Ma<color><color=blue>[Cấp 3]") < tr.find("Tăng cho kỹ năng Kim Cang Phục Ma: 7%"), "the named skills before the addskilldamage lines")
+	# G_Skills_38 with an increment, G_Skills_39 with the enhance map; the level shown is the zone's held level
+	var inc := desc.duplicate(true)
+	inc["held_level"] = 3
+	inc["level_inc"] = 2
+	inc["enhance"] = 25
+	var ti: String = D.build(row, {"level": 1}, 20, inc, text, name_of)
+	check(ti.find("<color=Blue>Cấp hiện tại: 3 (1+2)\n<bclr=Black><color>") >= 0 and ti.find("Tăng từ kỹ năng: 25%\n") >= 0, "level with increments and the enhance line: %s" % ti)
+	check(t.find("Tăng từ kỹ năng") < 0 and t.find("Cấp hiện tại: 1\n") >= 0, "no enhance line and the plain level without them")
+	# the addskilldamage line needs the target's ShowAddition (0x006FB3DF) when the rows are known
+	var rows := func(id: int) -> Dictionary: return {"ShowAddition": "0"} if id == 10 else {"ShowAddition": "1"}
+	check(D.build(row, {"level": 1}, 20, desc, text, name_of, rows).find("Tăng cho kỹ năng") < 0, "ShowAddition 0 hides the line")
+	var rows1 := func(_id: int) -> Dictionary: return {"ShowAddition": "1"}
+	check(D.build(row, {"level": 1}, 20, desc, text, name_of, rows1).find("Tăng cho kỹ năng Kim Cang Phục Ma: 7%") >= 0, "ShowAddition 1 shows it")
 
 
 # ---- the missile frames (KMissleResMath.gd; KMissleRes::Draw of the old client, kept by the 2.0 one) ----------------

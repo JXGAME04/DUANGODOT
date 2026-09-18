@@ -44,6 +44,10 @@ function GetSkillLevelData(levelname, data, level)
     if data == "buff" and levelname == "armordefense_v" then return "10,60,0" end
     if data == "buff" and levelname == "hide" then return "1,60,0" end
     if data == "summon" and levelname == "createnpc" then return "418,5,0" end
+    if data == "combo" and levelname == "skill_appendskill" then return "1101,3,0" end
+    if data == "combo" and levelname == "skill_showevent" then return "2,0,0" end
+    if data == "combo" and levelname == "addskilldamage1" then return "1101,0,25" end
+    if data == "unheld" and levelname == "skill_appendskill" then return "1108,1,0" end
     return ""
 end
 )lua";
@@ -97,6 +101,11 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1115, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "2"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
     add(1116, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "3"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
     add(1117, {{"SkillStyle", "4"}, {"TargetEnemy", "0"}, {"Param1", "4"}, {"ChildSkillNum", "1"}, {"Series", "0"}, {"LvlSetting1", "createnpc"}, {"LvlData1", "summon"}});
+    // 1120 names skills in its tip: the append skill 1101 (at most level 3), the fly event skill 1102 (ShowEvent bit 2 from the
+    // level script, EventSkillLevel -1 = its own level), and its addskilldamage1 puts 25 on 1101; 1121 names 1108 (not held)
+    add(1120, {{"LvlSetting1", "life_v"}, {"LvlData1", "hit"}, {"LvlSetting2", "skill_appendskill"}, {"LvlData2", "combo"}, {"LvlSetting3", "skill_showevent"},
+               {"LvlData3", "combo"}, {"LvlSetting4", "addskilldamage1"}, {"LvlData4", "combo"}, {"FlySkillId", "1102"}, {"EventSkillLevel", "-1"}});
+    add(1121, {{"LvlSetting2", "skill_appendskill"}, {"LvlData2", "unheld"}});
     // 1118 only on foot (HorseLimit 1), 1119 only on a horse (HorseLimit 2): the cool down differs on a horse
     add(1118, {{"HorseLimit", "1"}, {"TimePerCast", "30"}, {"TimePerCastOnHorse", "12"}});
     add(1119, {{"HorseLimit", "2"}, {"TimePerCast", "30"}, {"TimePerCastOnHorse", "12"}});
@@ -1129,12 +1138,18 @@ TEST_CASE("the skill tip: the zone answers cost, range and the level's attribute
     CHECK(life);                             // LvlSetting1 life_v of the level script
     REQUIRE(d.with_next());
     CHECK(d.next().level() == 2);
-    // not held (level 0): the next level only; the top level: no next; an unknown skill: an empty answer
+    // the zone answers for the level it holds (0x006233B0 of the 2.0 client), whatever the client asked: 1101 at 1 again
     a.w.skill_desc_request(7, 1101, 0);
     descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
     REQUIRE(descs.size() == 1);
+    CHECK((descs[0].with_cur() && descs[0].held_level() == 1 && descs[0].cur().level() == 1));
+    // not held (1108 is in the table, not in the list): the level asked, 0 -> the next level only; at the top level no next;
+    // an unknown skill: an empty answer
+    a.w.skill_desc_request(7, 1108, 0);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
     CHECK((!descs[0].with_cur() && descs[0].with_next() && descs[0].next().level() == 1));
-    a.w.skill_desc_request(7, 1101, 20);
+    a.w.skill_desc_request(7, 1108, 20);
     descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
     REQUIRE(descs.size() == 1);
     CHECK((descs[0].with_cur() && !descs[0].with_next()));
@@ -1142,4 +1157,54 @@ TEST_CASE("the skill tip: the zone answers cost, range and the level's attribute
     descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
     REQUIRE(descs.size() == 1);
     CHECK((!descs[0].with_cur() && !descs[0].with_next() && descs[0].max_level() == 0));
+}
+
+TEST_CASE("the skill tip names the skills of a level the way 0x006FAA00 / 0x006F7F70 of the 2.0 client do", "[command]")
+{
+    Arena a({1, 1101, 1102, 1120, 1121});
+    a.w.take_outbox();
+    // the asker holds 1120 at level 1: its tip names 1101 (append skill, flags 1) at min(held 1, listed 3) = 1 with 1101's
+    // own life_v line, then 1102 (ShowEvent bit 2 -> FlySkillId, flags 0) at 1120's own level with its armordefense_v
+    a.w.skill_desc_request(7, 1120, 1);
+    auto descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    const auto& d = descs[0];
+    REQUIRE(d.with_cur());
+    CHECK(d.held_level() == 1);
+    CHECK(d.level_inc() == 0);
+    REQUIRE(d.cur().related_size() == 2);
+    CHECK(d.cur().related(0).skill_id() == 1101);
+    CHECK(d.cur().related(0).level() == 1);
+    CHECK(d.cur().related(0).flags() == 1);
+    REQUIRE(d.cur().related(0).attribs_size() >= 1);
+    CHECK(d.cur().related(0).attribs(0).name() == "life_v");
+    CHECK(d.cur().related(1).skill_id() == 1102);
+    CHECK(d.cur().related(1).level() == 1);
+    CHECK(d.cur().related(1).flags() == 0);
+    REQUIRE(d.cur().related(1).attribs_size() >= 1);
+    CHECK(d.cur().related(1).attribs(0).name() == "armordefense_v");
+    // the next level (2) names 1102 at level 2 (EventSkillLevel -1 = the level itself)
+    REQUIRE(d.with_next());
+    REQUIRE(d.next().related_size() == 2);
+    CHECK(d.next().related(1).level() == 2);
+    // 1101's own tip: the enhance map holds 1120's addskilldamage1 (25) - G_Skills_39 - and no named skill
+    a.w.skill_desc_request(7, 1101, 1);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK(descs[0].enhance() == 25);
+    CHECK(descs[0].cur().related_size() == 0);
+    // 1121 names 1108, which the asker does not hold: level 0 -> nothing (0x006F7FC4)
+    a.w.skill_desc_request(7, 1121, 1);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK(descs[0].cur().related_size() == 0);
+    // an increment on 1101 (an add_level_inc node): the level shown is the current one and the tip says so
+    auto host = a.w.skill_host(*a.h);
+    a.h->skill_list.add_level_inc(1101, 2, host);
+    a.w.skill_desc_request(7, 1101, 1);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK(descs[0].held_level() == 3);
+    CHECK(descs[0].level_inc() == 2);
+    CHECK((descs[0].with_cur() && descs[0].cur().level() == 3));
 }

@@ -780,7 +780,9 @@ func _auto_skills() -> void:
 			await _save_screenshot("user://logs/auto_skill_tip.png")
 			var tip_desc = Game.skill_desc(pick, int(Game.skills.get(pick, {}).get("level", 0)))
 			var tip_text := _windows.skill_tip_text(pick)
-			print("AUTO_SKILL_TIP skill=%d answered=%s cur_attribs=%d next=%s lines=%d" % [pick, tip_desc != null, (tip_desc.cur.attribs.size() if tip_desc != null and tip_desc.get("has_cur", false) else -1), (tip_desc.get("has_next", false) if tip_desc != null else false), tip_text.split("\n").size()])
+			print("AUTO_SKILL_TIP skill=%d answered=%s cur_attribs=%d next=%s lines=%d held=%d inc=%d enhance=%d related=%d" % [pick, tip_desc != null, (tip_desc.cur.attribs.size() if tip_desc != null and tip_desc.get("has_cur", false) else -1), (tip_desc.get("has_next", false) if tip_desc != null else false), tip_text.split("\n").size(),
+				(int(tip_desc.get("held_level", 0)) if tip_desc != null else -1), (int(tip_desc.get("level_inc", 0)) if tip_desc != null else -1), (int(tip_desc.get("enhance", 0)) if tip_desc != null else -1),
+				(tip_desc.cur.get("related", []).size() if tip_desc != null and tip_desc.get("has_cur", false) else -1)])
 			_windows._show_skill_tip(0)
 		var own := _own()
 		var best: Node2D = null

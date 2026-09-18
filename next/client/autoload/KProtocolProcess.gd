@@ -478,8 +478,14 @@ func _skill_desc_level(l) -> Dictionary:
 	var appends := []
 	for p in l.get_appends():
 		appends.append({"skill_id": int(p.get_skill_id()), "value": int(p.get_value())})
+	var related := []
+	for r in l.get_related():
+		var ra := []
+		for a in r.get_attribs():
+			ra.append({"group": int(a.get_group()), "name": str(a.get_name()), "v0": int(a.get_v0()), "v1": int(a.get_v1()), "v2": int(a.get_v2())})
+		related.append({"skill_id": int(r.get_skill_id()), "level": int(r.get_level()), "flags": int(r.get_flags()), "attribs": ra})
 	return {"level": int(l.get_level()), "cost": int(l.get_cost()), "cost_type": int(l.get_cost_type()),
-		"attack_radius": int(l.get_attack_radius()), "attribs": attribs, "appends": appends}
+		"attack_radius": int(l.get_attack_radius()), "attribs": attribs, "appends": appends, "related": related}
 
 
 # The item worn on a part (0 = none), and what lies on a cell of a room (0 = nothing)
@@ -772,13 +778,16 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.SkillDesc.new()
 			if not _decode(m, payload):
 				return
-			var d := {"skill_id": int(m.get_skill_id()), "max_level": int(m.get_max_level()), "has_cur": m.get_with_cur(), "has_next": m.get_with_next()}
+			var d := {"skill_id": int(m.get_skill_id()), "max_level": int(m.get_max_level()), "has_cur": m.get_with_cur(), "has_next": m.get_with_next(),
+				"level_inc": int(m.get_level_inc()), "enhance": int(m.get_enhance()), "held_level": int(m.get_held_level())}
 			if m.get_with_cur():
 				d["cur"] = _skill_desc_level(m.get_cur())
 			if m.get_with_next():
 				d["next"] = _skill_desc_level(m.get_next())
 			var level: int = int(d.cur.level) if m.get_with_cur() else 0
 			skill_descs["%d:%d" % [d.skill_id, level]] = d
+			if level != int(m.get_held_level()):
+				skill_descs["%d:%d" % [d.skill_id, int(m.get_held_level())]] = d   # asked at another level: the zone answered for the one it holds
 			Log.debug("player", "skill desc", {"skill": d.skill_id, "level": level, "max": d.max_level})
 			skill_desc_received.emit(int(d.skill_id))
 

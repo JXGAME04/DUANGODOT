@@ -418,7 +418,7 @@ func _show_skill_tip(skill_id: int) -> void:
 func skill_tip_text(skill_id: int) -> String:
 	var held: Dictionary = Game.skills.get(skill_id, {})
 	var desc = Game.skill_desc(skill_id, int(held.get("level", 0)))
-	return KUiSkillDesc.build(Game.skill_row(skill_id), held, int(Game.player_attrib.get("level", 1)), desc if desc != null else {}, Game.skill_text(), Game.skill_name)
+	return KUiSkillDesc.build(Game.skill_row(skill_id), held, int(Game.player_attrib.get("level", 1)), desc if desc != null else {}, Game.skill_text(), Game.skill_name, Game.skill_row)
 
 
 # A click on an item with nothing on the cursor lifts it (Wnd_SetDragObj).

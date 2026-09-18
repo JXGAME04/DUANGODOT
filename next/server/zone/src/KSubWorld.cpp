@@ -2,6 +2,7 @@
 #include "jx/zone/KSubWorld.h"
 
 #include <algorithm>
+#include <functional>
 #include <cmath>
 #include <utility>
 
@@ -1546,24 +1547,87 @@ void KSubWorld::skill_desc_request(std::uint64_t sid, int skill_id, int level)
     d.set_skill_id(static_cast<std::uint32_t>(std::max(0, skill_id)));
     const int max = skills()->table() != nullptr ? skills()->table()->max_level(skill_id) : 0;   // KSkillManager::GetSkillMaxLevel
     d.set_max_level(static_cast<std::uint32_t>(std::max(0, max)));
-    const auto fill = [](pb::SkillDescLevel& out, const KSkill& sk) {
+    // the asker's skill list: the level shown is its current level (increments included, 0x006233B0(list, id, 1) of the
+    // 2.0 client), the increments (0x00623380 gives the learned level) make G_Skills_38, the enhance map G_Skills_39
+    const KNpc* asker = nullptr;
+    if (const auto pit = players_.find(sid); pit != players_.end()) asker = entities_.find(pit->second);
+    if (asker != nullptr) {
+        const int held = asker->skill_list.get_current_level(skill_id, true);
+        if (held > 0) {
+            level = held;
+            d.set_level_inc(held - asker->skill_list.get_level(skill_id));
+        }
+        if (const auto it = asker->skill_list.enhance.find(skill_id); it != asker->skill_list.enhance.end()) d.set_enhance(it->second);
+    }
+    d.set_held_level(static_cast<std::uint32_t>(std::max(0, level)));
+    const auto put = [](pb::SkillDescAttrib* a, int group, const KMagicAttrib& m) {
+        a->set_group(group);
+        a->set_name(magic_attrib_name(m.type));
+        a->set_v0(m.value[0]);
+        a->set_v1(m.value[1]);
+        a->set_v2(m.value[2]);
+    };
+    // 0x006F82F0: the three groups of a level - immediate, damage (the filled fixed slots), state
+    const auto groups = [&put](const KSkill& sk, const std::function<pb::SkillDescAttrib*()>& add) {
+        for (int i = 0; i < sk.immediate_attrib_count && i < static_cast<int>(sk.immediate_attribs.size()); ++i) {
+            if (sk.immediate_attribs[static_cast<std::size_t>(i)].type != 0) put(add(), 0, sk.immediate_attribs[static_cast<std::size_t>(i)]);
+        }
+        for (const KMagicAttrib& m : sk.damage_attribs) {
+            if (m.type != 0) put(add(), 1, m);
+        }
+        for (int i = 0; i < sk.state_attrib_count && i < static_cast<int>(sk.state_attribs.size()); ++i) {
+            if (sk.state_attribs[static_cast<std::size_t>(i)].type != 0) put(add(), 2, sk.state_attribs[static_cast<std::size_t>(i)]);
+        }
+    };
+    // 0x006FAA00 of the 2.0 client after the groups: the skills the level names, each through 0x006F7F70 (nothing for an
+    // id or level of 0 or without an instance) and then its own groups and named skills again (the recursion; capped
+    // here at four deep - the binary has no cap and its data no cycles)
+    std::function<void(pb::SkillDescLevel&, const KSkill&, int)> related;
+    const auto name_one = [&](pb::SkillDescLevel& out, int id, int lv, int flags, int depth) {
+        if (id <= 0 || lv <= 0 || depth > 4) return;   // 0x006F80C3: GetSkill(id, level) of the manager, NULL -> nothing
+        const KSkill* r = skill_of(id, lv);
+        if (r == nullptr) return;
+        pb::SkillDescRelated* p = out.add_related();
+        p->set_skill_id(id);
+        p->set_level(lv);
+        p->set_flags(flags);
+        groups(*r, [p]() { return p->add_attribs(); });
+        related(out, *r, depth + 1);   // 0x006F82BD: 0x006FAA00(that, buf, counter, 0)
+    };
+    related = [&](pb::SkillDescLevel& out, const KSkill& sk, int depth) {
+        // 0x006FAA30: skill_appendskill {id, level}: the level shown is the asker's current level of it, at most the
+        // listed one (a skill not held is level 0 -> not shown); flags 1 = no "Chieu N:" prefix
+        for (const auto& [id, listed] : sk.append_skills) {
+            int lv = asker != nullptr ? asker->skill_list.get_current_level(id, true) : 0;
+            if (lv > listed) lv = listed;
+            name_one(out, id, lv, 1, depth);
+        }
+        // 0x006FAAFB: ShowEvent (+0x4ec) bit 1 StartSkillId, 2 FlySkillId, 4 CollidSkillId, 8 VanishedSkillId at
+        // EventSkillLevel (-1 = the level itself), flags 0; bit 0x10: the state attributes autoreplyskill..autodeathskill
+        // (195..198) name value[0] >> 8 at level value[0] & 0xff with flags 5 (the name alone)
+        const int ev = sk.row.show_event;
+        if (ev == 0) return;
+        const int lv = sk.row.event_skill_level != -1 ? sk.row.event_skill_level : sk.level;
+        if (ev & 1) name_one(out, sk.row.start_skill_id, lv, 0, depth);
+        if (ev & 2) name_one(out, sk.row.fly_skill_id, lv, 0, depth);
+        if (ev & 4) name_one(out, sk.row.collide_skill_id, lv, 0, depth);
+        if (ev & 8) name_one(out, sk.row.vanished_skill_id, lv, 0, depth);
+        if (ev & 0x10) {
+            for (int i = 0; i < sk.state_attrib_count && i < static_cast<int>(sk.state_attribs.size()); ++i) {
+                const KMagicAttrib& m = sk.state_attribs[static_cast<std::size_t>(i)];
+                if (m.type < 195 || m.type > 198) continue;
+                name_one(out, m.value[0] >> 8, m.value[0] & 0xff, 5, depth);
+            }
+        }
+    };
+    const auto fill = [&](pb::SkillDescLevel& out, const KSkill& sk) {
         out.set_level(static_cast<std::uint32_t>(std::max(0, sk.level)));
         out.set_cost(sk.row.cost);
         out.set_cost_type(sk.row.cost_type);
         out.set_attack_radius(sk.row.attack_radius);
-        const auto put = [&out](int group, const KMagicAttrib& m) {
-            if (m.type == 0) return;
-            pb::SkillDescAttrib* a = out.add_attribs();
-            a->set_group(group);
-            a->set_name(magic_attrib_name(m.type));
-            a->set_v0(m.value[0]);
-            a->set_v1(m.value[1]);
-            a->set_v2(m.value[2]);
-        };
-        for (int i = 0; i < sk.immediate_attrib_count && i < static_cast<int>(sk.immediate_attribs.size()); ++i) put(0, sk.immediate_attribs[static_cast<std::size_t>(i)]);
-        for (const KMagicAttrib& m : sk.damage_attribs) put(1, m);   // fixed slots: only the filled ones have a type
-        for (int i = 0; i < sk.state_attrib_count && i < static_cast<int>(sk.state_attribs.size()); ++i) put(2, sk.state_attribs[static_cast<std::size_t>(i)]);
-        for (const auto& ad : sk.add_skill_damage) {
+        groups(sk, [&out]() { return out.add_attribs(); });
+        related(out, sk, 0);
+        for (const auto& ad : sk.add_skill_damage) {   // 0x006FB383: addskilldamage1..6 (the client shows the ones whose skill has ShowAddition)
             if (ad.skill_id == 0) continue;
             pb::SkillDescAppend* p = out.add_appends();
             p->set_skill_id(ad.skill_id);

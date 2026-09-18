@@ -129,6 +129,7 @@ struct KSkillRow {
     int vanished_skill_id = 0;            // VanishedSkillId  +0xf8
     int collide_skill_id = 0;             // CollidSkillId    +0xfc
     int event_skill_level = 0;            // EventSkillLevel  +0x100
+    int show_event = 0;                   // ShowEvent (+0x4ec of the 2.0 client's KSkill, skill_showevent 317): which event skills the tip names
     int max_shadow_num = 0;               // MaxShadowNum     +0x108
     std::string level_up_script;          // LevelUpScript, lower-cased  (+0x10c holds its g_FileName2Id)
     std::string level_set_script;         // LvlSetScript, lower-cased   (+0x110 holds its g_FileName2Id)

@@ -453,6 +453,13 @@ message SkillDescAppend {        // addskilldamage 1 to 6 of the level: "Tang ch
   int32 value = 2;
 }
 
+message SkillDescRelated {       // a skill named inside a level's lines by 0x006F7F70 of the 2.0 client (docs/CLIENT-2.0.md 10.1)
+  int32 skill_id = 1;
+  int32 level = 2;               // the instance described: min(held, listed) of an append skill; EventSkillLevel or the level itself of an event skill
+  int32 flags = 3;               // the flags of 0x006F7F70: 1 = no "Chieu N:" prefix, 2 = no name, 4 = no "[Cap N]"
+  repeated SkillDescAttrib attribs = 4;   // its three attribute groups (0x006F82F0); its own related skills follow in the list (0x006FAA00 recurses)
+}
+
 message SkillDescLevel {         // what the level script left in the KSkill of one level
   uint32 level = 1;
   int32 cost = 2;                // CostValue after skill_cost_v
@@ -460,6 +467,7 @@ message SkillDescLevel {         // what the level script left in the KSkill of 
   int32 attack_radius = 4;
   repeated SkillDescAttrib attribs = 5;
   repeated SkillDescAppend appends = 6;
+  repeated SkillDescRelated related = 7;   // in print order: the append skills held (skill_appendskill), then the event skills ShowEvent names
 }
 
 message MissleSync {             // G2C_MISSLE: a KMissle of the zone as KMissle::Paint / KMissleRes::Draw of the old client draw it
@@ -491,6 +499,9 @@ message SkillDesc {              // G2C_SKILL_DESC
   bool with_next = 4;
   SkillDescLevel next = 5;       // the level after it, when there is one
   uint32 max_level = 6;
+  int32 level_inc = 7;           // the increments of the skill list on the level shown (0x006233B0 with - 0x00623380 without): G_Skills_38 "Cap hien tai: %d (%d+%d)" when not 0
+  int32 enhance = 8;             // KSkillList::enhance[skill] (+0xf14 of the 2.0 list, the addskilldamage of the skills held): G_Skills_39 when not 0
+  uint32 held_level = 9;         // the level the zone described as the current one (the list's current level, increments included)
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
