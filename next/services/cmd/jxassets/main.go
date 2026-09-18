@@ -13,6 +13,8 @@
 //	export-items -out <dir>          the item tables of the old server (settings/item, every version) as JSON
 //	export-player -out <dir>         settings/npc/player of the old server (level_exp, level_add, stamina.ini,
 //	                                 basevalue.ini, newplayerini%02d) as player.json for the zone and the gateway
+//	export-skills -out <dir>         settings/skills.txt of the old server (every row, every column the JX2
+//	                                 server reads) as skills.json for the zone's KSkillManager
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -36,6 +38,7 @@ import (
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/npcres"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/pak"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/player"
+	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/skill"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/spr"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/text"
 	"github.com/JXGAME04/DUANGODOT/next/services/pkg/jxold/wor"
@@ -854,6 +857,56 @@ func main() {
 		fmt.Printf("export-player: cap 1..%d (cap 2 can %d, cap 10 can %d), %d he, %d/%d mau nhan vat moi -> %s%s\n",
 			player.MaxLevel, set.GetLevelExp(1, 0), set.GetLevelExp(9, 0), len(set.LevelAdd), have, player.NewPlayers, p,
 			map[bool]string{true: "  (thieu: " + strings.Join(set.Missing, ",") + ")", false: ""}[len(set.Missing) > 0])
+
+	case "export-skills":
+		// \settings\skills.txt of the old server, every row and every column, read the way
+		// KSkillManager::Init (jx_linux_y 0x080E7200) and KSkill::GetInfoFromTabFile (0x080E9200)
+		// read it -> <out>/skills.json for the zone (docs/LINUX-SERVER.md §11)
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		var file string
+		for _, root := range serverRoots(sdir) {
+			for _, rel := range []string{"settings/skills.txt", "Settings/Skills.txt", "settings/Skills.txt", "Settings/skills.txt"} {
+				if st, err := os.Stat(filepath.Join(root, rel)); err == nil && !st.IsDir() {
+					file = filepath.Join(root, rel)
+					break
+				}
+			}
+			if file != "" {
+				break
+			}
+		}
+		if file == "" {
+			fail("no settings/skills.txt under %s", sdir)
+		}
+		table, err := skill.Load(file)
+		if err != nil {
+			fail("%s: %v", file, err)
+		}
+		p := filepath.Join(out, "skills.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		scripts := map[string]bool{}
+		for _, r := range table.Rows {
+			if s := r.Cells["LvlSetScript"]; s != "" {
+				scripts[s] = true
+			}
+		}
+		fmt.Printf("export-skills: %d dong ky nang (%d cot, %d script cap, bo qua %d dong) tu %s -> %s\n",
+			len(table.Rows), len(table.Columns), len(scripts), table.Skipped, file, p)
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):

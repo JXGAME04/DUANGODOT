@@ -17,6 +17,7 @@ add_library(jx_zone_core STATIC
     src/KNpcAttribModify.cpp
     src/KPlayer.cpp
     src/KPlayerSet.cpp
+    src/KSkill.cpp
     src/KObj.cpp
     src/KMapInstance.cpp
     src/KWorldScheduler.cpp

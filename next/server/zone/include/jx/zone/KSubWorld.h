@@ -32,6 +32,7 @@
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KScriptCache.h"
+#include "jx/zone/KSkill.h"
 
 namespace jx::zone {
 
@@ -101,6 +102,9 @@ struct KSubWorldConfig {
     // settings/npc/player of the old server (player.json): level tables, stamina.ini, basevalue.ini;
     // optional - without it the built-in defaults of KPlayerSet apply
     std::shared_ptr<const KPlayerSet> player_set;
+    // settings/skills.txt of the old server (skills.json of jxassets export-skills): every skill's
+    // row; the numbers per level come from the skill scripts (KScriptCache) at run time.  Optional.
+    std::shared_ptr<const KSkillTable> skills;
 };
 
 // A move to another map a trap script asked for (KNpc::ChangeWorld); KGameServer carries it out.
@@ -256,6 +260,9 @@ public:
     [[nodiscard]] std::uint32_t item_version() const noexcept { return cfg_.item_version; }
     // TextGMFilter of KGMCommand.cpp: true when the text was a GM command (handled, not chat)
     bool gm_command(std::uint64_t sid, std::string_view text);
+    // g_SkillManager of this map: the skills at every level, made from the table and this map's
+    // Lua states on first use; nullptr without a skill table
+    [[nodiscard]] KSkillManager* skills() noexcept { return skills_.get(); }
     // KNpcSet::GetRelation (server side): NPC_RELATION bits between two entities.
     [[nodiscard]] int relation(const KNpc& a, const KNpc& b) const noexcept;
 
@@ -345,6 +352,7 @@ private:
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)
+    std::unique_ptr<KSkillManager> skills_;                    // g_SkillManager: one per map (its Lua states are this map's)
     void load_items(std::uint64_t sid, const pb::RoleData& role);
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);

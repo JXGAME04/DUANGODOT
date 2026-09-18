@@ -1,4 +1,4 @@
-# Bàn giao JX NEXT — trạng thái ngày 2026-09-19
+# Bàn giao JX NEXT — trạng thái ngày 2026-09-18 (đồng hồ máy; các mục ghi 2026-09-19 phía dưới cùng một đợt làm việc)
 
 Tài liệu này trả lời ba câu: **đang ở đâu**, **còn gì phải làm**, **làm theo thứ tự nào**. Người
 tiếp nhận đọc xong là chạy được hệ thống và biết bước kế tiếp mà không phải hỏi ai.
@@ -94,12 +94,15 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   AddExp + CalcExp, bản ghi sát thương chia kinh nghiệm), `KPlayerSet` + `jxassets export-player`
   (`player.json`), gateway tạo nhân vật mới theo `newplayerini%02d`, gói `G2C_PLAYER_ATTRIB` /
   `C2G_ADD_POINT`, client `UiStatus` trang thuộc tính + nút cộng điểm.
+- **M12 lát B1 (xong 2026-09-18)**: bảng `Skills.txt` và **số theo cấp từ chính script cấp** như bản Linux
+  (`KSkill.h/.cpp`: `KSkillRow`, `KSkill::add_attrib` = `AddMagicAttrib`, `KSkillTable`, `KSkillManager`;
+  `jxassets export-skills` → `skills.json`), `LINUX-SERVER.md` §11, test với `shaolin_gunfa` thật cấp 1/10/20.
 
 ### 0.4 Chưa làm — và làm như thế nào
 
 | Việc | Cách làm (đã biết địa chỉ / nguồn) |
 |---|---|
-| **M12 lát B — kỹ năng** (`settings\skills.txt` **114 cột**, `KSkill`, cấp kỹ năng → ma pháp) — **đã bắt đầu đọc 2026-09-19, chưa viết mã** | **Phát hiện đã kiểm**: (1) `\settings\Skills.txt` = `settings/skills.txt` 1 631 dòng, 114 cột (`SkillName, Property, SkillId, Attrib, SkillStyle, SkillIcon, …, AttackRadius(15), MisslesForm(20), ChildSkill…, IsMelee(27), WaitTime(28), SkillCostType(31), CostValue(32), TimePerCast(33), IsPhysical(35), Target*(36–42), ByMissle(43), IsUseAR(44), …Event/SkillId(45–53), ReqLevel(54), MaxLevel(55), EqtLimit(56), HorseLimit(57), DoHurt(58), WeaponSkill(59), Param1/2, Series(70), LvlSetScript(72), LvlSetting1..20 / LvlData1..20 (73–112), LevelUpScript(113), SkillDesc(114)`). (2) **Số theo cấp của kỹ năng nằm trong Lua**: `0x080EE4B0` (bộ nạp cấp kỹ năng, `this` = KSkill, đọc `LvlSetting%d`/`LvlData%d` i = 1..20 qua `KTabFile::GetString 0x08228220` trên bảng `0x0830AE00`; với mỗi cặp có `LvlSetting ≠ ""` và `LvlData ≠ "0"`, gọi script `LvlSetScript` (nạp bằng `0x0805D080`) hàm **`GetSkillLevelData(levelname, data, level)`** kiểu `"ssd"` → trả 1 số hoặc 1 chuỗi `"v1,v2,v3"` → `0x080EE380(skill, level, tên, chuỗi)` đặt `KMagicAttrib` của cấp đó; các ô KSkill `+0x2b4/+0x3f8/+0x53c/+0x680` = 0 lúc bắt đầu; số cấp = đối số 3). Dữ liệu là bảng Lua `SKILLS[key][attrib] = {[1]={{cấp,giá trị[,đường cong]},…},[2]=…,[3]=…}` (đường tuyến tính mặc định, `Conic`…, hoặc hàm) trong `script/skill/<phái>.lua` (ví dụ `shaolin.lua`: `shaolin_gunfa = {addphysicsdamage_p={{{1,25},{20,100}},{{1,-1},{2,-1}},{{1,2},{2,2}}}, attackratingenhance_p=…}`), hàm `GetSkillLevelData` chung ở `script/skill/advancedskill.lua`/`functions.lua`; **`LvlData` cell = key** trong `SKILLS` (dòng 1–3 của bảng để trống → không có số theo cấp ở bảng, phải xem `LvlSetScript` đường dẫn GBK `\script\skill\saolin\少林剑法.lua` — thư mục `saolin` trên máy này rỗng, thay bằng `shaolin.lua`; cần đối chiếu cách bản Linux tìm tệp: `g_FileName2Id`/bảng thay tên). (3) Mọi đòn đánh đều là kỹ năng: `ReceiveDamage 0x0808A4A0(this, nLauncher, nSkillLevel/type, ?, KMagicAttrib damages[] (từ +0x30, 16 byte/ô, loại +0x30, giá trị +0x34/+0x3c), ?, ?, cờ)` ← `0x080753F0` (áp kỹ năng lên npc) ← `0x08075630` ← `0x08075710/0x08075770` ← `0x080758E0` ← `0x080760E0` (`KSkill::Cast`?); Lua `AttackNpc 0x08117F80`, `KillPlayer 0x08117BC0` cũng gọi thẳng. Đánh thường = kỹ năng 1 (`Công kích vật lý`, `physicsenhance_p`, `attackrating_p`, `skill_cost_v`) / 2 (xa). **Kế hoạch**: B1 đọc bảng 114 cột vào Go (`jxassets export-skills` → `skills.json`) + chạy Lua `GetSkillLevelData` bằng Lua 5.4 của zone để sinh bảng số theo cấp (kiểm với `shaolin_gunfa` cấp 1/20: 25/100, 35/275, 6/45); B2 đọc `0x080760E0 → 0x080758E0 → 0x08075630 → 0x080753F0` (tìm mục tiêu, đạn `MisslesForm`, tầm, chi phí nội, `TimePerCast`) rồi `KNpc::DoSkill`/`OnSkill` và gói client (`s2c_skill…`); B3 cấp kỹ năng của người chơi (`KSkillList` +0x248, `SetSkillLevel`, điểm kỹ năng, kỹ năng khởi đầu `newplayerini FSKILLS`), lưu vào `RoleData` (thêm `repeated SkillData`); B4 client: ô kỹ năng / phím tắt theo bố cục 2.0. |
+| **M12 lát B — kỹ năng**: **B1 xong 2026-09-18** (bảng 114 cột → `skills.json`; `KSkill`/`KSkillManager` với số theo cấp chạy chính script cấp; `LINUX-SERVER.md` §11 ghi từng hàm: vtable `KSkill 0x082587A8`, `Init 0x080E7200`, `GetInfoFromTabFile 0x080E9200`, `InstanceSkill 0x080E6E10`, `LoadSkillLevelData 0x080EE4B0(this, **cấp**, **dòng**)`, `ParseString2MagicAttrib 0x080EE380`, `AddMagicAttrib 0x080EDCC0`) | **B2 — thi triển**: đọc `0x080760E0 → 0x080758E0 → 0x08075710/0x08075770 → 0x08075630 → 0x080753F0` (theo nguồn cũ là `KSkill::Cast → CastMissles / CastInitiativeSkill / CastPassivitySkill → KMissle → áp `m_DamageAttribs` / `m_ImmediateAttribs` / `m_StateAttribs` lên npc, `ReceiveDamage 0x0808A4A0`); dùng `KSkillManager::get(id, cấp)` đã có (`KSubWorld::skills()`), thay `KSubWorld::hit`/`cast_skill`; kiểm ai gọi bằng `re_calls callers 0x080753F0`; đánh thường = kỹ năng 1 (gần, `AttackRadius 100`, `ChildSkillId 64`) / 2 (xa, 320, con 65) — `IsUseAR`, `DoHurt 80`, `WeaponSkill`. **B3 — kỹ năng của nhân vật**: `KSkillList` `KNpc+0x248` (79 ô × 0x30: id +0, cấp +4, cấp hiện tại +0x18; `ClearAttrib` hạ cấp hiện tại về cấp), `Player+0x5994`, `SetSkillLevel`, điểm kỹ năng (`+0x5928`), kỹ năng khởi đầu `newplayerini [FSKILLS]` (`player.json` đã có `skills`), lưu `RoleData` (thêm `repeated SkillData`). **B4** client: ô kỹ năng / phím tắt theo bố cục 2.0. **Dữ liệu**: 156/285 script cấp thiếu trong bản Linux trên máy — kể cả `special\长兵物理攻击.lua` / `远程物理攻击.lua` của đánh thường (chuỗi dự phòng `bin/Server` có bản JX1, mọi số 0) → hỏi chủ dự án lấy từ server thật. |
 | **M12 lát C — công thức sát thương** (làm chung với B2) | `KNpc::OnHurt 0x0807F780` (đã đọc: hồi đòn, `ignorenegativestate`); **`ReceiveDamage 0x0808A4A0`** (1 200 lệnh, đã dump; chuỗi: `"KnockBack: %d%%, Hit! Time:%d, Distance:%d"`, `"IgnoreNegState(Stun)…"`, `"DoStunRate %d"`, `"m_CurrentStunTimeReducePercent:%d - nAntiStunTimerPercent:%d"`, `"Cast Damage (%d, %d)"`, `"Hit Damage %d"`, `"BlockRate %d"`, `"EnhanceHitRate %d"`, `"EnhanceHitEffect = %d"`, `"IgnoreNegState(Freeze)…"`; đầu hàm: chết (`m_Doing 10/0x15`) hay `+0x1694` ≠ 0 hay `invincibility +0x147b` → 0; `+0x1414 add_damage_percent` của **kẻ đánh**; `0x08079750(this) == 3` → nhánh riêng; cờ `& 0xc == 8` → nhánh riêng; duyệt ô sát thương 3..7 (vật lý/hoả/băng/lôi/độc?) với `dynamicmagicshield +0x1464` lấy trung bình…; `+0x159c = nLauncher`); độc riêng ở `0x08089C90` (`"Posion2Mana"`, `"ReturnPosion"`, `"StaticMagicShield: Use=%d Rest=%d"`). Áp `m_CurrentDefend`, 5 kháng (`max(thường, yan)` + max), `add_damage_percent`, `sorb`, `me2X/X2me`, `fatally/deadly strike`, trả sát thương… Thay `KSubWorld::hit` (đang là công thức tạm: chính xác/phòng thủ/kháng vật lý). |
 | Trạng thái (độc / băng / choáng / thuốc) | `KNpc::ProcessState 0x0808B610` (§9), trang trạng thái `KNpc+0x234` (20 ô × 16 byte), `ReCalcStateEffect 0x0807D270` (áp lại với dấu âm), `+0x1bc..+0x1fc` các bộ đếm. Zone mới có `life_state/mana_state` và ô giữ chỗ `poison/freeze/stun_state`. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
@@ -135,6 +138,14 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   không nới công thức.
 - Bộ đọc bảng Go: `atoi("")` = 0 khác `KTabFile::GetInteger` (ô trống = mặc định) — đã sửa bằng `cell()`;
   nhớ luật này khi đọc bảng mới. Chuỗi TCVN3 có `/` bị tưởng là đường dẫn — decode thuần TCVN3 cho chuỗi UI.
+- **`re_elf.py func` dừng ở `ret` đầu tiên**, còn GCC đặt nhiều khối SAU `ret` (`0x080EE380`, `0x080EDCC0`,
+  `0x080E6E10` đều thế): phải `dis` tiếp từ mọi nhãn nhảy tới khi không còn nhánh nào chưa đọc.
+- **Ghi đối số theo phỏng đoán**: phiên trước ghi "số cấp = đối số 3" của `0x080EE4B0`; đọc chỗ dùng
+  (`[ebp+0x10]` là `nRow` của `GetString`) thấy ngược. Mỗi đối số phải chỉ ra lệnh dùng nó.
+- **In dòng bảng có lọc `= 0`** rồi tưởng ô trống → kỳ vọng test sai (`AttackRadius` kỹ năng 4 ghi rõ "0").
+  In thô ô cần kiểm trước khi viết kỳ vọng.
+- **Thư mục script tên GBK trên đĩa Windows** là mojibake cp1252 nhưng vài byte (0x81, 0x8D, 0x8F, 0x90, 0x9D)
+  không mã hoá ngược được bằng `str.encode("cp1252")` → phải mã hoá từng ký tự, rớt thì lấy `ord(c)`.
 
 ### 0.6 Cách làm đang tốt — giữ nguyên
 
@@ -294,6 +305,41 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo) — M12 lát B1: bảng kỹ năng + số theo cấp từ script, đúng nhị phân Linux
+
+- **Mổ nhị phân** (`LINUX-SERVER.md` §11, từng thân hàm): tham chiếu duy nhất tới bộ nạp cấp là **vtable `KSkill`
+  `0x082587A8`** (thứ tự khớp `ISkill` của `Skill.h` nên đặt tên được cả 18 hàm ảo; `LoadSkillLevelData` = ô +0x14);
+  `KSkillManager::Init 0x080E7200` (id 1..2000, style âm bỏ, style 13 → `KThiefSkill`; **dòng sau ghi đè dòng trước**
+  cùng id — bảng thật có id 521 hai dòng); `GetInfoFromTabFile 0x080E9200` (60 cột, mặc định `AttackRadius` 50, `DoHurt`
+  100, `EqtLimit` −2; `this` của nó lệch **+4** so với `KSkill` — thấy được khi đối chiếu offset với `AddMagicAttrib`);
+  `InstanceSkill 0x080E6E10` (chỉ style 0..4 và 14; `m_pOrdinSkill[2000][64]` ở `+0x8AAC0`); `LoadSkillLevelData
+  0x080EE4B0(this, cấp, dòng)` (ghi chú phiên trước ngược đối số); `ParseString2MagicAttrib 0x080EE380` (`std::map`
+  tên → id ở `0x0830EB98`, bỏ `skill_desc` 318, `"v1,v2,v3"` qua `KSG_StringGetInt` — số thực làm rớt hai giá trị sau);
+  `AddMagicAttrib 0x080EDCC0` (4 mảng 20 ô: đạn 15..25/325..338, **sát thương 56..75 ở ô cố định** theo bảng nhảy
+  `0x08258498` — chỉ ô 0..14 đếm, `addskillexp1/2` v1 = 0 → id chính nó, 76..82 bỏ; còn lại `v2 == 0` → tức thời, khác
+  → trạng thái; `skill_param2_v` lấy v2 như JX1; 304..309 `addskilldamage` = `{v1, v3, v2}`).
+- **Go**: `pkg/jxold/skill` (đọc như `Init` + `GetInfoFromTabFile`, ô giữ chuỗi để zone áp mặc định nhị phân; cột đường
+  dẫn GBK, cột chữ TCVN3), `jxassets export-skills` → `client/assets/skills.json` (1 629 dòng, 114 cột, 285 script cấp,
+  3,4 MB), `dev.py assets` chạy luôn; test gói.
+- **Zone**: `KSkill.h/.cpp` (`KSkillRow` từ ô + mặc định; `KSkill::add_attrib`; `load_skill_level_data` gọi
+  `GetSkillLevelData(setting, data, cấp)` của **chính script cấp đã chuyển sang Lua 5.4** qua `KLuaScript::call_value`
+  mới — số hay chuỗi như `lua_isnumber`/`lua_isstring`; `KSkillTable`; `KSkillManager` một cho mỗi map, cache theo
+  (id, cấp), luật style), `KSubWorld::skills()`, `zone.skills_file`, 5 câu log mới. Khởi động: `skill table loaded`
+  1 628 kỹ năng trong 80 ms.
+- **Test** `test_KSkill.cpp` 6 case / 151 khẳng định: `KSG_*`, từng nhánh `AddMagicAttrib`, mặc định cột, vòng
+  `LoadSkillLevelData` (số / chuỗi / bỏ `LvlData` bắt đầu bằng '0' / dừng khi nil), bảng + manager (dòng sau thắng,
+  style 7/13 không tạo, 14 tạo), và **dữ liệu thật**: kỹ năng 4 Thiếu Lâm Côn pháp cấp 1/10/20 qua `shaolin.lua`:
+  `addphysicsdamage_p` {25,−1,2} / 60 / {100,−1,2}, `attackratingenhance_p` 35 / 148 / 275, `deadlystrikeenhance_p`
+  6 / 45 (`Conic`) — đúng `SKILLS.shaolin_gunfa`. ctest **158/158**, Go xanh, `check_log_catalog`/`check_includes` sạch.
+- **Dữ liệu thiếu**: 156/285 script cấp không có trong bản Linux trên máy (đồng hành `partner\*`, sự kiện, `npc\*`
+  tên GBK) — kể cả `special\长兵物理攻击.lua` / `远程物理攻击.lua` của **đánh thường** (kỹ năng 1/2); chuỗi dự phòng
+  `bin/Server` có bản JX1 với mọi số 0 (bản Linux `physicattack.lua` cho `physicsenhance_p` 100). Zone cảnh báo
+  `skill level script missing`; cần chủ dự án lấy các tệp này từ server thật.
+- CI: run #100 (main, 820c890) xanh; run #99 (nhánh login-system-upgrade, cùng commit) đỏ ở **Windows Test (Debug)**:
+  test "a character's items survive spawn -> snapshot -> spawn" hỏng một lần rồi qua khi `ci_annotate` chạy lại →
+  chập chờn, chưa tìm nguyên nhân.
+- Còn của lát B: B2 thi triển + `ReceiveDamage` (lát C), B3 `KSkillList` của nhân vật, B4 client (xem §0.4).
 
 ### 2026-09-19 (tối) — tạm dừng theo yêu cầu chủ dự án; server bật để test; đọc dở hệ kỹ năng
 

@@ -32,6 +32,7 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 | `KNpc::m_DamageRecord` + `KDamageRecord::Add` (JX2, `KNpc+0x1724`) | `KNpc::damage_records` / `add_damage_record`, `KSubWorld::share_experience` | 3 ô, 1200 khung; kinh nghiệm chia theo sát thương |
 | `KPlayer::AddExp`, `CalcExp`, `AddExpTeam` (JX2) | `KPlayer::add_exp` / `calc_exp` (`KSubWorld::share_experience` gọi) | chia đội chưa làm |
 | `CURPLAYER_SYNC`, `PLAYER_ATTRIBUTE_SYNC`, `PLAYER_LEVEL_UP_SYNC`, `c2s_playeraddattribute` | `PlayerAttribSync` (`G2C_PLAYER_ATTRIB`), `AddPointReq` (`C2G_ADD_POINT`); client `Game.player_attrib`, `UiStatus` | một gói cho mọi số của nhân vật |
+| `Core/Src/KSkills.h/.cpp` (`KSkill`: `GetInfoFromTabFile`, `LoadSkillLevelData`, `ParseString2MagicAttrib`), `KSkillManager.h/.cpp` (`m_SkillInfo`, `m_pOrdinSkill[id][level]`, `InstanceSkill`) — bản JX2 `jx_linux_y` (`LINUX-SERVER.md` §11) | `server/zone/…/KSkill.h/.cpp` (`KSkillRow`, `KSkill::add_attrib` = `AddMagicAttrib 0x080EDCC0`, `KSkillTable`, `KSkillManager`), `KSubWorld::skills()`; `pkg/jxold/skill/KSkills.go` + `jxassets export-skills` → `client/assets/skills.json` | số theo cấp chạy chính `script\skill\*.lua` (Lua 5.4 đã chuyển) qua `GetSkillLevelData`, như bản cũ |
 | `MultiServer/Bishop/PlayerCreator.cpp` (`newplayerini%02d.ini` → `TRoleData` mới) | `services/pkg/persist/filestore.go` `NewRole` + `player.Set.NewPlayerFor(series, sex)` | chỉ số = `series*2 + sex`; thiếu tệp → giới kia cùng hệ |
 | `Core/Src/KNpcTemplate.h/.cpp` (`npcs.txt`) | `server/zone/…/KNpcTemplate.h/.cpp` (`KNpcTemplateSet`) | đọc `npcres/npcs.json` xuất từ bảng server |
 | `Core/Src/KNpcAI.h/.cpp` (phần `_SERVER`, `ProcessAIType01..06`) | `server/zone/…/KNpcAI.h`, `src/KNpcAI.cpp` (`class KNpcAI`, `g_GenOneRelation`) | quái đánh trả; `KNpcSet::GenOneRelation`/`GetRelation` = `KSubWorld::relation` |
@@ -44,7 +45,7 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 | `KRegion::LoadServerTrap` + `KNpc::CheckTrap` + `KNpc::ChangeWorld` | `KMapData::trap_at`, `KSubWorld::check_trap/execute_script/change_world_request`, `KGameServer::process_world_changes` | bẫy, cổng, nhiều map trong một zone |
 | `KSubWorldSet` (nhiều `SubWorld[]`) | `KGameServer::worlds_` (`world_of_map`, `world_of_session`) | một `KSubWorld` cho mỗi map |
 
-Sắp tới (chưa có, sẽ dùng đúng tên): `KItem`/`KItemSet`, `KSkill`/`KSkills`/`KMissle`, `KPathFinder`,
+Sắp tới (chưa có, sẽ dùng đúng tên): `KMissle`/`KMissleSet`, `KSkillList` (kỹ năng của từng nhân vật),
 `KMission`/`KPlayerTask`, `KPlayerTeam`, `KPlayerTong`, `KScriptValueSet` (Lua 5.4).
 
 ## Gateway / auth / DB (Bishop, PaySys, Goddess cũ → Go `services/`)

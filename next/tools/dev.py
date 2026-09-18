@@ -458,6 +458,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     # zone's KPlayerSet and the gateway's new characters
     if subprocess.call([*jxassets_args(), "export-player", "-out", out], cwd=ROOT) != 0:
         print("export-player: no settings/npc/player in the reference server folder - built-in numbers are used")
+    # the skill table (settings/skills.txt): the zone's KSkillManager; the numbers per level come
+    # from the converted skill scripts (dev.py lua) at run time, like the JX2 server
+    if subprocess.call([*jxassets_args(), "export-skills", "-out", out], cwd=ROOT) != 0:
+        print("export-skills: no settings/skills.txt in the reference server folder - skills stay unavailable")
     print("assets ok")
 
 

@@ -35,6 +35,10 @@ public:
     // CallFunction with numbers / strings in and one number out (nullopt when the function is
     // missing, raises an error or returns nothing numeric).
     std::optional<double> call_number(const char* name, const std::vector<Arg>& args);
+    // CallFunction with one result read the way KSkill::LoadSkillLevelData reads it (jx_linux_y
+    // 0x080EE4B0): a number when Lua_IsNumber says so (a string of digits counts), else the
+    // string when Lua_IsString says so, else nullopt (also when the function is missing or fails).
+    std::optional<Arg> call_value(const char* name, const std::vector<Arg>& args);
     // KLuaScript::LoadBuffer + ExecuteCode: runs a piece of code in this state (the GM's
     // `?gm ds Say("abc")`); the error text is returned through `error` when it fails.
     bool do_string(const std::string& code, const char* name, std::string* error = nullptr);

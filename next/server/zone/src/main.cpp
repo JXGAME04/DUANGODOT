@@ -159,6 +159,18 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no player tables", {jx::log::kv("file", player_file), jx::log::kv("error", error)});
         }
     }
+    // the skill table (jxassets export-skills): the rows of settings\skills.txt for every map's
+    // KSkillManager; the numbers per level come from the converted skill scripts at run time
+    const std::string skills_file = cfg.get_string("zone.skills_file", "client/assets/skills.json");
+    if (!skills_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KSkillTable::load(skills_file, &error)) {
+            w.skills = std::make_shared<const jx::zone::KSkillTable>(std::move(*t));
+            jx::log::info("boot", "skill table loaded", {jx::log::kv("file", skills_file), jx::log::kv("skills", w.skills->size())});
+        } else {
+            jx::log::warn("boot", "no skill table", {jx::log::kv("file", skills_file), jx::log::kv("error", error)});
+        }
+    }
     // the ground objects (jxassets export-objdata): without them nothing can be dropped
     const std::string objdata = cfg.get_string("zone.objdata", "client/assets/objdata.json");
     if (!objdata.empty()) {

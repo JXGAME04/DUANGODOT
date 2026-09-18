@@ -68,6 +68,9 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
     : cfg_(std::move(cfg)), grid_(make_grid(cfg_)), rng_(cfg_.seed)
 {
     paths_.reset(cfg_.map.get());
+    // the skill table is shared by every map, the instances per level are this map's (they run
+    // this map's Lua states for their numbers)
+    if (cfg_.skills) skills_ = std::make_unique<KSkillManager>(cfg_.skills, cfg_.scripts.get());
     profile_ = std::make_unique<core::TickProfile>(
         core::metrics(), fmt::format("map.{}", cfg_.map ? static_cast<std::uint32_t>(cfg_.map->id) : 0u));
     if (cfg_.tick_hz == 0) cfg_.tick_hz = 20;

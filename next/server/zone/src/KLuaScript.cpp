@@ -208,4 +208,38 @@ std::optional<double> KLuaScript::call_number(const char* name, const std::vecto
     return result;
 }
 
+std::optional<KLuaScript::Arg> KLuaScript::call_value(const char* name, const std::vector<Arg>& args)
+{
+    if (L_ == nullptr) return std::nullopt;
+    const int top = lua_gettop(L_);   // GetTopIndex
+    lua_getglobal(L_, name);
+    if (!lua_isfunction(L_, -1)) {
+        lua_settop(L_, top);
+        return std::nullopt;
+    }
+    for (const Arg& a : args) {
+        if (const auto* n = std::get_if<double>(&a)) {
+            lua_pushnumber(L_, *n);
+        } else {
+            const auto& s = std::get<std::string>(a);
+            lua_pushlstring(L_, s.data(), s.size());
+        }
+    }
+    if (lua_pcall(L_, static_cast<int>(args.size()), 1, 0) != LUA_OK) {
+        log::warn("lua", "call failed", {log::kv("file", file_), log::kv("function", name), log::kv("error", lua_tostring(L_, -1))});
+        lua_settop(L_, top);
+        return std::nullopt;
+    }
+    std::optional<Arg> result;
+    if (lua_isnumber(L_, -1)) {
+        result = lua_tonumber(L_, -1);
+    } else if (lua_isstring(L_, -1)) {
+        std::size_t len = 0;
+        const char* s = lua_tolstring(L_, -1, &len);
+        result = std::string(s, len);
+    }
+    lua_settop(L_, top);   // SetTopIndex
+    return result;
+}
+
 } // namespace jx::zone
