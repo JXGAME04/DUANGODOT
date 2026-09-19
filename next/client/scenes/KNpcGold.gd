@@ -6,7 +6,8 @@ extends RefCounted
 # the client compares it with ITS OWN copy's count (gamecl.exe 0x006E35C0 -> [0x21a12c0]; npc_gold.json client_rows).
 # docs/CLIENT-2.0.md §16, docs/LINUX-SERVER.md §16.12
 
-const ENTITY_MONSTER := 3   # jx.pb.EntityType
+const ENTITY_PLAYER := 1    # jx.pb.EntityType
+const ENTITY_MONSTER := 3
 
 # the ARGB colours of 0x005F2401..0x005F2419: -1 white, 0xFF6365FF within the table, 0xFFEBB200 above it
 const NAME_COLOR_PLAIN := Color(1.0, 1.0, 1.0)
@@ -30,3 +31,40 @@ static func npc_class(kind: int, client_rows: int) -> int:
 	if kind == 0:
 		return 1
 	return 3 if kind > client_rows else 2
+
+
+# ---- the two show switches of the option word [0x21a0438+0x1eb4] (gamecl.exe 0x0066B4C0 .. 0x0066B6F9): value B "showplayername"
+# = bits 2 | 0x200 (getter 0x0066B600(mask): mask 1 -> bit 2, mask 2 -> bit 0x200; setter 0x0066B5C0), value C "showplayerlife"
+# = bits 4 | 0x400 (0x0066B660 / 0x0066B620).  F7 / F8 (autoexec.lua Switch([[showplayername]]) / ([[showplayerlife]]) 0x0042FBF7 /
+# 0x0042FC2D: GetGameData(0x402 / 0x403, 2) = 0x0066B4A0(value) = 3 when the value is 0 or 1, else 0 -> OperationRequest 0x2f / 0x30)
+# flip a value between 0 and 3; the hang-up options window (0x005E6E8E) sets both to 3 or both to 0.  The object starts with the word
+# at 1 (0x0066DACC): both values 0 - THIS client starts with the names on (name_switch 3), a documented choice (docs/CLIENT-2.0.md §17).
+
+# 0x0066B4A0 through GetGameData(0x402 / 0x403, 2): the next value of a switch key
+static func toggle_switch(value: int) -> int:
+	return 3 if value <= 1 else 0
+
+
+# the pate loop 0x006702BD .. 0x00670331 for a monster (kind 0): nothing without bit 1 of the name value (0x0066B600(1)); hovered or
+# targeted -> the full block (size 14, a black background, 0x006702ED); else bit 2 (0x0066B600(2)) -> the block at size 12 (0x0067031A);
+# else nothing (show flag 0: PaintName 0x005F2316 returns for a monster).  Players and the other kinds always get their name line.
+# Returns 0 hidden, 12 / 14 the font size of the block.
+static func name_block(entity_type: int, name_switch: int, focus: bool) -> int:
+	if entity_type != ENTITY_MONSTER:
+		return 12
+	if (name_switch & 1) == 0:
+		return 0
+	if focus:
+		return 14
+	return 12 if (name_switch & 2) != 0 else 0
+
+
+# the life bar of the same loop (0x00670243 .. 0x0067029A -> KNpc::PaintLife 0x005EACF0): a player (kind 1 / 2) with bit 1 of the
+# life value (0x0066B660(1)), a monster hovered / targeted or with bit 2 (0x0066B660(2)); the other kinds never (PaintLife refuses
+# them unless forced, and the loop forces only monsters)
+static func life_bar(entity_type: int, life_switch: int, focus: bool) -> bool:
+	if entity_type == ENTITY_PLAYER:
+		return (life_switch & 1) != 0
+	if entity_type == ENTITY_MONSTER:
+		return focus or (life_switch & 2) != 0
+	return false

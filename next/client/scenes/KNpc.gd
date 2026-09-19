@@ -63,6 +63,11 @@ var level := 0                     # m_Level (+0x28 of the 2.0 client): "%s/Lv:%
 # KNpcGold at KNpc+0x4c of the 2.0 client (SetGoldType 0x006E3560 from the 0x4c / 0x9a packets): the kind = the
 # NpcGoldTemplate row + 1 while gold, 0 plain; a boss carries the server table's count + 1 (KNpcGold.gd)
 var gold_type := 0
+var hovered := false               # the npc under the mouse (the pate loop 0x0067021A: [core+0xa8c4] == this)
+# the two show switches (KNpcGold.gd): "showplayername" (F7) and "showplayerlife" (F8) of the option word, shared by every npc
+static var name_switch := 3        # this client starts with the names on (2.0 starts at 0: docs/CLIENT-2.0.md §17)
+static var life_switch := 0
+var _life_label: Label             # the "%d/%d" line over the name line of a monster (0x005F2358)
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -97,14 +102,9 @@ func setup(d: Dictionary, own: bool) -> void:
 		_res.name = "Res"
 		add_child(_res)
 	if _label == null:
-		_label = Label.new()
-		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_label.size = Vector2(140, 20)
-		_label.add_theme_color_override("font_color", Color.WHITE)
-		_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-		_label.add_theme_constant_override("shadow_offset_x", 1)
-		_label.add_theme_constant_override("shadow_offset_y", 1)
-		add_child(_label)
+		_label = _make_label()
+		_life_label = _make_label()
+		_life_label.visible = false
 	_refresh_name()
 	_label.position = Vector2(-70, -RADIUS - 26)
 	# appearance: players are the composed main characters, everything else its npcs.txt template
@@ -127,6 +127,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	set_state_icons(d.get("state_icons", state_icons))
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
 	_label.position.y = -float(_pate()) - 20.0
+	_life_label.position.y = _label.position.y - 16.0
 	doing = -1
 	_set_doing(KNpcResNode.Doing.STAND)
 	# a late joiner sees corpses and swings already under way
@@ -192,17 +193,65 @@ func apply_action(a: Dictionary) -> void:
 func set_life(l: Dictionary) -> void:
 	life = int(l.get("life", life))
 	life_max = int(l.get("life_max", life_max))
+	if _life_label != null and _life_label.visible:
+		_refresh_name()
 	queue_redraw()
 
 
-# The name line as gamecl.exe 0x005F21B0 draws it: a monster (kind 0) is "%s/Lv:%d" (0x005F242F) in the colour of its gold
-# kind (0x005F23E5: none = white, a kind = 0xFF6365FF, above the client's table = 0xFFEBB200); players and the other
-# kinds keep their name.  docs/CLIENT-2.0.md §16
+func _make_label() -> Label:
+	var l := Label.new()
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.size = Vector2(140, 20)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	l.add_theme_color_override("font_shadow_color", Color.BLACK)
+	l.add_theme_constant_override("shadow_offset_x", 1)
+	l.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(l)
+	return l
+
+
+# The name block as gamecl.exe 0x005F21B0 draws it: a monster (kind 0) gets "%d/%d" (0x005F2358, white) over "%s/Lv:%d"
+# (0x005F242F) in the colour of its gold kind (0x005F23E5: none = white, a kind = 0xFF6365FF, above the client's table =
+# 0xFFEBB200) - only as the show switch and the hover / target allow (KNpcGold.name_block: size 14 on black when hovered
+# or targeted, 12 with the switch's second bit, else nothing); players and the other kinds keep their name.
+# docs/CLIENT-2.0.md §16 / §17
 func _refresh_name() -> void:
 	if _label == null:
 		return
+	var block := KNpcGold.name_block(entity_type, name_switch, hovered or is_target)
+	_label.visible = block != 0
+	_life_label.visible = block != 0 and entity_type == ENTITY_MONSTER
+	if block == 0:
+		return
 	_label.text = KNpcGold.name_text(display_name, entity_type, level)
 	_label.add_theme_color_override("font_color", name_color())
+	_life_label.text = "%d/%d" % [life, life_max]
+	for l in [_label, _life_label]:
+		l.add_theme_font_size_override("font_size", block)
+		# the block is as wide as its text (the 2.0 painter measures each line, 0x005F22A2 / 0x005F2445)
+		var font: Font = l.get_theme_font("font")
+		var w: float = font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_CENTER, -1, block).x + 6.0
+		l.size = Vector2(w, float(block) + 6.0)
+		l.position.x = -w * 0.5
+		if block == 14:
+			var bg := StyleBoxFlat.new()
+			bg.bg_color = Color(0, 0, 0, 1)   # 0x006702ED: the block of the hovered / targeted npc on 0xff000000
+			l.add_theme_stylebox_override("normal", bg)
+		else:
+			l.remove_theme_stylebox_override("normal")
+
+
+# the pate loop's hover (0x0067021A) and the switches (F7 / F8) changed: the block again
+func refresh_info() -> void:
+	_refresh_name()
+	queue_redraw()
+
+
+func set_hovered(on: bool) -> void:
+	if hovered == on:
+		return
+	hovered = on
+	refresh_info()
 
 
 func name_color() -> Color:
@@ -244,7 +293,7 @@ func _head_effect_z() -> int:
 
 func set_target(on: bool) -> void:
 	is_target = on
-	queue_redraw()
+	refresh_info()
 
 
 func is_dead() -> bool:
@@ -417,8 +466,9 @@ func _draw() -> void:
 			color = Color(0.95, 0.3, 0.3)            # monster
 		draw_circle(Vector2.ZERO, RADIUS, color)
 		draw_arc(Vector2.ZERO, RADIUS, 0, TAU, 24, Color(0, 0, 0, 0.6), 2.0)
-	# KNpc::PaintLife: a life bar under the name for wounded or selected characters
-	if life_max > 0 and (life < life_max or is_target) and not is_dead():
+	# KNpc::PaintLife 0x005EACF0 as the pate loop calls it (KNpcGold.life_bar): players with the life switch, monsters hovered /
+	# targeted or with its second bit; a bar needs a maximum (0x005EAD31)
+	if life_max > 0 and KNpcGold.life_bar(entity_type, life_switch, hovered or is_target):
 		var top := Vector2(-LIFE_BAR.x * 0.5, -float(_pate()) + 2.0)
 		draw_rect(Rect2(top, LIFE_BAR), Color(0, 0, 0, 0.7))
 		var w := LIFE_BAR.x * clampf(float(life) / float(life_max), 0.0, 1.0)

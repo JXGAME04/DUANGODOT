@@ -744,3 +744,14 @@ func test_gold_name() -> void:
 	check(NpcGold.name_color(1, 5, 17) == Color(1, 1, 1), "a player's name is never coloured by it")
 	# 0x00642550: the class of the hang-up filter - 1 plain, 2 gold, 3 above the table
 	check(NpcGold.npc_class(0, 17) == 1 and NpcGold.npc_class(16, 17) == 2 and NpcGold.npc_class(18, 17) == 3, "the three classes")
+	# the show switches: F7 / F8 flip a value 0 <-> 3 (0x0066B4A0: 0 or 1 -> 3, else 0)
+	check(NpcGold.toggle_switch(0) == 3 and NpcGold.toggle_switch(1) == 3 and NpcGold.toggle_switch(3) == 0 and NpcGold.toggle_switch(2) == 0, "Switch flips 0 <-> 3")
+	# the name block of a monster (0x006702BD..): nothing without bit 1; hovered / targeted -> 14; bit 2 -> 12; else nothing
+	check(NpcGold.name_block(3, 0, false) == 0 and NpcGold.name_block(3, 0, true) == 0, "names off: nothing, even hovered (0x006702D2)")
+	check(NpcGold.name_block(3, 1, false) == 0 and NpcGold.name_block(3, 1, true) == 14, "bit 1 alone: only the hovered one, size 14")
+	check(NpcGold.name_block(3, 3, false) == 12 and NpcGold.name_block(3, 3, true) == 14, "F7 on (3): everyone at 12, the hovered one at 14")
+	check(NpcGold.name_block(1, 0, false) == 12 and NpcGold.name_block(2, 0, false) == 12, "players and townsfolk keep their name line")
+	# the life bar (0x00670243 .. PaintLife 0x005EACF0): players with bit 1, monsters hovered / targeted or with bit 2, others never
+	check(not NpcGold.life_bar(1, 0, true) and NpcGold.life_bar(1, 1, false), "a player's bar needs the life switch")
+	check(NpcGold.life_bar(3, 0, true) and not NpcGold.life_bar(3, 0, false) and NpcGold.life_bar(3, 2, false), "a monster's bar: hovered or bit 2")
+	check(not NpcGold.life_bar(2, 3, true), "a townsman never (PaintLife refuses kind 3 unless forced)")

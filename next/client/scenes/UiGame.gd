@@ -7,6 +7,7 @@ const ObjScript := preload("res://scenes/KObj.gd")
 const MissleScript := preload("res://scenes/KMissle.gd")
 const MissleEffectScript := preload("res://scenes/KMissleEffect.gd")
 const KWavSound := preload("res://scenes/KWavSound.gd")
+const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const ACTION_ATTACK := 1
 const ENTITY_DROP := 4
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
@@ -19,6 +20,7 @@ const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
 var _target: Node2D = null   # the entity the player attacks / selected
+var _hovered: Node2D = null  # the npc under the mouse ([core+0xa8c4] of the 2.0 client)
 var _camera: Camera2D
 var _map: Node2D             # MapView
 var _entity_layer: Node2D    # y-sorted parent of entity nodes (MapView.ysort or a local one)
@@ -229,6 +231,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_set_zoom(_zoom * 1.15)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_set_zoom(_zoom / 1.15)
+	elif event is InputEventMouseMotion:
+		_set_hovered(_entity_at(get_global_mouse_position()))
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE:
 			if _windows == null or not _windows.any_open():
@@ -236,6 +240,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 			if not _chat_input.has_focus():
 				_chat_input.grab_focus()
+		elif event.keycode == KEY_F7 and not event.echo:
+			# autoexec.lua: AddCommand("F7", "", "Switch([[showplayername]])") -> 0x0042FBF7
+			set_show_switches(KNpcGold.toggle_switch(NpcScript.name_switch), NpcScript.life_switch)
+		elif event.keycode == KEY_F8 and not event.echo:
+			# AddCommand("F8", "", "Switch([[showplayerlife]])") -> 0x0042FC2D
+			set_show_switches(NpcScript.name_switch, KNpcGold.toggle_switch(NpcScript.life_switch))
+
+
+# the npc under the mouse (the pate loop 0x0067021A compares [core+0xa8c4], the hovered npc, with each one)
+func _set_hovered(node: Node2D) -> void:
+	if node == _hovered:
+		return
+	if _hovered != null and is_instance_valid(_hovered) and _hovered.has_method("set_hovered"):
+		_hovered.set_hovered(false)
+	_hovered = node if node != null and node.has_method("set_hovered") else null
+	if _hovered != null:
+		_hovered.set_hovered(true)
+
+
+# the two show switches of the option word (KNpcGold.gd): every npc draws its block again
+func set_show_switches(name_switch: int, life_switch: int) -> void:
+	NpcScript.name_switch = name_switch
+	NpcScript.life_switch = life_switch
+	for node in _entities.values():
+		if node != null and is_instance_valid(node) and node.has_method("refresh_info"):
+			node.refresh_info()
+	Log.info("ui", "show switches", {"names": name_switch, "life": life_switch})
 
 
 func _set_zoom(z: float) -> void:
