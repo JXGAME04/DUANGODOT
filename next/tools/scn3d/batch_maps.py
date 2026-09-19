@@ -60,6 +60,7 @@ def main():
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--maps-only", action="store_true", help="chi chay lai make_map3d (scene + NPC da xuat)")
     a = ap.parse_args()
     lst = scenes()
     if a.list:
@@ -73,13 +74,18 @@ def main():
     ok = skip = fail = 0
     for s in want:
         out = os.path.join(NEXT, "client", "assets3d", "maps", str(s["map_id"]), "map3d.json")
-        if os.path.exists(out) and not a.force:
+        if os.path.exists(out) and not a.force and not a.maps_only:
             skip += 1
             continue
         t0 = time.time()
         steps = [["tools/scn3d/export_scene.py", s["scene"]],
                  ["tools/scn3d/export_npc.py", "--map", s["scene"]],
                  ["tools/scn3d/make_map3d.py", s["scene"], "--id", str(s["map_id"]), "--spawn", s["spawn"]]]
+        if a.maps_only:
+            if not os.path.exists(os.path.join(NEXT, "client", "assets3d", s["scene"], "npcs.json")):
+                skip += 1
+                continue
+            steps = steps[2:]
         good = all(run(c, log) for c in steps)
         print("%-28s map %d %s (%.0f s)" % (s["scene"], s["map_id"], "OK" if good else "LOI (xem build/batch_maps.log)", time.time() - t0))
         ok += good

@@ -702,6 +702,16 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-54) — 45 map 3D dựng xong theo lô, quái ghép template JX1 tự động (17 604 vị trí), khối chọn theo `cha_pic`
+
+- `batch_maps.py --all`: **44/45 scene** dựng được (`copy_fengxiangzhanchang` không có navmesh → bỏ), ~10 phút; zone nạp **1 025 map** (`maps hosted 1025`, 15 s lần đầu vì đọc `obstacle.bin`).
+- **Ghép mark → nhân vật** (`export_npc.py`): (1) danh sách vai trò Ba Lăng dùng chung, (2) tên xương `cha_pic`, (3) **pinyin** tên `cha_list` (pypinyin: `kulou` 骷髅, `mozei`, `huilang` 灰狼, `zoushi` 走尸; kẹp số/cắt âm `kulu` → alias), in `mark chua ghep cha` cho phần còn lại (`mozei`, `lenggong`, `changqiang`, `dongbeihu`, `sengbing`, `xingzhe`: bản tham khảo **không có** nhân vật đó — mark thừa).
+- **Ghép nhân vật → template JX1** (`tools/scn3d/map_npcs.py` → `cha_templates.json`, `make_map3d` đọc sau bảng tay `CHA_TO_TEMPLATE`): (a) âm Hán-Việt trùng tên JX1 (bảng `hanviet.py` thêm ~170 chữ quái/NPC: 青狼 Thanh lang, 浣熊 Hoán hùng, 金雕 Kim điêu, 银牙, 铜人, 苍鹰 Thương ưng…), (b) từ điển CN → VI theo loài/màu/vai (heo rừng, sói xám/đỏ/tuyết, gấu đen/nâu, báo, hổ, ưng, sơn tặc 1/2/đầu lĩnh cho biệt danh vũ khí 金枪/铜锤/长刀…, kỵ binh, thích khách, vệ binh) [tự chọn], (c) NPC đối thoại lạ → "Nam thanh niên 3" (322) [tự chọn]; **loại template boss** (`cells LifeParam1..3 ≥ 100 000`, vd Thiên Ưng 1450 = 20 000 000 máu — lỗi gặp thật ở 青城山). Kết quả: 68/130 hàng `cha_list` loại 3 ghép; **45 map = 17 604 vị trí NPC/quái**, 6 map trống (La Hán Đường, Tử Vong Sa Mạc, Thí Luyện Cổ Tháp, Lâm Hải Độ Thuyền, Bạch Hổ Đường, Tống Kim).
+- `cha_pic` cột 5/14/15/18 [TK]: bán kính chân 0,4; **khối chọn** (0 cầu bán kính, 1 hộp x·y·z: người 1×1,8×1, heo 0,8×1,4×1, thợ rèn 1×2×0,6); kiểu chết (2 mờ dần sau 2 s, 3 tan) → `npc_models.json pick/death/foot_radius`, `KNpc3DView.radius` = nửa cạnh lớn của hộp (trước 0,5 cho mọi thứ).
+- Trong nhà (hang/mê cung: `render` không có `light`, ambient_mode 3): `KScenePlace3D._indoor` → lightmap giải mã ×2 (Unity dLDR `unity_Lightmap_HDR`), ambient 0,35, nắng 1,0 [tự chọn]; **còn tối** vì shader địa hình mê cung `地形_迷宫_A高度` chưa có đường lightmap (F6, GLSL có ở `shaders_apk`).
+- Kiểm: `NewWorld(9078,171,421)` Thanh Thành Sơn: đánh chết Thương ưng (`AUTO_FIGHT dead=true`, 144 FPS); `NewWorld(9072,359,78)` Vũ Lăng Động: đánh chết Tây Bắc sơn tặc; Godot 589, UiCheck 162, e2e 4/4 OK với 1 025 map.
+- commit: `JX NEXT 3D: 3D-54 - 45 map 3D theo lo, quai ghep template JX1 (Han-Viet + tu dien + pinyin mark, loai boss), khoi chon cha_pic, indoor lm x2`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-53) — đợt 5 (F7): dựng map 3D theo lô, map thứ hai/ba vào được
 
 - Ghép mark → NPC: bảng ràng buộc mark ↔ NPC nằm ở **server** bản tham khảo (client chỉ có `task_child` "2010*1004 n_tiejiang"); các vai trong trấn giữ tên mark qua mọi map (`n_tiejiang`, `n_yaodian`, `n_yizhan`…) → `export_npc.py` dùng danh sách Ba Lăng làm nền cho mọi map, danh sách riêng của map ghi đè; **mark quái = tên xương `cha_pic` cột 3** (`baizhu` → 白猪 25, `jinmao`, `meihualu`) → tự ghép; mark chưa ghép in ra `mark chua ghep cha`.

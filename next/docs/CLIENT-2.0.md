@@ -649,3 +649,10 @@ khi gửi 0x71 = 0 (máu đầy nên không thấy hồi; luật hồi có test 
 | `PaintLife 0x005EADB8..0x005EAE5B` | kind 1/2 không phải mình và `0x0066D070 == 8` (cùng đội) → (230, 190, 0); khác: `+0x16e8 ≠ 0` → R 255, G 0, `+0x16e4 == 2` → B 0 (đỏ) khác B 64; `+0x16e8 == 0 && +0x16e4 == 2` → (255, 105, 180); còn lại theo % (§17) | `KNpcGold.life_bar_color(pct, pk_state, pk_flag)`; đội chưa có |
 
 `--auto` `auto_pk.png` + `AUTO_PK on=true bar_state=1 value=0 back=false refused=true` (đang chiến → về 0 cần `NormalPKTimeLong`).
+
+## 21. Bản đồ nhỏ — `KUiMiniMap::Initialize 0x004C4BB0`, ba tệp ini `0x794684..0x794698`, ảnh `%s24.jpg` `0x7B580C` (3D-50, đã đọc `gamecl.exe` + mã 2004 `ScenePlaceMapC.cpp`)
+
+- Lớp (RTTI `.?AVKUiMiniMap@@` `0x810D28`) khởi tạo từ ini: `[MiniMap]` (khung, `Left=876;+35 Top=15 148×147`, ảnh `地图缩小.spr`), `[NameShadow]`, `[SceneName]` ×2 (tên map, xanh 0,255,0, cỡ 12), `[ScenePos]` (toạ độ), `[SwitchBtn]`, `[WorldMapBtn]`, `[CaveMapBtn]`, `[BtnFlag]` (`FlagImage/2/3`, `FlagOffset`), `[CityInfo1/2]`, `[WayFinding]`, `[Line] Color` (100,255,0), `[MapRect] Left/Top/Width/Height` (19,1 128×128).
+- Ba bố cục (GBK): `小地图_小.ini` (nhỏ, `ban-do-nho`), `小地图_浏览版.ini` (bản duyệt, `ban-do-lon`), `小地图之虚无缥缈.ini` (`ban-do-hu-vo`) — `jxassets export-ui` xuất cả ba.
+- Ảnh map: chuỗi `%s24.jpg` = `<thư mục map>24.jpg` (vd `\maps\西北南区\凤翔24.jpg`, 1632×1056) trong `data\minimap.pak` (`jxassets export-minimap all` → `maps/<id>/minimap.jpg`, 828/1054 map có ảnh). Quy tắc vẽ (mã 2004 `KScenePlaceMapC`, cùng gốc với 2.0): 1 region = 32×32 px (`MAP_A_REGION_NUM_MAP_PIXEL_H/V`) → px x = đơn vị/16, px y = đơn vị/32; góc ảnh = `[MAIN] MapLTRegionIndex` hoặc `rect` của `.wor`; `MapRect` quanh nhân vật, kẹp trong ảnh (`m_FocusLimit`); chấm 3×3 (`RU_T_SHADOW`) màu `\Ui\Setting.ini [Map]` (mình 255,255,0; đồng đội 0,255,0; người chơi khác 255,72,0; quái 165,48,255; NPC thường 255,255,255); đường xanh `0xff00ff00` tới cờ.
+- JX NEXT: `client/ui/uicase/UiMiniMap.gd` (bản 3D dùng chung; map 3D lấy ảnh `ui_map_view` của bản tham khảo).

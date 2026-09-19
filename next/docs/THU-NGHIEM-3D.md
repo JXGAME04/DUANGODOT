@@ -118,6 +118,10 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 
 1. Tài sản: `python tools/scn3d/export_scene.py world_baling`, `python tools/scn3d/export_npc.py --map world_baling`,
    `python tools/scn3d/export_weapon.py`, rồi `python tools/scn3d/make_map3d.py world_baling --id 9053` → `client/assets3d/maps/9053/`
+   **Mọi map tham khảo một lượt** (3D-53/54): `python tools/scn3d/map_npcs.py` (bảng ghép quái → template JX1) rồi
+   `python tools/scn3d/batch_maps.py --all` (45 scene có bundle, id = 9052 + id scene của `scn_list`: 9053 Ba Lăng, 9054 Vĩnh Lạc
+   Trấn, 9055 Đạo Hương Thôn, 9062 Thành Đô, 9064 Biện Kinh, 9078 Thanh Thành Sơn…; `--list` in bảng; `--maps-only` chỉ chạy lại
+   `make_map3d`); vào bằng `?gm ds NewWorld(<id>, <ô x>, <ô y>)` — ô sinh xem `spawn` trong `client/assets3d/maps/<id>/map.json`.
    (`map.json` + `obstacle.bin` cho zone, `map3d.json` + `models.json` cho client, bẫy ra Phượng Tường + Lua trong `data/script/3d`).
    Zone đọc thư mục này qua `zone.maps_dir_extra` (config/zone.json).
 2. `client/assets` của bản 3D là thư mục thật: junction `maps`/`sprites`/`npcres` sang `swrod3/next/client/assets`, còn `ui`/`items`/

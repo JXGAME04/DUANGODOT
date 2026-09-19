@@ -43,6 +43,7 @@ var _shader_mats: Array = []
 var _map_root: Node = null
 var _env: WorldEnvironment = null
 var _sun: DirectionalLight3D = null
+var _indoor := false            # no directional light in the scene's render settings (caves): lightmap only
 var _ground_plane: StaticBody3D = null   # the flat ground of a map without a bundle
 var mode := ""            # "3d" (a map3d bundle), "2.5d" (the 2D bundle as boards and ground pictures), "flat" (nothing)
 var ground25: Node3D = null   # KGround25D in 2.5D mode
@@ -322,6 +323,9 @@ func _setup_environment() -> void:
 	_env.environment = env
 	add_child(_env)
 	var l: Dictionary = r.get("light", {})
+	# a scene without a directional light in its render settings (the caves / mazes: maze_wuling has ambient_mode 3 and
+	# lightmaps only) is indoor: no sun, the lightmap carries every light (decoded x2 below) [TK scene.json render]
+	_indoor = not l.has("dir") and not bool(scene.get("own", false))
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	var d := Vector3(-0.3, -0.85, 0.4)
@@ -332,7 +336,9 @@ func _setup_environment() -> void:
 	_sun.light_color = _col(l.get("color", [1, 1, 0.95]))
 	# the reference lightmaps carry only indirect light, so their maps take a strong real-time sun; a map of our own
 	# has plain PBR materials lit by the sun and the ambient alone [tự chọn]
-	_sun.light_energy = 1.0 if bool(scene.get("own", false)) else 1.35
+	_sun.light_energy = 1.0 if bool(scene.get("own", false)) else (1.0 if _indoor else 1.35)   # indoor: the maze terrain shader (地形_迷宫_A高度) has no lightmap path yet -> a fill sun [tự chọn, F6]
+	if _indoor:
+		env.ambient_light_energy = 0.35   # a little fill so unlit faces are not pitch black [tự chọn]
 	if bool(scene.get("own", false)):
 		env.ambient_light_energy = 0.6
 	var q := quality_settings()
@@ -544,6 +550,7 @@ func _make_material(mm: Dictionary, meta: Dictionary) -> Material:
 			sm.set_shader_parameter("lightmap_tex", _lightmap(int(lm[0])))
 			sm.set_shader_parameter("lm_st", Vector4(lm[1], lm[2], lm[3], lm[4]))
 			sm.set_shader_parameter("use_lm", true)
+			sm.set_shader_parameter("lm_gain", 2.0 if _indoor else 1.0)   # dLDR lightmap: decoded x2 (unity_Lightmap_HDR) [TK]; outdoor stays 1 with the sun
 			stats["lm_surfaces"] += 1
 		else:
 			sm.set_shader_parameter("use_lm", false)
@@ -595,6 +602,7 @@ func _make_material(mm: Dictionary, meta: Dictionary) -> Material:
 		sm2.set_shader_parameter("alpha_test", mm.get("alpha", "OPAQUE") == "MASK")
 		sm2.set_shader_parameter("cutoff", float(mm.get("cutoff", 0.5)))
 		sm2.set_shader_parameter("use_lm", true)
+		sm2.set_shader_parameter("lm_gain", 2.0 if _indoor else 1.0)
 		var c = mm.get("color", null)
 		if c is Array and c.size() >= 4 and kind == "static":
 			sm2.set_shader_parameter("tint", Color(c[0], c[1], c[2], c[3]))

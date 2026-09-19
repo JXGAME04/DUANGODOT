@@ -21,7 +21,7 @@ mọi phái → đánh quái → UI): [MO-NHI-PHAN-3D.md](MO-NHI-PHAN-3D.md).
 | M3D-2 | **mã xong, nội dung chờ họa sĩ** | 2.1 `3D-HOA-SI.md`, 2.2 `import_map3d.py` + map mẫu (thôn 9001 chạy với zone); 2.3–2.5 cần người dựng |
 | M3D-3 | 3.1 / 3.2 / 3.3 / 3.6 xong đợt 1; 3.4 / 3.5 hoãn | kỹ năng 205/288 ghép theo tên Hán; mờ nhà; nước + lá cỏ; ngựa; minimap & nhạc vùng chờ phần 2.0 tương ứng |
 | M3D-4 | **xong** | 2.5D cho 980 map 2D, bản 3D/2.5D là mặc định, e2e cả hai bản vẽ |
-| M3D-5 | chưa (nội dung) | theo họa sĩ |
+| M3D-5 | **một phần** (từ bản tham khảo, chỉ thử nội bộ) | 45 map 3D của bản tham khảo dựng theo lô (`batch_maps.py`, 3D-53/54), quái ghép template JX1 tự động (`map_npcs.py`); nội dung tự làm vẫn theo họa sĩ |
 | M3D-6 | 6.1 một phần | mức chất lượng, đo FPS thật; còn texture nén, Android, patcher, CI GPU |
 
 ## Tổng quan

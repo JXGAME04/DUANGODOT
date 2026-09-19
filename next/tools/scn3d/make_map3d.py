@@ -218,9 +218,15 @@ def main():
     placements = []
     models = {}
     missing = set()
+    # bang ghep tu dong (map_npcs.py -> cha_templates.json: quai theo tu dien ten CN -> VI) sau bang tay CHA_TO_TEMPLATE
+    auto_tpl = {}
+    auto_path = os.path.join(HERE, "cha_templates.json")
+    if os.path.exists(auto_path):
+        auto_tpl = {int(k): tuple(v[:3]) for k, v in json.load(io.open(auto_path, encoding="utf-8")).items()}
+        auto_name = {int(k): v[4] for k, v in json.load(io.open(auto_path, encoding="utf-8")).items() if len(v) > 4}
     for p in npcs.get("placements", []):
         cha = int(p["cha"])
-        tpl = CHA_TO_TEMPLATE.get(cha)
+        tpl = CHA_TO_TEMPLATE.get(cha) or auto_tpl.get(cha)
         if tpl is None:
             missing.add(cha)
             continue
@@ -231,7 +237,7 @@ def main():
             continue
         x, y = to_scene(p["pos"])
         yaw = 180.0 + float(p.get("angle", 0.0))
-        placements.append({"template_id": tid, "name": t["name"], "x": x, "y": y, "kind": kind, "level": level,
+        placements.append({"template_id": tid, "name": auto_name.get(cha, t["name"]), "x": x, "y": y, "kind": kind, "level": level,
                            "camp": int(t.get("camp", 0)), "series": int(t.get("series", 0)), "dir": yaw_to_dir(yaw), "mark": p.get("mark", "")})
         models[str(tid)] = cha
     # the exits of the reference map become traps (KRegion::LoadServerTrap runs: cells x, y, n) whose script sends the

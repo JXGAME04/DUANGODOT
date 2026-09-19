@@ -46,9 +46,15 @@ func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictiona
 		model.name = "Model"
 		add_child(model)
 		bar_height = float(model.get("bar_height")) if model.get("bar_height") != null else 2.0
-		var cp = model_info.get("cp_radius", null)
-		if cp != null and float(cp) > 0.0:
-			radius = float(cp)
+		# cha_pic col 14/15 [TK]: the pick collider - a sphere (radius) or a box (x*y*z, the player 1 x 1.8 x 1, a pig
+		# 0.8 x 1.4 x 1) -> the pick cylinder's radius; its height stays the name bar (sys_bar)
+		var pick = model_info.get("pick", null)
+		if pick is Dictionary and pick.get("size", []).size() >= 1:
+			var sz: Array = pick["size"]
+			if int(pick.get("type", 0)) == 1 and sz.size() >= 3:
+				radius = maxf(0.25, maxf(float(sz[0]), float(sz[2])) / 2.0)
+			else:
+				radius = maxf(0.25, float(sz[0]))
 		if not bool(place.quality_settings().get("shadows", true)):
 			_add_blob_shadow()
 	elif not _flag(state, "no_2d") and _flag(state, "has_res"):

@@ -15,7 +15,7 @@ Chuoi du lieu (mo o D:/game3gTQ_mo/BAO-CAO-MAP-3D.md muc 7 + phien 2026-09-19):
   exprolesanim  assets/art/rolesmakeres/animation/<bone>/<clip>.asset     : AnimationClip legacy (duong cong quaternion/pos/scale theo path xuong)
 Toa do Unity -> glTF: dao truc X (vi tri -x, quaternion (x,-y,-z,w), ma tran F*M*F), dao chieu tam giac, lat V cua UV.
 """
-import argparse, hashlib, io, json, math, os, struct, sys, collections
+import argparse, hashlib, io, json, math, os, re, struct, sys, collections
 
 import numpy as np
 import UnityPy
@@ -84,7 +84,12 @@ class Tables:
         self.cha_pic = {}
         for r in self.t.get("cha_pic_cmn", [])[1:]:
             if len(r) > 14 and r[0].strip().isdigit():
+                # cot 5 ban kinh chan (xet don), 14/15 khoi chon (0 cau: ban kinh, 1 hop: x*y*z), 18 kieu chet (2 mo dan, 3 tan)
+                pick = [x for x in r[15].split("*") if x.strip()] if len(r) > 15 else []
                 self.cha_pic[int(r[0])] = {"id": int(r[0]), "name": r[1].strip(), "bone": r[3].strip(), "sex": r[4].strip(),
+                                           "foot_radius": float(r[5]) if r[5].strip() else 0.4,
+                                           "pick": {"type": int(r[14]) if r[14].strip().isdigit() else 0, "size": [float(x) for x in pick]},
+                                           "death": int(r[18]) if len(r) > 18 and r[18].strip().isdigit() else 0,
                                            "scale": float(r[6]) if r[6].strip() else 1.0, "anim_group": int(r[9]) if r[9].strip() else -1,
                                            "skins": r[12].strip(), "model": r[13].strip(), "sizeY": None}
         self.anim_group = {}
@@ -532,7 +537,8 @@ class NpcExporter:
         hangs = {k: hang_godot(v) for k, v in hi.items() if v["path"]}
         bar_y = hi.get("sys_bar", {}).get("pos", (0, 0, 0))[1] if hi else 0.0
         info = {"cha": cha_id, "name": cp["name"], "name_vi": name_vi, "bone": bone, "file": fname + ".gltf", "scale": cp["scale"], "anims": anim_names,
-                "groups": groups, "hangs": hangs, "bar_y": bar_y, "sizeY": self.tables.model_view.get(cha_id), "stats": stats}
+                "groups": groups, "hangs": hangs, "bar_y": bar_y, "sizeY": self.tables.model_view.get(cha_id), "stats": stats,
+                "foot_radius": cp.get("foot_radius", 0.4), "pick": cp.get("pick", {}), "death": cp.get("death", 0)}
         print("  cha %d %s (%s) [%s]: %d phan, %d dinh, %d tam giac, %d animation, xuong thieu %d" % (
             cha_id, cp["name"], name_vi or "?", bone, stats["parts"], stats["verts"], stats["tris"], stats["anims"], stats["missing_bones"]))
         return info
@@ -575,6 +581,39 @@ def main():
         for cid, info in ex.tables.cha_pic.items():
             if info.get("bone"):
                 bone_to_cha.setdefault(info["bone"], cid)
+        # a monster mark is often the pinyin of the cha_list name ("kulu" 骷髅, "mozei" 魔贼, "huilang" 灰狼, "zoushi" 走尸):
+        # cha_list rows of kind 3 -> pinyin (pypinyin) -> cha_pic; "kulu"-style clipped syllables match by prefix
+        pinyin_to_cha = {}
+        try:
+            from pypinyin import lazy_pinyin
+            for r in ex.tables.t.get("cha_list_cmn", [])[1:]:
+                if len(r) > 6 and r[0].strip().isdigit() and r[3].strip().isdigit() and r[6].strip() == "3":
+                    base = re.sub(r"[_|•（(].*$", "", r[1].strip())
+                    py = "".join(lazy_pinyin(base)).lower()
+                    if py and py not in pinyin_to_cha:
+                        pinyin_to_cha[py] = int(r[3])
+        except ImportError:
+            pass
+
+        # marks whose pinyin is clipped / differs from the cha_list name [TK maps]: kulu = 骷髅傀儡 (cha_pic 400)
+        MARK_ALIAS = {"kulu": 400, "kulou": 400}
+
+        def cha_of_mark(mark):
+            m = mark.lower()
+            if m in MARK_ALIAS:
+                return MARK_ALIAS[m]
+            if m in bone_to_cha:
+                return bone_to_cha[m]
+            if m in pinyin_to_cha:
+                return pinyin_to_cha[m]
+            m2 = re.sub(r"\d+$", "", m)
+            if m2 in pinyin_to_cha:
+                return pinyin_to_cha[m2]
+            # clipped syllables: kulu ~ kulou, canglang ~ canglang
+            cands = [k for k in pinyin_to_cha if k.startswith(m2) or m2.startswith(k)]
+            if len(cands) == 1:
+                return pinyin_to_cha[cands[0]]
+            return None
         scene_json = os.path.join(NEXT, "client", "assets3d", a.map, "scene.json")
         marks = {}
         if os.path.exists(scene_json):
@@ -583,8 +622,8 @@ def main():
             print("chua co", scene_json, "- chay export_scene.py truoc")
         for mark, pts in marks.items():
             cha = mapping.get(mark)
-            if cha is None and mark in bone_to_cha and not mark.startswith("n_"):
-                cha = bone_to_cha[mark]
+            if cha is None and not mark.startswith("n_"):
+                cha = cha_of_mark(mark)
             if cha is None:
                 if not mark.startswith(("BeginPoint", "ExitPoint", "EnterPoint")):
                     print("mark chua ghep cha:", mark, len(pts))
