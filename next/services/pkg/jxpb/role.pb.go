@@ -333,6 +333,9 @@ type ItemData struct {
 	Room          uint32                 `protobuf:"varint,19,opt,name=room,proto3" json:"room,omitempty"` // KItemRoom: 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = part)
 	X             uint32                 `protobuf:"varint,20,opt,name=x,proto3" json:"x,omitempty"`
 	Y             uint32                 `protobuf:"varint,21,opt,name=y,proto3" json:"y,omitempty"`
+	RandSeed      uint32                 `protobuf:"varint,22,opt,name=rand_seed,json=randSeed,proto3" json:"rand_seed,omitempty"`              // KItem+0x1e0: the seed of the roll (ITEM_GetItemRandSeed; AddItemEx with a seed rolls the same piece again)
+	MagicLevel    []int32                `protobuf:"varint,23,rep,packed,name=magic_level,json=magicLevel,proto3" json:"magic_level,omitempty"` // KItem+0x1e4..: the six levels of the roll (SetItemMagicLevel writes one)
+	Luck          uint32                 `protobuf:"varint,24,opt,name=luck,proto3" json:"luck,omitempty"`                                      // KItem+0x200: the luck of the roll (GetItemProp)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -510,6 +513,27 @@ func (x *ItemData) GetX() uint32 {
 func (x *ItemData) GetY() uint32 {
 	if x != nil {
 		return x.Y
+	}
+	return 0
+}
+
+func (x *ItemData) GetRandSeed() uint32 {
+	if x != nil {
+		return x.RandSeed
+	}
+	return 0
+}
+
+func (x *ItemData) GetMagicLevel() []int32 {
+	if x != nil {
+		return x.MagicLevel
+	}
+	return nil
+}
+
+func (x *ItemData) GetLuck() uint32 {
+	if x != nil {
+		return x.Luck
 	}
 	return 0
 }
@@ -1034,7 +1058,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\x04camp\x18\x10 \x01(\rR\x04camp\"5\n" +
 	"\tItemMagic\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12\x14\n" +
-	"\x05value\x18\x02 \x03(\x05R\x05value\"\xc7\x04\n" +
+	"\x05value\x18\x02 \x03(\x05R\x05value\"\x99\x05\n" +
 	"\bItemData\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\rR\aversion\x12\x14\n" +
@@ -1061,7 +1085,11 @@ const file_jx_role_proto_rawDesc = "" +
 	"\bmagic_ex\x18\x12 \x03(\v2\x10.jx.pb.ItemMagicR\amagicEx\x12\x12\n" +
 	"\x04room\x18\x13 \x01(\rR\x04room\x12\f\n" +
 	"\x01x\x18\x14 \x01(\rR\x01x\x12\f\n" +
-	"\x01y\x18\x15 \x01(\rR\x01y\"C\n" +
+	"\x01y\x18\x15 \x01(\rR\x01y\x12\x1b\n" +
+	"\trand_seed\x18\x16 \x01(\rR\brandSeed\x12\x1f\n" +
+	"\vmagic_level\x18\x17 \x03(\x05R\n" +
+	"magicLevel\x12\x12\n" +
+	"\x04luck\x18\x18 \x01(\rR\x04luck\"C\n" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +

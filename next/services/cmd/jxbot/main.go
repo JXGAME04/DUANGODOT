@@ -298,6 +298,24 @@ func (b *bot) handleWorld(f frame.Frame) error {
 			log.InfoCtx(b.logctx(), "bot", "trade ok")
 			_ = b.send(jxpb.MsgId_C2G_TRADE, &jxpb.TradeReq{Cmd: jxpb.TradeCmd_TRADE_DECISION, Arg: 1})
 		}
+	case jxpb.MsgId_G2C_ITEM_LIST:
+		// the partner keeps every piece the --auto client trades to it, run after run, until its bag cannot take one more
+		// and the exchange stops (KSubWorld::trade_exchange: the taker's bag must fit the other's box) - so the bag is
+		// emptied on entering the world through the gm console (RemoveItemByIndex of the task scripts, M13 D7)
+		var inv jxpb.InventorySync
+		if err := proto.Unmarshal(f.Payload, &inv); err != nil {
+			return err
+		}
+		if b.partner {
+			cleared := 0
+			for _, it := range inv.Items {
+				if it.Room == 0 {
+					_ = b.send(jxpb.MsgId_C2G_CHAT, &jxpb.ChatReq{Text: fmt.Sprintf("?gm ds RemoveItemByIndex(%d)", it.Id)})
+					cleared++
+				}
+			}
+			log.InfoCtx(b.logctx(), "bot", "bag cleared", log.F("items", cleared), log.F("total", len(inv.Items)))
+		}
 	case jxpb.MsgId_G2C_TRADE_END:
 		var te jxpb.TradeEnd
 		_ = proto.Unmarshal(f.Payload, &te)

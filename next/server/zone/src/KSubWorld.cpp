@@ -2876,6 +2876,11 @@ void KSubWorld::wear_result(KNpc& e, KItemList& list, int part, std::uint32_t id
     recalc_player(e);   // 0x081FFE90: the attributes of the piece come off
 }
 
+void KSubWorld::sync_item(std::uint64_t sid, std::uint32_t id)
+{
+    item_changed(sid, id);
+}
+
 bool KSubWorld::take_item(std::uint64_t sid, std::uint32_t id)
 {
     KItemList* list = items_of(sid);

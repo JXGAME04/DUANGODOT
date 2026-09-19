@@ -23,6 +23,7 @@
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KObj.h"
 #include "jx/zone/KRandom.h"
+#include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSubWorld.h"
 #include "jx/zone/ScriptFuns.h"
 
@@ -1864,4 +1865,151 @@ TEST_CASE("a full bag, a death and a leave end a trade the safe way (0x080B2FF2,
     REQUIRE(iw.w->remove_player(1));
     CHECK_FALSE(iw.w->trading(B));
     CHECK(B.player.menu.state == jx::zone::menu_state_normal);
+}
+
+// ---- the item functions of the task scripts (M13 D7, docs/LINUX-SERVER.md §26) ----------------------------------
+
+namespace {
+
+constexpr const char* kItemScript = R"(
+function main(param)
+    g_id = AddItemEx(3, 12345, 0, 0, 0, 0, 1, 2, 50, 1, 0, 0, 0, 0, 0)
+    g_id2 = AddItemEx("tag", 3, 12345, 0, 0, 0, 0, 1, 2, 50, 1, 0, 0, 0, 0, 0)
+    g_genre, g_detail, g_part, g_level, g_series, g_luck = GetItemProp(g_id)
+    g_seed = ITEM_GetItemRandSeed(g_id)
+    g_seed_bad = ITEM_GetItemRandSeed(99999)
+    g_seed_args = ITEM_GetItemRandSeed(g_id, 1)
+    g_stack = GetItemStackCount(g_id)
+    g_stack_bad = GetItemStackCount(99999)
+    g_gold = GetGlodEqIndex(g_id)
+    SetItemMagicLevel(g_id, 1, 777)
+    SetItemMagicLevel(g_id, 7, 5)
+    SetItemMagicLevel(g_id, 2)
+    SyncItem(g_id)
+    g_med = AddItemEx(3, 0, 0, 1, 0, 0, 2, 0, 0)
+    g_med_stack = GetItemStackCount(g_med)
+    g_none = GetItemProp(0)
+    g_short = AddItemEx(3, 0, 0, 0, 0)
+    g_quality = AddItemEx(3, 0, 1, 0, 0, 0, 1, 2, 50)
+    g_id3 = AddItemEx(3, 0, 0, 0, 3, 0, 1, -1, 0)
+    g_removed = RemoveItemByIndex(g_id3)
+    g_removed2 = RemoveItemByIndex(g_id3)
+end
+function Str(v)
+    if v == nil then return "nil" end
+    return tostring(v)
+end
+function Is(name, expected)
+    if Str(_G[name]) == expected then return 1 end
+    return 0
+end
+function Get(name)
+    return _G[name]
+end
+)";
+
+}   // namespace
+
+TEST_CASE("AddItemEx 0x08120470 with a seed, GetItemProp / SyncItem / RemoveItemByIndex / GetItemStackCount / GetGlodEqIndex / SetItemMagicLevel / ITEM_GetItemRandSeed", "[item][world][scriptfuns]")
+{
+    jx::log::Options lo;
+    lo.console = false;
+    lo.default_level = jx::log::Level::warn;
+    jx::log::init(lo);
+    auto lib = std::make_shared<jx::zone::KItemLibrary>();
+    {
+        KItemTemplateSet set;
+        std::string error;
+        REQUIRE(set.load(write_tables(), &error));
+        lib->add(3, std::move(set));
+    }
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "jxnext_itemscript_test";
+    std::filesystem::create_directories(root / "script" / "test");
+    std::ofstream(root / "script" / "test" / "item.lua") << kItemScript;
+    jx::zone::KSubWorldConfig cfg;
+    cfg.zone_id = 1;
+    cfg.width = cfg.height = 4096;
+    cfg.spawn_point = jx::zone::Pos{2000, 2000};
+    cfg.items = lib;
+    cfg.scripts = std::make_shared<jx::zone::KScriptCache>(root.string());
+    jx::zone::KSubWorld w(cfg);
+    jx::pb::RoleData role;
+    role.set_player_id(11);
+    role.set_name("A");
+    role.set_level(9);
+    jx::EntityId id;
+    jx::zone::Pos p;
+    REQUIRE(w.spawn_player(1, role, id, p) == jx::pb::RESULT_OK);
+    w.take_outbox();
+    jx::zone::KNpc* A = w.mutable_entity(id);
+    REQUIRE(A != nullptr);
+    REQUIRE(w.execute_script(R"(\script\test\item.lua)", "main", *A, 0));
+    jx::zone::KLuaScript* s = cfg.scripts->get(R"(\script\test\item.lua)");
+    REQUIRE(s != nullptr);
+    const auto is = [&](const char* name, const char* expected) { return s->call_number("Is", {std::string(name), std::string(expected)}) == 1.0; };
+    const auto get = [&](const char* name) { return s->call_number("Get", {std::string(name)}).value_or(-1.0); };
+    const auto sword = static_cast<std::uint32_t>(get("g_id"));
+    const auto sword2 = static_cast<std::uint32_t>(get("g_id2"));
+    REQUIRE(sword != 0);
+    REQUIRE(sword2 != 0);
+    CHECK(sword2 != sword);
+    // GetItemProp: genre, detail, particular, level, series, luck (Item+0, +8, +0xc, +0x24, +0x28, +0x200)
+    CHECK(is("g_genre", "0"));
+    CHECK(is("g_detail", "0"));
+    CHECK(is("g_part", "0"));
+    CHECK(is("g_level", "1"));
+    CHECK(is("g_series", "2"));
+    CHECK(is("g_luck", "50"));
+    // the seed given to AddItemEx is the piece's (0x0811F824), and the same seed rolls the same prefix
+    CHECK(is("g_seed", "12345"));
+    CHECK(is("g_seed_bad", "-1"));
+    CHECK(is("g_seed_args", "-1"));
+    const KItemList* list = w.items_of(1);
+    REQUIRE(list != nullptr);
+    const KItem* it = list->find(sword);
+    REQUIRE(it != nullptr);
+    const KItem* it2 = list->find(sword2);
+    REQUIRE(it2 != nullptr);
+    CHECK(it->rand_seed == 12345);
+    CHECK(it->luck == 50);
+    CHECK(it->magic[0].type != 0);
+    CHECK(it2->magic[0].type == it->magic[0].type);
+    CHECK(it2->magic[0].value[0] == it->magic[0].value[0]);
+    // the stack of a plain piece is 1 (0x080FD2F2); a medicine with a maximum of 10 holding one answers 1; a bad index -1
+    CHECK(is("g_stack", "1"));
+    CHECK(is("g_stack_bad", "-1"));
+    CHECK(get("g_med") > 0);
+    CHECK(is("g_med_stack", "1"));
+    // not a gold piece
+    CHECK(is("g_gold", "0"));
+    // SetItemMagicLevel: slot 1 written, slot 7 refused, two arguments ignored; the levels of the roll stay in the others
+    CHECK(it->magic_level[0] == 777);
+    CHECK(it->magic_level[1] == 0);
+    CHECK(it2->magic_level[0] == 1);
+    // SyncItem: the piece as it is now (G2C_ITEM_ADD)
+    const auto out = w.take_outbox();
+    bool synced = false;
+    for (const auto& pk : packets(out, 1, jx::pb::G2C_ITEM_ADD)) {
+        if (decode_packet<jx::pb::ItemAdd>(pk).item().id() == sword) synced = true;
+    }
+    CHECK(synced);
+    // an index of 0 -> one 0 (0x080FF2AC); too few arguments (0x081204A8) and a quality other than a plain roll -> 0
+    CHECK(is("g_none", "0"));
+    CHECK(is("g_short", "0"));
+    CHECK(is("g_quality", "0"));
+    // RemoveItemByIndex: the ring goes once
+    const auto ring = static_cast<std::uint32_t>(get("g_id3"));
+    REQUIRE(ring != 0);
+    CHECK(is("g_removed", "1"));
+    CHECK(is("g_removed2", "0"));
+    CHECK(list->find(ring) == nullptr);
+    CHECK_FALSE(packets(out, 1, jx::pb::G2C_ITEM_REMOVE).empty());
+    // the seed, the levels and the luck survive a save
+    jx::pb::ItemData d;
+    it->to_proto(d);
+    KItem back;
+    REQUIRE(KItem::from_proto(d, *lib, back));
+    CHECK(back.rand_seed == 12345);
+    CHECK(back.magic_level[0] == 777);
+    CHECK(back.luck == 50);
 }

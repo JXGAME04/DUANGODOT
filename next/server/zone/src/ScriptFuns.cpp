@@ -463,6 +463,27 @@ int l_PopString(lua_State* L)
 // goes to the first free spot of the bag; a full bag left it on the ground in the old server -
 // that comes with the drops (M11 D), until then it is 0.  The magic prefix / suffix levels roll
 // the attributes through Gen_MagicAttrib with luck 0 (Lua_NewItem passes no luck).
+// Lua_NewItem 0x0811F230 -> KItemSet::Add 0x0806E110(set, genre, quality, series, level, luck, detail, particular, levels, version, seed, ctx,
+// flag, 0, bNew 1): a version 0 / -1 is the current table set (the JX2 build refuses one above 4, 0x0811F3B9); a seed
+// other than 0 is put into the random generator before the roll (0x0811F824, the old seed back after) so the same piece
+// comes out again.  Only quality 0 (a plain roll) exists here; gold pieces have AddGoldItem.
+std::optional<KItem> make_script_item(KSubWorld* w, std::uint32_t version, std::uint32_t seed, int quality, int genre, int detail, int particular,
+                                      int level, int series, int luck, const KMagicLevels* levels)
+{
+    if (quality != 0) return std::nullopt;
+    auto gen = w->item_generator(version);
+    if (!gen) return std::nullopt;
+    if (seed != 0) gen->seed(seed);
+    switch (static_cast<KItemGenre>(genre)) {
+    case KItemGenre::equip: return gen->equipment(detail, particular, series, level, levels, luck);
+    case KItemGenre::medicine: return gen->medicine(detail, level);
+    case KItemGenre::task: return gen->quest(detail, 1);
+    case KItemGenre::town_portal: return gen->town_portal();
+    case KItemGenre::magic_script: return gen->magic_script(detail, particular, level, series, 1);
+    default: return std::nullopt;
+    }
+}
+
 int l_AddItem(lua_State* L)
 {
     const int n = lua_gettop(L);
@@ -484,18 +505,7 @@ int l_AddItem(lua_State* L)
         with_magic = with_magic || levels[static_cast<std::size_t>(i)] != 0;
     }
     KSubWorld* w = g_ScriptContext().world;
-    auto gen = w->item_generator(w->item_version());
-    std::optional<KItem> item;
-    if (gen) {
-        switch (static_cast<KItemGenre>(genre)) {
-        case KItemGenre::equip: item = gen->equipment(detail, particular, series, level, with_magic ? &levels : nullptr, luck); break;
-        case KItemGenre::medicine: item = gen->medicine(detail, level); break;
-        case KItemGenre::task: item = gen->quest(detail, 1); break;
-        case KItemGenre::town_portal: item = gen->town_portal(); break;
-        case KItemGenre::magic_script: item = gen->magic_script(detail, particular, level, series, 1); break;
-        default: break;
-        }
-    }
+    std::optional<KItem> item = make_script_item(w, w->item_version(), 0, 0, genre, detail, particular, level, series, luck, with_magic ? &levels : nullptr);
     if (!item) {
         log::warn("lua", "AddItem: no such item", {log::kv("genre", genre), log::kv("detail", detail), log::kv("particular", particular),
                                                     log::kv("level", level), log::kv("series", series), log::kv("luck", luck)});
@@ -505,6 +515,169 @@ int l_AddItem(lua_State* L)
     const std::uint32_t id = w->give_item(g_ScriptContext().sid, std::move(*item));
     if (id == 0) log::info("lua", "AddItem: bag full", {log::kv("entity", p->id), log::kv("genre", genre), log::kv("detail", detail)});
     lua_pushinteger(L, id != 0 ? 1 : 0);
+    return 1;
+}
+
+// AddItemEx([tag,] version, seed, quality, genre, detail, particular, level, series, luck [, m1 .. m6]) -> the item's index / 0
+// (jx_linux_y 0x08120470): a leading string is dropped (lua_remove, 0x081205B5); fewer than nine numbers -> the sentence
+// 0x978a464 printed and 0 (0x08120560); a player above 0; Lua_NewItem 0x0811F230 with the nine and the levels (the
+// scripts' tab_vn_fy_ring: AddItemEx(4, 15788, 0, 0, 3, 0, 6, 0, 200, 6, 6, 6, 6, 6, 6) = version 4, seed 15788, a plain
+// ring of level 6 with luck 200 and six levels of 6); KPlayer::AddItem 0x080B5180(player, idx, 1, 1, 0) into the bag -> the
+// index (0x08120580), else the piece is freed (KItemSet::Remove 0x0806DB90) and 0 comes back
+int l_AddItemEx(lua_State* L)
+{
+    if (lua_type(L, 1) == LUA_TSTRING) lua_remove(L, 1);   // 0x08120598: the tag
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "AddItemEx");
+    if (n <= 8) {   // 0x081204A8
+        log::warn("lua", "AddItemEx: too few arguments", {log::kv("count", n)});
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    if (p == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const auto version = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    const auto seed = static_cast<std::uint32_t>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+    const auto quality = static_cast<int>(lua_tonumber(L, 3));
+    const auto genre = static_cast<int>(lua_tonumber(L, 4));
+    const auto detail = static_cast<int>(lua_tonumber(L, 5));
+    const auto particular = static_cast<int>(lua_tonumber(L, 6));
+    const auto level = static_cast<int>(lua_tonumber(L, 7));
+    const auto series = static_cast<int>(lua_tonumber(L, 8));
+    const auto luck = static_cast<int>(lua_tonumber(L, 9));
+    KMagicLevels levels{};
+    bool with_magic = false;
+    for (int i = 0; i < 6 && 10 + i <= n; ++i) {
+        levels[static_cast<std::size_t>(i)] = static_cast<int>(luaL_optnumber(L, 10 + i, 0));
+        with_magic = with_magic || levels[static_cast<std::size_t>(i)] != 0;
+    }
+    KSubWorld* w = g_ScriptContext().world;
+    const std::uint32_t set_version = version <= 0 ? w->item_version() : static_cast<std::uint32_t>(version);
+    std::optional<KItem> item = make_script_item(w, set_version, seed, quality, genre, detail, particular, level, series, luck, with_magic ? &levels : nullptr);
+    if (!item) {
+        log::warn("lua", "AddItem: no such item", {log::kv("function", "AddItemEx"), log::kv("version", set_version), log::kv("quality", quality),
+                                                    log::kv("genre", genre), log::kv("detail", detail), log::kv("particular", particular),
+                                                    log::kv("level", level), log::kv("series", series), log::kv("luck", luck)});
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const std::uint32_t id = w->give_item(g_ScriptContext().sid, std::move(*item));
+    if (id == 0) log::info("lua", "AddItem: bag full", {log::kv("entity", p->id), log::kv("genre", genre), log::kv("detail", detail)});
+    lua_pushinteger(L, static_cast<lua_Integer>(id));
+    return 1;
+}
+
+// the item of the player by its index (the ids of the player's list are the item indices the scripts pass around)
+KItem* script_item(lua_State* L, const char* fn, int arg = 1)
+{
+    const KNpc* p = player_of(L, fn);
+    if (p == nullptr || lua_gettop(L) < arg) return nullptr;
+    const auto idx = static_cast<std::int64_t>(lua_tonumber(L, arg));
+    if (idx <= 0 || idx > 0xffffffffLL) return nullptr;
+    KItemList* list = g_ScriptContext().world->items_of(g_ScriptContext().sid);
+    return list != nullptr ? list->find_mutable(static_cast<std::uint32_t>(idx)) : nullptr;
+}
+
+// GetItemProp(idx) -> genre, detail, particular, level, series, luck (0x080FF260: Item+0, +8, +0xc, +0x24, +0x28, +0x200 of the
+// Item[] table 0x830d300; an index outside 1..max -> one 0)
+int l_GetItemProp(lua_State* L)
+{
+    const KItem* it = script_item(L, "GetItemProp");
+    if (it == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    lua_pushinteger(L, static_cast<int>(it->genre));
+    lua_pushinteger(L, it->detail);
+    lua_pushinteger(L, it->particular);
+    lua_pushinteger(L, it->level);
+    lua_pushinteger(L, it->series);
+    lua_pushinteger(L, it->luck);
+    return 6;
+}
+
+// SyncItem(idx) (0x08114EF0): a player above 0 and an index above 0 -> KItemList::SyncItem 0x081FB9A0 (the item as it is now to
+// the client: the 0x5f packet of 0x081F9430 with durability, +0x344 / +0x345, the bind time) - G2C_ITEM_ADD here
+int l_SyncItem(lua_State* L)
+{
+    const KItem* it = script_item(L, "SyncItem");
+    if (it == nullptr) return 0;
+    g_ScriptContext().world->sync_item(g_ScriptContext().sid, it->id);
+    return 0;
+}
+
+// RemoveItemByIndex(idx) -> 1 / 0 (0x08114F80): KItemList::Remove 0x082006B0 (a worn piece comes off first), then
+// KItemSet::Remove 0x0806DB90 with the reason 0xd frees it; the list's answer comes back
+int l_RemoveItemByIndex(lua_State* L)
+{
+    const KItem* it = script_item(L, "RemoveItemByIndex");
+    if (it == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const std::uint32_t id = it->id;
+    const bool ok = g_ScriptContext().world->take_item(g_ScriptContext().sid, id);
+    log::debug("lua", "item removed by script", {log::kv("entity", g_ScriptContext().player->id), log::kv("item", id), log::kv("ok", ok)});
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// GetItemStackCount(idx) -> the stack (0x080FD250): exactly one argument and an index in range, else -1; a stackable piece
+// (Item+0x14) whose count (+0x308) is above 0 and at most its maximum (+0x30c, 1 when none) answers the count, anything
+// else 1
+int l_GetItemStackCount(lua_State* L)
+{
+    if (lua_gettop(L) != 1) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    const KItem* it = script_item(L, "GetItemStackCount");
+    if (it == nullptr) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    const int max = it->max_stack() > 0 ? it->max_stack() : 1;
+    lua_pushinteger(L, it->max_stack() > 0 && it->count > 0 && it->count <= max ? it->count : 1);
+    return 1;
+}
+
+// GetGlodEqIndex(idx) -> the gold row + 1 (0x080FEF90 -> 0x080FEEB0(L, 1): Item+4 == 1 (a gold piece) -> Item+0x80 + 1), else 0
+int l_GetGlodEqIndex(lua_State* L)
+{
+    const KItem* it = script_item(L, "GetGlodEqIndex");
+    lua_pushinteger(L, it != nullptr && it->ex_type == 1 ? it->gen_param + 1 : 0);
+    return 1;
+}
+
+// SetItemMagicLevel(idx, slot, level) (0x080FD020): exactly three arguments; the index not negative and within the table,
+// the slot 1..6 (0x080FD10C); Item+0x1e4 + slot * 4 = level - nothing is synced (the scripts call SyncItem)
+int l_SetItemMagicLevel(lua_State* L)
+{
+    if (lua_gettop(L) != 3) return 0;
+    KItem* it = script_item(L, "SetItemMagicLevel");
+    const int slot = static_cast<int>(lua_tonumber(L, 2));
+    const int level = static_cast<int>(lua_tonumber(L, 3));
+    if (it == nullptr || slot < 1 || slot > 6) return 0;
+    it->magic_level[static_cast<std::size_t>(slot - 1)] = level;
+    return 0;
+}
+
+// ITEM_GetItemRandSeed(idx) -> the seed (0x081548E0: exactly one argument and an index in range, else -1; Item+0x1e0 as an
+// unsigned number)
+int l_ITEM_GetItemRandSeed(lua_State* L)
+{
+    if (lua_gettop(L) != 1) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    const KItem* it = script_item(L, "ITEM_GetItemRandSeed");
+    if (it == nullptr) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    lua_pushinteger(L, static_cast<lua_Integer>(it->rand_seed));
     return 1;
 }
 
@@ -2210,6 +2383,9 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetAccount", l_GetAccount},         {"AddOwnExp", l_AddOwnExp},         {"AddRepute", l_AddRepute},
     {"GetRepute", l_GetRepute},           {"PushString", l_PushString},       {"AppendString", l_AppendString},
     {"ReplaceString", l_ReplaceString},   {"PopString", l_PopString},
+    {"AddItemEx", l_AddItemEx},           {"GetItemProp", l_GetItemProp},     {"SyncItem", l_SyncItem},
+    {"RemoveItemByIndex", l_RemoveItemByIndex}, {"GetItemStackCount", l_GetItemStackCount}, {"GetGlodEqIndex", l_GetGlodEqIndex},
+    {"SetItemMagicLevel", l_SetItemMagicLevel}, {"ITEM_GetItemRandSeed", l_ITEM_GetItemRandSeed},
     {nullptr, nullptr},
 };
 

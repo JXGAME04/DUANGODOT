@@ -408,6 +408,8 @@
     "task tip": "Script TaskTip: dòng nhắc nhiệm vụ gửi client (gói 0xb6)",
     "script log": "Script WriteLog: dòng ghi của script (Logs/KSG_ScriptLog của máy chủ cũ)",
     "repute changed": "Script AddRepute: danh vọng (giá trị nhiệm vụ 100) thay đổi",
+    "AddItemEx: too few arguments": "Script AddItemEx gọi thiếu đối số (cần 9 số: version, seed, quality, genre, detail, particular, level, series, luck)",
+    "item removed by script": "Script RemoveItemByIndex: vật phẩm bị xoá theo chỉ số",
     "dialog answer ignored": "Trả lời hộp thoại không hợp lệ (ngoài số lựa chọn / loại khác 0)",
     "dialog answer without a script": "Trả lời hộp thoại nhưng không có script để gọi lại (Say từ lệnh GM)",
     "dialog answer code": "Trả lời hộp thoại: chạy đoạn mã sau dấu # của lựa chọn",

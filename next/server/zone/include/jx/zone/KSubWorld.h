@@ -260,6 +260,8 @@ public:
     // stack where it can; the client is told.  0 when it does not fit.
     std::uint32_t give_item(std::uint64_t sid, KItem item);
     bool take_item(std::uint64_t sid, std::uint32_t id);   // the item is gone (used up, taken by a script)
+    // Lua SyncItem 0x08114EF0 -> KItemList::SyncItem 0x081FB9A0: the item as it is now to its owner (G2C_ITEM_ADD)
+    void sync_item(std::uint64_t sid, std::uint32_t id);
     void send_item_list(std::uint64_t sid);
     void fill_item_view(const KItem& item, const KItemPlace& place, pb::ItemView& out) const;
 

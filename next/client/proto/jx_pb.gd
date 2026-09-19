@@ -12172,6 +12172,22 @@ class ItemData:
 		service.field = __y
 		data[__y.tag] = service
 		
+		__rand_seed = PBField.new("rand_seed", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 22, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __rand_seed
+		data[__rand_seed.tag] = service
+		
+		var __magic_level_default: Array[int] = []
+		__magic_level = PBField.new("magic_level", PB_DATA_TYPE.INT32, PB_RULE.REPEATED, 23, true, __magic_level_default)
+		service = PBServiceField.new()
+		service.field = __magic_level
+		data[__magic_level.tag] = service
+		
+		__luck = PBField.new("luck", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 24, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __luck
+		data[__luck.tag] = service
+		
 	var data = {}
 	
 	var __id: PBField
@@ -12438,6 +12454,41 @@ class ItemData:
 		__y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_y(value : int) -> void:
 		__y.value = value
+	
+	var __rand_seed: PBField
+	func has_rand_seed() -> bool:
+		if __rand_seed.value != null:
+			return true
+		return false
+	func get_rand_seed() -> int:
+		return __rand_seed.value
+	func clear_rand_seed() -> void:
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__rand_seed.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_rand_seed(value : int) -> void:
+		__rand_seed.value = value
+	
+	var __magic_level: PBField
+	func get_magic_level() -> Array[int]:
+		return __magic_level.value
+	func clear_magic_level() -> void:
+		data[23].state = PB_SERVICE_STATE.UNFILLED
+		__magic_level.value.clear()
+	func add_magic_level(value : int) -> void:
+		__magic_level.value.append(value)
+	
+	var __luck: PBField
+	func has_luck() -> bool:
+		if __luck.value != null:
+			return true
+		return false
+	func get_luck() -> int:
+		return __luck.value
+	func clear_luck() -> void:
+		data[24].state = PB_SERVICE_STATE.UNFILLED
+		__luck.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_luck(value : int) -> void:
+		__luck.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

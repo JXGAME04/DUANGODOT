@@ -68,6 +68,9 @@ message ItemData {
   uint32 room = 19;           // KItemRoom: 0 bag, 1 repository, 2 trade, 3 quick slots, 10 worn (x = part)
   uint32 x = 20;
   uint32 y = 21;
+  uint32 rand_seed = 22;      // KItem+0x1e0: the seed of the roll (ITEM_GetItemRandSeed; AddItemEx with a seed rolls the same piece again)
+  repeated int32 magic_level = 23;   // KItem+0x1e4..: the six levels of the roll (SetItemMagicLevel writes one)
+  uint32 luck = 24;           // KItem+0x200: the luck of the roll (GetItemProp)
 }
 
 // One skill of the character's KSkillList (jx_linux_y 0x080E48D0 writes {int16 id, int16 level,

@@ -237,6 +237,11 @@ struct KItem {
     int amulet_tier = 0;         // +0x344 (byte): the tier 0..10 of an amulet (0x0806AD90 raises it); above 5 the AdvPlatina wear rates apply - nothing sets it in the zone yet
     int ex_type = 0;             // ITEMEXTENDTYPE: 0 normal, 1 gold, 2 platina, 3 purple
     int gen_param = 0;           // gold: row id; script: row
+    std::uint32_t rand_seed = 0; // +0x1e0: the seed the piece was rolled from (Gen_Equipment 0x0806B3A0 stores g_GetRandomSeed();
+                                 // Lua_NewItem 0x0811F230 with a seed sets the RNG to it first, 0x0811F824) - ITEM_GetItemRandSeed
+    std::array<int, 6> magic_level{};   // +0x1e4..+0x1f8: the six levels of the roll; SetItemMagicLevel 0x080FD020 writes one (the
+                                        // scripts tag a quest item with a task id there)
+    int luck = 0;                // +0x200: the luck of the roll (GetItemProp's sixth value, 0x080FF33B)
     int group = 0, ex_group = 0, group_serial = 0;
     std::array<KMagicAttrib, 7> base{};     // m_aryBaseAttrib
     std::array<KMagicAttrib, 6> require{};  // m_aryRequireAttrib

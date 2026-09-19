@@ -399,6 +399,9 @@ void KItem::to_proto(pb::ItemData& out) const
     out.set_durability(durability);
     out.set_ex_type(static_cast<std::uint32_t>(ex_type));
     out.set_gen_param(static_cast<std::uint32_t>(gen_param));
+    out.set_rand_seed(rand_seed);
+    for (const int v : magic_level) out.add_magic_level(v);
+    out.set_luck(static_cast<std::uint32_t>(luck));
     out.set_group(static_cast<std::uint32_t>(group));
     out.set_ex_group(static_cast<std::uint32_t>(ex_group));
     out.set_group_serial(static_cast<std::uint32_t>(group_serial));
@@ -438,6 +441,9 @@ bool KItem::from_proto(const pb::ItemData& in, const KItemLibrary& lib, KItem& o
     out.durability = in.durability();
     out.ex_type = static_cast<int>(in.ex_type());
     out.gen_param = static_cast<int>(in.gen_param());
+    out.rand_seed = in.rand_seed();
+    for (int i = 0; i < in.magic_level_size() && i < 6; ++i) out.magic_level[static_cast<std::size_t>(i)] = in.magic_level(i);
+    out.luck = static_cast<int>(in.luck());
     out.group = static_cast<int>(in.group());
     out.ex_group = static_cast<int>(in.ex_group());
     out.group_serial = static_cast<int>(in.group_serial());
@@ -1059,9 +1065,13 @@ std::optional<KItem> KItemGenerator::equipment(int detail, int particular, int s
     if (t == nullptr) return std::nullopt;
     // a mask never carries prefixes / suffixes (nDetailType != 11 in the JX2 server)
     const bool with_magic = magic_levels != nullptr && detail != equip_mask;
+    const std::uint32_t roll_seed = seed();   // 0x0806B3A0: +0x1e0 = g_GetRandomSeed() before the roll
     for (int attempt = 1;; ++attempt) {
         KItem item;
         set_attrib_cbr(item, *t);
+        item.rand_seed = roll_seed;
+        item.luck = luck;
+        if (with_magic) item.magic_level = *magic_levels;
         if (detail == equip_mask) item.level = level > 0 ? level : 0;
         else item.series = series;
         if (!with_magic) return item;
