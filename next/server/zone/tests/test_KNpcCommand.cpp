@@ -324,6 +324,15 @@ TEST_CASE("PeaceCanUse out of fight mode, a self skill at a spot casts on onesel
     CHECK(a.h->skill_list.next_cast_time(1102) > 0);   // the fire reached the cool down
     CHECK(a.h->cur.defend == defend + 10);   // the buff (defense_v 10 for 60 frames) landed on oneself
     CHECK(a.h->state_of(1102) != nullptr);
+    // KPlayer::UpdataCurData 0x080AF550 (a piece put on / taken off, a point spent): ClearAttrib wipes the current block, then
+    // KNpc::ReCalcStateEffect 0x0807D270 puts every held state back (the nodes keep the negated values, applied negated again)
+    a.w.recalc_player(*a.h);
+    CHECK(a.h->cur.defend == defend + 10);
+    CHECK(a.h->state_of(1102) != nullptr);
+    // the state runs out (60 frames): the negated values take it off once, back to the base
+    a.ticks(70);
+    CHECK(a.h->state_of(1102) == nullptr);
+    CHECK(a.h->cur.defend == defend);
 }
 
 TEST_CASE("ProcessCommand: walk up within 300 of the reach, drop beyond", "[command]")

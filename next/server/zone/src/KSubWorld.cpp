@@ -1206,7 +1206,9 @@ void KSubWorld::share_experience(KNpc& dead)
 void KSubWorld::recalc_player(KNpc& e)
 {
     if (e.kind != KNpcKind::player || !e.player.loaded) return;
-    e.player.updata_cur_data(e, false, tables(), items_of(e.sid));
+    KSkillListHost host = skill_host(e);
+    const std::function<void(int)> set_hide_hook = [&](int v) { set_hide(e, v); };
+    e.player.updata_cur_data(e, false, tables(), items_of(e.sid), &host, &set_hide_hook);
     send_player_attrib(e.sid);
 }
 
@@ -2629,7 +2631,8 @@ void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
                 pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), k->player_id});
                 ++money;
             }
-        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), 0)) {
+        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), k->player.cur_lucky)) {
+            // GenRandomItem 0x08083DA7: the killer's m_nCurLucky (+0x5958), plus a tong rank bonus (0x080CC620 when +0x5994 != 0 - no tong yet)
             pending_drops_.push_back(KPendingDrop{std::move(item), 0, dead.pos(), k->player_id});
             ++items;
         }

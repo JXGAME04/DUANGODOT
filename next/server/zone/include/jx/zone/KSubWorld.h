@@ -272,6 +272,9 @@ public:
     bool set_gold_type(KNpc& e, int rate, int type);
     // KNpcGold::RecoverBackData 0x0809E070: the backup back, cell 5 taken out (0x080E52D0), the aura cleared (SetAura 0)
     void recover_gold(KNpc& e);
+    // KPlayer::UpdataCurData 0x080AF550 for a player's npc (a piece put on / taken off, a point spent): ClearAttrib, the
+    // points, ReCalcStateEffect 0x0807D270 (every held state applied again), ReCalcEquip 0x080AF3E0, then the sync
+    void recalc_player(KNpc& e);
     // the 0x9a packet {0x9a, npc id, word kind} (0x0809DF66, 0x0807A870 within 100): G2C_NPC_GOLD
     void emit_gold(const KNpc& e);
     [[nodiscard]] const KMapSettings& map_settings() const noexcept;
@@ -677,8 +680,6 @@ private:
     void emit_state(const KNpc& e, const KStateNode& node, bool removed);
     // G2C_MISSLE: a missile born / flying / gone to the launcher's watchers (the 2.0 client runs CastMissles itself; docs/CLIENT-2.0.md §11)
     void emit_missle(const KMissle& m, bool removed, bool collided = false);
-    // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
-    void recalc_player(KNpc& e);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)
     void share_experience(KNpc& dead);
     void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
