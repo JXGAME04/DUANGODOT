@@ -1415,3 +1415,13 @@ của danh sách người chơi (mọi hàm script cùng dùng một không gian
 | `GetGiveItemUnitWithPos(n)` `0x08114D90` | như trên, đẩy 2: `+0x2b4[n−1]`, `+0x314[n−1]` (mã ô) | `l_GetGiveItemUnitWithPos` |
 | **`SetUiGiveItemMsg(chữ)` `0x0810B020` / `SetUiGiveItemMoreConfirmMsg(chữ)` `0x0810AF50`** | ≥ 1, chuỗi ≠ 0, chỉ số 1..0x4af; `new char[dài+9]`: `[0] = 0xd8 \| 0xdf`, `int [1] = dài+9`, `int [5] = 0`, chữ từ `[9]`; `0x080A8400(Player, gói, dài+9)`; `delete[]`. Client 2.0: 0xdf → `0x0064FD10` chép chữ từ +9 → thông điệp UI 0xa8 (hộp hỏi lại); **0xd8 → `0x00654C60` là chức năng khác** (đọc `[+1]` như id npc) — client này không hiện gợi ý | `l_SetUiGiveItemMsg`/`l_SetUiGiveItemMoreConfirmMsg` → `give_item_msg(e, 0 \| 1, chữ)` → `G2C_GIVE_ITEM_MSG{kind, text}` |
 | Huỷ | nút "Hủy bỏ"/đóng của client → `OperationRequest 0x5d(cờ)` → `KPlayer 0x005F8050` → gói 0x5f chỉ số 1 → `0x080AC5D0` chạy `+0x6020` (hàm huỷ, ô trả lời 1) | `dialog_answer(sid, 1, 0)` (đã có D1) |
+
+## 28. Ghi chú nhiệm vụ — `AddNote 0x08124DC0` (gói 0x63 ui 3 `UI_NOTEINFO`) (M13 lát D9, đã kiểm từng dòng)
+
+680 chỗ dùng trong `data/script` (`AddNote("Đại hiệp đã thu thập đủ Hồng Mộc. ")`, `AddNote("Nhận được 1 tài sản của dân làng.")`…): một dòng ghi vào sổ nhật ký của client
+(trang "Ghi chú nhiệm vụ"), máy chủ không giữ gì.
+
+| Hàm | Đọc được | JX NEXT |
+|---|---|---|
+| **`AddNote(chữ \| id[, tham số])` `0x08124DC0`** | chỉ số người chơi ≥ 0 (`0x08124DE1`), `top > 0` (`0x08124DEF`); `type(1) == số` → id chuỗi (`0x08124F80`: cờ `+6 = 1`, nội dung `{int id, int tham số}` dài 8); `isstring(1)` → chữ `strcpy` vào đệm (`0x08124F4F`); khác → thôi; `top ≠ 1` → `tham số = int(2)` (`0x08124E7C`), viết đè NUL cuối chữ (`0x08124F68`), `+0xd = strlen + 4`; gói `+3 = 0`, `+4 = 3`, `+5 = 0`, `+7 = 1` (`0x08124EBE..0x08124ED9`) → `0x080A8510`; không trả | `l_AddNote` → `KSubWorld::dialog_add_note` → `G2C_SCRIPT_ACTION{ui 3, text \| text_id, param, interactive}` |
+| Client 2.0 | ô 3 `0x00601058`: `[+6] == 0` → chép `dài − 4` byte chữ (`0x006010A0`), dịch `0x006C3AB0`, `strncpy` 0x100, tham số = int sau chữ (`[esi + dài + 0xd]`); `[+6] ≠ 0` → `g_GetStringRes(dword +0x11)`; `TEncodeText 0x005B1A56`; **thông điệp UI 0x24 `GDCNI_MISSION_RECORD`** `0x005B8150(0x24, &{chữ 0x100, tham số}, 0, 0)` → `0x004298DE` → `KUiTaskNote::WakeUp 0x004D2550(chữ, dài, giá trị)` (§28 `CLIENT-2.0.md`) | `KUiGameWindows._on_script_action` ui 3 → `UiTaskNote.add_system_record(text, param)` |

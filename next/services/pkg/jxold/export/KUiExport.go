@@ -113,6 +113,13 @@ var GameScreens = []UiScreenDef{
 	// M13 D8: Lua GiveItemUI (ui 0xb of the 0x63 packet: OnScriptAction 0x0060194C -> ui message 0x3e -> 0x00519C80 opens
 	// "%s\给予界面.ini"): the box the player puts items into for a npc script
 	{"dua-vat-pham", "Đưa vật phẩm cho npc (GiveItemUI)", "KUiGiveItem", `给予界面.ini`},
+	// M13 D9: the journal (KUiTaskNote of 2004, Ui/UiCase/UiTaskNote.cpp): Lua AddNote (ui 3 of the 0x63 packet: OnScriptAction
+	// 0x00601058 -> ui message 0x24 GDCNI_MISSION_RECORD) adds a line to the personal notes page
+	{"nhat-ky", "Nhật ký nhiệm vụ (khung)", "KUiTaskNote", `任务记事.ini`},
+	{"nhat-ky-ca-nhan", "Trang ghi chép cá nhân", "KUiTaskNote (cá nhân)", `任务记事-个人记事分页.ini`},
+	{"nhat-ky-he-thong", "Trang nhiệm vụ hệ thống", "KUiTaskNote (hệ thống)", `任务记事-系统任务分页.ini`},
+	{"nhat-ky-rang-buoc", "Trang trang bị ràng buộc", "KUiTaskNote (ràng buộc)", `任务记事-装备绑定.ini`},
+	{"nhat-ky-cap-nhat", "Trang ghi chép cập nhật game", "KUiTaskNote (cập nhật)", `任务记事-游戏更新记录.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

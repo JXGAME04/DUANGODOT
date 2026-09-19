@@ -25,6 +25,7 @@ const UiInformation2 := preload("res://ui/uicase/UiInformation2.gd")
 const UiNpcDescribe := preload("res://ui/uicase/UiNpcDescribe.gd")
 const UiSysMsg := preload("res://ui/uicase/UiSysMsg.gd")
 const UiGiveItem := preload("res://ui/uicase/UiGiveItem.gd")
+const UiTaskNote := preload("res://ui/uicase/UiTaskNote.gd")
 const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
@@ -55,6 +56,7 @@ var info2: UiInformation2 = null        # a npc script's Talk: the pages (提示
 var describe: UiNpcDescribe = null      # a npc script's Describe: the description and the answers (npc描述界面.ini)
 var sys_msg_pane: UiSysMsg = null       # the system message pane (系统消息.ini): a script's TaskTip lands there
 var give_window: UiGiveItem = null      # a npc script's GiveItemUI: the 6 x 4 box the player puts pieces into (给予界面.ini)
+var journal: UiTaskNote = null          # the journal "Ký Sự" (任务记事.ini): a script's AddNote lands on its system page
 var _channel_entries: Array = []
 var _menu_target := 0                   # the entity the player menu is about
 var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
@@ -188,6 +190,14 @@ func _ready() -> void:
 		give_window.cancelled.connect(func(): Game.dialog_answer(1, 0))
 		give_window.item_hovered.connect(_on_item_hovered)
 		Game.give_item_msg.connect(func(kind: int, text: String): give_window.set_message(kind, text))
+	journal = UiTaskNote.new()
+	_canvas.add_child(journal)
+	if not journal.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiTaskNote.SCHEME})
+		journal.queue_free()
+		journal = null
+	else:
+		journal.bind_player(int(Game.player_id))
 	Game.script_action.connect(_on_script_action)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
@@ -373,6 +383,11 @@ func _on_script_action(a: Dictionary) -> void:
 				if msg_sel != null and msg_sel.visible:
 					msg_sel.close_dialog()
 				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		3:
+			# 0x00601058 -> the ui message 0x24 GDCNI_MISSION_RECORD: a system record of the journal (KUiTaskNote::WakeUp), kept
+			# with the character whether the window is open or not
+			if journal != null:
+				journal.add_system_record(text, int(a.get("param", 0)))
 		11:
 			# 0x0060194C -> the ui message 0x3e -> the give-item box: the content, the title (the packet's second string), the flags
 			if give_window != null:
@@ -543,6 +558,10 @@ func _on_bar_command(cmd: String) -> void:
 			# Open([[team]]) of the 2.0 tool bar -> KUiTeamManage::OpenWindow 0x004AE880
 			if team_window != null:
 				team_window.toggle_window()
+		"task":
+			# the journal "Ký Sự" (Switch([[tasknote]]) of the 2.0 client: the tool bar's Nhiệm Vụ button)
+			if journal != null:
+				journal.toggle_window()
 		_:
 			Log.info("ui", "window not built yet", {"command": cmd})
 

@@ -62,6 +62,7 @@ func _init() -> void:
 	test_task_values()
 	test_describe_tip()
 	test_give_item()
+	test_journal()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -1012,3 +1013,23 @@ func test_give_item() -> void:
 	check(math.give_cell_code(0, 0) == 1 and math.give_cell_code(5, 3) == 24 and math.give_cell_code(2, 1) == 9, "the cell code y * 6 + x + 1")
 	var entries: Array = math.give_entries([{"id": 7, "x": 2, "y": 1}, {"id": 9, "x": 0, "y": 0}], {7: {"room": 0, "x": 4, "y": 5}})
 	check(entries.size() == 1 and entries[0].room == 0 and entries[0].x == 4 and entries[0].y == 5 and entries[0].cell_x == 2 and entries[0].cell_y == 1, "the 0x89 entries: the bag place and the cell; a piece that is gone is left out")
+
+
+# ---- the journal (UiTaskNote.gd; docs/CLIENT-2.0.md §28) ----------------------------------------------------------
+
+func test_journal() -> void:
+	var a := Proto.ScriptAction.new()
+	a.set_ui_id(3)
+	a.set_text("Đại hiệp đã thu thập đủ Hồng Mộc.")
+	a.set_param(7)
+	var a2 := Proto.ScriptAction.new()
+	check(a2.from_bytes(a.to_bytes()) == Proto.PB_ERR.NO_ERRORS and a2.get_ui_id() == 3 and a2.get_param() == 7
+		and a2.get_text() == "Đại hiệp đã thu thập đủ Hồng Mộc.", "ScriptAction ui 3 (AddNote) round trip")
+	var math: GDScript = load("res://ui/KUiDialogMath.gd")
+	var records: Array = []
+	records = math.journal_insert(records, {"time": 1, "value": 1, "text": "mot"})
+	records = math.journal_insert(records, {"time": 2, "value": 2, "text": "hai"})
+	check(records.size() == 2 and records[0].text == "hai" and records[1].text == "mot", "a new record goes in front (InsertSystemRecord)")
+	var lines: Array = math.journal_lines(records)
+	check(lines == ["hai", "mot"], "one line a record, newest first")
+	check(math.journal_lines([]).is_empty(), "no records, no lines")

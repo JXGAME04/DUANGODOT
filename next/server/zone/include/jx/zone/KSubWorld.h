@@ -602,6 +602,8 @@ public:
     bool give_items_request(std::uint64_t sid, int kind, const std::vector<KGiveItemEntry>& entries);
     // SetUiGiveItemMsg 0x0810B020 (kind 0, the 0xd8 packet) / SetUiGiveItemMoreConfirmMsg 0x0810AF50 (kind 1, 0xdf)
     void give_item_msg(KNpc& e, int kind, std::string_view text);
+    // Lua AddNote 0x08124DC0: the 0x63 packet with the ui id 3 (UI_NOTEINFO) - a line for the client's journal with a number
+    void dialog_add_note(KNpc& e, std::string_view text, int text_id, int param);
     // the task values (docs §21, KSubWorldTask.cpp): KPlayer::SetTaskValue 0x080A9190 (a change; a SYNC_FLAG id with `sync` goes to
     // the client as G2C_TASK_VALUE), the 0xa7 packet of one id (0x080A8CC0), SyncTaskValueMore 0x080A9550 (G2C_TASK_VALUES of
     // eighty), the enter-world sync 0x080B9CF0, the client's 0xaa packet 0x080DB070 (a CLIENT_FLAG id only)

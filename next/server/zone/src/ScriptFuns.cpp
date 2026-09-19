@@ -522,6 +522,28 @@ int give_item_msg(lua_State* L, const char* fn, int kind)
 int l_SetUiGiveItemMsg(lua_State* L) { return give_item_msg(L, "SetUiGiveItemMsg", 0); }
 int l_SetUiGiveItemMoreConfirmMsg(lua_State* L) { return give_item_msg(L, "SetUiGiveItemMoreConfirmMsg", 1); }
 
+// AddNote(text | id [, param]) (jx_linux_y 0x08124DC0; 680 uses in data/script): the player's index not negative, one
+// argument at least (0x08124DEF); a number is a string-table id (0x08124E04), else a string (0x08124E1A, anything else ->
+// nothing); two or more arguments -> the second is the number after the text (0x08124E7C); the 0x63 packet with the ui id 3
+int l_AddNote(lua_State* L)
+{
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "AddNote");
+    if (p == nullptr || n <= 0) return 0;
+    std::string text;
+    int text_id = 0;
+    if (lua_type(L, 1) == LUA_TNUMBER) {
+        text_id = static_cast<int>(lua_tonumber(L, 1));
+    } else if (lua_isstring(L, 1)) {
+        text = lua_tostring(L, 1);
+    } else {
+        return 0;
+    }
+    const int param = n != 1 ? static_cast<int>(lua_tonumber(L, 2)) : 0;
+    g_ScriptContext().world->dialog_add_note(*p, text, text_id, param);
+    return 0;
+}
+
 // AddItem(genre, detail, particular, level, series, luck [, magic1 [, magic2 .. magic6]]) -> 1 / 0
 //
 // LuaAddItem of the old ScriptFuns.cpp, and jx_linux_y 0x08120D30 -> 0x08120B30: fewer than six
@@ -2456,6 +2478,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"SetItemMagicLevel", l_SetItemMagicLevel}, {"ITEM_GetItemRandSeed", l_ITEM_GetItemRandSeed},
     {"GiveItemUI", l_GiveItemUI},         {"GetGiveItemUnit", l_GetGiveItemUnit}, {"GetGiveItemUnitWithPos", l_GetGiveItemUnitWithPos},
     {"SetUiGiveItemMsg", l_SetUiGiveItemMsg}, {"SetUiGiveItemMoreConfirmMsg", l_SetUiGiveItemMoreConfirmMsg},
+    {"AddNote", l_AddNote},
     {nullptr, nullptr},
 };
 

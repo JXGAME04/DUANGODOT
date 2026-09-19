@@ -77,6 +77,13 @@ end
 function describe_short()
     Describe("Mo ta", 5, "Mot/OnOne", "Hai")
 end
+function notes()
+    AddNote("Dai hiep da thu thap du Hong Moc.", 7)
+    AddNote(1234)
+    AddNote("Khong so")
+    AddNote()
+    AddNote({})
+end
 function GetLast()
     return g_last
 end
@@ -422,4 +429,25 @@ TEST_CASE("Describe 0x081242A0: Say's shape with the ui id 12, the answers budge
     CHECK(jx::zone::kDescribeContentMax == 0x1f4);
     CHECK(jx::zone::kDescribeAnswerMax == 0xc8);
     CHECK(jx::zone::kTaskTipMax == 0x3e);
+}
+
+TEST_CASE("AddNote 0x08124DC0: the 0x63 packet with the ui id 3, the text or a string-table id and the number after it", "[dialog][world]")
+{
+    DialogWorld dw;
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "notes", dw.A(), 0));
+    const auto acts = actions(dw.w.take_outbox(), 7);
+    REQUIRE(acts.size() == 3);   // no argument and a table send nothing (0x08124DEF / 0x08124E1A)
+    CHECK(acts[0].ui_id() == jx::zone::ui_note_info);
+    CHECK(acts[0].text() == "Dai hiep da thu thap du Hong Moc.");
+    CHECK(acts[0].text_id() == 0);
+    CHECK(acts[0].param() == 7);
+    CHECK(acts[0].interactive());
+    CHECK(acts[0].options_size() == 0);
+    CHECK(acts[1].ui_id() == 3);
+    CHECK(acts[1].text_id() == 1234);
+    CHECK(acts[1].param() == 0);
+    CHECK(acts[2].text() == "Khong so");
+    CHECK(acts[2].param() == 0);
+    // the journal is the client's: nothing waits on the zone (m_bWaitingPlayerFeedBack untouched, 0x08124DC0 sets none)
+    CHECK_FALSE(dw.A().player.dialog.waiting);
 }

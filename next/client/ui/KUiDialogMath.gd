@@ -102,3 +102,20 @@ static func give_entries(placed: Array, items: Dictionary) -> Array:
 			continue
 		out.append({"room": int(it.get("room", 0)), "x": int(it.get("x", 0)), "y": int(it.get("y", 0)), "cell_x": int(p.x), "cell_y": int(p.y)})
 	return out
+
+
+# KTaskDataFile::InsertSystemRecord (2004 UiTaskDataFile.cpp): a new system record of the journal goes in front of the
+# others; returns the new list
+static func journal_insert(records: Array, record: Dictionary) -> Array:
+	var out: Array = [record]
+	for r in records:
+		out.append(r)
+	return out
+
+
+# KUiTaskNote_System::UpdateView: one line a record, the text as it came (AddOneMessage of the record's buffer)
+static func journal_lines(records: Array) -> Array:
+	var out: Array = []
+	for r in records:
+		out.append(str(r.get("text", "")))
+	return out

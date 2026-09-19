@@ -664,6 +664,7 @@ func _auto_run() -> void:
 	await _auto_task()
 	await _auto_describe()
 	await _auto_give()
+	await _auto_note()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1362,6 +1363,34 @@ func _auto_give() -> void:
 		"confirmed": confirmed, "unit": got.tip})
 	print("AUTO_GIVE ui=%d window=%s placed=%d placed_id=%d confirmed=%s unit=%s" % [got.action.get("ui", -1), window_open, placed, placed_id,
 		confirmed, got.tip])
+
+
+# AddNote (ui 3 -> the journal's system page) from the GM console: the record is kept, the journal opened for the
+# screenshot; prints AUTO_NOTE for tools/dev.py screenshot
+func _auto_note() -> void:
+	var got := {"action": {}}
+	var on_action := func(a: Dictionary) -> void:
+		if int(a.get("ui", -1)) == 3:
+			got.action = a
+	Game.script_action.connect(on_action)
+	var before: int = _windows.journal.record_count() if _windows != null and _windows.journal != null else -1
+	Game.chat("?gm ds AddNote(\"Dai hiep da thu thap du Hong Moc.\", 7)")
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if not got.action.is_empty():
+			break
+	Game.script_action.disconnect(on_action)
+	var after: int = _windows.journal.record_count() if _windows != null and _windows.journal != null else -1
+	var window_open := false
+	if _windows != null and _windows.journal != null:
+		_windows.journal.open_window()
+		window_open = _windows.journal.visible
+	await get_tree().create_timer(0.3).timeout
+	await _save_screenshot("user://logs/auto_note.png")
+	if window_open:
+		_windows.journal.close_window()
+	Log.info("auto", "auto note", {"ui": got.action.get("ui", -1), "param": got.action.get("param", -1), "before": before, "after": after, "window": window_open})
+	print("AUTO_NOTE ui=%d param=%d records=%d->%d window=%s" % [got.action.get("ui", -1), got.action.get("param", -1), before, after, window_open])
 
 
 func _auto_death() -> void:

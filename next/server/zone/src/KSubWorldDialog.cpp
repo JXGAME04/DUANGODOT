@@ -348,6 +348,19 @@ void KSubWorld::give_item_msg(KNpc& e, int kind, std::string_view text)
     log::debug("zone.dialog", "give item message", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("len", text.size())});
 }
 
+// Lua AddNote (0x08124DC0): a player at index 0 or above, one argument at least; the text a string (0x08124E15) or a
+// string-table id (0x08124E01: +6 = 1, the content {int id, int param} of 8 bytes); a second argument is the number
+// written after the text (0x08124F68: the NUL replaced, +0xd = strlen + 4); the packet +3 = 0, +4 = 3, +5 = 0, +7 = 1
+// through 0x080A8510.  The 2.0 client (0x00601058) copies the text, reads the number after it and raises the ui
+// message 0x24 GDCNI_MISSION_RECORD: a system record of the journal (KUiTaskNote::WakeUp 0x004D2550, kept with the
+// character in MissionMemory.dat) - docs/CLIENT-2.0.md §28.
+void KSubWorld::dialog_add_note(KNpc& e, std::string_view text, int text_id, int param)
+{
+    const std::string shown = text::decode_mixed(std::string(text));
+    log::debug("zone.dialog", "note added", {log::kv("entity", e.id), log::kv("len", shown.size()), log::kv("text_id", text_id), log::kv("param", param)});
+    send_script_action(e, ui_note_info, shown, text_id, {}, param, true);
+}
+
 // the 0x5f packet (0x080AC5D0): not trading; m_bWaitingPlayerFeedBack = 0; a negative index becomes 0 (0x080AC609);
 // kind 1 is the other selection ui (0x081F68C0, not ported), anything else than 0 is ignored; the index must be below
 // m_nAvailableAnswerNum (0x080AC61A) and the player's npc must be there; the function of that answer: empty -> nothing;
