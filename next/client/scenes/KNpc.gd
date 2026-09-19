@@ -70,6 +70,8 @@ static var name_switch := 3        # this client starts with the names on (2.0 s
 static var life_switch := 0
 var _life_label: Label             # the "%d/%d" line over the name line of a monster (0x005F2358)
 var no_2d := false                 # a 3D view draws it (KWorldView3D): no sprites, no label, nothing on the canvas
+var _snd_res: Dictionary = {}      # no_2d: the npcres row, only for the action sounds (KNpcRes::GetSoundName without the pictures)
+var _snd_name := ""                # no_2d: m_szSoundName of the current doing
 
 signal doing_changed(doing: int, total_frame: int)   # the doing (and its frame count) was set, for a 3D view
 
@@ -130,6 +132,8 @@ func setup(d: Dictionary, own: bool) -> void:
 			"walk": int(tpl.get("walk_frame", 12)), "run": int(tpl.get("run_frame", 15))}
 		stature = int(tpl.get("stature", 0))
 	has_res = _res.setup(res_name) if _res != null else false
+	if no_2d:
+		_snd_res = NpcResList.res(res_name)
 	if not has_res and not no_2d:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
@@ -429,8 +433,22 @@ func _tick() -> void:
 # with IsPlaying).  The action's clock restarts with every cycle (KNpc::WaitForFrame 0x005EA700 sets +0x10c when the
 # frame wraps), so a walk's footsteps come back each cycle and an idle's call each time it plays.
 func _play_action_sound() -> void:
-	if sounds != null and has_res and cur_frame * 20 < total_frame and _res.sound_name != "":
+	if sounds == null or cur_frame * 20 >= total_frame:
+		return
+	if has_res and _res.sound_name != "":
 		sounds.play(_res.sound_name, scene_pos, false, true)
+	elif no_2d and _snd_name != "":
+		sounds.play(_snd_name, scene_pos, false, true)
+
+
+# no_2d: KNpcRes::SetAction's sound lookup alone (act_no of the doing for the weapon kind, then the action sound table)
+func _sound_of_doing(d: int) -> String:
+	if _snd_res.is_empty():
+		return ""
+	var special := bool(_snd_res.get("special", false))
+	var weapon := int(_snd_res.get("equips", {}).get("2", 0)) if special else 0
+	var action := KNpcResNode.act_no(_snd_res, d, weapon, false)
+	return NpcResList.action_sound(str(_snd_res.get("name", "")), special, action) if action >= 0 else ""
 
 
 # KNpc::GetNpcPate (no jump height, sitting or riding yet).
@@ -458,6 +476,8 @@ func _set_doing(d: int) -> void:
 	if has_res:
 		_res.set_action(d)
 		queue_redraw()
+	elif no_2d:
+		_snd_name = _sound_of_doing(d)
 	_play_action_sound()
 	doing_changed.emit(doing, total_frame)
 
@@ -469,6 +489,8 @@ func _set_action(d: int, n: int) -> void:
 	total_frame = maxi(n, 1)
 	if has_res:
 		_res.set_action(d)
+	elif no_2d:
+		_snd_name = _sound_of_doing(d)
 	queue_redraw()
 	_play_action_sound()
 	doing_changed.emit(doing, total_frame)

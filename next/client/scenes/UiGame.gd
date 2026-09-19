@@ -622,7 +622,7 @@ func _auto3d_run() -> void:
 	# a fresh character holds only skills 1 / 2: the plain attack 53 (weapon_skill.json: bare hands / swords) is handed out and
 	# given a point the way the faction scripts do (AddMagic), levels for the sword's requirements (AddExp, one level a call)
 	Game.chat("?gm ds AddMagic(53, 10)")
-	for _i in 6:
+	for _i in 20:
 		Game.chat("?gm ds AddExp(2000000, 60)")
 	waited = 0.0
 	while waited < 3.0 and not Game.skills.has(53):
@@ -636,9 +636,9 @@ func _auto3d_run() -> void:
 			waited += 0.25
 	var results: Array = []
 	Game.item_result.connect(func(seq: int, result: int): results.append([seq, result]))
-	# a sword in hand (AddItem genre 0 detail 0 particular 0 level 3 = Thanh Phong Kiếm), worn: the 3D weapon follows the item
+	# a sword in hand (AddItem genre 0 detail 0 particular 0 level 1 = Thiết Trủy thủ: strength 20), worn: the 3D weapon follows the item
 	var before := Game.items.size()
-	Game.chat("?gm ds AddItem(0,0,0,3,0,0)")
+	Game.chat("?gm ds AddItem(0,0,0,1,0,0)")
 	waited = 0.0
 	while waited < 3.0 and Game.items.size() < before + 1:
 		await get_tree().create_timer(0.25).timeout
@@ -654,7 +654,8 @@ func _auto3d_run() -> void:
 			await get_tree().create_timer(0.25).timeout
 			waited += 0.25
 	await get_tree().create_timer(0.4).timeout
-	_world.cam_rig.yaw = 160.0
+	_world.cam_rig.yaw = 30.0
+	_world.cam_rig.pitch = 45.0
 	_world.cam_rig.dist = 10.0
 	for i in 4:
 		await get_tree().process_frame

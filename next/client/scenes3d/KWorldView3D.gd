@@ -15,10 +15,10 @@ const CameraScript := preload("res://scenes3d/KCamera3D.gd")
 const NpcViewScript := preload("res://scenes3d/KNpc3DView.gd")
 const MissleViewScript := preload("res://scenes3d/KMissle3DView.gd")
 const ModelScript := preload("res://scenes3d/Scn3DNpc.gd")
+const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const ENTITY_PLAYER := 1
 const NAME_DIST := 60.0        # metres: names beyond this are not drawn [tự chọn]
 const ANIM_DIST := 45.0        # metres: models beyond this stop animating (494 npcs at 145 FPS) [tự chọn]
-const LIFE_BAR := Vector2(40, 4)   # KNpc::PaintLife [2.0]
 const TrailScript := preload("res://scenes3d/Scn3DTrail.gd")
 # The weapon in hand: the item worn in the weapon slot (KItemList::GetWeaponType 0x0060D660 [2.0]: detail / particular
 # of the worn piece) -> the reference client's weapon list, which is JX1's own in the same order (铁匕首 = Thiết Trủy thủ,
@@ -386,7 +386,11 @@ func _update_lod() -> void:
 			view.model.anim.active = near
 
 
-# Names and life bars (KNpc::Paint / PaintLife rules [2.0]) at the unprojected point over each entity's feet.
+# The name block and the life bar over each entity, the 2.0 client's rules (KNpcGold.gd, docs/CLIENT-2.0.md §16-17): the block
+# (0x005F21B0) is the name - a monster's "%s/Lv:%d" over its "%d/%d" - at size 14 with a black outline for the hovered /
+# targeted npc, 12 with the show switch, else hidden; players' names coloured by camp (0x005F2507), npcs by gold kind
+# (0x005F23E5); the bar (PaintLife 0x005EACF0) 38 x 3, pct x 38 / 100 coloured by KNpcGold.life_bar_color, the rest grey.
+# Drawn at the unprojected point `bar_height` over the feet (the pate) instead of the 2.0 client's screen pixel pate.
 func _draw_names() -> void:
 	var cam := _cam()
 	if cam == null:
@@ -402,23 +406,40 @@ func _draw_names() -> void:
 		if top.distance_to(own_pos) > NAME_DIST or cam.is_position_behind(top):
 			continue
 		var sp := cam.unproject_position(top)
-		var text: String = str(node.display_name)
-		var size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, 15)
-		var at := Vector2(sp.x - size.x * 0.5, sp.y - 6.0)
-		var color := Color.WHITE
-		if int(node.get("entity_type")) == ENTITY_DROP:
-			color = Color(1.0, 0.85, 0.3)
-		_names.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4, Color(0, 0, 0, 0.9))
-		_names.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, color)
-		# KNpc::PaintLife: a life bar under the name for wounded or selected characters
+		var etype := int(node.get("entity_type"))
+		var focus: bool = bool(node.get("hovered")) or bool(node.get("is_target"))
 		var life := int(node.get("life")) if node.get("life") != null else 0
 		var life_max := int(node.get("life_max")) if node.get("life_max") != null else 0
 		var dead: bool = bool(node.call("is_dead")) if node.has_method("is_dead") else false
-		if life_max > 0 and (life < life_max or bool(node.get("is_target"))) and not dead:
-			var bar_at := Vector2(sp.x - LIFE_BAR.x * 0.5, sp.y - 2.0)
-			_names.draw_rect(Rect2(bar_at, LIFE_BAR), Color(0, 0, 0, 0.7))
-			var w := LIFE_BAR.x * clampf(float(life) / float(life_max), 0.0, 1.0)
-			_names.draw_rect(Rect2(bar_at, Vector2(w, LIFE_BAR.y)), Color(0.2, 0.8, 0.3) if bool(node.get("is_own")) else Color(0.85, 0.15, 0.15))
+		# the bar sits at the pate, the block above it (KNpc.gd: label at pate + 20, the life line 16 higher)
+		if life_max > 0 and not dead and etype != ENTITY_DROP and KNpcGold.life_bar(etype, NpcScript.life_switch, focus):
+			var pct := int(round(float(life) * 100.0 / float(life_max)))
+			var w := float(pct * 38 / 100)
+			var bar_at := Vector2(sp.x - 19.0, sp.y - 2.0)
+			_names.draw_rect(Rect2(bar_at, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct))
+			_names.draw_rect(Rect2(bar_at + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
+		var block := 14
+		var text: String = str(node.display_name)
+		var color := Color.WHITE
+		if etype == ENTITY_DROP:
+			color = Color(1.0, 0.85, 0.3)
+		else:
+			block = KNpcGold.name_block(etype, NpcScript.name_switch, focus)
+			if block == 0:
+				continue
+			text = KNpcGold.name_text(text, etype, int(node.get("level")) if node.get("level") != null else 0)
+			color = node.name_color() if node.has_method("name_color") else Color.WHITE
+		var outline := 4 if block == 14 else 2
+		var size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, block)
+		var at := Vector2(sp.x - size.x * 0.5, sp.y - 8.0)
+		_names.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, block, outline, Color(0, 0, 0, 0.9))
+		_names.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, block, color)
+		if etype == NpcScript.ENTITY_MONSTER:
+			var lt := "%d/%d" % [life, life_max]
+			var ls := font.get_string_size(lt, HORIZONTAL_ALIGNMENT_CENTER, -1, block)
+			var lat := Vector2(sp.x - ls.x * 0.5, at.y - float(block) - 2.0)
+			_names.draw_string_outline(font, lat, lt, HORIZONTAL_ALIGNMENT_LEFT, -1, block, outline, Color(0, 0, 0, 0.9))
+			_names.draw_string(font, lat, lt, HORIZONTAL_ALIGNMENT_LEFT, -1, block, Color.WHITE)
 
 
 func camera_state() -> String:
