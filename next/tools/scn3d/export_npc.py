@@ -536,8 +536,11 @@ class NpcExporter:
         hi = hang_items(self.bone, bone)
         hangs = {k: hang_godot(v) for k, v in hi.items() if v["path"]}
         bar_y = hi.get("sys_bar", {}).get("pos", (0, 0, 0))[1] if hi else 0.0
+        # HangItemMgr [TK]: sys_bar (head bar, 124/124 bone prefabs) and sys_state (the state icons / buff sfx over the head,
+        # 121/124: bar + 0.8..1.0 m) sit on the root at their own height; sys_foot = the root; sys_bd = the Spine bone (hangs)
+        state_y = hi.get("sys_state", {}).get("pos", (0, 0, 0))[1] if hi else 0.0
         info = {"cha": cha_id, "name": cp["name"], "name_vi": name_vi, "bone": bone, "file": fname + ".gltf", "scale": cp["scale"], "anims": anim_names,
-                "groups": groups, "hangs": hangs, "bar_y": bar_y, "sizeY": self.tables.model_view.get(cha_id), "stats": stats,
+                "groups": groups, "hangs": hangs, "bar_y": bar_y, "state_y": state_y, "sizeY": self.tables.model_view.get(cha_id), "stats": stats,
                 "foot_radius": cp.get("foot_radius", 0.4), "pick": cp.get("pick", {}), "death": cp.get("death", 0)}
         print("  cha %d %s (%s) [%s]: %d phan, %d dinh, %d tam giac, %d animation, xuong thieu %d" % (
             cha_id, cp["name"], name_vi or "?", bone, stats["parts"], stats["verts"], stats["tris"], stats["anims"], stats["missing_bones"]))
@@ -566,9 +569,29 @@ def main():
     ap.add_argument("--src", default=os.environ.get("JX_SCN3D_SRC", r"D:\game3gTQ_mo\pc\剑网江湖_Data\StreamingAssets"))
     ap.add_argument("--key-file", default=os.environ.get("JX_SCN3D_KEY", r"D:\game3gTQ_mo\khoa_bundle.txt"))
     ap.add_argument("--out", default=os.path.join(NEXT, "client", "assets3d", "npc"))
+    ap.add_argument("--hangs-only", action="store_true", help="chi cap nhat hangs/bar_y/state_y trong npc_models.json (khong xuat lai mesh)")
     a = ap.parse_args()
     key = open(a.key_file, "r", encoding="utf-8").read().strip()
     ex = NpcExporter(a.src, key, a.out)
+    if a.hangs_only:
+        index_path = os.path.join(a.out, "npc_models.json")
+        infos = json.load(io.open(index_path, encoding="utf-8"))
+        n = 0
+        for cid, info in infos.items():
+            bone = info.get("bone", "")
+            if not bone:
+                continue
+            hi = hang_items(ex.bone, bone)
+            if not hi:
+                continue
+            info["hangs"] = {k: hang_godot(v) for k, v in hi.items() if v["path"]}
+            info["bar_y"] = hi.get("sys_bar", {}).get("pos", (0, 0, 0))[1]
+            info["state_y"] = hi.get("sys_state", {}).get("pos", (0, 0, 0))[1]
+            n += 1
+        with io.open(index_path, "w", encoding="utf-8") as f:
+            json.dump(infos, f, ensure_ascii=False, indent=1)
+        print("cap nhat diem treo cua %d/%d model -> %s" % (n, len(infos), index_path))
+        return
     ids = list(a.cha)
     placements = []
     if a.map:

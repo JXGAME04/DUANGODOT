@@ -846,6 +846,19 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-70) — điểm treo theo từng model (`HangItemMgr`) thay bảng cao độ cố định; hiệu ứng `sys_bd` bám xương Spine
+
+- `HangItemMgr` của 124 bone prefab [TK `exprolesbone`]: `sys_bar` 124/124 (thanh máu, trên gốc, cao độ riêng: người 2,0 m, heo trắng 1,37,
+  hươu 2,63, mèo vàng 1,09, ngựa 3,75), `sys_state` 121/124 (biểu tượng/hiệu ứng trạng thái: `sys_bar` + 0,8..1,0 m; người 3,2), `sys_foot`
+  124 (gốc, 0), `sys_bd` 121 (xương `Bip001 Spine`, treo theo animation), `sys_head` 4, `sys_bar_sit` 2 (ngồi). Bảng cũ `HANG_HEIGHT`
+  [tự chọn] `sys_state` 2,2 sai với mọi model; `sys_bd` 0,9 m cố định làm tia lửa trúng heo nổi trên lưng.
+- `export_npc.py`: thêm `state_y`, `--hangs-only` (cập nhật `hangs/bar_y/state_y` của 94 model trong `npc_models.json` không xuất lại mesh).
+  `Scn3DNpc.hang_height(name)` (sys_foot/sys_bar/sys_bar_sit/sys_state@…), `bar_y_m`, `state_height`. `KSkillFx3D.hang_pos/hinge_of/follower`:
+  vị trí điểm treo lấy từ model của view (hinge = vị trí xương hiện tại), `sync 2` trên hinge → `KSkillHang3D` (node `top_level` bám vị trí
+  hinge mỗi khung, không đồng bộ xoay — đúng "链接到父级不同步旋转"); dùng ở thi triển (`cast`), hiệu ứng trúng (`hit_on`), hào quang (`aura`),
+  vật con có cột 14 (`_cast_children` nhận `view`). Ảnh `auto_fight_hit.png`: tia lửa nằm trên thân heo. Godot 631/631; quét 133/133.
+- commit: `JX NEXT 3D: 3D-70 - diem treo theo model (sys_bar/sys_state/sys_bd HangItemMgr), KSkillHang3D bam xuong`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-69) — gộp `origin/main` lần 3 (M13 D4 sự kiện giết quái, D5 thư viện TabFile_*)
 
 - Xung đột chỉ ở `HANDOVER.md` (giữ cả hai). `tools/dev.py` tự gộp: giữ cổng 19001/19100 + chọn Release của bản 3D, thêm `export-kill-events`

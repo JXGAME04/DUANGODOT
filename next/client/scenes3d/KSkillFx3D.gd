@@ -13,6 +13,7 @@ extends RefCounted
 const SfxScript := preload("res://scenes3d/Scn3DSfx.gd")
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 const OrbitScript := preload("res://scenes3d/KSkillOrbit3D.gd")
+const HangScript := preload("res://scenes3d/KSkillHang3D.gd")
 const TICK := 1.0 / 18.0
 const HANG_HEIGHT := {"sys_bd": 0.9, "sys_bar": 2.0, "sys_foot": 0.0, "sys_state": 2.2, "sys_state@buf_head": 2.2, "": 0.0}   # metres over the feet [tự chọn: sys_bd = chest, sys_state over the head]
 
@@ -105,11 +106,17 @@ func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: flo
 		if bool(c.get("on_hit", false)):
 			continue
 		any = true
-		var pos: Vector3 = at_caster + Vector3(0, float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.9)), 0)
-		# sfx_object col 9 [TK]: 1 / 2 = linked to the caster (it moves along), 0 = left where it was made
+		var hang := str(c.get("hang", ""))
+		var pos: Vector3 = hang_pos(view, hang, at_caster)
+		# sfx_object col 9 [TK]: 1 / 2 = linked to the caster (it moves along), 0 = left where it was made; 2 on a bone hinge
+		# (sys_bd) = a follower at the hinge, position only
 		var holder: Node = view if (view is Node3D and int(c.get("sync", 0)) in [1, 2]) else parent
+		if view is Node3D and int(c.get("sync", 0)) == 2:
+			var hn := hinge_of(view, hang)
+			if hn != null:
+				holder = follower(view, hn)
 		_later(holder, float(c.get("at", 0.0)) * duration, str(c["res"]), pos, yaw, float(c.get("life_s", 1.0)), c)
-	if _cast_children(parent, e.get("child", []), 0.0, duration, at_caster, yaw, at_aim):
+	if _cast_children(parent, e.get("child", []), 0.0, duration, at_caster, yaw, at_aim, view):
 		any = true
 	if not any:
 		# no mapped effect: the element's cast flash at the chest (sfx_object 1..4)
@@ -117,13 +124,15 @@ func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: flo
 		var res := str(map.get("element_cast", {}).get(str(el), ""))
 		if res != "":
 			# sfx_object 1..4 [TK]: sys_bd, angle 2 (world zero), sync 2 (linked to the caster, no rotation)
-			_later(view if view is Node3D else parent, 0.0, res, at_caster + Vector3(0, 0.9, 0), yaw, 1.0, {"angle": 2, "sync": 2})
+			var hn := hinge_of(view, "sys_bd") if view is Node3D else null
+			var holder2: Node = follower(view, hn) if hn != null else (view if view is Node3D else parent)
+			_later(holder2, 0.0, res, hang_pos(view, "sys_bd", at_caster), yaw, 1.0, {"angle": 2, "sync": 2})
 
 
 # The standing child objects of a cast (and the children their own events spawn in time, "when" = time) at their
 # fraction of the parent's life; flying ones are the zone's missiles (KMissle3DView + the missile-effect packet).
 # Returns true when anything was put down.
-func _cast_children(parent: Node, list: Array, start: float, span: float, at_caster: Vector3, yaw: float, at_aim: Vector3) -> bool:
+func _cast_children(parent: Node, list: Array, start: float, span: float, at_caster: Vector3, yaw: float, at_aim: Vector3, view: Node = null) -> bool:
 	var any := false
 	for c in list:
 		if bool(c.get("fly", false)) or c.has("orbit"):
@@ -134,7 +143,8 @@ func _cast_children(parent: Node, list: Array, start: float, span: float, at_cas
 		var pos: Vector3 = at_caster if int(c.get("pos_type", 0)) == 0 else at_aim
 		pos.y += float(c.get("height", 0.0))
 		if str(c.get("hang", "")) != "":
-			pos.y += float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.0))
+			# skill_childobj col 14 [TK]: the hang point of the creator (its model's own point when the view is known)
+			pos = hang_pos(view if int(c.get("pos_type", 0)) == 0 else null, str(c["hang"]), pos)
 		if str(c.get("res", "")) != "":
 			any = true
 			_later(parent, t0, str(c["res"]), pos, yaw, life, c)
@@ -157,7 +167,7 @@ func _cast_children(parent: Node, list: Array, start: float, span: float, at_cas
 					if when == "end":
 						k2["at"] = 1.0
 					timed.append(k2)
-			if _cast_children(parent, timed, t0, life, pos, yaw, at_aim):
+			if _cast_children(parent, timed, t0, life, pos, yaw, at_aim, view):
 				any = true
 	return any
 
@@ -198,6 +208,42 @@ func _spawn(parent: Node, res: String, pos: Vector3, yaw: float, life: float, sp
 		spawned += 1
 		orient(fx, spec, yaw + PI)
 	return fx
+
+
+# The world position of a hang point on a view [TK HangItemMgr of the bone prefab, npc_models.json]: a bone hinge (sys_bd =
+# Bip001 Spine, sys_head) at its current animated place, sys_foot / sys_bar / sys_state at the model's own heights over the
+# feet; the fixed table HANG_HEIGHT only for a view without a model (a marker) [tự chọn]
+static func hang_pos(view: Node, hang: String, feet: Vector3) -> Vector3:
+	var hn := hinge_of(view, hang)
+	if hn != null:
+		return hn.global_position
+	var m = view.get("model") if view != null else null
+	if m is Node3D and m.has_method("hang_height"):
+		var h: float = m.hang_height(hang)
+		if h >= 0.0:
+			return feet + Vector3(0, h, 0)
+	return feet + Vector3(0, float(HANG_HEIGHT.get(hang, 0.9)), 0)
+
+
+# the bone hinge of a hang point on the view's model, null when the model has none of that name
+static func hinge_of(view: Node, hang: String) -> Node3D:
+	if view == null or hang == "":
+		return null
+	var m = view.get("model")
+	if m is Node3D and m.has_method("hang_node"):
+		return m.hang_node(hang)
+	return null
+
+
+# a holder that follows the hinge by position (sync 2), a child of the view so it goes with it
+static func follower(view: Node, hinge: Node3D) -> Node3D:
+	var f := Node3D.new()
+	f.set_script(HangScript)
+	f.name = "hang_" + str(hinge.name)
+	f.target = hinge
+	view.add_child(f)
+	f.global_position = hinge.global_position
+	return f
 
 
 # The rotation of a child object / sfx object [TK ChildObject.InitRotation 0x4de510]: the base from the table's init
@@ -244,8 +290,13 @@ func hit_on(target: Node3D, skill_id: int, series: int, yaw_from: float = 0.0) -
 		spec = {"angle": 2, "sync": 2, "hang": "sys_bd", "life_s": 1.0}
 	if res == "":
 		return null
-	var pos: Vector3 = target.global_position + Vector3(0, float(HANG_HEIGHT.get(str(spec.get("hang", "sys_bd")), 0.9)), 0)
+	var hang := str(spec.get("hang", "sys_bd"))
+	var pos: Vector3 = hang_pos(target, hang, target.global_position)
 	var holder: Node = target if int(spec.get("sync", 2)) in [1, 2] else target.get_parent()
+	if int(spec.get("sync", 2)) == 2:
+		var hn := hinge_of(target, hang)
+		if hn != null:
+			holder = follower(target, hn)
 	var fx: Node3D = SfxScript.spawn(holder, dir, _file(res), pos, 0.0, float(spec.get("life_s", 1.0)), false)
 	if fx != null:
 		spawned += 1
@@ -300,7 +351,7 @@ func aura(view: Node3D, skill_id: int) -> Node3D:
 	var c: Dictionary = list[0]
 	var fx: Node3D = SfxScript.spawn(view, dir, _file(str(c["res"])), view.global_position, 0.0, 0.0, true)
 	if fx != null:
-		fx.position = Vector3(0, float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.0)) + float(c.get("height", 0.0)), 0)
+		fx.position = view.to_local(hang_pos(view, str(c.get("hang", "")), view.global_position)) + Vector3(0, float(c.get("height", 0.0)), 0)
 		# under the view (turned by the facing): angle 0 = the facing (local PI, the model looks down -Z), 2 = world zero
 		var spec: Dictionary = c.duplicate()
 		if int(spec.get("angle", 0)) == 2:

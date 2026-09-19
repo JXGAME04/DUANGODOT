@@ -11,6 +11,8 @@ var model: Node3D
 var anim: AnimationPlayer
 var label: Label3D   # khong dung nua (nhan 2D o Scn3D)
 var bar_height := 2.1
+var bar_y_m := 1.95      # sys_bar of the model in metres (the head bar hang point [TK HangItemMgr], root-relative)
+var state_height := 3.0  # sys_state: the state icons / buff effects over the head [TK HangItemMgr, 121/124 bone prefabs]
 var cha := 0
 var display_name := ""
 var current := ""
@@ -60,6 +62,9 @@ func setup(dir: String, file: String, scale: float, name_text: String, size_y: f
 	if bar <= 0.0:
 		bar = size_y if size_y > 0.0 else 2.1
 	bar_height = bar * scale + 0.15   # nhan ten 2D do Scn3D ve (Label3D mo khi xa)
+	bar_y_m = bar * scale
+	var st: float = float(info.get("state_y", 0.0)) if info.has("state_y") else 0.0
+	state_height = st * scale if st > 0.0 else bar_y_m + 1.0   # [TK]: sys_state = sys_bar + 0.8..1.0 m on every bone prefab
 	play("xx")
 	return true
 
@@ -287,6 +292,20 @@ func clear_weapons() -> void:
 # (Bip001 Spine1 of a horse, Bip001 L Hand of the dual weapons - Godot keeps joints inside the Skeleton3D) plus a
 # child carrying the offset. RideUnit.CreateRide [TK 0x5bd930] parents the rider to GetItemTrans(hinge) with
 # localPosition zero and localRotation identity, so whatever hangs here goes in with an identity transform.
+# The height over the feet of a hang point the reference makes on the root rather than on a bone [TK HangItemMgr: sys_foot
+# = the root, sys_bar / sys_bar_sit (sitting) / sys_state at the model's own heights]; -1 for a bone hinge (hang_node) or
+# an unknown name
+func hang_height(hname: String) -> float:
+	match hname:
+		"sys_foot", "":
+			return 0.0
+		"sys_bar", "sys_bar_sit":
+			return bar_y_m
+		"sys_state", "sys_state@buf_head", "sys_state@buf":
+			return state_height
+	return -1.0
+
+
 func hang_node(hname: String) -> Node3D:
 	var h: Dictionary = hangs.get(hname, {})
 	if h.is_empty() or model == null:
