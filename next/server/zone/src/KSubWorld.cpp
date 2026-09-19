@@ -200,6 +200,30 @@ void KSubWorld::set_mission_value(int idx, int value) noexcept
     if (idx >= 0 && idx < kMissionValues) mission_values_[static_cast<std::size_t>(idx)] = value;
 }
 
+const std::string& KSubWorld::mission_string(int idx) const noexcept
+{
+    static const std::string kNone;
+    return idx >= 1 && idx <= kMissionStrings ? mission_strings_[static_cast<std::size_t>(idx - 1)] : kNone;
+}
+
+void KSubWorld::set_mission_string(int idx, std::string_view text)
+{
+    if (idx < 1 || idx > kMissionStrings) return;
+    mission_strings_[static_cast<std::size_t>(idx - 1)] = std::string(text.substr(0, 0xc7));   // strncpy of 0xc8 bytes, 0x081072D7
+}
+
+void KSubWorld::msg_to_all(std::string_view text)
+{
+    if (players_.empty()) return;
+    pb::ChatMsg msg;
+    msg.set_text(text::decode_mixed(text));
+    msg.set_channel(pb::CH_SYSTEM);
+    std::vector<std::uint64_t> sids;
+    sids.reserve(players_.size());
+    for (const auto& [sid, id] : players_) sids.push_back(sid);
+    emit(std::move(sids), static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
+}
+
 bool KSubWorld::hosts_map(std::uint32_t map) const noexcept
 {
     if (hosted_maps_.empty()) return map == map_id();
@@ -370,6 +394,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     entities_.at(id).id = id;
     grid_.insert(id, start, true);   // a player keeps its neighbourhood awake (SPEC 44, 45)
     players_[sid] = id;
+    entities_.at(id).player.login_tick = tick_;   // Player+0x8c starts counting the frames online (GetGameTime)
     roles_[sid] = role;
     load_items(sid, role);
     // KPlayer::LoadFrom: the points, the level tables and the equipment make the numbers
@@ -697,6 +722,12 @@ void KSubWorld::tick()
         if (frozen) continue;   // 0x0808C0D8: stunned, or the odd frame of a freeze - nothing else this frame
         // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
         if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
+        // 0x0808BF81: the npc's timer (SetNpcTimer): at its frame it is cleared and the script's OnTimer(npc) runs (0x0807DA00)
+        if (e.timer_frame != 0 && tick_ >= e.timer_frame && e.kind != KNpcKind::player) {
+            e.timer_frame = 0;
+            log::debug("zone.npc", "npc timer", {log::kv("npc", e.id), log::kv("script", e.script)});
+            if (!e.script.empty()) execute_script_args(e.script, "OnTimer", e, {static_cast<double>(e.id.value)});
+        }
         if (awake && e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
         process_command(e);   // KNpc::ProcessCommand 0x0809B9E0: the do_skill commands waiting
         update_action(e);
@@ -1698,6 +1729,11 @@ void KSubWorld::death_punish_pk(KNpc& e, EntityId killer)
 // targets cleared - then nothing until KPlayer::Revive (0x08086220 counts no frame for a player)
 void KSubWorld::player_corpse(KNpc& e)
 {
+    // 0x080837D0: a death script (SetDeathScript, Player+0x5f98) gets OnDeath(the last attacker, Npc+0x1598) here instead of
+    // \script\global\player_default_death.lua (0x080839A8)
+    if (!e.player.death_script.empty()) {
+        execute_script_args(e.player.death_script, "OnDeath", e, {static_cast<double>(e.last_damage_id.value)});
+    }
     e.doing = KDoing::revive;
     e.frame_total = 0;
     e.frame_cur = 0;

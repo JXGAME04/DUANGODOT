@@ -2314,3 +2314,37 @@ TEST_CASE("S2 AddEventItem / AddQualityItem give pieces; CalcEquiproomItemCount 
     CHECK(script.call_number("S2Use", {1.0, 0.0, 0.0, 2.0, 1.0}) == -1.0);
     ctx = jx::zone::KScriptContext{};
 }
+
+// ---- S3 of the script api: IsMyItem 0x0811B4D0, CalcItemCount 0x0810D840, ConsumeItem 0x0810D6C0 (the rooms) ------------
+
+TEST_CASE("S3 IsMyItem / CalcItemCount / ConsumeItem: a piece of the list, the rooms -1 (every) 3 (bag) 0 (worn)", "[item][world][lua][s3]")
+{
+    ItemWorld iw;
+    iw.w->take_outbox();
+    jx::zone::KLuaScript script;
+    REQUIRE(script.init(""));
+    jx::zone::KScriptContext& ctx = jx::zone::g_ScriptContext();
+    ctx.world = iw.w.get();
+    ctx.player = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
+    ctx.sid = 1;
+    REQUIRE(ctx.player != nullptr);
+    REQUIRE(script.call_number("AddItem", {0.0, 0.0, 0.0, 2.0, 2.0, 0.0}) == 1.0);   // "Kiem 2", id 1
+    REQUIRE(script.do_string(
+        "function S3Mine(i) return IsMyItem(i) end\n"
+        "function S3Count4() return CalcItemCount(0, 0, 0, 2) end\n"
+        "function S3Use5() return ConsumeItem(0, 0, 0, 2, 1) end\n", "s3"));
+    CHECK(script.call_number("S3Mine", {1.0}) == 1.0);
+    CHECK(script.call_number("S3Mine", {999.0}) == 0.0);
+    CHECK(script.call_number("S3Mine", {0.0}) == 0.0);
+    CHECK(script.call_number("CalcItemCount", {0.0, 0.0, 0.0, 2.0, -1.0}) == 1.0);
+    CHECK(script.call_number("CalcItemCount", {0.0, 0.0, 0.0, 2.0, 3.0}) == 1.0);
+    CHECK(script.call_number("CalcItemCount", {0.0, 0.0, 0.0, 2.0, 0.0}) == 0.0);   // nothing worn
+    CHECK(script.call_number("CalcItemCount", {0.0, 0.0, 0.0, 2.0, 7.0}) == 0.0);   // a room this zone has not
+    CHECK(script.call_number("S3Count4", {}) == 0.0);                               // four arguments: 0
+    CHECK(script.call_number("S3Use5", {}) == -1.0);                                // five arguments: -1
+    CHECK(script.call_number("ConsumeItem", {0.0, 0.0, 0.0, 2.0, 1.0, 0.0}) == -1.0);   // nothing worn
+    CHECK(script.call_number("ConsumeItem", {0.0, 0.0, 0.0, 2.0, 1.0, -1.0}) == 1.0);
+    CHECK(script.call_number("S3Mine", {1.0}) == 0.0);
+    CHECK(script.call_number("ConsumeItem", {0.0, 0.0, 0.0, 2.0, 1.0, -1.0}) == -1.0);
+    ctx = jx::zone::KScriptContext{};
+}

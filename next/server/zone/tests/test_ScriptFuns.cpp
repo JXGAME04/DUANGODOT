@@ -1,4 +1,4 @@
-// The script functions of task_main.lua and its libraries that are neither dialog nor item (docs/LINUX-SERVER.md §25):
+// The script functions of task_main.lua and its libraries that are neither dialog nor item (docs/LINUX-SERVER.md Â§25):
 // the string buffer PushString 0x0812FDA0 / AppendString 0x0812FCD0 / ReplaceString 0x0812EB20 / PopString 0x080FFB00,
 // WriteLog 0x081237D0, GetAccount 0x0810F6A0, AddOwnExp 0x081126C0 -> KPlayer 0x080AFEA0, AddRepute 0x08117290 /
 // GetRepute 0x08117230, TaskTip 0x08122730 (the 0xb6 packet).
@@ -191,6 +191,68 @@ function s2_del(player)
     DelNpc("boar")
     DelNpc(player)
     DelNpc()
+end
+Lib = {}
+function Lib:Ten(n) return n + 10 end
+function Lib.Twice(n) return n * 2 end
+function MyEntity() return SearchPlayer(GetName()) end
+function OnTimer(idx) g_timer = idx end
+function OnDeath(k) g_death = k end
+function s3_kill() KillPlayer() end
+function s3_a()
+    local map = SubWorldIdx2ID()
+    g_n1 = AddNpc(900, 1, map, 2300, 2000)
+    g_n2 = AddNpc(900, 1, map, 2400, 2000)
+    g_series = GetSeries()
+    g_gt1 = GetGameTime()
+    g_life = ST_GetTransLifeCount()
+    SetLogoutRV(1)
+    g_glb0 = GetGlbValue(8)
+    SetGlbValue(8, 77)
+    SetGlbValue(5001, 1)
+    SetGlbValue(-1, 1)
+    g_glb1 = GetGlbValue(8)
+    g_glb2 = GetGlbValue(5001)
+    g_glb3 = GetGlbValue()
+    g_ms0 = GetMissionS(2)
+    SetMissionS(2, "xin chao")
+    SetMissionS(0, "khong")
+    SetMissionS(101, "khong")
+    g_ms1 = GetMissionS(2)
+    g_ms2 = GetMissionS(101)
+    g_ms3 = GetMissionS()
+    SetMissionS(2, "")
+    g_ms4 = GetMissionS(2)
+    g_de1 = DynamicExecute("", "Twice", 4)
+    g_de2 = DynamicExecute("\\script\\test\\misc.lua", "Lib:Ten", 5)
+    g_de3 = DynamicExecute("\\script\\test\\misc.lua", "Lib.Twice", 6)
+    g_de4 = DynamicExecute("\\script\\test\\nothing.lua", "Twice", 1)
+    g_de5 = DynamicExecute("", "", 1)
+    g_de6 = DynamicExecute("", "NoSuch", 1)
+    g_np = GetNpcId(g_n1)
+    g_np2 = GetNpcId()
+    g_my = IsMyItem(1)
+    SetPunish(0)
+end
+function s3_b()
+    local other = SearchPlayer("B")
+    g_dp1 = DynamicExecuteByPlayer(other, "", "MyEntity")
+    g_dp2 = DynamicExecuteByPlayer(0, "", "MyEntity")
+    g_dp3 = DynamicExecuteByPlayer(other, "", "")
+    g_me2 = MyEntity()
+    Msg2SubWorld("<color=green>Chuc mung")
+    Msg2Map(SubWorldIdx2ID(), "toi ban do")
+    Msg2Map(9999, "khong toi")
+    DisabledUseTownP(1)
+    g_tp1 = GetTask(135)
+    DisabledUseTownP(0)
+    g_tp2 = GetTask(135)
+    SetDeathScript("\\script\\test\\misc.lua")
+    SetRank(89)
+    SetPunish(1)
+    g_tm1 = SetNpcTimer(g_n2, 3)
+    g_tm2 = SetNpcTimer(0, 3)
+    SetNpcScript(g_n2, "\\script\\test\\misc.lua")
 end
 function Twice(n) return n * 2 end
 function NameOf() return GetName() end
@@ -577,4 +639,87 @@ TEST_CASE("S2 script api: AddNpc / DelNpc / SetNpcScript / GetNpcParam / SetNpcP
     CHECK(mw.w.find_entity(id2) == nullptr);
     CHECK(mw.w.find_entity(id6) != nullptr);
     CHECK(mw.w.find_entity(mw.a) != nullptr);
+}
+
+TEST_CASE("S3 script api: getters, global values, mission strings, DynamicExecute, system lines, town portal bit, death script, rank, npc timer", "[scriptfuns][s3]")
+{
+    MiscWorld mw;
+    jx::zone::KLuaScript* s = mw.w.config().scripts->get(R"(\script\test\misc.lua)");
+    REQUIRE(s != nullptr);
+    auto num = [&](const char* name) { return s->call_number("Num", {std::string(name)}); };
+    mw.A().player.reborn = 2;
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s3_a", mw.A(), 0));
+    CHECK(num("g_series") == static_cast<double>(mw.A().series));
+    const std::uint64_t frames = mw.w.tick_count() - mw.A().player.login_tick;
+    CHECK(num("g_gt1") == static_cast<double>(frames * 20 / 18));
+    CHECK(mw.is("g_life", "2"));
+    CHECK(mw.A().player.logout_revive);
+    CHECK(mw.is("g_glb0", "0"));
+    CHECK(mw.is("g_glb1", "77"));
+    CHECK(mw.is("g_glb2", "0"));
+    CHECK(mw.is("g_glb3", "0"));
+    CHECK(mw.is("g_ms0", ""));
+    CHECK(mw.is("g_ms1", "xin chao"));
+    CHECK(mw.is("g_ms2", ""));
+    CHECK(mw.is("g_ms3", ""));
+    CHECK(mw.is("g_ms4", ""));
+    CHECK(mw.w.mission_string(2).empty());
+    CHECK(mw.is("g_de1", "8"));     // the running script
+    CHECK(mw.is("g_de2", "15"));    // a:b - the method form
+    CHECK(mw.is("g_de3", "12"));    // a.b
+    CHECK(mw.is("g_de4", "nil"));   // no such script
+    CHECK(mw.is("g_de5", "nil"));   // no function name
+    CHECK(mw.is("g_de6", "nil"));   // no such function
+    const std::optional<double> n1 = num("g_n1");
+    REQUIRE(n1.has_value());
+    CHECK(num("g_np") == n1);
+    CHECK(mw.is("g_np2", "nil"));
+    CHECK(mw.is("g_my", "0"));
+    CHECK(mw.A().pk_punish_state == 3);
+    // a second player for DynamicExecuteByPlayer and the lines
+    jx::EntityId b;
+    jx::zone::Pos at;
+    REQUIRE(mw.w.spawn_player(8, role_of(2, "B", 2100, 2000), b, at) == jx::pb::RESULT_OK);
+    mw.w.tick();
+    mw.w.take_outbox();
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s3_b", mw.A(), 0));
+    CHECK(num("g_dp1") == static_cast<double>(b.value));   // MyEntity ran as B
+    CHECK(mw.is("g_dp2", "nil"));
+    CHECK(mw.is("g_dp3", "nil"));
+    CHECK(num("g_me2") == static_cast<double>(mw.a.value));   // A is back
+    int lines_a = 0, lines_b = 0;
+    for (const auto& p : mw.w.take_outbox()) {
+        if (p.msg_id != jx::pb::G2C_CHAT_MSG) continue;
+        jx::pb::ChatMsg m;
+        REQUIRE(m.ParseFromString(p.payload));
+        if (m.channel() != jx::pb::CH_SYSTEM) continue;
+        if (std::find(p.sids.begin(), p.sids.end(), 7) != p.sids.end()) ++lines_a;
+        if (std::find(p.sids.begin(), p.sids.end(), 8) != p.sids.end()) ++lines_b;
+    }
+    CHECK(lines_a == 2);   // Msg2SubWorld + Msg2Map of this map; the other map's line went nowhere
+    CHECK(lines_b == 2);
+    CHECK(num("g_tp1") == 1048576.0);   // bit 0x100000 of task value 135 (GetTask pushes a float)
+    CHECK(num("g_tp2") == 0.0);
+    CHECK(mw.A().player.death_script == R"(\script\test\misc.lua)");
+    CHECK(mw.A().rank == 89);
+    CHECK(mw.A().pk_punish_state == 0);
+    CHECK(mw.is("g_tm1", "1"));
+    CHECK(mw.is("g_tm2", "nil"));
+    const std::optional<double> n2 = num("g_n2");
+    REQUIRE(n2.has_value());
+    const KNpc* npc2 = mw.w.find_entity(jx::EntityId{static_cast<std::uint64_t>(*n2)});
+    REQUIRE(npc2 != nullptr);
+    CHECK(npc2->timer_frame == mw.w.tick_count() + 3);
+    // the timer: three frames later OnTimer(npc) of the npc's script ran and the timer is gone
+    mw.w.tick();
+    mw.w.tick();
+    CHECK(mw.is("g_timer", "nil"));
+    mw.w.tick();
+    CHECK(num("g_timer") == n2);
+    CHECK(npc2->timer_frame == 0);
+    // the death script: KillPlayer (the player's own blow) -> the death frames -> the corpse -> OnDeath(the last attacker)
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s3_kill", mw.A(), 0));
+    CHECK(mw.A().doing == jx::zone::KDoing::death);
+    for (int i = 0; i < 40 && mw.is("g_death", "nil"); ++i) mw.w.tick();
+    CHECK(num("g_death") == static_cast<double>(mw.a.value));
 }

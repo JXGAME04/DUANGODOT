@@ -59,6 +59,10 @@ public:
 
 private:
     void push_arg(const Arg& a);   // a whole number goes in as a Lua integer (see lua4_number_format)
+    // the function a name means - a global, "a.b.c" through tables, or the method form "a:b" that also pushes the table
+    // as the first argument (DynamicExecute's "PlayerFunLib:VnCheckInCity"); returns how many extra arguments were pushed
+    // (0 or 1), -1 with nothing on the stack when it is no function
+    int push_function(const char* name);
 
     bool run_file(const std::string& path, const char* what);
 

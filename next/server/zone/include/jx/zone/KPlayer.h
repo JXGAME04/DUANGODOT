@@ -107,6 +107,11 @@ struct KPlayer {
     int revive_x = 0;
     int revive_y = 0;
     int revive_ref = 0;        // +0x14
+    std::uint64_t login_tick = 0;   // the map tick the character spawned at: Player+0x8c of jx_linux_y counts the frames online,
+                                    // GetGameTime 0x0810F3A0 reads it (times 20 / 18)
+    bool logout_revive = false;     // Player+0x40 (Lua SetLogoutRV 0x08110500); what reads it at logout is not traced yet
+    std::string death_script;       // Player+0x5f98 (Lua SetDeathScript 0x08110700): OnDeath(the last attacker) of this script runs at
+                                    // the end of the death frames (0x080839A8) instead of \script\global\player_default_death.lua
     // KPlayerFaction at +0x59cc: the current faction, the first and last joined, how many times (docs §16.7); LoadFrom
     // 0x080C1A62 reads current / last / count from the record, the first stays -1
     KPlayerFaction faction;

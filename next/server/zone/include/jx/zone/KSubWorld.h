@@ -380,6 +380,13 @@ public:
     static constexpr int kMissionValues = 100;
     [[nodiscard]] int mission_value(int idx) const noexcept;
     void set_mission_value(int idx, int value) noexcept;
+    // the mission strings of the map (SubWorld+0x48648.., 100 of 0xc8 bytes: GetMissionS / SetMissionS, idx 1..100)
+    static constexpr int kMissionStrings = 100;
+    [[nodiscard]] const std::string& mission_string(int idx) const noexcept;
+    void set_mission_string(int idx, std::string_view text);
+    // a system line (CH_SYSTEM) to every player of this map: Lua Msg2SubWorld 0x08105170 (kind 0 of 0x081C9220 reaches every
+    // player of the old process) and Msg2Map 0x08105080 for this map
+    void msg_to_all(std::string_view text);
     // the maps this zone hosts (KSubWorldSet of the old server): SubWorldID2Idx / SubWorldIdx2ID answer from it; empty =
     // only this map
     void set_hosted_maps(std::vector<std::uint32_t> maps) { hosted_maps_ = std::move(maps); }
@@ -898,6 +905,7 @@ private:
     entity::EntityTable<KNpc> entities_;
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
     std::array<int, kMissionValues> mission_values_{};          // SubWorld+0x484b8..: GetMissionV / SetMissionV
+    std::array<std::string, kMissionStrings> mission_strings_;  // SubWorld+0x48648..: GetMissionS / SetMissionS
     std::vector<std::uint32_t> hosted_maps_;                    // the zone's maps (set by KGameServer)
     std::vector<EntityId> pending_removes_;                     // DelNpc: taken out at the next frame (the 0x3e9 nodes)
     void flush_pending_removes();

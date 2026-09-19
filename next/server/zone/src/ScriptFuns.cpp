@@ -9,7 +9,9 @@ extern "C" {
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <climits>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -2881,11 +2883,11 @@ struct KBagMatch {
     int units;
 };
 
-std::vector<KBagMatch> bag_matches(const KItemList& items, int genre, int detail, int particular, int level)
+std::vector<KBagMatch> bag_matches(const KItemList& items, int genre, int detail, int particular, int level, int room)
 {
     std::vector<KBagMatch> out;
     items.each([&](const KItem& it, const KItemPlace& place) {
-        if (place.room != room_equipment || static_cast<int>(it.genre) != genre) return;
+        if ((room >= 0 && place.room != room) || static_cast<int>(it.genre) != genre) return;
         if (detail >= 0 && it.detail != detail) return;
         if (particular >= 0 && it.particular != particular) return;
         if (level >= 0 && it.level != level) return;
@@ -2899,6 +2901,27 @@ std::vector<KBagMatch> bag_matches(const KItemList& items, int genre, int detail
     return out;
 }
 
+// the taking of KItemList 0x08202410 (ConsumeEquiproomItem / ConsumeItem): the matching pieces in order - a whole piece while
+// `left` covers its units, the last stack shrunk by what is left (0x08200D30); 1 when everything asked was taken, -1 when the
+// pieces ran out first (what was taken stays taken)
+int consume_matches(KSubWorld& w, std::uint64_t sid, KItemList& items, int genre, int detail, int particular, int level, int room, int left)
+{
+    for (const KBagMatch& m : bag_matches(items, genre, detail, particular, level, room)) {
+        if (left >= m.units) {
+            w.take_item(sid, m.id);
+            left -= m.units;
+            if (left == 0) return 1;
+        } else {
+            if (KItem* it = items.find_mutable(m.id)) {
+                it->count = m.units - left;
+                w.sync_item(sid, m.id);
+            }
+            return 1;
+        }
+    }
+    return -1;
+}
+
 // CalcEquiproomItemCount(genre, detail, particular, level) (0x0810D580): exactly four arguments and a player, else 0;
 // KItemList 0x081FA770(list, genre, detail, particular, level, room 3, count stacks 1) - the units in the bag
 int l_CalcEquiproomItemCount(lua_State* L)
@@ -2908,7 +2931,7 @@ int l_CalcEquiproomItemCount(lua_State* L)
         if (const KNpc* p = player_of(L, "CalcEquiproomItemCount")) {
             if (const KItemList* items = g_ScriptContext().world->items_of(p->sid)) {
                 for (const KBagMatch& m : bag_matches(*items, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)),
-                                                       static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)))) {
+                                                       static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)), room_equipment)) {
                     n += m.units;
                 }
             }
@@ -2932,25 +2955,8 @@ int l_ConsumeEquiproomItem(lua_State* L)
             KItemList* items = w->items_of(p->sid);
             int left = static_cast<int>(lua_tonumber(L, 5));
             if (items != nullptr) {
-                const std::vector<KBagMatch> matches = bag_matches(*items, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)),
-                                                                   static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)));
-                for (const KBagMatch& m : matches) {
-                    if (left >= m.units) {
-                        w->take_item(p->sid, m.id);
-                        left -= m.units;
-                        if (left == 0) {
-                            result = 1;
-                            break;
-                        }
-                    } else {
-                        if (KItem* it = items->find_mutable(m.id)) {
-                            it->count = m.units - left;
-                            w->sync_item(p->sid, m.id);
-                        }
-                        result = 1;
-                        break;
-                    }
-                }
+                result = consume_matches(*w, p->sid, *items, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)),
+                                         static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)), room_equipment, left);
             }
         }
     }
@@ -3064,7 +3070,12 @@ int l_AddNpc(lua_State* L)
     const int series = std::rand() % 5;
     const bool remove_on_death = top >= 6 && static_cast<std::int64_t>(lua_tonumber(L, 6)) != 0;
     const KNpcKind kind = tpl->kind == 0 ? KNpcKind::monster : KNpcKind::npc;
+    KScriptContext& ctx = g_ScriptContext();
+    const EntityId self = ctx.player != nullptr ? ctx.player->id : EntityId{};
     const EntityId id = w->spawn_npc(tpl->name, w->to_local(at), tpl->id, 0, kind, static_cast<std::uint32_t>(level), series, 0);
+    // the entity table may have grown (its entities sit in one vector): the script's player is found again so the
+    // functions after this one do not write through a moved pointer
+    if (self.value != 0) ctx.player = w->mutable_entity(self);
     KNpc* e = w->mutable_entity(id);
     if (e == nullptr) {
         lua_pushinteger(L, 0);
@@ -3129,6 +3140,388 @@ int l_AddSkillState(lua_State* L)
         }
     }
     lua_pushinteger(L, result);
+    return 1;
+}
+
+// ---- S3 (docs/SCRIPT-API.md, docs/LINUX-SERVER.md §32): the player / world getters, global values, mission strings,
+// DynamicExecute, the system lines, timers and flags the scripts call next
+
+// GetSeries() (0x08111F30): the series (Npc+0x28) of the player's npc; nothing without a player
+int l_GetSeries(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetSeries");
+    if (p == nullptr) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->series));
+    return 1;
+}
+
+// GetGameTime() (0x0810F3A0): Player+0x8c - the frames the character has been online - times 20 / 18 (0x0810F3C4..: an
+// 18 Hz count read in 20 Hz units); 0 without a player
+int l_GetGameTime(lua_State* L)
+{
+    lua_Integer t = 0;
+    if (const KNpc* p = player_of(L, "GetGameTime")) {
+        const std::uint64_t now = g_ScriptContext().world->tick_count();
+        const std::uint64_t frames = now >= p->player.login_tick ? now - p->player.login_tick : 0;
+        t = static_cast<lua_Integer>(frames * 20 / 18);
+    }
+    lua_pushinteger(L, t);
+    return 1;
+}
+
+// ST_GetTransLifeCount() (0x081C1100): the reborn count (Player+0x86b8, a byte); nothing without a player (1..0x4af)
+int l_ST_GetTransLifeCount(lua_State* L)
+{
+    const KNpc* p = player_of(L, "ST_GetTransLifeCount");
+    if (p == nullptr) return 0;
+    lua_pushinteger(L, p->player.reborn);
+    return 1;
+}
+
+// SetLogoutRV(flag) (0x08110500): a player -> Player+0x40 = (flag != 0); nothing returned
+int l_SetLogoutRV(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "SetLogoutRV")) p->player.logout_revive = static_cast<std::int64_t>(lua_tonumber(L, 1)) != 0;
+    return 0;
+}
+
+// the 5001 global numbers of the process (0x8bb37dc.., GetGlbValue 0x080FE270 / SetGlbValue 0x080FE2F0): in memory only,
+// one array for every map of the zone
+constexpr int kGlbValues = 5001;
+std::array<std::atomic<int>, kGlbValues>& glb_values()
+{
+    static std::array<std::atomic<int>, kGlbValues> values{};
+    return values;
+}
+
+// GetGlbValue(idx) (0x080FE270): an argument and idx <= 5000 -> the number (a negative idx read before the array in the
+// binary; 0 here), else 0
+int l_GetGlbValue(lua_State* L)
+{
+    lua_Integer v = 0;
+    if (lua_gettop(L) > 0) {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (idx >= 0 && idx < kGlbValues) v = glb_values()[static_cast<std::size_t>(idx)].load(std::memory_order_relaxed);
+    }
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+// SetGlbValue(idx, value) (0x080FE2F0): two arguments and idx <= 5000 -> stored; nothing returned
+int l_SetGlbValue(lua_State* L)
+{
+    if (lua_gettop(L) > 1) {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (idx >= 0 && idx < kGlbValues) {
+            glb_values()[static_cast<std::size_t>(idx)].store(static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 2))), std::memory_order_relaxed);
+        }
+    }
+    return 0;
+}
+
+// GetMissionS(idx) (0x08107160): the script's map and idx 1..100 -> the map's mission string (SubWorld+0x48648 + (idx - 1) * 0xc8);
+// "" otherwise (0x081071CB)
+int l_GetMissionS(lua_State* L)
+{
+    const KSubWorld* w = g_ScriptContext().world;
+    const char* s = "";
+    if (lua_gettop(L) > 0 && w != nullptr) {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (idx >= 1 && idx <= KSubWorld::kMissionStrings) s = w->mission_string(static_cast<int>(idx)).c_str();
+    }
+    lua_pushstring(L, s);
+    return 1;
+}
+
+// SetMissionS(idx, text) (0x08107220): the script's map, two arguments, idx 1..100 and a string -> the mission string, cut to
+// 0xc7 bytes ("" clears it, 0x081072B4); nothing returned
+int l_SetMissionS(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 1 && w != nullptr) {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        const char* s = lua_tostring(L, 2);
+        if (idx >= 1 && idx <= KSubWorld::kMissionStrings && s != nullptr) w->set_mission_string(static_cast<int>(idx), s);
+    }
+    return 0;
+}
+
+// a number back to the script: a whole one as a Lua integer (like every other function here: tostring says "8", not "8.0")
+void push_lua_number(lua_State* L, double v)
+{
+    if (v == std::floor(v) && std::fabs(v) < 9007199254740992.0) {
+        lua_pushinteger(L, static_cast<lua_Integer>(v));
+    } else {
+        lua_pushnumber(L, v);
+    }
+}
+
+// a script by its game path, or the running one for "" (DynamicExecute 0x081301E0 / 0x0813011F: the script of this state)
+KLuaScript* script_of(KSubWorld* w, const char* path, std::string& game_path)
+{
+    if (w == nullptr || !w->config().scripts) return nullptr;
+    if (path == nullptr || *path == '\0') {
+        game_path = g_ScriptContext().script_path;
+        return game_path.empty() ? nullptr : w->config().scripts->get(game_path);
+    }
+    game_path = path;
+    return w->config().scripts->get(game_path);
+}
+
+// the arguments from `first` on, as a call into another state takes them (KLuaScript::Arg: numbers and strings; anything
+// else goes over as 0)
+std::vector<KLuaScript::Arg> args_from(lua_State* L, int first)
+{
+    std::vector<KLuaScript::Arg> out;
+    const int top = lua_gettop(L);
+    for (int i = first; i <= top; ++i) {
+        if (lua_type(L, i) == LUA_TSTRING) {
+            out.emplace_back(std::string(lua_tostring(L, i)));
+        } else {
+            out.emplace_back(static_cast<double>(lua_tonumber(L, i)));
+        }
+    }
+    return out;
+}
+
+// the call of DynamicExecute / DynamicExecuteByPlayer: fn(args) of `script` with `player` as its player (SetPlayerIndex /
+// the PlayerIndex global of the old states), the context as execute_script sets it.  One number comes back - the old call
+// returned every value of the function; a string or a table does not cross the states here.
+std::optional<double> dynamic_call(KSubWorld& w, KLuaScript& script, const std::string& game_path, const char* fn, KNpc* player,
+                                   const std::vector<KLuaScript::Arg>& args)
+{
+    KScriptContext& ctx = g_ScriptContext();
+    const KScriptContext saved = ctx;
+    ctx.world = &w;
+    ctx.player = player;
+    ctx.sid = player != nullptr ? player->sid : 0;
+    ctx.script_path = game_path;
+    const std::optional<double> r = script.call_number(fn, args);
+    ctx = saved;
+    return r;
+}
+
+// DynamicExecute(script, fn, ...) (0x081300B0): two arguments at least, both strings and `fn` not empty; `script` names a
+// script by its game path (0x08222A90 -> the cache 0x830b260), "" the running one (0x08220780); fn(...) runs there with the
+// rest of the arguments (0x08221ED0) and what it returns comes back.  Nothing when the script or the function is missing.
+int l_DynamicExecute(lua_State* L)
+{
+    if (lua_gettop(L) <= 1 || !lua_isstring(L, 1) || !lua_isstring(L, 2)) return 0;
+    const char* fn = lua_tostring(L, 2);
+    if (fn == nullptr || *fn == '\0') return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    std::string game_path;
+    KLuaScript* script = script_of(w, lua_tostring(L, 1), game_path);
+    if (script == nullptr) {
+        log::warn("lua", "dynamic execute: no script", {log::kv("script", lua_tostring(L, 1)), log::kv("function", fn)});
+        return 0;
+    }
+    const std::optional<double> r = dynamic_call(*w, *script, game_path, fn, g_ScriptContext().player, args_from(L, 3));
+    if (!r) return 0;
+    push_lua_number(L, *r);
+    return 1;
+}
+
+// DynamicExecuteByPlayer(player, script, fn, ...) (0x0812FE80): three arguments at least; `player` 1..0x4af (an entity id of a
+// player here), `script` / `fn` as DynamicExecute; the script's PlayerIndex becomes `player` for the call (0x0812FFD7) and
+// the old one comes back after.  Returns what the function returned.
+int l_DynamicExecuteByPlayer(lua_State* L)
+{
+    if (lua_gettop(L) <= 2) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    KNpc* target = id > 0 ? w->mutable_entity(EntityId{static_cast<std::uint64_t>(id)}) : nullptr;
+    const char* fn = lua_isstring(L, 3) ? lua_tostring(L, 3) : nullptr;
+    if (target == nullptr || target->kind != KNpcKind::player || !lua_isstring(L, 2) || fn == nullptr || *fn == '\0') return 0;
+    std::string game_path;
+    KLuaScript* script = script_of(w, lua_tostring(L, 2), game_path);
+    if (script == nullptr) {
+        log::warn("lua", "dynamic execute: no script", {log::kv("script", lua_tostring(L, 2)), log::kv("function", fn)});
+        return 0;
+    }
+    const std::optional<double> r = dynamic_call(*w, *script, game_path, fn, target, args_from(L, 4));
+    if (!r) return 0;
+    push_lua_number(L, *r);
+    return 1;
+}
+
+// Msg2SubWorld(text) (0x08105170): one string -> 0x081C9220(kind 0, 0, [0x978a650], text, len): the line to EVERY player of
+// the process as a system message (0x080C3EE0 / 0x080C3F10 walk the player set); this map's players here - a zone with
+// several maps reaches only the script's map.  Nothing returned.
+int l_Msg2SubWorld(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 0 && w != nullptr) {
+        const char* text = lua_tostring(L, 1);
+        if (text != nullptr) w->msg_to_all(text);
+    }
+    return 0;
+}
+
+// Msg2Map(map, text) (0x08105080): two arguments; KSubWorldSet::GetSubWorldIdx(map) = -1 -> nothing; every player of that map
+// (0x080EF5C0 / 0x080EF640) gets the line (kind 1 of 0x081C9220).  This zone reaches the script's map only.  Nothing returned.
+int l_Msg2Map(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 1 && w != nullptr) {
+        const auto map = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        const char* text = lua_tostring(L, 2);
+        if (text == nullptr) return 0;
+        if (map == static_cast<std::int64_t>(w->map_id())) {
+            w->msg_to_all(text);
+        } else {
+            log::debug("lua", "Msg2Map: other map", {log::kv("map", map), log::kv("this_map", w->map_id())});
+        }
+    }
+    return 0;
+}
+
+// IsMyItem(item) (0x0811B4D0): an argument, a live item index -> KItemList 0x081FA550(Player+0x3fc, item): 1 when the piece
+// is in the player's list, else 0
+int l_IsMyItem(lua_State* L)
+{
+    lua_Integer mine = 0;
+    if (lua_gettop(L) > 0) {
+        if (const KNpc* p = player_of(L, "IsMyItem")) {
+            const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+            const KItemList* items = g_ScriptContext().world->items_of(p->sid);
+            if (id > 0 && items != nullptr && items->find(static_cast<std::uint32_t>(id)) != nullptr) mine = 1;
+        }
+    }
+    lua_pushinteger(L, mine);
+    return 1;
+}
+
+// GetNpcId(npc) (0x080FD920): exactly one argument, a live npc index -> Npc+0 (its running id, pushed as a 64-bit number);
+// nothing otherwise.  The entity id is that here.
+int l_GetNpcId(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    if (lua_gettop(L) != 1 || c.world == nullptr) return 0;
+    const KNpc* e = c.world->find_entity(entity_arg(L, 1));
+    if (e == nullptr) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(e->id.value));
+    return 1;
+}
+
+// the room argument of CalcItemCount / ConsumeItem (the rooms of the old KItemList: 3 the bag, 0 the pieces worn, 1 the quick
+// slots; -1 every room, what the scripts pass) -> this zone's room, -2 for one it has not
+int room_arg(std::int64_t room)
+{
+    switch (room) {
+    case -1: return -1;
+    case 3: return room_equipment;
+    case 0: return room_body;
+    case 1: return room_immediacy;
+    default: return -2;
+    }
+}
+
+// CalcItemCount(genre, detail, particular, level, room) (0x0810D840): exactly five arguments and a player, else 0; KItemList
+// 0x081FA770 with the room as given (-1 = every room) counting stacks
+int l_CalcItemCount(lua_State* L)
+{
+    lua_Integer n = 0;
+    if (lua_gettop(L) == 5) {
+        if (const KNpc* p = player_of(L, "CalcItemCount")) {
+            const int room = room_arg(static_cast<std::int64_t>(lua_tonumber(L, 5)));
+            const KItemList* items = g_ScriptContext().world->items_of(p->sid);
+            if (items != nullptr && room != -2) {
+                for (const KBagMatch& m : bag_matches(*items, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)),
+                                                       static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)), room)) {
+                    n += m.units;
+                }
+            }
+        }
+    }
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+// ConsumeItem(genre, detail, particular, level, count, room) (0x0810D6C0): exactly six arguments and a player, else -1;
+// KItemList 0x08202410 with the room as given (-1 = every room): 1 when everything was taken, -1 when the pieces ran out
+int l_ConsumeItem(lua_State* L)
+{
+    lua_Integer result = -1;
+    if (lua_gettop(L) == 6) {
+        if (const KNpc* p = player_of(L, "ConsumeItem")) {
+            KSubWorld* w = g_ScriptContext().world;
+            KItemList* items = w->items_of(p->sid);
+            const int room = room_arg(static_cast<std::int64_t>(lua_tonumber(L, 6)));
+            if (items != nullptr && room != -2) {
+                result = consume_matches(*w, p->sid, *items, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)),
+                                         static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)), room,
+                                         static_cast<int>(lua_tonumber(L, 5)));
+            }
+        }
+    }
+    lua_pushinteger(L, result);
+    return 1;
+}
+
+// SetPunish(flag) (0x0810F470): an argument and a player -> Npc+0x1818 (m_nCurPKPunishState) = 0 when flag != 0 (the death
+// penalties apply, 0x0810F4F8), 3 when 0 (a PK-battle death: none, 0x0810F52B); nothing returned
+int l_SetPunish(lua_State* L)
+{
+    if (lua_gettop(L) > 0) {
+        if (KNpc* p = player_of(L, "SetPunish")) p->pk_punish_state = static_cast<std::int64_t>(lua_tonumber(L, 1)) != 0 ? 0 : 3;
+    }
+    return 0;
+}
+
+// DisabledUseTownP(flag) (0x08130A80): an argument and a player -> bit 0x100000 of task value 0x87 (135) set (flag != 0) or
+// cleared (KPlayerTask::GetSaveVal 0x080CB540, SetTask 0x080A9190 with the sync) and 1 comes back (0x08130B0B); 0 without
+// (0x08130B68).  The town portal itself does not read the bit yet (docs §32).
+int l_DisabledUseTownP(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 0) {
+        if (KNpc* p = player_of(L, "DisabledUseTownP")) {
+            const auto v = static_cast<std::uint32_t>(p->player.task.get_save_val(0x87));
+            const bool on = static_cast<std::int64_t>(lua_tonumber(L, 1)) != 0;
+            g_ScriptContext().world->task_set_value(*p, 0x87, static_cast<int>(on ? (v | 0x100000u) : (v & ~0x100000u)), true);
+            done = 1;
+        }
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// SetDeathScript(script) (0x08110700): a player; a non-empty string -> Player+0x5f98 = the script (0x08110768), "" or nothing
+// -> 0.  OnDeath(the last attacker) of that script runs at the end of the death frames (0x080839A8).  Nothing returned.
+int l_SetDeathScript(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "SetDeathScript")) {
+        const char* s = lua_gettop(L) > 0 ? lua_tostring(L, 1) : nullptr;
+        p->player.death_script = s != nullptr ? s : "";
+    }
+    return 0;
+}
+
+// SetRank(rank) (0x081109E0): a player -> Npc+0x30 = the low byte of the number, then 0x08079500: the 0xa5 packet {rank, npc id}
+// to the player's own client (KPlayer::Send) - not sent yet.  Nothing returned.
+int l_SetRank(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "SetRank")) {
+        p->rank = static_cast<int>(static_cast<std::uint8_t>(static_cast<std::int64_t>(lua_tonumber(L, 1))));
+        log::debug("lua", "rank set", {log::kv("entity", p->id), log::kv("rank", p->rank)});
+    }
+    return 0;
+}
+
+// SetNpcTimer(npc, frames) (0x080FC180): two arguments and a live npc, else nothing (0x080FC24A); frames > 0 -> Npc+0x19a8 =
+// the map's frame counter [0x9777f00] + frames, frames <= 0 -> cleared (0x080FC260); 1 comes back either way (0x080FC21E).
+// KNpc::Activate 0x0808BF81 runs the npc script's OnTimer(npc) once the frame is reached.
+int l_SetNpcTimer(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    if (lua_gettop(L) <= 1 || c.world == nullptr) return 0;
+    KNpc* e = c.world->mutable_entity(entity_arg(L, 1));
+    if (e == nullptr) return 0;
+    const auto frames = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    e->timer_frame = frames > 0 ? c.world->tick_count() + static_cast<std::uint64_t>(frames) : 0;
+    lua_pushinteger(L, 1);
     return 1;
 }
 
@@ -3206,6 +3599,13 @@ const luaL_Reg kGameScriptFuns[] = {
     {"ConsumeEquiproomItem", l_ConsumeEquiproomItem}, {"GetNpcParam", l_GetNpcParam}, {"SetNpcParam", l_SetNpcParam},
     {"SetNpcScript", l_SetNpcScript},     {"DelNpc", l_DelNpc},               {"AddNpc", l_AddNpc},
     {"AddSkillState", l_AddSkillState},
+    {"GetSeries", l_GetSeries},           {"GetGameTime", l_GetGameTime},     {"ST_GetTransLifeCount", l_ST_GetTransLifeCount},
+    {"SetLogoutRV", l_SetLogoutRV},       {"GetGlbValue", l_GetGlbValue},     {"SetGlbValue", l_SetGlbValue},
+    {"GetMissionS", l_GetMissionS},       {"SetMissionS", l_SetMissionS},     {"DynamicExecute", l_DynamicExecute},
+    {"DynamicExecuteByPlayer", l_DynamicExecuteByPlayer}, {"Msg2SubWorld", l_Msg2SubWorld}, {"Msg2Map", l_Msg2Map},
+    {"IsMyItem", l_IsMyItem},             {"GetNpcId", l_GetNpcId},           {"CalcItemCount", l_CalcItemCount},
+    {"ConsumeItem", l_ConsumeItem},       {"SetPunish", l_SetPunish},         {"DisabledUseTownP", l_DisabledUseTownP},
+    {"SetDeathScript", l_SetDeathScript}, {"SetRank", l_SetRank},             {"SetNpcTimer", l_SetNpcTimer},
     {nullptr, nullptr},
 };
 

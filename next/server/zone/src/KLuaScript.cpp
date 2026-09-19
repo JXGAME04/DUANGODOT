@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <string_view>
 
 extern "C" {
 #include <lauxlib.h>
@@ -223,17 +225,54 @@ std::string KLuaScript::lua4_number_format(std::string s)
     return out;
 }
 
+int KLuaScript::push_function(const char* name)
+{
+    const int top = lua_gettop(L_);
+    std::string_view rest(name);
+    int self = 0;
+    const auto first = rest.find_first_of(".:");
+    if (first == std::string_view::npos) {
+        lua_getglobal(L_, name);
+    } else {
+        lua_getglobal(L_, std::string(rest.substr(0, first)).c_str());
+        rest.remove_prefix(first);
+        while (!rest.empty()) {
+            if (!lua_istable(L_, -1)) {
+                lua_settop(L_, top);
+                return -1;
+            }
+            const char sep = rest.front();
+            rest.remove_prefix(1);
+            const auto next = rest.find_first_of(".:");
+            const std::string key(rest.substr(0, next));
+            rest = next == std::string_view::npos ? std::string_view{} : rest.substr(next);
+            lua_getfield(L_, -1, key.c_str());
+            if (sep == ':' && rest.empty()) {
+                lua_insert(L_, -2);   // the function under the table: the table is the first argument (self)
+                self = 1;
+            } else {
+                lua_remove(L_, -2);
+            }
+        }
+    }
+    if (!lua_isfunction(L_, self == 1 ? -2 : -1)) {
+        lua_settop(L_, top);
+        return -1;
+    }
+    return self;
+}
+
 std::optional<double> KLuaScript::call_number(const char* name, const std::vector<Arg>& args)
 {
     if (L_ == nullptr) return std::nullopt;
     const int top = lua_gettop(L_);   // SafeCallBegin
-    lua_getglobal(L_, name);
-    if (!lua_isfunction(L_, -1)) {
+    const int self = push_function(name);
+    if (self < 0) {
         lua_settop(L_, top);
         return std::nullopt;
     }
     for (const Arg& a : args) push_arg(a);
-    if (lua_pcall(L_, static_cast<int>(args.size()), 1, 0) != LUA_OK) {
+    if (lua_pcall(L_, static_cast<int>(args.size()) + self, 1, 0) != LUA_OK) {
         log::warn("lua", "call failed", {log::kv("file", file_), log::kv("function", name), log::kv("error", lua_tostring(L_, -1))});
         lua_settop(L_, top);
         return std::nullopt;
@@ -250,13 +289,13 @@ std::optional<KLuaScript::Arg> KLuaScript::call_value(const char* name, const st
 {
     if (L_ == nullptr) return std::nullopt;
     const int top = lua_gettop(L_);   // GetTopIndex
-    lua_getglobal(L_, name);
-    if (!lua_isfunction(L_, -1)) {
+    const int self = push_function(name);
+    if (self < 0) {
         lua_settop(L_, top);
         return std::nullopt;
     }
     for (const Arg& a : args) push_arg(a);
-    if (lua_pcall(L_, static_cast<int>(args.size()), 1, 0) != LUA_OK) {
+    if (lua_pcall(L_, static_cast<int>(args.size()) + self, 1, 0) != LUA_OK) {
         log::warn("lua", "call failed", {log::kv("file", file_), log::kv("function", name), log::kv("error", lua_tostring(L_, -1))});
         lua_settop(L_, top);
         return std::nullopt;

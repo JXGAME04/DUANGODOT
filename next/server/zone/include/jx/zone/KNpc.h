@@ -306,6 +306,10 @@ struct KNpc {
     bool remove_on_death = false;     // +0x1824
     std::array<int, 10> script_param{};   // +0x19b0..+0x19d4 of jx_linux_y: the ten numbers GetNpcParam / SetNpcParam (n 1..10) keep on a npc
     int script_main_param = 0;            // +0x158c: SetNpcScript's third argument, what KPlayer::DialogNpc / NpcDialog hand to main()
+    int rank = 0;                         // +0x30 (a byte): Lua SetRank 0x081109E0; 0x08079500 tells the player's own client with the 0xa5
+                                          // packet {rank, npc id} - not sent yet
+    std::uint64_t timer_frame = 0;        // +0x19a8: Lua SetNpcTimer 0x080FC180 = the map frame at which the npc script's OnTimer(npc) runs
+                                          // once (KNpc::Activate 0x0808BF81 clears it first); 0 = no timer
     EntityId summon_master;           // +0x1828
     // KNpc::SetHorse 0x0807D520: 1 while the worn horse is ridden (the equip 0x081FE380 / unequip 0x081FFFB0 of part 10,
     // the ride toggle 0x080AEFA0); the 0x20 flag of the 0x4c / 0x4d sync, HorseLimit of CanCastSkill, the horse column of
