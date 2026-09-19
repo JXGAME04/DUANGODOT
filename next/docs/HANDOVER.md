@@ -634,6 +634,13 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (phiên tiếp theo, phần 34) — thử nghiệm 3D bước 2 (bản riêng `swrod3-3d`, nhánh `exp/3d-baling`): NPC + nhân vật 3D có skin/animation, cổng riêng 19xxx
+
+- Bản sao riêng `D:\JXWIN-NANGGODOT\JXN\JXN\swrod3-3d` (nhân bản kho, luôn ở `exp/3d-baling`), `swrod3` giữ cho 2D; cổng bản 3D đổi sang 19001/19100/19102 (e2e 20xxx, pprof 19199), test client 417/417 + Go xanh.
+- `tools/scn3d/export_npc.py`: `cha_pic` → xương/da/mesh/vật liệu/clip của bộ tham khảo → glTF có skin + animation; `MARK_TO_CHA` ghép điểm đứng mark JSON với `cha_pic`; `Scn3DNpc.gd`, `Scn3DPlayer.set_model`.
+- Đo `world_baling`: 31 model, 494 NPC animation trên map, nạp 2,4 s, 80 FPS (RTX 3080, GL Compatibility). Chi tiết: `docs/THU-NGHIEM-3D.md`.
+- commit: `JX NEXT 3D: NPC + nhan vat 3D co skin/animation tren map world_baling`.
+
 ### 2026-09-19 (phiên tiếp theo, phần 33) — thử nghiệm 3D trên nhánh riêng `exp/3d-baling`: map Ba Lăng Huyện 3D + camera xoay (không đụng main)
 
 - **Mục đích** (chủ dự án yêu cầu): dựng thử 1 map 3D + camera quay chuẩn game 3D trước, hình nhân vật/NPC làm sau. Nhánh `exp/3d-baling` tách từ `origin/main` d83ab5a; **không** sửa zone/services/giao thức/UI 2D.

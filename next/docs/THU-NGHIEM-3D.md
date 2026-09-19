@@ -37,6 +37,22 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 `world_baling` (Ba Lăng Huyện): 1714 node, 300 mesh, 51 vật liệu, 62 texture, buffer 32 MB — nạp 0,8 s, **145 FPS**,
 591 draw call, 465 k tam giác/khung, VRAM 156 MB. Xoay 0/90/180/270 và nghiêng 75° đúng; bóng đổ + lightmap đúng chỗ.
 
+## Nhân vật / NPC 3D (2026-09-19, bước 2)
+
+- **Tool** `tools/scn3d/export_npc.py --map world_baling`: `cha_pic` (xương, các phần da body*head*shoes, scale, nhóm animation) →
+  xương `exprolesbone bone/<x>.prefab`, da `exprolesskin skinpart/<x>/<phần>.asset` (`ChaResourceRef{meshUrl, matUrl, bones[]}`), mesh da
+  `exprolesmesh` (trọng số xương kênh 12/13 + `m_BindPose`), vật liệu `exprolesmat` → texture `models.bdd`, clip
+  `exprolesanim animation/<x>/<clip>.asset` (legacy, đường cong quaternion/pos/scale theo đường dẫn xương) → glTF **có skin + animation**
+  (`assets3d/npc/cha_<id>_<xương>.gltf`, animation đặt tên theo nhóm: `xx` nghỉ, `zp` đi, `gjxx`, `xdz`, `ss`, `sw`).
+- **Đặt NPC**: bảng refresh của server không có trong client, nên ghép điểm đứng trong mark JSON (`n_tiejiang`, `n_yaodian`, …, `baizhu`,
+  `meihualu`, `jinmao`) với `cha_pic` theo tên (`MARK_TO_CHA` trong tool) → `assets3d/<map>/npcs.json` (494 vị trí ở Ba Lăng, phần lớn là
+  điểm quái có nhiều toạ độ). Nhân vật chính = `cha_pic 1` (标准男), đi phát `zp`, đứng phát `xx`.
+- **Client**: `Scn3DNpc.gd` (nạp glTF qua `GLTFDocument` có cache, `AnimationPlayer` lặp `xx`, `Label3D` tên; con `Model` quay 180° vì model
+  Unity nhìn +Z), `Scn3D._setup_npcs`, `Scn3DPlayer.set_model`.
+- **Đo**: 31 model, 494 NPC có skin + animation trên map: nạp 2,4 s, **80 FPS**, 794 draw call, VRAM 219 MB.
+- Chưa làm: vũ khí/vật treo (`model_hang_list`, `smodels.bdd`), cloth, shader nhân vật riêng (đang dùng StandardMaterial3D), chọn NPC bằng chuột,
+  nối với zone (spawn thật từ server thay cho bảng ghép tay).
+
 ## Cổng riêng của bản 3D (không trùng bản 2D)
 
 | | bản 2D (`swrod3`) | bản 3D (`swrod3-3d`) |

@@ -11,6 +11,8 @@ var yaw := 0.0
 
 var _body: MeshInstance3D
 var _nose: MeshInstance3D
+var model: Node3D   # Scn3DNpc (neu co) thay cho hinh tru
+var _was_moving := false
 
 
 func _ready() -> void:
@@ -33,6 +35,18 @@ func _ready() -> void:
 	m2.albedo_color = Color(1, 1, 0.2)
 	_nose.material_override = m2
 	add_child(_nose)
+
+
+# Thay hinh tru bang nhan vat 3D (Scn3DNpc da setup). Con Model cua no da quay 180 do nen huong -Z nhu hinh tru.
+func set_model(npc: Node3D) -> void:
+	if model:
+		model.queue_free()
+	model = npc
+	add_child(npc)
+	_body.visible = false
+	_nose.visible = false
+	if npc.has_method("play"):
+		npc.play("xx")
 
 
 func snap_to_ground() -> void:
@@ -78,6 +92,10 @@ func _process(delta: float) -> void:
 			yaw = atan2(-d.x, -d.z)
 	rotation.y = yaw
 	snap_to_ground()
+	var is_moving := moving or dir.length() > 0.01
+	if model and model.has_method("play") and is_moving != _was_moving:
+		model.play("zp" if is_moving else "xx")
+	_was_moving = is_moving
 
 
 func _unhandled_input(ev: InputEvent) -> void:

@@ -15,6 +15,7 @@ const SH_LM2 := preload("res://scenes3d/scn3d_lm_2side.gdshader")
 const SH_TER := preload("res://scenes3d/scn3d_terrain.gdshader")
 const CAM_SCRIPT := preload("res://scenes3d/Scn3DCamera.gd")
 const PLAYER_SCRIPT := preload("res://scenes3d/Scn3DPlayer.gd")
+const NPC_SCRIPT := preload("res://scenes3d/Scn3DNpc.gd")
 
 var map_name := "world_baling"
 var auto := false
@@ -25,7 +26,9 @@ var lightmaps: Array = []
 var shader_mats: Array = []
 var use_lm := true
 var lm_gain := 1.0
-var stats := {"nodes": 0, "surfaces": 0, "lm_surfaces": 0, "terrain": 0, "collision": 0, "load_ms": 0}
+var stats := {"nodes": 0, "surfaces": 0, "lm_surfaces": 0, "terrain": 0, "collision": 0, "load_ms": 0, "npcs": 0, "npc_models": 0}
+var npcs: Array = []
+var npc_models := {}
 var hud: Label
 var cam_rig: Node3D   # Scn3DCamera (preload, khong phu thuoc cache class_name)
 var player: Node3D    # Scn3DPlayer
@@ -57,10 +60,11 @@ func _ready() -> void:
 	add_child(root)
 	_post_process(root)
 	_setup_player_camera()
+	_setup_npcs()
 	_setup_hud()
 	stats["load_ms"] = Time.get_ticks_msec() - t0
-	print("SCN3D map=%s nodes=%d surfaces=%d lightmapped=%d terrain=%d load_ms=%d" % [
-		map_name, stats["nodes"], stats["surfaces"], stats["lm_surfaces"], stats["terrain"], stats["load_ms"]])
+	print("SCN3D map=%s nodes=%d surfaces=%d lightmapped=%d terrain=%d npcs=%d npc_models=%d load_ms=%d" % [
+		map_name, stats["nodes"], stats["surfaces"], stats["lm_surfaces"], stats["terrain"], stats["npcs"], stats["npc_models"], stats["load_ms"]])
 	if auto:
 		_auto()
 
@@ -284,6 +288,52 @@ func _setup_player_camera() -> void:
 	player.snap_to_ground()
 
 
+# NPC: assets3d/<map>/npcs.json (diem dung -> cha_pic id, vi tri, goc) + assets3d/npc/npc_models.json (tep glTF, scale, ten)
+func _setup_npcs() -> void:
+	var npc_dir := ProjectSettings.globalize_path(ASSETS3D) + "/npc"
+	var mtxt := FileAccess.get_file_as_string(npc_dir + "/npc_models.json")
+	var ptxt := FileAccess.get_file_as_string(dir + "/npcs.json")
+	if mtxt == "" or ptxt == "":
+		print("SCN3D npc: chua co npcs.json / npc_models.json (chay tools/scn3d/export_npc.py --map %s)" % map_name)
+		return
+	npc_models = JSON.parse_string(mtxt)
+	var pl: Dictionary = JSON.parse_string(ptxt)
+	for p in pl.get("placements", []):
+		var mi: Dictionary = npc_models.get(str(int(p["cha"])), {})
+		if mi.is_empty():
+			continue
+		var npc := NPC_SCRIPT.new()
+		npc.name = "npc_%s" % p["mark"]
+		npc.cha = int(p["cha"])
+		add_child(npc)
+		if not npc.setup(npc_dir, mi["file"], float(mi.get("scale", 1.0)), str(mi.get("name", "")), float(mi.get("sizeY", 0.0) if mi.get("sizeY") != null else 0.0)):
+			npc.queue_free()
+			continue
+		npc.global_position = Vector3(p["pos"][0], p["pos"][1], p["pos"][2])
+		npc.rotation.y = deg_to_rad(180.0 + float(p.get("angle", 0.0)))
+		_snap(npc)
+		npcs.append(npc)
+	stats["npcs"] = npcs.size()
+	stats["npc_models"] = npc_models.size()
+	# nhan vat chinh
+	var pc: Dictionary = npc_models.get(str(int(pl.get("player", 1))), {})
+	if not pc.is_empty() and player:
+		var me := NPC_SCRIPT.new()
+		me.name = "Me"
+		if me.setup(npc_dir, pc["file"], float(pc.get("scale", 1.0)), "", 0.0):
+			player.set_model(me)
+		else:
+			me.queue_free()
+
+
+func _snap(n: Node3D) -> void:
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(n.global_position + Vector3(0, 50, 0), n.global_position + Vector3(0, -50, 0), 1)
+	var hit := space.intersect_ray(q)
+	if hit:
+		n.global_position.y = hit.position.y
+
+
 func _setup_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "HUD"
@@ -302,8 +352,8 @@ func _process(_delta: float) -> void:
 		return
 	var p: Vector3 = player.global_position
 	var t: Dictionary = info.get("table", {})
-	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  |  nap %d ms\ncamera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)\nnhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f\nchuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
-		map_name, str(t.get("name", "")), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["load_ms"],
+	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  |  nap %d ms\ncamera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)\nnhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f\nchuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
+		map_name, str(t.get("name", "")), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats["load_ms"],
 		cam_rig.yaw, cam_rig.pitch, cam_rig.dist, "bat" if use_lm else "tat", lm_gain, p.x, p.y, p.z, -p.x, p.y, p.z]
 
 
@@ -337,7 +387,7 @@ func _screenshot(path: String) -> void:
 func _auto() -> void:
 	for i in 6:
 		await get_tree().process_frame
-	var views := [[0.0, 40.0, 19.0], [90.0, 40.0, 19.0], [180.0, 40.0, 19.0], [270.0, 40.0, 19.0], [45.0, 75.0, 21.0]]
+	var views := [[0.0, 40.0, 19.0], [90.0, 40.0, 19.0], [180.0, 40.0, 19.0], [270.0, 40.0, 19.0], [45.0, 75.0, 21.0], [20.0, 40.0, 10.0]]
 	var n := 0
 	for v in views:
 		cam_rig.yaw = v[0]
@@ -357,6 +407,18 @@ func _auto() -> void:
 		await get_tree().process_frame
 		frames += 1
 	var fps := frames * 1000.0 / maxf(1.0, float(Time.get_ticks_msec() - t0))
+	# dung canh NPC dau tien (neu co): dua nhan vat toi canh no roi chup
+	if not npcs.is_empty():
+		var target: Node3D = npcs[0]
+		player.global_position = target.global_position + Vector3(2.5, 0, 2.5)
+		player.snap_to_ground()
+		cam_rig.yaw = 200.0
+		cam_rig.pitch = 40.0
+		cam_rig.dist = 10.0
+		for i in 3:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
 	print("SCN3D_OK map=%s nodes=%d fps=%.1f draw_calls=%d primitives=%d vram_mb=%.0f" % [
 		map_name, stats["nodes"], fps, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
