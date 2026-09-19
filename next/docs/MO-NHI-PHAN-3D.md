@@ -112,7 +112,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | D4 | Thanh máu trên đầu quái, tên theo `KNpcGold` (vàng/xanh) | 2.0 | có sẵn `_draw_names` | **xong** |
 | D5 | Quái đánh trả: clip đánh của nhóm anim quái + đạn quái (`KMissle3DView`) | A2/A6 | có sẵn | **xong** (soát lại từng nhóm quái Ba Lăng: heo, hươu, hổ, kỳ binh) |
 | D6 | Chết: clip `sw` giữ khung cuối + mờ dần theo 2.0; xác biến mất theo zone | A2 + 2.0 | có sẵn `hold_last` | **xong** |
-| D7 | Vật rơi 3D (`still_list`) | A10 | xuất `StaticModels/stills` | **chưa** (giữ billboard ObjData 2.0 — đúng ADR-008; làm sau) |
+| D7 | Vật rơi 3D (`still_list`, `StillObject.OnStillReady 0x51b800`: cột sáng `cmn_droplight_*` theo phẩm chất `item_list` 2..6) | A10 + IL2CPP | gói 2.0 không mang phẩm chất vật rơi | *bỏ* theo ADR-008 (ảnh 2.0, tên trắng/tiền vàng); ghi 3D-59 |
 | D8 | Kiểm tự động đánh quái trong 3D: `_auto_fight` + `AUTO3D_FLOATS added/hit_fx`, `auto_fight_hit.png`; `--skill=<id>:<phái> --series=<n>` bay 4 ảnh + `AUTO3D_MISSLE`; `--factions --fxshots` ảnh từng kỹ năng | UiGame | có | **xong** (3D-57) |
 
 ### E. UI trong client 3D
@@ -188,8 +188,8 @@ Nguồn: `global-metadata.dat` → `D:\game3gtQ_mo\meta_pc_res.txt` (9 212 lớp
 | Nền tảng / SDK | `AndroidTool`, `OpSdkWrapper`, `CApolloVoiceSys`, `GMTool.*`, `Debugger`, `HUDFPS`, `GameConfig`, `GameInitLoad/Startup`, `AssetPool*`, `BundleAsync`, `ResourceLoader`, `Localization*` | — | *bỏ* |
 
 **Chưa có, làm theo thứ tự (mỗi mục một phần 3D-nn, số liệu mổ từ nhị phân):**
-1. Vòng chọn mục tiêu `TargetSelectEffect` (`cmn_select`) + dấu click đất `TouchEffect` (`cmn_rocker_*`?) — thấy ngay khi đánh quái.
-2. Vật rơi: `cmn_droplight_*` theo phẩm chất + `StillObject`/`still_list` (D7).
+1. ~~Vòng chọn mục tiêu `TargetSelectEffect` (`cmn_select`)~~ **xong 3D-59**; `TouchEffect` = gợn chạm UI di động → *bỏ*.
+2. ~~Vật rơi: `cmn_droplight_*`~~ *bỏ* (gói 2.0 không mang phẩm chất; 3D-59).
 3. Bầu trời `SkyboxCam/SkyBoxCollection` (mỗi cảnh) và `MirrorReflection` nước.
 4. Hậu kỳ `PostEffectBloom` (+ distortion khi có prefab dùng).
 5. Chết tan xác `TaskTweenDissolve` (B8), viền sáng `TaskRimLight`, tiếng bước `TaskStepSound`.

@@ -9,6 +9,7 @@
 #   - a marker capsule when the entity has no 3D model yet, a ring at the feet when it is the target.
 extends Node3D
 
+const SfxScript := preload("res://scenes3d/Scn3DSfx.gd")
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
 const MirrorScript := preload("res://scenes3d/KSpriteMirror3D.gd")
@@ -150,7 +151,29 @@ func _make_marker() -> void:
 	add_child(_marker)
 
 
+# The selection ring of the reference (TargetSelectEffect [TK Update 0x698b70]: the prefab Cmn/cmn_select at the target's
+# feet, its "enemy" branch when PKRule.IsEnemy, else "friend"; Cmn/cmn_select_temp flashes once when the target changes);
+# a plain torus stands in when the prefab is not exported
+var _select_fx: Node3D = null
+var _select_enemy := false
+
+
 func _make_ring() -> void:
+	var fx: Node3D = SfxScript.spawn(self, "%s/sfx" % Assets.assets3d_root(), "Cmn_cmn_select", global_position + Vector3(0, 0.03, 0), 0.0, 0.0, true)
+	if fx != null:
+		fx.top_level = true
+		fx.name = "Select"
+		_select_fx = fx
+		_ring = MeshInstance3D.new()   # the visibility switch of the old code path
+		_ring.visible = false
+		add_child(_ring)
+		_select_enemy = npc.has_method("is_attackable") and bool(npc.call("is_attackable"))
+		_apply_select_branch()
+		var temp: Node3D = SfxScript.spawn(get_parent() if get_parent() != null else self, "%s/sfx" % Assets.assets3d_root(), "Cmn_cmn_select_temp", global_position + Vector3(0, 0.03, 0), 0.0, 1.2, false)
+		if temp != null:
+			for c in temp.find_children("*", "Node3D", true, false):
+				(c as Node3D).visible = true
+		return
 	_ring = MeshInstance3D.new()
 	var tor := TorusMesh.new()
 	tor.inner_radius = maxf(radius, 0.4)
@@ -167,6 +190,17 @@ func _make_ring() -> void:
 	_ring.top_level = true
 	_ring.visible = false
 	add_child(_ring)
+
+
+func _apply_select_branch() -> void:
+	if _select_fx == null or not is_instance_valid(_select_fx):
+		return
+	var en := _select_fx.find_child("enemy", true, false)
+	var fr := _select_fx.find_child("friend", true, false)
+	if en is Node3D:
+		(en as Node3D).visible = _select_enemy
+	if fr is Node3D:
+		(fr as Node3D).visible = not _select_enemy
 
 
 func _place(snap: bool) -> void:
@@ -201,8 +235,16 @@ func _process(delta: float) -> void:
 	if target and _ring == null:
 		_make_ring()
 	if _ring != null:
-		_ring.visible = target and not (npc.has_method("is_dead") and bool(npc.call("is_dead")))
+		var shown := target and not (npc.has_method("is_dead") and bool(npc.call("is_dead")))
+		_ring.visible = shown
 		_ring.global_position = global_position + Vector3(0, 0.03, 0)
+		if _select_fx != null and is_instance_valid(_select_fx):
+			_select_fx.visible = shown
+			_select_fx.global_position = global_position + Vector3(0, 0.03, 0)
+			var enemy := npc.has_method("is_attackable") and bool(npc.call("is_attackable"))
+			if enemy != _select_enemy:
+				_select_enemy = enemy
+				_apply_select_branch()
 
 
 # The reference draws characters' shadows with a projector (ShadowProjMgr / DynamicShadowProjector: the figure's own

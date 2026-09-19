@@ -702,6 +702,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-59) — 236/343 prefab hiệu ứng có transform gốc "rác" → bỏ; vòng chọn mục tiêu `cmn_select` thật
+
+- Vòng chọn (`TargetSelectEffect.Update 0x698b70`) hiện lệch 8 m khỏi con heo → tra: node gốc prefab `cmn_select` mang vị trí (−1,96; 0; −7,36)
+  lúc soạn trong editor. Quét 343 prefab: **236 gốc khác đơn vị** (`cmn_pubu_shuihua02` (−337; 15; 285), `cmn_huoyan02/03` z 4,48, `cmn_drop_gj`
+  z 12, `cmn_ma_tui_*`/`cmn_rocker_dir` quay 90°…). Bản tham khảo sinh mọi hiệu ứng qua `GameNodePool.TryInstantiateNode 0x6eb770` (local 0 /
+  identity / 1, như vũ khí 3D-57) → gốc bị bỏ. `export_sfx.py`: node gốc = đơn vị (giữ cây con). Đây là nguồn của nhiều "hiệu ứng lệch khỏi
+  người/mục tiêu" ở bảng sweep trước (vòng, vệt sáng lệch tâm); sau sửa các hiệu ứng Võ Đang đúng tâm người.
+- Vòng chọn: `KNpc3DView._make_ring` sinh `Cmn/cmn_select` lặp tại chân mục tiêu (`top_level`, theo vị trí mỗi khung), nhánh `enemy` khi
+  `is_attackable` (PKRule.IsEnemy) / `friend` khi không; `cmn_select_temp` loé một lần khi chọn; vòng xuyến tự vẽ chỉ còn dự phòng.
+  `TouchEffect` = gợn sóng chạm màn hình UI (di động) → không cần.
+- Vật rơi (D7): `StillObject.OnStillReady 0x51b800` chỉ dựng cột sáng `cmn_droplight_{blue,purple,gold,wgold,xgold}` khi `item_list` cột 10
+  phẩm chất 2..6; gói 2.0 của vật rơi không mang phẩm chất (tên trắng / tiền vàng) → theo ADR-008 giữ ảnh 2.0, ghi lại.
+- Kiểm: `auto_fight_hit.png` vòng đỏ dưới heo + số 11 + tia 金系击中; sheet Võ Đang 10/10 hiệu ứng đúng tâm; Godot 589, UiCheck 162.
+- commit: `JX NEXT 3D: 3D-59 - bo transform goc cua 236 prefab hieu ung (TryInstantiateNode), vong chon cmn_select enemy/friend`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-58) — hiệu ứng động của cảnh (đuốc, đèn đá, đài phun, khói hương, bọt thác) + hai luật hạt đọc lại
 
 Chủ dự án hỏi "chuyển động ở mỗi map như khói, gió, nước chảy đã làm chưa": nước chảy (`scn3d_water`) và cỏ/lá đung đưa (`scn3d_lm_sway`)

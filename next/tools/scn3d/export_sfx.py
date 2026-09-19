@@ -386,7 +386,13 @@ class SfxExporter:
                 return
             p = tr.m_LocalPosition; q = tr.m_LocalRotation; s = tr.m_LocalScale
             gi = len(gnodes)
-            gnodes.append({"name": g.m_Name, "translation": [-p.x, p.y, p.z], "rotation": [q.x, -q.y, -q.z, q.w], "scale": [s.x, s.y, s.z]})
+            if depth == 0:
+                # the prefab root's own transform (its editor placement: 236 of 343 roots are off, up to 337 m for the waterfall
+                # spray, 90 deg turns for cmn_ma_tui_*) is dropped when the pool instantiates it - GameNodePool.TryInstantiateNode
+                # 0x6eb770 parents the instance with localPosition zero / localRotation identity / localScale one [TK]
+                gnodes.append({"name": g.m_Name, "translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0], "scale": [1.0, 1.0, 1.0]})
+            else:
+                gnodes.append({"name": g.m_Name, "translation": [-p.x, p.y, p.z], "rotation": [q.x, -q.y, -q.z, q.w], "scale": [s.x, s.y, s.z]})
             by_pid[go_pid] = gi
             if parent_gi is not None:
                 gnodes[parent_gi].setdefault("children", []).append(gi)

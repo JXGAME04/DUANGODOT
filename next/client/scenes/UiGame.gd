@@ -908,6 +908,13 @@ func _auto3d_run() -> void:
 	n += 1
 	if _world.get("floats") != null:
 		print("AUTO3D_FLOATS added=%d live=%d hit_fx=%d" % [_world.floats.added, _world.floats._items.size(), _world.fx.spawned])
+		for vn in _world.get("_views").values():
+			if vn.get("_select_fx") != null and is_instance_valid(vn._select_fx):
+				var sfx: Node3D = vn._select_fx
+				var aabb := AABB()
+				for mi in sfx.find_children("*", "MeshInstance3D", true, false):
+					aabb = aabb.merge(mi.global_transform * mi.get_aabb()) if aabb.size != Vector3.ZERO else mi.global_transform * mi.get_aabb()
+				print("AUTO3D_SELECT view=%s fx=%s top=%s visible=%s aabb=%s scale=%s" % [str(vn.global_position), str(sfx.global_position), str(sfx.top_level), str(sfx.visible), str(aabb), str(sfx.scale)])
 	# a faction skill with a mapped 3D effect (skill_map.json): Wudang's Nộ Lôi Chỉ (153, any weapon, level 10) - its missile
 	# is the reference client's 怒雷指 child object; handed out the way the faction script does (SetFaction + add_wd + AddMagic)
 	if _world.is_3d() and _world.get("fx") != null:
