@@ -515,14 +515,29 @@ class Exporter:
         pid = cont.get(h12("assets/scenes/scn/navi/%s.bytes" % markpath))
         if pid is not None:
             raw = self._textasset(objs[pid])
-            n = struct.unpack_from("<H", raw, 24)[0]
-            v = np.frombuffer(raw, dtype=np.float32, count=n * 3, offset=28).reshape(-1, 3)
-            p = 28 + n * 12 + 4
-            n2 = struct.unpack_from("<H", raw, p)[0]
-            idx = np.frombuffer(raw, dtype=np.uint16, count=n2, offset=p + 4).reshape(-1, 3)
+            # AIS: "AIS", 5 x u32 (1,1,0,0,1 = sections present), then sections of {u16 n, u16 0xCD02, n items} separated by
+            # u32 0: nav verts (3 float), nav tris (u16 x 3), then the HEIGHT MESH verts + tris (GXAIScene_GetHeight: the y a
+            # creature stands at - NavContext.GetNearHeight called by TaskMoveHelper.LogicTick/New, ChildObject.InitPosAndAngle
+            # [TK]; the village squares lie on it ~10 cm above the terrain), building / stone meshes when present
+            p = 24
+            secs = []
+            while p + 4 <= len(raw):
+                n, tag = struct.unpack_from("<HH", raw, p)
+                if tag != 0xCD02:
+                    break
+                p += 4
+                if len(secs) % 2 == 0:
+                    secs.append(np.frombuffer(raw, dtype=np.float32, count=n * 3, offset=p).reshape(-1, 3)); p += n * 12
+                else:
+                    secs.append(np.frombuffer(raw, dtype=np.uint16, count=n, offset=p).reshape(-1, 3)); p += n * 2
+                p += 4   # the u32 0 between sections
+            v = secs[0]; idx = secs[1]
             v2 = v.copy(); v2[:, 0] = -v2[:, 0]
             out["nav"] = {"verts": v2.round(3).tolist(), "tris": idx.tolist(),
                           "bbox": [float(v2[:, 0].min()), float(v2[:, 2].min()), float(v2[:, 0].max()), float(v2[:, 2].max())]}
+            if len(secs) >= 4 and len(secs[2]) >= 3:
+                hv = secs[2].copy(); hv[:, 0] = -hv[:, 0]
+                out["nav"]["height"] = {"verts": hv.round(3).tolist(), "tris": secs[3].tolist()}
         return out
 
     # ---------- glTF ----------
@@ -708,10 +723,23 @@ def main():
     ap.add_argument("--src", default=os.environ.get("JX_SCN3D_SRC", r"D:\game3gTQ_mo\pc\剑网江湖_Data\StreamingAssets"))
     ap.add_argument("--key-file", default=os.environ.get("JX_SCN3D_KEY", r"D:\game3gTQ_mo\khoa_bundle.txt"))
     ap.add_argument("--out", default=None)
+    ap.add_argument("--marks-only", action="store_true", help="chi doc lai mark/navmesh (marks cua scene.json), giu glTF")
     a = ap.parse_args()
     key = open(a.key_file, "r", encoding="utf-8").read().strip()
     out = a.out or os.path.join(NEXT, "client", "assets3d", a.scene)
     ex = Exporter(a.scene, a.src, key, out)
+    if a.marks_only:
+        sj = os.path.join(out, "scene.json")
+        scene_json = json.load(io.open(sj, encoding="utf-8"))
+        table = scene_json.get("table") or ex.scn_table()
+        scene_json["marks"] = ex.marks(table.get("sl_markpath", a.scene)) if table.get("sl_markpath") else scene_json.get("marks", {})
+        with io.open(sj, "w", encoding="utf-8") as f:
+            json.dump(scene_json, f, ensure_ascii=False, indent=1)
+        h = scene_json["marks"].get("nav", {}).get("height", {})
+        print("marks: %d diem, %d vung, nav %d dinh, height mesh %d dinh / %d tam giac -> %s" % (
+            len(scene_json["marks"].get("points", {})), len(scene_json["marks"].get("areas", [])), len(scene_json["marks"].get("nav", {}).get("verts", [])),
+            len(h.get("verts", [])), len(h.get("tris", [])), sj))
+        return
     ex.load()
     ex.export()
 

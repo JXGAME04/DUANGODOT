@@ -335,7 +335,7 @@ func _load_res_inverse() -> void:
 		return
 	_res_tables = j
 	for key in ["melee", "horse"]:
-		var inv := {}
+		var candidates := {}   # res -> [[particular, level], ...] every row drawing it
 		var rows: Array = j.get(key, [])
 		for i in rows.size():
 			var row := i + 1
@@ -346,8 +346,23 @@ func _load_res_inverse() -> void:
 			var particular: int = (row - 3) / 10
 			var level: int = (row - 3) % 10 + 1
 			var res := int(rows[i][1]) - 2
-			if not inv.has(res):
-				inv[res] = [particular, level]
+			if not candidates.has(res):
+				candidates[res] = []
+			candidates[res].append([particular, level])
+		# MeleeRes.txt of the old server shares a picture row between types: res 5 = đao level 10 (row 22) and côn levels 1-2
+		# (rows 23-24), res 8 = chùy 10 and song đao 1-2.  The 2.0 client drew the same sprite set for them; a 3D model is
+		# one type, so the type with the most rows on that res wins, the lowest level among them [tự chọn] - a level-10
+		# blade seen from another client shows as the staff its picture row also draws
+		var inv := {}
+		for res in candidates:
+			var per_type := {}
+			for pl in candidates[res]:
+				per_type[int(pl[0])] = int(per_type.get(int(pl[0]), 0)) + 1
+			var best: Array = []
+			for pl in candidates[res]:
+				if best.is_empty() or int(per_type[int(pl[0])]) > int(per_type[int(best[0])]) or (int(per_type[int(pl[0])]) == int(per_type[int(best[0])]) and int(pl[1]) < int(best[1])):
+					best = pl
+			inv[res] = best
 		_res_inverse[key] = inv
 
 

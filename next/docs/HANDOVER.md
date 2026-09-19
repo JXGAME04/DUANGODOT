@@ -714,7 +714,7 @@ python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
 
-### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-74
+### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-75
 
 - **Đọc**: `docs/LO-TRINH-3D.md` (lộ trình), `docs/MO-NHI-PHAN-3D.md` (lịch mổ bản 剑网江湖 3D, nhóm A–G + §H danh mục 639 lớp với
   trạng thái có/bỏ/chưa), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
@@ -867,6 +867,37 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-75) — chủ dự án báo "mang đao mà hiện bổng", "hiệu ứng hỗ trợ dưới chân sai": hai luật còn thiếu
+
+- **Hào quang dưới chân chỉ còn vài mảnh** (ảnh `auto3d_aura_close.png` trước khi sửa): ở sân huyện thành Ba Lăng mặt lát đá là mesh
+  nhóm `Buildings` (g1554) cao **10,7 cm** trên địa hình T4M (5,884 so với 5,777 m); nhân vật đứng theo tia địa hình → chân lún trong đá,
+  hào quang `halo_wd_qixingzhen` (con `GameObject` y = +0,05 m — xuất glTF vẫn giữ) nằm dưới mặt đá nên không thấy, 打狗阵 (con `guang` y = +0,132)
+  ló vài mảnh. **Bản tham khảo**: `Creature.set_position → SearchUnit.SetPos → NavContext.SetPos`; độ cao đứng lấy từ
+  `TaskMoveHelper.New/LogicTick`, `ChildObject.InitPosAndAngle/UpdateMove`, `TaskKinematicMove.*` → `SearchUnit.GetHeight 0x5bf9a0` →
+  `NavContext.GetNearHeight 0x875750` → `GXAIScene_GetHeight` (quét E8 toàn `il2cpp`: 24 chỗ gọi). Tệp AIS `navi/<scene>.bytes` có **4 đoạn**
+  `{u16 n, u16 0xCD02, n phần tử}` cách nhau u32 0 (đầu 5 u32 = 1,1,0,0,1 = đoạn có/không): đỉnh + tam giác navmesh, rồi **đỉnh + tam giác
+  height mesh** (`GetHeightMesh`; Ba Lăng 273 đỉnh / 300 tam giác, y 5,02..6,70 — sân huyện 5,894 = mặt đá + 1 cm); `GetBuildingMesh/GetStoneMesh`
+  không có trong 45 scene. Chỉ Ba Lăng (và bản sao `copy_baling`) có height mesh.
+- Sửa: `export_scene.py` đọc mọi đoạn AIS → `scene.json marks.nav.height {verts (đảo x), tris}`, thêm `--marks-only` (vá mark/nav không xuất lại
+  glTF; 45 scene đã vá); `KScenePlace3D._load_height_mesh` (lưới ô 4 m) + `height_mesh_at` (trọng tâm trên mặt XZ, tam giác cao nhất khi chồng) và
+  `ground_height` = height mesh trước, tia địa hình sau ([tự chọn]: bản tham khảo rơi về y của navmesh — thô 4 404 tam giác, tia giữ chân trên mặt
+  dốc). Kết quả `AUTO3D_AURA feet_y=5.894 terrain_y=5.894 … halo aabb_y=5.944..5.955` — vòng Thất Tinh Trận + 打狗阵 hiện đủ trên mặt đá
+  (`auto3d_aura_close.png` mới, camera 6 m nhìn xuống 60°); NPC trong sân cũng đứng đúng mặt đá.
+- **Đao/bổng**: đường của chính mình (túi → `weapons.json`) đúng ở mọi loại (`--weapontest=2,1,0,3,4,5` mới: thêm, mặc, đọc lại model
+  `AUTO3D_WEAPON … worn_name=Yêu Đao model=51 腰刀 group=3`, ảnh `auto3d_weapon_<loại>.png`, cả khi đang cưỡi ngựa — không tái hiện được lỗi
+  trên đường này). **Đường người khác** (0xad res row → `item_res.json` đảo ngược) sai thật: `MeleeRes.txt` của 2.0 dùng chung một dòng hình cho
+  nhiều loại — res 5 = đao cấp 10 (dòng 22) **và** côn cấp 1–2 (dòng 23–24), res 8 = chùy 10 và song đao 1–2 (client 2.0 vẽ cùng bộ sprite) — bảng
+  đảo lấy dòng đầu → côn của người khác hiện thành đao (`AUTO3D_WEAPON_ROWS bag=151 rows=60`), Nga Mi Thích hiện thành chùy (`bag=201 rows=260`).
+  Sửa `_load_res_inverse`: loại có nhiều dòng nhất trên res đó thắng, cấp thấp nhất [tự chọn] → `rows=151`, `rows=201` (đao 10 của người khác
+  sẽ hiện côn — gói 2.0 không phân biệt được).
+- `--skill=<id>` lên cấp bằng `for i=1,89 do AddExp(100000000,0) end` (trước `AddExp(2000000000)` ×80 kẹt cấp 6 vì `calc_exp` tràn int32 → kỹ năng
+  `ReqLevel` 30/60 bị từ chối, `fx_spawned=0`). Godot 637/637, UiCheck 162.
+- **Chưa** (chủ dự án: "thử lấy trang bị mặc vào test xem đúng hình ảnh chưa" → phần sau): áo/mũ chưa đổi hình 3D, nữ đang dùng model nam
+  (`models.json player 0/1 → cha_pic 1`); bản tham khảo có `cha_pic 2 标准女 (zj02)` và **bảng `model_list` 102–122 (nam) / 302–320 (nữ)**: bộ da
+  `skin@zjNNN*tou*xie` theo áo (道士/丐帮/盔甲/袈裟/通用袍/刺客装/通用衫/裘貂/通用裙 × cấp 1/5/8), cột cuối 3..23 = **chỉ số `ArmorRes` của 2.0**
+  (cột 2 của `ArmorRes.txt`, gói 0x4a `armor_res + 2`).
+- commit: `JX NEXT 3D: 3D-75 - height mesh AIS (SearchUnit.GetHeight) -> chan dung mat da, hao quang duoi chan hien; res row dung chung (MeleeRes) -> loai nhieu dong thang; --weapontest; --skill len 90 dung`.
 
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-74) — "vẫn không đánh quái với dùng skill được" (chủ dự án báo): map 3D không có bẫy cổng nên chưa bao giờ vào trạng thái chiến đấu; thêm vùng an toàn/chiến đấu theo bản tham khảo + đuổi theo quái như client 2.0
 

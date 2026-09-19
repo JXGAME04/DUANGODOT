@@ -168,6 +168,9 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
    Ở Ba Lăng quái gần nhất cách điểm sinh ~30 m về phía tây; nhấp quái xa cũng được: nhân vật tự chạy tới (như client 2.0) rồi mới đánh.
    Kiểm tự động của bước này: `--auto --auto3d --clicktest=gaibang:2:359:203:160` → dòng `AUTO3D_AREA` (safe → fight), `AUTO3D_CLICK`
    (máu quái giảm), `AUTO3D_CHASE` (quái ngoài tầm + 300: tự đi tới rồi đánh).
+   Vũ khí trong tay: `--auto --auto3d --weapontest=2,1,0,3,4,5` (mỗi loại: thêm, mặc, dòng `AUTO3D_WEAPON` model trong tay + `AUTO3D_WEAPON_ROWS`
+   = người khác sẽ thấy gì, ảnh `auto3d_weapon_<loại>.png`). Hào quang dưới chân: `--auto --auto3d --skill=124:gaibang` → `AUTO3D_AURA feet_y/terrain_y`
+   + ảnh `auto3d_aura_close.png` (camera 6 m nhìn xuống).
 6. Kiểm tự động thay tay: `--auto --auto3d --skill=<id>:<phái> --series=<0..4>` (tự lên 90, tự đeo vũ khí đúng loại, 4 ảnh `auto3d_skill_<id>_k.png`
    trong `%APPDATA%\Godot\app_userdata\JX NEXT\logs`), `--factions` (mọi kỹ năng có hình), `--horse=<số>` (ngựa khác trong luồng `--auto3d`,
    ảnh `auto3d_ride.png` / `auto3d_ride_move.png`, dòng `AUTO3D_SEAT` = cao độ yên / hông).

@@ -937,6 +937,41 @@ func _auto3d_run() -> void:
 	if _world.is_3d() and _world.get("place") != null and _world.place.has_method("scene_effects_live"):
 		await get_tree().create_timer(1.0).timeout
 		print("AUTO3D_SCENEFX placed=%d live=%d cam_far=%.0f glow=%s" % [_world.place._effects.size(), _world.place.scene_effects_live(), _world.cam_rig.cam.far, str(_world.place._env.environment.glow_enabled) if _world.place._env != null else "-"])
+	# --weapontest=<particular>,<particular>,...: the owner's report "a đao worn shows a staff" - each weapon type in turn is
+	# added (AddItem 0,0,p), worn, and the model in hand is read back (AUTO3D_WEAPON), with a picture of each
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--weapontest="):
+			var n := 0
+			for p in arg.substr(13).split(","):
+				var wtype := int(p)
+				var nb := Game.items.size()
+				Game.chat("?gm ds AddItem(0,0,%d,1,0,0)" % wtype)
+				waited = 0.0
+				while waited < 3.0 and Game.items.size() < nb + 1:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+				var added := 0
+				for id in Game.items:
+					if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 0 and int(Game.items[id].particular) == wtype and int(Game.items[id].room) == Game.ROOM_BAG:
+						added = int(id)
+				if added != 0:
+					Game.item_equip(added, 3)
+				await get_tree().create_timer(1.5).timeout
+				var worn := Game.item_worn(3)
+				var it: Dictionary = Game.items.get(worn, {})
+				var wname := str(_world._weapons.get(str(_world._own_weapon), {}).get("name", "-")) if _world.get("_weapons") != null else "-"
+				print("AUTO3D_WEAPON step=%d type=%d added=%d worn=%d worn_particular=%s worn_name=%s model=%s model_name=%s group=%s" % [n, wtype, added, worn,
+					str(it.get("particular", -1)), str(it.get("name", "-")), str(_world._own_weapon), wname, str(_world.get("_views").get(_own()).model.group) if _world.get("_views").get(_own()) != null and _world.get("_views").get(_own()).model != null else "-"])
+				if _world.has_method("debug_equip_rows"):
+					var eq: Dictionary = _world.debug_equip_rows()
+					print("AUTO3D_WEAPON_ROWS bag=%s rows=%s row=%s (what another client would show for us)" % [eq.get("weapon_bag", ""), eq.get("weapon_rows", ""), str(eq.get("rows", {}).get(2, -1))])
+				_world.cam_rig.yaw = 200.0
+				for i in 4:
+					await get_tree().process_frame
+				await _save_screenshot("user://logs/auto3d_weapon_%d.png" % wtype)
+				n += 1
+			get_tree().quit()
+			return
 	# --clicktest=<faction>:<weapon type>:<left skill>: the owner's own steps (level 90, the faction's skills, that weapon
 	# worn, that skill on the left button), then only the mouse-click attack test - what a person does with client3d.cmd play
 	for arg in OS.get_cmdline_user_args():
@@ -1183,12 +1218,10 @@ func _auto3d_run() -> void:
 			waited += 0.25
 		if fx_skill != 153:
 			# KSkillList::can_cast 0x080E4540 wants the character's level >= the skill's ReqLevel (Phi Long Tại Thiên: 80)
-			# (KPlayer::add_exp 0x080AFEA0 caps a gain at the next level's need: one level per call)
-			for k in 80:
-				if int(Game.player_attrib.get("level", 1)) >= 90:
-					break
-				Game.chat("?gm ds AddExp(2000000000, 0)")
-				await get_tree().create_timer(0.05).timeout
+			# (KPlayer::add_exp 0x080AFEA0 caps a gain at the next level's need: one level per call; calc_exp overflows int32
+			# for a gain of 2 000 000 000 past level 5, so 100 000 000 a call as client3d.cmd play does)
+			if int(Game.player_attrib.get("level", 1)) < 90:
+				Game.chat("?gm ds for i=1,89 do AddExp(100000000,0) end")
 			waited = 0.0
 			while waited < 6.0 and int(Game.player_attrib.get("level", 1)) < 90:
 				await get_tree().create_timer(0.25).timeout
@@ -1293,7 +1326,32 @@ func _auto3d_run() -> void:
 			await get_tree().create_timer(0.5).timeout
 			await _save_screenshot("user://logs/auto3d_aura.png")
 			var auras = _world._auras.get(_own(), {})
-			print("AUTO3D_AURA states=%s halos=%d" % [str(Game.states.keys()), auras.size() if auras is Dictionary else 0])
+			# a close look from above (the owner's "the support skills at the feet are wrong"): the halo against the ground,
+			# with the ground sample under the character and every halo's height
+			var own_view = _world.get("_views").get(_own())
+			var dist_before: float = _world.cam_rig.dist
+			var pitch_before: float = _world.cam_rig.pitch
+			_world.cam_rig.pitch = 60.0
+			_world.cam_rig.dist = 6.0
+			for i in 6:
+				await get_tree().process_frame
+			await _save_screenshot("user://logs/auto3d_aura_close.png")
+			var halo_desc := []
+			if auras is Dictionary:
+				for sid in auras:
+					var f = auras[sid]
+					if f != null and is_instance_valid(f):
+						var aabb := AABB()
+						var first := true
+						for mi in f.find_children("*", "VisualInstance3D", true, false):
+							var b: AABB = mi.global_transform * mi.get_aabb()
+							aabb = b if first else aabb.merge(b)
+							first = false
+						halo_desc.append("%d:%s y=%.3f aabb_y=%.3f..%.3f size=%s" % [int(sid), f.name, f.global_position.y, aabb.position.y, aabb.end.y, str(aabb.size)])
+			print("AUTO3D_AURA states=%s halos=%d feet_y=%.3f terrain_y=%.3f halos_desc=%s" % [str(Game.states.keys()), auras.size() if auras is Dictionary else 0,
+				own_view.global_position.y if own_view != null else 0.0, _world.place.ground_height(own_view.global_position.x, own_view.global_position.z) if own_view != null else 0.0, str(halo_desc)])
+			_world.cam_rig.pitch = pitch_before
+			_world.cam_rig.dist = dist_before
 			Game.set_aura(0)
 		if "--factions" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(x: String) -> bool: return x.begins_with("--factions=")):
 			await _auto3d_factions()

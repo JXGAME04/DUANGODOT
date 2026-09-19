@@ -58,6 +58,14 @@ var _effects: Array = []         # scene.json effects: PrefabRef placements (tor
 var _effect_nodes := {}          # index -> Scn3DSfx (or false when the prefab is missing)
 var _effects_root: Node3D = null
 var _next_effects := 0.0
+# The AIS height mesh (scene.json marks.nav.height): the y a creature stands at in the reference - TaskMoveHelper.LogicTick /
+# New and ChildObject.InitPosAndAngle call SearchUnit.GetHeight -> NavContext.GetNearHeight -> GXAIScene_GetHeight [TK];
+# the village squares are modelled on it ~10 cm above the terrain (Ba Lăng: 5.894 m over the terrain's 5.777), so the
+# feet - and the halos 5 cm above them - sit on the paving.  A grid of 4 m cells lists the triangles to test.
+const HEIGHT_CELL := 4.0
+var _height_tris: PackedVector3Array = PackedVector3Array()   # 3 vertices per triangle (scene metres, x mirrored)
+var _height_grid := {}                                        # Vector2i cell -> PackedInt32Array of triangle indices
+var _height_bbox := Rect2()
 
 
 # Loads the bundle of a map; false when there is none (the caller falls back to a flat ground).
@@ -90,6 +98,7 @@ func load_map(id: int) -> bool:
 	unit_scale = float(info.get("scale", 1.0))
 	ground_y = float(info.get("ground_y", 0.0))
 	_setup_environment()
+	_load_height_mesh()
 	var doc := GLTFDocument.new()
 	var st := GLTFState.new()
 	var err := doc.append_from_file(gltf_path, st)
@@ -327,14 +336,90 @@ func to_scene(world: Vector3) -> Vector2:
 	return KScene3DMath.to_scene(Vector3(world.x - origin.x, 0.0, world.z - origin.z) / unit_scale)
 
 
-# The ground under a point (ray cast on the terrain collision); ground_y when nothing is there.
+# The ground under a point: the AIS height mesh where it has a triangle (the reference's GetNearHeight), else a ray
+# cast on the terrain collision [tự chọn: the reference falls back to its nav mesh's own y; the terrain ray keeps the feet
+# on the visible ground on slopes]; ground_y when nothing is there.
 func ground_height(x: float, z: float) -> float:
+	var h := height_mesh_at(x, z)
+	if not is_nan(h):
+		return h
 	var space := get_world_3d().direct_space_state
 	if space == null:
 		return ground_y
 	var q := PhysicsRayQueryParameters3D.create(Vector3(x, ground_y + 80.0, z), Vector3(x, ground_y - 80.0, z), TERRAIN_LAYER)
 	var hit := space.intersect_ray(q)
 	return float(hit.position.y) if hit else ground_y
+
+
+func _load_height_mesh() -> void:
+	_height_tris = PackedVector3Array()
+	_height_grid = {}
+	var nav = scene.get("marks", {}).get("nav", {}) if scene.get("marks", {}) is Dictionary else {}
+	var hm = nav.get("height", null) if nav is Dictionary else null
+	if not (hm is Dictionary):
+		return
+	var verts: Array = hm.get("verts", [])
+	var tris: Array = hm.get("tris", [])
+	if verts.is_empty() or tris.is_empty():
+		return
+	var pts := PackedVector3Array()
+	pts.resize(verts.size())
+	for i in verts.size():
+		var v: Array = verts[i]
+		pts[i] = Vector3(float(v[0]), float(v[1]), float(v[2]))
+	var first := true
+	for t in tris:
+		if not (t is Array) or t.size() < 3:
+			continue
+		var a: Vector3 = pts[int(t[0])]
+		var b: Vector3 = pts[int(t[1])]
+		var c: Vector3 = pts[int(t[2])]
+		var ti := int(_height_tris.size() / 3.0)
+		_height_tris.append(a)
+		_height_tris.append(b)
+		_height_tris.append(c)
+		var r := Rect2(Vector2(a.x, a.z), Vector2.ZERO).expand(Vector2(b.x, b.z)).expand(Vector2(c.x, c.z))
+		_height_bbox = r if first else _height_bbox.merge(r)
+		first = false
+		for cx in range(floori(r.position.x / HEIGHT_CELL), floori(r.end.x / HEIGHT_CELL) + 1):
+			for cz in range(floori(r.position.y / HEIGHT_CELL), floori(r.end.y / HEIGHT_CELL) + 1):
+				var key := Vector2i(cx, cz)
+				if not _height_grid.has(key):
+					_height_grid[key] = PackedInt32Array()
+				_height_grid[key].append(ti)
+	Log.info("map3d", "height mesh", {"map": map_id, "triangles": int(_height_tris.size() / 3.0), "cells": _height_grid.size()})
+
+
+# The height-mesh y under (x, z) in scene metres, NAN outside every triangle (barycentric on the ground plane, the
+# highest triangle when several overlap - stairs over a floor)
+func height_mesh_at(x: float, z: float) -> float:
+	if _height_tris.is_empty() or not _height_bbox.has_point(Vector2(x, z)):
+		return NAN
+	var cell: PackedInt32Array = _height_grid.get(Vector2i(floori(x / HEIGHT_CELL), floori(z / HEIGHT_CELL)), PackedInt32Array())
+	var best := NAN
+	for ti in cell:
+		var a := _height_tris[ti * 3]
+		var b := _height_tris[ti * 3 + 1]
+		var c := _height_tris[ti * 3 + 2]
+		var v0 := Vector2(c.x - a.x, c.z - a.z)
+		var v1 := Vector2(b.x - a.x, b.z - a.z)
+		var v2 := Vector2(x - a.x, z - a.z)
+		var d00 := v0.dot(v0)
+		var d01 := v0.dot(v1)
+		var d11 := v1.dot(v1)
+		var den := d00 * d11 - d01 * d01
+		if absf(den) < 1e-9:
+			continue
+		var d20 := v2.dot(v0)
+		var d21 := v2.dot(v1)
+		var u := (d11 * d20 - d01 * d21) / den
+		var v := (d00 * d21 - d01 * d20) / den
+		if u < -1e-4 or v < -1e-4 or u + v > 1.0 + 1e-4:
+			continue
+		var y := a.y + u * (c.y - a.y) + v * (b.y - a.y)
+		if is_nan(best) or y > best:
+			best = y
+	return best
 
 
 # The terrain point a viewport ray hits; the ground plane at ground_y when the ray misses everything.
