@@ -12,6 +12,7 @@ extends RefCounted
 
 const SfxScript := preload("res://scenes3d/Scn3DSfx.gd")
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
+const OrbitScript := preload("res://scenes3d/KSkillOrbit3D.gd")
 const TICK := 1.0 / 18.0
 const HANG_HEIGHT := {"sys_bd": 0.9, "sys_bar": 2.0, "sys_foot": 0.0, "sys_state": 2.2, "sys_state@buf_head": 2.2, "": 0.0}   # metres over the feet [tự chọn: sys_bd = chest, sys_state over the head]
 
@@ -51,7 +52,7 @@ func flying(skill_id: int) -> Dictionary:
 
 func _find_flying(list: Array) -> Dictionary:
 	for c in list:
-		if bool(c.get("fly", false)) and str(c.get("res", "")) != "":
+		if (bool(c.get("fly", false)) or c.has("orbit")) and str(c.get("res", "")) != "":
 			return c
 	for c in list:
 		var f := _find_flying(c.get("children", []))
@@ -125,7 +126,8 @@ func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: flo
 func _cast_children(parent: Node, list: Array, start: float, span: float, at_caster: Vector3, yaw: float, at_aim: Vector3) -> bool:
 	var any := false
 	for c in list:
-		if bool(c.get("fly", false)):
+		if bool(c.get("fly", false)) or c.has("orbit"):
+			# flying and orbiting (moveType 7) children ride the zone's missile (attach_flying)
 			continue
 		var t0: float = start + float(c.get("at", 0.0)) * span
 		var life := float(c.get("life_s", 1.5))
@@ -258,6 +260,23 @@ func attach_flying(view: Node3D, skill_id: int) -> Node3D:
 	var f := flying(skill_id)
 	if f.is_empty():
 		return null
+	if f.has("orbit"):
+		# moveType 7 [TK]: the effect circles the missile (KSkillOrbit3D); the born distance = the JX row's AttackRadius
+		# in metres (the reference reads Atb_Skill_Distance of its skill script there)
+		var orb := Node3D.new()
+		orb.set_script(OrbitScript)
+		orb.name = "Orbit"
+		view.add_child(orb)
+		var radius_m := float(Game.skill_row(skill_id).get("AttackRadius", "0")) * KScene3DMath.UNIT
+		orb.call("setup", f["orbit"], radius_m, float(f.get("height", 0.0)) - 0.9)
+		var ofx: Node3D = SfxScript.spawn(orb, dir, _file(str(f["res"])), orb.global_position, 0.0, 0.0, true)
+		if ofx != null:
+			ofx.position = Vector3.ZERO
+			var ospec: Dictionary = f.duplicate()
+			ospec["angle"] = 0
+			orient(ofx, ospec, 0.0)
+			spawned += 1
+		return orb
 	var fx: Node3D = SfxScript.spawn(view, dir, _file(str(f["res"])), view.global_position, 0.0, 0.0, true)
 	if fx != null:
 		fx.position = Vector3.ZERO

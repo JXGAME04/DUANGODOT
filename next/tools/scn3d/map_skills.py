@@ -108,6 +108,12 @@ def main():
              # 0x4de510], cot 16 lech goc Rx*Ry*Rz (Rotate(Rx,0,Rz) cuc bo roi quay Ry quanh Y the gioi), cot 22 ti le x*y*z,
              # cot 20 thoi gian mo dan khi bien mat
              "angle": int(fnum(r[15], 0)) if len(r) > 15 else 0}
+        if sync == "7":
+            # cot 17 = 7 "绕初始位置目标旋转" [ChildObject.UpdateMove 0x4e0b00 / CalcDeltaAngle 0x4e0590]: cot 18 = goc cuoi (do/s) *
+            # goc dau * ban kinh dau (m, am = ngau nhien) * so khung doi (30 Hz); ban kinh cuoi = Atb_Skill_Distance cua script
+            # (AttackRadius ben minh)
+            sp = [fnum(x, 0.0) for x in speed.split("*")] + [0.0] * 4
+            e["orbit"] = {"end": sp[0], "start": sp[1], "radius0": sp[2], "frames": sp[3]}
         off = triple(r[16]) if len(r) > 16 else []
         if off:
             e["offset"] = off

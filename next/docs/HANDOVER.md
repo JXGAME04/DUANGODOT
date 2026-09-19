@@ -827,6 +827,25 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-64) — vật con bay vòng quanh người tạo (`skill_childobj` cột 17 = 7): 五毒百毒穿心 = Bách Độc Xuyên Tâm (JX 384)
+
+- Bảng: 3 dòng moveType 7 (101 五毒百毒穿心 tốc độ `180*280*0.5*50`, 306 tuyệt kỹ Thiên Nhẫn `270*270*-1*2`, 507 boss); JX 384 (Ngũ Độc cấp 30,
+  `MisslesForm 7` = CastZone tại người phóng [Linux]) ghép với 3D 708. Lớp `Orbiter` của §H chỉ là script demo PigeonCoop (`TankController`) → *bỏ*.
+- `ChildObject.UpdateMove 0x4e0b00` nhánh 7: tâm = vị trí hiện tại của vật "vị trí ban đầu" (`GetInitPosObject`, người tạo) mỗi khung;
+  `CalcDeltaAngle 0x4e0590`: góc/s = `Lerp(cột[1] đầu, cột[0] cuối, t)` với `t = mRealTime / (cột[3] khung / cbLogicTick 30)` kẹp 0..1 (chỉ tốc độ
+  dương mới quay), bán kính = `Lerp(cột[2], mBornDistance, t)`; cột[2] âm = ngẫu nhiên giữa |cột[2]| và `mBornDistance` rút một lần
+  (`mBornDistance` đổi dấu để nhớ); `mBornDistance` = `GetScriptData(Atb_Skill_Distance 3002) × 0,01` (`LateInitTargetPos 0x4dfd10`; script
+  `wudu.lua [708]`: "旋转最终半径" 115 → 225 cm theo cấp) → bên mình lấy `AttackRadius` của dòng JX × UNIT (384: 180 × 0,02 = 3,6 m);
+  hướng = `MathEx.DegreeToDirection(mBornAngle)` = Unity (sin, 0, cos) → Godot (−sin, 0, cos); quay mặt theo hướng di chuyển khi dịch > 1 cm;
+  `set_position 0x4e28e0` cộng `mInitPosOffsetY` (cột 13, 0,88 m). `mBornAngle` khởi 0 (`OnDataReset`).
+  Ghi đè script `Atb_Skill_MissleSpeed 3020` (cuối×10⁶ + đầu×10³ + khung) và `Atb_Skill_Distance2 3030` có trong mã nhưng script 708 để chú thích → không dùng.
+- `map_skills.py`: `orbit {end, start, radius0, frames}` khi cột 17 = 7; `KSkillOrbit3D.gd` (mới) treo dưới `KMissle3DView` qua `attach_flying`
+  (đạn vùng của zone là "người tạo": vị trí zone gửi), `_cast_children` bỏ qua vật con có `orbit`; đạn con (skill 190) chưa có hình 3D vẫn là
+  quả cầu [tự chọn]. Kiểm `--auto3d --skill=384:wudu --series=1`: `AUTO3D_MISSLE_ORBIT k=1..3 angle=45.9/126.8/201.3 t=0.17/0.47/0.78
+  radius_end=3.60 vis=false/true/true` (hiện khi đạn ở trạng thái bay), ảnh `auto3d_skill_384_2.png` chùm sáng độc quay quanh nhân vật.
+- Godot 631/631.
+- commit: `JX NEXT 3D: 3D-64 - vat con bay vong moveType 7 (KSkillOrbit3D, Bach Doc Xuyen Tam 384)`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-63) — `PC2Anim`: hoạt ảnh đỉnh POINTCACHE2 của 唐门追心箭 (Truy Tâm Tiễn, kỹ năng 50)
 
 - Lớp `PC2Anim` [TK]: chỉ `uri_pc2` + `fps` được ghi (88 byte: `Assets/Particles/PC2/model_zhuixinjian.pc2.bytes`, fps 8);

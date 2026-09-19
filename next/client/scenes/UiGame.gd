@@ -1061,6 +1061,10 @@ func _auto3d_run() -> void:
 					for mv in _world.get("_views_root").get_children():
 						if mv.get("missle") != null and mv.get("_custom") != null:
 							print("AUTO3D_MISSLE k=%d node=%s pos=%s yaw=%.1f dir64=%s status=%s" % [k, mv.name, str(mv.global_position), rad_to_deg(mv.rotation.y), str(mv.missle.get("dir64")), str(mv.missle.get("status"))])
+							if str(mv._custom.name) == "Orbit":
+								# moveType 7: the orbit driver (KSkillOrbit3D) - its angle / radius and where its effect is
+								var oc: Node3D = mv._custom
+								print("AUTO3D_MISSLE_ORBIT k=%d angle=%.1f t=%.2f radius_end=%.2f pos=%s centre=%s vis=%s children=%d" % [k, float(oc.get("_angle")), float(oc.get("_t")), float(oc.get("born_distance")), str(oc.global_position), str(mv.global_position), str(oc.visible), oc.get_child_count()])
 							for ln in mv._custom.get_children():
 								if str(ln.name).begins_with("line_") or str(ln.name).begins_with("ptrail_"):
 									var im = ln.get("mesh")
