@@ -16,6 +16,8 @@ const SH_TER := preload("res://scenes3d/scn3d_terrain.gdshader")
 const CAM_SCRIPT := preload("res://scenes3d/Scn3DCamera.gd")
 const PLAYER_SCRIPT := preload("res://scenes3d/Scn3DPlayer.gd")
 const NPC_SCRIPT := preload("res://scenes3d/Scn3DNpc.gd")
+const SFX_SCRIPT := preload("res://scenes3d/Scn3DSfx.gd")
+const TRAIL_SCRIPT := preload("res://scenes3d/Scn3DTrail.gd")
 
 var map_name := "world_baling"
 var auto := false
@@ -32,6 +34,10 @@ var npc_models := {}
 var weapons := {}          # weapons.json: id -> {name, name_vi, type, type_vi, file, hangs, animgrp}
 var weapon_by_type := {}   # type -> [id...]
 var cur_weapon := ""      # id dang cam ("" = tay khong)
+var trail: MeshInstance3D   # vet dao
+var sfx_dir := ""
+# ky nang thu: phim -> [ten hieu ung thi trien (tai nhan vat), ten hieu ung chinh (tai muc tieu), khoang cach muc tieu m, bay toi (s)]
+const SKILL_KEYS := {KEY_Z: ["Skill_shifa_huoxi", "Skill_wd_nuleizhi", 3.0, 0.0], KEY_X: ["Skill_shifa_huoxi", "Skill_wd_wuwowj", 0.0, 0.0], KEY_C: ["Skill_shifa_huoxi", "Skill_wd_jianfei", 1.0, 8.0]}
 var last_action := ""
 const WEAPON_KEYS := {KEY_1: 1, KEY_2: 2, KEY_3: 3, KEY_4: 4, KEY_5: 5, KEY_6: 6, KEY_7: 7}
 const TYPE_VI := {0: "Tay không", 1: "Kiếm", 2: "Đao", 3: "Thương", 4: "Côn", 5: "Song đao", 6: "Song chùy", 7: "Quyền"}
@@ -58,6 +64,7 @@ func _ready() -> void:
 		elif a.begins_with("--at="):
 			spawn_mark = a.substr(5)
 	dir = ProjectSettings.globalize_path(ASSETS3D) + "/" + map_name
+	sfx_dir = ProjectSettings.globalize_path(ASSETS3D) + "/sfx"
 	var t0 := Time.get_ticks_msec()
 	var txt := FileAccess.get_file_as_string(dir + "/scene.json")
 	if txt == "":
@@ -381,11 +388,45 @@ func _equip_type(t: int, idx := 0) -> void:
 	var w: Dictionary = weapons[id]
 	var n: int = m.attach_weapon(ProjectSettings.globalize_path(ASSETS3D) + "/weapon", w)
 	cur_weapon = id
+	_setup_trail(w)
 	var g := str(int(w.get("animgrp", 0)))
 	if g == "0":
 		g = "1"
 	m.set_group(g)
 	print("SCN3D weapon: %s (%s) treo %d mau, nhom animation %s" % [w.get("name", ""), w.get("type_vi", ""), n, g])
+
+
+func _setup_trail(w: Dictionary) -> void:
+	if trail:
+		trail.queue_free()
+		trail = null
+	var m: Node = player.model
+	if m.weapon_nodes.is_empty():
+		return
+	trail = TRAIL_SCRIPT.new()
+	trail.name = "Trail"
+	add_child(trail)
+	trail.setup(m.weapon_nodes[0], w.get("anchors", {}))
+
+
+# ky nang thu: animation noi cong + hieu ung thi trien tai nhan vat + hieu ung chinh tai muc tieu (truoc mat)
+func _cast_skill(key: int) -> void:
+	if player == null or player.model == null or not SKILL_KEYS.has(key):
+		return
+	var m: Node = player.model
+	var def: Array = SKILL_KEYS[key]
+	last_action = m.act("magic")
+	if last_action == "":
+		last_action = m.attack()
+	var fwd := Vector3(-sin(player.yaw), 0, -cos(player.yaw))
+	var origin: Vector3 = player.global_position
+	if str(def[0]) != "":
+		SFX_SCRIPT.spawn(self, sfx_dir, str(def[0]), origin + Vector3(0, 0.9, 0), player.yaw, 0.0, false)
+	var target: Vector3 = origin + fwd * float(def[2])
+	var fx: Node3D = SFX_SCRIPT.spawn(self, sfx_dir, str(def[1]), target + Vector3(0, 0.3, 0), player.yaw, 0.0, false)
+	if fx and float(def[3]) > 0.0:
+		var tw := create_tween()
+		tw.tween_property(fx, "global_position", target + fwd * float(def[3]) + Vector3(0, 0.6, 0), 0.6)
 
 
 func _cycle_weapon() -> void:
@@ -468,6 +509,8 @@ func _process(delta: float) -> void:
 	if hud == null or cam_rig == null or player == null:
 		return
 	_update_names()
+	if trail:
+		trail.active = player.model != null and player.model.busy and player.model.current.begins_with("gj")
 	_lod_timer -= delta
 	if _lod_timer <= 0.0:
 		_lod_timer = 0.5
@@ -480,7 +523,7 @@ func _process(delta: float) -> void:
 		wname = "%s (%s)" % [w.get("name_vi", "") if w.get("name_vi", "") != "" else w.get("name", ""), w.get("type_vi", "")]
 	var mgroup := str(player.model.group) if player.model else ""
 	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  |  nap %d ms
-vũ khí: %s   nhóm anim %s   đòn: %s   [1-7 loại vũ khí, 0 tay không, Tab đổi mẫu, Space đánh, F nội công, G bị đánh, H chết]
+vũ khí: %s   nhóm anim %s   đòn: %s   [1-7 vũ khí, 0 tay không, Tab đổi mẫu, Space đánh, F nội công, Z/X/C kỹ năng Võ Đang thử, G bị đánh, H chết]
 camera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)
 nhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f
 chuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
@@ -518,6 +561,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 			last_action = player.model.act("ss")
 		elif k.keycode == KEY_H and player and player.model:
 			last_action = player.model.act("sw")
+		elif SKILL_KEYS.has(k.keycode):
+			_cast_skill(k.keycode)
 
 
 func _screenshot(path: String) -> void:
@@ -584,6 +629,23 @@ func _auto() -> void:
 			await get_tree().process_frame
 		last_action = player.model.attack()
 		for i in 14:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+		_equip_type(1)
+		for i in 3:
+			await get_tree().process_frame
+		_cast_skill(KEY_Z)
+		for i in 12:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+		for i in 20:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+		_cast_skill(KEY_C)
+		for i in 15:
 			await get_tree().process_frame
 		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
 		n += 1

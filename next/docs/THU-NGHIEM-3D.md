@@ -71,6 +71,22 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 - **Hiệu năng**: NPC cách nhân vật > 45 m dừng `AnimationPlayer` → 494 NPC vẫn ~145 FPS.
 - Tuỳ chọn `--at=<điểm>` (vd `--at=n_yaodian`) để đứng tại điểm đánh dấu so ảnh với game gốc.
 
+## Hiệu ứng kỹ năng (2026-09-19, bước 4 — bản đầu)
+
+- Dữ liệu: `skill_main` (344 kỹ năng, 10 phái trùng JX1) → `skill_section` → sự kiện → `skill_childobj` (317 vật thể hiệu ứng, đường dẫn
+  `Skill/<tên>` tương đối `Particles/`) và `sfx_object` (129: hiệu ứng thi triển theo ngũ hành `shifa_*`, vệt đao 290–293…), `anim_effect`
+  (vệt đao theo clip đánh). Prefab trong `particles.bdd` (558): `ParticleSystem` (module đọc được), mesh + `SFXMeshModify` (ô atlas, màu),
+  `Light`, animation biến đổi; vật liệu shader `剑网江湖/particle/*` với `_BlendDst` (1 cộng / 10 alpha), atlas 1024 (`sprite_skill_*`).
+- **Tool** `tools/scn3d/export_sfx.py <Skill/x> | --childobj id | --sfx id | --all` → `assets3d/sfx/<tên>.json` (mô tả node: particle, vật liệu,
+  đèn) + `.gltf` (cây node, mesh, animation) + `tex/`.
+- **Client** `Scn3DSfx.gd`: dựng lại — `CPUParticles3D` (tuổi thọ, tốc độ, kích thước + đường cong, màu theo thời gian, hình phát, sprite
+  sheet `particles_anim`, mesh particle), `MeshInstance3D` vật liệu unshaded cộng/alpha, `OmniLight3D`; tự huỷ theo thời gian. `Scn3DTrail.gd`:
+  vệt đao giữa `start/end` của vũ khí khi đang đánh. Phím thử Z/X/C = 3 kỹ năng Võ Đang (怒雷指 Nộ Lôi Chỉ, 无我无剑 Vô Ngã Vô Kiếm,
+  剑飞惊天 Kiếm Phi Kinh Thiên) + hiệu ứng thi triển hệ Hỏa.
+- **Chưa đúng/chưa làm**: nhiều hiệu ứng cần chỉnh tay (hướng mặt phẳng, blend "mul", kích thước mesh particle, UV cuộn của
+  `SFXMeshModify`, stretched billboard, trail module); ghép kỹ năng JX1 ↔ hiệu ứng bộ tham khảo theo phái chưa làm (cần bảng ánh xạ);
+  `--all` để xuất toàn bộ 558 prefab khi cần.
+
 ## Cổng riêng của bản 3D (không trùng bản 2D)
 
 | | bản 2D (`swrod3`) | bản 3D (`swrod3-3d`) |
