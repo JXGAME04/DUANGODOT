@@ -205,15 +205,69 @@ tổ đội (`UITeamPanel`), bang hội (`UiGuild*`, `Tong*`), bạn bè, giao d
 (`UiLadder`), chiến trường Tống Kim (`UiBattleFieldRank`), cài đặt đồ hoạ/điều khiển (`UiGraphicSetting`, `UiControlMode`, joystick
 mobile), tải map nền (`UiDownloadContent`), phản hồi (`UiFeedback`), bàn phím (`PCKeyMap`, `PCActionBuffer`), tooltip, minimap/bản đồ lớn.
 
-## 7. Điều nên lấy về cho JX NEXT (đề xuất, chưa làm)
-1. **Hiệu chỉnh affine 3 điểm** giữa lưới JX1 và cảnh 3D: cho phép dùng thẳng `Region_S.dat`/bẫy/NPC/script của map JX1 gốc trên một
-   cảnh 3D (kể cả cảnh bản tham khảo) thay vì ghép lại từng thứ — ứng viên: Ba Lăng (map 53 JX1 ↔ `world_baling`).
-2. **Từ điển hình đạn theo `MissleResId`** (+ biến thể skin) bên cạnh `skill_map.json` theo id kỹ năng → tự nhất quán với bảng
-   `missles.txt`/`skills.txt` mà zone đọc; hiệu ứng trạng thái theo `StateSpecialId`, tụ khí theo `PreCastEffectFile`.
-3. **Mesh trang bị theo dòng res 2.0** (nón, phi phong, bội sức ngoài áo/vũ khí/ngựa) và cách ẩn thân khi lên ngựa; ngựa dắt theo.
-4. Tham số animation theo **loại vũ khí × giới × lớp** (ta đã có nhóm theo vũ khí; thiếu lớp cưỡi ngựa tách bạch và biến thể ngẫu nhiên
-   idle), đánh khi chạy (`SetRunAttackTag` là gói JX1 — zone ta chưa gửi), khinh công.
-5. Bảo vệ luồng cast: đếm lệnh mất/echo, hồi chiêu cục bộ, hoãn skill khi đang đánh dở, watchdog trạng thái — đúng các lỗi "nhấp không
-   thấy gì" ta vừa gặp (3D-73/74).
-6. Ngân sách sinh/hiển thị (giới hạn người chơi vẽ, VFX, cỏ) theo tầng thiết bị; stream cảnh theo region + zone con; tải map nền.
-7. Không lấy: tài sản 3D/animation/VFX (mã hoá, riêng của GrowX); giao thức mã hoá `KsgCodec`.
+## 7. Số mặc định rút từ hàm khởi tạo (`vltk3d/defaults39.py Lop`) — để "làm theo" có con số
+
+| Hệ | Lớp / trường | Giá trị mặc định | Ý nghĩa |
+|---|---|---|---|
+| Cảnh | `MapRegionController._regionSquare / _maxMapSize / _activeRegionLevel` | 20 m / 900 / 2 | ô region 20 m, vòng 2 region quanh người chơi (5×5 = 100 m) đang bật |
+| | `_frustumPadding / _zoneEnterRadius / _zoneExitRadius / _intraRegionReevalDistance` | 5 m / 10 m / 14 m / 3 m | cắt theo frustum + zone con bật ở 10 m, tắt ở 14 m (trễ), tính lại sau mỗi 3 m đi |
+| | `_zoneActivateFrames / _zoneDeactivateFrames / _regionCheckInterval` | 2 / 2 / 2 s | bật/tắt dần từng khung, kiểm region mỗi 2 s |
+| Cỏ/cây | `InstancedMapGrassRenderer._activeRegionLevel / _checkInterval / _treeReevalDistance / _boundsPadding` | 2 / 0,5 s / 4 m / 200 m | instancing theo region, LOD theo chiều cao màn hình (`_protoLodScreenH`), tỉ lệ cỏ 3 mức `_mainPct 0,25 / 0,5 / 1` |
+| | `GrassBudgetGovernor` | rớt < 45 fps giữ 5 s → giảm mức; lên > 55 fps giữ 5 s → tăng; làm mượt 15 khung; trần 1 500 | tự hạ số cỏ theo FPS |
+| | `PlayerRenderGovernor._maxPlayers` | 25 (cùng ngưỡng 45/55 fps) | số người chơi vẽ đầy đủ |
+| Sinh | `PlayerSpawnLimiter` PC / Android / iOS | 100 / 40 / 25 người; spawn 150 / 60 / 40; mesh gần 50 / 30 / 30 m; RAM 85 / 80 / 70 % | ngoài `nearMeshDist` chỉ giữ dữ liệu, không dựng mesh |
+| | `SpawnFrameBudget` | 3 ms/khung (tải 24, bùng 12); PC 8/48/24 | ngân sách thời gian sinh thực thể mỗi khung |
+| | `NPCManager.renderCapInterval` | 0,2 s | xét lại giới hạn vẽ 5 lần/giây |
+| | `VFXSpawnLimiter` (bộ lite/normal) | cặp (số tối đa, giây) theo nhóm: 30/24, 4/40, 8/24, 50/35, 6/50, 12/30; RAM 80 % | trần hiệu ứng theo nhóm |
+| | `FrameRateGovernor.IdleFps` | 30 | FPS khi rảnh/nền |
+| Tên/máu | `WorldHeadLabelRenderer` | cỡ chữ không đổi theo khoảng cách (chuẩn 12 m, FOV 60), viền 0,12, thanh máu 1,2 × 0,12, tối đa 20 thanh; **một mesh gộp** cho mọi tên | vẽ tên bằng một draw call |
+| | `PlayerHeadManager` | tối đa 30 nhãn (15 người, 12 quái, 10 NPC, 10 vật), sắp lại mỗi 5 khung, 30 m; thanh máu người chơi chọn lọc: 10 tổng / 5 trong 12 m, nhớ giao chiến 5 s (theo `fight mode`); quái 10 | ngân sách nhãn/máu |
+| Số bay | `UiDamagePopup` | gộp sát thương trong cửa sổ 1 s (làm mới 0,06 s), tối đa 2 dòng chữ/giây, lặp ≥ 0,15 s; `showDamageInterval 0,2 s`, exp 3 s | chống ngập số |
+| Đánh | `SkillService.EffectiveLostThreshold` | clamp(RTT × 5, 0,3 s, 2,5 s) | lệnh không được server dội trong ngưỡng = mất; `LostCastCount` leo 1..8 mức xử lý |
+| | `GetCastCooldownFrames` | hồi chiêu = khung + 60 % khung đòn (`AddEffectFrameOffsetToCooldown`) | điểm phát đòn 60 % như 2.0 |
+| | `MoveSuppress` | chặn gói di chuyển ngay sau cast (`ShouldSuppressMovePacket`) | tránh cắt đòn |
+| Di chuyển | `SprintState.runSpeed / smoothTime / stopSqrDistance` | 5 m/s / 0,02 / 0,01 | blend tree `LocomotionBT / CombatLocomotionBT / HorseLocomotionBT` |
+| | `JXMovement` | canh kẹt: `STALL_THRESHOLD`, `WP_RESEND` (gửi lại điểm đường), `COMPUTE_PATH_TIMEOUT`, `JUMP_DOING_ORPHAN`, `LOCK_LEAK` | tự gỡ kẹt di chuyển |
+| | `InputReader` | 2 chế độ: `MouseClick` / **WASD**; phím kỹ năng cơ bản/kết hợp | |
+| Nhấp | `NpcClickInteractor` | tia 1 000 m, thoại trong 3 m, kéo ≥ 8 px không tính nhấp, giữ 0,25 s; mốc chọn cao 1,96 m (trên ngựa) / 1,2 m | |
+| | `ClickPCEffect` | dấu nhấp 0,5 s; dấu đích tới khi cách 0,5 m, hết hạn 30 s | |
+| Camera | `MobileCameraController.minZoom / maxZoom` | 1 / 10 (Cinemachine OrbitalFollow) | `CameraShake` 0,2 s / 0,25 |
+| Minimap | `MiniMapController` | quét 3 500 Mps, 32 Mps/điểm, chấm người chơi xoay theo camera + hình quạt hướng nhìn, điểm đường, đồng đội | |
+| Mờ/bóng | `MeshTrail.trailInterval 0,5 s`, `ErodeController` (tan rã khi chết: 0,03/0,01 s, trễ 1,25 s) | | |
+
+## 8. Điều nên lấy về cho JX NEXT — từng mục (ưu tiên theo giá trị / công)
+
+**A. Làm ngay được (client Godot, không đổi ADR-008)**
+1. **Bảo vệ luồng thi triển** (§7 Đánh): đếm lệnh mất theo `clamp(RTT×5, 0,3, 2,5) s`, hồi chiêu cục bộ, hoãn skill khi đang đánh dở, chặn gói đi ngay sau cast, watchdog trạng thái — sửa tận gốc "nhấp không thấy gì".
+2. **Số bay gộp** (`UiDamagePopup`): cửa sổ 1 s, ≤ 2 dòng chữ/giây — ta đang bay từng đòn.
+3. **Ngân sách nhãn/máu** (`PlayerHeadManager`, `WorldHeadLabelRenderer`): tối đa 30 nhãn, thanh máu chọn lọc theo giao chiến 5 s, cỡ chữ không đổi theo khoảng cách — ta vẽ mọi tên/máu (`_draw_names`).
+4. **Dấu nhấp / dấu đích / ngưỡng kéo 8 px / giữ 0,25 s** và **WASD** (tuỳ chọn) — chuột 2.0 giữ, thêm chế độ.
+5. **Minimap có hướng nhìn + điểm đường + đồng đội** (ta mới có chấm).
+6. **Vòng tầm kỹ năng trên đất** (`RangeIndicatorYawPin`, texture `IndicatorTex_SpellGround_*`) cho kỹ năng chuột phải.
+
+**B. Hiệu năng cảnh 3D (đúng phần "map đẹp hơn" nhưng vẫn mượt)**
+7. **Stream cảnh theo region 20 m, vòng 2, zone con bật 10 m/tắt 14 m** — ta đang bật cả map + `visibility_range` từng node; chia `KScenePlace3D` theo ô và bật/tắt dần từng khung.
+8. **Cỏ/cây instancing theo region** (`MultiMeshInstance3D` theo ô, LOD theo chiều cao màn hình, 3 mức tỉ lệ, tự hạ theo FPS 45/55) — ta chưa có cỏ sinh.
+9. **Bộ điều tốc theo FPS** (`*Governor`: rớt < 45 fps 5 s → hạ, > 55 fps 5 s → nâng) cho cỏ, số người vẽ, hiệu ứng; **ngân sách sinh 3 ms/khung**; trần người chơi 100 (PC), mesh gần 50 m.
+10. **Trần hiệu ứng theo nhóm** (`VFXSpawnLimiter`) — ta chưa giới hạn (343 hiệu ứng có thể chồng).
+
+**C. Đúng luật JX1 (zone) — cần kiểm lại nhị phân Linux trước**
+11. **Tầm đồng bộ thực thể theo 3×3 region** (`KRegion.ConnectRegion[]`, `ClientRegionIdx[]` 9 ô): JX1 gửi NPC trong 9 region quanh người chơi (±768/±1 536 Mps) — ta dùng khung nhìn 2.0 1 280×1 536 nên quái 3D chỉ hiện khi tới gần; đối chiếu `jx_linux_y` (`KSubWorld::SyncRegion`) rồi đổi `view_width/height` cho map 3D.
+12. **Đánh khi chạy** (`Ons2cSetRunAttackTag`, `S2C_SETRUNATTACKTAG`) — gói JX1 zone ta chưa phát; **khinh công** (`KhinhCong*`) — kỹ năng JX2 VN; cân nhắc theo bảng `skills.txt` của bản Linux.
+13. **Affine 3 điểm Mps ↔ cảnh** (`MapService.Calibrate`) để dùng thẳng bẫy/NPC/script JX1 trên cảnh 3D: thử với Ba Lăng (map 53 ↔ `world_baling`) trước; nếu lệch bố cục thì chỉ lấy vị trí NPC/bẫy theo mốc.
+
+**D. Hình/animation**
+14. **Từ điển đạn theo `MissleResId`** (+ biến thể skin) song song `skill_map.json`; trạng thái → VFX theo `StateSpecialId`; tụ khí theo `PreCastEffectFile`.
+15. **Lớp animation** giới × Base/Combat/Horse × việc × loại vũ khí, idle ngẫu nhiên (`IdleBreak`), blend tree đi/chạy/cưỡi — `AnimationTree` của Godot làm được với clip bản tham khảo.
+16. **Mesh trang bị mở rộng** (nón, phi phong, bội sức, ẩn thân khi lên ngựa) — hệ thống có sẵn từ 3D-76, thiếu model.
+17. Bóng mờ/vệt (`MeshTrail` 0,5 s, `GhostFade`) ta đã có (3D-71); **tan rã khi chết** (`ErodeController`) chưa.
+
+**E. Không lấy / không thể**
+- Cảnh, model, animation, VFX của họ (mã hoá theo phiên, tài sản GrowX); mã C#; giao thức `KsgCodec`; client dày chạy đạn/AI trên client (ngược lựa chọn zone-authoritative của ta).
+
+## 9. "Map của bản đó đẹp hơn — thay vào được không?"
+
+Không thay được: 31 cảnh 3D của họ nằm trong bundle mã hoá theo phiên (28/31 còn không có trong bộ cài, tải từ CDN khi chơi) và là tài sản riêng. Cái làm cho map họ "đẹp" phần lớn là **cách vẽ** chứ không chỉ mô hình — và cách vẽ thì ta làm lại được trong Godot:
+- URP + **Volume post-processing theo map** (`MapDictItem.MapVolume`, `PlatformVolumeProfile`): bloom, tone map ACES, chỉnh màu, vignette; **sương theo cao độ** (`Boxophobic.AtmosphericHeightFog`) và tán xạ mặt trời; SSR/SSAO có sẵn trong URP 17 (`ScreenSpaceReflectionPass`, `PhysicallyBasedSkyModel`, `VolumetricClouds*` — có trong assembly, chưa xác nhận bật).
+- **Lightmap nướng** (`MTE.BakedLightmapKeeper`) + nắng thời gian thực + bóng (khoảng bóng 15 m ở máy yếu), ngày/đêm (`DayNightSettingController`), nước có phản chiếu (`URPWater`, `WaterReflection`), địa hình đổi sang mesh (`AmazingAssets.TerrainToMesh`), LOD nướng (`MeshSimplifyBakedLods`), cỏ/cây instancing dày (§7).
+- Godot 4.7 có đủ tương đương: `WorldEnvironment` (glow đã có 3D-66, tonemap ACES, SSAO/SSIL, SSR, **volumetric fog / height fog**, sky vật lý), `DirectionalLight3D` bóng, `MultiMeshInstance3D`, lightmap bản tham khảo đã dùng. **Điều kiện**: đổi renderer từ GL Compatibility sang **Forward+/Mobile (Vulkan)** — điểm chờ chủ dự án từ 3D-66 (bloom vài pixel là do GL). Cảnh vẫn là 45 cảnh 剑网江湖 (đã đẹp về mô hình); nếu muốn bố cục làng JX1 như VLTK3D thì phải dựng cảnh mới (việc mỹ thuật), không phải việc mổ nhị phân.
