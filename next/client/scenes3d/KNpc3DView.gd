@@ -65,8 +65,22 @@ func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictiona
 
 
 func _make_marker() -> void:
-	_marker = MeshInstance3D.new()
 	var t := int(npc.get("entity_type"))
+	if t == ENTITY_DROP and npc.get("obj") != null and str(npc.obj.get("image", "")) != "":
+		# a thing on the ground: its ObjData picture (KObj::Draw [2.0]) as a billboard, 1 px = UNIT
+		var atlas = Assets.sprite(str(npc.obj.get("image", "")))
+		if atlas != null and atlas.frame_count() > 0:
+			var spr := Sprite3D.new()
+			spr.texture = atlas.frame_texture(0)
+			spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			spr.pixel_size = KScene3DMath.UNIT
+			spr.centered = true
+			spr.position = Vector3(0, float(spr.texture.get_height()) * KScene3DMath.UNIT * 0.5, 0)
+			spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+			add_child(spr)
+			radius = 0.3
+			return
+	_marker = MeshInstance3D.new()
 	if t == ENTITY_DROP:
 		var box := BoxMesh.new()
 		box.size = Vector3(0.3, 0.3, 0.3)

@@ -2032,9 +2032,12 @@ bool KSubWorld::item_equip_request(std::uint64_t sid, std::uint32_t id, int part
     if (part < 0) part = KItemList::equip_place(item->detail);   // KItemList::Equip(nIdx, -1): the part its kind goes to
     const std::uint32_t worn = list->equipped(part);
     if (!list->equip(id, part, attrib_of(*me))) {
-        item_result(sid, seq, list->can_equip(*item, part, attrib_of(*me)) ? pb::RESULT_FULL : pb::RESULT_BAD_REQUEST);
+        const bool fits = list->can_equip(*item, part, attrib_of(*me));
+        log::debug("zone.item", "equip refused", {log::kv("sid", sid), log::kv("item", id), log::kv("part", part), log::kv("can_equip", fits)});
+        item_result(sid, seq, fits ? pb::RESULT_FULL : pb::RESULT_BAD_REQUEST);
         return false;
     }
+    log::debug("zone.item", "equipped", {log::kv("sid", sid), log::kv("item", id), log::kv("part", part), log::kv("was", worn)});
     item_moved(sid, id, seq);
     if (worn != 0) item_moved(sid, worn, 0);
     if (KNpc* me2 = entities_.find(players_.at(sid))) {

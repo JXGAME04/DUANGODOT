@@ -106,7 +106,11 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
     }
     case pb::C2G_ITEM_EQUIP: {
         pb::ItemEquipReq req;
-        if (!req.ParseFromString(cmd.payload)) break;
+        if (!req.ParseFromString(cmd.payload)) {
+            log::warn("zone.item", "bad ItemEquipReq", {log::kv("sid", cmd.sid), log::kv("bytes", cmd.payload.size())});
+            break;
+        }
+        log::debug("zone.item", "equip request", {log::kv("sid", cmd.sid), log::kv("item", req.id()), log::kv("part", req.part()), log::kv("seq", req.seq())});
         world_.item_equip_request(cmd.sid, req.id(), req.part(), req.seq());
         break;
     }

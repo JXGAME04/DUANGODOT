@@ -542,7 +542,53 @@ func _auto3d_run() -> void:
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
 	print("AUTO3D_MOVE seq=%d arrived=%s from=%s to=%s moves=%d" % [seq, arrived, str(from), str(own.scene_pos) if own else "-", _move_count])
+	# a fresh character holds only skills 1 / 2: the plain attack 53 (weapon_skill.json: bare hands / swords) is handed out and
+	# given a point the way the faction scripts do (AddMagic), levels for the sword's requirements (AddExp, one level a call)
+	Game.chat("?gm ds AddMagic(53, 10)")
+	for _i in 6:
+		Game.chat("?gm ds AddExp(2000000, 60)")
+	waited = 0.0
+	while waited < 3.0 and not Game.skills.has(53):
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	if Game.skills.has(53) and int(Game.skills[53].get("level", 0)) <= 0:
+		Game.add_skill_point(53)
+		waited = 0.0
+		while waited < 2.0 and int(Game.skills[53].get("level", 0)) <= 0:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+	var results: Array = []
+	Game.item_result.connect(func(seq: int, result: int): results.append([seq, result]))
+	# a sword in hand (AddItem genre 0 detail 0 particular 0 level 3 = Thanh Phong Kiếm), worn: the 3D weapon follows the item
+	var before := Game.items.size()
+	Game.chat("?gm ds AddItem(0,0,0,3,0,0)")
+	waited = 0.0
+	while waited < 3.0 and Game.items.size() < before + 1:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	var sword := 0
+	for id in Game.items:
+		if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 0 and int(Game.items[id].room) == Game.ROOM_BAG:
+			sword = int(id)
+	if sword != 0:
+		Game.item_equip(sword, 3)   # ITEMPART_WEAPON; part -1 (the zone picks) is a negative int32 the Godot proto lib does not encode
+		waited = 0.0
+		while waited < 3.0 and Game.item_worn(3) != sword:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+	await get_tree().create_timer(0.4).timeout
+	_world.cam_rig.yaw = 160.0
+	_world.cam_rig.dist = 10.0
+	for i in 4:
+		await get_tree().process_frame
+	await _save_screenshot("user://logs/auto3d_%d.png" % n)
+	n += 1
+	print("AUTO3D_WEAPON item=%d worn=%d weapon=%s skill53=%s skill53_level=%d level=%d item_results=%s item=%s" % [sword, Game.item_worn(3), _world._own_weapon, Game.skills.has(53),
+		int(Game.skills.get(53, {}).get("level", -1)), int(Game.player_attrib.get("level", 0)), str(results), "room %s x %s y %s name %s" % [str(Game.items.get(sword, {}).get("room")), str(Game.items.get(sword, {}).get("x")), str(Game.items.get(sword, {}).get("y")), str(Game.items.get(sword, {}).get("name"))]])
+	Game.chat("?gm ds SetFightState(1)")
 	await _auto_fight()
+	await _save_screenshot("user://logs/auto3d_%d.png" % n)
+	n += 1
 	var models := 0
 	var markers := 0
 	for node in _entities.values():

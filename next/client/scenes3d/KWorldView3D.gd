@@ -19,6 +19,15 @@ const ENTITY_PLAYER := 1
 const NAME_DIST := 60.0        # metres: names beyond this are not drawn [tự chọn]
 const ANIM_DIST := 45.0        # metres: models beyond this stop animating (494 npcs at 145 FPS) [tự chọn]
 const LIFE_BAR := Vector2(40, 4)   # KNpc::PaintLife [2.0]
+const TrailScript := preload("res://scenes3d/Scn3DTrail.gd")
+# The weapon in hand: the item worn in the weapon slot (KItemList::GetWeaponType 0x0060D660 [2.0]: detail / particular
+# of the worn piece) -> the reference client's weapon list, which is JX1's own in the same order (铁匕首 = Thiết Trủy thủ,
+# 钢剑 = Cang Kiếm...; weapons.json ids 1..10 kiếm, 51.. đao, 101.. thương, 151.. côn, 201.. song đao, 251.. song chùy
+# [TK]): id = base of the type + (item level - 1).  JX1 particular of a melee weapon (items/base.json): 0 kiếm, 1 đao,
+# 2 côn, 3 thương, 4 chùy, 5 song đao [2.0 tables]; ranged (detail 1) has no model yet.
+const WEAPON_TYPE_OF_PARTICULAR := {0: 1, 1: 2, 2: 4, 3: 3, 4: 6, 5: 5}
+const WEAPON_BASE_ID := {1: 1, 2: 51, 3: 101, 4: 151, 5: 201, 6: 251, 7: 301}
+const ITEMPART_WEAPON := 3
 
 var root: Node3D               # World3D: the map, the views, the camera
 var place: Node3D              # KScenePlace3D
@@ -36,6 +45,10 @@ var _npc_dir := ""
 var _own: Node = null
 var _lod_timer := 0.0
 var right_click_handler: Callable   # UiGame's right mouse skill (a right click that was not a drag)
+var _weapons := {}             # weapon/weapons.json: id -> {file, hangs, animgrp, anchors...}
+var _weapon_dir := ""
+var _own_weapon := ""          # weapons.json id on the character now ("" = bare hands)
+var _trail: Node = null        # Scn3DTrail of the character's weapon
 
 
 func is_3d() -> bool:
@@ -80,6 +93,9 @@ func _ready() -> void:
 	_names.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_names.draw.connect(_draw_names)
 	layer.add_child(_names)
+	Game.items_changed.connect(_refresh_own_weapon)
+	Game.item_changed.connect(func(_it: Dictionary): _refresh_own_weapon())
+	Game.item_removed.connect(func(_id: int): _refresh_own_weapon())
 
 
 # ---- the map --------------------------------------------------------------------------------------
@@ -100,7 +116,12 @@ func load_map() -> bool:
 			var nm = Assets.load_json(_npc_dir.path_join("npc_models.json"))
 			if nm is Dictionary:
 				_npc_models = nm
-	Log.info("map3d", "world view", {"map": Game.map_id, "bundle": has_map, "models": _npc_models.size(), "templates": _models.get("templates", {}).size()})
+	_weapon_dir = "%s/weapon" % Assets.assets3d_root()
+	if _weapons.is_empty():
+		var w = Assets.load_json(_weapon_dir.path_join("weapons.json")) if FileAccess.file_exists(_weapon_dir.path_join("weapons.json")) else null
+		if w is Dictionary:
+			_weapons = w
+	Log.info("map3d", "world view", {"map": Game.map_id, "bundle": has_map, "models": _npc_models.size(), "templates": _models.get("templates", {}).size(), "weapons": _weapons.size()})
 	return has_map
 
 
@@ -134,6 +155,9 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	_views_root.add_child(view)
 	view.bind(node, place, mv[0], mv[1])
 	_views[node] = view
+	if own:
+		_own_weapon = ""
+		_refresh_own_weapon()
 	return node
 
 
@@ -167,6 +191,51 @@ func _model_for(node: Node) -> Array:
 		m.queue_free()
 		return [null, {}]
 	return [m, mi]
+
+
+# The reference weapon id of the worn weapon, "" for bare hands / no model
+func _own_weapon_id() -> String:
+	var wid := Game.item_worn(ITEMPART_WEAPON)
+	if wid == 0 or not Game.items.has(wid):
+		return ""
+	var it: Dictionary = Game.items[wid]
+	if int(it.get("detail", -1)) != 0:
+		return ""
+	var t: int = WEAPON_TYPE_OF_PARTICULAR.get(int(it.get("particular", -1)), 0)
+	if t == 0:
+		return ""
+	var id := str(int(WEAPON_BASE_ID[t]) + clampi(int(it.get("level", 1)) - 1, 0, 9))
+	return id if _weapons.has(id) else ""
+
+
+func _refresh_own_weapon() -> void:
+	if _own == null or not is_instance_valid(_own):
+		return
+	var view = _views.get(_own)
+	if view == null or view.model == null:
+		return
+	var id := _own_weapon_id()
+	if id == _own_weapon:
+		return
+	_own_weapon = id
+	var m: Node3D = view.model
+	if _trail != null:
+		_trail.queue_free()
+		_trail = null
+	if id == "":
+		m.clear_weapons()
+		m.set_group("1")
+		return
+	var w: Dictionary = _weapons[id]
+	var n: int = m.attach_weapon(_weapon_dir, w)
+	var g := str(int(w.get("animgrp", 0)))
+	m.set_group(g if g != "0" else "1")
+	if n > 0 and not m.weapon_nodes.is_empty():
+		_trail = TrailScript.new()
+		_trail.name = "Trail"
+		root.add_child(_trail)
+		_trail.setup(m.weapon_nodes[0], w.get("anchors", {}))
+	Log.debug("map3d", "weapon in hand", {"weapon": id, "name": w.get("name", ""), "hangs": n, "group": g})
 
 
 # ---- missiles --------------------------------------------------------------------------------------
@@ -293,6 +362,9 @@ func _on_right_click(screen: Vector2) -> void:
 
 func update(delta: float) -> void:
 	_names.queue_redraw()
+	if _trail != null and _own != null and is_instance_valid(_own):
+		var view = _views.get(_own)
+		_trail.active = view != null and view.model != null and view.model.busy and str(view.model.current).begins_with("gj")
 	_lod_timer -= delta
 	if _lod_timer <= 0.0:
 		_lod_timer = 0.5
