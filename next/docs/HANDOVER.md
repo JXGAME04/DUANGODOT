@@ -702,6 +702,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-48) — C3 `SFXMixerMesh` mổ xong: hào quang phái, bẫy Đường Môn, dịch chuyển
+
+- Lớp `SFXMixerMesh` (27 node / 18 prefab): bố cục byte `MixLayer` đọc theo thứ tự trường metadata (`D:\game3gtQ_mo\mixer_mesh.py`, kiểm tổng byte 168 = 1 lớp, 284 = 2, 400 = 3): enable, supportAnim, mtype (chỉ Square), mArtColor, `TexTrans` = ô atlas (nx, ny, ox, oy), mPosOffset, mRotSpeed, mRotCurve, mScaleType 0/1/2, mScaleSpeed/Pos/Dis/Data, mEnhance, mEnhanceCurve.
+- Disasm: `.cctor` 0x702130 → quad mẫu (±0,5, 0, ±0,5) mặt XZ; `InitMeshData` 0x7012d0 → lớp cuối đặt trước, mỗi lớp cao thêm 0,01 m, `FillMeshSquare` 0x6ffb30 → uv = (ox/nx, 1 − (oy+1)/ny) (**ô đếm từ trên**), uv0.zw = (tốc độ quay rad/s, enhance), uv1 = (kiểu scale, tốc độ, pos, dis), TANGENT.zx = tâm lớp; `UpdateMixData` 0x700e00 → lớp `supportAnim`: góc cộng dồn ±1000 (đánh dấu góc cố định) + enhance theo curve, `ticktimes += dt`.
+- Shader `sfx_mixer_mesh_rs` (GLSL APK): quay quanh tâm theo `uv0.z × _Time`, scale kiểu 1 = sin(t×speed)·|dis| + pos theo NORMAL, kiểu 2 = răng cưa lớn dần/nhỏ dần + mờ 20 % cuối, màu = COLOR × enhance → Godot `scn3d_mixer.gdshaderinc` (+ `_add`/`_mix` theo `_BlendDst`), `Scn3DSfx._add_mixer` (SurfaceTool, CUSTOM0/1, đảo trục X → góc quay đổi dấu), `_process_mixers` cho lớp có curve.
+- Kiểm: `AUTO3D_AURA halos=1` — Thất Tinh Trận vẽ bằng mesh thật (ảnh `auto3d_aura.png`), vòng torus tạm không còn dùng; `export_sfx.py --all` 343 prefab, 0 lỗi đọc.
+- commit: `JX NEXT 3D: 3D-48 - SFXMixerMesh: bo cuc MixLayer, quad XZ + o atlas tu tren, shader sfx_mixer_mesh_rs (quay/scale/enhance) -> scn3d_mixer, hao quang phai that`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-47) — đợt 1 MO-NHI-PHAN-3D: hiệu ứng kỹ năng mọi phái (C8, C2, C10, tween), kiểm 10 phái
 
 - **C8** 28 tên chưa ghép → `map_skills.MANUAL` (tên JX1 lệch âm Hán-Việt: Diên Môn Thác Bát 119, Ki Bán phù 174, Tọa Vọng Vô Ngã 157, Vô Tướng Trảm 321, Kim Cang Phục Ma 10/216, Đơn Chỉ Liệt Diệm 145, Ma Diệm Thất Sát 148, Xích Diệm Thực Thiên 70, Lịch Ma Đoạt Hồn 143, Thanh Âm Phạn Xướng 282, Băng Tâm Trái ảnh 269, Vô Hình Độc 69, Vạn Độc Thực Tâm 73, Tiêu Diêu Công 360, Tích Lịch đơn 45, Địa Diệm Hỏa 347, Thiên Nhẫn Mâu pháp 132, Đả Cẩu bổng 209 (打狗阵), đánh thường 53/1/2, ám khí Đường Môn 43); còn 8 = bản "•" nâng cấp + 闪避 (JX1 không có). Ghép: **234 kỹ năng JX1** (trước 205), 191 có hình.

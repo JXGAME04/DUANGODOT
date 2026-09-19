@@ -67,6 +67,44 @@ def read_tween(cls, raw):
     return out
 
 
+# SFXMixerMesh [TK]: mColor + List<MixLayer> (enable, supportAnim, mtype, mArtColor, TexTrans (nx, ny, ox, oy - o tu tren),
+# mPosOffset, mRotSpeed (rad/s), mRotCurve, mScaleType (0 tinh, 1 sin, 2 rang cua), mScaleSpeed, mScalePos, mScaleDis,
+# mScaleData, mEnhance, mEnhanceCurve); cac truong meshFilter/mesh/... la runtime. Bo cuc kiem bang tong byte (168 = 1 lop).
+# Mesh dung luc chay: moi lop mot quad (+-0.5, 0, +-0.5) trong mat XZ, lop sau thap hon 0,01 m; shader sfx_mixer_mesh_rs
+# quay/scale (D:\game3gtQ_mo\mixer_mesh.py, disasm .cctor 0x702130, InitMeshData 0x7012d0, FillMeshSquare 0x6ffb30).
+def read_curve_keys(r):
+    n = r.i32()
+    keys = []
+    for _ in range(n):
+        t = r.f32(); v = r.f32(); r.f32(); r.f32(); r.i32(); r.f32(); r.f32()
+        keys.append([round(t, 4), round(v, 4)])
+    r.i32(); r.i32(); r.i32()
+    return keys
+
+
+def read_mixer(raw):
+    r = Raw(raw); r.header()
+    color = [r.f32() for _ in range(4)]
+    n = r.i32()
+    layers = []
+    for _ in range(n):
+        enable = r.u8(); r.align(); anim = r.u8(); r.align()
+        mtype = r.i32()
+        art = [r.f32() for _ in range(4)]
+        tt = [r.f32() for _ in range(4)]
+        pos = [r.f32() for _ in range(3)]
+        rot = r.f32()
+        rotc = read_curve_keys(r)
+        st = r.i32(); ss = r.f32(); sp = r.f32(); sd = r.f32(); sdata = r.f32(); enh = r.f32()
+        enhc = read_curve_keys(r)
+        if not enable:
+            continue
+        layers.append({"anim": bool(anim), "type": mtype, "color": art, "cell": tt, "pos": [-pos[0], pos[1], pos[2]], "rot": rot,
+                       "rot_curve": rotc, "scale_type": st, "scale_speed": ss, "scale_pos": sp, "scale_dis": sd, "scale_data": sdata,
+                       "enhance": enh, "enhance_curve": enhc})
+    return {"color": color, "layers": layers}
+
+
 def mmc(v, default=0.0):
     """MinMaxCurve -> {'min', 'max', 'curve': [[t, v]...] hoac None}
     minMaxState: 0 hang so (scalar), 1 duong cong (maxCurve * scalar), 2 hai hang so ngau nhien (minScalar..scalar), 3 hai duong cong"""
@@ -318,6 +356,16 @@ class SfxExporter:
                         tw = None
                     if tw is not None:
                         jn.setdefault("tweens", []).append(tw)
+                if cls == "SFXMixerMesh":
+                    try:
+                        jn["mixer"] = read_mixer(raw)
+                    except (struct.error, IndexError):
+                        self.log.append("SFXMixerMesh khong doc duoc: " + g.m_Name)
+                    if comps.get("MeshRenderer"):
+                        mr0 = comps["MeshRenderer"][0].read()
+                        mats0 = [self.material(m.path_id) for m in mr0.m_Materials]
+                        if mats0 and mats0[0]:
+                            jn["mixer_material"] = mats0[0]
                 if cls == "SFXMeshModify":
                     r = Raw(raw); r.header(); r.pptr()
                     color = [r.f32(), r.f32(), r.f32(), r.f32()]; emissive = [r.f32(), r.f32(), r.f32(), r.f32()]

@@ -9,6 +9,7 @@ static var _tex_cache := {}
 var life := 0.0          # giay; <= 0: tu tinh
 var looping := false
 var _t := 0.0
+var _mixers: Array = []   # SFXMixerMesh layers a curve animates on the CPU
 var _tweens: Array = []
 var _players: Array = []
 var _particles: Array = []
@@ -180,6 +181,8 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 				_particles.append(t)
 				var ps: Dictionary = jn["ps"]
 				longest = maxf(longest, float(ps.get("duration", 1.0)) + float(ps["lifetime"].get("max", 1.0)) + float(ps.get("start_delay", 0.0)))
+		if jn.has("mixer") and n is Node3D:
+			_add_mixer(n as Node3D, dir, jn["mixer"], jn.get("mixer_material", null))
 		if jn.has("tweens") and n is Node3D:
 			for tw in jn["tweens"]:
 				_start_tween(n as Node3D, tw)
@@ -360,6 +363,137 @@ func _make_particles(dir: String, ps: Dictionary, st: GLTFState) -> CPUParticles
 	return p
 
 
+# SFXMixerMesh [TK] (export_sfx.py read_mixer): every layer a 1 x 1 quad in the XZ plane, the last layer lowest (0.01 m
+# steps), its atlas cell (v from the top), colour = layer colour x mixer colour; rotation / scale / enhance go to the vertex
+# shader scn3d_mixer.gdshaderinc (the reference's sfx_mixer_mesh_rs) through CUSTOM0 / CUSTOM1, the radial direction
+# through NORMAL.  A layer a curve animates on the CPU gets its angle / enhance from the curve here (30 Hz, like ticktimes).
+const MIXER_ADD := preload("res://scenes3d/scn3d_mixer_add.gdshader")
+const MIXER_MIX := preload("res://scenes3d/scn3d_mixer_mix.gdshader")
+
+
+func _add_mixer(n: Node3D, dir: String, mixer: Dictionary, material) -> void:
+	var layers: Array = mixer.get("layers", [])
+	if layers.is_empty():
+		return
+	var mc = mixer.get("color", [1, 1, 1, 1])
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+	st.set_custom_format(1, SurfaceTool.CUSTOM_RGBA_FLOAT)
+	var corners := [Vector3(-0.5, 0, 0.5), Vector3(0.5, 0, 0.5), Vector3(0.5, 0, -0.5), Vector3(-0.5, 0, -0.5)]
+	var uvc := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]
+	var y := 0.0
+	var vi := 0
+	for li in range(layers.size() - 1, -1, -1):
+		var L: Dictionary = layers[li]
+		var cell = L.get("cell", [1, 1, 0, 0])
+		var nx := maxf(1.0, float(cell[0]))
+		var ny := maxf(1.0, float(cell[1]))
+		var ox := float(cell[2])
+		var oy := float(cell[3])
+		var col = L.get("color", [1, 1, 1, 1])
+		var c := Color(col[0] * mc[0], col[1] * mc[1], col[2] * mc[2], col[3] * mc[3])
+		var pos = L.get("pos", [0, 0, 0])
+		var centre := Vector3(pos[0], pos[1] + y, pos[2])
+		var rot := float(L.get("rot", 0.0))
+		var enh := float(L.get("enhance", 1.0))
+		if bool(L.get("anim", false)):
+			# the CPU path: a fixed angle (+1000) the curve gives, sampled each frame by _process_mixer
+			rot = 1000.0
+		st.set_custom(0, Color(rot, enh, float(L.get("scale_type", 0)), float(L.get("scale_speed", 0.0))))
+		st.set_custom(1, Color(float(L.get("scale_pos", 0.0)), float(L.get("scale_dis", 0.0)), centre.x, centre.z))
+		st.set_color(c)
+		for k in 4:
+			var v: Vector3 = corners[k] + centre
+			st.set_normal((corners[k] - Vector3.ZERO).normalized())
+			# glTF-style uv (v down): cell ox, oy counted from the top of the atlas
+			st.set_uv(Vector2((ox + uvc[k].x) / nx, (oy + uvc[k].y) / ny))
+			st.add_vertex(v)
+		st.add_index(vi); st.add_index(vi + 2); st.add_index(vi + 1)
+		st.add_index(vi); st.add_index(vi + 3); st.add_index(vi + 2)
+		vi += 4
+		y += 0.01
+	var mesh := st.commit()
+	var mi := MeshInstance3D.new()
+	mi.name = "Mixer"
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var blend := "alpha"
+	var tint := Color.WHITE
+	var texf = null
+	if material is Dictionary:
+		blend = str(material.get("blend", "alpha"))
+		texf = material.get("tex", null)
+		var t = material.get("tint", null)
+		if t is Array and t.size() >= 4:
+			tint = Color(t[0], t[1], t[2], t[3])
+	var sm := ShaderMaterial.new()
+	sm.shader = MIXER_ADD if blend == "add" else MIXER_MIX
+	sm.set_shader_parameter("tex", _tex(dir, texf))
+	sm.set_shader_parameter("tint", tint)
+	mi.material_override = sm
+	n.add_child(mi)
+	# curves driven on the CPU (supportAnim): angle / enhance sampled from the keys each frame (30 Hz ticktimes)
+	var anim_layers: Array = []
+	for li in layers.size():
+		var L: Dictionary = layers[li]
+		if bool(L.get("anim", false)):
+			anim_layers.append(li)
+	if not anim_layers.is_empty():
+		_mixers.append({"mesh": mi, "layers": layers, "anim": anim_layers, "t": 0.0, "angle": {}})
+
+
+static func _curve_eval(keys: Array, t: float, default: float) -> float:
+	if keys.is_empty():
+		return default
+	if t <= float(keys[0][0]):
+		return float(keys[0][1])
+	for i in range(1, keys.size()):
+		if t <= float(keys[i][0]):
+			var a: Array = keys[i - 1]
+			var b: Array = keys[i]
+			var f := (t - float(a[0])) / maxf(0.0001, float(b[0]) - float(a[0]))
+			return lerpf(float(a[1]), float(b[1]), f)
+	return float(keys[keys.size() - 1][1])
+
+
+func _process_mixers(delta: float) -> void:
+	for m in _mixers:
+		var mi: MeshInstance3D = m["mesh"]
+		if not is_instance_valid(mi):
+			continue
+		m["t"] = float(m["t"]) + delta
+		var layers: Array = m["layers"]
+		var mdt := mi.mesh as ArrayMesh
+		if mdt == null:
+			continue
+		var arrays := mdt.surface_get_arrays(0)
+		var custom0: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM0]
+		var changed := false
+		for li in m["anim"]:
+			var L: Dictionary = layers[li]
+			var rot := float(L.get("rot", 0.0))
+			var rc: Array = L.get("rot_curve", [])
+			if rc.size() > 1:
+				rot = _curve_eval(rc, float(m["t"]), rot)
+			var ang: float = float(m["angle"].get(li, 0.0)) + rot * delta
+			m["angle"][li] = ang
+			var enh := _curve_eval(L.get("enhance_curve", []), float(m["t"]), float(L.get("enhance", 1.0)))
+			# the layers were laid down from the last to the first: layer li is quad (layers.size() - 1 - li)
+			var q: int = layers.size() - 1 - li
+			for k in 4:
+				custom0[(q * 4 + k) * 4] = (1000.0 + ang) if ang >= 0.0 else (-1000.0 + ang)   # UpdateMixData: +-1000 marks a fixed angle
+				custom0[(q * 4 + k) * 4 + 1] = enh
+			changed = true
+		if changed:
+			arrays[Mesh.ARRAY_CUSTOM0] = custom0
+			var mat := mi.material_override
+			var fmt := mdt.surface_get_format(0)
+			mdt.clear_surfaces()
+			mdt.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, fmt)
+			mi.material_override = mat
+
+
 # The NGUI tweens the reference puts on effect nodes (TweenRotation / Scale / Position / Alpha / Color / Enhance [TK],
 # export_sfx.py read_tween): from -> to over `duration` after `delay`, method = ease (Linear, EaseIn/Out/InOut, Bounce),
 # style Once / Loop / PingPong.  Alpha / colour / enhance go to the mesh material of the node (unshaded albedo: enhance
@@ -428,6 +562,8 @@ func _start_tween(n: Node3D, tw: Dictionary) -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if not _mixers.is_empty():
+		_process_mixers(delta)
 	if life > 0.0 and _t >= life:
 		queue_free()
 
