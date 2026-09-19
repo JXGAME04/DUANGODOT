@@ -760,6 +760,13 @@ func _auto3d_factions() -> void:
 		print("AUTO3D_FACTION faction=%s skills=%d shown=%d best=%d" % [fac, ids.size(), fac_fx, best_id])
 		n += 1
 	print("AUTO3D_FACTIONS factions=%d skills=%d with_fx=%d shown=%d" % [n, total, with_fx, shown])
+	# what still hangs on the caster's view after the sweep (a looping effect that should not be there shows up here)
+	var names: Array = []
+	for c in view.get_children():
+		names.append(str(c.name))
+	for c in view.find_children("sfx_*", "", true, false):
+		names.append("deep:" + str(c.name) + "@" + str(c.get_parent().name))
+	print("AUTO3D_VIEW_CHILDREN %s" % str(names))
 
 
 func _auto3d_run() -> void:
