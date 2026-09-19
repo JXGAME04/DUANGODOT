@@ -110,6 +110,20 @@ def main():
                     chosen = (cands[0][0], 0, level, "%s -> %s (%s)" % (cn, "+".join(vi), cands[0][1]))
                     break
         if chosen is None:
+            # 2) a named character (story npc / boss: 柳青青 Liễu Thanh Thanh, 觉远 Giác Viễn): the Han-Viet reading against
+            #    every JX1 template (any kind), the template's own kind kept
+            from hanviet import readings
+            for hv in readings(base) or []:
+                hvn = norm(hv)
+                if len(hvn) < 6:
+                    continue
+                cands = [(int(k), norm(v.get("name", "")), int(v.get("kind", 0))) for k, v in tpl.items()
+                         if v.get("res") and norm(v.get("name", "")) == hvn]
+                if cands:
+                    cands.sort()
+                    chosen = (cands[0][0], cands[0][2], level, "Han-Viet ten rieng %s" % hv)
+                    break
+        if chosen is None:
             # a dialogue npc (cha_list col 5 bit 2 "不能动的": stands still, bit 4 the big minimap dot) without a JX1 role:
             # a villager template stands in (kind 3), named by the Han-Viet reading when hanviet.py knows every character
             flag = r[5].strip()
