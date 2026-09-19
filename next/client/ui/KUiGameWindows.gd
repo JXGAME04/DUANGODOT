@@ -26,6 +26,8 @@ const UiNpcDescribe := preload("res://ui/uicase/UiNpcDescribe.gd")
 const UiSysMsg := preload("res://ui/uicase/UiSysMsg.gd")
 const UiGiveItem := preload("res://ui/uicase/UiGiveItem.gd")
 const UiTaskNote := preload("res://ui/uicase/UiTaskNote.gd")
+const UiGetString := preload("res://ui/uicase/UiGetString.gd")
+const KUiDialogMath := preload("res://ui/KUiDialogMath.gd")
 const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
@@ -57,6 +59,7 @@ var describe: UiNpcDescribe = null      # a npc script's Describe: the descripti
 var sys_msg_pane: UiSysMsg = null       # the system message pane (系统消息.ini): a script's TaskTip lands there
 var give_window: UiGiveItem = null      # a npc script's GiveItemUI: the 6 x 4 box the player puts pieces into (给予界面.ini)
 var journal: UiTaskNote = null          # the journal "Ký Sự" (任务记事.ini): a script's AddNote lands on its system page
+var get_string: UiGetString = null      # a script's AskClientForNumber / AskClientForString (输入字串界面.ini)
 var _channel_entries: Array = []
 var _menu_target := 0                   # the entity the player menu is about
 var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
@@ -198,6 +201,18 @@ func _ready() -> void:
 		journal = null
 	else:
 		journal.bind_player(int(Game.player_id))
+	get_string = UiGetString.new()
+	_canvas.add_child(get_string)
+	if not get_string.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiGetString.SCHEME})
+		get_string.queue_free()
+		get_string = null
+	else:
+		# the 0x501 callback of the box: the 0x82 packet of kind 3 {int} (0x006AC510) or kind 2 {text} (0x006AC470)
+		get_string.confirmed_number.connect(func(value: int): Game.script_input(3, value, ""))
+		get_string.confirmed_text.connect(func(text: String): Game.script_input(2, 0, text))
+		get_string.rejected.connect(_on_ask_rejected)
+	Game.script_ask.connect(_on_script_ask)
 	Game.script_action.connect(_on_script_action)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
@@ -538,6 +553,23 @@ func _build_bars() -> void:
 	else:
 		Game.state_changed.connect(func(_id): state_window.refresh())
 		state_window.state_hovered.connect(_on_state_hovered)
+
+
+# the 0xa3 packet (0x006AC330 -> ui message 0x37 -> 0x0051CD00): the input box KUiGetString for a number (kind != 0, a
+# 9-digit numeric box showing the min) as for a string (the default text, at most max characters)
+func _on_script_ask(a: Dictionary) -> void:
+	if get_string != null:
+		get_string.open_box(str(a.get("title", "")), str(a.get("default_text", "")), int(a.get("min", 0)), int(a.get("max", 0)),
+			int(a.get("kind", 0)) != 0)
+
+
+# "Đồng ý" refused (0x0051C831 / 0x0051C8B6 / 0x0051C8BA): the 2.0 client raises its message box (0x004ACBD0, not built
+# yet) with G_UiGetString_0/1/2 - the system message pane carries the same text here
+func _on_ask_rejected(reason: int) -> void:
+	var text := KUiDialogMath.ask_reject_text(reason)
+	if sys_msg_pane != null and text != "":
+		sys_msg_pane.add_message(text, 1, true, 3)
+	Log.info("ui", "ask rejected", {"reason": reason})
 
 
 # the Lua Open([[x]]) / Switch([[x]]) a tool bar button runs (0x0044B250..): the windows this client has

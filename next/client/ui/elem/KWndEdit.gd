@@ -30,6 +30,7 @@ var border_color := Color.BLACK
 var password := false
 var ascii_only := false
 var max_len := 0
+var digits_only := false                  # the numeric box of KUiGetString: '0'..'9' and nothing else
 var halign := 0
 var focus_bg = null                       # Color or null
 var input: LineEdit = null
@@ -108,6 +109,15 @@ func clear_text() -> void:
 	set_text("")
 
 
+# the longest text (0 = no limit) and whether only digits may be typed - what the 2.0 window sets on the edit after the
+# layout (+0x4a4 of the edit = MaxLen; KUiGetString 0x0051CA8D / 0x0051CE13)
+func set_limits(max_length: int, digits: bool) -> void:
+	max_len = maxi(max_length, 0)
+	digits_only = digits
+	if input != null:
+		input.max_length = max_len
+
+
 func take_focus() -> void:
 	if input != null and is_visible_in_tree():
 		input.grab_focus()
@@ -124,11 +134,14 @@ func enable(on: bool) -> void:
 
 
 func _on_input_changed(new_text: String) -> void:
-	if ascii_only:
+	if ascii_only or digits_only:
 		var kept := ""
 		for ch in new_text:
 			var code := ch.unicode_at(0)
-			if code >= 0x20 and code < 0x7f:
+			if digits_only:
+				if code >= 0x30 and code <= 0x39:
+					kept += ch
+			elif code >= 0x20 and code < 0x7f:
 				kept += ch
 		if kept != new_text:
 			var caret := input.caret_column - (new_text.length() - kept.length())

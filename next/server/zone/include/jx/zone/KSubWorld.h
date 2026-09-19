@@ -604,6 +604,12 @@ public:
     void give_item_msg(KNpc& e, int kind, std::string_view text);
     // Lua AddNote 0x08124DC0: the 0x63 packet with the ui id 3 (UI_NOTEINFO) - a line for the client's journal with a number
     void dialog_add_note(KNpc& e, std::string_view text, int text_id, int param);
+    // Lua AskClientForNumber 0x08115CA0 / AskClientForString 0x08115E90: the 0xa3 packet (G2C_SCRIPT_ASK) and the function
+    // kept as the first answer; kind 1 = a number (the number pad), 0 = a string (the input box with the default)
+    void dialog_ask_client(KNpc& e, int kind, std::string_view fn, int min, int max, std::string_view title, std::string_view default_text);
+    // the 0x82 packet (0x080DB490 -> 0x081F6830): kind 3 -> the answer function with the number (0x081F6680), kind 2 -> with the
+    // text (0x081F6730, an empty one dropped); the answers are cleared first (0x080A7E60); anything else is ignored
+    bool script_input_request(std::uint64_t sid, int kind, std::int64_t number, std::string_view text);
     // the task values (docs §21, KSubWorldTask.cpp): KPlayer::SetTaskValue 0x080A9190 (a change; a SYNC_FLAG id with `sync` goes to
     // the client as G2C_TASK_VALUE), the 0xa7 packet of one id (0x080A8CC0), SyncTaskValueMore 0x080A9550 (G2C_TASK_VALUES of
     // eighty), the enter-world sync 0x080B9CF0, the client's 0xaa packet 0x080DB070 (a CLIENT_FLAG id only)

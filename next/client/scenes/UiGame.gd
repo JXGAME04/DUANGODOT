@@ -665,6 +665,7 @@ func _auto_run() -> void:
 	await _auto_describe()
 	await _auto_give()
 	await _auto_note()
+	await _auto_ask()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1391,6 +1392,49 @@ func _auto_note() -> void:
 		_windows.journal.close_window()
 	Log.info("auto", "auto note", {"ui": got.action.get("ui", -1), "param": got.action.get("param", -1), "before": before, "after": after, "window": window_open})
 	print("AUTO_NOTE ui=%d param=%d records=%d->%d window=%s" % [got.action.get("ui", -1), got.action.get("param", -1), before, after, window_open])
+
+
+# AskClientForNumber (the 0xa3 packet -> the input box KUiGetString in its numeric mode) from the GM console: the box opens
+# showing the min (1), "0" is refused (below the min the box stays, 0x0051C831), "42" and "Đồng ý" -> the 0x82 answer of
+# kind 3 (the gm chunk has no script to call back; the zone logs `script input ignored` at debug level); prints AUTO_ASK for
+# tools/dev.py screenshot
+func _auto_ask() -> void:
+	var got := {"ask": {}}
+	var on_ask := func(a: Dictionary) -> void:
+		got.ask = a
+	Game.script_ask.connect(on_ask)
+	Game.chat("?gm ds AskClientForNumber(\"OnNumber\", 1, 100, \"Nhap so luong\")")
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if not got.ask.is_empty():
+			break
+	Game.script_ask.disconnect(on_ask)
+	var box = _windows.get_string if _windows != null else null
+	var window_open: bool = box != null and box.visible
+	var numeric := false
+	var initial := ""
+	var kept_below_min := false
+	var typed := ""
+	if window_open:
+		numeric = box.is_numeric()
+		initial = box.input_text()
+		box.set_input("0")
+		box._on_ok()
+		kept_below_min = box.visible
+		box.set_input("42")
+		typed = box.input_text()
+	await get_tree().create_timer(0.3).timeout
+	await _save_screenshot("user://logs/auto_ask.png")
+	var confirmed := false
+	if window_open:
+		box._on_ok()
+		confirmed = not box.visible
+		await get_tree().create_timer(0.3).timeout
+	Log.info("auto", "auto ask", {"kind": got.ask.get("kind", -1), "title": got.ask.get("title", ""), "min": got.ask.get("min", -1), "max": got.ask.get("max", -1),
+		"window": window_open, "numeric": numeric, "initial": initial, "kept_below_min": kept_below_min, "typed": typed, "confirmed": confirmed})
+	print("AUTO_ASK kind=%d title=%s min=%d max=%d window=%s numeric=%s initial=%s kept_below_min=%s typed=%s confirmed=%s" % [got.ask.get("kind", -1),
+		got.ask.get("title", ""), got.ask.get("min", -1), got.ask.get("max", -1), window_open, numeric, initial, kept_below_min, typed, confirmed])
+
 
 
 func _auto_death() -> void:

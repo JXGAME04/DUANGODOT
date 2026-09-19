@@ -119,3 +119,55 @@ static func journal_lines(records: Array) -> Array:
 	for r in records:
 		out.append(str(r.get("text", "")))
 	return out
+
+
+# "Đồng ý" of the input box KUiGetString (0x0051C800).  A number ask: the digits of the box as a number (GetIntNumber
+# 0x004571F0); below the packet's min the box stays and says G_UiGetString_0 (0x0051C831) - there is no check against the
+# max for a number.  A string ask: shorter than min -> G_UiGetString_1 (0x0051C8B6), longer than max -> G_UiGetString_2
+# (0x0051C8BA).  The texts are \lang\vn\stringtable_client.txt of the 2.0 client (TCVN3 there, Unicode here).
+const ASK_TOO_SMALL := 0   # G_UiGetString_0
+const ASK_TOO_SHORT := 1   # G_UiGetString_1
+const ASK_TOO_LONG := 2    # G_UiGetString_2
+const ASK_TEXTS := [
+	"Số ký tự điền nhập quá ít!",
+	"Số ký tự điền nhập quá ít!",
+	"Số ký tự điền nhập vượt quá độ dài cho phép!",
+]
+
+
+static func ask_number(text: String) -> int:
+	var digits := ""
+	for ch in text:
+		if ch < "0" or ch > "9":
+			break
+		digits += ch
+	return int(digits) if digits != "" else 0
+
+
+# -1 = accepted, else the reason (ASK_TOO_SMALL)
+static func ask_check_number(value: int, lo: int) -> int:
+	return -1 if value >= lo else ASK_TOO_SMALL
+
+
+# -1 = accepted, else the reason (ASK_TOO_SHORT / ASK_TOO_LONG)
+static func ask_check_text(length: int, lo: int, hi: int) -> int:
+	if length < lo:
+		return ASK_TOO_SHORT
+	if length > hi:
+		return ASK_TOO_LONG
+	return -1
+
+
+static func ask_reject_text(reason: int) -> String:
+	return ASK_TEXTS[reason] if reason >= 0 and reason < ASK_TEXTS.size() else ""
+
+
+
+# "Đồng ý" of the pad (0x0051C800): the digits as a number; below the packet's min the pad stays (0x0051C831), above a max
+# that is at least the min it stays as well
+static func pad_value(digits: String) -> int:
+	return int(digits) if digits != "" else 0
+
+
+static func pad_accepts(value: int, lo: int, hi: int) -> bool:
+	return value >= lo and (hi < lo or value <= hi)

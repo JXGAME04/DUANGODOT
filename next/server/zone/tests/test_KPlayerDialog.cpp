@@ -77,6 +77,28 @@ end
 function describe_short()
     Describe("Mo ta", 5, "Mot/OnOne", "Hai")
 end
+function ask_number()
+    AskClientForNumber("OnNumber", 1, 100, "Nhap so luong")
+end
+function ask_string()
+    AskClientForString("mac dinh", "OnString", 2, 20, "Nhap ten")
+end
+function ask_bad()
+    AskClientForNumber("OnNumber", 1, 100)
+    AskClientForNumber("OnNumber", "1", 100, "x")
+    AskClientForString("a", "OnString", "b", 20, "x")
+    AskClientForString("a", "OnString", 2, 20)
+end
+function OnNumber(n)
+    g_last = 900 + n
+end
+function OnString(s)
+    g_last = 1000 + string.len(s)
+    g_text = s
+end
+function GetText()
+    return g_text
+end
 function notes()
     AddNote("Dai hiep da thu thap du Hong Moc.", 7)
     AddNote(1234)
@@ -450,4 +472,65 @@ TEST_CASE("AddNote 0x08124DC0: the 0x63 packet with the ui id 3, the text or a s
     CHECK(acts[2].param() == 0);
     // the journal is the client's: nothing waits on the zone (m_bWaitingPlayerFeedBack untouched, 0x08124DC0 sets none)
     CHECK_FALSE(dw.A().player.dialog.waiting);
+}
+
+namespace {
+
+std::vector<jx::pb::ScriptAsk> asks(const std::vector<jx::zone::Packet>& all, std::uint64_t sid)
+{
+    std::vector<jx::pb::ScriptAsk> out;
+    for (const auto& p : all) {
+        if (p.msg_id != jx::pb::G2C_SCRIPT_ASK || std::find(p.sids.begin(), p.sids.end(), sid) == p.sids.end()) continue;
+        jx::pb::ScriptAsk a;
+        REQUIRE(a.ParseFromString(p.payload));
+        out.push_back(a);
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("AskClientForNumber 0x08115CA0 / AskClientForString 0x08115E90 and the 0x82 answer 0x081F6830", "[dialog][world]")
+{
+    DialogWorld dw;
+    // the number: the 0xa3 packet with the kind 1, the function as the first answer, nothing else waits
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "ask_number", dw.A(), 0));
+    auto a = asks(dw.w.take_outbox(), 7);
+    REQUIRE(a.size() == 1);
+    CHECK(a[0].kind() == 1);
+    CHECK(a[0].title() == "Nhap so luong");
+    CHECK(a[0].min() == 1);
+    CHECK(a[0].max() == 100);
+    CHECK(a[0].default_text().empty());
+    CHECK(dw.A().player.dialog.answer_fun[0] == "OnNumber");
+    CHECK(dw.A().player.dialog.available_answers == 0);
+    CHECK(dw.A().player.dialog.waiting);
+    // the 0x5f answer cannot reach the function (m_nAvailableAnswerNum is 0, 0x080AC61A)
+    CHECK_FALSE(dw.w.dialog_answer(7, 0, 0));
+    // the 0x82 packet of kind 3: the function with the number, the answers cleared; kind 1 (the city tax) is not ours
+    CHECK_FALSE(dw.w.script_input_request(7, 1, 42, ""));
+    CHECK(dw.w.script_input_request(7, 3, 42, ""));
+    CHECK(dw.last() == 942.0);
+    CHECK(dw.A().player.dialog.answer_fun[0].empty());
+    CHECK_FALSE(dw.w.script_input_request(7, 3, 5, ""));   // no function waits any more
+    CHECK(dw.last() == 942.0);
+    // the string: kind 0 with the default; the 0x82 packet of kind 2 with the text (an empty one is dropped, 0x081F67A1)
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "ask_string", dw.A(), 0));
+    a = asks(dw.w.take_outbox(), 7);
+    REQUIRE(a.size() == 1);
+    CHECK(a[0].kind() == 0);
+    CHECK(a[0].title() == "Nhap ten");
+    CHECK(a[0].default_text() == "mac dinh");
+    CHECK(a[0].min() == 2);
+    CHECK(a[0].max() == 20);
+    CHECK_FALSE(dw.w.script_input_request(7, 2, 0, ""));
+    CHECK(dw.A().player.dialog.answer_fun[0].empty());   // the empty text still cleared the answers (0x080A7E60 before the check)
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "ask_string", dw.A(), 0));
+    dw.w.take_outbox();
+    CHECK(dw.w.script_input_request(7, 2, 0, "Dai Hiep"));
+    CHECK(dw.last() == 1008.0);   // OnString("Dai Hiep"): 1000 + strlen
+    // bad arguments send nothing (0x08115CDC..0x08115D95): three arguments, a string for min, four arguments of the string form
+    // (a number as the function name would pass: lua_isstring takes numbers, in Lua 4 as here)
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "ask_bad", dw.A(), 0));
+    CHECK(asks(dw.w.take_outbox(), 7).empty());
 }

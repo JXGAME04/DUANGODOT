@@ -212,6 +212,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.give_items_request(cmd.sid, req.kind(), entries);
         break;
     }
+    case pb::C2G_SCRIPT_INPUT: {
+        pb::ScriptInput req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.script_input_request(cmd.sid, req.kind(), req.number(), req.text());
+        break;
+    }
     case pb::C2G_TASK_VALUE: {
         pb::TaskValueReq req;
         if (!req.ParseFromString(cmd.payload)) break;

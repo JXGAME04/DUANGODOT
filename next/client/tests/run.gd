@@ -63,6 +63,7 @@ func _init() -> void:
 	test_describe_tip()
 	test_give_item()
 	test_journal()
+	test_script_ask()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -1033,3 +1034,26 @@ func test_journal() -> void:
 	var lines: Array = math.journal_lines(records)
 	check(lines == ["hai", "mot"], "one line a record, newest first")
 	check(math.journal_lines([]).is_empty(), "no records, no lines")
+
+
+# ---- AskClientForNumber / AskClientForString (UiGetString.gd; docs/CLIENT-2.0.md §29) ---------------------------------
+
+func test_script_ask() -> void:
+	check(Proto.MsgId.G2C_SCRIPT_ASK == 2144 and Proto.MsgId.C2G_SCRIPT_INPUT == 1125, "script ask message ids")
+	var a := Proto.ScriptAsk.new()
+	a.set_kind(1)
+	a.set_title("Nhập số lượng")
+	a.set_min(1)
+	a.set_max(100)
+	var a2 := Proto.ScriptAsk.new()
+	check(a2.from_bytes(a.to_bytes()) == Proto.PB_ERR.NO_ERRORS and a2.get_kind() == 1 and a2.get_title() == "Nhập số lượng" and a2.get_max() == 100, "ScriptAsk round trip")
+	var i := Proto.ScriptInput.new()
+	i.set_kind(3)
+	i.set_number(42)
+	var i2 := Proto.ScriptInput.new()
+	check(i2.from_bytes(i.to_bytes()) == Proto.PB_ERR.NO_ERRORS and i2.get_kind() == 3 and i2.get_number() == 42 and i2.get_text() == "", "ScriptInput round trip")
+	var math: GDScript = load("res://ui/KUiDialogMath.gd")
+	check(math.ask_number("42") == 42 and math.ask_number("") == 0 and math.ask_number("007") == 7 and math.ask_number("12a3") == 12, "the digits of the box as a number (0x004571F0)")
+	check(math.ask_check_number(0, 1) == math.ASK_TOO_SMALL and math.ask_check_number(1, 1) == -1 and math.ask_check_number(500, 1) == -1, "a number below the min is refused; no max (0x0051C831)")
+	check(math.ask_check_text(1, 2, 20) == math.ASK_TOO_SHORT and math.ask_check_text(21, 2, 20) == math.ASK_TOO_LONG and math.ask_check_text(2, 2, 20) == -1 and math.ask_check_text(20, 2, 20) == -1, "a text shorter than min or longer than max is refused (0x0051C8B6 / 0x0051C8BA)")
+	check(math.ask_reject_text(math.ASK_TOO_LONG) == "Số ký tự điền nhập vượt quá độ dài cho phép!" and math.ask_reject_text(math.ASK_TOO_SMALL) == "Số ký tự điền nhập quá ít!" and math.ask_reject_text(-1) == "", "G_UiGetString_0..2 of stringtable_client.txt")

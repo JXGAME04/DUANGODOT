@@ -64,6 +64,7 @@ signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, t
 signal task_value_changed(id: int, value: int)   # G2C_TASK_VALUE / G2C_TASK_VALUES: task_values[id] changed (the 0xa7 / 0xb5 packets -> KPlayer::SetTaskValue 0x00601ED0)
 signal task_tip(text: String)               # G2C_TASK_TIP: the 0xb6 packet of a script's TaskTip (the system message pane, type 1)
 signal give_item_msg(kind: int, text: String)   # G2C_GIVE_ITEM_MSG: SetUiGiveItemMsg (0) / SetUiGiveItemMoreConfirmMsg (1) of a script
+signal script_ask(ask: Dictionary)          # G2C_SCRIPT_ASK: {kind (1 number / 0 string), title, min, max, default_text} of AskClientForNumber / String
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -449,6 +450,18 @@ func dialog_answer(index: int, kind: int = 0) -> void:
 	req.set_kind(kind)
 	Net.send_msg(Proto.MsgId.C2G_DIALOG_ANSWER, req)
 	Log.debug("world", "dialog answer", {"index": index, "kind": kind})
+
+
+# the answer to AskClientForNumber / AskClientForString: the 0x82 packet - kind 3 {int} (0x006AC420) / kind 2 {len, text} (0x006AC470)
+func script_input(kind: int, number: int, text: String) -> void:
+	if state != "world":
+		return
+	var req := Proto.ScriptInput.new()
+	req.set_kind(kind)
+	req.set_number(number)
+	req.set_text(text)
+	Net.send_msg(Proto.MsgId.C2G_SCRIPT_INPUT, req)
+	Log.debug("world", "script input", {"kind": kind, "number": number, "len": text.length()})
 
 
 # the give-item box (GiveItemUI): the 0x89 packet {kind, {room, x, y, cell_x, cell_y}...} - kind 0 = the box changed, else "Đồng ý"
@@ -1145,6 +1158,13 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			task_packets += 1
 			for v in m.get_values():
 				_set_task_value(int(v.get_id()), int(v.get_value()))
+
+		Proto.MsgId.G2C_SCRIPT_ASK:
+			var m := Proto.ScriptAsk.new()
+			if not _decode(m, payload):
+				return
+			script_ask.emit({"kind": int(m.get_kind()), "title": str(m.get_title()), "min": int(m.get_min()), "max": int(m.get_max()),
+				"default_text": str(m.get_default_text())})
 
 		Proto.MsgId.G2C_GIVE_ITEM_MSG:
 			var m := Proto.GiveItemMsg.new()

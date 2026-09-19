@@ -120,6 +120,8 @@ var GameScreens = []UiScreenDef{
 	{"nhat-ky-he-thong", "Trang nhiệm vụ hệ thống", "KUiTaskNote (hệ thống)", `任务记事-系统任务分页.ini`},
 	{"nhat-ky-rang-buoc", "Trang trang bị ràng buộc", "KUiTaskNote (ràng buộc)", `任务记事-装备绑定.ini`},
 	{"nhat-ky-cap-nhat", "Trang ghi chép cập nhật game", "KUiTaskNote (cập nhật)", `任务记事-游戏更新记录.ini`},
+	// M13 D10: Lua AskClientForNumber / AskClientForString (the 0xa3 packet -> the client's 0x00653500): the input box
+	{"nhap-chuoi", "Hộp nhập chuỗi cho script (AskClientForString)", "KUiGetString", `输入字串界面.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

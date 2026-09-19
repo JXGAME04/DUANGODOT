@@ -544,6 +544,42 @@ int l_AddNote(lua_State* L)
     return 0;
 }
 
+// AskClientForNumber(fn, min, max, title) (jx_linux_y 0x08115CA0; 247 uses with AskClientForString): the player's index not
+// negative, four arguments at least (0x08115CDC); fn (1) and title (4) strings, min (2) and max (3) numbers, else nothing
+// (0x08115D16..0x08115D95); the 0xa3 packet with the kind 1; the number typed comes back through the 0x82 packet (kind 3)
+// into fn(number)
+int l_AskClientForNumber(lua_State* L)
+{
+    KNpc* p = player_of(L, "AskClientForNumber");
+    if (p == nullptr) return 0;
+    p->player.dialog.waiting = false;   // 0x08115CCC: before the argument checks
+    if (lua_gettop(L) <= 3) return 0;
+    if (!lua_isstring(L, 1) || !lua_isstring(L, 4) || lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) return 0;
+    const char* fn = lua_tostring(L, 1);
+    const char* title = lua_tostring(L, 4);
+    g_ScriptContext().world->dialog_ask_client(*p, 1, fn != nullptr ? fn : "", static_cast<int>(lua_tonumber(L, 2)), static_cast<int>(lua_tonumber(L, 3)),
+                                               title != nullptr ? title : "", "");
+    return 0;
+}
+
+// AskClientForString(default, fn, min, max, title) (0x08115E90): five arguments at least (0x08115ECC); default (1), fn (2) and
+// title (5) strings, min (3) and max (4) numbers; the 0xa3 packet with the kind 0 and the default; the text typed comes back
+// through the 0x82 packet (kind 2) into fn(text)
+int l_AskClientForString(lua_State* L)
+{
+    KNpc* p = player_of(L, "AskClientForString");
+    if (p == nullptr) return 0;
+    p->player.dialog.waiting = false;   // 0x08115EBC
+    if (lua_gettop(L) <= 4) return 0;
+    if (!lua_isstring(L, 2) || !lua_isstring(L, 1) || !lua_isstring(L, 5) || lua_type(L, 3) != LUA_TNUMBER || lua_type(L, 4) != LUA_TNUMBER) return 0;
+    const char* def = lua_tostring(L, 1);
+    const char* fn = lua_tostring(L, 2);
+    const char* title = lua_tostring(L, 5);
+    g_ScriptContext().world->dialog_ask_client(*p, 0, fn != nullptr ? fn : "", static_cast<int>(lua_tonumber(L, 3)), static_cast<int>(lua_tonumber(L, 4)),
+                                               title != nullptr ? title : "", def != nullptr ? def : "");
+    return 0;
+}
+
 // AddItem(genre, detail, particular, level, series, luck [, magic1 [, magic2 .. magic6]]) -> 1 / 0
 //
 // LuaAddItem of the old ScriptFuns.cpp, and jx_linux_y 0x08120D30 -> 0x08120B30: fewer than six
@@ -2478,7 +2514,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"SetItemMagicLevel", l_SetItemMagicLevel}, {"ITEM_GetItemRandSeed", l_ITEM_GetItemRandSeed},
     {"GiveItemUI", l_GiveItemUI},         {"GetGiveItemUnit", l_GetGiveItemUnit}, {"GetGiveItemUnitWithPos", l_GetGiveItemUnitWithPos},
     {"SetUiGiveItemMsg", l_SetUiGiveItemMsg}, {"SetUiGiveItemMoreConfirmMsg", l_SetUiGiveItemMoreConfirmMsg},
-    {"AddNote", l_AddNote},
+    {"AddNote", l_AddNote},               {"AskClientForNumber", l_AskClientForNumber}, {"AskClientForString", l_AskClientForString},
     {nullptr, nullptr},
 };
 

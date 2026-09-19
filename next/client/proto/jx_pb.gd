@@ -3585,6 +3585,206 @@ class GiveItemMsg:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class ScriptAsk:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__kind = PBField.new("kind", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __kind
+		data[__kind.tag] = service
+		
+		__title = PBField.new("title", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __title
+		data[__title.tag] = service
+		
+		__min = PBField.new("min", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __min
+		data[__min.tag] = service
+		
+		__max = PBField.new("max", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __max
+		data[__max.tag] = service
+		
+		__default_text = PBField.new("default_text", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __default_text
+		data[__default_text.tag] = service
+		
+	var data = {}
+	
+	var __kind: PBField
+	func has_kind() -> bool:
+		if __kind.value != null:
+			return true
+		return false
+	func get_kind() -> int:
+		return __kind.value
+	func clear_kind() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__kind.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_kind(value : int) -> void:
+		__kind.value = value
+	
+	var __title: PBField
+	func has_title() -> bool:
+		if __title.value != null:
+			return true
+		return false
+	func get_title() -> String:
+		return __title.value
+	func clear_title() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__title.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_title(value : String) -> void:
+		__title.value = value
+	
+	var __min: PBField
+	func has_min() -> bool:
+		if __min.value != null:
+			return true
+		return false
+	func get_min() -> int:
+		return __min.value
+	func clear_min() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__min.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_min(value : int) -> void:
+		__min.value = value
+	
+	var __max: PBField
+	func has_max() -> bool:
+		if __max.value != null:
+			return true
+		return false
+	func get_max() -> int:
+		return __max.value
+	func clear_max() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__max.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_max(value : int) -> void:
+		__max.value = value
+	
+	var __default_text: PBField
+	func has_default_text() -> bool:
+		if __default_text.value != null:
+			return true
+		return false
+	func get_default_text() -> String:
+		return __default_text.value
+	func clear_default_text() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__default_text.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_default_text(value : String) -> void:
+		__default_text.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class ScriptInput:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__kind = PBField.new("kind", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __kind
+		data[__kind.tag] = service
+		
+		__number = PBField.new("number", PB_DATA_TYPE.INT64, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT64])
+		service = PBServiceField.new()
+		service.field = __number
+		data[__number.tag] = service
+		
+		__text = PBField.new("text", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __text
+		data[__text.tag] = service
+		
+	var data = {}
+	
+	var __kind: PBField
+	func has_kind() -> bool:
+		if __kind.value != null:
+			return true
+		return false
+	func get_kind() -> int:
+		return __kind.value
+	func clear_kind() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__kind.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_kind(value : int) -> void:
+		__kind.value = value
+	
+	var __number: PBField
+	func has_number() -> bool:
+		if __number.value != null:
+			return true
+		return false
+	func get_number() -> int:
+		return __number.value
+	func clear_number() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__number.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT64]
+	func set_number(value : int) -> void:
+		__number.value = value
+	
+	var __text: PBField
+	func has_text() -> bool:
+		if __text.value != null:
+			return true
+		return false
+	func get_text() -> String:
+		return __text.value
+	func clear_text() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__text.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_text(value : String) -> void:
+		__text.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class PKStateReq:
 	extends RefCounted
 	func _init():
@@ -11795,6 +11995,7 @@ enum MsgId {
 	C2G_TEAM = 1119,
 	C2G_TRADE = 1120,
 	C2G_NPC_DIALOG = 1121,
+	C2G_SCRIPT_INPUT = 1125,
 	C2G_GIVE_ITEMS = 1124,
 	C2G_TASK_VALUE = 1123,
 	C2G_DIALOG_ANSWER = 1122,
@@ -11845,6 +12046,7 @@ enum MsgId {
 	G2C_ENTITY_MENU_STATE = 2138,
 	G2C_TASK_VALUE = 2140,
 	G2C_TASK_VALUES = 2141,
+	G2C_SCRIPT_ASK = 2144,
 	G2C_GIVE_ITEM_MSG = 2143,
 	G2C_TASK_TIP = 2142,
 	G2C_SCRIPT_ACTION = 2139,

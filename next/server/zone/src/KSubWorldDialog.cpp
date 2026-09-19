@@ -361,6 +361,63 @@ void KSubWorld::dialog_add_note(KNpc& e, std::string_view text, int text_id, int
     send_script_action(e, ui_note_info, shown, text_id, {}, param, true);
 }
 
+// Lua AskClientForNumber(fn, min, max, title) 0x08115CA0 / AskClientForString(default, fn, min, max, title) 0x08115E90: the
+// player's index not negative; m_bWaitingPlayerFeedBack = 0 first (0x08115CCC); +0x5f9c = the script (0x08115CF9); the
+// function into m_szTaskAnswerFun[0] (strncpy 0x80, 0x08115DDD), m_nAvailableAnswerNum = 0, m_bWaitingPlayerFeedBack = 1
+// (0x08115DB2 / 0x08115DBC); the packet {0xa3, word 0x4c, 2, kind (1 number / 0 string), title[0x20] (0x08227030), int min,
+// int max, default[0x20]} of 0x4d bytes (0x08115E86 / 0x08116083).  The 2.0 client (0x006AC330 -> ui message 0x37 ->
+// 0x0051CD00) opens the number pad or the input box (docs/CLIENT-2.0.md §29).
+void KSubWorld::dialog_ask_client(KNpc& e, int kind, std::string_view fn, int min, int max, std::string_view title, std::string_view default_text)
+{
+    KPlayerDialog& d = e.player.dialog;
+    d.waiting = false;
+    d.script = g_ScriptContext().script_path;
+    d.clear_answers();
+    std::string f(fn);
+    if (f.size() > kDialogAnswerFunMax) f.resize(kDialogAnswerFunMax);
+    d.answer_fun[0] = f;
+    d.available_answers = 0;
+    d.waiting = true;
+    pb::ScriptAsk m;
+    m.set_kind(kind);
+    m.set_title(text::decode_mixed(std::string(title.substr(0, 0x1f))));
+    m.set_min(min);
+    m.set_max(max);
+    m.set_default_text(text::decode_mixed(std::string(default_text.substr(0, 0x1f))));
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_SCRIPT_ASK), m);
+    log::debug("zone.dialog", "script ask", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("function", f), log::kv("min", min),
+                                            log::kv("max", max), log::kv("script", d.script)});
+}
+
+bool KSubWorld::script_input_request(std::uint64_t sid, int kind, std::int64_t number, std::string_view text)
+{
+    const auto pit = players_.find(sid);
+    if (pit == players_.end()) return false;
+    KNpc& e = entities_.at(pit->second);
+    log::ScopedContext lctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
+    KPlayerDialog& d = e.player.dialog;
+    if (kind != 2 && kind != 3) {   // 0x081F6844..0x081F684E: 1 is the city tax (0x08058700), the rest nothing
+        log::debug("zone.dialog", "script input ignored", {log::kv("entity", e.id), log::kv("kind", kind)});
+        return false;
+    }
+    const std::string fn = d.answer_fun[0];   // 0x081F66C2 / 0x081F677A: a copy of 0x7f bytes
+    d.clear_answers();                        // 0x080A7E60: every slot, the count 0
+    if (fn.empty() || d.script.empty() || (kind == 2 && text.empty())) {   // 0x081F66DC / 0x081F6798 / 0x081F67A1
+        log::debug("zone.dialog", "script input ignored", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("function", fn)});
+        return false;
+    }
+    bool ok;
+    if (kind == 3) {
+        ok = execute_script(d.script, fn.c_str(), e, static_cast<int>(number));   // 0x080AC1A0 with the int
+    } else {
+        d.waiting = false;   // 0x080ABE09
+        ok = execute_script_args(d.script, fn.c_str(), e, {std::string(text)});   // 0x080ABDF0 with the string
+    }
+    log::info("zone.dialog", "script input", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("number", number), log::kv("len", text.size()),
+                                             log::kv("function", fn), log::kv("ok", ok)});
+    return ok;
+}
+
 // the 0x5f packet (0x080AC5D0): not trading; m_bWaitingPlayerFeedBack = 0; a negative index becomes 0 (0x080AC609);
 // kind 1 is the other selection ui (0x081F68C0, not ported), anything else than 0 is ignored; the index must be below
 // m_nAvailableAnswerNum (0x080AC61A) and the player's npc must be there; the function of that answer: empty -> nothing;
