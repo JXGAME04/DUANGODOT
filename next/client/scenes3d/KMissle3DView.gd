@@ -96,6 +96,10 @@ func _update() -> void:
 		_custom.visible = flying
 		_ball.visible = false
 		_trail.emitting = false
+		# +Z along the flight: the reference child object's forward is its move direction (ChildObject.UpdateMove,
+		# set_forward of the XZ direction - no pitch [TK 0x4e0b00]); dir64 0 = +Z, 16 = -X
+		var v: Vector2 = KScene3DMath.dir_vector(int(missle.dir64))
+		rotation.y = atan2(v.x, v.y)
 	else:
 		_ball.visible = flying
 		_trail.emitting = flying

@@ -122,6 +122,11 @@ class WeaponExporter:
                 return
             p = tr.m_LocalPosition; q = tr.m_LocalRotation; s = tr.m_LocalScale
             L = np.eye(4); L[:3, :3] = quat_to_mat([q.x, q.y, q.z, q.w]) @ np.diag([s.x, s.y, s.z]); L[:3, 3] = [p.x, p.y, p.z]
+            if depth == 0:
+                # the prefab root's own transform is thrown away when the weapon is worn: GameNodePool.TryInstantiateNode 0x6eb770
+                # and Player.UpdateModelLogic 0x4fbc60 [TK] parent it to the hinge with localPosition zero, localRotation identity,
+                # localScale one (every root here turns -90 deg about X, fifteen keep a scene offset of -22 m: 龙泉剑, 破风刀, 火尖枪...)
+                L = np.eye(4)
             M = parent_M @ L
             if g.m_Name in ("start", "end"):
                 anchors[g.m_Name] = [-float(M[0, 3]), float(M[1, 3]), float(M[2, 3])]

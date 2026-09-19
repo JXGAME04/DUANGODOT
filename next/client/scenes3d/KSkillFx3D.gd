@@ -73,14 +73,18 @@ func hit_res(skill_id: int) -> String:
 
 
 func _find_hit(list: Array) -> String:
+	return str(_find_hit_entry(list).get("res", ""))
+
+
+func _find_hit_entry(list: Array) -> Dictionary:
 	for c in list:
 		if c.has("hit") and str(c["hit"].get("res", "")) != "":
-			return str(c["hit"]["res"])
+			return c["hit"]
 	for c in list:
-		var h := _find_hit(c.get("children", []))
-		if h != "":
+		var h := _find_hit_entry(c.get("children", []))
+		if not h.is_empty():
 			return h
-	return ""
+	return {}
 
 
 # A cast (EntityAction ACTION_ATTACK with a skill): the cast effects at the caster and the standing child objects at
@@ -101,7 +105,9 @@ func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: flo
 			continue
 		any = true
 		var pos: Vector3 = at_caster + Vector3(0, float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.9)), 0)
-		_later(parent, float(c.get("at", 0.0)) * duration, str(c["res"]), pos, yaw, float(c.get("life_s", 1.0)))
+		# sfx_object col 9 [TK]: 1 / 2 = linked to the caster (it moves along), 0 = left where it was made
+		var holder: Node = view if (view is Node3D and int(c.get("sync", 0)) in [1, 2]) else parent
+		_later(holder, float(c.get("at", 0.0)) * duration, str(c["res"]), pos, yaw, float(c.get("life_s", 1.0)), c)
 	if _cast_children(parent, e.get("child", []), 0.0, duration, at_caster, yaw, at_aim):
 		any = true
 	if not any:
@@ -109,7 +115,8 @@ func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: flo
 		var el := element_of(skill_id)
 		var res := str(map.get("element_cast", {}).get(str(el), ""))
 		if res != "":
-			_later(parent, 0.0, res, at_caster + Vector3(0, 0.9, 0), yaw, 1.0)
+			# sfx_object 1..4 [TK]: sys_bd, angle 2 (world zero), sync 2 (linked to the caster, no rotation)
+			_later(view if view is Node3D else parent, 0.0, res, at_caster + Vector3(0, 0.9, 0), yaw, 1.0, {"angle": 2, "sync": 2})
 
 
 # The standing child objects of a cast (and the children their own events spawn in time, "when" = time) at their
@@ -128,16 +135,16 @@ func _cast_children(parent: Node, list: Array, start: float, span: float, at_cas
 			pos.y += float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.0))
 		if str(c.get("res", "")) != "":
 			any = true
-			_later(parent, t0, str(c["res"]), pos, yaw, life)
+			_later(parent, t0, str(c["res"]), pos, yaw, life, c)
 		if c.has("hit") and str(c["hit"].get("res", "")) != "":
 			# a standing child object that hits (an area blast, a talisman on the target): its hit picture at the aim when it lands
 			any = true
 			var hp: Vector3 = at_aim + Vector3(0, float(HANG_HEIGHT.get(str(c["hit"].get("hang", "sys_bd")), 0.9)), 0)
-			_later(parent, t0 + minf(life, 0.3), str(c["hit"]["res"]), hp, yaw, float(c["hit"].get("life_s", 1.0)))
+			_later(parent, t0 + minf(life, 0.3), str(c["hit"]["res"]), hp, yaw, float(c["hit"].get("life_s", 1.0)), c["hit"])
 		for f in c.get("fx", []):
 			if str(f.get("when", "time")) == "time" and str(f.get("res", "")) != "":
 				any = true
-				_later(parent, t0 + float(f.get("at", 0.0)) * life, str(f["res"]), pos, yaw, float(f.get("life_s", 1.0)))
+				_later(parent, t0 + float(f.get("at", 0.0)) * life, str(f["res"]), pos, yaw, float(f.get("life_s", 1.0)), f)
 		var kids: Array = c.get("children", [])
 		if not kids.is_empty():
 			var timed: Array = []
@@ -158,7 +165,7 @@ func _arrive_children(parent: Node, c: Dictionary, pos: Vector3, yaw: float) -> 
 	for f in c.get("fx", []):
 		var when := str(f.get("when", "time"))
 		if (when == "arrive" or when == "hit") and str(f.get("res", "")) != "":
-			_spawn(parent, str(f["res"]), pos, yaw, float(f.get("life_s", 1.0)))
+			_spawn(parent, str(f["res"]), pos, yaw, float(f.get("life_s", 1.0)), f)
 	var landed: Array = []
 	for k in c.get("children", []):
 		var when := str(k.get("when", "time"))
@@ -171,20 +178,76 @@ func _arrive_children(parent: Node, c: Dictionary, pos: Vector3, yaw: float) -> 
 		_cast_children(parent, landed, 0.0, float(c.get("life_s", 1.0)), pos, yaw, pos)
 
 
-func _later(parent: Node, delay: float, res: String, pos: Vector3, yaw: float, life: float) -> void:
+func _later(parent: Node, delay: float, res: String, pos: Vector3, yaw: float, life: float, spec: Dictionary = {}) -> void:
 	if delay <= 0.01:
-		_spawn(parent, res, pos, yaw, life)
+		_spawn(parent, res, pos, yaw, life, spec)
 		return
 	var timer := parent.get_tree().create_timer(delay)
 	timer.timeout.connect(func() -> void:
 		if is_instance_valid(parent):
-			_spawn(parent, res, pos, yaw, life))
+			_spawn(parent, res, pos, yaw, life, spec))
 
 
-func _spawn(parent: Node, res: String, pos: Vector3, yaw: float, life: float) -> Node3D:
-	var fx: Node3D = SfxScript.spawn(parent, dir, _file(res), pos, yaw, life, false)
+# `yaw` = the caster's facing (Node3D.rotation.y of its view: the model looks down -Z at 0); `spec` = the table row
+# (angle / offset / scale) the orientation follows
+func _spawn(parent: Node, res: String, pos: Vector3, yaw: float, life: float, spec: Dictionary = {}) -> Node3D:
+	var fx: Node3D = SfxScript.spawn(parent, dir, _file(res), pos, 0.0, life, false)
 	if fx != null:
 		spawned += 1
+		orient(fx, spec, yaw + PI)
+	return fx
+
+
+# The rotation of a child object / sfx object [TK ChildObject.InitRotation 0x4de510]: the base from the table's init
+# angle - 0 the creator's Front (its facing; for a sfx_object 0 = local zero under its hang point, 4 = the source's
+# angle: the same facing), 1 the hang point's rotation (the facing stands in), 2 world zero, 3 a random turn about Y -
+# then Rotate(Rx, 0, Rz) in the object's own space (Unity's Euler: Z first, then X) and Ry about the world Y (the
+# Front vector turned by Quaternion.Euler(0, Ry, 0)); the scale of the row after that (InitPosAndAngle 0x4df110).
+# Mirrored to Godot (x -> -x): Ry and Rz change sign.  `forward_yaw` = the rotation.y at which an exported prefab
+# (its forward +Z, like the Unity prefab after the mirror) points where the creator faces: the caster's yaw + PI
+# because the caster's model looks down -Z; 0.0 when the effect is a child of a node already turned that way.
+func orient(fx: Node3D, spec: Dictionary, forward_yaw: float) -> void:
+	match int(spec.get("angle", 0)):
+		2:
+			fx.global_rotation = Vector3.ZERO
+		3:
+			fx.rotation = Vector3(0, randf() * TAU, 0)
+		_:
+			fx.rotation = Vector3(0, forward_yaw, 0)
+	var off: Array = spec.get("offset", [])
+	if off.size() == 3:
+		fx.rotate_object_local(Vector3.RIGHT, deg_to_rad(float(off[0])))
+		fx.rotate_object_local(Vector3.BACK, deg_to_rad(-float(off[2])))
+		fx.rotate_y(deg_to_rad(-float(off[1])))
+	var sc: Array = spec.get("scale", [])
+	if sc.size() == 3 and float(sc[0]) > 0.0 and float(sc[1]) > 0.0 and float(sc[2]) > 0.0:
+		fx.scale = Vector3(float(sc[0]), float(sc[1]), float(sc[2]))
+
+
+# The hit picture on a struck entity [TK SkillHitNode -> sfx_object: sys_bd, sync 2 = linked to the target without its
+# rotation, angle 2 = world zero (4 = the striker's facing)]: the flying child's own hit row, else any child's, else the
+# element's generic hit (sfx_object 20..70 by the skill's series, the striker's series for a plain swing); as a child of
+# the target's view so it follows.  `yaw_from` = the striker's facing for angle 4.
+func hit_on(target: Node3D, skill_id: int, series: int, yaw_from: float = 0.0) -> Node3D:
+	if not load_map() or target == null:
+		return null
+	var f := flying(skill_id)
+	var spec: Dictionary = f.get("hit", {}) if f.has("hit") else _find_hit_entry(entry(skill_id).get("child", []))
+	var res := str(spec.get("res", ""))
+	if res == "":
+		var el := element_of(skill_id) if skill_id > 0 else -1
+		if el < 0:
+			el = series
+		res = str(map.get("element_hit", {}).get(str(el), ""))
+		spec = {"angle": 2, "sync": 2, "hang": "sys_bd", "life_s": 1.0}
+	if res == "":
+		return null
+	var pos: Vector3 = target.global_position + Vector3(0, float(HANG_HEIGHT.get(str(spec.get("hang", "sys_bd")), 0.9)), 0)
+	var holder: Node = target if int(spec.get("sync", 2)) in [1, 2] else target.get_parent()
+	var fx: Node3D = SfxScript.spawn(holder, dir, _file(res), pos, 0.0, float(spec.get("life_s", 1.0)), false)
+	if fx != null:
+		spawned += 1
+		orient(fx, spec, yaw_from + PI)
 	return fx
 
 
@@ -198,6 +261,11 @@ func attach_flying(view: Node3D, skill_id: int) -> Node3D:
 	var fx: Node3D = SfxScript.spawn(view, dir, _file(str(f["res"])), view.global_position, 0.0, 0.0, true)
 	if fx != null:
 		fx.position = Vector3.ZERO
+		# the missile view points its +Z along the flight (ChildObject.UpdateMove: set_forward of the move direction, no
+		# pitch [TK 0x4e0b00]); the row's angle offsets / scale are the effect's own
+		var spec: Dictionary = f.duplicate()
+		spec["angle"] = 0
+		orient(fx, spec, 0.0)
 		spawned += 1
 	return fx
 
@@ -214,6 +282,13 @@ func aura(view: Node3D, skill_id: int) -> Node3D:
 	var fx: Node3D = SfxScript.spawn(view, dir, _file(str(c["res"])), view.global_position, 0.0, 0.0, true)
 	if fx != null:
 		fx.position = Vector3(0, float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.0)) + float(c.get("height", 0.0)), 0)
+		# under the view (turned by the facing): angle 0 = the facing (local PI, the model looks down -Z), 2 = world zero
+		var spec: Dictionary = c.duplicate()
+		if int(spec.get("angle", 0)) == 2:
+			spec["angle"] = 0
+			orient(fx, spec, -float(view.rotation.y))
+		else:
+			orient(fx, spec, PI)
 		spawned += 1
 		return fx
 	# the faction halos are SFXMixerMesh prefabs (a mesh the reference client builds at run time) the exporter cannot read
@@ -252,9 +327,12 @@ func skill_of_special(special_id: int) -> int:
 func hit(parent: Node, skill_id: int, pos: Vector3) -> void:
 	if not load_map():
 		return
-	var res := hit_res(skill_id)
-	if res != "":
-		_spawn(parent, res, pos, 0.0, 1.0)
 	var f := flying(skill_id)
 	if not f.is_empty():
 		_arrive_children(parent, f, pos, 0.0)
+	elif hit_res(skill_id) != "":
+		# no flier: the hit picture at the spot (the 2.0 collision movie's place; a struck entity gets its own via hit_on)
+		var spec: Dictionary = _find_hit_entry(entry(skill_id).get("child", []))
+		if spec.is_empty():
+			spec = {"angle": 2, "sync": 2}
+		_spawn(parent, hit_res(skill_id), pos, 0.0, 1.0, spec)

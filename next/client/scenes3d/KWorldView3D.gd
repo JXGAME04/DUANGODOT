@@ -19,6 +19,8 @@ const MirrorScript := preload("res://scenes3d/KSpriteMirror3D.gd")
 const ModelScript := preload("res://scenes3d/Scn3DNpc.gd")
 const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const SkillFxScript := preload("res://scenes3d/KSkillFx3D.gd")
+const FloatScript := preload("res://scenes3d/KFloatingText3D.gd")
+const CAST_MEMORY_MS := 2500   # a hit within this of a cast belongs to that skill (the swing + a missile's flight) [tự chọn]
 const ACTION_ATTACK := 1
 const ENTITY_PLAYER := 1
 const NAME_DIST := 60.0        # metres: names beyond this are not drawn [tự chọn]
@@ -50,6 +52,8 @@ var _own: Node = null
 var _lod_timer := 0.0
 var right_click_handler: Callable   # UiGame's right mouse skill (a right click that was not a drag)
 var _weapons := {}             # weapon/weapons.json: id -> {file, hangs, animgrp, anchors...}
+var floats := FloatScript.new()   # the damage numbers / skill names over the heads (KFloatingText3D)
+var _last_cast := {}           # state node -> {skill, t (msec)}: the skill an entity last cast (its hits name the picture)
 var _weapon_dir := ""
 var _own_weapon := ""          # weapons.json id on the character now ("" = bare hands)
 var _weapon_of := {}           # state node -> weapons.json id on it now (every player: ours from the bag, others from the 0xad sync)
@@ -551,6 +555,38 @@ func action(node: Node, a: Dictionary) -> void:
 	var aim: Vector3 = place.to_world(Vector2(float(a.get("ax", a.get("x", 0))), float(a.get("ay", a.get("y", 0)))))
 	aim.y = place.ground_height(aim.x, aim.z)
 	fx.cast(_views_root, int(a.skill), int(a.get("frames", 1)), view.global_position, float(view.rotation.y), aim, view)
+	_last_cast[node] = {"skill": int(a.skill), "t": Time.get_ticks_msec()}
+	# TopRoot.ShowSkillName [TK 0x5a3f80]: the skill's name floats over the caster in its element's colour (a plain swing has none)
+	var row: Dictionary = Game.skill_row(int(a.skill))
+	if not row.is_empty() and int(a.skill) > 2 and str(row.get("SkillStyle", "0")) != "0" or int(row.get("Series", -1)) >= 0:
+		floats.skill_name(view, str(row.get("SkillName", "")), int(row.get("Series", -1)))
+
+
+# An EntityLife of the zone (damage / heal): the number over the head the way TopRoot.ShowHpChg draws it [TK] and, for a
+# loss dealt by an entity that just cast, the skill's hit picture on the struck one (SkillHitNode: sys_bd, linked)
+func on_life(node: Node, l: Dictionary) -> void:
+	if place.mode != "3d":
+		return
+	var view = _views.get(node)
+	if view == null or not is_instance_valid(view):
+		return
+	var delta := int(l.get("delta", 0))
+	if delta == 0:
+		return
+	var source_id := int(l.get("source", 0))
+	var source: Node = null
+	for n in _views.keys():
+		if is_instance_valid(n) and int(n.get("entity_id")) == source_id:
+			source = n
+			break
+	var cast: Dictionary = _last_cast.get(source, {}) if source != null else {}
+	var recent: bool = not cast.is_empty() and Time.get_ticks_msec() - int(cast.get("t", 0)) < CAST_MEMORY_MS
+	floats.hp_change(view, delta, node == _own, false, delta < 0 and not recent and source != null and source != node)
+	if delta < 0 and recent:
+		var sv = _views.get(source)
+		var sd = Game.entities.get(source_id)
+		var series := int(sd.get("series", -1)) if sd is Dictionary else -1
+		fx.hit_on(view, int(cast.get("skill", 0)), series, float(sv.rotation.y) if sv != null and is_instance_valid(sv) else 0.0)
 
 
 # ---- camera and cursor ---------------------------------------------------------------------------
@@ -657,6 +693,7 @@ func _view_dir_offset() -> int:
 
 func update(delta: float) -> void:
 	_names.queue_redraw()
+	floats.tick(delta)
 	if place.mode == "2.5d":
 		var focus: Vector2 = _own.scene_pos if _own != null and is_instance_valid(_own) else place.to_scene(cam_rig.global_position)
 		place.update(focus, delta)
@@ -706,6 +743,7 @@ func _draw_names() -> void:
 	if cam == null:
 		return
 	var font := ThemeDB.fallback_font
+	floats.draw(_names, cam, font)
 	var own_view = _views.get(_own) if _own != null else null
 	var own_pos: Vector3 = own_view.global_position if own_view != null else cam.global_position
 	for node in _views.keys():

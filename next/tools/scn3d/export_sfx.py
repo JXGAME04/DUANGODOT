@@ -260,8 +260,15 @@ class SfxExporter:
         if "add" in shader.lower() or "_add" in m.m_Name.lower():
             blend = "add"
         tint = colors.get("_TintColor", colors.get("_Color", [1, 1, 1, 1]))
-        return {"name": m.m_Name, "shader": shader, "blend": blend, "tex": tex, "st": st, "tint": tint,
-                "enhance": floats.get("_Enhance", 1.0), "cutoff": floats.get("_Cutoff", 0.0)}
+        out = {"name": m.m_Name, "shader": shader, "blend": blend, "tex": tex, "st": st, "tint": tint,
+               "enhance": floats.get("_Enhance", 1.0), "cutoff": floats.get("_Cutoff", 0.0)}
+        if "rimlight" in shader.lower():
+            # blend_dst_zw_ver_rimlight [TK GLSL shaders_apk]: rgb = mix(tex.rgb x enhance, vcol.rgb x _EdgeColor x (vcol.a x 25 + 1),
+            # pow(1 - N.V, _RimPower)), alpha = tex.a x _AdjustA (discard < 0.02)
+            out["edge"] = colors.get("_EdgeColor", [1, 1, 1, 1])
+            out["rim_power"] = floats.get("_RimPower", 2.0)
+            out["adjust_a"] = floats.get("_AdjustA", 1.0)
+        return out
 
     # ---------- glTF ghi mesh ----------
     def export(self, rel):
@@ -296,8 +303,10 @@ class SfxExporter:
         gnodes = []; meshes = []; jnodes = []; by_pid = {}; anims = []
         mesh_cache = {}
 
-        def mesh_index(mesh_pid, uvmod=None):
-            key = (mesh_pid, json.dumps(uvmod, sort_keys=True) if uvmod else "")
+        bind_poses = {}   # mesh pid -> [4x4 bind matrices] (a skinned mesh: SkinnedMeshRenderer, the dragon of 飞龙在天)
+
+        def mesh_index(mesh_pid, uvmod=None, skinned=False):
+            key = (mesh_pid, json.dumps(uvmod, sort_keys=True) if uvmod else "", skinned)
             if key in mesh_cache:
                 return mesh_cache[key]
             mo = self.objs.get(mesh_pid)
@@ -305,16 +314,29 @@ class SfxExporter:
                 mesh_cache[key] = None; return None
             m = mo.read(); hd = MeshHandler(m); hd.process()
             nv = m.m_VertexData.m_VertexCount
-            def arr(a, want):
+            def arr(a, want, dtype=np.float32):
                 if not a:
                     return None
-                x = np.array(a, dtype=np.float32).reshape(nv, -1)
+                x = np.array(a, dtype=dtype).reshape(nv, -1)
                 if x.shape[1] < want:
-                    x = np.concatenate([x, np.zeros((nv, want - x.shape[1]), dtype=np.float32)], axis=1)
+                    x = np.concatenate([x, np.zeros((nv, want - x.shape[1]), dtype=dtype)], axis=1)
                 return x[:, :want]
             pos = arr(hd.m_Vertices, 3); nor = arr(hd.m_Normals, 3); uv0 = arr(hd.m_UV0, 2); col = arr(getattr(hd, "m_Colors", None), 4)
             P = pos.copy(); P[:, 0] = -P[:, 0]
             attrs = {"POSITION": add_accessor(P, 5126, "VEC3", 34962, True)}
+            if skinned:
+                # the weights / bone indices the way export_npc.skinned_mesh reads them (the vertex channels, else m_Skin)
+                bw = arr(getattr(hd, "m_BoneWeights", None), 4)
+                bi = arr(getattr(hd, "m_BoneIndices", None), 4, np.int64)
+                if bw is None and m.m_Skin:
+                    bw = np.array([[w.weight_0_, w.weight_1_, w.weight_2_, w.weight_3_] for w in m.m_Skin], dtype=np.float32)
+                    bi = np.array([[w.boneIndex_0_, w.boneIndex_1_, w.boneIndex_2_, w.boneIndex_3_] for w in m.m_Skin], dtype=np.int64)
+                if bw is not None and bi is not None:
+                    s_ = bw.sum(axis=1, keepdims=True); s_[s_ == 0] = 1.0
+                    attrs["WEIGHTS_0"] = add_accessor((bw / s_).astype(np.float32), 5126, "VEC4", 34962)
+                    attrs["JOINTS_0"] = add_accessor(np.clip(bi, 0, 65535).astype(np.uint16), 5123, "VEC4", 34962)
+                bind_poses[mesh_pid] = [np.array([[getattr(bp, "e%d%d" % (i, j)) for j in range(4)] for i in range(4)], dtype=np.float64)
+                                        for bp in m.m_BindPose]
             if nor is not None:
                 N = nor.copy(); N[:, 0] = -N[:, 0]; attrs["NORMAL"] = add_accessor(N, 5126, "VEC3", 34962)
             if uv0 is not None:
@@ -328,7 +350,10 @@ class SfxExporter:
                     uv[:, 1] = 1.0 - uv[:, 1]
                 attrs["TEXCOORD_0"] = add_accessor(uv, 5126, "VEC2", 34962)
             if col is not None:
-                attrs["COLOR_0"] = add_accessor(col, 5126, "VEC4", 34962)
+                # UnityPy hands UNorm8 vertex colours as 0..255: glTF wants 0..1 (25 meshes came out white)
+                if float(col.max()) > 1.5:
+                    col = col / 255.0
+                attrs["COLOR_0"] = add_accessor(col.astype(np.float32), 5126, "VEC4", 34962)
             prims = []
             for tri in hd.get_triangles():
                 t = np.array(tri, dtype=np.uint32).reshape(-1, 3)
@@ -377,6 +402,23 @@ class SfxExporter:
                         jn["xtrail"] = read_xtrail(raw, self.material)
                     except (struct.error, IndexError):
                         self.log.append("XWeaponTrail khong doc duoc: " + g.m_Name)
+                if cls == "SFXBillboardHelper":
+                    # Billboards[] {Trans, Billboard (0 Billboard 1 RotBillboardY 2 NoRotPos 3 Horizontal 4 Vertical 5 RotLocalBillboardZ),
+                    # EulerAngle, PosOffset, PosTrans, 4 bools}, GlobalPosOffset, FitOwnSizeBound, mUpdate (128 instances, 0 bytes left)
+                    try:
+                        r = Raw(raw); r.header()
+                        nbb = r.i32()
+                        ents = []
+                        for _ in range(nbb):
+                            t = r.pptr(); mode = r.i32(); e = [r.f32(), r.f32(), r.f32()]; po = [r.f32(), r.f32(), r.f32()]; pt = r.pptr()
+                            for _ in range(4):
+                                r.u8(); r.align()
+                            ents.append((t[1], mode, e, po, pt[1]))
+                        gpo = [r.f32(), r.f32(), r.f32()]
+                        for t_pid, mode, e, po, pt_pid in ents:
+                            pending_bb.append((t_pid, mode, e, [po[0] + gpo[0], po[1] + gpo[1], po[2] + gpo[2]], pt_pid))
+                    except (struct.error, IndexError):
+                        self.log.append("SFXBillboardHelper khong doc duoc: " + g.m_Name)
                 if cls == "SFXMixerMesh":
                     try:
                         jn["mixer"] = read_mixer(raw)
@@ -388,12 +430,34 @@ class SfxExporter:
                         if mats0 and mats0[0]:
                             jn["mixer_material"] = mats0[0]
                 if cls == "SFXMeshModify":
+                    # fields in metadata order (418 instances check out by the 16 trailing bytes): shareMesh, color, emissive,
+                    # uvNum_X/Y, uvOffset_X/Y, uvGrow, enhance, uiCurve (AnimationCurve), useSingleLerpGrow, useVertexColor,
+                    # useRandomGrow, useMask, maskNum_X/Y, maskOffset_X/Y (useMask is 0 everywhere: no mask dissolve in use)
                     r = Raw(raw); r.header(); r.pptr()
                     color = [r.f32(), r.f32(), r.f32(), r.f32()]; emissive = [r.f32(), r.f32(), r.f32(), r.f32()]
                     nx = r.u8(); r.align(); ny = r.u8(); r.align(); ox = r.u8(); r.align(); oy = r.u8(); r.align()
                     uvgrow = r.f32(); enhance = r.f32()
-                    uvmod = [max(1, nx), max(1, ny), ox, oy]
-                    sfxcol = {"color": color, "emissive": emissive, "uvgrow": uvgrow, "enhance": enhance}
+                    ncurve = r.i32(); curve = []
+                    for _ in range(ncurve):
+                        kt = r.f32(); kv = r.f32(); r.f32(); r.f32(); r.i32(); r.f32(); r.f32()
+                        curve.append([round(kt, 4), round(kv, 4)])
+                    r.i32(); post_wrap = r.i32(); r.i32()
+                    lerp = r.u8(); r.u8(); r.u8(); r.u8(); r.align()
+                    nx = max(1, nx); ny = max(1, ny)
+                    # SFXMeshModify.Update [TK 0x6fdb70]: the cell = frame uvGrow + uvOffset_X counted across the columns then down
+                    # the rows (col = f % nx, row = f / nx + uvOffset_Y) - with useSingleLerpGrow the column is ox + uvGrow unwrapped
+                    # (a continuous scroll along u); u' = u x 1/nx + col/nx, v' = v x 1/ny + 1 - (row + 1)/ny
+                    if lerp:
+                        col = ox + uvgrow; row = float(oy)
+                    else:
+                        f = int(uvgrow) + ox
+                        col = float(f % nx); row = float(f // nx + oy)
+                    uvmod = [nx, ny, col, row]
+                    sfxcol = {"color": color, "emissive": emissive, "uvgrow": uvgrow, "enhance": enhance, "nx": nx, "ny": ny}
+                    if len(curve) > 1:
+                        # the cell animates: uiCurve(time) gives uvGrow (looping when the post wrap is 2 = Loop), whole frames
+                        # unless useSingleLerpGrow; Scn3DSfx shifts the material's uv offset by the cell difference
+                        sfxcol["uv_anim"] = {"lerp": int(lerp), "ox": ox, "oy": oy, "curve": curve, "loop": post_wrap == 2, "col0": col, "row0": row}
                 jn.setdefault("scripts", []).append(cls)
             # mesh
             if comps.get("MeshFilter") and comps.get("MeshRenderer"):
@@ -409,6 +473,30 @@ class SfxExporter:
                     jn["mesh_material"] = mats[0] if mats and mats[0] else None
                     if sfxcol:
                         jn["mesh_sfx"] = sfxcol
+            # skinned mesh (SkinnedMeshRenderer: the dragon model_long_001 of the Cai Bang skills, bones = Transforms of the
+            # prefab animated by the Animation clip): the skin is made after the walk, when every bone has its node
+            for co in comps.get("SkinnedMeshRenderer", []):
+                smr = co.read()
+                mpid = smr.m_Mesh.path_id
+                if not mpid and sfxcol is not None:
+                    # the bundle strips the renderer's mesh: SFXMeshModify.shareMesh (the first PPtr after the header) holds it
+                    raw = comps["MonoBehaviour"][0].get_raw_data(); r = Raw(raw); r.header(); mpid = r.pptr()[1]
+                mi = mesh_index(mpid, uvmod, True) if mpid else None
+                if mi is None:
+                    continue
+                gnodes[gi]["mesh"] = mi
+                mats = [self.material(m.path_id) for m in smr.m_Materials]
+                jn["mesh_material"] = mats[0] if mats and mats[0] else None
+                jn["skinned"] = True
+                if sfxcol:
+                    jn["mesh_sfx"] = sfxcol
+                bone_go = []
+                for b in smr.m_Bones:
+                    bt = self.objs.get(b.path_id)
+                    bone_go.append(bt.read().m_GameObject.path_id if bt is not None and bt.type.name == "Transform" else None)
+                rb = self.objs.get(smr.m_RootBone.path_id) if getattr(smr, "m_RootBone", None) is not None else None
+                root_go = rb.read().m_GameObject.path_id if rb is not None and rb.type.name == "Transform" else None
+                pending_skins.append((gi, mpid, bone_go, root_go, g.m_Name))
             # particle system
             for co in comps.get("ParticleSystem", []):
                 d = co.read_typetree()
@@ -474,7 +562,37 @@ class SfxExporter:
                 co = self.objs.get(ch.path_id)
                 if co is not None and co.type.name == "Transform":
                     walk(co.read().m_GameObject.path_id, gi, depth + 1)
+        pending_skins = []
+        pending_bb = []
         walk(pid, None, 0)
+        # SFXBillboardHelper.Execute [TK 0x6f5bf0]: the Trans of each entry turns to the camera every frame; written on that node
+        for t_pid, mode, e, po, pt_pid in pending_bb:
+            tgo = self.objs.get(t_pid)
+            pgo = self.objs.get(pt_pid)
+            tg = tgo.read().m_GameObject.path_id if tgo is not None and tgo.type.name == "Transform" else None
+            pg = pgo.read().m_GameObject.path_id if pgo is not None and pgo.type.name == "Transform" else None
+            if tg in by_pid and by_pid[tg] < len(jnodes):
+                jnodes[by_pid[tg]]["billboard"] = {"mode": mode, "euler": e, "offset": po, "pos_node": by_pid.get(pg, -1) if pg is not None else -1}
+        skins = []
+        for gi, mpid, bone_go, root_go, gname in pending_skins:
+            joints = []; ibm = []
+            binds = bind_poses.get(mpid, [])
+            for bi_, bgo in enumerate(bone_go):
+                ni = by_pid.get(bgo)
+                if ni is None:
+                    self.log.append("xuong cua SkinnedMeshRenderer ngoai prefab: %s" % gname)
+                    ni = 0
+                joints.append(ni)
+                M = binds[bi_] if bi_ < len(binds) else np.eye(4)
+                Mg = FLIP @ M @ FLIP
+                ibm.append(Mg.T.reshape(-1))
+            if not joints:
+                continue
+            skin = {"joints": joints, "inverseBindMatrices": add_accessor(np.array(ibm, dtype=np.float32), 5126, "MAT4"), "name": gname}
+            if root_go in by_pid:
+                skin["skeleton"] = by_pid[root_go]
+            skins.append(skin)
+            gnodes[gi]["skin"] = len(skins) - 1
 
         # animations: clip paths tuong doi node co Animation -> node index
         def node_index_by_path(root_gi, path):
@@ -529,6 +647,8 @@ class SfxExporter:
         gltf = {"asset": {"version": "2.0", "generator": "jxnext scn3d export_sfx"}, "scene": 0, "scenes": [{"nodes": [0]}], "nodes": gnodes}
         if meshes:
             gltf["meshes"] = meshes
+        if skins:
+            gltf["skins"] = skins
         if gltf_anims:
             gltf["animations"] = gltf_anims
         if len(buf):

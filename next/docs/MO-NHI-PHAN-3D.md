@@ -80,7 +80,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 |---|---|---|---|---|---|
 | B1 | Model nhân vật + xương + skin + hang point | prefab 9e371715490e, mesh d4b79c319044, `ChaResourceRef` | UnityPy → glTF (đã) | `assets3d/npc/*.gltf` (41) | **xong** cho Ba Lăng; các map khác chạy lại `export_npc.py --map` |
 | B2 | Animation 716 clip | 19b6b49a7124 | ghép theo `anim_group` | trong glTF | **xong** nhóm dùng; nhóm 12–19 (NPC đặc biệt/boss) khi cần |
-| B3 | Vũ khí 71 + điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_*` | 8dd679aa97a2 | UnityPy | `assets3d/weapon` | **xong** |
+| B3 | Vũ khí 71 + điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_*`; `Player.UpdateModelLogic 0x4fbc60` + `GameNodePool.TryInstantiateNode 0x6eb770`: prefab vào bản lề với local 0/identity/1 → **bỏ transform gốc prefab** (mọi gốc −90° X, 15 gốc lệch −22 m) | 8dd679aa97a2 + IL2CPP | UnityPy | `assets3d/weapon` | **xong** (sửa 3D-57) |
 | B4 | `XWeaponTrail` (MaxFrame 5 / Fps 30 / Granularity 15 / màu / ô atlas) | bố cục byte 156 của 16 prefab `dg_xw_*` | `export_sfx.read_xtrail` | `Scn3DTrail` | **xong** (3D-49); spline Granularity (làm mượt) [tự chọn] chưa |
 | B5 | `HangItemMgr`, `ModelHangMgr`, `eEquipHangType` (treo mũ/áo/phi phong/vũ khí), `RideUnit.CreateRide 0x5bd930` (người vào bản lề `ma_qi1` với transform đơn vị), `AnimStator.UpdateAutoGroup 0x4d6210` (cưỡi → nhóm 20) | IL2CPP | disasm | `Scn3DNpc.hang_node/attach_weapon`, `KNpc3DView.set_weapon_group` | **một phần**: vũ khí (kể cả điểm treo trên xương) + ngựa đúng (3D-56); phi phong **chưa** (JX1 có phi phong) |
 | B6 | `RideUnit`, `eRideType`, `lua_scnobj_ride.lua` | IL2CPP + Lua | đọc Lua (điểm `ma_qi1`, nhóm 20/21) | `KNpc3DView._on_riding_changed` | **xong** (cần soát lại theo Lua vừa trích) |
@@ -94,10 +94,10 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | C1 | Xuất prefab hạt: ParticleSystem (module chính, shape, color/size over lifetime, texture sheet), MeshRenderer, Light, Animation, **tween NGUI** | 1d472c44c423 | UnityPy → JSON + glTF | `assets3d/sfx/*.json/.gltf` | **xong 343/343** prefab gốc (3D-47) |
 | C2 | Ai gọi prefab nào: 280 từ bảng (childobj 152, sfx_object 122, state_list 63, anim_effect 15, sfx_ui 7, skill_hit 3), 63 từ mã/Lua (`cmn_select`, `cmn_droplight_*`, `cmn_rocker_*`, `cmn_chuansong`, `cmn_ma_tui_*`, `hg_*`) | như trên | `export_sfx.py --all` duyệt prefab gốc + đoán thư mục theo hash | `sfx_index.json` | **xong** (3D-47); dùng 63 prefab mã gọi: **chưa** (vòng chọn, vật rơi, bụi ngựa) |
 | C3 | `SFXMixerMesh` (27 node / 18 prefab: hào quang phái, bẫy Đường Môn, dịch chuyển) | bố cục `MixLayer` + disasm .cctor/InitMeshData/FillMeshSquare/UpdateMixData + GLSL `sfx_mixer_mesh_rs` | `mixer_mesh.py`, `export_sfx.read_mixer` | `Scn3DSfx._add_mixer` + `scn3d_mixer.gdshaderinc` | **xong** (3D-48) |
-| C4 | `SFXMeshTrailDrag`, `SFXLineMesh`, `TronTrailSection` (vệt kéo, tia) | IL2CPP | disasm | `Scn3DSfx` | **chưa** (đếm prefab dùng trước) |
-| C5 | `PC2Anim` (hoạt ảnh đỉnh `.pc2`: 1d472c44c423.bdd__model_zhuixinjian.pc2 …) | bundle + IL2CPP `PC2Anim.Update` | đọc định dạng pc2 (Point Cache 2) → glTF morph | `Scn3DSfx` | **chưa** |
-| C6 | `SFXBillboardHelper`, `MeshCameraFacing`, `ParticleBillboard` (hạt/quad quay theo camera, trục nào) | IL2CPP | disasm | `Scn3DSfx` billboard | **một phần** (billboard Y; kiểu khác chưa) |
-| C7 | `SFXMeshModify` (màu đỉnh = color × adjust + emissive [disasm 0x6fdb70], ô atlas, mask/uvGrow), shader `blend_dst_*` (GLSL APK: rgb = tex × vcol × (1+uv.z)·_Enhance, alpha × mask theo vcol.a) | IL2CPP + shader APK | đã đọc | `Scn3DSfx` | **một phần**: màu/atlas/enhance xong; mask-dissolve (`useMask`, `uvGrow`) **chưa** |
+| C4 | `SFXMeshTrailDrag` (3 prefab đao quang `dg_daoqing_*`), `SFXLineMesh` (1: 天机迅雷), `Trail` (5: phi tiêu/phi đao), `SFXXWeaponAdapter` (10 hào quang vũ khí `hg_*`) | IL2CPP | disasm | `Scn3DSfx` | **chưa** (đã đếm: 19 prefab) ; mask-dissolve **không dùng** (`useMask` = 0 ở 418 `SFXMeshModify`, 3D-57) |
+| C5 | `PC2Anim` (hoạt ảnh đỉnh `.pc2`: 1d472c44c423.bdd__model_zhuixinjian.pc2, 1 prefab 追心箭) | bundle + IL2CPP `PC2Anim.Update` | đọc định dạng pc2 (Point Cache 2) → glTF morph | `Scn3DSfx` | **chưa** |
+| C6 | `SFXBillboardHelper` (128 node: 0 Billboard 83, 1 RotBillboardY 27, 2 NoRotPos 67, 3 Horizontal 1, 5 RotLocalBillboardZ 10; `Execute 0x6f5bf0`: `camRot × s_rot_180 × Euler(e)`, vị trí `PosTrans + camRot × (PosOffset + GlobalPosOffset)`) | IL2CPP (bố cục 128/128 khớp) | `export_sfx` → `billboard` trên node | `Scn3DSfx._process_billboards` (node bọc `bb_*`) | **xong** (3D-57); `FitOwnSizeBound`, cờ ngẫu nhiên chưa |
+| C7 | `SFXMeshModify` đọc trọn (màu × adjust + emissive [0x6fdb70], ô atlas `f = uvGrow + uvOffset_X` đếm ngang rồi xuống hàng, `useSingleLerpGrow` cuộn u, `uiCurve` 26 mesh, `useMask` = 0), shader `blend_dst_*` + `blend_dst_zw_ver_rimlight` (viền sáng) | IL2CPP + shader APK | đã đọc hết | `Scn3DSfx` (`_uv_anims`, `scn3d_sfx_rim.gdshader`); màu đỉnh /255 | **xong** (3D-57) |
 | C8 | 28 tên `skill_main` chưa ghép JX1 | bảng A6 + `skills.json` | `map_skills.MANUAL` (tên JX1 lệch âm Hán-Việt) | `skill_map.json` | **xong** (3D-47) |
 | C9 | Kiểm mọi phái: 10 phái × kỹ năng có hình | `--auto3d --factions[=<phái>]` | thi triển tại chỗ (chỉ ảnh), đếm `fx.spawned` | `auto3d_fx_<phái>.png`, `AUTO3D_FACTIONS` | **xong** (3D-47): 170 kỹ năng phái, 133 có hình, 133/133 hiện |
 | C10 | Sự kiện `skill_event` loại khác | `eSkillEventType` (metadata, `enum_values.py`) | đã liệt kê (`event_kinds`) | `skill_map.json` | **xong** liệt kê (3D-47); 111 Ghost **xong** (3D-51); 103 CameraShake không có dòng nào trong bảng; 26 tia nối (1 kỹ năng) **chưa** |
@@ -107,13 +107,13 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | # | Việc | Nguồn | Cách mổ | Trạng thái |
 |---|---|---|---|---|
 | D1 | Vòng đánh quái: chọn mục tiêu (tia camera vào trụ SizeX/SizeY), đuổi, đánh, trúng, chết, rơi đồ, nhặt | 2.0 (luật) + A5 (trụ) | có sẵn | **xong** cơ bản (`AUTO_FIGHT` Heo trắng 80→58 trong 3D) |
-| D2 | Hiệu ứng trúng đòn trên quái (`hit` của vật con / `sfx_object` ngũ hành dự phòng) + âm trúng 2.0 | A6/A8 | có sẵn `KSkillFx3D` hit | **xong**: đòn thường ở bản tham khảo không có hạt trúng (`skill_hit` 1–3 rỗng) — chỉ vệt + hoạt ảnh bị đánh (3D-49) |
-| D3 | Số sát thương bay lên | gamecl.exe | tìm chuỗi/lớp: **không có** (chỉ `ShowName`/`ShowLife`) | *bỏ* — 2.0 không có (3D-49) |
+| D2 | Hiệu ứng trúng đòn trên quái: `SkillHitNode` → sfx_object treo `sys_bd`, sync 2, góc 2; hàng `hit` vật con > hệ (`element_hit`, hệ người đánh khi đánh thường) | A6/A8 + IL2CPP | `KSkillFx3D.hit_on` khi `EntityLife` giảm máu và nguồn vừa thi triển | **xong** (3D-57): tia 金系击中 quanh heo khi đánh thường |
+| D3 | Số sát thương bay lên: `FloatingText` 26 kiểu (prefab TopRoot), `TopRoot.ShowHpChg 0x5a3550` (10/1/0/8), `ShowSkillName 0x5a3f80` (3..7/13), `ShowHitMiss` (2) | UI bundle + IL2CPP | `export_floating.py` → `floating_text.json` | `KFloatingText3D.gd` | **xong** (3D-57) theo bản 3D (2.0 không có, chủ dự án yêu cầu); chí mạng/né chưa có trong gói zone |
 | D4 | Thanh máu trên đầu quái, tên theo `KNpcGold` (vàng/xanh) | 2.0 | có sẵn `_draw_names` | **xong** |
 | D5 | Quái đánh trả: clip đánh của nhóm anim quái + đạn quái (`KMissle3DView`) | A2/A6 | có sẵn | **xong** (soát lại từng nhóm quái Ba Lăng: heo, hươu, hổ, kỳ binh) |
 | D6 | Chết: clip `sw` giữ khung cuối + mờ dần theo 2.0; xác biến mất theo zone | A2 + 2.0 | có sẵn `hold_last` | **xong** |
 | D7 | Vật rơi 3D (`still_list`) | A10 | xuất `StaticModels/stills` | **chưa** (giữ billboard ObjData 2.0 — đúng ADR-008; làm sau) |
-| D8 | Kiểm tự động đánh quái trong 3D: `--auto3d` đã có `_auto_fight`; thêm đếm hiệu ứng trúng, số sát thương | UiGame | mở rộng | **một phần** |
+| D8 | Kiểm tự động đánh quái trong 3D: `_auto_fight` + `AUTO3D_FLOATS added/hit_fx`, `auto_fight_hit.png`; `--skill=<id>:<phái> --series=<n>` bay 4 ảnh + `AUTO3D_MISSLE`; `--factions --fxshots` ảnh từng kỹ năng | UiGame | có | **xong** (3D-57) |
 
 ### E. UI trong client 3D
 

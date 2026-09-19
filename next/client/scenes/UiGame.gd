@@ -479,6 +479,8 @@ func _on_life(l: Dictionary) -> void:
 	var node: Node = _entities.get(int(l.id))
 	if node:
 		node.set_life(l)
+		if _world.has_method("on_life"):
+			_world.on_life(node, l)
 
 
 # G2C_STATE_ICONS (the 0x7a packet): the pictures of the states an entity holds
@@ -661,6 +663,18 @@ func _auto3d_factions() -> void:
 	if me == null or view == null:
 		return
 	var by_jx: Dictionary = _world.fx.map.get("by_jx", {})
+	# --fxshots: a half-size picture of every skill 0.45 s into its cast (auto3d_fx_<faction>_<skill>.png) - the review sheet
+	var shots := "--fxshots" in OS.get_cmdline_user_args()
+	view.rotation.y = 0.0   # the caster looks down -Z, where every aim below lies: a directional effect must go that way
+	if shots and _world.get("cam_rig") != null:
+		# the review pictures: the camera close and behind the caster, looking along the aim
+		var rig = _world.cam_rig
+		rig.dist = 8.0
+		rig.dist_min = minf(rig.dist_min, 8.0)
+		rig.pitch = 35.0
+		rig.pitch_min = minf(rig.pitch_min, 35.0)
+		rig.yaw = 0.0
+		rig.call("_apply", true)
 	var total := 0
 	var with_fx := 0
 	var shown := 0
@@ -706,8 +720,14 @@ func _auto3d_factions() -> void:
 				print("AUTO3D_GHOST skill=%d ghosts=%d" % [sid, ghosts])
 			if not f.is_empty():
 				_world.fx.hit(_world.get("_views_root"), sid, aim + Vector3(0, 0.9, 0))
+				_world.fx.hit_on(view, sid, -1, float(view.rotation.y))   # the hit picture a struck entity would get (here: on the caster)
 			var a: Node3D = _world.fx.aura(view, sid)
-			await get_tree().create_timer(1.2).timeout   # the cast is 18 frames = 1 s: every child object's frame has passed
+			if shots:
+				await get_tree().create_timer(0.45).timeout
+				await _save_screenshot("user://logs/auto3d_fx_%s_%d.png" % [fac, sid], true)
+				await get_tree().create_timer(0.75).timeout
+			else:
+				await get_tree().create_timer(1.2).timeout   # the cast is 18 frames = 1 s: every child object's frame has passed
 			var got: int = _world.fx.spawned - before
 			if got > 0:
 				shown += 1
@@ -725,6 +745,7 @@ func _auto3d_factions() -> void:
 			_world.fx.cast(_world.get("_views_root"), best_id, 18, pos2, float(view.rotation.y), pos2 + Vector3(0, 0, -4.0))
 			if not _world.fx.flying(best_id).is_empty():
 				_world.fx.hit(_world.get("_views_root"), best_id, pos2 + Vector3(0, 0.9, -4.0))
+				_world.fx.hit_on(view, best_id, -1, float(view.rotation.y))
 			await get_tree().create_timer(0.35).timeout
 			await _save_screenshot("user://logs/auto3d_fx_%s.png" % fac)
 			await get_tree().create_timer(0.55).timeout
@@ -882,16 +903,41 @@ func _auto3d_run() -> void:
 	await _auto_fight()
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
+	if _world.get("floats") != null:
+		print("AUTO3D_FLOATS added=%d live=%d hit_fx=%d" % [_world.floats.added, _world.floats._items.size(), _world.fx.spawned])
 	# a faction skill with a mapped 3D effect (skill_map.json): Wudang's Nộ Lôi Chỉ (153, any weapon, level 10) - its missile
 	# is the reference client's 怒雷指 child object; handed out the way the faction script does (SetFaction + add_wd + AddMagic)
 	if _world.is_3d() and _world.get("fx") != null:
-		Game.chat("?gm ds SetFaction(\"wudang\")")
-		Game.chat("?gm ds Include(\"\\\\script\\\\global\\\\skills_table.lua\") add_wd(30)")
+		# --skill=<jx id>:<faction code>: another skill / faction instead (auto3d_skill_<id>_<k>.png during the flight)
+		var fx_skill := 153
+		var fx_fac := "wudang"
+		var add_fn := {"shaolin": "add_sl", "tianwang": "add_tw", "tangmen": "add_tm", "wudu": "add_wu", "emei": "add_em",
+			"cuiyan": "add_cy", "tianren": "add_tr", "gaibang": "add_gb", "wudang": "add_wd", "kunlun": "add_kl", "huashan": "add_hs"}
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--skill="):
+				var parts := arg.substr(8).split(":")
+				fx_skill = int(parts[0])
+				if parts.size() > 1:
+					fx_fac = parts[1]
+		Game.chat("?gm ds SetFaction(\"%s\")" % fx_fac)
+		Game.chat("?gm ds Include(\"\\\\script\\\\global\\\\skills_table.lua\") %s(%d)" % [add_fn.get(fx_fac, "add_wd"), 90 if fx_fac != "wudang" else 30])
 		waited = 0.0
 		while waited < 4.0 and Game.faction_last < 0:
 			await get_tree().create_timer(0.25).timeout
 			waited += 0.25
-		var fx_skill := 153
+		if fx_skill != 153:
+			# KSkillList::can_cast 0x080E4540 wants the character's level >= the skill's ReqLevel (Phi Long Tại Thiên: 80)
+			# (KPlayer::add_exp 0x080AFEA0 caps a gain at the next level's need: one level per call)
+			for k in 80:
+				if int(Game.player_attrib.get("level", 1)) >= 90:
+					break
+				Game.chat("?gm ds AddExp(2000000000, 0)")
+				await get_tree().create_timer(0.05).timeout
+			waited = 0.0
+			while waited < 6.0 and int(Game.player_attrib.get("level", 1)) < 90:
+				await get_tree().create_timer(0.25).timeout
+				waited += 0.25
+			print("AUTO3D_LEVEL level=%d skill=%d skill_level=%d" % [int(Game.player_attrib.get("level", 1)), fx_skill, int(Game.skills.get(fx_skill, {}).get("level", 0))])
 		if true:
 			if int(Game.skills.get(fx_skill, {}).get("level", 0)) <= 0:
 				Game.chat("?gm ds AddMagic(%d, 1)" % fx_skill)   # at level 1 directly (AddMagic of the script api)
@@ -918,6 +964,14 @@ func _auto3d_run() -> void:
 			while waited < 6.0 and _world.fx.spawned <= before_fx:
 				await get_tree().create_timer(0.05).timeout
 				waited += 0.05
+			if fx_skill != 153:
+				# the flight of the chosen skill, four pictures 0.3 s apart, with the missile nodes on screen
+				for k in 4:
+					await get_tree().create_timer(0.3).timeout
+					await _save_screenshot("user://logs/auto3d_skill_%d_%d.png" % [fx_skill, k])
+					for mv in _world.get("_views_root").get_children():
+						if mv.get("missle") != null and mv.get("_custom") != null:
+							print("AUTO3D_MISSLE k=%d node=%s pos=%s yaw=%.1f dir64=%s status=%s" % [k, mv.name, str(mv.global_position), rad_to_deg(mv.rotation.y), str(mv.missle.get("dir64")), str(mv.missle.get("status"))])
 			await get_tree().create_timer(0.3).timeout
 			await _save_screenshot("user://logs/auto3d_%d.png" % n)
 			n += 1
@@ -1100,9 +1154,15 @@ func _auto_fight() -> void:
 	await get_tree().create_timer(0.7).timeout
 	await _save_screenshot("user://logs/auto_fight.png")
 	waited = 0.0
+	var shot_hit := false
 	while waited < 8.0 and is_instance_valid(best) and not best.is_dead() and best.life > 0:
 		await get_tree().create_timer(0.25).timeout
 		waited += 0.25
+		if not shot_hit and best.life < life_before:
+			# the first loss: the damage number and the hit picture still on screen (auto_fight_hit.png)
+			shot_hit = true
+			await get_tree().create_timer(0.15).timeout
+			await _save_screenshot("user://logs/auto_fight_hit.png")
 	var alive: bool = is_instance_valid(best)
 	var life_after: int = best.life if alive else 0
 	var dead: bool = (not alive) or best.is_dead()
@@ -1552,11 +1612,13 @@ func _held_aura() -> int:
 
 
 # Saves the rendered frame (no-op in headless mode); used by tools/dev.py screenshot.
-func _save_screenshot(path: String) -> void:
+func _save_screenshot(path: String, half := false) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
+	if half:
+		img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_BILINEAR)
 	var err := img.save_png(path)
 	Log.info("auto", "screenshot", {"path": ProjectSettings.globalize_path(path), "error": error_string(err)})
 	print("AUTO_SCREENSHOT " + ProjectSettings.globalize_path(path))

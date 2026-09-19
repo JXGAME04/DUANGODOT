@@ -55,6 +55,17 @@ def fnum(v, default=0.0):
         return default
 
 
+def triple(v):
+    """'Rx*Ry*Rz' / 'x*y*z' -> [3 so] hoac [] khi trong (ChildObject.InitRotation chi dung khi du 3 phan tu)"""
+    parts = [x.strip() for x in str(v or "").split("*")]
+    if len(parts) != 3 or not all(parts):
+        return []
+    try:
+        return [float(x) for x in parts]
+    except ValueError:
+        return []
+
+
 def main():
     src = os.environ.get("JX_SCN3D_SRC", r"D:\game3gTQ_mo\pc\剑网江湖_Data\StreamingAssets")
     key = io.open(os.environ.get("JX_SCN3D_KEY", r"D:\game3gTQ_mo\khoa_bundle.txt"), encoding="utf-8").read().strip().split()[0]
@@ -72,7 +83,14 @@ def main():
         r = sfx_objects.get(str(sid))
         if r is None or not r[2].strip():
             return None
-        return {"res": r[2].strip(), "life_s": fnum(r[5], 30.0) / SECTION_FPS, "hang": r[7].strip() if len(r) > 7 else ""}
+        # cot 8 goc ban dau (0 zero cuc bo = theo diem treo/cha, 1 goc diem treo, 2 zero the gioi, 3 ngau nhien, 4 goc cua
+        # nguon), cot 9 dong bo (0 dung yen, 1 theo cha ca xoay, 2 theo cha khong xoay), cot 11 ti le x*y*z
+        e = {"res": r[2].strip(), "life_s": fnum(r[5], 30.0) / SECTION_FPS, "hang": r[7].strip() if len(r) > 7 else "",
+             "angle": int(fnum(r[8], 0)) if len(r) > 8 else 0, "sync": int(fnum(r[9], 0)) if len(r) > 9 else 0}
+        sc = triple(r[11]) if len(r) > 11 else []
+        if sc:
+            e["scale"] = sc
+        return e
 
     def child_entry(cid, at, depth=0):
         r = childobjs.get(str(cid))
@@ -85,7 +103,20 @@ def main():
         e = {"res": r[5].strip(), "name": r[2].strip(), "at": at, "life_s": (life / SECTION_FPS) if life > 0 else 1.5,
              "radius": fnum((r[10].split("*") or ["0"])[0], 0.0), "pos_type": int(fnum(r[12], 0)), "height": fnum(r[13], 0.0),
              "hang": r[14].strip() if len(r) > 14 else "", "sync": int(fnum(sync, 0)), "fly": sync in ("3", "4", "5", "6"),
-             "speed": fnum((speed.split("*") or ["0"])[0], 0.0)}
+             "speed": fnum((speed.split("*") or ["0"])[0], 0.0),
+             # cot 15 goc ban dau (0 goc nguoi tao, 1 goc diem treo, 2 zero, 3 ngau nhien quanh y) [ChildObject.InitRotation
+             # 0x4de510], cot 16 lech goc Rx*Ry*Rz (Rotate(Rx,0,Rz) cuc bo roi quay Ry quanh Y the gioi), cot 22 ti le x*y*z,
+             # cot 20 thoi gian mo dan khi bien mat
+             "angle": int(fnum(r[15], 0)) if len(r) > 15 else 0}
+        off = triple(r[16]) if len(r) > 16 else []
+        if off:
+            e["offset"] = off
+        sc = triple(r[22]) if len(r) > 22 else []
+        if sc:
+            e["scale"] = sc
+        fade = fnum(r[20], 0.0) if len(r) > 20 else 0.0
+        if fade > 0:
+            e["fade_s"] = fade / SECTION_FPS
         hit = r[23].strip() if len(r) > 23 else ""
         if hit.isdigit():
             h = sfx_entry(hit)
@@ -98,7 +129,7 @@ def main():
             for f in fxs:
                 # a sfx of the child's own events: at arrival / on hit it is the hit picture when the row names none
                 if f.get("when") in ("arrive", "hit") and "hit" not in e:
-                    e["hit"] = {"res": f["res"], "life_s": f["life_s"], "hang": f.get("hang", "")}
+                    e["hit"] = {"res": f["res"], "life_s": f["life_s"], "hang": f.get("hang", ""), "angle": f.get("angle", 0), "sync": f.get("sync", 0)}
                 else:
                     e.setdefault("fx", []).append(f)
         return e
@@ -142,12 +173,14 @@ def main():
         if ch.isdigit():
             c = child_entry(ch, 0.0)
             if c:
-                out.append({"res": c["res"], "hang": c.get("hang", "sys_foot"), "height": c.get("height", 0.0), "loop": True})
+                out.append({"res": c["res"], "hang": c.get("hang", "sys_foot"), "height": c.get("height", 0.0), "loop": True,
+                            "angle": c.get("angle", 0), "sync": c.get("sync", 0), "offset": c.get("offset", []), "scale": c.get("scale", [])})
         sf = r[14].strip() if len(r) > 14 else ""
         if sf.isdigit():
             e = sfx_entry(sf)
             if e:
-                out.append({"res": e["res"], "hang": e.get("hang", ""), "height": 0.0, "loop": True})
+                out.append({"res": e["res"], "hang": e.get("hang", ""), "height": 0.0, "loop": True,
+                            "angle": e.get("angle", 0), "sync": e.get("sync", 0), "scale": e.get("scale", [])})
         return out
 
     def section_effects(sec_id, kinds, states_added, ghosts, depth=0):

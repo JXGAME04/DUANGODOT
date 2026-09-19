@@ -11,6 +11,8 @@ var looping := false
 var _t := 0.0
 var _mixers: Array = []   # SFXMixerMesh layers a curve animates on the CPU
 var _tweens: Array = []
+var _uv_anims: Array = []   # [{mat, nx, ny, ua, t, base}]: SFXMeshModify meshes whose atlas cell animates (uiCurve)
+var _billboards: Array = []  # [{bb, mode, euler, offset, pos_node, base}]: SFXBillboardHelper entries (wrapper nodes turned each frame)
 var _players: Array = []
 var _particles: Array = []
 
@@ -87,6 +89,28 @@ static func _material(dir: String, m, extra_color := Color.WHITE, billboard := f
 	return mat
 
 
+# The rim-lit mesh shader (particle/blend_dst_zw_ver_rimlight [TK]): _EdgeColor / _RimPower / _AdjustA / _Enhance of the
+# material, the SFXMeshModify colour (colour + emissive, `extra`) standing in for the vertex colour the script writes
+static func _rim_material(dir: String, m: Dictionary, extra: Color, has_sfx: bool) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scenes3d/scn3d_sfx_rim.gdshader")
+	var t := _tex(dir, m.get("tex", null))
+	if t != null:
+		mat.set_shader_parameter("tex", t)
+	var e = m.get("edge", [1, 1, 1, 1])
+	mat.set_shader_parameter("edge_color", Color(e[0], e[1], e[2], e[3]) if e is Array and e.size() >= 4 else Color.WHITE)
+	mat.set_shader_parameter("rim_power", float(m.get("rim_power", 2.0)))
+	mat.set_shader_parameter("adjust_a", float(m.get("adjust_a", 1.0)))
+	mat.set_shader_parameter("enhance", float(m.get("enhance", 1.0)))
+	mat.set_shader_parameter("use_vcol_mod", has_sfx)
+	mat.set_shader_parameter("vcol_mod", extra)
+	var st = m.get("st", null)
+	if st is Array and st.size() >= 4:
+		mat.set_shader_parameter("uv_scale", Vector2(st[0], st[1]))
+		mat.set_shader_parameter("uv_offset", Vector2(st[2], st[3]))
+	return mat
+
+
 static func _curve(keys) -> Curve:
 	if keys == null or not (keys is Array) or keys.is_empty():
 		return null
@@ -149,9 +173,16 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 	# (prefab shifa_tuxi co "shang" la particle o tang 1 va "shang" la mesh o tang 2) nen khong tim theo ten
 	var jnodes: Array = desc.get("nodes", [])
 	var paths := _child_paths(jnodes)   # per JSON node: the child indices from glTF node 0 (the hierarchy, not the names)
+	var bb_pending: Array = []
 	for i in jnodes.size():
 		var jn: Dictionary = jnodes[i]
 		var n: Node = _node_at(root, paths[i])
+		if bool(jn.get("skinned", false)) or n == null:
+			# a skinned mesh (the dragon of 飞龙在天): Godot folds its bone nodes into a Skeleton3D and hangs the MeshInstance3D
+			# under it, so the child-index path no longer holds - the name does (the exporter writes it on the mesh node)
+			var alt := root.find_child(str(jn.get("name", "")), true, false)
+			if alt != null:
+				n = alt
 		if n == null:
 			continue
 		if not bool(jn.get("active", true)):
@@ -170,10 +201,19 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 					var c = sfx.get("color", [1, 1, 1, 1])
 					var e = sfx.get("emissive", [0, 0, 0, 0])
 					extra = Color(c[0] + e[0], c[1] + e[1], c[2] + e[2], clampf(c[3] + e[3], 0.0, 1.0))
-				var mat := _material(dir, jn["mesh_material"], extra, false, Vector2i(1, 1), true)
+				var mat: Material
+				if str((jn["mesh_material"] as Dictionary).get("shader", "")).to_lower().contains("rimlight"):
+					mat = _rim_material(dir, jn["mesh_material"], extra, sfx is Dictionary)
+				else:
+					mat = _material(dir, jn["mesh_material"], extra, false, Vector2i(1, 1), true)
 				for s in mi.mesh.get_surface_count():
 					mi.set_surface_override_material(s, mat)
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				if sfx is Dictionary and sfx.has("uv_anim") and mat is StandardMaterial3D:
+					# SFXMeshModify.updateUVGrow [TK 0x6fd8a0]: the atlas cell follows uiCurve(growTime)
+					var ua: Dictionary = sfx["uv_anim"]
+					_uv_anims.append({"mat": mat, "nx": float(sfx.get("nx", 1.0)), "ny": float(sfx.get("ny", 1.0)), "ua": ua, "t": 0.0,
+						"base": (mat as StandardMaterial3D).uv1_offset})
 		if jn.has("ps"):
 			var t := _make_particles(dir, jn["ps"], st)
 			if t:
@@ -186,6 +226,20 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 		if jn.has("tweens") and n is Node3D:
 			for tw in jn["tweens"]:
 				_start_tween(n as Node3D, tw)
+		if jn.has("billboard") and n is Node3D and n.get_parent() != null:
+			# SFXBillboardHelper [TK Execute 0x6f5bf0]: a wrapper takes the node's place and is turned to the camera every frame
+			# (mode 0 / 5 full, 1 about Y only, 3 flat with the camera's yaw, 2 position only); the node keeps its tweens under it.
+			# Made after this loop: the child-index paths of the nodes still to come must stay valid
+			var bbd: Dictionary = jn["billboard"]
+			var ev: Array = bbd.get("euler", [0, 0, 0])
+			var eb := Basis.from_euler(Vector3(deg_to_rad(float(ev[0])), -deg_to_rad(float(ev[1])), -deg_to_rad(float(ev[2]))), EULER_ORDER_YXZ)
+			var ov: Array = bbd.get("offset", [0, 0, 0])
+			var pn: Node = null
+			var pidx := int(bbd.get("pos_node", -1))
+			if pidx >= 0 and pidx < paths.size():
+				pn = _node_at(root, paths[pidx])
+			bb_pending.append({"node": n, "mode": int(bbd.get("mode", 0)), "euler": eb, "offset": Vector3(float(ov[0]), float(ov[1]), -float(ov[2])),
+				"pos_node": pn if pn is Node3D and pn != n else null})
 		if jn.has("light"):
 			var l: Dictionary = jn["light"]
 			var ol := OmniLight3D.new()
@@ -195,6 +249,22 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 			ol.omni_range = clampf(float(l.get("range", 6.0)), 0.5, 20.0)
 			ol.shadow_enabled = false
 			(n as Node3D).add_child(ol)
+	for b in bb_pending:
+		var n3: Node3D = b["node"]
+		var par := n3.get_parent()
+		if par == null:
+			continue
+		var wrap := Node3D.new()
+		wrap.name = "bb_" + str(n3.name)
+		var gt: Transform3D = n3.global_transform
+		var idx := n3.get_index()
+		par.add_child(wrap)
+		par.move_child(wrap, idx)
+		wrap.global_transform = gt
+		par.remove_child(n3)
+		wrap.add_child(n3)
+		n3.transform = Transform3D.IDENTITY
+		_billboards.append({"bb": wrap, "mode": b["mode"], "euler": b["euler"], "offset": b["offset"], "pos_node": b["pos_node"], "base": gt})
 	if life <= 0.0:
 		life = maxf(0.6, longest) if not looping else 0.0
 	return true
@@ -561,8 +631,75 @@ func _start_tween(n: Node3D, tw: Dictionary) -> void:
 	_tweens.append(t)
 
 
+# uvGrow(t) of an SFXMeshModify: the curve's value at t (linear between keys, looping over the last key time when the
+# post wrap is Loop, else held), whole frames unless useSingleLerpGrow; the cell it names shifts the material's uv offset
+static func _uv_cell(ua: Dictionary, nx: float, ny: float, t: float) -> Vector2:
+	var curve: Array = ua.get("curve", [])
+	var last := float(curve[curve.size() - 1][0])
+	if bool(ua.get("loop", false)) and last > 0.0:
+		t = fmod(t, last)
+	var g := float(curve[0][1])
+	if t >= last:
+		g = float(curve[curve.size() - 1][1])
+	else:
+		for i in range(1, curve.size()):
+			var t1 := float(curve[i][0])
+			if t <= t1:
+				var t0 := float(curve[i - 1][0])
+				var f := 0.0 if t1 <= t0 else (t - t0) / (t1 - t0)
+				g = lerpf(float(curve[i - 1][1]), float(curve[i][1]), f)
+				break
+	var col: float
+	var row: float
+	if int(ua.get("lerp", 0)) == 1:
+		col = float(ua.get("ox", 0)) + g
+		row = float(ua.get("oy", 0))
+	else:
+		var f := int(g) + int(ua.get("ox", 0))
+		col = float(posmod(f, int(nx)))
+		@warning_ignore("integer_division")
+		row = float(f / int(nx) + int(ua.get("oy", 0)))
+	return Vector2((col - float(ua.get("col0", 0.0))) / nx, (row - float(ua.get("row0", 0.0))) / ny)
+
+
+# The billboards: the Unity rule camRot x s_rot_180 x Euler(e) mirrored to Godot is the camera's own basis x Euler'
+# (the camera basis here has +Z toward the viewer); RotBillboardY keeps only the camera's yaw; the position is the
+# PosTrans node's (else the node's own) plus the offset turned by the camera (its z toward the viewer)
+func _process_billboards() -> void:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return
+	var g: Basis = cam.global_transform.basis
+	var yaw := atan2(g.z.x, g.z.z)
+	for b in _billboards:
+		var wrap: Node3D = b["bb"]
+		if not is_instance_valid(wrap):
+			continue
+		var mode := int(b["mode"])
+		var eb: Basis = b["euler"]
+		match mode:
+			0, 5:
+				wrap.global_basis = g * eb
+			1, 4:
+				wrap.global_basis = Basis(Vector3.UP, yaw) * eb
+			3:
+				wrap.global_basis = Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -PI * 0.5) * eb
+			_:
+				pass
+		var base: Vector3 = (b["pos_node"] as Node3D).global_position if b["pos_node"] != null and is_instance_valid(b["pos_node"]) else (b["base"] as Transform3D).origin
+		wrap.global_position = base + g * (b["offset"] as Vector3)
+
+
 func _process(delta: float) -> void:
 	_t += delta
+	if not _billboards.is_empty():
+		_process_billboards()
+	for a in _uv_anims:
+		a["t"] = float(a["t"]) + delta
+		var off := _uv_cell(a["ua"], float(a["nx"]), float(a["ny"]), float(a["t"]))
+		var m: StandardMaterial3D = a["mat"]
+		var base: Vector3 = a["base"]
+		m.uv1_offset = Vector3(base.x + off.x, base.y + off.y, base.z)
 	if not _mixers.is_empty():
 		_process_mixers(delta)
 	if life > 0.0 and _t >= life:

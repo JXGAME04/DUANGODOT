@@ -702,6 +702,52 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-57) — kỹ năng đọc lại từ nhị phân: hướng vật con, quad quay theo camera, rồng có xương, ô atlas, vũ khí bỏ transform gốc, số sát thương + hiệu ứng trúng đòn trên mục tiêu, tên kỹ năng
+
+Chủ dự án báo: "skill đánh ra bị sai — hình ảnh bay ra bị nghiêng", "hiệu ứng hỗ trợ dưới chân", "tay cầm một số vũ khí sai",
+"hiệu ứng trúng quái sai", "kiểm tra lại toàn bộ skill các phái", "test rồng 90 Cái Bang". Mỗi điểm mổ lại từ `GameAssembly.dll`:
+
+- **Hướng vật con** `ChildObject.InitRotation 0x4de510`: cột 15 `skill_childobj` (0 góc người tạo = `Front` của cha, 1 góc điểm treo, 2 zero
+  thế giới, 3 ngẫu nhiên quanh Y) rồi `Rotate(Rx,0,Rz)` cục bộ (Euler Unity: Z trước, X sau) và quay `Ry` quanh Y thế giới; `sfx_object`
+  cột 8/9 (góc ban đầu 0 cục bộ/1 treo/2 zero/3 ngẫu nhiên/4 góc nguồn; đồng bộ 1/2 = theo cha). Trước đây mọi hiệu ứng xoay theo
+  `rotation.y = yaw` — **ngược 180°** (model nhìn −Z, prefab xuất nhìn +Z) và sfx góc 2 cũng bị xoay theo người. `map_skills.py` xuất
+  `angle/offset/scale/fade_s/sync`; `KSkillFx3D.orient()` áp luật (gương x → Ry, Rz đổi dấu); sfx `sync 1/2` gắn vào view người thi triển.
+  Đạn bay: `ChildObject.UpdateMove 0x4e0b00` = `set_forward` theo hướng bay XZ, không chúi → `KMissle3DView.rotation.y = atan2(dir)`
+  (trước cố định 0).
+- **`SFXBillboardHelper`** (128 node, chưa từng đọc — nguồn của "hình bị nghiêng"): bố cục `Billboards[]{Trans, mode, EulerAngle, PosOffset,
+  PosTrans, 4 bool(4 byte)}, GlobalPosOffset, FitOwnSizeBound, mUpdate` (128/128 hết byte). `Execute 0x6f5bf0`: mode 0 Billboard (83):
+  `rotation = camRot × s_rot_180 × Euler(e)`, `position = PosTrans.position + camRot × (PosOffset + GlobalPosOffset)` (PosOffset z âm =
+  kéo về phía camera, vd 七星符 −0,86 m); 1 RotBillboardY (27): `Euler(0, camY − 180, 0)`; 2 NoRotPos (67): chỉ vị trí; 5 RotLocalBillboardZ
+  (10); 3 Horizontal (1). Gương sang Godot: cơ sở = **cơ sở camera Godot × Euler'** (vì `M·RotY180·M` triệt tiêu). `Scn3DSfx`: node bọc
+  `bb_*` quay mỗi khung (`_process_billboards`), tween của node con giữ nguyên.
+- **`SFXMeshModify` đọc trọn** (418 bản, đúng 16 byte cuối): thêm `uiCurve`, `useSingleLerpGrow/useVertexColor/useRandomGrow/useMask`,
+  mask (useMask = 0 ở mọi prefab → **mask-dissolve không dùng**, đóng C4). `Update 0x6fdb70`: ô = `frame + uvOffset_X` **đếm ngang rồi
+  xuống hàng** (`col = f % nx`, `row = f / nx + uvOffset_Y`) — rồng 飞龙在天 có ox 9 > nx 8 nên trước lấy nhầm ô; `useSingleLerpGrow` =
+  cuộn u liên tục; 26 mesh có đường cong ô (flipbook/cuộn) → `Scn3DSfx._uv_anims` dời `uv1_offset`. **Màu đỉnh** UnityPy trả 0..255 →
+  25 mesh trắng xoá; chia 255.
+- **SkinnedMeshRenderer** trong prefab hiệu ứng (rồng `model_long_001` 14 xương + clip `Take 001`; 8 prefab: 亢龙有悔, 飞龙在天, 云龙击 ×3,
+  冰心仙子, 蛤蟆神功, 天惊): mesh lấy từ `SFXMeshModify.shareMesh` (bundle tước `m_Mesh`), skin + IBM (`FLIP·M·FLIP`) → glTF; Godot gộp
+  xương vào `Skeleton3D` nên tìm node mesh theo tên. Shader `blend_dst_zw_ver_rimlight` (GLSL APK): `rgb = mix(tex×enhance, vcol×_EdgeColor×
+  (vcol.a×25+1), pow(1−N·V, _RimPower))`, `alpha = tex.a×_AdjustA` → `scn3d_sfx_rim.gdshader` (17 prefab), `edge/rim_power/adjust_a` xuất theo.
+- **Vũ khí**: `GameNodePool.TryInstantiateNode 0x6eb770` + `Player.UpdateModelLogic 0x4fbc60` đặt prefab vào bản lề với `localPosition 0,
+  localRotation identity, localScale 1` → **transform gốc prefab bị bỏ** (mọi gốc quay −90° X; 15 prefab còn lệch −22 m: 龙泉剑, 斩马剑, 乌金剑,
+  齿铗剑, 万仞剑, 破风刀, 滚珠宝刀, 火尖枪, 破天戟, 杆棒, 混铁棒, 搅海棒, 雪花亮银刀, 鸳鸯刀, 破天锤). `export_weapon.py` bỏ L gốc; lưỡi dọc +Z bản lề
+  (kiểm bằng tư thế đâm `gjdj01`: kiếm đâm thẳng về trước, ngồi ngựa kiếm chúi trước-dưới).
+- **Số sát thương / tên kỹ năng**: `FloatingText` 26 kiểu (prefab TopRoot, `export_floating.py` → `assets3d/ui/floating_text.json`): cỡ chữ,
+  gradient, viền/bóng, lệch px NGUI, 4 đường cong (y, x, alpha, tỉ lệ) theo giây; `TopRoot.ShowHpChg 0x5a3550`: chí mạng → 10, không → 1/0,
+  mất máu của mình → 8 (`"N0"`); `ShowSkillName 0x5a3f80`: 3..7 theo ngũ hành, 13 chung; `ShowHitMiss`: 2. `KFloatingText3D.gd` vẽ trên
+  lớp tên; gói `EntityLife` (delta, source) → số; `EntityAction` kỹ năng → tên kỹ năng màu hệ.
+- **Hiệu ứng trúng đòn**: `SkillHitNode` → sfx_object treo `sys_bd`, sync 2 (theo mục tiêu, không xoay), góc 2 (20..100 đều zero) →
+  `KSkillFx3D.hit_on(view mục tiêu)` khi `EntityLife` giảm máu và nguồn vừa thi triển (≤ 2,5 s [tự chọn]); hàng `hit` của vật con bay >
+  vật con khác > hệ (`element_hit`, hệ của người đánh khi đánh thường). Gói va chạm đạn chỉ còn sinh vật con "đến đích".
+- Công cụ kiểm: `--auto3d --skill=<id>:<phái> --series=<0..4>` (lên cấp 90 từng `AddExp` vì `add_exp 0x080AFEA0` chặn một cấp/lần; `KSkillList::
+  can_cast 0x080E4540` đòi cấp ≥ ReqLevel 80 của 飞龙在天) chụp 4 ảnh bay + `AUTO3D_MISSLE` (yaw theo dir64); `--factions --fxshots`: ảnh
+  từng kỹ năng, camera 8 m sau lưng (`auto3d_fx_<phái>_<id>.png`); `auto_fight_hit.png` = ảnh ngay sau đòn đầu (số "12" đỏ + tia 金系击中).
+- Kiểm: rồng 90 Cái Bang bay có thân rồng viền sáng, tên "Phi Long Tại Thiên" nổi; đánh heo: `AUTO3D_FLOATS added=6 hit_fx=6`; sweep 10 phái
+  170 kỹ năng 121/133 có hình (12 còn lại là kỹ năng chỉ có vật con bay — hình trúng nay ở mục tiêu, sweep không có mục tiêu → thêm `hit_on`
+  vào sweep); Godot 589, UiCheck 162, e2e 4/4.
+- commit: `JX NEXT 3D: 3D-57 - ky nang doc lai tu nhi phan: InitRotation, SFXBillboardHelper, SFXMeshModify tron, skinned mesh + rim, vu khi bo transform goc, FloatingText, hit_on`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-56) — cưỡi ngựa sai hình (chủ dự án phát hiện): điểm ngồi trên xương, nhóm anim 20 bị vũ khí ghi đè
 
 - Sai: `ma_qi1` (hinge_list 50 "坐骑1号位" [TK]) của ngựa nằm trên **xương** `Bip001 Spine1` (boneIsHang = false, lệch (0,005; −0,338; 0), quay
