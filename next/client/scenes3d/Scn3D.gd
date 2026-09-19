@@ -48,6 +48,7 @@ var _lod_timer := 0.0
 var spawn_mark := ""     # --at=<diem danh dau>: dung tai diem do (so anh voi game goc)
 var test_sfx := ""       # --sfx=<ten tep hieu ung> de chup rieng mot hieu ung
 var test_weapons := false  # --weapons: every weapon in the character's hand, one picture each (the grip check)
+var test_sfxall := false   # --sfxall: every exported effect in turn, its world extent measured (a scale / transform check)
 var nav_region: NavigationRegion3D
 var nav_map: RID
 var show_nav := false
@@ -72,6 +73,8 @@ func _ready() -> void:
 			test_sfx = a.substr(6)   # --auto: this effect at the character, a picture every 10 frames (checking one export)
 		elif a == "--weapons":
 			test_weapons = true
+		elif a == "--sfxall":
+			test_sfxall = true
 	dir = ProjectSettings.globalize_path(ASSETS3D) + "/" + map_name
 	sfx_dir = ProjectSettings.globalize_path(ASSETS3D) + "/sfx"
 	var t0 := Time.get_ticks_msec()
@@ -644,6 +647,49 @@ func _screenshot(path: String) -> void:
 func _auto() -> void:
 	for i in 6:
 		await get_tree().process_frame
+	if test_sfxall:
+		# every effect of assets3d/sfx (sfx_index.json) spawned at the character for ~0.6 s; the extent of everything it
+		# draws (meshes, particles, ribbons) at 0.1 / 0.3 / 0.5 s -> SCN3D_SFX_SIZE lines; > 15 m is worth a look
+		var names: Array = []
+		for f in DirAccess.get_files_at(sfx_dir):
+			if f.ends_with(".json") and f != "sfx_index.json" and f != "skill_map.json" and FileAccess.file_exists(sfx_dir + "/" + f.get_basename() + ".gltf"):
+				names.append(f.get_basename())
+		names.sort()
+		var big := 0
+		for nm in names:
+			var fname := str(nm).replace("/", "_")
+			var fx: Node3D = SFX_SCRIPT.spawn(self, sfx_dir, fname, player.global_position + Vector3(0, 0.9, 0), player.yaw, 0.0, false)
+			if fx == null:
+				print("SCN3D_SFX_SIZE name=%s extent=-1 (khong dung duoc)" % fname)
+				continue
+			var worst := 0.0
+			var worst_node := ""
+			for k in 3:
+				for i in 12:
+					await get_tree().process_frame
+				if not is_instance_valid(fx):
+					break
+				for vi in fx.find_children("*", "VisualInstance3D", true, false):
+					var v := vi as VisualInstance3D
+					if v == null or not v.is_inside_tree() or not v.visible:
+						continue
+					var aabb: AABB = v.get_aabb()
+					if aabb.size == Vector3.ZERO:
+						continue
+					var gaabb := v.global_transform * aabb
+					var d := (gaabb.get_center() - player.global_position).length() + gaabb.get_longest_axis_size() * 0.5
+					if d > worst:
+						worst = d
+						worst_node = str(v.name)
+			print("SCN3D_SFX_SIZE name=%s extent=%.1f node=%s" % [fname, worst, worst_node])
+			if worst > 15.0:
+				big += 1
+			if is_instance_valid(fx):
+				fx.queue_free()
+			await get_tree().process_frame
+		print("SCN3D_SFXALL effects=%d big=%d" % [names.size(), big])
+		get_tree().quit()
+		return
 	if test_weapons:
 		# every weapon in turn (weapons.json order by type), camera close in front of the character, one picture each:
 		# scn3d_weapon_<id>.png - tools/scn3d/weapon_sheet.py lays them out as a contact sheet

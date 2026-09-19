@@ -130,6 +130,7 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
    `JX_CONFIG=Release python tools/dev.py start` → zone 19001 (981 map, map 9053 có 494 NPC), gateway 19100/19102.
 4. Renderer: mặc định GL Compatibility (ADR-008); `set JX_RENDER=mobile` (hoặc `forward_plus`) trước `client3d.cmd` → Vulkan, bloom toả rộng như bản tham khảo (3D-66).
    Kiểm tay cầm 71 vũ khí: `godot --path client scenes3d/Scn3D.tscn -- --auto --map=copy_baling --weapons` rồi `python tools/scn3d/weapon_sheet.py --crop 330,100,950,700 --cols 8` (3D-67).
+   Kiểm kích thước 343 hiệu ứng: `… Scn3D.tscn -- --auto --map=copy_baling --sfxall` → `SCN3D_SFX_SIZE name=… extent=<m>` (tầm xa nhất của mesh/hạt/dải so với nhân vật ở 0,1/0,3/0,5 s; > 15 m đáng xem — 3D-71 bắt lỗi tia sét 33 m; còn lại chỉ 3 prefab UI và 追星逐月 (đặt 20 m trên cao theo thiết kế)).
 4b. Client: `godot --path client -- --auto --auto3d --gm=NewWorld(9053,300,150) --server=127.0.0.1:19100 --account=x --password=auto`
    chạy tự động (vào map 1 → NewWorld → bản vẽ đổi sang `KWorldView3D` → chụp 3 góc → đi → kiếm trên tay → đánh heo → bẫy về map 1 →
    `AUTO3D_OK`); chơi tay: `client.cmd` rồi gõ `?gm ds NewWorld(9053,232,194)` trong chat (zone dev có `gm_chat`).
