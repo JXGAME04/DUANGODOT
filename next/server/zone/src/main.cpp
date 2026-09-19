@@ -301,37 +301,62 @@ int main(int argc, char** argv)
     }
 
     // every map this zone hosts (a portal needs its target loaded): zone.maps = "1,3,7" under zone.maps_dir;
-    // the default map (zone.map_dir) is the first entry
+    // the default map (zone.map_dir) is the first entry.  zone.maps_dir_extra = "a;b" names more folders of the same
+    // layout (the 3D test maps of ADR-008 live in client/assets3d/maps); a map id found in several folders takes the first.
     zc.worlds.push_back(w);
     {
-        const std::string maps_dir = cfg.get_string("zone.maps_dir", "client/assets/maps");
+        std::vector<std::string> map_dirs{cfg.get_string("zone.maps_dir", "client/assets/maps")};
+        {
+            std::string extra = cfg.get_string("zone.maps_dir_extra", "");
+            std::size_t start = 0;
+            while (start <= extra.size()) {
+                const std::size_t sep = extra.find(';', start);
+                const std::string item = extra.substr(start, sep == std::string::npos ? std::string::npos : sep - start);
+                start = sep == std::string::npos ? extra.size() + 1 : sep + 1;
+                if (!item.empty()) map_dirs.push_back(item);
+            }
+        }
         std::string list = cfg.get_string("zone.maps", "");
         for (char& c : list) if (c == ';' || c == ' ') c = ',';
-        std::vector<std::uint32_t> ids;
+        std::vector<std::pair<std::uint32_t, std::string>> bundles;   // id, folder
+        auto add_bundle = [&](std::uint32_t id, const std::string& dir) {
+            for (const auto& b : bundles) if (b.first == id) return;
+            bundles.emplace_back(id, dir);
+        };
         if (list == "all" || list == "*") {
             // every bundle python tools/dev.py assets exported: the whole old game is 980 maps
-            std::error_code ec;
-            for (const auto& entry : std::filesystem::directory_iterator(maps_dir, ec)) {
-                if (!entry.is_directory(ec)) continue;
-                const std::string name = entry.path().filename().string();
-                if (name.empty() || name.find_first_not_of("0123456789") != std::string::npos) continue;
-                ids.push_back(static_cast<std::uint32_t>(std::strtoul(name.c_str(), nullptr, 10)));
+            for (const std::string& maps_dir : map_dirs) {
+                std::error_code ec;
+                std::vector<std::uint32_t> ids;
+                for (const auto& entry : std::filesystem::directory_iterator(maps_dir, ec)) {
+                    if (!entry.is_directory(ec)) continue;
+                    const std::string name = entry.path().filename().string();
+                    if (name.empty() || name.find_first_not_of("0123456789") != std::string::npos) continue;
+                    ids.push_back(static_cast<std::uint32_t>(std::strtoul(name.c_str(), nullptr, 10)));
+                }
+                std::sort(ids.begin(), ids.end());
+                if (ec) jx::log::warn("boot", "maps dir unreadable", {jx::log::kv("dir", maps_dir), jx::log::kv("error", ec.message())});
+                for (const std::uint32_t id : ids) add_bundle(id, (std::filesystem::path(maps_dir) / std::to_string(id)).string());
             }
-            std::sort(ids.begin(), ids.end());
-            if (ec) jx::log::warn("boot", "maps dir unreadable", {jx::log::kv("dir", maps_dir), jx::log::kv("error", ec.message())});
         } else {
             std::size_t start = 0;
             while (start <= list.size()) {
                 const std::size_t comma = list.find(',', start);
                 const std::string item = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
                 start = comma == std::string::npos ? list.size() + 1 : comma + 1;
-                if (!item.empty()) ids.push_back(static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 10)));
+                if (item.empty()) continue;
+                const auto id = static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 10));
+                std::string dir = (std::filesystem::path(map_dirs.front()) / item).string();
+                for (const std::string& maps_dir : map_dirs) {
+                    const auto candidate = std::filesystem::path(maps_dir) / item;
+                    if (std::filesystem::exists(candidate / "map.json")) { dir = candidate.string(); break; }
+                }
+                add_bundle(id, dir);
             }
         }
         const auto load_start = std::chrono::steady_clock::now();
-        for (const std::uint32_t id : ids) {
+        for (const auto& [id, dir] : bundles) {
             if (id == 0 || (w.map && static_cast<std::uint32_t>(w.map->id) == id)) continue;
-            const std::string dir = (std::filesystem::path(maps_dir) / std::to_string(id)).string();
             std::string error;
             auto map = jx::zone::KMapData::load(dir, &error);
             if (!map) {

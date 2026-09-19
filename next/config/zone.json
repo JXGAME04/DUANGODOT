@@ -76,6 +76,8 @@
     // or "all" for every bundle under maps_dir (980 maps = 110 730 npc, 819 MB, tick 1,6 ms idle)
     "maps": "all",
     "maps_dir": "client/assets/maps",
+    // more folders of the same layout, "a;b": the 3D test maps (ADR-008, tools/scn3d/make_map3d.py) - map 9053 = Ba Lang 3D
+    "maps_dir_extra": "client/assets3d/maps",
     "map_npcs": true
   },
   "log": {
