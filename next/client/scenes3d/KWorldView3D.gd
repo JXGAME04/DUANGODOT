@@ -127,6 +127,11 @@ func _ready() -> void:
 func load_map() -> bool:
 	var has_map: bool = place.load_map(Game.map_id)
 	cam_rig.setup(place.camera_table() if has_map else {})
+	# the scene camera's far plane [TK Camera.far_clip_plane: 80 m Ba Lăng, 60..100 m the others, 500 m one field]: beyond it
+	# the linear fog of the scene has reached its end colour anyway (Ba Lăng fog 10..50 m); the quality "far" stays for a map without one
+	var cu = (place.scene.get("render", {}) as Dictionary).get("camera_unity", null) if has_map and place.scene is Dictionary else null
+	if cu is Dictionary and float(cu.get("far", 0.0)) > 0.0:
+		cam_rig.set_far(float(cu["far"]))
 	_models = {}
 	_npc_models = {}
 	_npc_dir = ""

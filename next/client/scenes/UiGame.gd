@@ -826,7 +826,7 @@ func _auto3d_run() -> void:
 	print("AUTO3D view=%s map=%d entities=%d own=%s" % [_world.name, Game.map_id, _entities.size(), str(own.scene_pos) if own else "-"])
 	if _world.is_3d() and _world.get("place") != null and _world.place.has_method("scene_effects_live"):
 		await get_tree().create_timer(1.0).timeout
-		print("AUTO3D_SCENEFX placed=%d live=%d" % [_world.place._effects.size(), _world.place.scene_effects_live()])
+		print("AUTO3D_SCENEFX placed=%d live=%d cam_far=%.0f glow=%s" % [_world.place._effects.size(), _world.place.scene_effects_live(), _world.cam_rig.cam.far, str(_world.place._env.environment.glow_enabled) if _world.place._env != null else "-"])
 	if not _world.is_3d():
 		print("AUTO3D_FAIL no 3D view")
 		get_tree().quit(1)

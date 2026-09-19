@@ -827,6 +827,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-68) — mặt xa camera theo cảnh (`Camera.far_clip_plane` [TK]) thay số chất lượng
+
+- `scene.json render.camera_unity.far` (Ba Lăng 60 m, Biện Kinh/Đạo Hương/Vĩnh Lạc/Xích Vưu/Đào Hoa 80, Thanh Thành/Lâm An 100, Thành Đô 500) →
+  `KWorldView3D.load_map` gọi `KCamera3D.set_far` sau `setup`; map không có số giữ `QUALITY.far` [tự chọn]. Hợp với sương tuyến tính của cảnh
+  (Ba Lăng 10..50 m: ngoài 50 m toàn màu sương) và cắt thân cây lớp 15 ở 50 m (3D-65) — lá lớp 10 không cắt nhưng chìm trong sương.
+  `AUTO3D_SCENEFX … cam_far=60 glow=true`. Godot 631/631.
+- commit: `JX NEXT 3D: 3D-68 - mat xa camera theo canh (camera_unity.far), AUTO3D_SCENEFX in cam_far/glow`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-67) — bảng tổng hợp tay cầm 71 vũ khí (`Scn3D --weapons` + `weapon_sheet.py`), quét lại 133 kỹ năng
 
 - `Scn3D.gd --auto --map=copy_baling --weapons`: đeo lần lượt 71 vũ khí (`weapons.json` theo loại), camera trước mặt (yaw 20, pitch 10, 3,6 m),

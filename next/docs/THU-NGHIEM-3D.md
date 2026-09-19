@@ -128,7 +128,9 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
    `sounds`/`text`/`missles`/`*.json` là bản sao bộ xuất đầy đủ (từ worktree `handover-doc-review`). Thiếu bộ này thì không có thanh 2.0.
 3. Build bản 3D: `builduild_zone.cmd all` (VS 2022, không commit) và `go build -o ../build/go/ ./cmd/...` trong `services/`;
    `JX_CONFIG=Release python tools/dev.py start` → zone 19001 (981 map, map 9053 có 494 NPC), gateway 19100/19102.
-4. Client: `godot --path client -- --auto --auto3d --gm=NewWorld(9053,300,150) --server=127.0.0.1:19100 --account=x --password=auto`
+4. Renderer: mặc định GL Compatibility (ADR-008); `set JX_RENDER=mobile` (hoặc `forward_plus`) trước `client3d.cmd` → Vulkan, bloom toả rộng như bản tham khảo (3D-66).
+   Kiểm tay cầm 71 vũ khí: `godot --path client scenes3d/Scn3D.tscn -- --auto --map=copy_baling --weapons` rồi `python tools/scn3d/weapon_sheet.py --crop 330,100,950,700 --cols 8` (3D-67).
+4b. Client: `godot --path client -- --auto --auto3d --gm=NewWorld(9053,300,150) --server=127.0.0.1:19100 --account=x --password=auto`
    chạy tự động (vào map 1 → NewWorld → bản vẽ đổi sang `KWorldView3D` → chụp 3 góc → đi → kiếm trên tay → đánh heo → bẫy về map 1 →
    `AUTO3D_OK`); chơi tay: `client.cmd` rồi gõ `?gm ds NewWorld(9053,232,194)` trong chat (zone dev có `gm_chat`).
    Bản vẽ chọn tự động theo `client/assets3d/maps/<id>/map3d.json` (`Game.want_3d`), `--3d`/`--2d` ép.

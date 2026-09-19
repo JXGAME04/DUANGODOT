@@ -72,6 +72,12 @@ func setup(p: Dictionary, fov: float = 40.0) -> void:
 		cam.fov = fov
 
 
+# the far plane of the scene's own camera (the reference's far_clip_plane), else the quality setting stays
+func set_far(f: float) -> void:
+	if cam and f > 0.0:
+		cam.far = f
+
+
 func _ready() -> void:
 	arm = SpringArm3D.new()
 	arm.name = "Arm"
