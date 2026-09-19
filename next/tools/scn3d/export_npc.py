@@ -40,6 +40,13 @@ MARK_TO_CHA = {
 PLAYER_CHA = 1
 
 
+def load_ten_viet():
+    try:
+        return json.load(io.open(os.path.join(HERE, "ten_viet.json"), encoding="utf-8"))
+    except Exception:
+        return {"npc": {}, "map": {}}
+
+
 def load_bundle(src, name):
     env = UnityPy.load(bundle_file(src, name))
     cont = {}
@@ -449,11 +456,15 @@ class NpcExporter:
                 "buffers": [{"uri": fname + ".bin", "byteLength": len(buf)}]}
         with io.open(os.path.join(self.out, fname + ".gltf"), "w", encoding="utf-8") as f:
             json.dump(gltf, f)
-        info = {"cha": cha_id, "name": cp["name"], "bone": bone, "file": fname + ".gltf", "scale": cp["scale"], "anims": anim_names,
+        name_vi = TEN_VIET.get("npc", {}).get(cp["name"], "")
+        info = {"cha": cha_id, "name": cp["name"], "name_vi": name_vi, "bone": bone, "file": fname + ".gltf", "scale": cp["scale"], "anims": anim_names,
                 "sizeY": self.tables.model_view.get(cha_id), "stats": stats}
-        print("  cha %d %s [%s]: %d phan, %d dinh, %d tam giac, %d animation, xuong thieu %d" % (
-            cha_id, cp["name"], bone, stats["parts"], stats["verts"], stats["tris"], stats["anims"], stats["missing_bones"]))
+        print("  cha %d %s (%s) [%s]: %d phan, %d dinh, %d tam giac, %d animation, xuong thieu %d" % (
+            cha_id, cp["name"], name_vi or "?", bone, stats["parts"], stats["verts"], stats["tris"], stats["anims"], stats["missing_bones"]))
         return info
+
+
+TEN_VIET = load_ten_viet()
 
 
 def euler_to_quat(x, y, z):

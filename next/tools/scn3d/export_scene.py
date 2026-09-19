@@ -430,7 +430,11 @@ class Exporter:
         if row is None:
             return {}
         cam = [float(x) for x in row[18].split("*")] if row[18].strip() else [19, 10, 21, 0, 40, 40, 80]
-        return {"id": int(row[0]), "name": row[1], "note": row[2], "sl_markpath": row[5], "sl_type": row[7],
+        try:
+            tv = json.load(io.open(os.path.join(HERE, "ten_viet.json"), encoding="utf-8")).get("map", {})
+        except Exception:
+            tv = {}
+        return {"id": int(row[0]), "name": row[1], "name_vi": tv.get(row[1].strip(), ""), "note": row[2], "sl_markpath": row[5], "sl_type": row[7],
                 "camera": {"dist": cam[0], "dist_min": cam[1], "dist_max": cam[2], "yaw": cam[3], "pitch": cam[4], "pitch_min": cam[5], "pitch_max": cam[6]},
                 "fog_type": row[27].strip() if len(row) > 27 else ""}
 

@@ -306,7 +306,8 @@ func _setup_npcs() -> void:
 		npc.name = "npc_%s" % p["mark"]
 		npc.cha = int(p["cha"])
 		add_child(npc)
-		if not npc.setup(npc_dir, mi["file"], float(mi.get("scale", 1.0)), str(mi.get("name", "")), float(mi.get("sizeY", 0.0) if mi.get("sizeY") != null else 0.0)):
+		var shown: String = str(mi.get("name_vi", "")) if str(mi.get("name_vi", "")) != "" else str(mi.get("name", ""))
+		if not npc.setup(npc_dir, mi["file"], float(mi.get("scale", 1.0)), shown, float(mi.get("sizeY", 0.0) if mi.get("sizeY") != null else 0.0)):
 			npc.queue_free()
 			continue
 		npc.global_position = Vector3(p["pos"][0], p["pos"][1], p["pos"][2])
@@ -353,7 +354,7 @@ func _process(_delta: float) -> void:
 	var p: Vector3 = player.global_position
 	var t: Dictionary = info.get("table", {})
 	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  |  nap %d ms\ncamera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)\nnhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f\nchuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
-		map_name, str(t.get("name", "")), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats["load_ms"],
+		map_name, (str(t.get("name_vi", "")) if str(t.get("name_vi", "")) != "" else str(t.get("name", ""))), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats["load_ms"],
 		cam_rig.yaw, cam_rig.pitch, cam_rig.dist, "bat" if use_lm else "tat", lm_gain, p.x, p.y, p.z, -p.x, p.y, p.z]
 
 
