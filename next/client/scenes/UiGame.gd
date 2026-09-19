@@ -667,10 +667,25 @@ func _auto3d_run() -> void:
 	await _auto_fight()
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
+	# a trap (the reference map's EnterPoint_wld became one, make_map3d.py): stand next to it, walk in, the zone's NewWorld
+	# takes us to Phuong Tuong - a 2D map - and the view swaps back to 2D (KNpc::ChangeWorld -> G2C_CHANGE_MAP)
+	var map_before := Game.map_id
+	Game.chat("?gm ds SetPos(52, 77)")
+	await get_tree().create_timer(0.8).timeout
+	Game.move_to(47 * 32 + 16, 77 * 32 + 16)
+	waited = 0.0
+	while waited < 12.0 and Game.map_id == map_before:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	await get_tree().create_timer(1.5).timeout
+	await _save_screenshot("user://logs/auto3d_%d.png" % n)
+	n += 1
+	print("AUTO3D_TRAP from=%d to=%d view3d=%s entities=%d" % [map_before, Game.map_id, _world.is_3d(), _entities.size()])
 	var models := 0
 	var markers := 0
+	var views = _world.get("_views")   # the 3D view's table; the 2D view (after the trap) has none
 	for node in _entities.values():
-		var v = _world._views.get(node)
+		var v = views.get(node) if views is Dictionary else null
 		if v != null and v.model != null:
 			models += 1
 		else:

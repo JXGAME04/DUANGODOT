@@ -114,6 +114,23 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 2. Nước / lá cây đung đưa (đang là vật liệu tĩnh), che mờ nhà chắn camera.
 3. Nối với zone: `X = x`, `Z = y` (đơn vị scene của zone), cao độ chỉ để vẽ; map 3D không có tầng đi được chồng nhau.
 
+## Chạy thế giới 3D với zone thật (M3D-1, từ 2026-09-19)
+
+1. Tài sản: `python tools/scn3d/export_scene.py world_baling`, `python tools/scn3d/export_npc.py --map world_baling`,
+   `python tools/scn3d/export_weapon.py`, rồi `python tools/scn3d/make_map3d.py world_baling --id 9053` → `client/assets3d/maps/9053/`
+   (`map.json` + `obstacle.bin` cho zone, `map3d.json` + `models.json` cho client, bẫy ra Phượng Tường + Lua trong `data/script/3d`).
+   Zone đọc thư mục này qua `zone.maps_dir_extra` (config/zone.json).
+2. `client/assets` của bản 3D là thư mục thật: junction `maps`/`sprites`/`npcres` sang `swrod3/next/client/assets`, còn `ui`/`items`/
+   `sounds`/`text`/`missles`/`*.json` là bản sao bộ xuất đầy đủ (từ worktree `handover-doc-review`). Thiếu bộ này thì không có thanh 2.0.
+3. Build bản 3D: `builduild_zone.cmd all` (VS 2022, không commit) và `go build -o ../build/go/ ./cmd/...` trong `services/`;
+   `JX_CONFIG=Release python tools/dev.py start` → zone 19001 (981 map, map 9053 có 494 NPC), gateway 19100/19102.
+4. Client: `godot --path client -- --auto --auto3d --gm=NewWorld(9053,300,150) --server=127.0.0.1:19100 --account=x --password=auto`
+   chạy tự động (vào map 1 → NewWorld → bản vẽ đổi sang `KWorldView3D` → chụp 3 góc → đi → kiếm trên tay → đánh heo → bẫy về map 1 →
+   `AUTO3D_OK`); chơi tay: `client.cmd` rồi gõ `?gm ds NewWorld(9053,232,194)` trong chat (zone dev có `gm_chat`).
+   Bản vẽ chọn tự động theo `client/assets3d/maps/<id>/map3d.json` (`Game.want_3d`), `--3d`/`--2d` ép.
+5. Điều khiển 3D: chuột trái đi/chọn/đánh như 2.0, kéo chuột phải xoay camera (click phải không kéo = kỹ năng chuột phải),
+   con lăn zoom trong [dist_min, dist_max] của `cameraInit`.
+
 ## Lộ trình
 
 Lịch từng bước để lên 3D chuẩn (mốc M3D-0 … M3D-6, mã và nội dung chạy song song, bản 2.5D dự phòng cho 980 map):

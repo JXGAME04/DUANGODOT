@@ -107,6 +107,9 @@ def main():
     ap.add_argument("--id", type=int, required=True, help="map id cho zone (vd 9053)")
     ap.add_argument("--name", default="", help="ten hien thi (mac dinh name_vi cua scene + ' (3D)')")
     ap.add_argument("--spawn", default="BeginPoint01", help="mark lam diem sinh")
+    ap.add_argument("--exit-to", type=int, default=1, help="map id ma cac ExitPoint dua ve (mac dinh 1 = Phuong Tuong)")
+    ap.add_argument("--exit-x", type=int, default=72 * 512 + 12784, help="toa do scene tuyet doi (Mps: goc region + toa do map) tren map dich; mac dinh diem sinh Phuong Tuong")
+    ap.add_argument("--exit-y", type=int, default=82 * 1024 + 16848)
     a = ap.parse_args()
 
     src = os.path.join(NEXT, "client", "assets3d", a.map)
@@ -156,12 +159,29 @@ def main():
         placements.append({"template_id": tid, "name": t["name"], "x": x, "y": y, "kind": kind, "level": level,
                            "camp": int(t.get("camp", 0)), "series": int(t.get("series", 0)), "dir": yaw_to_dir(yaw), "mark": p.get("mark", "")})
         models[str(tid)] = cha
+    # the exits of the reference map become traps (KRegion::LoadServerTrap runs: cells x, y, n) whose script sends the
+    # character back to the default map (--exit-to, Phuong Tuong's spawn by default): script root data/script/3d
+    # (dev.py LUA_ROOT_NAMES), game path <bs>script<bs>3d<bs>exit_<map>_<n>.lua
     exits = []
-    for mark, lst in points.items():
+    traps = []
+    script_dir = os.path.join(NEXT, "data", "script", "3d", "script", "3d")
+    os.makedirs(script_dir, exist_ok=True)
+    n_exit = 0
+    bs = chr(92)
+    for mark, lst in sorted(points.items()):
         if mark.startswith("ExitPoint") or mark.startswith("EnterPoint"):
             for e in lst:
                 x, y = to_scene(e["pos"])
-                exits.append({"mark": mark, "x": x, "y": y})
+                n_exit += 1
+                cx, cy = x // CELL, y // CELL
+                game_path = bs + "script" + bs + "3d" + bs + "exit_%d_%d.lua" % (a.id, n_exit)
+                lines = ["-- %s cua map %d (%s): ve map %d" % (mark, a.id, name, a.exit_to),
+                         "function main()", chr(9) + "NewWorld(%d, %d, %d)" % (a.exit_to, a.exit_x // CELL, a.exit_y // CELL), "end", ""]
+                with io.open(os.path.join(script_dir, "exit_%d_%d.lua" % (a.id, n_exit)), "w", encoding="utf-8", newline=chr(10)) as f:
+                    f.write(chr(10).join(lines))
+                exits.append({"mark": mark, "x": x, "y": y, "trap": n_exit})
+                for dy in (-1, 0, 1):
+                    traps.append({"x": cx - 1, "y": cy + dy, "n": 3, "id": n_exit, "script": game_path})
 
     out = os.path.join(NEXT, "client", "assets3d", "maps", str(a.id))
     os.makedirs(out, exist_ok=True)
@@ -170,7 +190,7 @@ def main():
         "region_left": 0, "region_top": 0, "region_cols": region_cols, "region_rows": region_rows,
         "region_w": REGION_W, "region_h": REGION_H, "cell_size": CELL, "cells_x": cells_x, "cells_y": cells_y,
         "scene_w": cells_x * CELL, "scene_h": cells_y * CELL, "spawn": [spawn[0], spawn[1]], "indoor": False,
-        "regions": [], "traps": [], "npcs": placements, "exits": exits,
+        "regions": [], "traps": traps, "npcs": placements, "exits": exits,
     }
     with io.open(os.path.join(out, "map.json"), "w", encoding="utf-8") as f:
         json.dump(map_json, f, ensure_ascii=False, indent=1)
@@ -186,8 +206,8 @@ def main():
         json.dump(map3d, f, ensure_ascii=False, indent=1)
     with io.open(os.path.join(out, "models.json"), "w", encoding="utf-8") as f:
         json.dump({"templates": models, "player": PLAYER_MODELS, "models_dir": "../../npc"}, f, ensure_ascii=False, indent=1)
-    print("map %d %s: origin (%.2f, %.2f) m, %d x %d region, %d x %d o, di duoc %d o (%.1f%%), spawn %s, npc %d, exit %d"
-          % (a.id, name, origin[0], origin[1], region_cols, region_rows, cells_x, cells_y, walk, 100.0 * walk / len(grid), spawn, len(placements), len(exits)))
+    print("map %d %s: origin (%.2f, %.2f) m, %d x %d region, %d x %d o, di duoc %d o (%.1f%%), spawn %s, npc %d, exit %d (bay %d o)"
+          % (a.id, name, origin[0], origin[1], region_cols, region_rows, cells_x, cells_y, walk, 100.0 * walk / len(grid), spawn, len(placements), len(exits), len(traps)))
     if missing:
         print("cha chua co template JX1 (bo qua):", sorted(missing))
     print("->", out)

@@ -400,7 +400,7 @@ def old_client_dir() -> str:
     sys.exit("old client data not found (set JX_OLD_CLIENT or config/oldgame.local.json)")
 
 
-LUA_ROOT_NAMES = ["server1", "binserver", "extra1", "extra2"]
+LUA_ROOT_NAMES = ["server1", "binserver", "extra1", "extra2", "3d"]   # "3d": the trap scripts of the 3D test maps (make_map3d.py)
 
 
 def lua_script_root() -> str:
