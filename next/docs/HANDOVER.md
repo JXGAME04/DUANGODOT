@@ -714,7 +714,7 @@ python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
 
-### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-75
+### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-76
 
 - **Đọc**: `docs/LO-TRINH-3D.md` (lộ trình), `docs/MO-NHI-PHAN-3D.md` (lịch mổ bản 剑网江湖 3D, nhóm A–G + §H danh mục 639 lớp với
   trạng thái có/bỏ/chưa), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
@@ -723,7 +723,8 @@ Godot --headless --path client tests/UiCheck.tscn                              #
   vệt dải/billboard/rim/uv; số bay + tên kỹ năng + hiệu ứng trúng (`FloatingText`); vòng chọn; bloom theo profile URP; điểm treo theo model; bóng mờ `TaskGhost`;
   công cụ kiểm: `--factions` (133/133), `--weapons` (bảng 71 vũ khí), `--sfxall` (tầm xa 343 hiệu ứng); 3D-72..74: cưỡi ngựa đúng yên
   (`Scn3DGltfCache`), nhấp quái không trúng mình, **vùng an toàn/chiến đấu** của map 3D đổi `fight_mode` (thay bẫy cổng) + đuổi theo quái
-  (`FollowPeople`) + tên vùng; `client3d.cmd play [tài khoản]` vào thẳng nhân vật Cái Bang 90 có kỹ năng/côn/ngựa.
+  (`FollowPeople`) + tên vùng; 3D-75 chân đứng theo height mesh AIS; 3D-76 **áo đổi hình** (44 bộ da `model_list`) + model nữ;
+  `client3d.cmd play [tài khoản]` vào thẳng nhân vật Cái Bang 90 có kỹ năng/côn/ngựa.
 - **Còn** (§H mục 7–9): nhạc vùng chờ 3.5 của main; 62 NPC tên riêng; 6 map trống (không có bảng sinh quái); UI nhóm E (theo main);
   cài đặt; Android. **Chờ chủ dự án**: đổi ADR-008 sang renderer Mobile (Vulkan) để bloom toả rộng như bản tham khảo (GL chỉ vài pixel,
   đo ở 3D-66) — tạm thời `set JX_RENDER=mobile` trước `client3d.cmd`.
@@ -867,6 +868,33 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-76) — "thử lấy trang bị mặc vào test xem đúng hình ảnh chưa" (chủ dự án): áo đổi hình theo bản tham khảo, nhân vật nữ có model riêng
+
+- **Luật bản tham khảo [TK]**: `Player.SetEquipModel(slot, modelId, force) 0x4fb080` → `mEquipFlags[slot]`, ô thân → `AssetPool_Skin.Post(crt, eBodyModelType,
+  modelId, single) 0x6b78d0` → dòng `model_list` (`mb_view_base.Get`) → chuỗi da `thân*đầu*giày` (`Post(skin) 0x6b75a0` → `InitRequest` → mesh/mat của
+  `SkinPart/<xương>/<da>.asset`); `Creature.InitEquipModel 0x4eabe0` = `Post(0)` cho 3 phần = da mặc định `cha_pic`. Bảng `model_list`: **102–122 (nam,
+  xương zj01) / 302–322 (nữ, zj02)** = đúng các họ áo JX1 ("道士 / 丐帮 / 盔甲 / 袈裟 / 通用袍 / 刺客装 / 通用衫" + nữ "裘貂 / 通用裙") × ba bậc "1级 / 5级 /
+  8级" (cột cuối 3..23 chỉ là số thứ tự; `item_list` của bản tham khảo chỉ gắn model cho bộ 定国 200/400 và giày GM) — bảng này là "áo JX1" dựng sẵn cho ta.
+  `cha_pic 2 标准女` (zj02) = model nữ; ta đang dùng nam cho cả hai (`models.json player 1 → 1`).
+- **Ánh xạ [tự chọn theo tên họ áo]** (`KWorldView3D.COSTUME_FAMILY`): particular áo 2.0 (`items/base.json`, `REQUIRE_SEX 38`: 0–6 nam, 7–13 nữ) → dòng đầu
+  họ: 0 Sa Di phục→袈裟 111, 1 Đạo bào→道士 102, 2 Cổn y/Thiên Nhẫn→刺客装 117, 3 Thô Bố trường bào→通用袍 114, 4 giáp→盔甲 108, 5 Cái y→丐帮 105,
+  6 áo vải thô→通用衫 120; 7→袈裟 311, 8 đạo y→道士 302, 9 Thục Cẩm/Hổ Bì→裘貂 317, 10 Cẩm Sam→通用衫 314, 11 nữ giáp→盔甲 308, 12 Phá Ma y→丐帮 305,
+  13 quần→通用裙 320; **bậc** = thứ tự dòng hình khác nhau của particular đó trong `ArmorRes.txt` theo cấp (mốc 2.0: 1–4/5–7/8–10 hay 1–5/6–9/10, 1–2/3–5/6–10
+  tuỳ họ) → +0/+1/+2. Mũ (`HelmRes`) không có model riêng: đầu đi theo bộ áo (`tou01/tou02`). Người khác: `armor_res` của gói 0x4a → các dòng cùng giới
+  có res đó → họ nhiều dòng nhất, cấp thấp nhất (`_armor_particular`).
+- **Xuất** `export_npc.py --costumes`: `export_cha(cha, costume={model, skins})` = bộ xương + 3 phần da, **không animation** → `costume_<model>_<xương>.gltf`
+  (44 tệp, `costumes.json` giới → dòng → tệp) + `--cha 2` (nữ, 37 animation). Sửa lỗi xuất: phần da treo **một xương** (đầu 袈裟/刺客装 `tou02@zj014/zj020`)
+  Unity không lưu BoneWeight → trước đây không có JOINTS/WEIGHTS → đầu trôi lơ lửng; giờ mọi đỉnh trọng số 1 lên xương ấy (95 NPC không dính).
+- **Client** `Scn3DNpc.set_costume(dir, file)`: nạp glTF bộ da qua cache, chuyển `MeshInstance3D` sang `Skeleton3D` của model gốc, **gắn Skin theo tên
+  xương** (glTF import ràng theo chỉ số xương của tệp riêng — chỉ khớp tình cờ), ẩn `mesh_*` gốc; `KWorldView3D._costume_file_of/_refresh_costume` cùng lúc
+  với vũ khí (túi mình / 0xad người khác / add_entity); bóng mờ bỏ mesh ẩn; `make_map3d PLAYER_MODELS {0: 1, 1: 2}` (45 `models.json`); `--sex=1` cho
+  `--auto`. Kiểm `--auto3d --costumetest=<particular>:<cấp>,…` (lên 90, cộng 260 sức 170 thân pháp cho điều kiện áo; `--costumefaction=` cho áo khoá phái;
+  `AUTO3D_COSTUME … costume=costume_113_zj01.gltf parts=[…]`, ảnh `auto3d_costume_<p>_<cấp>[_front].png`): nam 通用衫/盔甲/袈裟8级 (mũ miện)/丐帮/通用袍/
+  刺客装 (vai lông đỏ), nữ 通用裙/盔甲/裘貂 (bịt mặt)/袈裟/丐帮 đều đúng bộ; áo Võ Đang (particular 1/8) cần ngũ hành 4 (`REQUIRE 37`) nên tài khoản `--series=3`
+  không mặc được (đúng luật zone). Godot 637/637, UiCheck 162.
+- **Chưa**: mũ/giày/áo choàng riêng (bản tham khảo cũng gộp vào bộ áo); bộ 时装 (401/402/499) và 定国 (200/400) chưa gắn vật phẩm 2.0; NPC/quái không đổi.
+- commit: `JX NEXT 3D: 3D-76 - ao doi hinh theo model_list (Player.SetEquipModel -> AssetPool_Skin.Post) + model nu cha_pic 2; export --costumes; --costumetest`.
 
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-75) — chủ dự án báo "mang đao mà hiện bổng", "hiệu ứng hỗ trợ dưới chân sai": hai luật còn thiếu
 

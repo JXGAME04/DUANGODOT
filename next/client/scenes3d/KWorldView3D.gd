@@ -34,6 +34,16 @@ const TrailScript := preload("res://scenes3d/Scn3DTrail.gd")
 const WEAPON_TYPE_OF_PARTICULAR := {0: 1, 1: 2, 2: 4, 3: 3, 4: 6, 5: 5}
 const WEAPON_BASE_ID := {1: 1, 2: 51, 3: 101, 4: 151, 5: 201, 6: 251, 7: 301}
 const ITEMPART_WEAPON := 3
+const ITEMPART_ARMOR := 1
+# The armour worn -> the character's costume: the reference swaps the body / head / shoes skins by a model_list row
+# (Player.SetEquipModel -> AssetPool_Skin.Post(modelId) [TK]); its rows 102..122 (male, bone zj01) / 302..322 (female, zj02)
+# are the JX1 armour families in three grades ("道士 1级 / 5级 / 8级" ...).  The family of a 2.0 armour is its particular
+# (items/base.json, REQUIRE_SEX 38: 0..6 male, 7..13 female) [tự chọn by the family names]: 0 袈裟 111, 1 道士 102,
+# 2 Thiên Nhẫn -> 刺客装 117, 3 通用袍 114, 4 盔甲 108, 5 丐帮 105, 6 通用衫 120; 7 袈裟 311, 8 道士 302, 9 Thúy Yên -> 裘貂 317,
+# 10 通用衫 314, 11 盔甲 308, 12 丐帮 305, 13 通用裙 320; the grade (+0 / +1 / +2) follows the picture steps of ArmorRes.txt
+# (the k-th distinct picture row of that particular in level order: 1-4 / 5-7 / 8-10 for most families).  No armour or an
+# unknown family = the base skins (rows 101 / 301, what the model file carries).
+const COSTUME_FAMILY := {0: 111, 1: 102, 2: 117, 3: 114, 4: 108, 5: 105, 6: 120, 7: 311, 8: 302, 9: 317, 10: 314, 11: 308, 12: 305, 13: 320}
 
 var root: Node3D               # World3D: the map, the views, the camera
 var place: Node3D              # KScenePlace3D
@@ -59,6 +69,9 @@ var _own_weapon := ""          # weapons.json id on the character now ("" = bare
 var _weapon_of := {}           # state node -> weapons.json id on it now (every player: ours from the bag, others from the 0xad sync)
 var _res_inverse := {}         # items/item_res.json inverted: "melee"/"horse" -> res row -> [particular, level] (the first item of the row)
 var _res_tables := {}          # items/item_res.json as loaded: "melee"/"horse" -> rows (KItemChangeRes: row = particular * 10 + level + 2)
+var _costumes := {}            # npc/costumes.json: sex -> {cha, bone, rows: model id -> {file, name, parts}}
+var _costume_of := {}          # state node -> costume file on it now
+var _armor_grades := {}        # particular -> [res, ...] the distinct picture rows of ArmorRes.txt in level order (the grade steps)
 var _trail: Node = null        # Scn3DTrail of the character's weapon
 var _trails := {}              # state node -> Scn3DTrail (every player with a weapon model)
 # anim_effect rows 1..6 [TK]: the weapon's quality picks the trail prefab (Daoguang/dg_xw_cmn_*: white, blue, purple, gold,
@@ -145,6 +158,8 @@ func load_map() -> bool:
 			var nm = Assets.load_json(_npc_dir.path_join("npc_models.json"))
 			if nm is Dictionary:
 				_npc_models = nm
+			var cj = Assets.load_json(_npc_dir.path_join("costumes.json")) if FileAccess.file_exists(_npc_dir.path_join("costumes.json")) else null
+			_costumes = cj if cj is Dictionary else {}
 	_weapon_dir = "%s/weapon" % Assets.assets3d_root()
 	if _weapons.is_empty():
 		var w = Assets.load_json(_weapon_dir.path_join("weapons.json")) if FileAccess.file_exists(_weapon_dir.path_join("weapons.json")) else null
@@ -239,8 +254,10 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	view.bind(node, place, mv[0], mv[1])
 	_views[node] = view
 	_weapon_of.erase(node)
+	_costume_of.erase(node)
 	if int(d.get("type", 0)) == ENTITY_PLAYER:
 		_refresh_weapon(node)
+		_refresh_costume(node)
 	_auras.erase(node)
 	_refresh_auras(node)
 	return node
@@ -290,6 +307,7 @@ func _refresh_auras(node: Node) -> void:
 func remove_entity(node: Node) -> void:
 	_auras.erase(node)
 	_weapon_of.erase(node)
+	_costume_of.erase(node)
 	var tr = _trails.get(node)
 	if tr != null and is_instance_valid(tr):
 		tr.queue_free()
@@ -334,6 +352,19 @@ func _load_res_inverse() -> void:
 	if not (j is Dictionary):
 		return
 	_res_tables = j
+	_armor_grades = {}
+	var arows: Array = j.get("armor", [])
+	for i in arows.size():
+		var row := i + 1
+		if row < 3 or not (arows[i] is Array) or arows[i].size() < 2:
+			continue
+		@warning_ignore("integer_division")
+		var ap: int = (row - 3) / 10
+		var ares := int(arows[i][1]) - 2
+		if not _armor_grades.has(ap):
+			_armor_grades[ap] = []
+		if not _armor_grades[ap].has(ares):
+			_armor_grades[ap].append(ares)
 	for key in ["melee", "horse"]:
 		var candidates := {}   # res -> [[particular, level], ...] every row drawing it
 		var rows: Array = j.get(key, [])
@@ -421,6 +452,77 @@ func _weapon_id_of(node: Node) -> String:
 func _refresh_own_weapon() -> void:
 	if _own != null and is_instance_valid(_own):
 		_refresh_weapon(_own)
+		_refresh_costume(_own)
+
+
+# (particular, level) of the armour on a state node: ours from the worn piece, others from their armour res row
+# (the rows of the character's sex only: ArmorRes.txt repeats a picture row between the sexes' families)
+func _armor_particular(node: Node) -> Array:
+	var sex := int(node.get("sex")) if node.get("sex") != null else 0
+	if node == _own:
+		var aid := Game.item_worn(ITEMPART_ARMOR)
+		if aid == 0 or not Game.items.has(aid):
+			return []
+		var it: Dictionary = Game.items[aid]
+		return [int(it.get("particular", -1)), int(it.get("level", 1))]
+	var rows = node.get("equip_rows")
+	if not (rows is Dictionary) or not rows.has(1) or int(rows[1]) < 0:
+		return []
+	var res := int(rows[1])
+	var best: Array = []
+	var best_rows := 0
+	var arows: Array = _res_tables.get("armor", [])
+	for ap in _armor_grades:
+		var male: bool = int(ap) <= 6
+		if male != (sex == 0):
+			continue
+		var grades: Array = _armor_grades[ap]
+		if not grades.has(res):
+			continue
+		# the first level drawing that row, and how many levels do (the family with more of them wins a shared row)
+		var first_level := 0
+		var n := 0
+		for level in range(1, 11):
+			var row: int = int(ap) * 10 + level + 2
+			if row - 1 < arows.size() and arows[row - 1] is Array and arows[row - 1].size() > 1 and int(arows[row - 1][1]) - 2 == res:
+				n += 1
+				if first_level == 0:
+					first_level = level
+		if n > best_rows:
+			best_rows = n
+			best = [int(ap), first_level]
+	return best
+
+
+# The costume file of a state node ("" = the base skins): family by particular, grade by the picture steps of ArmorRes
+func _costume_file_of(node: Node) -> String:
+	if _costumes.is_empty() or int(node.get("entity_type")) != ENTITY_PLAYER:
+		return ""
+	var pl := _armor_particular(node)
+	if pl.is_empty() or not COSTUME_FAMILY.has(int(pl[0])):
+		return ""
+	var sex := int(node.get("sex")) if node.get("sex") != null else 0
+	var table: Dictionary = _costumes.get(str(sex), {})
+	if table.is_empty():
+		return ""
+	var grades: Array = _armor_grades.get(int(pl[0]), [])
+	var res := _item_res_row("armor", int(pl[0]), int(pl[1]))
+	var grade := clampi(grades.find(res), 0, 2) if res >= 0 else 0
+	var model_id := int(COSTUME_FAMILY[int(pl[0])]) + grade
+	var row: Dictionary = table.get("rows", {}).get(str(model_id), {})
+	return str(row.get("file", ""))
+
+
+func _refresh_costume(node: Node) -> void:
+	var view = _views.get(node)
+	if view == null or not is_instance_valid(view) or view.model == null:
+		return
+	var file := _costume_file_of(node)
+	if file == str(_costume_of.get(node, "")):
+		return
+	_costume_of[node] = file
+	var ok: bool = view.model.set_costume(_npc_dir, file)
+	Log.debug("map3d", "costume", {"entity": node.get("entity_id"), "file": file, "ok": ok, "armor": str(_armor_particular(node))})
 
 
 # The XWeaponTrail parameters for a player's weapon: its 2.0 colour -> anim_effect row -> the Daoguang prefab's "xtrail"
@@ -483,6 +585,7 @@ func _refresh_weapon_of(entity_id: int) -> void:
 	for node in _views.keys():
 		if is_instance_valid(node) and int(node.get("entity_id")) == entity_id:
 			_refresh_weapon(node)
+			_refresh_costume(node)
 			var view = _views.get(node)
 			if view != null and is_instance_valid(view) and view.has_method("reload_horse"):
 				view.reload_horse()

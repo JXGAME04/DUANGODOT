@@ -972,6 +972,69 @@ func _auto3d_run() -> void:
 				n += 1
 			get_tree().quit()
 			return
+	# --costumetest=<particular>:<level>,...: an armour of that family / level is added (AddItem 0,2,p,level), worn, and the
+	# costume on the model read back (AUTO3D_COSTUME) with a picture - the owner's "wear equipment and check the look"
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--costumetest="):
+			var n := 0
+			var own_node := _own()
+			var own_view = _world.get("_views").get(own_node) if own_node != null else null
+			print("AUTO3D_COSTUME_MODEL sex=%d model=%s costume=%s" % [int(own_node.get("sex")) if own_node != null else -1,
+				str(own_view.model.info.get("file", "")) if own_view != null and own_view.model != null else "-", str(own_view.model.costume_file) if own_view != null and own_view.model != null else "-"])
+			# the armour requirements (level 36, strength 32, dexterity 33 up to 260 / 165 at level 10): level 90 and the
+			# free points of those levels spent on strength and dexterity; a faction-bound piece (39) needs --costumefaction
+			if int(Game.player_attrib.get("level", 1)) < 90:
+				Game.chat("?gm ds for i=1,89 do AddExp(100000000,0) end")
+				waited = 0.0
+				while waited < 6.0 and int(Game.player_attrib.get("level", 1)) < 90:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+			Game.add_point(0, 260)
+			Game.add_point(1, 170)
+			for a2 in OS.get_cmdline_user_args():
+				if a2.begins_with("--costumefaction="):
+					Game.chat("?gm ds SetFaction(\"%s\")" % a2.substr(17))
+			await get_tree().create_timer(1.0).timeout
+			for spec in arg.substr(14).split(","):
+				var pl := spec.split(":")
+				var part := int(pl[0])
+				var level := int(pl[1]) if pl.size() > 1 else 1
+				var nb := Game.items.size()
+				Game.chat("?gm ds AddItem(0,2,%d,%d,0,0)" % [part, level])
+				waited = 0.0
+				while waited < 3.0 and Game.items.size() < nb + 1:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+				var added := 0
+				for id in Game.items:
+					if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 2 and int(Game.items[id].particular) == part and int(Game.items[id].room) == Game.ROOM_BAG:
+						added = int(id)
+				if added != 0:
+					Game.item_equip(added, 1)
+				await get_tree().create_timer(1.5).timeout
+				var worn := Game.item_worn(1)
+				var it: Dictionary = Game.items.get(worn, {})
+				var mv = own_view.model if own_view != null else null
+				var vis := []
+				if mv != null and mv.skeleton() != null:
+					for c in mv.skeleton().get_children():
+						if c is MeshInstance3D and c.visible:
+							vis.append(str(c.name))
+				print("AUTO3D_COSTUME step=%d particular=%d level=%d added=%d worn=%d worn_name=%s costume=%s parts=%s" % [n, part, level, added, worn, str(it.get("name", "-")),
+					str(mv.costume_file) if mv != null else "-", str(vis)])
+				_world.cam_rig.yaw = 180.0
+				_world.cam_rig.pitch = 20.0
+				_world.cam_rig.dist = 6.0
+				for i in 4:
+					await get_tree().process_frame
+				await _save_screenshot("user://logs/auto3d_costume_%d_%d.png" % [part, level])
+				_world.cam_rig.yaw = 0.0
+				for i in 4:
+					await get_tree().process_frame
+				await _save_screenshot("user://logs/auto3d_costume_%d_%d_front.png" % [part, level])
+				n += 1
+			get_tree().quit()
+			return
 	# --clicktest=<faction>:<weapon type>:<left skill>: the owner's own steps (level 90, the faction's skills, that weapon
 	# worn, that skill on the left button), then only the mouse-click attack test - what a person does with client3d.cmd play
 	for arg in OS.get_cmdline_user_args():

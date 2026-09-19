@@ -319,8 +319,8 @@ func _on_char_list(chars: Array) -> void:
 		if chars.is_empty():
 			Log.info("auto", "auto create")
 			# --place=<map id>: the starting village (the Id of NativePlaceList.ini; 0 = the default map); --series=<0..4>
-			# the five-element series of the new character (a faction takes only its own series: Cái Bang = 3)
-			_on_create_requested("Auto%d" % (randi() % 100000), int(str(_args.get("series", "0"))), 0, int(str(_args.get("place", "0"))))
+			# the five-element series of the new character (a faction takes only its own series: Cái Bang = 3); --sex=1 a woman
+			_on_create_requested("Auto%d" % (randi() % 100000), int(str(_args.get("series", "0"))), int(str(_args.get("sex", "0"))), int(str(_args.get("place", "0"))))
 		else:
 			Log.info("auto", "auto enter", {"pid": chars[0].pid, "name": chars[0].name})
 			_on_enter_game(0)

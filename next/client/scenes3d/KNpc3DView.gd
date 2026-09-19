@@ -331,7 +331,7 @@ func _spawn_ghost() -> void:
 	var mats: Array = []
 	var em: Dictionary = GHOST_MATS.get(_ghost_mat, {})
 	for mi in model.model.find_children("*", "MeshInstance3D", true, false):
-		if mi.mesh == null or mi.get_skeleton_path() == NodePath(""):
+		if mi.mesh == null or mi.get_skeleton_path() == NodePath("") or not mi.visible:   # the base parts under a costume stay hidden
 			continue
 		var baked: ArrayMesh = mi.bake_mesh_from_current_skeleton_pose()
 		if baked == null:

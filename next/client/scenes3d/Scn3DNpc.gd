@@ -26,6 +26,8 @@ var busy := false       # dang phat animation mot lan (danh, bi danh, chet)
 var battle_until := 0.0 # sau khi danh: dung tu the chien dau toi luc nay (msec)
 var hold_last := false  # animation mot lan dang phat giu khung cuoi khi het (chet)
 var held := false       # dang giu khung cuoi (xac): khong tu ve idle
+var costume_file := ""  # bo da ao dang mac (costumes.json file; "" = da mac dinh cua model)
+var _costume_nodes: Array = []
 
 signal action_finished(clip: String)
 
@@ -267,6 +269,74 @@ func _on_anim_finished(_name: StringName) -> void:
 
 func animation_names() -> PackedStringArray:
 	return anim.get_animation_list() if anim else PackedStringArray()
+
+
+# ---------- bo da (ao) ----------
+# The skeleton the skinned parts hang on (the glTF import puts them under it)
+func skeleton() -> Skeleton3D:
+	if model == null:
+		return null
+	var l := model.find_children("*", "Skeleton3D", true, false)
+	return l[0] as Skeleton3D if not l.is_empty() else null
+
+
+# The costume of the armour worn: AssetPool_Skin.Post(modelId) of the reference [TK] swaps the body / head / shoes skins
+# of the base skeleton for the ones of a model_list row; here the row's parts come as their own glTF (export_npc.py
+# --costumes, no animation) and are re-parented under our Skeleton3D - the Skin binds by bone name, the rig is the same
+# bone prefab - while the base parts (mesh_*) are hidden.  "" puts the base parts back.
+func set_costume(dir: String, file: String) -> bool:
+	if file == costume_file:
+		return true
+	costume_file = file
+	for n in _costume_nodes:
+		if is_instance_valid(n):
+			n.queue_free()
+	_costume_nodes.clear()
+	var skel := skeleton()
+	if skel == null:
+		return false
+	for c in skel.get_children():
+		if c is MeshInstance3D and str(c.name).begins_with("mesh_"):
+			c.visible = file == ""
+	if file == "":
+		return true
+	var inst: Node3D = _gltf.instantiate(dir + "/" + file)
+	if inst == null:
+		for c in skel.get_children():
+			if c is MeshInstance3D and str(c.name).begins_with("mesh_"):
+				c.visible = true
+		costume_file = ""
+		return false
+	var moved := 0
+	for src in inst.find_children("*", "Skeleton3D", true, false):
+		for c in src.get_children():
+			if c is MeshInstance3D:
+				# the glTF import binds the skin by bone index of its own skeleton; the two files list the bones in
+				# different orders (only the joints a skin uses become bones), so bind by name on ours
+				if c.skin != null:
+					var sk: Skin = c.skin.duplicate()
+					for i in sk.get_bind_count():
+						var bname: StringName = sk.get_bind_name(i)
+						if bname == StringName(""):
+							bname = StringName(src.get_bone_name(sk.get_bind_bone(i)))
+						sk.set_bind_name(i, bname)
+						sk.set_bind_bone(i, skel.find_bone(bname))
+					c.skin = sk
+				src.remove_child(c)
+				c.name = "costume_" + str(c.name)
+				skel.add_child(c)
+				c.skeleton = NodePath("..")
+				c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				_costume_nodes.append(c)
+				moved += 1
+	inst.queue_free()
+	if moved == 0:
+		for c in skel.get_children():
+			if c is MeshInstance3D and str(c.name).begins_with("mesh_"):
+				c.visible = true
+		costume_file = ""
+		return false
+	return true
 
 
 # ---------- vu khi ----------

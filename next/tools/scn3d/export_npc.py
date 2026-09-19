@@ -104,7 +104,7 @@ class Tables:
         self.model_list = {}
         for r in self.t.get("model_list_cmn", [])[1:]:
             if len(r) > 2 and r[0].strip().isdigit():
-                self.model_list[int(r[0])] = {"skins": r[2].strip(), "hangs": r[3].strip() if len(r) > 3 else ""}
+                self.model_list[int(r[0])] = {"skins": r[2].strip(), "hangs": r[3].strip() if len(r) > 3 else "", "name": r[1].strip()}
         self.model_view = {}
         for r in self.t.get("cha_model_view_cmn", [])[1:]:
             if len(r) > 2 and r[0].strip().isdigit():
@@ -348,7 +348,10 @@ class NpcExporter:
         return out
 
     # ---------- glTF ----------
-    def export_cha(self, cha_id):
+    def export_cha(self, cha_id, costume=None):
+        """costume = {"model": id model_list, "skins": "than*dau*giay"}: chi xuat bo da do tren cung bo xuong cua cha_id,
+        khong animation -> costume_<model>_<bone>.gltf (client gan cac phan len xuong cua model goc: Player.SetEquipModel ->
+        AssetPool_Skin.Post(modelId) [TK] doi da than/dau/giay theo dong model_list cua mon do)"""
         cp = self.tables.cha_pic.get(cha_id)
         if not cp or not cp["bone"]:
             self.log.append("cha_pic %s khong co" % cha_id); return None
@@ -359,10 +362,14 @@ class NpcExporter:
         skins_str = cp["skins"]
         if cp["model"].isdigit() and int(cp["model"]) in self.tables.model_list and self.tables.model_list[int(cp["model"])]["skins"]:
             skins_str = self.tables.model_list[int(cp["model"])]["skins"]
+        if costume:
+            skins_str = costume["skins"]
         parts = [p for p in skins_str.split("*") if p]
-        anim_names = self.tables.anim_names(cp["anim_group"])
+        anim_names = self.tables.anim_names(cp["anim_group"]) if not costume else {}
         groups = {}
-        if cp["anim_group"] < 0:
+        if costume:
+            gids = []
+        elif cp["anim_group"] < 0:
             gids = [g for g in range(1, 12)] + [20]   # 20 = tren ngua (anim_group: xx 85, zp 84, danh 80/81, magic 82)
         else:
             gids = [cp["anim_group"]]
@@ -463,6 +470,11 @@ class NpcExporter:
             if md["uv0"] is not None:
                 uv = md["uv0"].copy(); uv[:, 1] = 1.0 - uv[:, 1]
                 attrs["TEXCOORD_0"] = add_accessor(uv.astype(np.float32), 5126, "VEC2", 34962)
+            if md["bw"] is None and len(sp["bones"]) == 1:
+                # a part hung on one bone (the heads of 袈裟 / 刺客装 ...): Unity keeps no BoneWeight for it - every vertex
+                # follows that bone with weight 1
+                md["bw"] = np.zeros((pos.shape[0], 4), dtype=np.float32); md["bw"][:, 0] = 1.0
+                md["bi"] = np.zeros((pos.shape[0], 4), dtype=np.int32)
             if md["bw"] is not None and md["bi"] is not None:
                 w = md["bw"].astype(np.float32)
                 s = w.sum(axis=1, keepdims=True); s[s == 0] = 1.0
@@ -522,7 +534,7 @@ class NpcExporter:
                 animations.append({"name": cname, "samplers": samplers, "channels": channels})
                 stats["anims"] += 1
 
-        fname = "cha_%d_%s" % (cha_id, bone)
+        fname = "cha_%d_%s" % (cha_id, bone) if not costume else "costume_%d_%s" % (int(costume["model"]), bone)
         with open(os.path.join(self.out, fname + ".bin"), "wb") as f:
             f.write(bytes(buf))
         gltf = {"asset": {"version": "2.0", "generator": "jxnext scn3d export_npc"}, "scene": 0, "scenes": [{"nodes": [0]}],
@@ -532,6 +544,11 @@ class NpcExporter:
                 "buffers": [{"uri": fname + ".bin", "byteLength": len(buf)}]}
         with io.open(os.path.join(self.out, fname + ".gltf"), "w", encoding="utf-8") as f:
             json.dump(gltf, f)
+        if costume:
+            print("  costume %d %s [%s]: %d phan, %d dinh, %d tam giac, xuong thieu %d" % (
+                int(costume["model"]), costume.get("name", ""), bone, stats["parts"], stats["verts"], stats["tris"], stats["missing_bones"]))
+            return {"model": int(costume["model"]), "name": costume.get("name", ""), "bone": bone, "cha": cha_id, "file": fname + ".gltf",
+                    "parts": [gn["name"] for gn in gnodes if gn["name"].startswith("mesh_")], "stats": stats}
         name_vi = TEN_VIET.get("npc", {}).get(cp["name"], "")
         hi = hang_items(self.bone, bone)
         hangs = {k: hang_godot(v) for k, v in hi.items() if v["path"]}
@@ -570,6 +587,7 @@ def main():
     ap.add_argument("--key-file", default=os.environ.get("JX_SCN3D_KEY", r"D:\game3gTQ_mo\khoa_bundle.txt"))
     ap.add_argument("--out", default=os.path.join(NEXT, "client", "assets3d", "npc"))
     ap.add_argument("--hangs-only", action="store_true", help="chi cap nhat hangs/bar_y/state_y trong npc_models.json (khong xuat lai mesh)")
+    ap.add_argument("--costumes", action="store_true", help="xuat bo da ao cua nguoi choi (model_list 101..122 nam tren cha 1 / 301..322 nu tren cha 2) -> costumes.json")
     a = ap.parse_args()
     key = open(a.key_file, "r", encoding="utf-8").read().strip()
     ex = NpcExporter(a.src, key, a.out)
@@ -591,6 +609,31 @@ def main():
         with io.open(index_path, "w", encoding="utf-8") as f:
             json.dump(infos, f, ensure_ascii=False, indent=1)
         print("cap nhat diem treo cua %d/%d model -> %s" % (n, len(infos), index_path))
+        return
+    if a.costumes:
+        # model_list [TK]: 101 "默认串" + 102..122 the JX1 armour families of the male (bone zj01, cha_pic 1: 道士 / 丐帮 / 盔甲 /
+        # 袈裟 / 通用袍 / 刺客装 / 通用衫 x 1级 5级 8级), 301 + 302..322 the female's (zj02, cha_pic 2: ... 裘貂 / 通用裙); the
+        # reference client swaps the body / head / shoes skins of the base skeleton by such a row (Player.SetEquipModel ->
+        # AssetPool_Skin.Post(modelId)).  costumes.json: sex -> {cha, bone, rows: model id -> {file, name, parts}}
+        out = {}
+        for sex, cha_id, lo, hi in ((0, 1, 101, 199), (1, 2, 301, 399)):
+            cp = ex.tables.cha_pic.get(cha_id)
+            rows = {}
+            for mid in sorted(ex.tables.model_list):
+                if not (lo <= mid <= hi):
+                    continue
+                skins = ex.tables.model_list[mid]["skins"] or (cp["skins"] if cp else "")
+                if not skins:
+                    continue
+                info = ex.export_cha(cha_id, {"model": mid, "skins": skins, "name": ex.tables.model_list[mid].get("name", "")})
+                if info:
+                    rows[str(mid)] = {"file": info["file"], "name": info["name"], "parts": info["parts"]}
+            out[str(sex)] = {"cha": cha_id, "bone": cp["bone"] if cp else "", "rows": rows}
+        with io.open(os.path.join(a.out, "costumes.json"), "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False, indent=1)
+        print("costumes: nam %d, nu %d -> %s" % (len(out["0"]["rows"]), len(out["1"]["rows"]), os.path.join(a.out, "costumes.json")))
+        if ex.log:
+            print(chr(10).join(ex.log[:20]))
         return
     ids = list(a.cha)
     placements = []

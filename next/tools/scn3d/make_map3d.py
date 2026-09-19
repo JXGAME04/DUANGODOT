@@ -63,7 +63,7 @@ CHA_TO_TEMPLATE = {
     28: (429, 5, 0),     # 金毛 -> Hoàng cẩu 1 (thu trong thanh)
     31: (11, 0, 15),     # 小黄金BOSS -> Heo rừng cap 15
 }
-PLAYER_MODELS = {"0": 1, "1": 1}   # sex -> cha_pic (bo tham khao chi xuat nhan vat nam 1; nu dung tam nam)
+PLAYER_MODELS = {"0": 1, "1": 2}   # sex -> cha_pic [TK]: 1 标准男 (zj01), 2 标准女 (zj02)
 # ngua: client 2.0 ve ngua theo HANG ANH (Settings\item\HorseRes.txt cot 2 - 2, KItemChangeRes::GetHorseRes; goi 0xad dong bo
 # dung hang do cho nguoi khac) - nhieu vat pham ngua chung mot hang (vd hang 4 = ngua thanh cap 6..10 cua nhom 1 + cap 1..3 cua
 # nhom 2). Cot 3 cua HorseRes.txt ta ten anh (普通黄马, 赤兔，顶级红...) -> cha_pic bo tham khao theo MAU trong ten [tự chọn
