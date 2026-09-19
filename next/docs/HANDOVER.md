@@ -865,6 +865,18 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-73) — nhấp vào quái không đánh (chủ dự án báo): tia chọn trúng trụ của chính mình trước quái
+
+- `KWorldView3D.pick` chọn thực thể gần camera nhất trên tia; khi camera ở sau lưng nhân vật và quái đứng ngay trước mặt (đánh gần), tia tới thân
+  quái xuyên qua trụ chọn của **chính nhân vật** (cao `bar_height` 2 m) → trả về mình → `UiGame` coi là nhấp đất → đi tới thay vì đánh.
+  Sửa: bỏ nhân vật ra khỏi ứng viên, chỉ trả về mình khi không trúng ai khác (bản tham khảo để người chơi ngoài lớp chọn `Global.nPickMark`;
+  2.0 nhấp vào mình cũng không làm gì).
+- Kiểm mới trong `--auto3d`: `AUTO3D_CLICK` = nhấp chuột thật (`Input.parse_input_event` tại điểm chiếu thân quái) → chọn đúng, máu 80→69;
+  `AUTO3D_CLICK_BEHIND` = camera quay ra sau nhân vật, quái trước mặt: `own_in_ray=true` mà vẫn `picked=<quái>`. Godot 637/637.
+- Chưa có (thuộc main, M12 B4): client 2.0 tự kiểm `CanCastSkill` trước khi gửi và báo "vũ khí không phù hợp / không thể dùng khi cưỡi ngựa";
+  zone chỉ ghi `skill command refused` ở mức debug → người chơi chọn kỹ năng chuột sai vũ khí (`EqtLimit`) hay `HorseLimit 1` trên ngựa thì nhấp không thấy gì.
+- commit: `JX NEXT 3D: 3D-73 - pick bo qua chinh minh (nhap quai truoc mat di thay vi danh), AUTO3D_CLICK/_BEHIND`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-72) — người cưỡi lún vào ngựa (chủ dự án báo): `generate_scene` lần 2 trên cùng `GLTFState` đổi tên xương `_2`
 
 - Triệu chứng: rider ở 1,3 m (nhánh dự phòng "horse has no ma_qi1 seat") vì `hang_node("ma_qi1")` không thấy xương `Bip001 Spine1` — skeleton của

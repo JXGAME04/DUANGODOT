@@ -1005,6 +1005,7 @@ func _auto3d_run() -> void:
 	await _auto_fight()
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
+	await _auto3d_click_attack()
 	if _world.get("floats") != null:
 		print("AUTO3D_FLOATS added=%d live=%d hit_fx=%d" % [_world.floats.added, _world.floats._items.size(), _world.fx.spawned])
 		for vn in _world.get("_views").values():
@@ -1274,6 +1275,82 @@ func _auto_items() -> void:
 
 # --auto: walk up to the nearest monster in sight and attack it until it dies (or 8 s pass);
 # prints AUTO_FIGHT so tools/dev.py e2e / screenshot can check the combat path end to end.
+# The player's own gesture in the 3D world: a left click on a monster's body (the pixel its view projects to) must pick
+# it (KWorldView3D.pick) and send the attack (the 2.0 rule of the left button); the monster's life then drops
+func _auto3d_click_attack() -> void:
+	var own := _own()
+	if own == null or not _world.is_3d():
+		return
+	var best: Node = null
+	var best_d := INF
+	for node in _entities.values():
+		if node == own or not node.is_attackable() or node.is_dead():
+			continue
+		var d: float = node.scene_pos.distance_to(own.scene_pos)
+		if d < best_d:
+			best = node
+			best_d = d
+	if best == null:
+		print("AUTO3D_CLICK none")
+		return
+	# walk up to it first (the swing needs reach; the click is what is under test)
+	var dir: Vector2 = (best.scene_pos - own.scene_pos).normalized()
+	var stand: Vector2 = best.scene_pos - dir * 60.0
+	Game.move_to(int(stand.x), int(stand.y))
+	var w0 := 0.0
+	while w0 < 8.0 and (own.is_moving() or own.scene_pos.distance_to(stand) > 30.0):
+		await get_tree().create_timer(0.25).timeout
+		w0 += 0.25
+	if not is_instance_valid(best):
+		print("AUTO3D_CLICK none (left)")
+		return
+	for i in 3:
+		await get_tree().process_frame
+	var view = _world.get("_views").get(best)
+	var cam: Camera3D = _world.cam_rig.cam
+	var body: Vector3 = view.global_position + Vector3(0, float(view.bar_height) * 0.5, 0)
+	var screen: Vector2 = cam.unproject_position(body)
+	var picked: Node = _entity_at(screen)
+	var life_before: int = best.life
+	var actions_before := _action_count
+	# the click itself, as the mouse would send it
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = screen
+	ev.global_position = screen
+	get_viewport().warp_mouse(screen)
+	await get_tree().process_frame
+	Input.parse_input_event(ev)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = screen
+	up.global_position = screen
+	Input.parse_input_event(up)
+	var waited := 0.0
+	while waited < 8.0 and is_instance_valid(best) and best.life >= life_before and not best.is_dead():
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	print("AUTO3D_CLICK target=%d name=%s screen=%s picked=%s behind_cam=%s life=%d->%d actions=%d left_skill=%d target_now=%s" % [best.entity_id, best.display_name, str(screen),
+		str(picked.entity_id) if picked != null else "none", str(cam.is_position_behind(body)), life_before, best.life if is_instance_valid(best) else -1, _action_count - actions_before, Game.left_skill,
+		str(_target.entity_id) if _target != null and is_instance_valid(_target) else "-"])
+	# the close-combat case: the camera swung behind the character so the monster stands right past it - the click on the
+	# monster's body must still pick the monster, not the character in between (KWorldView3D.pick leaves the player out)
+	if is_instance_valid(best) and not best.is_dead():
+		var own_view = _world.get("_views").get(own)
+		var to_pig: Vector3 = view.global_position - own_view.global_position
+		_world.cam_rig.yaw = rad_to_deg(atan2(-to_pig.x, -to_pig.z))
+		_world.cam_rig.pitch = 40.0
+		for i in 4:
+			await get_tree().process_frame
+		var body2: Vector3 = view.global_position + Vector3(0, float(view.bar_height) * 0.5, 0)
+		var screen2: Vector2 = cam.unproject_position(body2)
+		var picked2: Node = _entity_at(screen2)
+		var own_t: float = _world._ray_cylinder(cam.project_ray_origin(screen2), cam.project_ray_normal(screen2), own_view.global_position, float(own_view.radius), float(own_view.bar_height))
+		print("AUTO3D_CLICK_BEHIND picked=%s own_in_ray=%s screen=%s" % [str(picked2.entity_id) if picked2 != null else "none", str(own_t >= 0.0), str(screen2)])
+
+
 func _auto_fight() -> void:
 	var own := _own()
 	if own == null:

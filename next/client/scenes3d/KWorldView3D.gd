@@ -637,15 +637,24 @@ func pick(screen: Vector2, entities: Dictionary) -> Node:
 	var dirv := cam.project_ray_normal(screen)
 	var best: Node = null
 	var best_t := INF
+	var own_hit: Node = null
 	for node in entities.values():
 		var view = _views.get(node)
 		if view == null or not is_instance_valid(view):
 			continue
 		var t := _ray_cylinder(from, dirv, view.global_position, float(view.radius), float(view.bar_height))
-		if t >= 0.0 and t < best_t:
+		if t < 0.0:
+			continue
+		if node == _own:
+			# the character itself stands between the camera and what is in front of it: never the pick over another
+			# entity (the reference's pick layers leave the player out [TK Global.nPickMark]; 2.0 has nothing to do on
+			# oneself either) - a click on a monster just ahead used to pick the player and walk instead of striking
+			own_hit = node
+			continue
+		if t < best_t:
 			best_t = t
 			best = node
-	return best
+	return best if best != null else own_hit
 
 
 # The ray parameter where it enters a vertical cylinder (axis through `foot`, radius r, from the feet up h), -1 when it misses.
