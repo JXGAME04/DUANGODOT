@@ -31,6 +31,9 @@ var _marker: MeshInstance3D = null
 var _ring: MeshInstance3D = null
 var _doing := -1
 var mirror: Node3D = null      # KSpriteMirror3D in the 2.5D world: the 2.0 sprites of the entity as a board
+var horse: Node3D = null       # Scn3DNpc of the mount while riding (anim_group 21 [TK]); the rider sits on its ma_qi1
+var horse_loader: Callable     # (npc) -> Scn3DNpc, set by the world view (the horse of the worn item, or the default)
+var _rider_group := ""         # the rider's weapon group to go back to when dismounting
 
 
 # Binds the state node; `model_node` is a set-up Scn3DNpc (or null for a marker), `model_info` its npc_models.json row.
@@ -74,10 +77,14 @@ func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictiona
 		bar_height = KScene3DMath.px_height_to_m(pate) if pate > 0.0 else 1.0
 	if npc.has_signal("doing_changed"):
 		npc.doing_changed.connect(_on_doing_changed)
+	if npc.has_signal("riding_changed"):
+		npc.riding_changed.connect(_on_riding_changed)
 	if npc.get("dir64") != null:
 		_yaw = KScene3DMath.yaw_of_dir(int(npc.res_dir))
 		rotation.y = deg_to_rad(_yaw)
 	_place(true)
+	if model != null and bool(_flag(npc, "riding")):
+		_on_riding_changed(true)
 	if npc.get("doing") != null and npc.get("total_frame") != null:
 		_on_doing_changed(int(npc.doing), int(npc.total_frame))
 		# a late joiner sees a corpse at its last frame (KNpc.setup puts cur_frame at the end)
@@ -184,11 +191,67 @@ func _process(delta: float) -> void:
 		_ring.global_position = global_position + Vector3(0, 0.03, 0)
 
 
+# Mounted / dismounted: the horse model under the rider, the rider on the horse's ma_qi1 hang point with its riding
+# clips (anim_group 20 of the reference: xx 85 sits, zp 84 rides, weapon 80/81, magic 82), the horse on group 21
+func _on_riding_changed(on: bool) -> void:
+	if model == null:
+		return
+	if on and horse == null and horse_loader.is_valid():
+		var h: Node3D = horse_loader.call(npc)
+		if h == null:
+			return
+		horse = h
+		horse.name = "Horse"
+		add_child(horse)
+		var seat: Node = null
+		var hang: Dictionary = horse.hangs.get("ma_qi1", {})
+		if not hang.is_empty() and horse.model != null:
+			seat = horse.model.find_child(str(hang.get("node_godot", "")), true, false)
+			if seat == null:
+				seat = horse.model.find_child(str(hang.get("node", "")), true, false)
+		_rider_group = str(model.group)
+		remove_child(model)
+		if seat is Node3D:
+			(seat as Node3D).add_child(model)
+			model.position = Vector3(hang["pos"][0], hang["pos"][1], hang["pos"][2])
+			model.quaternion = Quaternion(hang["quat"][0], hang["quat"][1], hang["quat"][2], hang["quat"][3])
+			model.scale = Vector3(hang["scale"][0], hang["scale"][1], hang["scale"][2])
+			# the rider's Model child was turned 180 for -Z; the seat node is in the horse's own frame: undo that turn
+			if model.model != null:
+				model.model.rotation.y = 0.0
+		else:
+			horse.add_child(model)
+			model.position = Vector3(0, 1.3, 0)
+		model.set_group("20")
+		bar_height = float(horse.bar_height) + 0.6
+	elif not on and horse != null:
+		var parent := model.get_parent()
+		if parent != null:
+			parent.remove_child(model)
+		add_child(model)
+		model.transform = Transform3D.IDENTITY
+		if model.model != null:
+			model.model.rotation.y = PI
+		model.set_group(_rider_group if _rider_group != "20" else "1")
+		horse.queue_free()
+		horse = null
+		bar_height = float(model.get("bar_height")) if model.get("bar_height") != null else 2.0
+	if npc.get("doing") != null and npc.get("total_frame") != null:
+		_on_doing_changed(int(npc.doing), int(npc.total_frame))
+
+
 # KNpc's doing changed (its frame count too): the matching clip of the model, as long as the zone says
 func _on_doing_changed(doing: int, total_frame: int) -> void:
 	_doing = doing
 	if model == null:
 		return
+	if horse != null:
+		# the horse's own clips (group 21: xx stands, zp runs); the rider follows below with group 20
+		match doing:
+			KNpcResNode.Doing.WALK, KNpcResNode.Doing.FIGHT_WALK, KNpcResNode.Doing.RUN, KNpcResNode.Doing.FIGHT_RUN, KNpcResNode.Doing.JUMP:
+				horse.walk()
+			_:
+				horse.idle()
 	var seconds := float(maxi(total_frame, 1)) * TICK
 	match doing:
 		KNpcResNode.Doing.STAND, KNpcResNode.Doing.FIGHT_STAND, KNpcResNode.Doing.SIT:

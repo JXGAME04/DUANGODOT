@@ -61,6 +61,11 @@ CHA_TO_TEMPLATE = {
     31: (11, 0, 15),     # 小黄金BOSS -> Heo rừng cap 15
 }
 PLAYER_MODELS = {"0": 1, "1": 1}   # sex -> cha_pic (bo tham khao chi xuat nhan vat nam 1; nu dung tam nam)
+# ngua: nhom mau (particular) cua vat pham ngua JX1 (items/base.json "horse") -> cha_pic ngua bo tham khao; ba ten trung khop
+# chinh xac (玉花骢 Ngọc Hoa Thông, 黑骐 Hắc Kỳ, 红骊 Hồng Ly), con lai theo mau [tự chọn]: 0 hoang -> 棕马, 1 thanh -> 青马,
+# 2 bach -> 白马, 3 hac -> 黑马, 4 hong -> 红骊, 5 ngua huyen thoai -> 血龙马, 6 Bon Tieu -> 白龙马, 7 Phien Vu -> 黑龙马
+HORSES = {"by_particular": {"0": 1502, "1": 1503, "2": 1500, "3": 1501, "4": 1512, "5": 1562, "6": 1560, "7": 1561},
+          "by_name": {"Ngọc Hoa Thông": 1510, "Hắc Kỳ": 1511, "Hồng Ly": 1512}, "default": 1500}
 
 
 def yaw_to_dir(yaw_deg):
@@ -205,7 +210,7 @@ def main():
     with io.open(os.path.join(out, "map3d.json"), "w", encoding="utf-8") as f:
         json.dump(map3d, f, ensure_ascii=False, indent=1)
     with io.open(os.path.join(out, "models.json"), "w", encoding="utf-8") as f:
-        json.dump({"templates": models, "player": PLAYER_MODELS, "models_dir": "../../npc"}, f, ensure_ascii=False, indent=1)
+        json.dump({"templates": models, "player": PLAYER_MODELS, "horses": HORSES, "models_dir": "../../npc"}, f, ensure_ascii=False, indent=1)
     print("map %d %s: origin (%.2f, %.2f) m, %d x %d region, %d x %d o, di duoc %d o (%.1f%%), spawn %s, npc %d, exit %d (bay %d o)"
           % (a.id, name, origin[0], origin[1], region_cols, region_rows, cells_x, cells_y, walk, 100.0 * walk / len(grid), spawn, len(placements), len(exits), len(traps)))
     if missing:

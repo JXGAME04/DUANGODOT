@@ -173,6 +173,7 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	var view := Node3D.new()
 	view.set_script(NpcViewScript)
 	view.name = "e%d" % int(d.id)
+	view.horse_loader = _horse_for
 	_views_root.add_child(view)
 	view.bind(node, place, mv[0], mv[1])
 	_views[node] = view
@@ -257,6 +258,33 @@ func _refresh_own_weapon() -> void:
 		root.add_child(_trail)
 		_trail.setup(m.weapon_nodes[0], w.get("anchors", {}))
 	Log.debug("map3d", "weapon in hand", {"weapon": id, "name": w.get("name", ""), "hangs": n, "group": g})
+
+
+# The horse of an entity: the worn horse item's colour group / exact name for our own character (models.json "horses",
+# from the JX1 horse list vs the reference cha_pic), the default horse for everyone else (their equipment is not synced)
+func _horse_for(node: Node) -> Node3D:
+	var horses: Dictionary = _models.get("horses", {})
+	var cha := int(horses.get("default", 1500))
+	if node == _own:
+		var hid := Game.item_worn(10)   # itempart_horse
+		if hid != 0 and Game.items.has(hid):
+			var it: Dictionary = Game.items[hid]
+			var by_name: Dictionary = horses.get("by_name", {})
+			var by_part: Dictionary = horses.get("by_particular", {})
+			if by_name.has(str(it.get("name", ""))):
+				cha = int(by_name[str(it.get("name", ""))])
+			elif by_part.has(str(int(it.get("particular", -1)))):
+				cha = int(by_part[str(int(it.get("particular", -1)))])
+	var mi = _npc_models.get(str(cha))
+	if not (mi is Dictionary):
+		return null
+	var h := Node3D.new()
+	h.set_script(ModelScript)
+	if not h.setup(_npc_dir, str(mi.get("file", "")), float(mi.get("scale", 1.0)), "", 0.0, mi):
+		h.queue_free()
+		return null
+	h.set_group("21")
+	return h
 
 
 # ---- missiles --------------------------------------------------------------------------------------

@@ -49,6 +49,7 @@ func _ready() -> void:
 	Game.entity_action.connect(_on_action)
 	Game.missle_sync.connect(_on_missle)
 	Game.entity_life.connect(_on_life)
+	Game.entity_ride.connect(_on_ride)
 	Game.state_icons_changed.connect(_on_state_icons)
 	Game.gold_changed.connect(_on_gold)
 	Game.entity_camp.connect(_on_entity_camp)
@@ -450,6 +451,12 @@ static func cast_sound(skill_id: int, sex: int) -> String:
 	return "" if s == "0" else s
 
 
+func _on_ride(r: Dictionary) -> void:
+	var node: Node = _entities.get(int(r.id))
+	if node != null and node.has_method("set_riding"):
+		node.set_riding(bool(r.riding))
+
+
 func _on_life(l: Dictionary) -> void:
 	var node: Node = _entities.get(int(l.id))
 	if node:
@@ -673,6 +680,35 @@ func _auto3d_run() -> void:
 		await get_tree().process_frame
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
+	# a horse (AddItem genre 0 detail 10 particular 2 level 1 = Liệt Bạch Mã), worn on part 10, then C2G_RIDE: the 3D view mounts
+	# (the reference 白马 under the rider, group 20 / 21)
+	var horses_before := Game.items.size()
+	Game.chat("?gm ds AddItem(0,10,2,1,0,0)")
+	waited = 0.0
+	while waited < 3.0 and Game.items.size() < horses_before + 1:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	var horse_item := 0
+	for id in Game.items:
+		if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 10 and int(Game.items[id].room) == Game.ROOM_BAG:
+			horse_item = int(id)
+	if horse_item != 0:
+		Game.item_equip(horse_item, 10)
+		waited = 0.0
+		while waited < 3.0 and Game.item_worn(10) != horse_item:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+		Game.ride(true)
+		waited = 0.0
+		while waited < 3.0 and not (own != null and is_instance_valid(own) and bool(own.get("riding"))):
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+		for i in 4:
+			await get_tree().process_frame
+		await _save_screenshot("user://logs/auto3d_ride.png")
+		print("AUTO3D_RIDE item=%d worn=%d riding=%s" % [horse_item, Game.item_worn(10), bool(own.get("riding")) if own != null else false])
+		Game.ride(false)
+		await get_tree().create_timer(0.6).timeout
 	print("AUTO3D_WEAPON item=%d worn=%d weapon=%s skill53=%s skill53_level=%d level=%d item_results=%s item=%s" % [sword, Game.item_worn(3), _world._own_weapon, Game.skills.has(53),
 		int(Game.skills.get(53, {}).get("level", -1)), int(Game.player_attrib.get("level", 0)), str(results), "room %s x %s y %s name %s" % [str(Game.items.get(sword, {}).get("room")), str(Game.items.get(sword, {}).get("x")), str(Game.items.get(sword, {}).get("y")), str(Game.items.get(sword, {}).get("name"))]])
 	Game.chat("?gm ds SetFightState(1)")

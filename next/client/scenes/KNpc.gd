@@ -73,6 +73,9 @@ var no_2d := false                 # a 3D view draws it (KWorldView3D): no sprit
 var _snd_res: Dictionary = {}      # no_2d: the npcres row, only for the action sounds (KNpcRes::GetSoundName without the pictures)
 var _snd_name := ""                # no_2d: m_szSoundName of the current doing
 var view_dir_offset := 0           # a 2.5D view adds the camera's turn to the painted facing (the sprite seen from the camera)
+var riding := false                # on its horse (EntityInfo.riding / G2C_ENTITY_RIDE; the 0x20 flag of the 0x4c / 0x4d packets)
+
+signal riding_changed(on: bool)
 
 signal doing_changed(doing: int, total_frame: int)   # the doing (and its frame count) was set, for a 3D view
 
@@ -102,6 +105,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	res_dir = dir64
 	life = int(d.get("life", 0))
 	life_max = int(d.get("life_max", 0))
+	riding = bool(d.get("riding", false))
 	path = _waypoints(d)
 	position = to_screen(scene_pos)
 	_rng.seed = entity_id
@@ -316,6 +320,15 @@ func _head_effect_z() -> int:
 func set_target(on: bool) -> void:
 	is_target = on
 	refresh_info()
+
+
+# G2C_ENTITY_RIDE: mounted or dismounted (the 2.0 client redraws with the on_horse action table, KNpcResNode.act_no)
+func set_riding(on: bool) -> void:
+	if riding == on:
+		return
+	riding = on
+	riding_changed.emit(on)
+	queue_redraw()
 
 
 func is_dead() -> bool:

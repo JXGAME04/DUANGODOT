@@ -358,7 +358,7 @@ class NpcExporter:
         anim_names = self.tables.anim_names(cp["anim_group"])
         groups = {}
         if cp["anim_group"] < 0:
-            gids = [g for g in range(1, 12)]
+            gids = [g for g in range(1, 12)] + [20]   # 20 = tren ngua (anim_group: xx 85, zp 84, danh 80/81, magic 82)
         else:
             gids = [cp["anim_group"]]
         clip_names = {}
@@ -583,12 +583,19 @@ def main():
                 ids.append(cha)
         if PLAYER_CHA not in ids:
             ids.append(PLAYER_CHA)
+    # npc_models.json gop dan: xuat them vai cha_pic (ngua, vu khi...) khong xoa cac muc da co
+    index_path = os.path.join(a.out, "npc_models.json")
     infos = {}
+    if os.path.exists(index_path):
+        try:
+            infos = json.load(io.open(index_path, encoding="utf-8"))
+        except ValueError:
+            infos = {}
     for cid in ids:
         info = ex.export_cha(cid)
         if info:
             infos[str(cid)] = info
-    with io.open(os.path.join(a.out, "npc_models.json"), "w", encoding="utf-8") as f:
+    with io.open(index_path, "w", encoding="utf-8") as f:
         json.dump(infos, f, ensure_ascii=False, indent=1)
     if a.map:
         with io.open(os.path.join(NEXT, "client", "assets3d", a.map, "npcs.json"), "w", encoding="utf-8") as f:
