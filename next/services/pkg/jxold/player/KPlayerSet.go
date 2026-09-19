@@ -17,11 +17,12 @@ import (
 )
 
 const (
-	MaxLevel   = 200 // rows of level_exp.txt the JX2 server keeps (KLevelAdd: 200; JX1 had 150)
-	MaxSeries  = 5
-	MaxReborn  = 7             // the 1..7 转 columns of level_exp.txt
-	ExpCap     = 2_000_000_000 // 0x77359400: what a bad cell becomes ("level exp error ... please call program")
-	NewPlayers = 10            // newplayerini00..09: series * 2 + sex (CPlayerCreator::GetRoleData)
+	MaxLeadLevel = 100 // level_lead_exp.txt: the leadership levels
+	MaxLevel     = 200 // rows of level_exp.txt the JX2 server keeps (KLevelAdd: 200; JX1 had 150)
+	MaxSeries    = 5
+	MaxReborn    = 7             // the 1..7 转 columns of level_exp.txt
+	ExpCap       = 2_000_000_000 // 0x77359400: what a bad cell becomes ("level exp error ... please call program")
+	NewPlayers   = 10            // newplayerini00..09: series * 2 + sex (CPlayerCreator::GetRoleData)
 )
 
 // LevelExp is one row of level_exp.txt as KLevelAdd keeps it: the experience the level needs
@@ -99,6 +100,13 @@ type PKPunish struct {
 	NormalPKTimeLong int             `json:"normal_pk_time_long"`
 }
 
+// LeadExp is one row of level_lead_exp.txt (the leadership table, 100 rows x 8 bytes at 0x8bb26a4 of jx_linux_y): the exp
+// of a leadership level (col 2) and the members a captain of that level may take (col 3, KLeadExp::GetMemNumFromLevel 0x080C4560).
+type LeadExp struct {
+	Exp     int64 `json:"exp"`
+	Members int   `json:"members"`
+}
+
 // BaseValue is [Common] of basevalue.ini: the frame counts of a player's actions.
 type BaseValue struct {
 	HurtFrame   int `json:"hurt_frame"`
@@ -164,6 +172,7 @@ type Set struct {
 	BaseValue BaseValue             `json:"basevalue"`
 	PKRate    PKRate                `json:"pk_rate"`
 	PKPunish  PKPunish              `json:"pk_punish"`
+	LeadExp   [MaxLeadLevel]LeadExp `json:"lead_exp"`   // index = leadership level - 1
 	NewPlayer [NewPlayers]NewPlayer `json:"new_player"` // index = series * 2 + sex
 	Missing   []string              `json:"missing,omitempty"`
 }
@@ -285,6 +294,16 @@ func Load(dir string) (*Set, error) {
 	}
 	// PKPunish.txt: rows 2..12 = PK value 0..10, KTabFile::GetInteger with the defaults of 0x080C5B71.. (cols 2..5 -> 1,
 	// col 8 -> -1, col 9 -> 0); NormalPKTimeLong = row 2 col 7 (default 3240)
+	// level_lead_exp.txt: rows 2.. = leadership levels 1..100, col 2 the exp, col 3 the members (KTabFile::GetInteger)
+	for k := range s.LeadExp {
+		s.LeadExp[k] = LeadExp{Members: 1}
+	}
+	if data, ok := read("level_lead_exp.txt"); ok {
+		t := npcres.ParseTab(data)
+		for k := 0; k < MaxLeadLevel; k++ {
+			s.LeadExp[k] = LeadExp{Exp: int64(cell(t, k+2, 2, 0)), Members: cell(t, k+2, 3, 1)}
+		}
+	}
 	s.PKPunish.NormalPKTimeLong = 3240
 	for k := range s.PKPunish.Rows {
 		s.PKPunish.Rows[k] = PKPunishRow{ExpPermille: 1, MoneyPermille: 1, ItemPermille: 1, EquipPercent: 1, Col8: -1}

@@ -88,6 +88,10 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     pk.state = std::clamp(static_cast<int>(role.pk_state()), 0, 2);
     pk.value = std::clamp(static_cast<int>(role.pk_value()), 0, 10);
     pk.locked = role.pk_locked();
+    team.release();
+    team.can_team = true;
+    lead_exp = static_cast<std::int64_t>(role.lead_exp());
+    lead_level = role.lead_level() > 0 ? static_cast<int>(role.lead_level()) : 1;
     // m_LifeMax straight from the role data (TRoleData+0xeb), the stamina from the tables, the
     // mana from the role data; a player has no natural life / mana replenish of its own
     npc.base.life_max = std::max(1, s.hp_max());
@@ -146,6 +150,8 @@ void KPlayer::save_to(const KNpc& npc, pb::RoleData& role) const
     role.set_pk_state(static_cast<std::uint32_t>(pk.state));   // 0x080BFCDD / 0x080BFCEF: the state byte and the value saved
     role.set_pk_value(static_cast<std::uint32_t>(std::max(0, pk.value)));
     role.set_pk_locked(pk.locked);
+    role.set_lead_exp(static_cast<std::uint64_t>(std::max<std::int64_t>(0, lead_exp)));
+    role.set_lead_level(static_cast<std::uint32_t>(std::max(1, lead_level)));
 }
 
 void KPlayer::lose_exp(std::int64_t loss) noexcept

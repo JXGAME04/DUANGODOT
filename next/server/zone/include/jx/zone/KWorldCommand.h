@@ -10,6 +10,7 @@
 #include <string>
 #include <variant>
 
+#include "jx/client.pb.h"
 #include "jx/common.pb.h"
 #include "jx/role.pb.h"
 #include "jx/ids.hpp"
@@ -83,7 +84,15 @@ struct KEvWorldChange {
     pb::RoleData role;
 };
 
-using KWorldEvent = std::variant<KEvSessionOpened, KEvPlayerSave, KEvWorldChange>;
+// a chat line for people beyond the map (WORLD / CITY / FACTION): the server sends it to every session of the zone
+// that qualifies - the relay's broadcast class of the old game, done here
+struct KEvChat {
+    pb::ChatChannel channel = pb::CH_WORLD;
+    int faction = -1;
+    std::string payload;
+};
+
+using KWorldEvent = std::variant<KEvSessionOpened, KEvPlayerSave, KEvWorldChange, KEvChat>;
 
 // std::visit helper: visit(cmd, [](const KCmdSpawnPlayer&){...}, [](const KCmdRemovePlayer&){...});
 template <class... Ts>

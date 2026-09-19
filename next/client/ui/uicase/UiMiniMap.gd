@@ -172,7 +172,7 @@ func _draw_map() -> void:
 		var c := Color.TRANSPARENT
 		match t:
 			ENTITY_PLAYER:
-				c = COLOR_TEAMMATE if node.get("teammate") == true else COLOR_PLAYER
+				c = COLOR_TEAMMATE if node.get("team_mate") == true else COLOR_PLAYER
 			ENTITY_MONSTER:
 				c = COLOR_FIGHT_NPC
 			ENTITY_NPC:

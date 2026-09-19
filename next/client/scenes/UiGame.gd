@@ -8,9 +8,11 @@ const WorldView2D := preload("res://scenes/KWorldView2D.gd")
 const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const ACTION_ATTACK := 1
 const ENTITY_DROP := 4
+const ENTITY_PLAYER_KIND := 1
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
 const KLogin := preload("res://net/KLogin.gd")
 const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
+const Proto := preload("res://proto/jx_pb.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 
@@ -35,8 +37,11 @@ func _ready() -> void:
 	_build_hud()
 	_windows = KUiGameWindows.new()
 	_windows.quick_skill.connect(func(id: int): cast_skill_at_mouse(id))
+	_windows.system_line.connect(func(text: String): _append_chat("[color=#e6be00]%s[/color]" % text))
 	_windows.name = "Windows"
 	add_child(_windows)
+	Game.team_changed.connect(_on_team_changed)
+	Game.entity_menu_state.connect(_on_entity_menu_state)
 	# the 2.0 bottom bar carries the chat line ([InputEdit] of 玩家信息主界面.ini): the plain one steps aside
 	if _windows.player_bar != null and _windows.player_bar.chat_input != null:
 		_chat_input.visible = false
@@ -213,6 +218,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			var hit := _entity_at(p)
 			if hit != null and hit.entity_type == ENTITY_DROP:
 				_pick_up(hit)
+			elif hit != null and hit.entity_id != Game.entity_id and hit.has_method("is_dialoger") and hit.is_dialoger():
+				# KPlayer::DialogNpc: the 0x6e packet to the zone (within twice the npc's dialog radius, 248 px)
+				var dseq := Game.npc_dialog(hit.entity_id)
+				Log.debug("ui", "click npc dialog", {"npc": hit.entity_id, "name": hit.display_name, "seq": dseq})
 			elif hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
 				_select_target(hit)
 				# the left mouse skill of the old client (KPlayer::m_nLeftSkillID): a skill picked in the book is cast
@@ -227,6 +236,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				var s := _clamp_scene(_world.screen_to_scene(p))
 				var seq := Game.move_to(s.x, s.y)
 				Log.debug("ui", "click move", {"x": s.x, "y": s.y, "seq": seq})
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.ctrl_pressed:
+			# autoexec.lua: AddCommand("Ctrl+RButton", "", "Mouse_Menu()") - the player menu (gamecl.exe 0x004C2450)
+			var hit := _entity_at(_mouse())
+			if hit != null and hit.entity_type == ENTITY_PLAYER_KIND and hit.entity_id != Game.entity_id and _windows != null:
+				_windows.open_player_menu(hit.entity_id, get_viewport().get_mouse_position())
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_on_right_click(_mouse())
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -420,6 +434,8 @@ func _clear_missles() -> void:
 func _add_entity(d: Dictionary) -> void:
 	var id := int(d.id)
 	_entities[id] = _world.add_entity(d, id == Game.entity_id, _entities.get(id))
+	if _entities[id].has_method("set_team_mate"):
+		_entities[id].set_team_mate(Game.is_team_mate(id))
 	_spawn_count += 1
 	if id == Game.entity_id and _windows != null and _windows.minimap != null:
 		_windows.minimap.set_own(_entities[id])
@@ -512,6 +528,23 @@ func _on_entity_pk(r: Dictionary) -> void:
 		node.set_pk_state(int(r.pk_state))
 
 
+# s2c_npcsetmenustate: the sign over a player's head (and its trade sentence)
+func _on_entity_menu_state(id: int) -> void:
+	var node: Node2D = _entities.get(id)
+	var d = Game.entities.get(id)
+	if node != null and d != null and node.has_method("set_menu_state"):
+		node.set_menu_state(int(d.get("menu_state", 0)), str(d.get("menu_sentence", "")))
+
+
+# G2C_TEAM_SELF: the life bar of a team mate is (230, 190, 0) (PaintLife 0x005EADB8 when 0x0066D070 == 8) - every player
+# node learns whether it is one now
+func _on_team_changed() -> void:
+	for id in _entities:
+		var node: Node2D = _entities[id]
+		if node != null and is_instance_valid(node) and node.has_method("set_team_mate"):
+			node.set_team_mate(Game.is_team_mate(int(id)))
+
+
 # the 0x90 / 0x93 packets: one's own PK state and value (G2C_PK_STATE); a refused switch keeps the state
 func _on_pk_changed(state: int, _value: int, refused: bool) -> void:
 	var own: Node = _entities.get(Game.entity_id)
@@ -537,7 +570,14 @@ func _on_gold(entity_id: int) -> void:
 
 
 func _on_chat(msg: Dictionary) -> void:
-	_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
+	if _windows == null:
+		_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
+		return
+	var line: Dictionary = _windows.chat_line(msg)
+	if line.get("texture") != null:
+		_chat_log.add_image(line.texture)
+		_chat_log.add_text(" ")
+	_append_chat(str(line.bbcode))
 
 
 func _append_chat(bbcode: String) -> void:
@@ -548,7 +588,10 @@ func _on_chat_submitted(text: String) -> void:
 	_chat_input.text = ""
 	_chat_input.release_focus()
 	if text.strip_edges() != "":
-		Game.chat(text)
+		if _windows != null:
+			_windows.send_chat(text)
+		else:
+			Game.chat(text)
 
 
 func _on_kicked(reason: int, text: String) -> void:
@@ -594,6 +637,10 @@ func _auto_run() -> void:
 	await _auto_sit()
 	await _auto_ride()
 	await _auto_pk()
+	await _auto_team()
+	await _auto_trade()
+	await _auto_dialog()
+	await _auto_task()
 	await _auto_death()
 	var _sounds = _world.sounds()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
@@ -1294,6 +1341,274 @@ func _auto_pk() -> void:
 	print("AUTO_PK on=%s bar_state=%d value=%d back=%s refused=%s" % [on, bar_state, Game.pk_value, answer.back, answer.refused])
 
 
+# the team of one character: create (the 0x53 sub 2 -> TeamSelf captain / open), the window, close the team (sub 3), dismiss
+# (sub 9 -> TeamSelf out of a team); the invitations need a second player (the [team] tests of the zone cover them)
+func _auto_team() -> void:
+	var answer := {"changes": 0}
+	var cb := func() -> void:
+		answer.changes += 1
+	Game.team_changed.connect(cb)
+	Game.team_request(Proto.TeamCmd.TEAM_CREATE)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if bool(Game.team.in_team):
+			break
+	var created := bool(Game.team.in_team)
+	var captain := bool(Game.team.captain)
+	var open_state := int(Game.team.state)
+	var lead_level := int(Game.team.lead_level)
+	var members_max := int(Game.team.members_max)
+	# the partner bot (jxbot -partner, dev.py screenshot): invited, it says yes - the list grows, its life bar turns team colour
+	var partner_id := _auto_partner_id()
+	var invited := false
+	var mate_color := false
+	if partner_id != 0:
+		Game.team_request(Proto.TeamCmd.TEAM_INVITE, partner_id)
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if Game.team.members.size() >= 1:
+				break
+		invited = Game.team.members.size() >= 1
+		var pn: Node2D = _entities.get(partner_id)
+		mate_color = pn != null and "team_mate" in pn and bool(pn.team_mate)
+	var window_ok := false
+	if _windows != null and _windows.team_window != null:
+		_windows.team_window.open_window()
+		await get_tree().create_timer(0.3).timeout
+		window_ok = _windows.team_window.visible and _windows.team_window.member_count() == (2 if invited else 1)
+		await _save_screenshot("user://logs/auto_team.png")
+		_windows.team_window.close_window()
+	print("AUTO_TEAM_PARTNER partner=%d invited=%s members=%d mate_color=%s" % [partner_id, invited, Game.team.members.size(), mate_color])
+	# the channels (docs/LINUX-SERVER.md §19): a team line comes back on CH_TEAM (the team hears it), a world line
+	# through the zone's fan-out on CH_WORLD (level 100: the level 30 / 80 % mana of chatcost.ini type 4 are met)
+	var heard := {}
+	var on_chat := func(m: Dictionary) -> void:
+		heard[int(m.get("channel", 0))] = str(m.get("text", ""))
+	Game.chat_msg.connect(on_chat)
+	# through the bar's rules (KUiPlayerBar::SendChat 0x00475A10): "&T ..." picks the team by its short name, the plain
+	# line goes on the current channel = the world one picked from the ChannelBtn menu (0x00475900)
+	Game.chat("?gm ds RestoreMana()")   # the casts above drank the mana: the world line needs 80 % of it
+	await get_tree().create_timer(0.3).timeout
+	if _windows != null:
+		_windows.set_channel(Proto.ChatChannel.CH_WORLD)
+		if invited:
+			_windows.send_chat("&T doi oi")
+		_windows.send_chat("ca the gioi")
+	else:
+		if invited:
+			Game.chat("doi oi", Proto.ChatChannel.CH_TEAM)
+		Game.chat("ca the gioi", Proto.ChatChannel.CH_WORLD)
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if heard.has(int(Proto.ChatChannel.CH_WORLD)) and (not invited or heard.has(int(Proto.ChatChannel.CH_TEAM))):
+			break
+	Game.chat_msg.disconnect(on_chat)
+	var button_short := ""
+	var menu_open := false
+	if _windows != null and _windows.player_bar != null and _windows.player_bar.channel_btn != null:
+		button_short = str(_windows.player_bar.channel_btn.label)
+		_windows._open_channel_menu(_windows.player_bar.channel_btn.global_position)
+		await get_tree().create_timer(0.2).timeout
+		menu_open = _windows.channel_menu != null and _windows.channel_menu.visible
+		await _save_screenshot("user://logs/auto_chat.png")
+		if _windows.channel_menu != null:
+			_windows.channel_menu.hide_menu()
+		_windows.set_channel(Proto.ChatChannel.CH_NEARBY)
+	print("AUTO_CHAT team=%s world=%s button=%s menu=%s" % [heard.get(int(Proto.ChatChannel.CH_TEAM), "-"), heard.get(int(Proto.ChatChannel.CH_WORLD), "-"), button_short, menu_open])
+	Game.team_request(Proto.TeamCmd.TEAM_OPEN_CLOSE, 0, 0)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if int(Game.team.state) == 0:
+			break
+	var closed_ok := int(Game.team.state) == 0
+	Game.team_request(Proto.TeamCmd.TEAM_DISMISS)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if not bool(Game.team.in_team):
+			break
+	var dismissed := not bool(Game.team.in_team)
+	Game.team_changed.disconnect(cb)
+	Log.info("auto", "auto team", {"created": created, "captain": captain, "state": open_state, "lead_level": lead_level,
+		"members_max": members_max, "window": window_ok, "closed": closed_ok, "dismissed": dismissed, "changes": answer.changes})
+	print("AUTO_TEAM created=%s captain=%s open=%d lead_level=%d members_max=%d window=%s closed=%s dismissed=%s changes=%d" % [created, captain,
+		open_state, lead_level, members_max, window_ok, closed_ok, dismissed, answer.changes])
+
+
+# the player of the partner bot around (jxbot -partner): another player with its trade sign up, else any other player
+func _auto_partner_id() -> int:
+	var any_player := 0
+	for id in Game.entities:
+		var e: Dictionary = Game.entities[id]
+		if int(id) == Game.entity_id or int(e.get("type", 0)) != ENTITY_PLAYER_KIND:
+			continue
+		if int(e.get("menu_state", 0)) == 2:
+			return int(id)
+		if any_player == 0:
+			any_player = int(id)
+	return any_player
+
+
+# the trade with the partner bot: Ctrl+right click "Giao Dịch" = TradeApplyStart, the bot says yes (both TRADING, the
+# window opens), an item and 5 coins go on my table, the lock (the bot locks and confirms after me), a picture of the window
+# with both locked, my ok -> the exchange (0x78 {1}): the item left, the money moved.  Without a partner: T puts my own
+# sign up, a picture, T takes it down.
+func _auto_trade() -> void:
+	var answer := {"changes": 0, "end": -1}
+	var cb := func() -> void:
+		answer.changes += 1
+	var cb_end := func(ok: bool) -> void:
+		answer.end = 1 if ok else 0
+	Game.trade_changed.connect(cb)
+	Game.trade_end.connect(cb_end)
+	var partner_id := 0
+	for i in 30:
+		partner_id = _auto_partner_id()
+		var e = Game.entities.get(partner_id)
+		if e != null and int(e.get("menu_state", 0)) == 2:
+			break
+		await get_tree().create_timer(0.2).timeout
+	var pe = Game.entities.get(partner_id)
+	if partner_id != 0 and pe != null and int(pe.get("menu_state", 0)) == 2:
+		# 50 coins from the script api (Earn 0x08118970) so 5 of them can go on the table
+		Game.chat("?gm ds Earn(50)")
+		for i in 20:
+			await get_tree().create_timer(0.1).timeout
+			if int(Game.money) >= 5:
+				break
+		var money_before := int(Game.money)
+		var item_id := 0
+		for id in Game.items:
+			var it: Dictionary = Game.items[id]
+			if int(it.room) == 0 and int(it.genre) != 4:
+				item_id = int(id)
+				break
+		Game.trade_request(Proto.TradeCmd.TRADE_APPLY_START, partner_id)
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if int(Game.trade.state) == 2:
+				break
+		var started := int(Game.trade.state) == 2
+		var placed := false
+		if started and item_id != 0:
+			Game.item_move(item_id, 2, 0, 0)
+			for i in 20:
+				await get_tree().create_timer(0.1).timeout
+				var it2 = Game.items.get(item_id)
+				if it2 != null and int(it2.room) == 2:
+					placed = true
+					break
+		if started:
+			# 5 coins typed into the window's SelfMoney edit (the 0x6c packet), or the bare request without a window
+			if _windows != null and _windows.trade_window != null and _windows.trade_window.visible:
+				_windows.trade_window.put_money(5)
+			else:
+				Game.trade_request(Proto.TradeCmd.TRADE_MONEY, 0, 5)
+			await get_tree().create_timer(0.3).timeout
+			Game.trade_request(Proto.TradeCmd.TRADE_DECISION, 0, 2)   # the lock: the bot locks and confirms after it
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if bool(Game.trade.self_lock) and bool(Game.trade.dest_lock) and bool(Game.trade.dest_ok):
+				break
+		var both_locked := bool(Game.trade.self_lock) and bool(Game.trade.dest_lock)
+		var dest_ok := bool(Game.trade.dest_ok)
+		var window_open: bool = _windows != null and _windows.trade_window != null and _windows.trade_window.visible
+		var my_table: int = _windows.trade_window.my_table_count() if window_open else -1
+		await get_tree().create_timer(0.2).timeout
+		await _save_screenshot("user://logs/auto_trade.png")
+		if started:
+			Game.trade_request(Proto.TradeCmd.TRADE_DECISION, 0, 1)   # my ok: the exchange
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if answer.end >= 0:
+				break
+		await get_tree().create_timer(0.3).timeout
+		var item_gone := item_id != 0 and not Game.items.has(item_id)
+		Game.trade_changed.disconnect(cb)
+		Game.trade_end.disconnect(cb_end)
+		Log.info("auto", "auto trade", {"partner": partner_id, "started": started, "placed": placed, "both_locked": both_locked, "dest_ok": dest_ok,
+			"window": window_open, "my_table": my_table, "end": answer.end, "item_gone": item_gone, "money_before": money_before, "money": int(Game.money)})
+		print("AUTO_TRADE partner=%d started=%s placed=%s both_locked=%s dest_ok=%s window=%s my_table=%d end=%d item_gone=%s money=%d->%d" % [
+			partner_id, started, placed, both_locked, dest_ok, window_open, my_table, answer.end, item_gone, money_before, int(Game.money)])
+		return
+	if _windows != null:
+		_windows.toggle_trade_sign("ban gi cung mua")
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if int(Game.trade.state) == 1:
+			break
+	var opened := int(Game.trade.state) == 1
+	var own: Node2D = _entities.get(Game.entity_id)
+	var sign_state: int = own.menu_state if own != null and "menu_state" in own else -1
+	var sign_drawn: bool = own != null and own.get("_sign") != null and own._sign.visible
+	await get_tree().create_timer(0.3).timeout
+	await _save_screenshot("user://logs/auto_trade.png")
+	if _windows != null:
+		_windows.toggle_trade_sign()
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if int(Game.trade.state) == 0:
+			break
+	var closed := int(Game.trade.state) == 0
+	Game.trade_changed.disconnect(cb)
+	Game.trade_end.disconnect(cb_end)
+	Log.info("auto", "auto trade", {"opened": opened, "sign": sign_state, "drawn": sign_drawn, "closed": closed, "changes": answer.changes})
+	print("AUTO_TRADE opened=%s sign=%d drawn=%s closed=%s changes=%d" % [opened, sign_state, sign_drawn, closed, answer.changes])
+
+
+# the npc dialog: the nearest dialoger within 248 px (the map's placed npcs with scripts; docs §20) is clicked, its
+# script's Say arrives as a script action -> the question window (KUiMsgSel) with the sentence and the answers, a picture,
+# then the first answer (or the closing line) is clicked
+func _auto_dialog() -> void:
+	var own := _own()
+	var best: Node2D = null
+	var best_d := 1.0e9
+	for id in _entities:
+		var node: Node2D = _entities[id]
+		if node == null or not is_instance_valid(node) or not node.has_method("is_dialoger") or not node.is_dialoger():
+			continue
+		var d: float = own.scene_pos.distance_to(node.scene_pos) if own != null else 1.0e9
+		if d < best_d:
+			best_d = d
+			best = node
+	if best == null:
+		print("AUTO_DIALOG npc=0")
+		return
+	# the 2.0 client walks up to a npc that is out of reach before it talks (twice m_DialogRadius = 248 px): so do we
+	if own != null and best_d > 240.0:
+		Game.move_to(int(best.scene_pos.x) - 120, int(best.scene_pos.y))
+		for i in 40:
+			await get_tree().create_timer(0.2).timeout
+			own = _own()
+			if own == null:
+				break
+			best_d = own.scene_pos.distance_to(best.scene_pos)
+			if best_d <= 240.0 and not own.is_moving():
+				break
+	var got := {"action": {}}
+	var on_action := func(a: Dictionary) -> void:
+		got.action = a
+	Game.script_action.connect(on_action)
+	Game.npc_dialog(best.entity_id)
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if not got.action.is_empty():
+			break
+	Game.script_action.disconnect(on_action)
+	var a: Dictionary = got.action
+	var window_open: bool = _windows != null and _windows.msg_sel != null and _windows.msg_sel.visible
+	await get_tree().create_timer(0.2).timeout
+	await _save_screenshot("user://logs/auto_dialog.png")
+	var answered := false
+	if window_open:
+		_windows.msg_sel._on_click(0)   # the first line: an answer, or the closing line when there is none
+		answered = true
+		await get_tree().create_timer(0.3).timeout
+	Log.info("auto", "auto dialog", {"npc": best.entity_id, "name": best.display_name, "distance": int(best_d), "ui": a.get("ui", -1),
+		"text_len": str(a.get("text", "")).length(), "options": a.get("options", []).size(), "window": window_open, "answered": answered})
+	print("AUTO_DIALOG npc=%d name=%s distance=%d ui=%d text_len=%d options=%d window=%s answered=%s" % [best.entity_id, best.display_name,
+		int(best_d), a.get("ui", -1), str(a.get("text", "")).length(), a.get("options", []).size(), window_open, answered])
+
+
 func _auto_ride() -> void:
 	var own: Node = _entities.get(Game.entity_id)
 	if own == null:
@@ -1344,6 +1659,40 @@ func _auto_ride() -> void:
 		"down": down, "action_down": action_down})
 	print("AUTO_RIDE mounted=%s horse_row=%d action=%d parts=%d down=%s action_down=%d parts_down=%d" % [mounted, rows.get(3, -1),
 		action, parts, down, action_down, parts_down])
+
+
+# The task values (docs/LINUX-SERVER.md §21): the SYNC_FLAG values came with the spawn (G2C_TASK_VALUE each, the
+# 1000..1070 batch); a CLIENT_FLAG id set by us (1276 - the 0xaa packet) comes back through a script SyncTaskValue, and a
+# script SetTask on a SYNC_FLAG id (100) reaches us at once.  Prints AUTO_TASK so tools/dev.py screenshot can check it.
+func _auto_task() -> void:
+	var synced: int = Game.task_values.size()
+	var v: int = int(Time.get_unix_time_from_system()) % 1000 + 1
+	var got := {}
+	var on_value := func(id: int, value: int) -> void:
+		got[id] = value
+	Game.task_value_changed.connect(on_value)
+	Game.set_task_value(1276, v + 1)
+	await get_tree().create_timer(0.3).timeout
+	Game.chat("?gm ds SyncTaskValue(1276)")
+	Game.chat("?gm ds SetTask(100, %d)" % v)
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if got.has(1276) and got.has(100):
+			break
+	# the task system (docs/LINUX-SERVER.md §22): StartTask opens a group among the temp values (2200 = the count, 2201 = the
+	# id), SetTaskStatus sets two bits of value 2000 - every changed value reaches us as G2C_TASK_VALUE (0x0820E1E0)
+	Game.chat("?gm ds CloseTask(TaskName(101))")
+	await get_tree().create_timer(0.3).timeout
+	Game.chat("?gm ds StartTask(TaskName(101))")
+	Game.chat("?gm ds SetTaskStatus(TaskName(101), 2)")   # two writes: whatever the last run left, one of them changes value 2000
+	Game.chat("?gm ds SetTaskStatus(TaskName(101), 1)")
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if got.has(2201) and got.has(2000):
+			break
+	Game.task_value_changed.disconnect(on_value)
+	await _save_screenshot("user://logs/auto_task.png")
+	print("AUTO_TASK packets=%d synced=%d client_set=%s script_set=%s expected=%d stored=%d task_count=%s task_id=%s status_value=%s" % [Game.task_packets, synced, str(got.get(1276, "-")), str(got.get(100, "-")), v, Game.task_value(100), str(got.get(2200, "-")), str(got.get(2201, "-")), str(got.get(2000, "-"))])
 
 
 func _auto_death() -> void:

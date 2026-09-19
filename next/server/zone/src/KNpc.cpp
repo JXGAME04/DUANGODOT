@@ -725,7 +725,7 @@ int KSubWorld::calc_damage(KNpc& t, KNpc& a, int min, int max, int type, bool me
         if (a.cur.mana < 0) a.cur.mana = 0;
     }
     // 0x08089F65: the damage record of a monster, for the experience (a partner's owner - B3)
-    if (!player_or_partner(t) && a.kind == KNpcKind::player) t.add_damage_record(a.id, std::min(dmg, c.life));
+    if (!player_or_partner(t) && a.kind == KNpcKind::player) t.add_damage_record(KNpc::damage_record_key(a), std::min(dmg, c.life));
     if (dealt != nullptr) *dealt = dmg;
     const int life_was = c.life;
     c.life -= dmg;
@@ -908,7 +908,7 @@ int KSubWorld::receive_damage(KNpc& t, KNpc& a, int series, bool melee, const KM
             const int life = t.cur.life;
             const int c = std::max(0, 100 - t.cur.fatally_strike_res);
             const int fd = static_cast<int>(static_cast<double>(life / 4) * static_cast<double>(c) / 100.0);
-            if (t.kind != KNpcKind::player && a.kind == KNpcKind::player) t.add_damage_record(a.id, fd);
+            if (t.kind != KNpcKind::player && a.kind == KNpcKind::player) t.add_damage_record(KNpc::damage_record_key(a), fd);
             t.cur.life = life - fd;
             const int quarter = t.life_max() / 4;
             if (t.cur.life < quarter && t.cur.life > 0 && life >= quarter) trigger_auto_skills(t, KAutoSkillList::life_quarter, t.id, a.id);

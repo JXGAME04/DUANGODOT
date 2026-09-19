@@ -58,6 +58,10 @@ func _init() -> void:
 	test_state_pictures()
 	test_wav_sound()
 	test_gold_name()
+	test_team()
+	test_chat_channels()
+	test_dialog()
+	test_task_values()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -788,6 +792,7 @@ func test_gold_name() -> void:
 	check(NpcGold.life_bar_color(100, 1, true).is_equal_approx(Color(1, 0, 64.0 / 255.0)), "fight state with the flag: (255, 0, 64)")
 	check(NpcGold.life_bar_color(100, 2, false).is_equal_approx(Color(1, 105.0 / 255.0, 180.0 / 255.0)), "state 2 without the flag: pink")
 	check(NpcGold.life_bar_color(100, 0, false) == Color(0, 1, 0), "no PK: the percent colour")
+	check(NpcGold.life_bar_color(10, 2, true, true).is_equal_approx(Color(230.0 / 255.0, 190.0 / 255.0, 0.0)), "a team mate: (230, 190, 0) before any PK colour (0x005EADD5)")
 	# GetNpcPate 0x005EBCF0: a sitting player's head sinks MulDiv(30, cur, total) once MulDiv(10, cur, total) >= 8 (rounded)
 	check(NpcGold.sit_pate_drop(false, 14, 15) == 0 and NpcGold.sit_pate_drop(true, 11, 15) == 0, "no sink standing or before frame 12 of 15")
 	check(NpcGold.sit_pate_drop(true, 12, 15) == 24 and NpcGold.sit_pate_drop(true, 13, 15) == 26 and NpcGold.sit_pate_drop(true, 14, 15) == 28, "24 / 26 / 28 over the last three frames")
@@ -798,3 +803,165 @@ func test_gold_name() -> void:
 	check(NpcGold.player_name_color(1).to_html(false) == "ffa85e", "camp_justice: 0xFFFFA85E (%s)" % NpcGold.player_name_color(1).to_html(false))
 	check(NpcGold.player_name_color(2).to_html(false) == "ff92ff" and NpcGold.player_name_color(3).to_html(false) == "55ff91", "evil / balance")
 	check(NpcGold.player_name_color(4) == Color(1, 0, 0) and NpcGold.player_name_color(6).to_html(false) == "ff69b4", "free red, above 4 pink")
+
+
+# ---- the team (docs/LINUX-SERVER.md §17, CLIENT-2.0.md §21): the protocol round trip and the 0x53 sub-command numbers ----
+func test_team() -> void:
+	check(Proto.MsgId.C2G_TEAM == 1119 and Proto.MsgId.G2C_TEAM_SELF == 2130 and Proto.MsgId.G2C_TEAM_EVENT == 2131, "team message ids")
+	# the sub-commands of the 0x53 packet as jx_linux_y 0x080DCC90 and the 2.0 client (0x005F7070 leave = 6, 0x005F70B0 kick = 7, 0x005F7100 change captain = 8) number them
+	check(Proto.TeamCmd.TEAM_CREATE == 2 and Proto.TeamCmd.TEAM_OPEN_CLOSE == 3 and Proto.TeamCmd.TEAM_APPLY_ADD == 4 and Proto.TeamCmd.TEAM_ACCEPT == 5
+		and Proto.TeamCmd.TEAM_LEAVE == 6 and Proto.TeamCmd.TEAM_KICK == 7 and Proto.TeamCmd.TEAM_CHANGE_CAPTAIN == 8 and Proto.TeamCmd.TEAM_DISMISS == 9
+		and Proto.TeamCmd.TEAM_INVITE == 10 and Proto.TeamCmd.TEAM_REPLY_INVITE == 11, "0x53 sub-command numbers")
+	var self_info := Proto.TeamSelf.new()
+	self_info.set_in_team(true)
+	self_info.set_team_id(3)
+	self_info.set_state(1)
+	self_info.set_captain(true)
+	self_info.set_lead_level(4)
+	self_info.set_lead_exp(1234)
+	self_info.set_members_max(5)
+	var l = self_info.new_leader()
+	l.set_entity_id(77)
+	l.set_name("Đại Hiệp")
+	l.set_level(30)
+	var m = self_info.add_members()
+	m.set_entity_id(78)
+	m.set_name("Tiểu Đệ")
+	m.set_level(12)
+	var back := Proto.TeamSelf.new()
+	check(back.from_bytes(self_info.to_bytes()) == Proto.PB_ERR.NO_ERRORS, "TeamSelf from_bytes")
+	check(back.get_in_team() and back.get_team_id() == 3 and back.get_state() == 1 and back.get_captain() and back.get_lead_level() == 4
+		and back.get_lead_exp() == 1234 and back.get_members_max() == 5, "TeamSelf scalars")
+	check(back.has_leader() and back.get_leader().get_entity_id() == 77 and back.get_leader().get_name() == "Đại Hiệp"
+		and back.get_members().size() == 1 and back.get_members()[0].get_name() == "Tiểu Đệ" and back.get_members()[0].get_level() == 12, "TeamSelf leader + members")
+	var ev := Proto.TeamEvent.new()
+	ev.set_event(Proto.TeamEventKind.TEAM_EV_MSG)
+	ev.set_arg(0x28)
+	ev.set_entity_id(77)
+	ev.set_name("Đại Hiệp")
+	var ev2 := Proto.TeamEvent.new()
+	check(ev2.from_bytes(ev.to_bytes()) == Proto.PB_ERR.NO_ERRORS and ev2.get_event() == Proto.TeamEventKind.TEAM_EV_MSG and ev2.get_arg() == 0x28
+		and ev2.get_entity_id() == 77 and ev2.get_name() == "Đại Hiệp", "TeamEvent round trip")
+	# the request the window sends
+	var req := Proto.TeamReq.new()
+	req.set_cmd(Proto.TeamCmd.TEAM_INVITE)
+	req.set_target(78)
+	req.set_flag(0)
+	req.set_seq(9)
+	var req2 := Proto.TeamReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_cmd() == Proto.TeamCmd.TEAM_INVITE and req2.get_target() == 78 and req2.get_seq() == 9, "TeamReq round trip")
+
+
+# ---- the chat channels (UiMsgCentrePad, 消息集合面板_左.ini; KUiPlayerBar::SendChat 0x00475A10) ----------------------
+func test_chat_channels() -> void:
+	check(Proto.ChatChannel.CH_NEARBY == 0 and Proto.ChatChannel.CH_TEAM == 1 and Proto.ChatChannel.CH_WORLD == 2 and Proto.ChatChannel.CH_FACTION == 3
+		and Proto.ChatChannel.CH_SYSTEM == 4 and Proto.ChatChannel.CH_CITY == 5 and Proto.ChatChannel.CH_TONG == 6 and Proto.ChatChannel.CH_WHISPER == 7,
+		"ChatChannel = the [Channels] order")
+	var req := Proto.ChatReq.new()
+	req.set_text("doi oi")
+	req.set_channel(Proto.ChatChannel.CH_TEAM)
+	var req2 := Proto.ChatReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_channel() == Proto.ChatChannel.CH_TEAM and req2.get_text() == "doi oi", "ChatReq round trip")
+	var pad_script: GDScript = load("res://ui/uicase/UiMsgCentrePad.gd")
+	var pad = pad_script.new()
+	# the real file's values (the exported khung-chat may be missing on a bare checkout)
+	pad.from_sections(["CH_NEARBY", "CH_TEAM", "CH_WORLD", "CH_FACTION", "CH_SYSTEM", "CH_CITY"], {
+		"CH_NEARBY": {"ShortName0": "Ngoạn", "TextColor": "255,255,255", "MenuText": "Lân cận", "SendMsgInterval": "2000", "SendMsgNum": "2"},
+		"CH_TEAM": {"ShortName0": "Đội", "ShortName1": "T", "TextColor": "64,190,255", "MenuText": "Đội", "SendMsgInterval": "800", "SendMsgNum": "2"},
+		"CH_WORLD": {"ShortName0": "Công", "ShortName1": "SJ", "TextColor": "146,255,143", "MenuText": "Thế Giới", "SendMsgInterval": "60000", "SendMsgNum": "2"},
+		"CH_FACTION": {"ShortName0": "Phái", "TextColor": "225,210,165", "MenuText": "Môn Phái"},
+		"CH_SYSTEM": {"ShortName0": "GM", "ShortName1": "Hệ thống", "TextColor": "255,0,0", "MenuText": "Hệ Thống"},
+		"CH_CITY": {"ShortName0": "C", "ShortName1": "Thành thị", "ShortName2": "CS", "TextColor": "169,255,224", "MenuText": "Thành Thị"},
+	})
+	check(pad.channels.size() == 6 and pad.index_of("CH_CITY") == 5 and pad.short_name(1) == "Đội", "the channel table")
+	check(pad.color_of(1).is_equal_approx(Color(64.0 / 255.0, 190.0 / 255.0, 1.0)), "TextColor of CH_TEAM")
+	check(pad.index_by_short("T") == 1 and pad.index_by_short("SJ") == 2 and pad.index_by_short("CS") == 5 and pad.index_by_short("x") == -1, "ShortName lookup")
+	# the menu: the speakable channels in order, each with its colour
+	var menu: Array = pad.menu_entries()
+	check(menu.size() == 5 and menu[0].index == 0 and menu[1].text == "Đội" and menu[4].index == 5 and menu[2].color.is_equal_approx(pad.color_of(2)), "menu entries")
+	# the input prefixes of SendChat 0x00475A10
+	pad.current = 0
+	var r: Dictionary = pad.parse_input("xin chao")
+	check(r.channel == 0 and r.text == "xin chao" and r.target == "", "a plain line goes on the current channel")
+	r = pad.parse_input("/Auto2 chao ban")
+	check(r.channel == 7 and r.target == "Auto2" and r.text == "chao ban", "/name text = a whisper")
+	r = pad.parse_input("&T doi oi")
+	check(r.channel == 1 and r.text == "doi oi" and r.target == "", "&short text = the channel by its short name")
+	r = pad.parse_input("&SJ the gioi")
+	check(r.channel == 2 and r.text == "the gioi", "&SJ = CH_WORLD by ShortName1")
+	r = pad.parse_input("&zzz khong co")
+	check(r.channel == 0 and r.text == "&zzz khong co", "an unknown short name: the line as typed on the current channel")
+	r = pad.parse_input("/")
+	check(r.channel == 7 and r.target == "" and r.text == "", "a bare slash")
+	# SendMsgNum lines every SendMsgInterval ms
+	check(pad.throttle(1, 1000) == 0 and pad.throttle(1, 1100) == 0, "two team lines pass")
+	check(pad.throttle(1, 1200) == 1, "the third within 800 ms waits (1 s)")
+	check(pad.throttle(1, 1900) == 0, "after the interval it passes again")
+	check(pad.throttle(3, 0) == 0 and pad.throttle(3, 1) == 0 and pad.throttle(3, 2) == 0, "no interval: never held")
+	# a received line: name in NameTextColor, text in the channel colour; a whisper of my own in TextColorSelf
+	var line: Dictionary = pad.line({"channel": 1, "name": "Auto2", "text": "doi oi [x]"}, "Me")
+	check(str(line.bbcode) == "[color=#dcdcdc]Auto2:[/color] [color=#40beff]doi oi [lb]x][/color]" and line.texture == null, "a team line")
+	line = pad.line({"channel": 7, "name": "Me", "text": "bi mat"}, "Me")
+	check(str(line.bbcode).begins_with("[color=#dcdcdc]Me:[/color] [color=#ffe2a8]"), "my own whisper in TextColorSelf")
+	line = pad.line({"channel": 7, "name": "Someone", "text": "bi mat"}, "Me")
+	check(str(line.bbcode).find("[color=#fc97ff]") > 0, "a stranger's whisper in TextColorUnknown")
+
+
+# ---- the npc dialog (the 0x63 / 0x5f packets, UiMsgSel, UiInformation2) -----------------------------------------------
+func test_dialog() -> void:
+	check(Proto.MsgId.C2G_NPC_DIALOG == 1121 and Proto.MsgId.C2G_DIALOG_ANSWER == 1122 and Proto.MsgId.G2C_SCRIPT_ACTION == 2139, "dialog message ids")
+	var a := Proto.ScriptAction.new()
+	a.set_operate(0)
+	a.set_ui_id(0)
+	a.set_text("Xin chào")
+	a.set_interactive(true)
+	a.set_param(-1)
+	a.add_options("Một")
+	a.add_options("Hai")
+	var a2 := Proto.ScriptAction.new()
+	check(a2.from_bytes(a.to_bytes()) == Proto.PB_ERR.NO_ERRORS and a2.get_text() == "Xin chào" and a2.get_options().size() == 2
+		and a2.get_options()[1] == "Hai" and a2.get_param() == -1 and a2.get_interactive(), "ScriptAction round trip")
+	var ans := Proto.DialogAnswer.new()
+	ans.set_index(1)
+	var ans2 := Proto.DialogAnswer.new()
+	check(ans2.from_bytes(ans.to_bytes()) == Proto.PB_ERR.NO_ERRORS and ans2.get_index() == 1 and ans2.get_kind() == 0, "DialogAnswer round trip")
+	# the lines of the question window: the answers, or the closing line when there are none
+	var sel_script: GDScript = load("res://ui/KUiDialogMath.gd")
+	var lines: Array = sel_script.lines_for(["Một", "Hai"], "Kết thúc đối thoại")
+	check(lines.size() == 2 and lines[1] == "Hai", "the answers as lines")
+	lines = sel_script.lines_for([], "Kết thúc đối thoại")
+	check(lines.size() == 1 and lines[0] == "Kết thúc đối thoại", "no answer: the closing line (G_UiMsgSel_0)")
+	# the button of a page: "Tiếp tục" until the last page, "Hoàn thành" on it (G_PLAYER_14 / G_PLAYER_15)
+	var info_script: GDScript = sel_script
+	check(info_script.page_label(0, 3, "Tiếp tục", "Hoàn thành") == "Tiếp tục" and info_script.page_label(2, 3, "Tiếp tục", "Hoàn thành") == "Hoàn thành"
+		and info_script.page_label(0, 1, "Tiếp tục", "Hoàn thành") == "Hoàn thành", "page labels (G_PLAYER_14 / G_PLAYER_15)")
+
+
+# ---- the task values (KPlayerTask.gd, docs/LINUX-SERVER.md §21) ----------------------------------------------
+
+func test_task_values() -> void:
+	check(Proto.MsgId.G2C_TASK_VALUE == 2140 and Proto.MsgId.G2C_TASK_VALUES == 2141 and Proto.MsgId.C2G_TASK_VALUE == 1123, "task value message ids")
+	var v := Proto.TaskValue.new()
+	v.set_id(5)
+	v.set_value(77)
+	var v2 := Proto.TaskValue.new()
+	check(v2.from_bytes(v.to_bytes()) == Proto.PB_ERR.NO_ERRORS and v2.get_id() == 5 and v2.get_value() == 77, "TaskValue round trip")
+	var b := Proto.TaskValues.new()
+	var e := b.add_values()
+	e.set_id(1000)
+	e.set_value(-3)
+	var b2 := Proto.TaskValues.new()
+	check(b2.from_bytes(b.to_bytes()) == Proto.PB_ERR.NO_ERRORS and b2.get_values().size() == 1 and b2.get_values()[0].get_value() == -3, "TaskValues round trip")
+	var req := Proto.TaskValueReq.new()
+	req.set_id(1276)
+	req.set_value(4)
+	var req2 := Proto.TaskValueReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_id() == 1276 and req2.get_value() == 4, "TaskValueReq round trip")
+	var math: GDScript = load("res://scenes/KPlayerTask.gd")
+	var values := {}
+	check(math.set_value(values, 5, 77) and math.value_of(values, 5) == 77 and not math.set_value(values, 5, 77), "SetTaskValue stores and reports a change")
+	check(math.set_value(values, 5, 0) and not values.has(5) and math.value_of(values, 5) == 0, "a zero drops the entry")
+	check(not math.set_value(values, 0x1770, 1) and not math.set_value(values, -1, 1) and values.is_empty(), "ids outside 0..0x176f are refused")
+	var changed: Array = math.apply_batch(values, [{"id": 1000, "value": 1}, {"id": 1001, "value": 0}, {"id": 1002, "value": 2}])
+	check(changed == [1000, 1002] and math.value_of(values, 1002) == 2 and values.size() == 2, "a batch applies in order and names what changed")
+	check(math.bits(0x53, 4, 3) == 5 and math.bits(0x53, 0, 8) == 0x53 and math.bits(0x53, 30, 3) == 0 and math.bits(-1, 31, 1) == 1, "GetBits")

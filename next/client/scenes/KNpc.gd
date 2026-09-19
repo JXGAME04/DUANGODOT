@@ -92,6 +92,9 @@ static func to_scene(p: Vector2) -> Vector2:
 	return Vector2(p.x, p.y * 2.0)
 
 
+var npc_kind := 0   # NPCKIND (+0x13 of the 0x4c packet): 3 = a dialoger, a click on it talks (the 0x6e packet) instead of attacking
+
+
 func setup(d: Dictionary, own: bool) -> void:
 	entity_id = int(d.id)
 	entity_type = int(d.type)
@@ -105,6 +108,11 @@ func setup(d: Dictionary, own: bool) -> void:
 	equip_rows = d.get("res", {})
 	riding = bool(d.get("riding", false))
 	pk_state = int(d.get("pk_state", 0))
+	menu_state = int(d.get("menu_state", 0))
+	menu_sentence = str(d.get("menu_sentence", ""))
+	npc_kind = int(d.get("npc_kind", 0))
+	if menu_state != 0:
+		call_deferred("_refresh_sign")
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -310,6 +318,69 @@ func set_equip_rows(rows: Dictionary) -> void:
 		queue_redraw()
 
 
+# a team mate of the character (0x0066D070 == 8 in PaintLife 0x005EADB8): the life bar is (230, 190, 0) before any PK colour
+var team_mate := false
+# KNpc+0x1cb4 of the 2.0 client (0x006DDD70): the sign over the head (KPlayerMenuStateGraph, menustate01..04.spr drawn as the
+# first extra picture of KNpcRes::Draw 0x006DFD83, skipped for the stall 5) and, for the trade sign, the sentence (+0x1cc0,
+# 24 characters, 0x006DFBD3) written above it
+var menu_state := 0
+var menu_sentence := ""
+var _sign: Sprite2D = null
+var _sign_label: Label = null
+
+
+func set_menu_state(state: int, sentence: String) -> void:
+	if menu_state == state and menu_sentence == sentence:
+		return
+	menu_state = state
+	menu_sentence = sentence
+	_refresh_sign()
+
+
+func _refresh_sign() -> void:
+	var row: Dictionary = NpcResList.menu_state(menu_state) if menu_state > 0 and menu_state != 5 else {}
+	var atlas = Assets.sprite(str(row.get("sprite", ""))) if not row.is_empty() else null
+	if atlas == null:
+		if _sign != null:
+			_sign.visible = false
+		if _sign_label != null:
+			_sign_label.visible = false
+		return
+	if _sign == null:
+		_sign = Sprite2D.new()
+		_sign.centered = false
+		_sign.z_index = 2
+		add_child(_sign)
+	_sign.texture = atlas.frame_texture(0)
+	_sign.visible = _sign.texture != null
+	if _sign.texture != null:
+		var sz := _sign.texture.get_size()
+		_sign.position = Vector2(-sz.x / 2.0, -float(_pate()) - 20.0 - 16.0 - sz.y)
+	if menu_state == 2 and menu_sentence != "":
+		if _sign_label == null:
+			_sign_label = Label.new()
+			_sign_label.add_theme_font_size_override("font_size", 12)
+			_sign_label.add_theme_color_override("font_color", Color(255.0 / 255.0, 217.0 / 255.0, 78.0 / 255.0))
+			_sign_label.add_theme_color_override("font_outline_color", Color.BLACK)
+			_sign_label.add_theme_constant_override("outline_size", 2)
+			_sign_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_sign_label.z_index = 2
+			add_child(_sign_label)
+		_sign_label.text = menu_sentence.substr(0, 24)
+		_sign_label.visible = true
+		_sign_label.size = Vector2(160, 16)
+		_sign_label.position = Vector2(-80.0, _sign.position.y - 16.0)
+	elif _sign_label != null:
+		_sign_label.visible = false
+
+
+func set_team_mate(on: bool) -> void:
+	if team_mate == on:
+		return
+	team_mate = on
+	queue_redraw()
+
+
 # the flag & 3 of the 0x4b sync (0x0065D617 -> +0x16e4): the PK state colours the life bar
 func set_pk_state(s: int) -> void:
 	if pk_state == s:
@@ -380,6 +451,11 @@ func is_dead() -> bool:
 # What a click can attack: monsters that are still alive (the zone refuses the rest anyway).
 func is_attackable() -> bool:
 	return entity_type == ENTITY_MONSTER and not is_dead()
+
+
+# a dialoger (NPCKIND 3): the 2004 KPlayer::DialogNpc(int) on a click - the zone answers with its script's Say / Talk
+func is_dialoger() -> bool:
+	return npc_kind == 3 and not is_own and not is_dead()
 
 
 # True when the point (local coordinates, screen px) lies on the drawn body.
@@ -527,6 +603,10 @@ func _place_labels() -> void:
 		return
 	_label.position.y = -float(_pate()) - 20.0
 	_life_label.position.y = _label.position.y - 16.0
+	if _sign != null and _sign.visible and _sign.texture != null:
+		_sign.position.y = _life_label.position.y - _sign.texture.get_size().y
+		if _sign_label != null and _sign_label.visible:
+			_sign_label.position.y = _sign.position.y - 16.0
 
 
 func _set_doing(d: int) -> void:
@@ -586,7 +666,7 @@ func _draw() -> void:
 		var pct := int(round(float(life) * 100.0 / float(life_max)))
 		var w := float(pct * 38 / 100)
 		var top := Vector2(-19.0, -float(_pate()) + 2.0)
-		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct, pk_state, pk_state != 0))
+		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct, pk_state, pk_state != 0, team_mate and not is_own))
 		draw_rect(Rect2(top + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
 	if is_target and not is_dead():
 		draw_arc(Vector2(0, 0), 18.0, 0, TAU, 24, Color(1.0, 0.9, 0.2, 0.8), 2.0)

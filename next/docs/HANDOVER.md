@@ -49,6 +49,10 @@ Mục này gom **toàn bộ** những gì một phiên mới cần để tiếp 
     camera) phải đi mượt theo từng khung vẽ (`_process(delta)`), kể cả chỗ client 2.0 chỉ nhảy theo khung logic 18 Hz. Khung 18 Hz chỉ giữ cho
     luật chơi (đếm khung, tuổi đạn, chỉ số khung ảnh, lúc phát tiếng/trạng thái); gói của zone ghi đè trạng thái. Không được đóng một mục
     "mượt" với lý do "2.0 không làm".
+14. **Neo UI theo màn hình** (chủ dự án, 2026-09-19): mọi cửa sổ / thanh / hộp làm cho client Godot phải neo theo kích cỡ màn hình — dùng
+    `PositionType` của bố cục 2.0 qua `KWndShowAnimate.init_window` → `place_on_screen`, đặt lại khi `viewport.size_changed`
+    (`_on_screen_resized`); control Godot thuần dùng anchor. Không đặt toạ độ cứng chỉ đúng với 1280×720: đổi kích cỡ màn hình sau này UI
+    phải theo.
 
 ### 0.2 Hai nguồn nhị phân — đường dẫn, công cụ, cách mổ
 
@@ -317,6 +321,123 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `-equip-rows all` xuất mọi hàng năm bảng nêu — nặng, chỉ khi cần đủ trang bị lên người).
   **Phát hiện**: `gamecl.exe` của chủ dự án và `jx_linux_y` **khác bố cục** gói 0x4a/0x4b/0xad (client: cờ `+0x15`, 6 word; server: hai byte `+0x14f0/f4` chen, dword)
   → zone theo ý nghĩa trường. Kiểm: ctest 237/237 (`[res]` +2), Godot 448/448, e2e `AUTO_RIDE mounted=true horse_row=8 action=38 parts=10 down=true`, `auto_ride.png`.
+- **M14 lát T1 (xong 2026-09-19)**: **tổ đội phía zone** (`LINUX-SERVER.md` §17, `CLIENT-2.0.md` §21): `KPlayerTeam` `Player+0x5994` (cờ, id, vai, đội trưởng
+  xin vào, vòng mời 7 ô, **`+0x30` đội trưởng do hệ thống chỉ định**, `can_team`), `g_Team 0x8BB86E0` (1200 × 0x30: trạng thái mở/đóng, đội trưởng, 7 ô, đếm,
+  cờ giới hạn thống lĩnh), `KTeamSet 0x8bc67e0` (`CreateTeam 0x080CC290`, `AddMember 0x080CC9D0` luật camp 0, `CheckFull 0x080CC990` theo `level_lead_exp.txt`
+  `0x080C4560`), gói client **0x53** → `0x080DCC90` 11 lệnh con (lập `0x080CE3C0`, mở/đóng `0x080B1CF0`, xin `0x080B8000`, nhận `0x080B75B0`, rời `0x080B7C60`,
+  đuổi `0x080B9880`, nhường `0x080B9400`, giải tán `0x080B7DE0`, mời `0x080CE150`, trả lời `0x080CCBA0`, hỏi `0x080B1AD0`), chuyển chức tự động `0x080CD480`
+  khi đội trưởng chết/rời (người mới bị chặn 0x24..0x28 tới khi lập đội mới), **`AddExpTeam 0x080B03E0`** (`n` người trong 1024 đơn vị, `k = int(√n·100)`, kẻ giết
+  `(100+n)%`, người khác `min(60, cấp·k/Σcấp)%`), sổ sát thương ghi theo **đội trưởng** (`0x0809BC70`), mốc chia `0x0809BDD0` (đội trưởng ≤ 1024, không thì đội viên gần
+  nhất), rơi đồ cho `best` + may mắn `+ số đồng đội gần` (`0x08088B60/0x08088840`), rơi chia đội `IsTeamShare` (`0x080843A0`, vào thẳng túi theo cân nặng sát thương),
+  nhặt đồ của đồng đội (`0x080B826C`, trừ vật nhiệm vụ), rời game rời đội (`0x080C55D7`), 10 hàm Lua. Zone: `KPlayerTeam.h/.cpp`, `KSubWorldTeam.cpp`,
+  `KNpc::damage_record_key`, `share_experience → best`, `lose_treasure(dead, killer, best)`, `lose_treasure_shared`, `team_may_take`; proto `TeamReq/TeamSelf/TeamEvent`,
+  `C2G_TEAM` 1119 (gateway chuyển tiếp), `G2C_TEAM_SELF` 2130, `G2C_TEAM_EVENT` 2131, `RoleData.lead_exp/lead_level`; Go `player.LeadExp` → `player.json`.
+  Client 2.0: handler 0x86 `0x00657AD0` + bảng nhảy `0x658674` → khoá `stringtable_core.txt` (`MSG_TEAM_ERROR01..05` = "Nhóm trưởng do hệ thống chỉ định…").
+  Kiểm: ctest 249/249 (`[team]` 10 ca 341 khẳng định), Godot 452/452, `go vet` xanh, catalog/includes sạch.
+- **M14 lát G2 (xong 2026-09-19)**: **giao dịch trên client** (`CLIENT-2.0.md` §22): `autoexec.lua` T/O `Switch([[trade]])` (`0x005C3236`: bảng rao 2 →
+  đóng, khác → mở), P `Open([[team]])`, **Ctrl+chuột phải = `Mouse_Menu()`** → menu người chơi `0x004C2450` (`G_UIGAME_2` "Giao Dịch" khi đích treo bảng 2,
+  `G_UIGAME_3` "Nhập đội" khi đích treo bảng 1, `G_UIGAME_4` "Tổ đội" mời) → `KWndPopupMenu.gd`; `TradeApplyStart 0x005F7480` gửi `{0x6b, npc}` **5 byte** (thiếu
+  dword chống bot của server — lệch phiên bản như PK); hộp xin `G_SysMsgCentre_3` + `MSG_TRADE_GET_APPLY`; cửa sổ `KUiTrade` (`玩家间交易.ini`: túi 6×10, bàn mình
+  **8×4** = phòng 2, bàn đối tác, tiền ±1 `0x004BFE20`, Khoá `0x15`/Xác nhận `0x16`/Huỷ, `InfoText` ba màu) → `UiTrade.gd`; bảng rao trên đầu: bảng
+  `界面状态与图形对照表.txt` (`KPlayerMenuStateGraph 0x00703F40`; 1 đội `menustate01`, 2 giao dịch `02`, 3 đang giao dịch `03`, 4 ngủ `04`) → `export-menu-state` +
+  `KNpc._refresh_sign` (sprite trên khối tên + câu 24 ký tự — vị trí chính xác `+0x14` z chưa đo); `G2C_SYS_MSG` → dòng chat theo bảng id→khoá; `G2C_ENTITY_MENU_STATE`
+  → `entities[id].menu_state`. Zone: `kTradeRoomWidth` 10 → **8** (Init `0x081FF129`: 15 phòng của bản Linux ghi ở `KItem.h`). Kiểm: Godot 460/460, e2e
+  `AUTO_TRADE opened=true sign=2 drawn=true closed=true`, `auto_trade.png` (đã gửi). **Chưa**: sprite menu 2.0
+  (`0x00475690`), các mục menu còn lại, kéo–thả vào ô, phòng 4 kim đĩnh. **Chạy lại `python tools/dev.py assets`** (`export-menu-state`, `giao-dich`).
+- **M13 lát D1 (xong 2026-09-19)**: **hộp thoại npc** (`LINUX-SERVER.md` §20, `CLIENT-2.0.md` §24): `KPlayer::DialogNpc 0x080B1300` (gói 0x6e: không giao
+  dịch, npc theo id, khoảng cách pixel `0x0809F370`, kind 3 hoặc quan hệ 1, `≤ 2·m_DialogRadius` = 248 px (`KNpc::Init` 0x7c), npc có script, chống nghiện
+  không port, `OnEventTalkNpc` rồi `main(npc+0x158c)`), Lua `Say 0x08123C90` (câu/id, số, lựa chọn vararg hay bảng, `text/hàm` → `m_szTaskAnswerFun[50]`
+  `Player+0x5fa0`, "main" khi không `/`, ngân sách 0x384) và `Talk 0x08116930` (trang nối `"| |"`, hàm gọi lại → `+9 = 1`), gói 0x63
+  `PLAYER_SCRIPTACTION_SYNC` (`0x080A8510`), trả lời gói 0x5f 17 byte `0x080AC5D0` (`hàm(idx)` qua `CallFunction(…, 0, "d", idx)`, `#` = mã Lua, âm → 0);
+  client 2.0 `OnScriptAction 0x006004C0` (ui 0 → `KUiMsgSel` `滚动选择界面.ini`, ui 2 → `KUiInformation2` `提示2.ini`, nhãn `G_PLAYER_14/15`),
+  `OnSelectFromUI 0x005FC7D0`. Zone: `KPlayerDialog.h`, `KSubWorldDialog.cpp`, `KText.h/.cpp` (TCVN3/GBK → UTF-8 cho chuỗi script, cả `Msg2Player`),
+  `KNpc::script` từ `Region_S.dat`, `EntityInfo.npc_kind`, proto 1121/1122/2139; client `UiMsgSel.gd`, `UiInformation2.gd`, `KUiDialogMath.gd`, click npc kind 3
+  → `npc_dialog`; `export-ui` `hop-thoai-chon`, `hop-thoai-mot-nut`. **Luật 14 (neo UI)**: `KWndShowAnimate` đặt lại `PositionType` khi `viewport.size_changed`.
+  Test `[dialog]` 5 ca 124 khẳng định, Godot +6 (`test_dialog`); e2e `AUTO_DIALOG npc=… name=Bành Tiểu đệ distance=247 ui=0 text_len=81 options=0
+  window=true answered=true` + `auto_dialog.png` (câu Việt đã giải mã). **Chưa**: `text_id` (`g_GetStringRes`), `OnEventTalkNpc` cần API nhiệm vụ
+  (`FirstTask`…, M13 D2), `+0x158c` tham số npc, `Wnd_SetExclusive`, cuộn tự động, đi tới npc khi xa, các ui id khác. **Chạy lại `python tools/dev.py
+  assets`** (`export-ui`).
+- **M13 lát D2 (xong 2026-09-19)**: **giá trị nhiệm vụ** (`LINUX-SERVER.md` §21, `CLIENT-2.0.md` §25): `KPlayerTask` `Player+0x809c` (256 ô tạm
+  `0x080CB5A0/0x080CB5C0` + `std::map` giá trị lưu `+0x54c` id ≤ 0x176f `0x080CB540/0x080CB720`, **giá trị 0 → xoá nút**, bit `0x080CB5E0/0x080CB910`,
+  `ClearRange 0x080CBC40`, `Serialize 0x080CB6A0`), `KPlayer::SetTaskValue 0x080A9190` (không đổi → thôi; id có SYNC_FLAG và bSync → gói 0xa7 `0x080A8CC0`
+  `{id, giá trị}`), `SyncTaskValueMore 0x080A9550` (gói 0xb5 lô 80, trả 1 kể cả rỗng), bảng `settings/task/player_task_def.txt` (`0x081C6E00`: từ dòng 3, cột
+  1/2/4/5 theo vị trí, map khoảng insert-unique + map cờ ghi đè; tệp máy chủ 650 dòng, 68 SYNC = 179 id, CLIENT 1276/2881/2882), vào game `0x080B9CF0` (gói 0xa4
+  id 0x87, mọi id SYNC mỗi gói 0xa7 rồi `SyncTaskValueMore(1000, 1070, 1)`), gói client 0xaa `0x080DB070` (chỉ CLIENT_FLAG, bSync 0; 0xb41 → `+0x7cfc`), lưu/nạp
+  `0x080BF1C0/0x080C0050` (`TRoleData+0x17f..+0x18b`, trạm 0xd2/điểm đường 0xc9/chống nghiện/`+0x10c`/`+0x120` cũng ghi vào đây); Lua `GetTask/SetTask`
+  (id 1 → `TraceTaskValue`), `GetTaskTemp/SetTaskTemp` (đối số cuối), `SyncTaskValue/SyncTaskValueMore`, `GetBitTask/SetBitTask` (không đồng bộ); client 2.0
+  `0x006512F0` (0xa7, 0x92c đặc biệt, thông điệp UI 0x54) / `0x00651350` (0xb5, 79 cặp) / `KPlayer::SetTaskValue 0x00601ED0` (`+0xa1a0`, bảng client
+  `0x006CF940`, gửi 0xa9 khi CLIENT_FLAG). Zone: `KPlayerTask.h/.cpp`, `KSubWorldTask.cpp`, proto `C2G_TASK_VALUE 1123`, `G2C_TASK_VALUE 2140`,
+  `G2C_TASK_VALUES 2141`, `RoleData.task_values`; Go `player.ParseTaskDef` + `jxassets export-task-def` → `task_def.json` (`dev.py assets`); client
+  `scenes/KPlayerTask.gd`, `Game.task_values/task_value/set_task_value/task_value_changed/task_packets`. Test `[task]` 9 ca 240 khẳng định (271 tổng), Go
+  `TestParseTaskDef`, Godot +9 (`test_task_values`, 494); e2e `AUTO_TASK packets=181 synced=2 client_set=665 script_set=664 expected=664 stored=664` + `auto_task.png`; zone log
+  `task def table loaded ids=179 ranges=68`. **Chưa**: gói 0xa4, `0xb41 → +0x7cfc`, các hệ ghi giá trị (trạm/điểm đường/chống nghiện), `AddNote`, trạng thái
+  nhiệm vụ (D3). **Chạy lại `python tools/dev.py assets`** (`export-task-def`).
+- **M13 lát D3 (xong 2026-09-19)**: **hệ nhiệm vụ TASKSYS của script** (`LINUX-SERVER.md` §22): bộ quản lý `0x9786620` (`Init 0x081725F0`; bộ nạp chung
+  `0x08170990` từ dòng 2, khoá cột 1, ô là các cột còn lại — chuỗi thô; `task_id.txt` `0x08171390` thứ tự = dòng − 2; `task_type.txt` `0x08172030` → 4 bảng
+  condition/entity/award/talk mỗi loại; `task_event.txt`), trạng thái 2 bit/nhiệm vụ trong giá trị `2000 + thứ tự/16` (`0x0820E800/0x0820E720`), giá trị tạm
+  tuần tự hoá `2200..2299` (`0x0820DF90` đọc, `0x0820E250` ghi qua `0x0820E1E0` = SetTaskValue + luôn gói 0xa7; khoá băm `0x0821DF00`; StartTask `0x0820E4E0`
+  ≤ 98 ô, CloseTask `0x0820E430`, SetTmpValue `0x0820E5C0` tạo nhóm, GetTmpValue `0x0820DF10`), `FirstTask/NextTask` duyệt khoá các nhóm (`0x0820DCD0`,
+  danh sách `+0x78 + chỉ số·12`), 30 hàm Lua `0x08174230..0x08175B40` (`TaskName/TaskNo/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/
+  TaskXxx(Matrix)×6/GetTaskEventID/GetEventTaskCount/GetEventTask(i từ 0)/SubWorldName/SelectTaskStart|Finish|Award`). Zone: `KTaskManager.h/.cpp`,
+  `KSubWorldTaskSys.cpp`, `ScriptFuns.cpp` (+30), `KPlayer::task_list/task_cursor`, `KSubWorldConfig.tasks`, `main.cpp` `zone.task_tables_file`; Go
+  `player.ParseTaskTables/TaskKeyHash` + `jxassets export-task-tables` → `task_tables.json` (ô byte thô dạng Latin-1; 104 nhiệm vụ, 4 loại, 5 sự kiện);
+  client `_auto_dialog` đi tới npc khi xa hơn 240 px, `_auto_task` thêm `CloseTask/StartTask/SetTaskStatus` qua `?gm ds`. Test `[tasksys]` 7 ca 229
+  khẳng định (278 tổng), Go `TestParseTaskTables/TestTaskKeyHash`; e2e `AUTO_TASK packets=187 synced=2 client_set=887 script_set=886 expected=886 stored=886 task_count=1 task_id=101 status_value=268435456`
+  (2200 = 1 nhóm, 2201 = id 101, 2000 = bit thấp thứ tự 1) + `AUTO_DIALOG npc=4294967977 name=Bành Tiểu đệ distance=115 ui=0 text_len=81 options=0 window=true answered=true`. **Chưa** (D4): `NpcDialog`,
+  sự kiện giết quái (`RemovePlayerEvent/OnEventKillNpc`), `GetNpcName/GetNpcPos/NpcName2Replace`, tên subworld, `AddNote`, gói 0xa4, `0xb41`. **Chạy lại
+  `python tools/dev.py assets`** (`export-task-tables`).
+- **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
+  `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
+  `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
+  `+0x8c48`; ≥ 0x200 → `G_STR_MSG_VOERFLOW`; lịch sử 8 × 0x200 `+0x7c46`) → `parse_input` + `send_chat` + ↑/↓; nút kênh `0x004730D0` (màu kênh) → `[ChannelBtn]`
+  `KWndLabeledButton` tên ngắn + màu; menu kênh `0x00472620` (`0x004B6530` màu từng dòng) → `KWndPopupMenu` mục có màu; dòng nhận theo
+  `ChannelMessageArrival` 2004 (ảnh kênh + tên `NameTextColor` + câu `TextColor`; thì thầm `TextColorSelf`/`Unknown`); `SendMsgNum`/`SendMsgInterval` →
+  `throttle` (`G_PLAYERBAR_3`). Test Godot +19 (`test_chat_channels`); e2e `AUTO_CHAT team=doi oi world=ca the gioi button=Công menu=true` + `auto_chat.png`.
+  **Chưa**: cửa sổ pad thật (tab/danh sách/SysRoom/MSNRoom), `%`, kênh GM, bộ lọc `chatsent.flt`, `Sound` kênh. **Chạy lại `python tools/dev.py assets`**
+  (`export-ui` thêm `khung-chat`).
+- **M14 lát C1 (xong 2026-09-19)**: **kênh chat phía zone** (`LINUX-SERVER.md` §19): JX2 để relay (`s3relay_y`, `relay_channcfg.ini`: TEAM T/0, faction F/3,
+  tong O/0, NEARBY S/0, CITY B/2, union U/0; `relay_channel.ini` WORLD 4) giữ kênh và phát; game server chỉ kiểm (`0x081E3710`: `ForbitTalk` `Player+0x38c`,
+  câu ≤ 0x95 byte, kênh + loại chi phí khớp bảng relay, `0x080502A0` chi phí theo `chatcost.ini` — `SetChatFlag` bit 0 `+0x394` cấm hết, loại 2 thành cấp 20 +
+  20 % nội, 3 bang/môn phái 10 % nội, 4 thế giới cấp 30 + 80 % nội, script `chat_timecount_limit.lua` không có trong cây) rồi trả relay lớp đích (T đội theo
+  `+0x5998`, S người xem, B phát). Zone: proto `ChatChannel` (thứ tự `[Channels]` của `消息集合面板_左.ini`: 0 NEARBY, 1 TEAM, 2 WORLD, 3 FACTION, 4 SYSTEM,
+  5 CITY, 6 TONG, 7 WHISPER), `ChatReq.channel/target`, `ChatMsg.channel`; `KPlayerChat.h/.cpp` (`KChatCostTable`, `chat_cost_type`), `KSubWorldChat.cpp`
+  (`chat`, `chat_pay`: đội = `KTeam::people()`, gần = watchers, thì thầm = tên trong bản đồ, thế giới/thành/môn phái → `KChatBroadcast` → `KEvChat` →
+  `KGameServer::send_chat` mọi phiên của zone, môn phái so `faction.current`), Lua `ForbitTalk/SetChatFlag/RestoreMana/RestoreLife/GetMana/GetLife`
+  (`0x0810CB70/0x08111460/0x08112430/0x08112480/0x08112270/0x081124D0`); Go `export-chat-cost` → `chat_cost.json` (`dev.py assets`); client `Game.chat(text,
+  channel, target)` + `chat_msg.channel`. Test `[chat]` 5 ca (84 khẳng định) + dòng thế giới trong e2e `KGameServer`; e2e `AUTO_CHAT team=doi oi world=ca the gioi`.
+  ctest 257/257 Release + Debug, Godot 460/460. **Chưa** (C2, client): nút kênh `ChannelBtn` (`0x00472620` menu kênh, `0x004B6530` màu/tên), tiền tố
+  `/tên` thì thầm (`Say`) / `&tên kênh` (`Chat`) / `%` của `KUiPlayerBar::SendChat 0x00475A10`, lịch sử 8 dòng `+0x7c46`, bộ lọc `chatsent.flt`, `SendMsgInterval`,
+  màu `TextColor` từng kênh trong khung chat, `消息集合面板` tab; zone: `NW_ForbidChat` (relay), `OnChannelChat` (eventsys), `IsDisabledChatWorld/City`
+  (giá trị nhiệm vụ), đội vượt bản đồ (`KTeamSet` theo `KSubWorld`). **Chạy lại `python tools/dev.py assets`** (`export-chat-cost`).
+- **M14 lát G3 (xong 2026-09-19)**: **giao dịch + mời đội giữa hai client** — `jxbot -partner` (`-meet-map`, `-assets`: vào thế giới rồi `?gm ds NewWorld(map, ô Mps
+  tuyệt đối)`, treo bảng `"bot ban do"`, đồng ý mời đội / xin giao dịch, khoá sau client, OK khi cả hai khoá, treo lại sau `G2C_TRADE_END`); `dev.py screenshot`
+  chạy bot cạnh client; `UiGame._auto_team` mời bot, `_auto_trade` giao dịch thật (`Earn(50)`, kiếm vào bàn, 5 lượng qua `UiTrade.put_money`, khoá/OK) →
+  `AUTO_TEAM_PARTNER invited=true mate_color=true`, `AUTO_TRADE … both_locked=true dest_ok=true end=1 item_gone=true money=50->45` (`auto_team.png` 2 tên,
+  `auto_trade.png` hai bàn khoá — đã gửi). Sửa theo nhị phân: **bảng rao đi trong gói spawn** (`0x0807FDD8`: byte `+0x10` = `Player+0x5700`, câu `+0x570c` ≤
+  0x1e byte; client 2.0 `0x0065C4ED` gọi `SetMenuState` trong handler 0x4c) → `EntityInfo.menu_state/menu_sentence`; Lua **`Earn`/`Pay`/`GetCash`**
+  (`0x08118970`/`0x08118A90`/`0x081116D0` → `KPlayer::Earn 0x080AAED0`/`Pay 0x080A9450` → `KItemList::Earn 0x081FC990`/`Pay 0x081FC940`, gói 0x61) →
+  `KSubWorld::earn/pay/cash`, test `[script]` (`test_KItem.cpp`). Kiểm: ctest 252/252 Release + Debug, Godot 460/460, `go vet` xanh, catalog/includes sạch.
+- **M14 lát G1 (xong 2026-09-19)**: **giao dịch phía zone** (`LINUX-SERVER.md` §18): `KPlayerMenuState` `Player+0x5700` (bảng rao trên đầu: 0 thường / 1 mở đội /
+  2 mở giao dịch + câu ≤ 255 / 3 đang giao dịch; `SetState 0x080C29D0` giữ bản cũ, `RestoreBackupState 0x080C2ED0` khi huỷ), `KTrade` `Player+0x5910` (đối tác,
+  OK, khoá, **người xin nhớ mình xin ai** `+0x591c`, đang giao dịch), `TradeApplyOpen 0x080AE590`, gói 0x6a đóng bảng, 0x6b xin (`0x080B4DE0`: đích phải ở trạng
+  thái 2, gói 0x8b), `c2sTradeReplyStart 0x080BAFD0` (từ chối → 0x86 `{8, 0xd}`; đồng ý → đội mở đóng lại, người ngồi đứng dậy, ô giao dịch dọn, `StartTrade` +
+  trạng thái 3 cả hai), 0x6c tiền (`0 ≤ tiền ≤ túi`, chưa khoá), `SyncTradeState 0x080A85B0` (0x77 tiền cho đối tác, 0x81 bốn cờ cho cả hai), 0x6d quyết định
+  (0 huỷ / 2 khoá xoá OK cả hai / 1 OK → đối tác đã OK → **trao đổi** `0x080B2EC7..`: kiểm tiền, mô phỏng chỗ trống túi 6×10 `0x081FA250` — bên không vừa mất OK
+  và nghe 0xb, bên kia 0xc; vừa → đồ đổi chủ (nhật ký), tiền, 0x78 `{1}`, trạng thái 0), huỷ `0x080AE380` (ô về túi, 0x78 `{0}`, trạng thái khôi phục) từ
+  quyết định 0 / chết `0x080AE4B0` / rời game; ô giao dịch của `ExchangeItem` (vật vào ô 2 → gói 0xcc byte cho đối tác). Zone: `KPlayerTrade.h`,
+  `KSubWorldTrade.cpp`, `item_move_request` mở `room_trade` khi giao dịch & chưa khoá, proto `C2G_TRADE` 1120 + `G2C_TRADE_STATE/SYNC/ITEM/APPLY/END`
+  2132..2136, `G2C_SYS_MSG` 2137 (gói 0x86 chung), `G2C_ENTITY_MENU_STATE` 2138; `team_set_open/close` đặt bảng rao 1/0. Kiểm: ctest 252/252 (Release + Debug;
+  `[trade]` 3 ca 154 khẳng định), Godot 460/460, catalog/includes sạch. **Chưa**: `trade.lua CheckPlayerTrade`, `Player+0x374`, mã gói chống bot `0x080A79B0`,
+  ô 4 (bind gold), client (G2: `玩家间交易.ini` + hộp `G_SysMsgCentre_3` + bảng rao trên đầu).
+- **M14 lát T2 (xong 2026-09-19)**: **tổ đội trên client** (`CLIENT-2.0.md` §21.1): cửa sổ `KUiTeamManage` (`队伍管理.ini` theme `ui3_1024`: Main 404×253, hai danh sách
+  Đội mình / Lân cận, nút Mời vào / Rời đội (Kick) / Chuyển / Tạo mới (Refresh) / Rời đội / Giải tán đội, ô "Đóng tổ đội", "Tài lãnh đạo %d") → `UiTeam.gd` (lệnh
+  thanh công cụ `team`); `OperationRequest 0x005B9560` 5..0xc = **cùng số lệnh con 0x53 với `jx_linux_y`** (`{0x53, word 7, byte sub, dword npc}` — khác PK) →
+  `Game.team_request`; handler 0x69 `0x006516D0` (14 lệnh con; `s2c_teamselfinfo` mang **kinh nghiệm thống lĩnh**, client tự tính cấp bằng bảng `level_lead_exp.txt`
+  của client `0x006E2270`); hộp hai nút `KUiInformation` (`提示.ini`) → `UiInformation.gd` cho lời mời/đơn xin (`G_SysMsgCentre_0/1`, `G_ACCEPT_WORD/G_REFUSE_WORD`);
+  thông điệp 0x69/0x86 thành dòng chat theo khoá `stringtable_core.txt` (`KUiGameWindows.team_event_text`); thanh máu đồng đội (230,190,0) (`PaintLife 0x005EADD5`);
+  `export-ui` thêm `to-doi`, `hop-thoai` (**chạy lại `python tools/dev.py assets`** — cả `export-player` để có `lead_exp`). Kiểm: Godot 460/460, e2e `AUTO_TEAM
+  created=true captain=true open=1 lead_level=1 members_max=3 window=true closed=true dismissed=true`, `auto_team.png`. Chưa: `队伍一览信息.ini`/`teamoverview` (xem đội
+  quanh, `s2c_teaminfo`), menu tên 0x693, `InputEdit`, kinh nghiệm thống lĩnh không tăng (nhị phân không cộng).
 - **M12 lát B3c-4 (xong 2026-09-18)**: **PK** (`LINUX-SERVER.md` §16.16, `CLIENT-2.0.md` §20): `KPlayerPK` `Player+0x5a50` (ba trạng thái 0/1/2, khoá, giây
   trong trạng thái, giá trị 0..10, % né), `SetPKState 0x080C3740` (về 0 cần `NormalPKTimeLong` 3240 s trừ khi ép; gói 0x90), `SetPKValue 0x080C38C0` (0x93),
   `AddPKValue 0x080C3930`, tick `0x080C35E0`, gói 0x76 → `0x080DBE00` (cửa `NotFightExpPercent`, ép khi ngoài chiến và không khoá), `GetPKRelation 0x0807A350`
@@ -374,12 +495,16 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | **M12 lát B — kỹ năng**: **B1 xong** (bảng 114 cột → `skills.json`, `KSkill`/`KSkillManager`, số theo cấp chạy chính script; §11); **B2a xong 2026-09-18** (lõi sát thương/trạng thái + `Cast` style 2/3; §12); **B2b xong 2026-09-18** (hệ đạn: `missles.txt`, `CastMissles` 8 dạng, bay, va chạm, sự kiện; §13); **B2c xong 2026-09-18** (kỹ năng tự động 5 danh sách + bản đồ thi triển kèm + ô trống khi đánh lùi; §14) | **Còn của B2**: port `CanCastSkill 0x080E8AE0` (đã đọc §14; bảng `武器物理攻击对照表.txt` **đã có** từ pak client (B4b-6a): zone nạp bảng thật, `swing_skill` chỉ còn là dự phòng khi thiếu tệp) và kỹ năng tạo npc `0x080E8770` (**xong B3c-5**, §16.5), `0x081FEE60` (đồ mặc ghi danh sách bị đánh/đánh trúng), gói `0x85` ra client, kỹ năng tự động `0x08188BB0` (4 danh sách `+0x182c/+0x1850/+0x1874/+0x1898`, `{kỹ năng, tỉ lệ}`) + bản đồ `0x080821C0` (`+0x18EC`) — móc `trigger_auto_skills` đã sẵn; `0x08081B70` ô trống khi đánh lùi; `CanCastSkill 0x080E8AE0` (tiêu hao/hồi chiêu); kỹ năng tạo npc `0x080E8770`; `Player+0x5a50` (đối tượng PK: đạn của người chơi bị bỏ khi nó đổi — zone so với 0); client `KMath.gd` **đã theo 2.0** (`0x005E8DB0` cùng luật `0x080EEEC0`, `64−k`; B4c-4). **B3a xong 2026-09-18** (sổ `KSkillList` + điểm/kinh nghiệm kỹ năng + Lua; §15). **B3b xong 2026-09-18** (đường lệnh thi triển + `CanCastSkill` + bảng vũ khí + kỹ năng khởi đầu; §16). **B3c-0 xong 2026-09-18** (ẩn thân `[hide]` 200: `SetHide 0x0807FF80`, `IsInvisibleTo 0x08079200`, vỡ `0x0807D4C0`; §16.1). **B3c-1 xong 2026-09-18** (thân pháp style 1 sáu dạng; §16.2). **B3c-2 xong 2026-09-18** (mòn đồ `0x08201940` + `AbradeRate.ini`; §16.3; còn: bảng phế phẩm `g_ItemGenerator+0x1e88` của `0x08067540`, cấp ngọc bội `+0x344` trong bộ sinh). **B3c-6 xong 2026-09-18** (ngựa `0x0807D520`, `+0x199c`, mặc/cởi/lên/xuống, `HorseLimit`, cột hồi chiêu ngựa; §16.6 — ~~bảng ngựa `KItemSet+0x80`~~ (B6b), ~~ngồi~~ (B6a), gói 0x9c, ~~client vẽ ngựa~~ (B6b)). **B3c**: mượn dáng 186 `0x08099170`, gói 0x85/aura `0x080873B0`, `NpcSetHide` (chờ quy ước chỉ số npc của API script), `0x080B12C0`, kỹ năng tạo npc `0x080E8770` + đếm `Player+0x7db0`, đồng hành (loại 2, `npc+0x1698`), **B3c-3 xong 2026-09-18** (chết/hồi sinh thường; §16.4) — còn PK: `0x0807A350`, bảng bảo hộ `Player+0x809c`, điểm PK `Player+0x5a50` (`0x080C3930`), phạt `0x080B9FA0` (nhà tù, rơi đồ, `0x08256EE0`/`0x8BB2A34`), đấu trường `Player+0x384`, hồi sinh tại chỗ `0x080B2790`; `Player+0x5994` = **đội** (`KPlayerTeam` m_nFlag; `0x080CC620` = số đồng đội gần — đính chính B3c-4, trước ghi tông), bảng chuyển sinh `0x0830CA14` (**đã kiểm**: không nơi ghi → 0), `0x080AEBC0`/`0x081D0C00` (**đã đọc**: bộ phát sự kiện script `Player+0x86e0`, mã 1/3/9/10/11/12 — cần bảng đăng ký script, M13). **Dữ liệu cần xin chủ dự án**: ~~`settings/武器物理攻击对照表.txt`~~ (**đã lấy từ pak client 2.0** — `export-weapon-skill`, B4b-6a; không cần xin nữa). **B4a xong 2026-09-18** (sổ kỹ năng 2.0 `技能主窗口.ini` + trang chiến đấu 10 bậc × 3 ô theo `gamecl.exe 0x00494030`, `skillui.txt`, biểu tượng, thi triển bằng chuột trái/phải, cộng điểm; `CLIENT-2.0.md` §6). **B4b-1 xong 2026-09-18** (sổ kỹ năng ba trang nhánh Quyền/Bổng/Đao + trang thông dụng theo `gamecl.exe 0x004953C0/0x00494EF0/0x004947C0/0x00493A40`; môn phái zone `KFaction`/`KPlayerFaction`, Lua `SetFaction`/`AddMagic`/`SetCamp`…, gói 0x7b/0x7c/0x59/0x58; §16.7, `CLIENT-2.0.md` §6). **Trạng thái chiến đấu — đã đọc hết, KHÔNG có gói client** (§16.8): `+0x168c` chỉ do `SetFightMode 0x08079B30` ghi, người gọi: script bẫy cổng thành `SetFightState` (`script/maps/*`), khôi phục lúc vào game `0x080B5DF0` (từ `+0x1690` = `RoleData.fight_mode`), `UseTownPortal 0x08117900` → `0x080B59D0` (lưu chỗ, `+0x34 = 1800`, về điểm hồi sinh, rời chiến) / `ReturnFromPortal 0x081178C0` → `0x080AD960` (về chỗ, vào chiến), `Revive` kiểu 0 tắt, npc thường bật khi thêm `0x0809F910`; `--auto` dùng `?gm ds SetFightState(1)` là đúng luật (thay cho bẫy cổng). **B4b-2 xong 2026-09-18** (ba thanh 2.0: thanh trên máu/nội lực/thể lực/kinh nghiệm/cấp, thanh công cụ, thanh dưới với ô thuốc + hai ô kỹ năng chuột + dòng chat; §7 `CLIENT-2.0.md`). **B4b-3 xong 2026-09-18** (cây chọn kỹ năng chuột `KUiSkillTree`; §8 `CLIENT-2.0.md`). **B4b-4 xong 2026-09-18** (danh sách trạng thái + gói 0x87; §9, §16.9). **B4b-5 xong 2026-09-18** (phím tắt Q W E A S D Z X C `ShortcutSkill(0..8)` + F3/F4/F5/M; §8.1). **B4b-6a xong 2026-09-18** (ô chuột mặc định = đánh thường theo vũ khí `0x005FE820`, bảng `武器物理攻击对照表.txt` xuất từ pak client cho zone + client, mục 0 cây = `0x005EBBA0`, cây lọc `LRSkill`; §7.1). **B4b-6b xong 2026-09-18** (ô thuốc nhanh 9 ô: lưới client `KItemList+0x4ce8`, `ShortcutUseItem`, thả từ tay, lưu theo loại; §7.2). **B4c-1 xong 2026-09-18** (chú thích kỹ năng `KSkill::GetDesc 0x006FBC90` + `G2C_SKILL_DESC`; §10). **B4c-2 xong 2026-09-18** (chú thích trên ô thanh dưới; hồi chiêu: 2.0 không vẽ — §7.3). **B4c-3 xong 2026-09-18** (đạn trên client: `G2C_MISSLE` + `KMissle.gd`; §11). **B4c-4 xong 2026-09-18** (đánh lùi trên client: gói 0x56 → `ACTION_KNOCK_BACK`, `KNpc::KnockBack 0x005EE950` / `OnKnockBack 0x005EFE00`, `KMath.get_dir_index` theo 2.0; §12). **B4c-5 xong 2026-09-18** (chú thích: kỹ năng nêu tên `+0xa74`/`ShowEvent`, cấp cộng thêm `G_Skills_38`, tăng từ kỹ năng `G_Skills_39`, lọc `ShowAddition`; §10.1). **B4c-6 xong 2026-09-18** (đạn theo trục Z + hướng theo vector; §11). **B4d-1 xong 2026-09-18** (hào quang: `SetAura 0x08087290`, ô 111, tick `0x080873B0`, biểu tượng 0x7a; `LINUX-SERVER.md` §16.10, `CLIENT-2.0.md` §13). **B4e xong 2026-09-18** (hiệu ứng trạng thái trên npc: bảng `状态图形对照表.txt`, `KSprControl 0x0070B920`, 6 ô `KNpcRes+0x15b0`, vẽ `0x006E0340`/`0x006DFAC0`; `CLIENT-2.0.md` §14). **B4f-1 xong 2026-09-18** (tiếng thi triển `0x006F6D90` + tiếng đạn `0x00717ED0`; `CLIENT-2.0.md` §15). **B4f-2 xong 2026-09-18** (tiếng hành động của nhân vật `0x006DFA20`, bảng `主角动作声音表`/`npc动作声音表`; §15.1). **B4d-2 xong 2026-09-18** (hào quang/bị động của mẫu npc `0x08085250`, `+0x181c`, `0x0808BAF6`; `LINUX-SERVER.md` §16.11 — còn `SetNpcAuraSkill`; **đính chính B5a**: npc đặt sẵn `Region_S.dat` có `+0x181c = 0` — `spawn_npc(…, 0)` cho bản đồ, `0x080F0320` là bộ sinh boss SDB "GoldBoss"). **B5a xong 2026-09-18** (quái vàng `KNpcGold`/`NpcGoldTemplate.txt` 16 loại, `BackData 0x0809D560` / `SetGoldTypeAndBackData 0x0809D8D0` / `RecoverBackData 0x0809E070`, quay số khi hồi sinh `0x0808600D` với `maplist.ini` `AutoGoldenNpc/GoldenType/GoldenDropRate/NormalDropRate`, gói 0x9a/word 0x4c, màu tên client `0x005F23E5`; §16.12, `CLIENT-2.0.md` §16 — còn: Lua `AddNpc/AddBlueNpc`, dòng máu `%d/%d` + tuỳ chọn F7/F8, con trỏ 0xf, bộ lọc treo máy). **B5b xong 2026-09-18** (hệ/cấp ngẫu nhiên của npc đặt sẵn: `NpcSeriesAuto` + 5 trọng số cộng dồn `0x080F1346`, `NpcAutoLevelFlag/Max/Min` `0x080F1CDA`, `LoadNpc 0x080E28E0` chỉ kind 0, `0x080EFBE0`/`0x080EFB90`, hồi sinh đổi hệ → Init lại `0x08085DA0`; §16.13). **B5c xong 2026-09-18** (khối tên/máu npc như 2.0: vòng vẽ `0x00670130`, công tắc F7/F8 `showplayername/showplayerlife` từ tuỳ chọn `+0x1eb4` (`0x0066B4C0..`, `Switch` `0x0042FA60`), `PaintLife 0x005EACF0`; `CLIENT-2.0.md` §17; **B5c-2**: viền chữ đen (không phải nền — chủ dự án phát hiện) + màu tên người chơi theo camp `0x005F2507` (`EntityInfo.camp/current_camp`) — **B5c-3**: hình thanh máu 2.0 (`PaintLife 0x005EADA1..0x005EAEF4`: 38×3, màu theo % xanh/vàng/đỏ + xám) — còn: danh hiệu/bang `<%s>%s`, màu thanh cùng đội/PK (`+0x16e4/+0x16e8`), `showplayermana/number`, cờ kind 2 đồng hành). **Sửa Lua 2026-09-18** (số thực `16.0` làm hỏng chuỗi cấp kỹ năng — §0.5). **Nội suy FPS (luật 13, 2026-09-18)**: đạn và đánh lùi đi mượt theo khung vẽ như `OnFlyFPS` của client 2004 (2.0 chỉ chia 10 đơn vị để kiểm va chạm; `CLIENT-2.0.md` §11) — `smooth=11`. **B4c-8 xong 2026-09-18** (chú thích `G_Skills_76`: `equip_percent` = `magicdamage_p` 244 + `modifier` = `state_modifier`; phần thuộc tính client 299 `movedistanc_710_enhance` không có trong `jx_linux_y` → 0; §10). **B4** còn: ánh sáng đạn, kéo vật ra khỏi ô bằng tay, `ShortcutEatMedicine` (MouseWheel), `DirectShortcutSkill`, thanh nhân vật 2.0 phần còn lại (ô thuốc nhanh kéo từ túi `+0x28b8`, kênh chat `0x004730D0`, biểu cảm, thanh thu nhỏ `玩家信息主界面最小化.ini`) (`玩家信息主界面.ini`) với hai ô kỹ năng chuột + ô thuốc nhanh, cây chọn kỹ năng `技能选择树.ini`, F1..F11, gói trạng thái 0x87 (biểu tượng `+0x54`, `+0x4c`), ~~hoạt hình cưỡi ngựa~~ (B6b; còn mượn dáng/thời trang/vũ khí tay kia), chú thích kỹ năng. **Dữ liệu**: 156/285 script cấp thiếu trên máy — kể cả đánh thường; zone tạm cho số 0 (`skill level script missing`) → hỏi chủ dự án lấy từ server thật. |
 | **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); hằng PK `[0x8BADF50]` = `PKRate.ini rate` 20 (đã tìm: `KNpcSet::Init 0x080A0810`, §16.4; `pk_damage_percent`); `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ~~ngồi (`m_Doing 8`)~~ (xong B6a, §16.14) và chạy đánh (`0x12`, thưởng `+0x14b0`) chưa có trạng thái trong zone. |
 | ~~Trạng thái (độc / băng / choáng / thuốc)~~ (xong trong B2a/B3: `ProcessState 0x0808B610` §9, độc/băng/choáng `0x0807BD60`/`ReceiveDamage`, `KStateNode` `+0x234`; `ReCalcStateEffect 0x0807D270` trong `UpdataCurData` xong 2026-09-18) | còn: trạng thái ngồi. |
-| Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
+| ~~Chia kinh nghiệm theo **đội**~~ (xong M14 T1, 2026-09-19) | `KPlayer::AddExpTeam 0x080B03E0` + `KDamageRecord::Add 0x0809BC70` theo đội trưởng + mốc `0x0809BDD0` → `add_exp_team`, `damage_record_key`, `share_experience` (§17). Còn: kinh nghiệm thống lĩnh (`m_dwLeadExp` — không thấy nơi cộng trong nhị phân), `BuildATeam 0x080CDB20`. |
 | ~~Hình phạt chết của người chơi~~ (loại 0 xong B3c-3: `on_death_player` — kinh nghiệm 2 %/3 % trần 130 000 (đồng đội gần = 0), nửa tiền + rơi 1/4; **phạt PK `0x080B9FA0` xong B3c-4**, §16.16) | còn của B3c-4: cừu sát/tỉ thí, bang chiến, bảng bảo hộ `+0x809c`, nhà tù (`0x08256EE0[pk]`, `0x8BB2A34/38/44[pk]` đã port`, nhà tù `[0x830D0EC]`) và `0x08203530` (rơi đồ theo bảng bảo hộ `+0x809c`). |
 | ~~Chạy trừ thể lực~~ (xong 2026-09-18: `ProcessState 0x0808BD3D` gain/`RunSub` theo `Player+0x5a50`, `ForbitStamina`; bước chạy `0x08080C50` → kiệt sức đi bộ `0x0807B430`; tốc độ người chơi = `m_CurrentRunSpeed`/khung = 180/giây, bỏ `move_speed` 200 của persist) | ~~ngồi~~ (xong B6a 2026-09-18: `0x080DC300` → `DoSit 0x0807B550`, `SitAddLife/Mana` `0x0808BBE6`, `SitAdd` ‰; §16.14, `CLIENT-2.0.md` §18). Còn: cưỡi ngựa chặn ngồi đã có (`horse ≠ 0`); áo 45 của `GetNpcPate`; chạy đánh `0x12`. |
 | ~~`m_nLucky` vào rơi đồ~~ (xong 2026-09-18) | `GenRandomItem 0x08083D52..0x08083DB5`: `luck = (Player+0x5994 ≠ 0 && +0x5998 ≥ 0 ? 0x080CC620(g_Team + 0x30·+0x5998, player) = số đồng đội gần : 0) + Player+0x5958` (cờ tham số 4 ≠ 0 hay không có người → 0) → `lose_treasure` truyền `k->player.cur_lucky` (phần tông chờ M14). |
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
-| M13 nhiệm vụ / hàm script, M14 xã hội, M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
+| ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
+| ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
+| ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
+| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) ~~M13 D3 — hệ nhiệm vụ TASKSYS (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/TaskXxx`)~~ (xong 2026-09-19, §22 `LINUX-SERVER.md`) | còn **M13 D4**: `NpcDialog 0x081744B0`, sự kiện giết quái (`RemovePlayerEvent 0x0810C440`, `OnEventKillNpc`), `GetNpcName 0x08100040/GetNpcPos 0x081293F0/NpcName2Replace 0x081006D0`, tên subworld cho `SubWorldName`, `AddNote 0x08124DC0` (gói 0x63 ui 3), gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
+| M13 nhiệm vụ / hàm script, M14 xã hội (còn: bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
 
@@ -701,6 +826,18 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-62) — gộp `origin/main` (11 commit: M14 T1/T2 tổ đội, G1..G3 giao dịch, C1/C2 kênh chat; M13 D1..D3 hội thoại/giá trị/nhiệm vụ) vào nhánh 3D
+
+- Xung đột và cách chốt: `services/cmd/jxbot/main.go` (cổng 19100 của nhánh 3D + cờ `-partner` của main), `KUiExport.go` (cả hai),
+  `UiGame.gd` (click di chuyển giữ `_clamp_scene(_world.screen_to_scene(p))` của bản 3D + menu người chơi Ctrl+RButton của main qua
+  `_entity_at(_mouse())`; `_add_entity` = `_world.add_entity(d, id == Game.entity_id, _entities.get(id))` rồi `set_team_mate`),
+  `KUiGameWindows.gd` (bản đồ nhỏ của 3D + cửa sổ tổ đội/giao dịch/chat/hội thoại của main), `CLIENT-2.0.md`/`HANDOVER.md` (cả hai).
+  `UiMiniMap` đọc `team_mate` bằng `== true` (node 3D không có thuộc tính này → null).
+- Zone dựng lại (phải tắt `jx_zone.exe` đang chạy của chủ dự án mới link được), dịch vụ Go dựng OK.
+- Kiểm: Godot 631/631, UiCheck 162/162; e2e lúc đầu `CLIENT FAILED` vì `run_client_auto` giới hạn 60 s (luồng `--auto` của main thêm tổ đội /
+  giao dịch / hội thoại / nhiệm vụ, chạy trên bản 3D+2.5D quá 60 s) → nâng lên 120 s (`tools/dev.py`) → BOT / CLIENT / CLIENT 2D / CLIENT WS OK.
+- commit: `JX NEXT 3D: 3D-62 - gop origin/main (M14 T1-T2/G1-G3/C1-C2, M13 D1-D3) vao exp/3d-baling; run_client_auto 120 s`.
 
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-61) — tia nối `SFXLineMesh` (天际迅雷 Côn Lôn), màu nền camera theo cảnh, chốt các mục "chưa có" bằng chứng cứ
 
@@ -1026,6 +1163,235 @@ Chủ dự án báo: "skill đánh ra bị sai — hình ảnh bay ra bị nghi�
 - **Chạy**: `python tools/scn3d/export_scene.py world_baling` rồi `godot --path client scenes3d/Scn3D.tscn -- --map=world_baling` (thêm `--auto` để chụp và thoát).
 - **Chưa làm / bước sau**: hình nhân vật & NPC (dự kiến sprite 8 hướng JX1 làm billboard, chọn hướng theo góc camera, khóa pitch ≈ 30°), nước/lá cây đung đưa (đang là vật liệu tĩnh), che mờ nhà chắn camera, nối với zone (toạ độ `X = x, Z = y`).
 - commit: `JX NEXT: thu nghiem 3D (nhanh exp/3d-baling) - map world_baling glTF + camera quy dao`.
+### 2026-09-19 (phiên tiếp theo, phần 54) — M13 lát D3: hệ nhiệm vụ TASKSYS (bộ quản lý 0x9786620, bảng task_id/task_type/task_event + condition/entity/award/talk, trạng thái 2 bit 0x0820E800/0x0820E720, giá trị tạm 0x0820DF90/0x0820E250, 30 hàm Lua 0x08174230..0x08175B40)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §22): `Init 0x081725F0` (3 bảng chung từ `0x82e6140`, `task_id.txt` `0x08171390`, `task_type.txt` `0x08172030`), bộ nạp
+  chung `0x08170990` (KTabFile, từ dòng 2, khoá cột 1, ô chuỗi thô, ma trận `0x08175BE0`), tra cứu `0x08170060/0x08170100/0x081702F0/0x08172820/0x08170830/0x081701A0/
+  0x08170200/0x08170660/0x081726C0/0x08170630`, iterator `0x0820E170` (`0x0820DF90` đọc 2200.., `0x0820E250` ghi, `0x0820E1E0` đặt + gói 0xa7, `0x0820E800/0x0820E720`
+  trạng thái, `0x0820E4E0/0x0820E430/0x0820E5C0/0x0820DF10/0x0820DE40/0x0820DDF0`, `0x0820DCD0` danh sách), băm `0x0821DF00`, 30 hàm Lua; `AddNote 0x08124DC0`,
+  `NpcDialog 0x081744B0`, `SelectTask* → task_function.lua`, `GetEventTask` i từ 0, `SubWorldName` (`0x830ca50`, `0x8fc81e0` bước 0x63fc8) đọc xong để ghi.
+- **Zone**: `KTaskManager.h/.cpp` (`KTaskTable/KTaskMatrix/KTaskType/KTaskRecord/KTaskManager`, `task_status::{value_id,hi_bit,lo_bit,status_of,status_value,key_hash,KTaskTemp}`),
+  `KSubWorldTaskSys.cpp`, `ScriptFuns.cpp` +30 hàm (`task_text` viết số thành "102", `pushinteger`), `KPlayer::task_list/task_cursor`, `KSubWorldConfig.tasks`,
+  `main.cpp` `zone.task_tables_file`, `log.vi.json` (+7 câu, +5 trường). **Go**: `KTaskManager.go` (`ParseTaskTables/ParseTaskTable/ParseTaskRecords/TaskKeyHash`,
+  ô byte thô → rune Latin-1), `jxassets export-task-tables` (→ `client/assets/task_tables.json`), `dev.py assets`. **Client**: `_auto_dialog` đi tới npc khi
+  xa (> 240 px → `move_to` cách 120 px), `_auto_task` thêm `CloseTask/StartTask/SetTaskStatus(2 rồi 1)` qua `?gm ds` và in `task_count/task_id/status_value`.
+  Test: `[tasksys]` 7 ca 229 khẳng định (ctest 278/278 Release + Debug), Go 2 test, Godot 494, `check_log_catalog`/`check_includes`/`gofmt`/`go vet` sạch.
+- **Đo được**: e2e `AUTO_TASK packets=187 synced=2 client_set=887 script_set=886 expected=886 stored=886 task_count=1 task_id=101 status_value=268435456` (2200 = 1 nhóm, 2201 = id 101, 2000 = 0x10000000 = bit thấp
+  của thứ tự 1 = trạng thái 1) + `AUTO_DIALOG npc=4294967977 name=Bành Tiểu đệ distance=115 ui=0 text_len=81 options=0 window=true answered=true` (đi tới npc rồi nói); zone log `task tables loaded tasks=104 types=4 events=5`;
+  `auto_task.png`, `auto_dialog.png`.
+- Ghi chú: bản gốc đọc cấu trúc tạm đòi dư 2 ô sau nhóm cuối (`0x0820E00C`) nên cấu trúc đầy 98 ô đọc thiếu nhóm cuối — giữ nguyên (test ghi rõ); `ParseTab` bỏ dòng
+  trống nên thứ tự nhiệm vụ có thể lệch bản gốc nếu tệp có dòng trống (không có dữ liệu cũ để so).
+- commit: `JX NEXT: M13 lat D3 - he nhiem vu TASKSYS …` (xem git log).
+
+### 2026-09-19 (phiên tiếp theo, phần 53) — M13 lát D2: giá trị nhiệm vụ (KPlayerTask Player+0x809c, SetTaskValue 0x080A9190, gói 0xa7/0xb5, player_task_def.txt 0x081C6E00, Lua GetTask/SetTask/GetTaskTemp/SetTaskTemp/SyncTaskValue(More)/GetBitTask/SetBitTask)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §21): `KPlayerTask` `Player+0x809c` = `m_nTaskTemp[256]` (`0x080CB5A0/0x080CB5C0`) + `std::map<int,int>` tại `+0x54c`
+  (`0x080CB540` lấy, `0x080CB720` đặt — **0 xoá nút**, `GetBits/SetBits 0x080CB5E0/0x080CB910`, `ClearRange 0x080CBC40`, `Serialize 0x080CB6A0`); `KPlayer::SetTaskValue
+  0x080A9190` (bằng → về; map cờ `0x978bf7c` bit0 + bSync → `0x080A8CC0` gói 0xa7 9 byte); `SyncTaskValueMore 0x080A9550` (gói 0xb5 0x281 byte, 80 cặp, chỉ khác 0);
+  bảng `player_task_def.txt` (`0x081C70E0` 4 bảng, `0x081C6E00`: dòng 3+, cột 1/2/4/5, map khoảng `+0x4` insert-unique, map cờ `+0x1c` ghi đè, cờ bit0 SYNC bit1 CLIENT);
+  vào game `0x080B9CF0` (gói 0xa4 `0x080A8C80`, mọi id khoảng SYNC gói 0xa7, `SyncTaskValueMore(1000, 1070, 1)`); ô 0xaa `0x080DB070` (bảng ô `[edx + 0x18 + ô·8]`;
+  CLIENT_FLAG → `SetTaskValue(…, 0)`; 0xb41 → `0x080A9240`); ô 0xa9 `0x080DAFF0` bộ đăng ký `0x978bf20`; lưu `0x080BF1C0` (trạm 0xd2/điểm đường 0xc9 + `0x080F8BB0`,
+  `0x08176690` `player_limittime.ini`, `0x080F8E70` id 0x64b; `Serialize` vào `TRoleData+[0x17f]`, cuối `[0x18b]`), nạp `0x080C0050` (id ≤ 0x176f); Lua 8 hàm (`GetTask
+  0x08116890`, `SetTask 0x08116780` id 1 `TraceTaskValue`, `GetTaskTemp 0x08123A20`/`SetTaskTemp 0x08123950` đối số cuối, `SyncTaskValue 0x0810E350`, `SyncTaskValueMore
+  0x0810E240`, `GetBitTask 0x081090A0`, `SetBitTask 0x08108F10`); `AddNote 0x08124DC0` đọc xong (gói 0x63 ui 3, chưa port). Sửa hai dòng cũ: `+0x809c` là ô tạm
+  `KPlayerTask`, không phải "bảng bảo hộ".
+- **gamecl.exe** (`CLIENT-2.0.md` §25): bảng ô s2c `0x0065DD00..` (`[esi+4+id·4]`), 0xa7 `0x006512F0` (0x92c → `0x00602920`; thông điệp UI 0x54 `0x005B8150`), 0xb5
+  `0x00651350` (79 cặp, dừng id 0), `KPlayer::SetTaskValue 0x00601ED0` (map `+0xa1a0`, `0x005FFF00(0x24ec6e8)` cờ, gửi 0xa9), bảng client `0x006CF940` (690 dòng,
+  khác bản máy chủ 650).
+- **Zone**: `KPlayerTask.h/.cpp` (`KPlayerTask`, `KTaskDefTable`), `KSubWorldTask.cpp` (`task_set_value/task_send_value/task_sync_more/task_login_sync/task_value_request`,
+  `load_task_values/save_task_values`), `KPlayer::task`, `KSubWorldConfig.task_def`, `main.cpp` `zone.task_def_file`, 8 hàm Lua, proto `C2G_TASK_VALUE 1123` /
+  `G2C_TASK_VALUE 2140` / `G2C_TASK_VALUES 2141` / `TaskValue(s)/TaskValueReq` / `RoleTaskValue` / `RoleData.task_values = 32`, gateway whitelist, `log.vi.json` (+7 câu, +2 trường).
+  **Go**: `player.ParseTaskDef` (`KPlayerTask.go` + test), `jxassets export-task-def` → `client/assets/task_def.json` (650 dòng, 179 id), `dev.py assets`.
+  **Client**: `scenes/KPlayerTask.gd` (thuần, test được), `Game.task_values/task_packets/task_value()/set_task_value()/task_value_changed`, xử lý 2140/2141,
+  `UiGame._auto_task`. Test: `[task]` 9 ca 240 khẳng định (ctest 271/271 Release + Debug), Go `TestParseTaskDef`, Godot 494 (+9), `check_log_catalog` /
+  `check_includes` / `gofmt` / `go vet` sạch.
+- **Đo được**: e2e `AUTO_TASK packets=181 synced=2 client_set=665 script_set=664 expected=664 stored=664` (179 gói 0xa7 lúc vào game + 2; `client_set` = giá trị client gửi
+  qua 0xaa quay lại nhờ `SyncTaskValue`, `script_set` = `SetTask` trên id SYNC; `synced=2` = hai giá trị lần chạy trước nạp từ role data); zone log `task def table
+  loaded ids=179 ranges=68`; `auto_task.png`.
+- commit: `JX NEXT: M13 lat D2 - gia tri nhiem vu …` (xem git log).
+
+### 2026-09-19 (phiên tiếp theo, phần 52) — M13 lát D1: hộp thoại npc (DialogNpc 0x080B1300, Say/Talk gói 0x63, trả lời 0x5f, KUiMsgSel/KUiInformation2) + giải mã TCVN3 + luật 14 neo UI
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §20): `DialogNpc 0x080B1300` (ô 0x6e), `0x080B12C0`/`0x0807A1F0` tìm npc, `0x0809F370` khoảng cách pixel
+  (`Δô·[subworld+0x24] + Δlẻ>>10`), `0x0809EE50` quan hệ, `m_DialogRadius +0x1634` (`KNpc::Init 0x0807E02D` = 0x7c, không nơi khác ghi), chống nghiện
+  `0x08176160` (0x2a30/0x4650 s, `L_PLAYER_TIRE_MSG11`), `0x080AD300 → 0x080AC1A0` (`CallFunction(tên, n, "d", …)`, `PlayerIndex/PlayerId/SubWorld`);
+  `Say 0x08123C90` (vararg/bảng, `/` tách hàm, 50, 0x384, chia gói `0x08124170`), `Talk 0x08116930` (`"| |"`, hàm → `+9 = 1`), `0x080A8510` (byte 0x63,
+  `+7 == 1`), `0x080AC5D0` trả lời (loại 0/1, `'#'` chạy mã `0x082222E0/0x08222100`, âm → 0), `0x080AC560` gói 0x89 (chọn vật phẩm, chưa).
+- **gamecl.exe** (`CLIENT-2.0.md` §24): `OnScriptAction 0x006004C0` (bảng `0x601e10`: 0 `0x00600AE0`, 2 `0x00600D64`; `"| |"`, `G_PLAYER_14/15` qua
+  `[0x9bf514]/[0x9bf518]`), `KUiMsgSel::LoadScheme 0x0051CF66` (`滚动选择界面.ini`), `Show 0x0051D0F0` (`G_UiMsgSel_0`), `OnClickMsg 0x0051D020` →
+  `OperationRequest(9)` `0x005C2CF5` → `OnSelectFromUI 0x005FC7D0` (0x5f, 17 byte, `[0x9bd898]/[0x9bd89c]`); `提示2.ini` (`KUiInformation2`).
+- **Zone**: `KPlayerDialog.h`, `KSubWorldDialog.cpp`, `KText.h/.cpp` (port `text.DecodeMixed`), `l_Say/l_Talk` thật, `KScriptContext.script_path`,
+  `KNpc::script` (placement), `KNpcAttrib::dialog_radius`, `EntityInfo.npc_kind`, proto `C2G_NPC_DIALOG/C2G_DIALOG_ANSWER/G2C_SCRIPT_ACTION`, gateway
+  whitelist; `msg_to_player` giải mã + `CH_SYSTEM`. **Client**: `Game.npc_dialog/dialog_answer/script_action`, `KNpc.npc_kind/is_dialoger`, click npc kind 3,
+  `UiMsgSel.gd`, `UiInformation2.gd`, `KUiDialogMath.gd`, `KUiGameWindows.msg_sel/info2/_on_script_action`, `--auto _auto_dialog`; `export-ui` +2 màn.
+  **Luật 14** (chủ dự án 2026-09-19): `KWndShowAnimate` nhớ bố cục và đặt lại `PositionType` khi `viewport.size_changed`; `KUiGameWindows.screen` cập nhật.
+- **Dữ liệu**: 65 npc kind 3 của bản đồ 1 có script; 52/56 tệp nằm ở `data/script/binserver` (thư mục GBK); `task_function.lua` thiếu Include + `FirstTask`.
+- **Lỗi đã gặp**: chuỗi script TCVN3 hiện `�` trên client → `KText::decode_mixed` ở zone; `[Select_List]` là KWndMessageListBox (`MsgColor`) chứ không phải
+  `Color` của KWndList; MSVC `"\xf1a"` nuốt chữ `a` vào mã hex → tách chuỗi; `U'…'` ký tự ngoài ASCII trong nguồn → mã điểm `char32_t(0x…)`.
+- **Kiểm**: ctest 262/262 Release (+ Debug), Godot 485/485, `go vet` xanh, catalog/includes sạch; e2e `AUTO_DIALOG … window=true answered=true`,
+  `auto_dialog.png` (gửi chủ dự án), `AUTO_TRADE … end=1`, `AUTO_CHAT` như cũ.
+- commit: `JX NEXT: M13 lat D1 - hop thoai npc (DialogNpc 0x080B1300 goi 0x6e, Say 0x08123C90 / Talk 0x08116930 goi 0x63 PLAYER_SCRIPTACTION_SYNC, tra loi 0x5f 0x080AC5D0 m_szTaskAnswerFun; client OnScriptAction 0x006004C0, KUiMsgSel 滚动选择界面.ini, KUiInformation2 提示2.ini) + KText TCVN3/GBK -> UTF-8 + luat 14 neo UI`.
+
+### 2026-09-19 (phiên tiếp theo, phần 51) — M14 lát C2: kênh chat trên client (消息集合面板_左.ini, SendChat 0x00475A10, nút/menu kênh 0x004730D0 / 0x00472620)
+
+- **gamecl.exe** (đọc từng dòng, `CLIENT-2.0.md` §23): `KUiMsgCentrePad` nạp `消息集合面板_左.ini` (`0x004B5E64`, `[Channels]`, `[CH_*]` `0x004B50D0..`,
+  `[ChatTab]` `0x004B4216..`, `[MSNRoom]` `0x004B4D80..`); `KUiPlayerBar::SendChat 0x00475A10` (lịch sử `+0x7c46`, tiền tố `/` `&` `%`, kênh cờ 3/4, Lua
+  `Say`/`Chat`, `G_STR_MSG_VOERFLOW` `[0x82241c]`, `G_PLAYERBAR_2` `[0x822048]`, `G_GSCHANGEDNOTIFY_6` `[0x821f08]` — con trỏ chuỗi giải theo luật "lưu trễ"
+  của bộ nạp `0x00411xxx`); `0x00475900`/`0x004730D0` (kênh hiện tại `+0x8c48`, chữ nút = mã màu 3 byte); menu `0x00472620` (`0x004B6530` màu/ảnh từng kênh,
+  `0x0044F590` mở). Mã 2004 `UiMsgCentrePad.cpp`: `ChannelMessageArrival` (ảnh kênh + tên `NameTextColor` + câu `TextColor`), `MSNMessageArrival`.
+- **Go**: `export.GameScreens` += `khung-chat` (`消息集合面板_左.ini`, 40 ảnh).
+- **Client**: `UiMsgCentrePad.gd` (bảng kênh, `parse_input`, `throttle`, `line`, `menu_entries`), `UiPlayerBar` (`channel_btn` `KWndLabeledButton`,
+  `set_channel`, lịch sử ↑/↓), `KWndPopupMenu` mục `{text, color}`, `KUiGameWindows` (`msg_pad`, `channel_menu`, `send_chat`, `set_channel`, `chat_line`),
+  `UiGame._on_chat` (`add_image` + bbcode), `_on_chat_submitted` → `send_chat`; `--auto` `AUTO_CHAT` qua `send_chat("&T …")` + kênh thế giới + ảnh menu.
+- **Kiểm**: Godot 479/479 (+19 `test_chat_channels`), e2e `AUTO_CHAT team=doi oi world=ca the gioi button=Công menu=true`, `auto_chat.png` (gửi chủ dự án),
+  `AUTO_TRADE … end=1`.
+- commit: `JX NEXT: M14 lat C2 - kenh chat tren client (KUiMsgCentrePad 消息集合面板_左.ini 0x004B5E64, SendChat 0x00475A10 /ten & ngan, nut kenh 0x004730D0, menu kenh 0x00472620, lich su +0x7c46; dong nhan theo ChannelMessageArrival)`.
+
+### 2026-09-19 (phiên tiếp theo, phần 50) — M14 lát C1: kênh chat phía zone (relay JX2, 0x081E3710, chi phí 0x080502A0 / chatcost.ini, ForbitTalk, SetChatFlag)
+
+- **jx_linux_y + s3relay** (đọc từng dòng, `LINUX-SERVER.md` §19): bảng kênh của relay (`relay_channcfg.ini`/`relay_channel.ini`) → game server (`0x081E1F50`, ≤ 3 mục
+  10 byte tại `0x97ac2d4`); kiểm dòng `0x081E3710` (`Player+0x38c` ForbitTalk, ≤ 0x95 byte, id > 500 000 → phòng chat `0x0804F6F0`, loại chi phí khớp,
+  `0x081E3250` → `0x080502A0`, gói 0x21 về relay với lớp T/S/B); chi phí `0x080502A0` (`+0x394 & 1`, loại 0/1 miễn, 2..4 theo `chatcost.ini` `0x8BACAC0+0x1440+loại·16`
+  nạp `0x080A0C40`, `CheckTimeCount/ConsumeTimeCount` của `chat_timecount_limit.lua`, log `C_Chat`); `ForbitTalk 0x0810CB70`, `SetChatFlag 0x08111460`,
+  `NW_ForbidChat 0x08128550` (gói relay), `IsDisabledChatWorld/City` (giá trị nhiệm vụ 0x87 bit 1/0x10), `RestoreMana/RestoreLife/GetMana/GetLife`.
+- **gamecl.exe** (`CLIENT-2.0.md` §23 sẽ viết ở C2): `消息集合面板_左.ini` `[Channels]` 15 kênh + `[CH_*]` màu/tên/khoảng gửi; `KUiPlayerBar::SendChat
+  0x00475A10` tiền tố `/` `&` `%` → Lua `Say`/`Chat`; menu kênh `0x00472620` (`0x004B6530`), `0x004B1D30` số kênh, `0x004B3D20(i, cờ)`.
+- **Zone**: proto `ChatChannel`, `ChatReq.channel/target`, `ChatMsg.channel`; `KPlayerChat.h/.cpp`, `KSubWorldChat.cpp`, `KEvChat` + `KGameServer::send_chat`,
+  `KPlayer::forbid_talk/chat_flag`, `zone.chat_cost_file`; Lua 6 hàm; test `[chat]` (`test_KPlayerChat.cpp`), e2e `KGameServer` dòng thế giới, `test_KItem`
+  GetLife/GetMana/Restore*. **Go**: `player.ParseChatCost` + test, `jxassets export-chat-cost`, `dev.py assets`. **Client**: `Game.chat(text, channel, target)`,
+  `chat_msg.channel`, `--auto` `AUTO_CHAT` (đội + thế giới sau `RestoreMana()`).
+- **Kiểm**: ctest 257/257 (Release + Debug), Godot 460/460, `go vet`/`go test` xanh, catalog/includes sạch; e2e `AUTO_CHAT team=doi oi world=ca the gioi`,
+  `AUTO_TRADE … end=1`, zone log `chat cost table loaded`.
+- commit: `JX NEXT: M14 lat C1 - kenh chat phia zone (relay_channcfg.ini T/S/B/F/O/U + WORLD, kiem 0x081E3710, chi phi 0x080502A0 chatcost.ini, ForbitTalk 0x0810CB70, SetChatFlag 0x08111460, KEvChat phat ca zone; Lua RestoreMana/RestoreLife/GetMana/GetLife)`.
+
+### 2026-09-19 (phiên tiếp theo, phần 49) — M14 lát G3: hai client mời đội + giao dịch thật qua `jxbot -partner`; bảng rao trong gói spawn; Lua Earn/Pay/GetCash
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §18): gói đồng bộ đầy đủ 0x4c `0x0807FBB0` nhánh người chơi `0x0807FDD8` — byte `+0x10` = `Player+0x5700`,
+  câu rao `memcpy(min(strlen(+0x570c), 0x1e))` sau tên, byte `+0x20` = `+0x86b8` (trùng sinh); Lua `Earn 0x08118970` → `KPlayer::Earn 0x080AAED0` →
+  `KItemList::Earn 0x081FC990` (`KRoom::AddMoney 0x081F8B10`, `SyncMoney 0x081FAFD0` gói 0x61 13 byte, `events.lua OnRoomMoneyChange`, log `Lua_Earn`,
+  > 99 999 → dấu vết 10 tầng), `Pay 0x08118A90` → `0x080A9450` → `0x081FC940` (hơn túi → 0; trả 1/0), `GetCash 0x081116D0` = `Player+0x508c`.
+- **gamecl.exe** (`CLIENT-2.0.md` §22): handler 0x4c `0x0065C070` đọc `+0x10` trạng thái menu, `+0x20` cờ (PK/chiến đấu/ngủ/bang), `+0x21 == 1` → `+0x138c`, tên
+  `+0x22`, câu rao còn lại → `KNpc::SetMenuState 0x005EB2A0` (`0x0065C4ED`); server Linux ghi lệch một byte (`+0x20` trùng sinh, tên `" "` ở `+0x21`).
+- **Zone**: `EntityInfo.menu_state` (29) / `menu_sentence` (30) trong `fill_info` (cắt `kMenuSyncSentenceMax` 0x1e byte tròn UTF-8); `KSubWorld::earn/pay/cash`
+  + `l_Earn/l_Pay/l_GetCash` (log `script money`); test `[script]` tiền trong `test_KItem.cpp`.
+- **Go `jxbot -partner`** (`-meet-map`, `-assets`): `mapSpawn` trả ô Mps tuyệt đối (gốc `region_left·region_w`, `region_top·region_h` + `spawn`) → `?gm ds
+  NewWorld(1, 1551, 3150)`; bảng rao `"bot ban do"`, `G2C_TEAM_EVENT` INVITE → `TEAM_REPLY_INVITE 1`, `G2C_TRADE_APPLY` → `TRADE_REPLY 1`, `G2C_TRADE_SYNC`
+  → khoá (2) rồi OK (1), `G2C_TRADE_END` → treo lại; không chat rác, không đi lang thang. `dev.py screenshot` chạy bot (`logs/jxbot-partner.log`) 2,5 s trước client.
+- **Client**: `_entity_dict` đọc `menu_state/menu_sentence`; `UiGame._auto_partner_id`, `_auto_team` mời bot (`AUTO_TEAM_PARTNER`), `_auto_trade` hai người
+  (`Earn(50)`, `TRADE_APPLY_START`, `item_move(…, 2, 0, 0)`, `UiTrade.put_money(5)`, khoá, chờ `both_locked & dest_ok`, ảnh, OK, chờ `trade_end`).
+- **Lỗi đã gặp**: `NewWorld` nhận ô Mps **tuyệt đối** (bot gửi ô cục bộ → `to_local` âm → kẹp (0,0)); bảng rao chỉ gửi lúc đổi nên client vào sau không thấy
+  (đã sửa theo 0x4c); tiền bàn gõ thẳng `TRADE_MONEY` thì ô `SelfMoney` không hiện (đi qua `put_money`).
+- **Kiểm**: ctest 252/252 (Release + Debug), Godot 460/460, e2e `AUTO_TEAM_PARTNER partner=4294968772 invited=true members=1 mate_color=true`,
+  `AUTO_TRADE partner=4294968772 started=true placed=true both_locked=true dest_ok=true window=true my_table=1 end=1 item_gone=true money=50->45`; zone log
+  `trade started` / `item traded new_id=3` / `trade done items=1 money=5`; `auto_team.png`, `auto_trade.png` gửi chủ dự án.
+- commit: `JX NEXT: M14 lat G3 - hai client moi doi + giao dich qua jxbot -partner (NewWorld o Mps tuyet doi), bang rao trong goi spawn (0x4c 0x0807FDD8 / 0x0065C4ED), Lua Earn/Pay/GetCash (0x08118970/0x08118A90/0x081116D0)`.
+
+### 2026-09-19 (phiên tiếp theo, phần 48) — M14 lát G2: giao dịch trên client (KUiTrade, menu người chơi Ctrl+RButton, bảng rao trên đầu, hộp xin giao dịch)
+
+- **gamecl.exe** (đọc từng dòng, `CLIENT-2.0.md` §22): `\ui\autoexec.lua` (T/O `Switch([[trade]])`, P `Open([[team]])`, `Ctrl+RButton Mouse_Menu()`, `Ctrl+LButton
+  Mouse_Say()`, `Alt+LButton Mouse_PartnerAction()`), `Switch([[trade]]) 0x005C3236` (`0x005EB2B0` == 2 → `0x005F7460` gói 0x6a, khác → `0x005FB010` mở), menu người
+  chơi `0x004C2450` (18 mục `G_UIGAME_0..17` từ `0x821f7c..`, điều kiện theo `+0x48` = bảng rao đích, `GetGameData 0xbbd`, `0x5c0520(2, npc)`; 2004 `ProcessPeople`),
+  `TradeApplyStart 0x005F7480` (`{0x6b, npc}` 5 byte + `MSG_TRADE_SEND_APPLY`), `KUiTrade` (`0x004C02D2` ini, `Init 0x004BF000` offset 17 ô, `OpenWindow 0x004C0D69`
+  chép `KUiPlayerItem` 0xf0 byte vào `+0x7ad0`, `WndProc 0x004C0AB0`: 0x565 nút, 0x568 giữ, 0x62d ô tiền, 0x513 kéo đồ mã phòng 5/3; `0x004BFE20` ±1;
+  `0x004C0400 → TradeOperation(0x15, checked)`, `0x004C0020 → (0x16)` sau ba kiểm `0x1770`), gói 0x76 `0x006522F0` → `KNpc::SetMenuState 0x005EB2A0/0x006DDD70`
+  (`+0x1cb4`, câu `+0x1cc0`), `KPlayerMenuStateGraph::Init 0x00703F40` (`界面状态与图形对照表.txt`, `GetStateSpr 0x007042F0` 7 hàng × 0x50), `KNpcRes::Draw 0x006DFD83`
+  (sprite ảnh phụ đầu `+0x1f10`, câu ≤ 24 ký tự `0x006DFBD3`), chuỗi `G_STR_OTHER_NOT_OK/OTHER_OK/WAIT_TRADING`, `G_UIGAME_*`, `G_SysMsgCentre_3`.
+- **jx_linux_y**: `KItemList::Init 0x081FF0B0` — 15 phòng `list+0x4c8c + phòng·0x1c`: 0 túi 6×10, 1 rương 6×10, **2 giao dịch 8×4**, 3 rương mở rộng 12×20,
+  5 ô nhanh 9×1, 7/8/9/14 trang 6×10 → `kTradeRoomWidth = 8`.
+- **Go**: `export-menu-state` (`npcres/menu_state.json` + 4 sprite), `export.GameScreens` `giao-dich`; `dev.py assets` gọi `export-menu-state`.
+- **Client**: `Game.trade` + `trade_request/trading`, 7 handler (`G2C_TRADE_STATE/SYNC/ITEM/APPLY/END`, `G2C_SYS_MSG`, `G2C_ENTITY_MENU_STATE`), `UiTrade.gd`,
+  `KWndPopupMenu.gd`, `KUiGameWindows` (T/O/P, `open_player_menu`, hộp xin giao dịch, `sys_msg_text` bảng id→khoá, `MSG_TRADE_SUCCESS/FAIL`), `KNpc.set_menu_state/
+  _refresh_sign`, `NpcResList.menu_state`, `UiGame` Ctrl+RButton + `_auto_trade`.
+- **Kiểm**: Godot 460/460, e2e `AUTO_TRADE opened=true sign=2 drawn=true closed=true changes=2` + `auto_trade.png` (gửi chủ dự án), `AUTO_TEAM`/`AUTO_DEATH` như cũ.
+- commit: `JX NEXT: M14 lat G2 - giao dich tren client (KUiTrade 玩家间交易.ini 0x004C0AB0, Switch([[trade]]) 0x005C3236, menu nguoi choi 0x004C2450 Ctrl+RButton, bang rao tren dau 界面状态与图形对照表.txt 0x00703F40, hop G_SysMsgCentre_3; kTradeRoomWidth 8)`.
+
+### 2026-09-19 (phiên tiếp theo, phần 47) — M14 lát G1: giao dịch phía zone (KPlayerMenuState, KTrade, gói 0x6a..0x6d, ReplyStart, SyncTradeState, trao đổi, huỷ)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §18): `KPlayerMenuState` `Player+0x5700` + `SetState 0x080C29D0` (bản sao trạng thái; 0 từ 1 → `SetTeamClose`;
+  gói `s2c_tradechangestate` cho mình, `s2c_npcsetmenustate` quanh vùng), `RestoreBackupState 0x080C2ED0`; `KTrade` `Player+0x5910` (`Release 0x080D82D0`,
+  `StartTrade 0x080D8300`; `+0x591c` = người xin nhớ đích, `+0x5920` = đang giao dịch; `CheckTrading 0x080A7E90`); ô bảng handler: 0x6a `0x080AE320` (đóng bảng),
+  0x6b `0x080B4DE0` (xin: đích trạng thái 2, `FindAroundPlayer`, khoá bảo mật, mã gói `0x080A79B0` = `(Player+0x3b8 ^ +0x3bc ^ dword) % 0x8baef00[loại]`, gói 0x8b),
+  0x6c `0x080AE510` (tiền), 0x6d `0x080B2C70` (quyết định + trao đổi 0x858 byte stack), gọi thẳng từ `0x080DBA90`: `TradeApplyOpen 0x080AE590` (câu ≤ 255),
+  `c2sTradeReplyStart 0x080BAFD0` (`[0x830ca40]`, `Player+0x374` → 0x86 0x2c, từ chối → 0x86 0xd, `\script\global\trade.lua CheckPlayerTrade`, đội mở đóng,
+  ngồi đứng, `0x081FC900` dọn ô 2/4, `StartTrade` cả hai, trạng thái 3), `SyncTradeState 0x080A85B0` (0x77 tiền `list+0x4cc8` cho đối tác, 0x81 bốn cờ),
+  `ExchangeItem 0x08207172` (ô 2 → gói 0xcc byte cho `Player[+0x5910]`), trao đổi: `0x081FF5D0` kiểm ô, tiền không tràn, `0x081FC410` gom + `0x081FA250` mô phỏng
+  lưới túi 6×10 (`[0x830d7e8]`; ≠ 0 = vừa; bên không vừa mất OK, 0x86 0xb / bên kia 0xc), nhật ký `"%s\t%s\t…NewWorld(%d,%d,%d)\tItemName[%s]…"`, `0x080BDC70/0x080BDCF0`
+  chuyển, tiền `0x081F9EF0/0x081F9F30`, 0x78 `{1}`, `SetState(0)`; huỷ `0x080AE380` (`0x08207DE0` kiểm trùng trang bị, `0x081FC8D0(list, 2/4)` ô về túi, 0x78 `{0}`,
+  `RestoreBackupState`), `0x080AE4B0` từ `DoDeath 0x08089701`, `KPlayer::Clear 0x080B60A0`. Bản Linux có **15 phòng** (`list+0x4c8c + phòng·0x1c`, 0..0xe).
+- **Zone**: `KPlayerTrade.h` (`KMenuState`, `KPlayerMenuState`, `KTrade`), `KSubWorldTrade.cpp` (mọi `trade_*`, `set_menu_state/restore_menu_state/emit_menu_state`,
+  `sys_msg`), `KPlayer::menu/trade`, `item_move_request` (ô giao dịch vào/ra khi giao dịch & chưa khoá, không vật nhiệm vụ, `trade_item_sync`), `do_death`/`remove_player`
+  huỷ, `team_set_open/close` bảng rao 1/0 + `CheckTrading`; proto `TradeCmd/TradeReq/TradeState/TradeSync/TradeItem/TradeApply/TradeEnd/SysMsg/EntityMenuState`,
+  ids 1120 / 2132..2138; gateway chuyển tiếp `C2G_TRADE`; catalog +8 câu +4 trường; test `[trade]` 3 ca 154 khẳng định (đổi 1 kỳ vọng cũ: ô giao dịch ngoài giao dịch
+  = `WRONG_STATE`).
+- **Kiểm**: ctest 252/252 Release **và Debug**, Godot 460/460 (proto sinh lại), `go vet`/`gofmt` xanh, catalog/includes sạch.
+- commit: `JX NEXT: M14 lat G1 - giao dich phia zone (KPlayerMenuState Player+0x5700 SetState 0x080C29D0, KTrade Player+0x5910, TradeApplyOpen 0x080AE590, goi 0x6a/0x6b/0x6c/0x6d, ReplyStart 0x080BAFD0, SyncTradeState 0x080A85B0, trao doi 0x080B2EC7, huy 0x080AE380)`.
+
+### 2026-09-19 (phiên tiếp theo, phần 46) — CI đỏ ở bản Debug (ff6c73e / 943d59a / d5ae57f): test PK đưa MỘT KMagicAttrib vào ReceiveDamage
+
+- CI (`ci_jobs.py` đọc annotation công khai): `C++ Windows x64 MSVC` + `C++ Linux x64 GCC` bước `Test (Debug)` đỏ ở `GetPKRelation…`: `pw.B().doing == death`
+  (0 == 4). Nguyên nhân: test truyền `&hit` (một `KMagicAttrib`) cho `receive_damage`, hàm đọc đủ `kSkillAttribs` ô → các ô sau nằm trên stack (Release tình cờ
+  là 0, Debug là rác) → B không chết. Với mảng đủ và zero thì đòn `type 0 {2e8, 2e8, 0}` chỉ gây 1 sát thương (ô [2] mới là trần) → dùng đúng đòn của `KillPlayer`
+  (`seriesdamage_p 100`, `attackrating_v 50000`, `ignoredefense_p 1`, `{0, {2e8, 0, 2e8}}`) như `test_KPlayerTeam.cpp`.
+- **Bài học**: `receive_damage` luôn nhận `std::array<KMagicAttrib, kSkillAttribs>` — và **chạy cả `ctest --preset windows-msvc-debug`** trước khi đẩy khi có
+  test mới chạm sát thương (Release che lỗi đọc stack).
+- Kiểm: ctest Debug 249/249, Release 249/249.
+- commit: `JX NEXT: sua test PK cho ban Debug (mang du kSkillAttribs o + don KillPlayer; CI ff6c73e/943d59a do o Test (Debug))`.
+
+### 2026-09-19 (phiên tiếp theo, phần 45) — M14 lát T2: tổ đội trên client (KUiTeamManage 队伍管理.ini, KUiInformation 提示.ini, gói 0x53/0x69 phía client)
+
+- **gamecl.exe** (đọc từng dòng, `CLIENT-2.0.md` §21.1): `KUiTeamManage::OpenWindow 0x004AE880` → `0x004ADAF0` (`%s\队伍管理.ini`) → `0x004AD930` (20 ô, offset
+  `+0x584..+0x8fe4`), `WndProc 0x004AE0D0` (0x565 nút: `Invite 0x004ADE00` (lập đội trước khi chưa có, `OperationRequest(5)`, rồi `(7, mục)`), `Kick 0x004ADDD0 (8)`,
+  `Appoint 0x004ADDA0 (6)`, `Leave/Dismiss 0x004ADEF0 (9)`, `Refresh 0x004ADE50` (`GetGameData 0x3fa` → `0x0066B180` quét npc: kind 1, luật camp 0, không cùng đội),
+  `CloseTeam (0xa, checked)`, `Cancel 0x004ADF20`; 0x691 chọn mục `0x004ADBD0/0x004ADC70`; 0x693 menu tên), cập nhật `0x004AE300` (`GetGameData 0x3fc` = cấp thống lĩnh
+  `core+0x11aac`, `OperationRequest(0/1)` trạng thái + danh sách 0xf0 byte/mục), `OperationRequest 0x005B9560` bảng nhảy `0x5b9844` (5..0xd) → `0x005F6F40/0x005F7100/
+  0x005F75B0/0x005F70B0/0x005F7070/0x005FA7C0/0x005F6F70`: gói **`{0x53, word 7, byte sub, dword npc}` cùng số với server** (6 rời, 7 đuổi, 8 nhường…); handler 0x69
+  `0x006516D0` (bảng `0x6518ac`, 14 lệnh con với độ dài 0x27/0x14c/4/8/4/4/7/0x2b/7/0xb/0xb/0x27/0xb/9): `s2c_teamselfinfo 0x005F8280` (0x14c byte: `+0x129` **kinh
+  nghiệm thống lĩnh**, cấp tính bằng bảng client `0x006E2270`/`0x006E2300` từ `\settings\npc\player\level_lead_exp.txt` của client), đơn xin `0x00603780` (hộp 0x1f),
+  lời mời `0x00604630`; `KUiInformation` `提示.ini` (`0x004AC748`: Info, FirstBtn, SecondBtn); `UiSysMsgCentre` 2004 (`SMCT_UI_TEAM_INVITE/APPLY` "同意/拒绝" →
+  `TeamOperation(INVITE_RESPONSE/APPLY_RESPONSE, nSelAction == 0)`); chuỗi 2.0 `G_SysMsgCentre_0/1`, `G_ACCEPT_WORD/G_REFUSE_WORD` (`stringtable_client.txt`).
+- **Go**: `export.GameScreens` + `to-doi` (`队伍管理.ini` — theme `\Ui\ui3_1024`: 20 ô, nút chữ `小按钮四字.spr`, nhãn VN) + `hop-thoai` (`提示.ini`).
+- **Client**: `Game.team/team_request/team_mate_ids/is_team_mate`, `G2C_TEAM_SELF/G2C_TEAM_EVENT` → `team_changed/team_event`; `UiTeam.gd` (danh sách, nút, ô mở/đóng,
+  cuộn bằng bánh xe); `UiInformation.gd` (`show_box` → `answered`); `KUiGameWindows` (`team` của thanh công cụ, `_on_team_event` → hộp mời/đơn + dòng chat
+  `team_event_text` theo khoá `MSG_TEAM_*`, Esc đóng); `KNpc.set_team_mate` + `KNpcGold.life_bar_color(…, team_mate)` (230,190,0); `KUiItemView.client_string`;
+  `_auto_team` (lập → cửa sổ → ảnh → đóng đội → giải tán); test `test_team` (+8) và màu đồng đội (+1).
+- **Kiểm**: Godot 460/460, e2e `AUTO_TEAM created=true captain=true open=1 lead_level=1 members_max=3 window=true closed=true dismissed=true changes=3`,
+  `auto_team.png` (đã gửi chủ dự án), `AUTO_DEATH revived=true`, exit=0. `player.json` cần xuất lại (`export-player`) để có `lead_exp` (trước đó `members_max=1`).
+- commit: `JX NEXT: M14 lat T2 - to doi tren client (KUiTeamManage 0x004AE880/队伍管理.ini, OperationRequest 0x005B9560 5..0xc = goi 0x53 cung so voi server, handler 0x69 0x006516D0, KUiInformation 提示.ini, UiSysMsgCentre G_SysMsgCentre_0/1, PaintLife 0x005EADD5 (230,190,0))`.
+
+### 2026-09-19 (phiên tiếp theo, phần 44) — M14 lát T1: tổ đội phía zone (KPlayerTeam, g_Team, gói 0x53, AddExpTeam, sổ sát thương theo đội trưởng, rơi đồ chia đội)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §17): `KPlayerTeam` `Player+0x5994` (mã 2004 + ô Linux `+0x30`: **đội trưởng do hệ thống chỉ định** — ghi ở
+  `0x080CD4FE`, xoá ở `CreateTeam 0x080CE54C`/`TeamChangeCaptain 0x080B9579`/`Release 0x080CC5D0`, chặn `AddTeamMember` 0x24 / `KickOne` 0x25 / `ChangeCaptain` 0x26 /
+  `InviteAdd` 0x27 / `SetTeamOpen` 0x28), `g_Team 0x8BB86E0` (`+4` mở, `+8` đội trưởng −1 trống, `+0xc..` 7 ô −1, `+0x28`, `+0x2c` giới hạn thống lĩnh), `KTeamSet`
+  (`CreateTeam 0x080CC290` −2 khi đủ 1200, `FindMemberID 0x080CBF00`, `IsOpen 0x080CBF80`, `CalcCaptainPower 0x080CC960` = `0x080C4560(Player+0x5970)`, `CheckFull 0x080CC990`,
+  `AddMember 0x080CC9D0` (camp ≠ 0 vào đội trưởng camp 0 → không), `CheckIn 0x080CC320`, `0x080CC210`, `0x080CC620` đồng đội gần), `SetTeamOpen 0x080CD960` / `SetTeamClose 0x080CCA80`
+  (gói 0x69 `{6, 1/0}`), `DeleteMember 0x080CD5E0` (đội trưởng đi: `+0x2c == 0 && +0x28 > 0` → chuyển chức, không thì giải tán), chuyển chức `0x080CD480` (đóng đội, `0x080CC0D0`
+  đội viên đầu cùng camp, hoán ô, `+0x59c4 = 1`, gói 0x69 `{0xd, mới, cũ}`), ô 0x53 `0x080DCC90` (bảng nhảy `0x8257f48`, 11 lệnh con → `0x080B1AD0/0x080B1E20/0x080B1CF0/
+  0x080B8000/0x080B75B0/0x080B7C60/0x080B9880/0x080B9400/0x080B7DE0/0x080CE150/0x080B1990`), từng hàm (luật camp 6, `can_team`, bit 0x400 của giá trị nhiệm vụ 0x87 =
+  Lua `DisabledTeam 0x08126590`/`IsDisabledTeam 0x0812EF50` qua `0x080A8C80/0x080A9370`, `FindAroundPlayer 0x080B1610`, `+0x59a0` đội trưởng xin vào, vòng mời `% 7`,
+  `GetInviteReply` rời đội cũ trước, `TeamChangeCaptain` thông điệp 6 (thống lĩnh) / 7 (camp), mọi đội viên `SetCurrentCamp` theo đội trưởng mới),
+  `DoDeath 0x080893AA` → `0x080B1DE0` → chuyển chức; rời game `0x080C55D7` → `LeaveTeam`; **`AddExpTeam 0x080B03E0`** (`n` trong `0x100000` cùng map, `n ≤ 0 | Σ ≤ 0 | n > 8 |
+  Σ < cấp | n == 1` → `AddExp` thường; `k = int(√n·100.0)` `0x0825528C`; kẻ giết `(100+n)/100`; khác `min(60, cấp·k/Σ)/100`; ≥ 1); **`KDamageRecord::Add 0x0809BC70`** khoá =
+  đội trưởng; **`0x0809BDD0`** (mốc = đội trưởng ≤ `0xfffff` không thì đội viên gần nhất; `exp = m_Experience·dmg/max(+0x1a14,+0x1a18)`; trả ô lớn nhất `best`), `DoDeath 0x080893D6..`
+  (kẻ giết người chơi → `0x0809BDD0` rồi `0x08088B60(npc, kẻ giết, best, player)`; khác → `(…, 0, 0)` không rơi), `0x08088B60` (tiền cho `best`, `LoseSingleItem 0x08088840`:
+  may mắn kẻ giết khi `CheckIn(best, kẻ giết)`, `Player+0xb0` vào thẳng túi, `SetItemBelong(best)`), **`IsTeamShare`** `0x080843A0` + `0x0809C090` (cân nặng theo ô sát thương:
+  chủ lẻ = dmg; đội: `(100−rate)·dmg/100/n` mỗi người gần + chủ ô `rate·dmg/100`; quay `rand()|rand()<<15`; `AddItem 0x080B5180` thẳng túi, đầy → mất) — 4 bảng `citydefence\*.ini`
+  dùng; `ServerPickUpItem 0x080B826C..0x080B83BB/0x080B84F0` (đồ/tiền của người trong đội mình nhặt được, trừ genre 4; 0x86 `{4, 8}`/`{4, 0x11}`); Lua `IsCaptain 0x08115690`,
+  `GetTeam 0x08115630`, `GetTeamSize 0x08115480`, `GetTeamMember 0x08115530`, `LeaveTeam 0x08121060`, `SetCreateTeam 0x08120FC0` (`SetCanTeamFlag 0x080CC580`), `DisabledTeam`,
+  `IsDisabledTeam`, `ChangeTeamFeature 0x08103630`, `Msg2Team 0x081152C0`, `BuildATeam 0x08123680 → 0x080CDB20` (chưa port).
+- **gamecl.exe** (`CLIENT-2.0.md` §21): handler 0x86 `0x00657AD0` (bảng nhảy `0x658674`, id 1..0x38), bộ nạp chuỗi `0x005DBA60` từ `\lang\<vn|zh|tw>\stringtable_core.txt`
+  (lệch một: kết quả khoá ghi ở `mov [G], eax` kế tiếp — `msgkeys2.py`), mã → khoá (0x24..0x28 = `MSG_TEAM_ERROR01..05`, 0x12/0x13 `MSG_TEAM_TARGET_CANNOT_ADD_TEAM`, 6/7 = FAIL1+FAIL2/FAIL3…);
+  bảng VN (TCVN3) có đủ `MSG_TEAM_*`.
+- **Go**: `player.LeadExp` (`level_lead_exp.txt`) → `player.json` `lead_exp`; gateway chuyển tiếp `C2G_TEAM`; `gofmt` sạch.
+- **Zone**: `KPlayerTeam.h/.cpp` (`KPlayerTeam`/`KTeam`/`KTeamSet`, dự trữ 1200 dòng để con trỏ không đổi), `KSubWorldTeam.cpp` (mọi `team_*`, `add_exp_team`, `team_near_count`,
+  `team_may_take`, `team_sync_captain`), `KNpc::damage_record_key` (+ `KPlayerTeam::captain_npc`), `share_experience(dead, killer) → best`, `lose_treasure(dead, killer, best)`,
+  `lose_treasure_shared`, `remove_player → team_leave`, `do_death → team_hand_over`, `pick_up_request → team_may_take`; `KPlayer::team/lead_exp/lead_level` (lưu/nạp),
+  `KPlayerSet::lead_members/lead_level_exp/set_lead_exp`; proto `TeamCmd/TeamReq/TeamMember/TeamSelf/TeamEventKind/TeamEvent`, `C2G_TEAM` 1119, `G2C_TEAM_SELF` 2130,
+  `G2C_TEAM_EVENT` 2131, `RoleData.lead_exp/lead_level`; Lua 10 hàm; catalog: 10 câu + 3 trường; test `[team]` 10 ca 341 khẳng định (`test_KPlayerTeam.cpp`).
+  Bài học: `std::vector<KTeam>` cấp phát lại làm `KTeam*` chết (test bắt được) → `reserve(1200)`; camp của vai mới nạp = 0 → luật "đội trưởng camp 0 không nhận camp khác" chặn thật.
+- **Kiểm**: ctest 249/249, Godot 452/452 (proto sinh lại), `go vet`/`gofmt` xanh, `check_log_catalog` 0 thiếu, `check_includes` 0 thiếu. e2e chưa (client chưa dùng gói đội — T2).
+- commit: `JX NEXT: M14 lat T1 - to doi phia zone (KPlayerTeam Player+0x5994, g_Team 0x8BB86E0, goi 0x53 0x080DCC90 11 lenh con, AddExpTeam 0x080B03E0, so sat thuong theo doi truong 0x0809BC70/0x0809BDD0, roi do chia doi 0x080843A0, nhat do dong doi 0x080B826C, 10 ham Lua)`.
+
 ### 2026-09-18 (phiên tiếp theo, phần 43) — M12 lát B3c-4: PK (KPlayerPK, GetPKRelation, phạt chết PK, PKRate.ini/PKPunish.txt)
 
 - **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §16.16): `KPlayerPK` `Player+0x5a50` (bố cục theo mã 2003 `KPlayerPK.h` + ô Linux: `+8` khoá, `+0x10` giây,

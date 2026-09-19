@@ -98,6 +98,19 @@ var GameScreens = []UiScreenDef{
 	{"ban-do-nho", "Bản đồ nhỏ", "KUiMiniMap", `小地图_小.ini`},
 	{"ban-do-lon", "Bản đồ (bản duyệt)", "KUiMiniMap (lớn)", `小地图_浏览版.ini`},
 	{"ban-do-hu-vo", "Bản đồ Hư Vô Phiêu Miểu", "KUiMiniMap (hư vô)", `小地图之虚无缥缈.ini`},
+	// M14 T2: the team window (KUiTeamManage::OpenWindow 0x004ADAF0 loads "%s\队伍管理.ini") and the message box with up
+	// to two text buttons (KUiInformation, 提示.ini: [Info], [FirstBtn], [SecondBtn]) the invitations and applications use
+	{"to-doi", "Tổ đội", "KUiTeamManage", `队伍管理.ini`},
+	{"hop-thoai", "Hộp thông báo hai nút", "KUiInformation", `提示.ini`},
+	// M14 G2: the trade window (KUiTrade, gamecl.exe 0x004C02D2 loads "%s\玩家间交易.ini")
+	{"giao-dich", "Giao dịch giữa hai người chơi", "KUiTrade", `玩家间交易.ini`},
+	// M14 C2: the chat pad (KUiMsgCentrePad 0x004B5E64 loads "%s\消息集合面板_左.ini" / _右): [Channels] Channel0..14 and one
+	// [CH_*] section per channel (ShortName, FormatName, TextColor, MenuText, SendMsgInterval, images), the [ChatTab] pages
+	{"khung-chat", "Khung chat và các kênh", "KUiMsgCentrePad", `消息集合面板_左.ini`},
+	// M13: the npc dialog - the question and its answers (KUiMsgSel, gamecl.exe 0x0051CF66 loads "%s\滚动选择界面.ini") and the
+	// one-button pages of a Talk (KUiInformation2, 提示2.ini)
+	{"hop-thoai-chon", "Hộp thoại chọn câu trả lời của npc", "KUiMsgSel", `滚动选择界面.ini`},
+	{"hop-thoai-mot-nut", "Hộp thoại một nút (các trang npc nói)", "KUiInformation2", `提示2.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

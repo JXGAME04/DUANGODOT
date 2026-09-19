@@ -76,6 +76,23 @@ static func core_string(key: String) -> String:
 static func forget() -> void:
 	_strings_loaded = false
 	_strings = {}
+	_client_strings_loaded = false
+	_client_strings = {}
+
+
+static var _client_strings: Dictionary = {}
+static var _client_strings_loaded := false
+
+
+# A line of lang/vn/stringtable_client.txt (ui/du-lieu/chuoi-client.json) by key: the words of the windows
+# (G_ACCEPT_WORD "Đồng ý", G_REFUSE_WORD "Từ chối", G_SysMsgCentre_0 "%s mời bạn vào đội", ...); "" when missing.
+static func client_string(key: String) -> String:
+	if not _client_strings_loaded:
+		_client_strings_loaded = true
+		var t = Assets.ui_data("chuoi-client")
+		if t is Dictionary:
+			_client_strings = t.get("strings", {})
+	return str(_client_strings.get(key, ""))
 
 
 # One requirement against this character (KItemList::EnoughAttrib as the client knows it: level,

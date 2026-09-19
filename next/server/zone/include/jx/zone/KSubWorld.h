@@ -36,6 +36,10 @@
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
+#include "jx/zone/KPlayerChat.h"
+#include "jx/zone/KPlayerTask.h"
+#include "jx/zone/KTaskManager.h"
+#include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KMissle.h"
@@ -125,6 +129,9 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMissleTable> missles;
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
+    std::shared_ptr<const KChatCostTable> chat_cost;          // chatcost.ini (KPlayerChat.h; jxassets export-chat-cost); null = every channel free
+    std::shared_ptr<const KTaskDefTable> task_def;            // settings/task/player_task_def.txt (KPlayerTask.h; jxassets export-task-def): which task values the client is told; null = none
+    std::shared_ptr<const KTaskManager> tasks;                // settings/task (KTaskManager.h; jxassets export-task-tables): the TASKSYS library of the scripts; null = the library answers nothing
     std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
@@ -182,7 +189,10 @@ public:
     bool remove_player(std::uint64_t sid);
     bool move_request(std::uint64_t sid, Pos target, std::uint32_t seq);
     bool attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq);
-    bool chat(std::uint64_t sid, std::string_view text);
+    // a line spoken on a channel (docs §19): the GM filter first, then the rules of 0x081E3710 / 0x080502A0 and the
+    // receivers of the channel; WORLD / CITY / FACTION lines wait in take_chat_broadcasts() for the server
+    bool chat(std::uint64_t sid, std::string_view text, pb::ChatChannel channel = pb::CH_NEARBY, std::string_view target = {});
+    std::vector<KChatBroadcast> take_chat_broadcasts();
     // Items (M11).  Each answers the client: G2C_ITEM_MOVE / ADD / REMOVE when something changed,
     // G2C_ITEM_RESULT with the reason when nothing did.
     bool item_move_request(std::uint64_t sid, std::uint32_t id, int room, int x, int y, std::uint32_t seq);
@@ -239,7 +249,8 @@ public:
     [[nodiscard]] const KItem* ground_item(EntityId object) const;
     [[nodiscard]] std::size_t ground_object_count() const noexcept { return ground_items_.size() + ground_money_; }
     // KNpc::OnDeath (the drops): Treasure rolls of the template's drop table for the killer
-    void lose_treasure(KNpc& dead, EntityId killer);
+    void lose_treasure(KNpc& dead, EntityId killer, EntityId best);
+    void lose_treasure_shared(KNpc& dead, const KNpc& killer, const KNpcDropRate& table);   // 0x080843A0: [Main] IsTeamShare
     // KNpc::LoseSingleItem -> GenRandomItem of jx_linux_y (0x08083BB0): one roll of a drop table
     std::optional<KItem> gen_random_item(const KNpcDropRate& table, int npc_level, int npc_series, int luck);
     // Give an item to a player (a script, a drop picked up, a quest reward): into the bag, onto a
@@ -301,6 +312,13 @@ public:
     // KGameServer (1); 0 = failed.  Only players change worlds.
     int change_world_request(KNpc& player, std::uint32_t map_id, Pos pos);
     std::vector<KWorldChange> take_world_changes();
+    // KPlayer::Earn 0x080AAED0 -> KItemList::Earn(room 0, n) 0x081FC990: n < 0 refused, the room's sum may not turn
+    // negative (KRoom 0x081F8B10), then the 0x61 money sync (0x081FAFD0) - events.lua OnRoomMoneyChange(room, money) of
+    // the binary is not called (the event system is not ported).  KPlayer::Pay 0x080A9450 -> KItemList::Pay 0x081FC940:
+    // more than the bag holds -> 0.  cash = Player+0x508c, the bag's money.
+    bool earn(std::uint64_t sid, int n);
+    bool pay(std::uint64_t sid, int n);
+    [[nodiscard]] int cash(std::uint64_t sid) const;
     // Msg2Player: one line in the player's chat window.
     void msg_to_player(std::uint64_t sid, std::string_view text);
     // KPlayer::ExecuteScript: runs fn(param) of the script (a game path) for the player.
@@ -535,6 +553,58 @@ public:
     // while frozen_action (+0x1479, the mask 0x11e covers 1 and 8); the action runs at 0x08088640: 8 -> KNpc::DoSit 0x0807B550,
     // 1 -> DoStand 0x08080030
     bool sit_request(std::uint64_t sid, bool sit, std::uint32_t seq);
+    // ---- teams (KPlayerTeam.h; docs/LINUX-SERVER.md §17; KSubWorldTeam.cpp) ----
+    // the 0x53 packet (sub-command 1..11, a npc, a flag) -> the KPlayer / KPlayerTeam handlers of jx_linux_y
+    bool team_request(std::uint64_t sid, int cmd, EntityId target, int flag);
+    [[nodiscard]] const KTeam* team_of(const KNpc& e) const noexcept;
+    [[nodiscard]] KTeam* team_of(const KNpc& e) noexcept;
+    [[nodiscard]] const KTeamSet& teams() const noexcept { return teams_; }
+    [[nodiscard]] KTeam* mutable_team(int id) noexcept { return teams_.get(id); }   // the script api (ChangeTeamFeature)
+    // KTeam::CalcCaptainPower 0x080CC960 / CheckFull 0x080CC990
+    [[nodiscard]] int team_members_max(const KTeam& t) const noexcept;
+    [[nodiscard]] bool team_full(const KTeam& t) const noexcept;
+    // 0x080CC620(team, player): the captain and members within reach of a player (the death exp loss, the luck of a drop)
+    [[nodiscard]] int team_near_count(const KNpc& e) const noexcept;
+    [[nodiscard]] bool team_may_take(const KNpc& e, const KNpc& object) const noexcept;   // ServerPickUpItem 0x080B826C: a team mate's drop
+    void team_leave(KNpc& e);                 // KPlayer::LeaveTeam 0x080B7C60 (a player leaving the world too, 0x080C55D7)
+    void team_send_self(const KNpc& e);       // KPlayer::SendSelfTeamInfo 0x080AA7F0
+    // KPlayer::AddExpTeam 0x080B03E0: a kill's experience shared with the team mates within 1024 units on the same map
+    void add_exp_team(KNpc& anchor, int exp, int npc_level, EntityId killer);
+    // the trade and the sign over the head (docs/LINUX-SERVER.md §18): the client's C2G_TRADE (KSubWorldTrade.cpp)
+    bool trade_request(std::uint64_t sid, int cmd, EntityId target, int arg, std::string_view text);
+    // the npc dialog (docs §20): the 0x6e packet - the npc's script main() for the player when it is a dialoger (or at
+    // peace) within twice its dialog radius; the 0x5f packet - the answer runs the function of that answer in the script
+    bool dialog_npc_request(std::uint64_t sid, EntityId npc);
+    bool dialog_answer(std::uint64_t sid, int index, int kind);
+    // Lua Say / Talk: the 0x63 packet to the player and the answer functions kept on it
+    void dialog_say(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
+    void dialog_talk(KNpc& e, std::string_view callback, const std::vector<std::string>& pages);
+    // the task values (docs §21, KSubWorldTask.cpp): KPlayer::SetTaskValue 0x080A9190 (a change; a SYNC_FLAG id with `sync` goes to
+    // the client as G2C_TASK_VALUE), the 0xa7 packet of one id (0x080A8CC0), SyncTaskValueMore 0x080A9550 (G2C_TASK_VALUES of
+    // eighty), the enter-world sync 0x080B9CF0, the client's 0xaa packet 0x080DB070 (a CLIENT_FLAG id only)
+    void task_set_value(KNpc& e, int id, int value, bool sync);
+    void task_send_value(const KNpc& e, int id);
+    bool task_sync_more(const KNpc& e, int first, int last, bool only_non_zero);
+    void task_login_sync(const KNpc& e);
+    bool task_value_request(std::uint64_t sid, int id, int value);
+    // the task system of the scripts (docs §22, KSubWorldTaskSys.cpp): the status bits and the temp values of a task in the
+    // task values, written back through 0x0820E1E0 (a change goes to the client as G2C_TASK_VALUE whatever the table says)
+    void task_set_value_synced(KNpc& e, int id, int value);
+    void task_write_temp(KNpc& e, const task_status::KTaskTemp& temp);
+    [[nodiscard]] std::optional<int> task_status(const KNpc& e, std::string_view name) const;   // GetTaskStatus 0x0820E800
+    bool task_set_status(KNpc& e, std::string_view name, int status);                           // SetTaskStatus 0x0820E720
+    bool task_start(KNpc& e, std::string_view name);                                            // StartTask 0x0820E4E0
+    bool task_close(KNpc& e, std::string_view name);                                            // CloseTask 0x0820E430
+    [[nodiscard]] std::optional<int> task_temp(const KNpc& e, std::string_view name, std::string_view key) const;   // GetTmpValue 0x0820DF10
+    bool task_set_temp(KNpc& e, std::string_view name, std::string_view key, int value);       // SetTmpValue 0x0820E5C0
+    const char* task_first(KNpc& e);                                                            // FirstTask 0x08174E30
+    const char* task_next(KNpc& e);                                                             // NextTask 0x08174D40
+    bool task_select(KNpc& e, const char* fn, int task_id);                                     // SelectTaskStart / Finish / Award
+    [[nodiscard]] bool trading(const KNpc& e) const noexcept;   // KPlayer::CheckTrading 0x080A7E90
+    void trade_cancel(KNpc& e);                                 // 0x080AE380: both sides, the boxes back, the menu states restored
+    void set_menu_state(KNpc& e, int state, std::string_view sentence, EntityId dest);   // KPlayerMenuState::SetState 0x080C29D0
+    void restore_menu_state(KNpc& e);                                                    // 0x080C2ED0
+    void sys_msg(std::uint64_t sid, int id, EntityId who = EntityId{});                  // the 0x86 packet {8, id, npc}
     // KPlayerPK (Player+0x5a50): SetPKState 0x080C3740, SetPKValue 0x080C38C0, AddPKValue 0x080C3930, the packet 0x76 handler 0x080DBE00
     bool pk_set_state(KNpc& e, int state, bool force);
     void pk_set_value(KNpc& e, int value);
@@ -581,6 +651,43 @@ public:
 
 private:
     friend class KNpcAI;   // like the old KNpcAI, which is a friend of KNpc
+    // ---- teams (KSubWorldTeam.cpp)
+    KTeamSet teams_;
+    bool team_create(KNpc& e);                                   // KPlayerTeam::CreateTeam 0x080CE3C0
+    bool team_set_state(KNpc& e, bool open);                     // KPlayer::SetTeamState 0x080B1CF0
+    bool team_set_open(KTeam& t);                                // KTeam::SetTeamOpen 0x080CD960
+    bool team_set_close(KTeam& t);                               // KTeam::SetTeamClose 0x080CCA80
+    bool team_add_member(KTeam& t, KNpc& p);                     // KTeam::AddMember 0x080CC9D0
+    void team_delete_member(KTeam& t, KNpc& p);                  // KTeam::DeleteMember 0x080CD5E0
+    void team_hand_over(KTeam& t);                               // 0x080CD480: the captaincy to the first member of the captain's camp
+    void team_apply_add(KNpc& e, EntityId target);               // KPlayer::S2CSendAddTeamInfo 0x080B8000
+    bool team_accept(KNpc& e, EntityId target);                  // KPlayer::AddTeamMember 0x080B75B0
+    void team_kick(KNpc& e, EntityId target);                    // KPlayer::TeamKickOne 0x080B9880
+    void team_change_captain(KNpc& e, EntityId target);          // KPlayer::TeamChangeCaptain 0x080B9400
+    void team_dismiss(KNpc& e);                                  // KPlayer::TeamDismiss 0x080B7DE0
+    void team_invite(KNpc& e, EntityId target);                  // KPlayerTeam::InviteAdd 0x080CE150
+    void team_reply_invite(KNpc& e, EntityId captain, bool ok);  // KPlayerTeam::GetInviteReply 0x080CCBA0
+    void team_info(KNpc& e, EntityId target);                    // KPlayer::S2CSendTeamInfo 0x080B1AD0
+    void team_join(KTeam& t, int id, KNpc& newcomer, KNpc& captain);   // the common tail of AddTeamMember / GetInviteReply
+    void team_event(std::uint64_t sid, pb::TeamEventKind kind, EntityId who = EntityId{}, int arg = 0);
+    void team_event_all(const KTeam& t, pb::TeamEventKind kind, EntityId who = EntityId{}, int arg = 0);
+    void team_send_self_all(const KTeam& t);
+    void team_sync_captain(KTeam& t);   // every member's KPlayerTeam::captain_npc = the captain's npc
+    // the trade (KSubWorldTrade.cpp)
+    bool trade_apply_open(KNpc& e, std::string_view sentence);   // KPlayer::TradeApplyOpen 0x080AE590
+    bool trade_apply_close(KNpc& e);                             // the 0x6a packet 0x080AE320
+    bool trade_apply_start(KNpc& e, EntityId target);           // the 0x6b packet 0x080B4DE0
+    bool trade_reply(KNpc& e, EntityId applicant, bool accept); // c2sTradeReplyStart 0x080BAFD0
+    bool trade_money(KNpc& e, int money);                        // the 0x6c packet 0x080AE510
+    bool trade_decision(KNpc& e, int decision);                  // the 0x6d packet 0x080B2C70
+    bool trade_exchange(KNpc& e, KNpc& p);                       // 0x080B2EC7..: the second ok
+    void trade_sync(KNpc& e);                                    // KPlayer::SyncTradeState 0x080A85B0
+    void trade_item_sync(const KNpc& e, std::uint32_t id, bool removed);   // ExchangeItem 0x08207172: the partner sees my box
+    void trade_clear_box(KNpc& e);                               // 0x081FC8D0(list, 2): the box back into the bag
+    [[nodiscard]] KNpc* trade_partner(const KNpc& e);
+    void emit_menu_state(const KNpc& e, EntityId dest);
+    [[nodiscard]] KNpc* team_player(std::uint64_t sid);
+    [[nodiscard]] KNpc* find_around_player(const KNpc& e, EntityId npc);   // KPlayer::FindAroundPlayer 0x080B1610: a player in the regions around
 
     void emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     // A crowded spot can put hundreds of entities in one EntitySpawn, which would pass the 64 KiB
@@ -712,7 +819,7 @@ private:
     // G2C_MISSLE: a missile born / flying / gone to the launcher's watchers (the 2.0 client runs CastMissles itself; docs/CLIENT-2.0.md §11)
     void emit_missle(const KMissle& m, bool removed, bool collided = false);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)
-    void share_experience(KNpc& dead);
+    EntityId share_experience(KNpc& dead, EntityId killer);   // 0x0809BDD0: returns the damage record that hurt it most (the owner of the drop)
     void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     // what KNpcAI issues as SendCommand(do_walk / do_stand / do_skill) on the old server
     KNpc* find_mutable(EntityId id);
@@ -742,6 +849,8 @@ private:
     void load_items(std::uint64_t sid, const pb::RoleData& role);
     void load_skills(KNpc& e, const pb::RoleData& role);   // KPlayer::LoadPlayerFightSkillList 0x080C0240
     void save_skills(const KNpc& e, pb::RoleData& out) const;   // KSkillList 0x080E48D0
+    void load_task_values(KNpc& e, const pb::RoleData& role);   // KPlayer::LoadPlayerTaskList 0x080C0050
+    void save_task_values(const KNpc& e, pb::RoleData& out) const;   // KPlayer::SavePlayerTaskList 0x080BF1C0 / Serialize 0x080CB6A0
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);
     void item_moved(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
@@ -790,6 +899,11 @@ private:
     std::vector<std::uint64_t> scratch_sids_;
     mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
     std::vector<KWorldChange> world_changes_;
+    std::vector<KChatBroadcast> chat_broadcasts_;
+    // 0x080502A0: the cost of a line by chatcost.ini type - false when it cannot be paid (nothing is taken then)
+    bool chat_pay(KNpc& e, int type);
+    void send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options, int param,
+                            bool interactive);
     std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about
     struct Near {                                          // a candidate of a look around
         std::int64_t dist2;

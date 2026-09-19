@@ -4,6 +4,7 @@ extends Node
 
 const Proto := preload("res://proto/jx_pb.gd")
 const KLogin := preload("res://net/KLogin.gd")
+const KPlayerTask := preload("res://scenes/KPlayerTask.gd")
 const CLIENT_VERSION := "0.2.0"
 const PING_INTERVAL := 5.0
 # no Pong for this long while in the world = the server is gone (it drops us after
@@ -51,6 +52,16 @@ signal gold_changed(entity_id: int)         # G2C_NPC_GOLD: a monster turned gol
 signal entity_res(r: Dictionary)            # G2C_ENTITY_RES: a player's look (the 0xad packet -> KNpc::SetPlayerRes 0x005ED920)
 signal pk_changed(state: int, value: int, refused: bool)   # G2C_PK_STATE: one's own PK state (the 0x90 packet) / value (0x93)
 signal entity_pk(r: Dictionary)             # G2C_ENTITY_PK: a player's PK state (the flag & 3 of the 0x4b sync -> KNpc+0x16e4)
+signal team_changed()                       # G2C_TEAM_SELF: one's own team as it stands (the 0x69 sub 2 / sub 9 packets; `team`)
+signal team_event(ev: Dictionary)           # G2C_TEAM_EVENT: {event, id, name, level, arg, leader, members} (the other 0x69 sub-commands, the 0x86 team messages)
+signal trade_changed()                      # G2C_TRADE_STATE / G2C_TRADE_SYNC / G2C_TRADE_END: `trade` changed (docs/LINUX-SERVER.md §18)
+signal trade_item(ev: Dictionary)           # G2C_TRADE_ITEM: {item, removed} - the partner's trade box changed (trade.other_items holds it)
+signal trade_apply(ev: Dictionary)          # G2C_TRADE_APPLY: {id, name} asks to trade with me (the 0x8b packet)
+signal trade_end(ok: bool)                  # G2C_TRADE_END: the 0x78 packet
+signal sys_msg(id: int, entity_id: int, name: String)   # G2C_SYS_MSG: the 0x86 packet - a stringtable_core.txt sentence by id (CLIENT-2.0.md §21)
+signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id].menu_state / menu_sentence changed (the sign over the head)
+signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, text, text_id, interactive, param, options} of a npc script's Say / Talk
+signal task_value_changed(id: int, value: int)   # G2C_TASK_VALUE / G2C_TASK_VALUES: task_values[id] changed (the 0xa7 / 0xb5 packets -> KPlayer::SetTaskValue 0x00601ED0)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -99,8 +110,17 @@ var skills := {}
 # KPlayerFaction of the character (PlayerData+0x12078 current, +0x12080 last added, +0x12084 times joined of the 2.0
 # client): -1 = none; camp = m_Camp of the player's npc (C_FREE 4 after leaving)
 var faction := -1
+var task_values := {}    # id -> value: the saved task values the zone mirrors here (SYNC_FLAG rows of settings/task/player_task_def.txt; KPlayer+0xa1a0 of the 2.0 client)
+var task_packets := 0    # G2C_TASK_VALUE + G2C_TASK_VALUES received (the login sends every SYNC_FLAG id, zeros included)
 var pk_state := 0        # KPlayerPK state of one's own character: 0 exercise, 1 fight, 2 kill (the 0x90 packet)
 var pk_value := 0        # the PK value 0..10 (the 0x93 packet)
+# the client's KPlayerTeam (core+0xa878+0x7258 of the 2.0 client) + the s2c_teamselfinfo table (0x1f17608..): in_team, team_id,
+# state (1 open), captain (am I), leader {id, name, level}, members [{id, name, level}], lead_level, lead_exp, members_max
+var team := {"in_team": false, "team_id": -1, "state": 0, "captain": false, "leader": {}, "members": [], "lead_level": 1, "lead_exp": 0, "members_max": 0}
+# the client's KTrade (core+0xa878+0x... of the 2.0 client; KPlayerTrade.h): state 0 normal / 1 open for trade / 2 trading,
+# the partner, the four flags of the 0x81 sync, the money on both tables, the partner's items (the 0xcc-byte syncs) by id
+var trade := {"state": 0, "partner": 0, "partner_name": "", "self_lock": false, "dest_lock": false, "self_ok": false, "dest_ok": false,
+	"self_money": 0, "dest_money": 0, "other_items": {}}
 var faction_last := -1
 var faction_count := 0
 var camp := 0
@@ -203,6 +223,7 @@ func leave_world() -> void:
 		entities = {}
 		items = {}
 		skills = {}
+		task_values = {}
 		Log.ctx["zone"] = 0
 
 
@@ -304,6 +325,69 @@ func pk_state_request(wanted: int) -> int:
 	return _move_seq
 
 
+# the 0x53 packet {0x53, word 7, byte sub, dword npc} of the 2.0 client (KPlayer team ops of core+0xa878: create 0x005F6F40,
+# leave 0x005F7070, kick 0x005F70B0, change captain 0x005F7100, invite 0x005F75B0, open/close 0x005FA7C0, ...; the same
+# sub-commands jx_linux_y reads at 0x080DCC90 - docs/LINUX-SERVER.md §17)
+func team_request(cmd: int, target: int = 0, flag: int = 0) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.TeamReq.new()
+	req.set_cmd(cmd)
+	req.set_target(target)
+	req.set_flag(flag)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_TEAM, req)
+	Log.trace("world", "team request", {"cmd": cmd, "target": target, "flag": flag, "seq": _move_seq})
+	return _move_seq
+
+
+# the trade packets of the 2.0 client (KPlayer::TradeApplyOpen 0x005FB010 / Close 0x005F7460 {0x6a} / TradeApplyStart 0x005F7480
+# {0x6b, npc} / the money 0x6c / the decision 0x6d 0x005FB201; docs/LINUX-SERVER.md §18)
+func trade_request(cmd: int, target: int = 0, arg: int = 0, text: String = "") -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.TradeReq.new()
+	req.set_cmd(cmd)
+	req.set_target(target)
+	req.set_arg(arg)
+	req.set_text(text)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_TRADE, req)
+	Log.trace("world", "trade request", {"cmd": cmd, "target": target, "arg": arg, "seq": _move_seq})
+	return _move_seq
+
+
+func trading() -> bool:
+	return int(trade.state) == 2
+
+
+# the entity ids of one's team mates (the captain and the members but oneself): the life bar of a team mate is
+# (230, 190, 0) in PaintLife 0x005EADB8 (0x0066D070 == 8)
+func team_mate_ids() -> Dictionary:
+	var out := {}
+	if not team.in_team:
+		return out
+	if not team.leader.is_empty() and int(team.leader.id) != entity_id:
+		out[int(team.leader.id)] = true
+	for m in team.members:
+		if int(m.id) != entity_id:
+			out[int(m.id)] = true
+	return out
+
+
+func is_team_mate(id: int) -> bool:
+	if not team.in_team or id == entity_id:
+		return false
+	if not team.leader.is_empty() and int(team.leader.id) == id:
+		return true
+	for m in team.members:
+		if int(m.id) == id:
+			return true
+	return false
+
+
 # the 0x71 packet {0x71, byte sit} of the 2.0 client (the tool bar's Switch([[sit]]) 0x0044B470): sit down (1) / stand up (0)
 func sit(on: bool) -> int:
 	if state != "world":
@@ -329,12 +413,66 @@ func ride(on: bool) -> int:
 	return _move_seq
 
 
-func chat(text: String) -> void:
+# a line on a channel (Proto.ChatChannel: CH_NEARBY 0, CH_TEAM 1, CH_WORLD 2, CH_FACTION 3, CH_CITY 5, CH_WHISPER 7
+# with the name in `target`); the zone applies the rules of 0x081E3710 / 0x080502A0 (docs/LINUX-SERVER.md §19)
+func chat(text: String, channel: int = 0, target: String = "") -> void:
 	if state != "world" or text.strip_edges() == "":
 		return
 	var req := Proto.ChatReq.new()
 	req.set_text(text)
+	req.set_channel(channel)
+	if target != "":
+		req.set_target(target)
 	Net.send_msg(Proto.MsgId.C2G_CHAT, req)
+
+
+# ---- the npc dialog (docs/LINUX-SERVER.md §20) ----
+
+# a click on a dialoger npc: the 0x6e packet (KPlayer::DialogNpc) - the zone runs the npc's script main() for us
+func npc_dialog(npc: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.NpcDialogReq.new()
+	req.set_npc(npc)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_NPC_DIALOG, req)
+	Log.debug("world", "npc dialog request", {"npc": npc, "seq": _move_seq})
+	return _move_seq
+
+
+# the answer picked in the dialog: the 0x5f packet {0x5f, int index, int kind, 0, 0} (KPlayer::OnSelectFromUI 0x005FC7D0)
+func dialog_answer(index: int, kind: int = 0) -> void:
+	if state != "world":
+		return
+	var req := Proto.DialogAnswer.new()
+	req.set_index(index)
+	req.set_kind(kind)
+	Net.send_msg(Proto.MsgId.C2G_DIALOG_ANSWER, req)
+	Log.debug("world", "dialog answer", {"index": index, "kind": kind})
+
+
+# ---- the task values (docs/LINUX-SERVER.md §21) ----
+
+# the saved task value the zone last told us, 0 when it never did (GetTaskValue of the client's KPlayer)
+func task_value(id: int) -> int:
+	return KPlayerTask.value_of(task_values, id)
+
+
+# the 0xaa packet {0xaa, int id, int value}: the zone keeps it for an id with CLIENT_FLAG in player_task_def.txt only
+func set_task_value(id: int, value: int) -> void:
+	if state != "world":
+		return
+	var req := Proto.TaskValueReq.new()
+	req.set_id(id)
+	req.set_value(value)
+	Net.send_msg(Proto.MsgId.C2G_TASK_VALUE, req)
+	Log.debug("world", "task value request", {"id": id, "value": value})
+
+
+func _set_task_value(id: int, value: int) -> void:
+	if KPlayerTask.set_value(task_values, id, value):
+		task_value_changed.emit(id, value)
 
 
 # ---- items: the requests share the move sequence so a G2C_ITEM_RESULT can be matched ----
@@ -886,6 +1024,159 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d["pk_state"] = int(m.get_pk_state())
 			entity_pk.emit({"id": int(m.get_entity_id()), "pk_state": int(m.get_pk_state())})
 
+		Proto.MsgId.G2C_TRADE_STATE:
+			# s2c_tradechangestate of KPlayerMenuState::SetState 0x080C29D0: 0 normal, 1 open for trade, 2 trading {partner}
+			var m := Proto.TradeState.new()
+			if not _decode(m, payload):
+				return
+			var was := int(trade.state)
+			trade.state = int(m.get_state())
+			trade.partner = int(m.get_partner())
+			trade.partner_name = str(m.get_partner_name())
+			if trade.state != 2 or was != 2:
+				trade.self_lock = false
+				trade.dest_lock = false
+				trade.self_ok = false
+				trade.dest_ok = false
+				trade.self_money = 0
+				trade.dest_money = 0
+				trade.other_items = {}
+			trade_changed.emit()
+			Log.info("player", "trade state", {"state": trade.state, "partner": trade.partner, "name": trade.partner_name})
+
+		Proto.MsgId.G2C_TRADE_SYNC:
+			# the 0x81 packet of SyncTradeState 0x080A85B0 {self lock, dest lock, self ok, dest ok} + the 0x77 money of the partner
+			var m := Proto.TradeSync.new()
+			if not _decode(m, payload):
+				return
+			trade.self_lock = bool(m.get_self_lock())
+			trade.dest_lock = bool(m.get_dest_lock())
+			trade.self_ok = bool(m.get_self_ok())
+			trade.dest_ok = bool(m.get_dest_ok())
+			trade.self_money = int(m.get_self_money())
+			trade.dest_money = int(m.get_dest_money())
+			trade_changed.emit()
+			Log.info("player", "trade sync", {"self_lock": trade.self_lock, "dest_lock": trade.dest_lock, "self_ok": trade.self_ok,
+				"dest_ok": trade.dest_ok, "self_money": trade.self_money, "dest_money": trade.dest_money})
+
+		Proto.MsgId.G2C_TRADE_ITEM:
+			# the partner put an item on the table (the 0xcc-byte sync of ExchangeItem 0x08207172) or took it back
+			var m := Proto.TradeItem.new()
+			if not _decode(m, payload):
+				return
+			var removed := bool(m.get_removed())
+			var d := _item_dict(m.get_item()) if m.has_item() else {}
+			var id := int(d.get("id", 0))
+			if removed:
+				trade.other_items.erase(id)
+			elif id != 0:
+				trade.other_items[id] = d
+			trade_item.emit({"item": d, "removed": removed})
+			trade_changed.emit()
+
+		Proto.MsgId.G2C_TRADE_APPLY:
+			# the 0x8b packet (0x080B4DE0): somebody asks to trade with me
+			var m := Proto.TradeApply.new()
+			if not _decode(m, payload):
+				return
+			trade_apply.emit({"id": int(m.get_entity_id()), "name": str(m.get_name())})
+			Log.info("player", "trade apply", {"id": int(m.get_entity_id()), "name": str(m.get_name())})
+
+		Proto.MsgId.G2C_TRADE_END:
+			# the 0x78 packet: over - the state packet that follows (NORMAL, or the one before a cancel) resets the table
+			var m := Proto.TradeEnd.new()
+			if not _decode(m, payload):
+				return
+			trade.other_items = {}
+			trade.self_money = 0
+			trade.dest_money = 0
+			trade_end.emit(bool(m.get_ok()))
+			trade_changed.emit()
+			Log.info("player", "trade end", {"ok": bool(m.get_ok())})
+
+		Proto.MsgId.G2C_SYS_MSG:
+			# the 0x86 packet {word 8, word id, dword npc}: the client's 0x00657AD0 picks the sentence by id
+			var m := Proto.SysMsg.new()
+			if not _decode(m, payload):
+				return
+			sys_msg.emit(int(m.get_id()), int(m.get_entity_id()), str(m.get_name()))
+
+		Proto.MsgId.G2C_SCRIPT_ACTION:
+			var m := Proto.ScriptAction.new()
+			if not _decode(m, payload):
+				return
+			var options: Array = []
+			for o in m.get_options():
+				options.append(str(o))
+			var a := {"operate": int(m.get_operate()), "ui": int(m.get_ui_id()), "text": str(m.get_text()), "text_id": int(m.get_text_id()),
+				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options}
+			Log.debug("world", "script action", {"ui": a.ui, "options": options.size(), "param": a.param})
+			script_action.emit(a)
+
+		Proto.MsgId.G2C_TASK_VALUE:
+			# the 0xa7 packet {id, value}: the client's 0x006512F0 -> KPlayer::SetTaskValue 0x00601ED0 (+ the ui message 0x54)
+			var m := Proto.TaskValue.new()
+			if not _decode(m, payload):
+				return
+			task_packets += 1
+			_set_task_value(int(m.get_id()), int(m.get_value()))
+
+		Proto.MsgId.G2C_TASK_VALUES:
+			# the 0xb5 packet: up to eighty {id, value} (the client's 0x00651350 applies each without a ui message)
+			var m := Proto.TaskValues.new()
+			if not _decode(m, payload):
+				return
+			task_packets += 1
+			for v in m.get_values():
+				_set_task_value(int(v.get_id()), int(v.get_value()))
+
+		Proto.MsgId.G2C_ENTITY_MENU_STATE:
+			# s2c_npcsetmenustate (the client's 0x006522F0 -> KNpc 0x005EB2A0): the sign over a player's head, its sentence
+			var m := Proto.EntityMenuState.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null:
+				d["menu_state"] = int(m.get_state())
+				d["menu_sentence"] = str(m.get_sentence())
+			entity_menu_state.emit(int(m.get_entity_id()))
+
+		Proto.MsgId.G2C_TEAM_SELF:
+			# the 0x69 sub 2 handler of the 2.0 client (0x005F8280: +0x7258 flag, +0x725c figure, the captain 0x1f17610, the
+			# members 0x1f17614.., the names, the levels, the lead exp +0x7230 -> level) or sub 9 with one's own npc (out of a team)
+			var m := Proto.TeamSelf.new()
+			if not _decode(m, payload):
+				return
+			var members: Array = []
+			for mm in m.get_members():
+				members.append({"id": int(mm.get_entity_id()), "name": str(mm.get_name()), "level": int(mm.get_level())})
+			var leader := {}
+			if m.get_in_team() and m.has_leader():
+				var l = m.get_leader()
+				leader = {"id": int(l.get_entity_id()), "name": str(l.get_name()), "level": int(l.get_level())}
+			team = {"in_team": bool(m.get_in_team()), "team_id": int(m.get_team_id()), "state": int(m.get_state()),
+				"captain": bool(m.get_captain()), "leader": leader, "members": members,
+				"lead_level": int(m.get_lead_level()), "lead_exp": int(m.get_lead_exp()), "members_max": int(m.get_members_max())}
+			team_changed.emit()
+			Log.info("player", "team", {"in_team": team.in_team, "team": team.team_id, "state": team.state, "captain": team.captain,
+				"members": members.size(), "lead_level": team.lead_level})
+
+		Proto.MsgId.G2C_TEAM_EVENT:
+			# the other 0x69 sub-commands (4 create ok, 5 create fail, 6 open/close, 7 apply, 8 add member, 9 leave, 0xc invite, 0xd
+			# change captain, ...) and the 0x86 team messages: the windows decide what to show
+			var m := Proto.TeamEvent.new()
+			if not _decode(m, payload):
+				return
+			var ev := {"event": int(m.get_event()), "id": int(m.get_entity_id()), "name": str(m.get_name()), "level": int(m.get_level()),
+				"arg": int(m.get_arg()), "leader": {}, "members": []}
+			if m.has_leader():
+				var l = m.get_leader()
+				ev.leader = {"id": int(l.get_entity_id()), "name": str(l.get_name()), "level": int(l.get_level())}
+			for mm in m.get_members():
+				ev.members.append({"id": int(mm.get_entity_id()), "name": str(mm.get_name()), "level": int(mm.get_level())})
+			team_event.emit(ev)
+			Log.info("player", "team event", {"event": ev.event, "id": ev.id, "name": ev.name, "arg": ev.arg})
+
 		Proto.MsgId.G2C_ENTITY_RES:
 			# the 0xad handler of the 2.0 client (0x006515A0): the rows into KNpc::SetPlayerRes 0x005ED920, the version into +0x1408
 			var m := Proto.EntityRes.new()
@@ -931,7 +1222,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.ChatMsg.new()
 			if not _decode(m, payload):
 				return
-			chat_msg.emit({"id": m.get_entity_id(), "name": m.get_name(), "text": m.get_text()})
+			chat_msg.emit({"id": m.get_entity_id(), "name": m.get_name(), "text": m.get_text(), "channel": int(m.get_channel())})
 
 		Proto.MsgId.G2C_ITEM_LIST:
 			var m := Proto.InventorySync.new()
@@ -1157,7 +1448,10 @@ func _entity_dict(e) -> Dictionary:
 		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false,
 		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0,
 		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4,
-		"res": _res_dict(e), "pk_state": int(e.get_pk_state()) if e.has_method("get_pk_state") else 0}
+		"res": _res_dict(e), "pk_state": int(e.get_pk_state()) if e.has_method("get_pk_state") else 0,
+		"menu_state": int(e.get_menu_state()) if e.has_method("get_menu_state") else 0,
+		"menu_sentence": str(e.get_menu_sentence()) if e.has_method("get_menu_sentence") else "",
+		"npc_kind": int(e.get_npc_kind()) if e.has_method("get_npc_kind") else 0}
 
 
 # the equipment rows of the 0x4a / 0x4b player sync (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse,

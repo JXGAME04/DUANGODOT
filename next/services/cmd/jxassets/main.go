@@ -20,6 +20,8 @@
 //	                                 fire) as missles.json for the zone's KMissleTable
 //	export-state-gfx -out <dir>      settings/npcres/状态图形对照表.txt of the client (the picture a state puts on a
 //	                                 character) as npcres/state_gfx.json + the sprites the skills' StateSpecialId use
+//	export-menu-state -out <dir>     settings/npcres/界面状态与图形对照表.txt of the client (the sign over a player's head:
+//	                                 team open / trade open / trading) as npcres/menu_state.json + the sprites
 //	export-sounds -out <dir>         the .wav files the skills (ManCastSnd / FMCastSnd of skills.json), the missiles
 //	                                 (SndFile1..4 of missles/missle_res.json) and the characters' actions (主角动作声音表.txt,
 //	                                 npc动作声音表.txt for the exported npcres) name -> sounds/<id>.wav + sounds/sounds.json,
@@ -1196,6 +1198,105 @@ func main() {
 		}
 		fmt.Printf("export-revive-pos: diem hoi sinh %s (%d map) -> %s\n", file, len(table.Maps), p)
 
+	case "export-chat-cost":
+		// \settings\npc\player\chatcost.ini of the old server, read the way 0x080A0C40 of jx_linux_y reads it
+		// (sections "0".."4": Level / Money / ManaPercent / StaminaPercent) -> <out>/chat_cost.json for the
+		// zone's KChatCostTable (docs/LINUX-SERVER.md §19): what a line on the city / faction / world channels costs
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/npc/player/chatcost.ini", "Settings/npc/player/chatcost.ini", "settings/npc/player/ChatCost.ini",
+			"Settings/Npc/Player/ChatCost.ini")
+		if err != nil {
+			fail("no settings/npc/player/chatcost.ini under %s: %v", sdir, err)
+		}
+		table := player.ParseChatCost(data)
+		table.Source = file
+		p := filepath.Join(out, "chat_cost.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-chat-cost: chi phi chat %s -> %s\n", file, p)
+
+	case "export-task-def":
+		// \settings\task\player_task_def.txt of the old server, read the way the loader 0x081C6E00 of jx_linux_y reads it
+		// (rows from the third, columns 1 / 2 / 4 / 5: first id, last id, SYNC_FLAG, CLIENT_FLAG) -> <out>/task_def.json for
+		// the zone's KTaskDefTable (docs/LINUX-SERVER.md §21): which task values the client is told about and may set
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/task/player_task_def.txt", "Settings/task/player_task_def.txt", "Settings/Task/player_task_def.txt")
+		if err != nil {
+			fail("no settings/task/player_task_def.txt under %s: %v", sdir, err)
+		}
+		table := player.ParseTaskDef(data)
+		table.Source = file
+		p := filepath.Join(out, "task_def.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-task-def: dinh nghia gia tri nhiem vu %s (%d dong, %d id dong bo) -> %s\n", file, len(table.Rows), table.SyncCount(), p)
+
+	case "export-task-tables":
+		// \settings\task of the old server the way the task system of jx_linux_y loads it (0x081725F0: task_id.txt, task_type.txt
+		// and the condition / entity / award / talk table of every kind, task_event.txt) -> <out>/task_tables.json for the
+		// zone's KTaskManager (docs/LINUX-SERVER.md §22): what the TASKSYS library of the scripts reads.  The cells keep the
+		// bytes of the files (as Latin-1 runes): the scripts compare them with their own bytes
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		var source string
+		read := func(rel string) ([]byte, error) {
+			data, file, err := readServerFile(sdir, rel, strings.ToLower(rel))
+			if err == nil && source == "" {
+				source = filepath.Dir(filepath.Dir(file))
+			}
+			return data, err
+		}
+		table, err := player.ParseTaskTables(read)
+		if err != nil {
+			fail("no settings/task under %s: %v", sdir, err)
+		}
+		table.Source = source
+		p := filepath.Join(out, "task_tables.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-task-tables: he nhiem vu %s (%d nhiem vu, %d loai, %d su kien) -> %s\n", source, len(table.Tasks), len(table.Types), len(table.Events), p)
+
 	case "export-faction":
 		// \settings\faction\门派设定.ini of the old server: the eleven factions the way
 		// KFactionSet::Init 0x08060C70 of jx_linux_y reads them (Name / ShowName / Series / Camp per
@@ -1540,6 +1641,53 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-state-gfx: %d trang thai (%d Special, %d ky nang dung), %d sprite (%d moi) -> %s\n", len(rows), special, len(want), sprites, ex.Exported, p)
+
+	case "export-menu-state":
+		// \settings\npcres\界面状态与图形对照表.txt of the client (KPlayerMenuStateGraph::Init, gamecl.exe 2.0 0x00703F40 /
+		// 0x00704102): the sign over a player's head by menu state - row 1 team open (menustate01), 2 trade open (02),
+		// 3 trading (03), 4 sleeping (04), 5 stall (02), 6 stall trading (03) -> <out>/npcres/menu_state.json + the sprites.
+		// docs/CLIENT-2.0.md §22
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		const table = `\settings\npcres\界面状态与图形对照表.txt`
+		data, err := set.ReadFile(gamePath(table))
+		if err != nil {
+			fail("no %s in the client's archives: %v", table, err)
+		}
+		ex := export.New(set, out)
+		rows := map[string]any{}
+		state := 0
+		for i, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimRight(line, "\r")
+			if i == 0 || strings.TrimSpace(line) == "" {
+				continue
+			}
+			cells := strings.Split(line, "\t")
+			if len(cells) < 2 {
+				continue
+			}
+			state++
+			file := strings.TrimSpace(cells[1])
+			rows[strconv.Itoa(state)] = map[string]any{
+				"name": text.GBKToUTF8([]byte(strings.TrimSpace(cells[0]))), "file": text.GBKToUTF8([]byte(file)), "sprite": ex.SpriteID(file),
+			}
+		}
+		p := filepath.Join(out, "npcres", "menu_state.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			fail("%v", err)
+		}
+		js, err := json.MarshalIndent(map[string]any{"source": "the client's archives: " + table + " (KPlayerMenuStateGraph, gamecl.exe 2.0 0x00703F40)", "rows": rows}, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(p, js, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-menu-state: %d trang thai, %d sprite -> %s\n", len(rows), ex.Exported, p)
 
 	case "export-npc-gold":
 		// \settings\npc\NpcGoldTemplate.txt of the old server (KNpcGoldTemplate::Init jx_linux_y 0x0809CCC0): the kinds of

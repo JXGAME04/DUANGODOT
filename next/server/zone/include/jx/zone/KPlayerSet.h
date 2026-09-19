@@ -87,6 +87,13 @@ struct KPKPunish {
     [[nodiscard]] const KPKPunishRow& row(int pk) const noexcept { return rows[static_cast<std::size_t>(std::clamp(pk, 0, kRows - 1))]; }
 };
 
+// one row of level_lead_exp.txt (KPlayerSet+? 100 rows x 8 bytes at 0x8bb26a4, the loader next to level_exp.txt): the exp
+// a leadership level needs (col 2) and the members a captain of that level may take (col 3)
+struct KLeadExpRow {
+    std::int64_t exp = 0;
+    int members = 1;
+};
+
 // [Common] of basevalue.ini
 struct KBaseValue {
     int hurt_frame = 12;
@@ -130,6 +137,11 @@ public:
     [[nodiscard]] const KBaseValue& base_value() const noexcept { return base_value_; }
     [[nodiscard]] const KPKRate& pk_rate() const noexcept { return pk_rate_; }
     [[nodiscard]] const KPKPunish& pk_punish() const noexcept { return pk_punish_; }
+    // KLeadExp::GetMemNumFromLevel 0x080C4560: the members a captain of that leadership level may take (1 outside 1..100)
+    [[nodiscard]] int lead_members(int level) const noexcept;
+    // 0x080C4580: the exp of a leadership level (0 outside 1..100)
+    [[nodiscard]] std::int64_t lead_level_exp(int level) const noexcept;
+    void set_lead_exp(int level, std::int64_t exp, int members) noexcept;
     // the resist maxima a player starts with when the role data has none (KPlayer::LoadFrom: 0x4b)
     static constexpr int kDefaultResistMax = 75;
 
@@ -148,6 +160,8 @@ private:
     KBaseValue base_value_;
     KPKRate pk_rate_;
     KPKPunish pk_punish_;
+    static constexpr int kMaxLeadLevel = 100;
+    std::array<KLeadExpRow, kMaxLeadLevel> lead_exp_{};
 };
 
 } // namespace jx::zone

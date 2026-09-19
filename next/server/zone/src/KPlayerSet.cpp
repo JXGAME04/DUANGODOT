@@ -107,6 +107,14 @@ bool KPlayerSet::load(const std::string& file, std::string* error)
             }
         }
     }
+    if (const auto it = j.find("lead_exp"); it != j.end() && it->is_array()) {
+        for (std::size_t k = 0; k < lead_exp_.size() && k < it->size(); ++k) {
+            const auto& r = (*it)[k];
+            if (!r.is_object()) continue;
+            lead_exp_[k].exp = r.value("exp", std::int64_t{0});
+            lead_exp_[k].members = geti(r, "members", 1);
+        }
+    }
     if (const auto it = j.find("basevalue"); it != j.end() && it->is_object()) {
         base_value_.hurt_frame = geti(*it, "hurt_frame", 12);
         base_value_.run_speed = geti(*it, "run_speed", 10);
@@ -160,6 +168,25 @@ void KPlayerSet::set_level_add(int series, const KLevelAddRow& row) noexcept
 {
     if (series < 0 || series >= kMaxSeries) return;
     level_add_[static_cast<std::size_t>(series)] = row;
+}
+
+int KPlayerSet::lead_members(int level) const noexcept
+{
+    if (level < 1 || level > kMaxLeadLevel) return 1;   // 0x080C4560: eax = 1 outside the table
+    const int m = lead_exp_[static_cast<std::size_t>(level - 1)].members;
+    return m > 0 ? m : 1;
+}
+
+std::int64_t KPlayerSet::lead_level_exp(int level) const noexcept
+{
+    if (level < 1 || level > kMaxLeadLevel) return 0;
+    return lead_exp_[static_cast<std::size_t>(level - 1)].exp;
+}
+
+void KPlayerSet::set_lead_exp(int level, std::int64_t exp, int members) noexcept
+{
+    if (level < 1 || level > kMaxLeadLevel) return;
+    lead_exp_[static_cast<std::size_t>(level - 1)] = KLeadExpRow{exp, members};
 }
 
 } // namespace jx::zone

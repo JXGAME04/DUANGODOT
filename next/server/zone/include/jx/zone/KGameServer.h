@@ -93,6 +93,7 @@ private:
     void flush_outbox();
     void send_to_session(std::uint64_t sid, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     void send_save(const KEvPlayerSave& save);
+    void send_chat(const KEvChat& e);
     void send_stats();
     void schedule_tick();
     void run_ticks();

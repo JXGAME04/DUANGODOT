@@ -494,6 +494,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     if subprocess.call([*jxassets_args(), "export-state-gfx", "-out", out], cwd=ROOT) != 0:
         print("export-state-gfx: no settings/npcres/状态图形对照表.txt in the client's archives - states show no picture")
     # the gold monster kinds (settings/npc/NpcGoldTemplate.txt): what a placed monster may revive as
+    # the sign over a player's head (team open / trade open / trading; M14)
+    if subprocess.call([*jxassets_args(), "export-menu-state", "-out", out], cwd=ROOT) != 0:
+        print("export-menu-state: no settings/npcres/界面状态与图形对照表.txt in the client's archives - no signs over the heads")
     if subprocess.call([*jxassets_args(), "export-npc-gold", "-out", out], cwd=ROOT) != 0:
         print("export-npc-gold: no settings/npc/NpcGoldTemplate.txt in the reference server folder - no monster turns gold")
     # the weapon -> physical skill table (settings/武器物理攻击对照表.txt): which attack a weapon swings
@@ -502,6 +505,15 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the wear table (settings/item/AbradeRate.ini): how fast a worn piece loses durability
     if subprocess.call([*jxassets_args(), "export-abrade-rate", "-out", out], cwd=ROOT) != 0:
         print("export-abrade-rate: no settings/item/AbradeRate.ini in the reference server folder - nothing wears")
+    # the chat cost table (settings/npc/player/chatcost.ini): what a line on the city / faction / world channels costs
+    if subprocess.call([*jxassets_args(), "export-chat-cost", "-out", out], cwd=ROOT) != 0:
+        print("export-chat-cost: no settings/npc/player/chatcost.ini in the reference server folder - every channel is free")
+    # the task value table (settings/task/player_task_def.txt): which task values the client is told about / may set
+    if subprocess.call([*jxassets_args(), "export-task-def", "-out", out], cwd=ROOT) != 0:
+        print("export-task-def: no settings/task/player_task_def.txt in the reference server folder - no task value reaches the client")
+    # the task system tables (settings/task: task_id.txt, task_type.txt + the tables of every kind, task_event.txt)
+    if subprocess.call([*jxassets_args(), "export-task-tables", "-out", out], cwd=ROOT) != 0:
+        print("export-task-tables: no settings/task/task_id.txt in the reference server folder - the TASKSYS library of the scripts answers nothing")
     # the revive / reference points of every map (settings/revivepos.ini): where a new character is
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:
@@ -530,7 +542,8 @@ def run_client_auto(account: str = "auto1", windowed: bool = False, server: str 
     cmd += ["--", "--auto", f"--server={server}", f"--account={account}", "--password=auto"] + list(extra or [])
     try:
         # the client logs UTF-8 (map and character names); never let the console code page break the run
-        res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        # 120 s: the --auto flow of M13/M14 (team, trade, dialog, task) plus the 2.5D / 3D world view of this branch runs past 60 s
+        res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     except subprocess.TimeoutExpired:
         print("client auto run timed out")
         return 1
@@ -821,9 +834,17 @@ def main() -> None:
     elif cmd == "screenshot":
         cmd_stop()
         cmd_start(new_console=False)
+        # a second player for the team / trade proofs (M14): jxbot -partner puts its trade sign up and says yes
+        os.makedirs(os.path.join(ROOT, "logs"), exist_ok=True)
+        partner_log = open(os.path.join(ROOT, "logs", "jxbot-partner.log"), "w", encoding="utf-8")
+        partner = subprocess.Popen([go_exe("jxbot"), "-gateway", f"127.0.0.1:{gateway_ports(0)[0]}", "-partner", "-prefix", "auto",
+                                    "-first", "2", "-duration", "150s", "-meet-map", "1"], cwd=ROOT, stdout=partner_log, stderr=subprocess.STDOUT)
+        time.sleep(2.5)
         try:
             sys.exit(run_client_auto("shot1", windowed=True))
         finally:
+            partner.kill()
+            partner_log.close()
             cmd_stop()
     elif cmd == "test":
         sys.exit(cmd_test())

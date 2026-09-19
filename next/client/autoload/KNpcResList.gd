@@ -81,6 +81,23 @@ func gold_row(kind: int) -> Dictionary:
 	return rows[kind - 1] if kind >= 1 and kind <= rows.size() else {}
 
 
+var _menu_state := {}
+var _menu_state_loaded := false
+
+
+# KPlayerMenuStateGraph::GetStateSpr (gamecl.exe 2.0 0x007042F0; the table 界面状态与图形对照表.txt, jxassets export-menu-state):
+# the sign over a player's head by menu state (1 team open, 2 trade open, 3 trading, 4 sleeping, 5 / 6 the stall), {} when none
+func menu_state(state: int) -> Dictionary:
+	if not _menu_state_loaded:
+		_menu_state_loaded = true
+		var d = Assets.load_json(Assets.assets_root() + "/npcres/menu_state.json")
+		if d is Dictionary:
+			_menu_state = d.get("rows", {})
+		else:
+			Log.warn("npcres", "menu state signs missing", {"file": Assets.assets_root() + "/npcres/menu_state.json"})
+	return _menu_state.get(str(state), {})
+
+
 # CStateMagicTable::GetInfo (KNpcResNode.cpp; gamecl.exe 2.0 0x006AE540): the picture of a state, one row of
 # settings/npcres/status graphics table (jxassets export-state-gfx), {} when the id is out of the table.
 func state_gfx(id: int) -> Dictionary:

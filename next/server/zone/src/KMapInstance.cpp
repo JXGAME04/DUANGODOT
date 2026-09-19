@@ -41,6 +41,14 @@ void KMapInstance::tick()
         world_.remove_player(change.sid);
         events_.push(std::move(ev));
     }
+    // 4. lines for people beyond this map (WORLD / CITY / FACTION): the server spreads them over the zone
+    for (KChatBroadcast& b : world_.take_chat_broadcasts()) {
+        KEvChat ev;
+        ev.channel = b.channel;
+        ev.faction = b.faction;
+        ev.payload = std::move(b.payload);
+        events_.push(std::move(ev));
+    }
 
     const double ms = static_cast<double>((steady_now() - t0).count()) / 1e6;
     note_tick_cost(ms);
@@ -95,7 +103,7 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
     case pb::C2G_CHAT: {
         pb::ChatReq req;
         if (!req.ParseFromString(cmd.payload)) break;
-        world_.chat(cmd.sid, req.text());
+        world_.chat(cmd.sid, req.text(), req.channel(), req.target());
         break;
     }
     case pb::C2G_ITEM_MOVE: {
@@ -174,6 +182,36 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         pb::PKStateReq req;
         if (!req.ParseFromString(cmd.payload)) break;
         world_.pk_state_request(cmd.sid, req.state());
+        break;
+    }
+    case pb::C2G_TRADE: {
+        pb::TradeReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.trade_request(cmd.sid, static_cast<int>(req.cmd()), EntityId{req.target()}, req.arg(), req.text());
+        break;
+    }
+    case pb::C2G_NPC_DIALOG: {
+        pb::NpcDialogReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.dialog_npc_request(cmd.sid, EntityId{req.npc()});
+        break;
+    }
+    case pb::C2G_DIALOG_ANSWER: {
+        pb::DialogAnswer req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.dialog_answer(cmd.sid, req.index(), req.kind());
+        break;
+    }
+    case pb::C2G_TASK_VALUE: {
+        pb::TaskValueReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.task_value_request(cmd.sid, req.id(), req.value());
+        break;
+    }
+    case pb::C2G_TEAM: {
+        pb::TeamReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.team_request(cmd.sid, static_cast<int>(req.cmd()), EntityId{req.target()}, req.flag());
         break;
     }
     case pb::C2G_SET_AURA: {

@@ -275,12 +275,22 @@ struct KNpc {
         free->ttl = kDamageRecordTtl;
     }
     void clear_damage_records() noexcept { damage_records.fill(KDamageRecord{}); }
+    // KDamageRecord::Add 0x0809BC70: a player in a team hits under its captain's name (g_Team[Player+0x5998].captain)
+    [[nodiscard]] static EntityId damage_record_key(const KNpc& attacker) noexcept
+    {
+        if (attacker.kind == KNpcKind::player && attacker.player.team.flag && attacker.player.team.captain_npc != 0) {
+            return EntityId{attacker.player.team.captain_npc};
+        }
+        return attacker.id;
+    }
     // KNpcKind::drop - an object on the ground (KObj): what the zone keeps of it; the item itself
     // lives in KSubWorld::ground_items_
     KGroundObject object;
     // players: KPlayer / trap state
     bool fight_mode = false;          // m_FightMode (SetFightState of the gate scripts)
     std::uint32_t trap_script_id = 0; // m_TrapScriptID: the trap under the feet, so a trap fires once per entry
+    std::string script;               // the placement's script (Region_S.dat; KNpc+0x1588 holds its id, +0x1538 says there is one): a
+                                      // click on the npc runs its main() for the player (KPlayer::DialogNpc 0x080B1300, docs §20)
     // [hide] (200) of a state: while > 0 only its own client sees the npc (KNpc::IsInvisibleTo
     // 0x08079200 = KSubWorld::invisible_to).  KNpc::SetHide 0x0807FF80 tells the players around;
     // the cast, the death and a mount break it (0x0807D4C0 = KSubWorld::break_hide).

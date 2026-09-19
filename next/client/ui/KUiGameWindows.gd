@@ -17,12 +17,20 @@ const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
 const UiMiniMap := preload("res://ui/uicase/UiMiniMap.gd")
+const UiTeam := preload("res://ui/uicase/UiTeam.gd")
+const UiInformation := preload("res://ui/uicase/UiInformation.gd")
+const UiTrade := preload("res://ui/uicase/UiTrade.gd")
+const UiMsgCentrePad := preload("res://ui/uicase/UiMsgCentrePad.gd")
+const UiMsgSel := preload("res://ui/uicase/UiMsgSel.gd")
+const UiInformation2 := preload("res://ui/uicase/UiInformation2.gd")
+const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
 const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
+const Proto := preload("res://proto/jx_pb.gd")
 
 var item_window: UiItem = null
 var status_window: UiStatus = null
@@ -35,6 +43,18 @@ var player_bar: UiPlayerBar = null
 var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
 var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
 var minimap: UiMiniMap = null           # the minimap in the top-right corner (小地图_小.ini)
+var team_window: UiTeam = null          # the team window (队伍管理.ini; the tool bar's "team", docs/CLIENT-2.0.md §21)
+var info_box: UiInformation = null      # the two-button message box (提示.ini): the invitations and applications ask through it
+var trade_window: UiTrade = null        # the trade window (玩家间交易.ini), open while Game.trade.state == 2
+var player_menu: KWndPopupMenu = null   # Ctrl+right click on a player (autoexec.lua Mouse_Menu): G_UIGAME_* entries by the target's sign
+var msg_pad: UiMsgCentrePad = null      # the chat channels (消息集合面板_左.ini): colours, short names, the current channel
+var channel_menu: KWndPopupMenu = null  # the ChannelBtn's menu (0x00472620)
+var msg_sel: UiMsgSel = null            # a npc script's Say: the sentence and the answers (滚动选择界面.ini)
+var info2: UiInformation2 = null        # a npc script's Talk: the pages (提示2.ini)
+var _channel_entries: Array = []
+var _menu_target := 0                   # the entity the player menu is about
+var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
+signal system_line(text: String)        # a sentence for the chat log (the 0x69 / 0x86 team messages the 2.0 client prints)
 var shortcuts := KUiShortcut.new()      # the nine shortcut skills (Q W E A S D Z X C), kept per character
 var quick := KUiShortcutItem.new()      # the nine quick slots of the bottom bar (keys 1..9), kept per character
 var _tip_skill := 0                     # the skill whose tip the mouse hover shows (0 = none); the zone's numbers may arrive later
@@ -54,6 +74,7 @@ func _ready() -> void:
 	_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_canvas)
 	screen = Vector2i(get_viewport().get_visible_rect().size)
+	get_viewport().size_changed.connect(func(): screen = Vector2i(get_viewport().get_visible_rect().size))   # rule 14: the windows re-anchor
 	var probe = KUiScheme.open(UiItem.SCHEME)
 	if probe == null:
 		Log.warn("ui", "item windows missing", {"hint": "python tools/dev.py assets (jxassets export-ui)"})
@@ -69,6 +90,20 @@ func _ready() -> void:
 		if not w.load_scheme(screen):
 			Log.error("ui", "layout missing", {"window": w.SCHEME})
 			return
+	team_window = UiTeam.new()
+	_canvas.add_child(team_window)
+	if not team_window.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiTeam.SCHEME})
+		team_window.queue_free()
+		team_window = null
+	trade_window = UiTrade.new()
+	_canvas.add_child(trade_window)
+	if not trade_window.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiTrade.SCHEME})
+		trade_window.queue_free()
+		trade_window = null
+	else:
+		trade_window.item_hovered.connect(_on_item_hovered)
 	skill_tree = UiSkillTree.new()
 	_canvas.add_child(skill_tree)
 	if not skill_tree.load_scheme(screen):
@@ -82,6 +117,45 @@ func _ready() -> void:
 	_load_shortcuts()
 	_canvas.add_child(hover)
 	hover.load_scheme(screen)
+	info_box = UiInformation.new()
+	_canvas.add_child(info_box)
+	if not info_box.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiInformation.SCHEME})
+		info_box.queue_free()
+		info_box = null
+	else:
+		info_box.answered.connect(_on_info_answered)
+	Game.team_event.connect(_on_team_event)
+	Game.trade_apply.connect(_on_trade_apply)
+	Game.trade_end.connect(_on_trade_end)
+	Game.sys_msg.connect(_on_sys_msg)
+	player_menu = KWndPopupMenu.new()
+	_canvas.add_child(player_menu)
+	player_menu.picked.connect(_on_player_menu_picked)
+	msg_pad = UiMsgCentrePad.new()
+	if not msg_pad.load_scheme():
+		Log.warn("ui", "layout missing", {"window": UiMsgCentrePad.SCHEME})
+	channel_menu = KWndPopupMenu.new()
+	_canvas.add_child(channel_menu)
+	channel_menu.picked.connect(_on_channel_picked)
+	_show_channel()
+	msg_sel = UiMsgSel.new()
+	_canvas.add_child(msg_sel)
+	if not msg_sel.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiMsgSel.SCHEME})
+		msg_sel.queue_free()
+		msg_sel = null
+	else:
+		msg_sel.chosen.connect(func(index: int): Game.dialog_answer(index, 0))
+	info2 = UiInformation2.new()
+	_canvas.add_child(info2)
+	if not info2.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiInformation2.SCHEME})
+		info2.queue_free()
+		info2 = null
+	else:
+		info2.confirmed.connect(func(): Game.dialog_answer(0, 0))
+	Game.script_action.connect(_on_script_action)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
 	status_window.open_item.connect(func(): item_window.open_window())
@@ -138,19 +212,217 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_M:
 			Game.ride(not bool(Game.entities.get(Game.entity_id, {}).get("riding", false)))
 			get_viewport().set_input_as_handled()
+		KEY_T, KEY_O:
+			# autoexec.lua: AddCommand("T" / "O", "", "Switch([[trade]])") -> 0x005C3236: the sign off when it is up (the 0x6a
+			# packet), else up with the sentence (TradeApplyOpen; the 2.0 bar passes none)
+			toggle_trade_sign()
+			get_viewport().set_input_as_handled()
+		KEY_P:
+			# AddCommand("P", "", "Open([[team]])")
+			if team_window != null:
+				team_window.toggle_window()
+			get_viewport().set_input_as_handled()
 		KEY_ESCAPE:
 			if hand.holding():
 				_drop_hand()
 				get_viewport().set_input_as_handled()
-			elif item_window.visible or status_window.visible or skills_window.visible:
+			elif player_menu != null and player_menu.visible:
+				player_menu.hide_menu()
+				get_viewport().set_input_as_handled()
+			elif item_window.visible or status_window.visible or skills_window.visible or (team_window != null and team_window.visible):
 				item_window.hide_window()
 				status_window.hide_window()
 				skills_window.hide_window()
+				if team_window != null:
+					team_window.hide_window()
 				get_viewport().set_input_as_handled()
 
 
 func any_open() -> bool:
-	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible or (skill_tree != null and skill_tree.visible))
+	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible or (skill_tree != null and skill_tree.visible)
+		or (team_window != null and team_window.visible) or (info_box != null and info_box.visible)
+		or (trade_window != null and trade_window.visible) or (player_menu != null and player_menu.visible))
+
+
+# Switch([[trade]]) 0x005C3236: my sign 2 -> TradeApplyClose, else TradeApplyOpen(sentence)
+func toggle_trade_sign(sentence: String = "") -> void:
+	if int(Game.trade.state) == 2:
+		return
+	if int(Game.trade.state) == 1:
+		Game.trade_request(Proto.TradeCmd.TRADE_APPLY_CLOSE)
+	else:
+		Game.trade_request(Proto.TradeCmd.TRADE_APPLY_OPEN, 0, 0, sentence)
+
+
+# the player menu (gamecl.exe 0x004C2450; Ctrl+right click = Mouse_Menu of autoexec.lua): the entries the 2.0 client shows
+# for a player - "Giao Dịch" (G_UIGAME_2) when the target's sign is 2 and I am in no trade, "Nhập đội" (G_UIGAME_3) when it
+# is 1 and I am in no team, "Tổ đội" (G_UIGAME_4: invite) when I lead a team or have none; the other entries (chat, friend,
+# follow, info, guild, ...) wait for their systems
+# ---- the chat channels (docs/CLIENT-2.0.md §23) ----
+
+# the ChannelBtn's menu (0x00472620): the channels the bar can send on, each line in its colour (0x004B6530)
+func _open_channel_menu(at: Vector2) -> void:
+	if channel_menu == null or msg_pad == null:
+		return
+	_channel_entries = msg_pad.menu_entries()
+	if _channel_entries.is_empty():
+		return
+	channel_menu.open_at(_channel_entries, at - Vector2(0, _channel_entries.size() * 17 + 8), screen)
+
+
+# 0x00475900 -> 0x004730D0: the picked channel becomes the current one (+0x8c48), the button takes its colour
+func _on_channel_picked(index: int) -> void:
+	if index < 0 or index >= _channel_entries.size():
+		return
+	set_channel(int(_channel_entries[index].index))
+
+
+func set_channel(channel: int) -> void:
+	if msg_pad == null:
+		return
+	msg_pad.current = channel
+	_show_channel()
+
+
+func _show_channel() -> void:
+	if player_bar != null and msg_pad != null:
+		player_bar.set_channel(msg_pad.short_name(msg_pad.current), msg_pad.color_of(msg_pad.current))
+
+
+# KUiPlayerBar::SendChat 0x00475A10 on a line of the input: "/name text" whispers (Lua Say), "&short text" picks the
+# channel by its short name (Lua Chat), anything else goes on the current channel; a line of 0x200 or more is refused
+# with G_STR_MSG_VOERFLOW (0x00475F15); SendMsgNum / SendMsgInterval of the channel hold the line back with
+# G_PLAYERBAR_3 "%d giây".  The GM channel ('&' on a channel with flag 4, "[gm]" lines) and the word filters
+# (\settings\chatsent.flt, 0x0058DF90 / 0x00617B90 -> G_PLAYERBAR_2) are not here.
+func send_chat(text: String) -> void:
+	if text.strip_edges() == "":
+		return
+	if text.length() >= 0x200:
+		system_line.emit(KUiItemView.client_string("G_STR_MSG_VOERFLOW"))
+		return
+	var req: Dictionary = msg_pad.parse_input(text) if msg_pad != null else {"channel": 0, "target": "", "text": text}
+	if str(req.text).strip_edges() == "":
+		return
+	if msg_pad != null:
+		var wait := msg_pad.throttle(int(req.channel), Time.get_ticks_msec())
+		if wait > 0:
+			system_line.emit(KUiItemView.client_string("G_PLAYERBAR_3") % wait)
+			return
+	Game.chat(str(req.text), int(req.channel), str(req.target))
+
+
+# a received line as the chat log shows it: {"texture", "bbcode"} (KUiMsgCentrePad::ChannelMessageArrival)
+func chat_line(msg: Dictionary) -> Dictionary:
+	if msg_pad == null:
+		return {"texture": null, "bbcode": "[b]%s:[/b] %s" % [str(msg.get("name", "")), str(msg.get("text", "")).replace("[", "[lb]")]}
+	var own = Game.entities.get(Game.entity_id, {})
+	return msg_pad.line(msg, str(own.get("name", "")))
+
+
+# the 0x63 packet (KPlayer::OnScriptAction 0x006004C0): UI_SELECTDIALOG -> the question window, UI_TALKDIALOG -> the pages;
+# the other ui ids of the 2003 UIInfo (trade, note, msg, news, music, tong) are not sent by the zone
+func _on_script_action(a: Dictionary) -> void:
+	if int(a.get("operate", 0)) != 0:
+		return
+	var text := str(a.get("text", ""))
+	if int(a.get("text_id", 0)) != 0 and text == "":
+		text = "[%d]" % int(a.get("text_id", 0))   # g_GetStringRes(id): no string resource table in the new client yet
+	match int(a.get("ui", 0)):
+		0:
+			if msg_sel != null:
+				if info2 != null and info2.visible:
+					info2.close_pages()
+				msg_sel.open_dialog(text, a.get("options", []))
+		2:
+			if info2 != null:
+				if msg_sel != null and msg_sel.visible:
+					msg_sel.close_dialog()
+				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		_:
+			Log.warn("ui", "script action ui not shown", {"ui": int(a.get("ui", 0))})
+
+
+func open_player_menu(entity_id: int, at: Vector2) -> void:
+	if player_menu == null:
+		return
+	var e = Game.entities.get(entity_id)
+	if e == null or entity_id == Game.entity_id:
+		return
+	var entries: Array = []
+	_menu_actions = []
+	var sign := int(e.get("menu_state", 0))
+	if sign == 2 and int(Game.trade.state) != 2:
+		entries.append(KUiItemView.client_string("G_UIGAME_2"))
+		_menu_actions.append(2)
+	if sign == 1 and not bool(Game.team.in_team):
+		entries.append(KUiItemView.client_string("G_UIGAME_3"))
+		_menu_actions.append(3)
+	if not bool(Game.team.in_team) or bool(Game.team.captain):
+		entries.append(KUiItemView.client_string("G_UIGAME_4"))
+		_menu_actions.append(4)
+	if entries.is_empty():
+		return
+	_menu_target = entity_id
+	player_menu.open_at(entries, at, screen)
+
+
+func _on_player_menu_picked(index: int) -> void:
+	if index < 0 or index >= _menu_actions.size():
+		return
+	match int(_menu_actions[index]):
+		2:
+			# ProcessPeople ACTION_TRADE -> TradeApplyStart (the 0x6b packet)
+			Game.trade_request(Proto.TradeCmd.TRADE_APPLY_START, _menu_target)
+			system_line.emit(KUiItemView.core_string("MSG_TRADE_SEND_APPLY") % str(Game.entities.get(_menu_target, {}).get("name", "")))
+		3:
+			# ACTION_JOINTEAM -> ApplyAddTeam (the 0x53 sub 4)
+			Game.team_request(Proto.TeamCmd.TEAM_APPLY_ADD, _menu_target)
+		4:
+			# the invitation: a team is made first when there is none (KUiTeamManage 0x004ADE00 does the same)
+			if not bool(Game.team.in_team):
+				Game.team_request(Proto.TeamCmd.TEAM_CREATE)
+			Game.team_request(Proto.TeamCmd.TEAM_INVITE, _menu_target)
+
+
+# the 0x8b packet: UiSysMsgCentre SMCT_UI_TRADE_APPLY - "%s mong muốn giao dịch với bạn" (G_SysMsgCentre_3), agree / refuse
+func _on_trade_apply(ev: Dictionary) -> void:
+	system_line.emit(KUiItemView.core_string("MSG_TRADE_GET_APPLY") % str(ev.name))
+	if info_box != null:
+		info_box.show_box(KUiItemView.client_string("G_SysMsgCentre_3") % str(ev.name), KUiItemView.client_string("G_ACCEPT_WORD"),
+			KUiItemView.client_string("G_REFUSE_WORD"), {"kind": "trade", "id": int(ev.id)})
+
+
+# the 0x78 packet: MSG_TRADE_SUCCESS / MSG_TRADE_FAIL with the partner's name
+func _on_trade_end(ok: bool) -> void:
+	system_line.emit(KUiItemView.core_string("MSG_TRADE_SUCCESS" if ok else "MSG_TRADE_FAIL") % str(Game.trade.partner_name))
+
+
+# the 0x86 packet: the sentence by id (the client's 0x00657AD0 table, docs/CLIENT-2.0.md §21)
+func _on_sys_msg(id: int, _entity_id: int, name: String) -> void:
+	var line := sys_msg_text(id, name)
+	if line != "":
+		system_line.emit(line)
+
+
+static func sys_msg_text(id: int, name: String) -> String:
+	var keys := {
+		2: "MSG_TEAM_DISMISS_CAPTAIN", 3: "MSG_TEAM_LEAVE_SELF_MSG", 5: "MSG_TEAM_SELF_ADD", 8: "MSG_OBJ_CANNOT_PICKUP", 9: "MSG_OBJ_TOO_FAR",
+		0xa: "MSG_DEC_MONEY", 0xb: "MSG_TRADE_SELF_ROOM_FULL", 0xc: "MSG_TRADE_DEST_ROOM_FULL", 0xd: "MSG_TRADE_REFUSE_APPLY",
+		0xe: "MSG_TRADE_TASK_ITEM", 0x10: "MSG_ITEM_DAMAGED", 0x11: "MSG_MONEY_CANNOT_PICKUP", 0x12: "MSG_TEAM_TARGET_CANNOT_ADD_TEAM",
+		0x13: "MSG_TEAM_TARGET_CANNOT_ADD_TEAM", 0x24: "MSG_TEAM_ERROR01", 0x25: "MSG_TEAM_ERROR02", 0x26: "MSG_TEAM_ERROR03",
+		0x27: "MSG_TEAM_ERROR04", 0x28: "MSG_TEAM_ERROR05", 0x2a: "MSG_ITEM_USINGTIMES_END",
+	}
+	var client_keys := {0x2c: "G_ProtocolProcess_20", 0x29: "G_ProtocolProcess_4"}
+	var text := ""
+	if keys.has(id):
+		text = KUiItemView.core_string(keys[id])
+	elif client_keys.has(id):
+		text = KUiItemView.client_string(client_keys[id])
+	if text.find("%s") >= 0:
+		text = text % name
+	elif text.find("%d") >= 0:
+		text = text.replace("%d", "")
+	return text
 
 
 func _on_item_hovered(item) -> void:
@@ -175,6 +447,7 @@ func _build_bars() -> void:
 		player_bar.quick_clicked.connect(_quick_key)
 		player_bar.quick_put.connect(_quick_put)
 		player_bar.quick_right_clicked.connect(_quick_clear)
+		player_bar.channel_clicked.connect(_open_channel_menu)
 		player_bar.quick_hovered.connect(_on_quick_hovered)
 		player_bar.mouse_skill_hovered.connect(func(_right: bool, obj): _show_skill_tip(int(obj.id) if obj != null else 0))
 		Game.items_changed.connect(_refresh_quick)
@@ -226,6 +499,10 @@ func _on_bar_command(cmd: String) -> void:
 			var own = Game.entities.get(Game.entity_id)
 			var sitting: bool = own != null and int(own.get("doing", 0)) == 7   # jx.pb.Action ACTION_SIT
 			Game.sit(not sitting)
+		"team":
+			# Open([[team]]) of the 2.0 tool bar -> KUiTeamManage::OpenWindow 0x004AE880
+			if team_window != null:
+				team_window.toggle_window()
 		_:
 			Log.info("ui", "window not built yet", {"command": cmd})
 
@@ -235,6 +512,99 @@ func _refresh_bars() -> void:
 		top_bar.refresh()
 	if tool_bar != null:
 		tool_bar.refresh()
+
+
+# the 0x69 sub-commands and the 0x86 team messages as the 2.0 client shows them (docs/CLIENT-2.0.md §21): an invitation (sub
+# 0xc, 0x00604630) and an application (sub 7, 0x00603780) open the two-button box of UiSysMsgCentre (G_SysMsgCentre_0 / _1,
+# G_ACCEPT_WORD / G_REFUSE_WORD); everything else is a line of the string table in the chat log
+func _on_team_event(ev: Dictionary) -> void:
+	var kind := int(ev.event)
+	var who := str(ev.name)
+	match kind:
+		Proto.TeamEventKind.TEAM_EV_INVITE:
+			system_line.emit(KUiItemView.core_string("MSG_TEAM_GET_INVITE") % who)
+			if info_box != null:
+				info_box.show_box(KUiItemView.client_string("G_SysMsgCentre_0") % who, KUiItemView.client_string("G_ACCEPT_WORD"),
+					KUiItemView.client_string("G_REFUSE_WORD"), {"kind": "invite", "id": int(ev.id)})
+		Proto.TeamEventKind.TEAM_EV_APPLY:
+			system_line.emit(KUiItemView.core_string("MSG_TEAM_APPLY_ADD") % who)
+			if info_box != null:
+				info_box.show_box(KUiItemView.client_string("G_SysMsgCentre_1") % who, KUiItemView.client_string("G_ACCEPT_WORD"),
+					KUiItemView.client_string("G_REFUSE_WORD"), {"kind": "apply", "id": int(ev.id)})
+		_:
+			var line := team_event_text(ev)
+			if line != "":
+				system_line.emit(line)
+
+
+# the sentence of a team event, "" when the 2.0 client says nothing for it
+static func team_event_text(ev: Dictionary) -> String:
+	var kind := int(ev.event)
+	var who := str(ev.name)
+	var arg := int(ev.arg)
+	var own := int(ev.id) == Game.entity_id
+	match kind:
+		Proto.TeamEventKind.TEAM_EV_CREATE_OK:
+			return KUiItemView.core_string("MSG_TEAM_CREATE")
+		Proto.TeamEventKind.TEAM_EV_CREATE_FAIL:
+			return KUiItemView.core_string("MSG_TEAM_CANNOT_CREATE" if arg == 4 else "MSG_TEAM_CREATE_FAIL")
+		Proto.TeamEventKind.TEAM_EV_ADD_MEMBER:
+			return KUiItemView.core_string("MSG_TEAM_ADD_MEMBER") % who
+		Proto.TeamEventKind.TEAM_EV_SELF_ADD:
+			return KUiItemView.core_string("MSG_TEAM_SELF_ADD") % who
+		Proto.TeamEventKind.TEAM_EV_LEAVE:
+			if own:
+				var leader: Dictionary = Game.team.get("leader", {})
+				return KUiItemView.core_string("MSG_TEAM_LEAVE_SELF_MSG") % str(leader.get("name", ""))
+			return KUiItemView.core_string("MSG_TEAM_LEAVE") % who
+		Proto.TeamEventKind.TEAM_EV_KICK:
+			return KUiItemView.core_string("MSG_TEAM_BE_KICKEN") if own else KUiItemView.core_string("MSG_TEAM_KICK_ONE") % who
+		Proto.TeamEventKind.TEAM_EV_CHANGE_CAPTAIN:
+			if arg == 1:
+				var leader: Dictionary = Game.team.get("leader", {})
+				return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_SELF") % str(leader.get("name", ""))
+			return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN") % who
+		Proto.TeamEventKind.TEAM_EV_OPEN_CLOSE:
+			return KUiItemView.core_string("MSG_TEAM_OPEN" if arg != 0 else "MSG_TEAM_CLOSE")
+		Proto.TeamEventKind.TEAM_EV_DISMISS:
+			if bool(Game.team.get("captain", false)):
+				return KUiItemView.core_string("MSG_TEAM_DISMISS_CAPTAIN")
+			var leader: Dictionary = Game.team.get("leader", {})
+			return KUiItemView.core_string("MSG_TEAM_DISMISS_MEMBER") % str(leader.get("name", ""))
+		Proto.TeamEventKind.TEAM_EV_REFUSE:
+			return KUiItemView.core_string("MSG_TEAM_REFUSE_INVITE") % who
+		Proto.TeamEventKind.TEAM_EV_MSG:
+			# the 0x86 handler 0x00657AD0: the id picks the key (the jump table 0x658674)
+			match arg:
+				6:
+					return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL1") + KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL2") % who
+				7:
+					return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL1") + KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL3")
+				0x12, 0x13:
+					return KUiItemView.core_string("MSG_TEAM_TARGET_CANNOT_ADD_TEAM")
+				0x24, 0x25, 0x26, 0x27, 0x28:
+					return KUiItemView.core_string("MSG_TEAM_ERROR0%d" % (arg - 0x23))
+				_:
+					return ""
+		_:
+			return ""
+
+
+# the answer of the box: the first button agrees (UiSysMsgCentre nSelAction == 0)
+func _on_info_answered(index: int, param: Variant) -> void:
+	if not (param is Dictionary):
+		return
+	match str(param.get("kind", "")):
+		"invite":
+			# TEAM_OI_INVITE_RESPONSE -> the 0x53 sub 11 {captain, flag}
+			Game.team_request(Proto.TeamCmd.TEAM_REPLY_INVITE, int(param.id), 1 if index == 0 else 0)
+		"apply":
+			# TEAM_OI_APPLY_RESPONSE: agreeing is AddTeamMember (the 0x53 sub 5); a refusal sends nothing to jx_linux_y
+			if index == 0:
+				Game.team_request(Proto.TeamCmd.TEAM_ACCEPT, int(param.id))
+		"trade":
+			# c2sTradeReplyStart: the applicant and the answer
+			Game.trade_request(Proto.TradeCmd.TRADE_REPLY, int(param.id), 1 if index == 0 else 0)
 
 
 # the two mouse skill boxes of the bottom bar (ImediaLeftSkill / ImediaRightSkill)

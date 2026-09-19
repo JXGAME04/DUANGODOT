@@ -9,16 +9,21 @@ extern "C" {
 
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "jx/log.hpp"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KSkillList.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/KTaskManager.h"
 
 namespace jx::zone {
 
@@ -115,6 +120,44 @@ int l_GetWorldPos(lua_State* L)
     return 3;
 }
 
+// Earn(n) (0x08118970): n > 0 -> KPlayer::Earn; the money log line "Lua_Earn" (0x081E8EA0), and a sum above 99 999
+// also writes the script's call stack (10 levels) to the log.  Returns nothing.
+int l_Earn(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "Earn")) {
+        const int n = static_cast<int>(luaL_checknumber(L, 1));
+        if (n > 0 && g_ScriptContext().world->earn(g_ScriptContext().sid, n)) {
+            log::info("zone.money", "script money", {log::kv("entity", p->id), log::kv("reason", "Lua_Earn"), log::kv("amount", n),
+                                                     log::kv("money", g_ScriptContext().world->cash(g_ScriptContext().sid))});
+        }
+    }
+    return 0;
+}
+
+// Pay(n) (0x08118A90) -> 1 paid (the log line "Lua_Pay"), 0 not (less in the bag); n <= 0 returns nothing
+int l_Pay(lua_State* L)
+{
+    KNpc* p = player_of(L, "Pay");
+    if (p == nullptr) return 0;
+    const int n = static_cast<int>(luaL_checknumber(L, 1));
+    if (n <= 0) return 0;
+    const bool ok = g_ScriptContext().world->pay(g_ScriptContext().sid, n);
+    if (ok) {
+        log::info("zone.money", "script money", {log::kv("entity", p->id), log::kv("reason", "Lua_Pay"), log::kv("amount", -n),
+                                                 log::kv("money", g_ScriptContext().world->cash(g_ScriptContext().sid))});
+    }
+    lua_pushnumber(L, ok ? 1 : 0);
+    return 1;
+}
+
+// GetCash() (0x081116D0) -> the bag's money, Player+0x508c
+int l_GetCash(lua_State* L)
+{
+    if (player_of(L, "GetCash") == nullptr) return 0;
+    lua_pushnumber(L, g_ScriptContext().world->cash(g_ScriptContext().sid));
+    return 1;
+}
+
 // Msg2Player(text): a line in the player's chat window
 int l_Msg2Player(lua_State* L)
 {
@@ -136,16 +179,81 @@ int l_AddTermini(lua_State* L)
     return 0;
 }
 
-// Say / Talk: the dialog window (LuaSelectUI / LuaTalkUI); nothing to show yet, logged for later
+// Say(sentence, count, answer1, answer2, ... | {answers}) (LuaSelectUI; jx_linux_y 0x08123C90): the sentence a string or a
+// number (a string-table id, m_bParam1 = 1); the count a number (else 0 answers); the answers as more strings or as a
+// table at 3 (a string at 3 = the vararg form; neither with count > 0 = nothing); the count is clamped to the arguments
+// and to 50; each answer "text/function" - the function runs when the client picks it (KSubWorld::dialog_say)
 int l_Say(lua_State* L)
 {
-    log::info("lua", "Say (dialog not implemented)", {log::kv("text", luaL_optstring(L, 1, ""))});
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "Say");
+    if (p == nullptr || n < 1) return 0;
+    int count = 0;
+    if (n != 1 && lua_type(L, 2) == LUA_TNUMBER) count = static_cast<int>(lua_tonumber(L, 2));   // 0x08123CEA / 0x08123FA6
+    std::string text;
+    int text_id = 0;
+    if (lua_type(L, 1) == LUA_TNUMBER) {   // 0x08124058
+        text_id = static_cast<int>(lua_tonumber(L, 1));
+    } else if (lua_isstring(L, 1)) {   // 0x08123D3D
+        text = lua_tostring(L, 1);
+    } else {
+        return 0;
+    }
+    bool from_table = false;
+    if (lua_isstring(L, 3)) {   // 0x08123D8B: the vararg form
+        from_table = false;
+    } else if (lua_type(L, 3) == LUA_TTABLE) {   // 0x08124133
+        from_table = true;
+    } else if (count > 0) {   // 0x08124146: answers promised, none given
+        return 0;
+    }
+    if (!from_table && n != 1 && count >= n - 1) count = n - 2;   // 0x08123D9D / 0x08124158
+    if (count < 0) count = 0;
+    if (count > kDialogAnswers) count = kDialogAnswers;   // 0x08123DBC
+    std::vector<std::string> answers;
+    answers.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        const char* a = nullptr;
+        if (from_table) {   // 0x08123E38: t[i + 1]
+            lua_rawgeti(L, 3, i + 1);
+            a = lua_tostring(L, -1);
+            answers.emplace_back(a != nullptr ? a : "");   // 0x08123F88: a missing answer is empty (and runs "main")
+            lua_pop(L, 1);
+        } else {
+            a = lua_tostring(L, i + 3);
+            answers.emplace_back(a != nullptr ? a : "");
+        }
+    }
+    g_ScriptContext().world->dialog_say(*p, text, text_id, answers);
     return 0;
 }
 
+// Talk(count, callback, page1, page2, ...) (LuaTalkUI; jx_linux_y 0x08116930): fewer than three arguments = nothing;
+// the count a number (else nothing), clamped to the pages given; the callback a string ("" = none): the function run
+// when the last page is confirmed; a page a string, or a number printed with "%d" (KSubWorld::dialog_talk)
 int l_Talk(lua_State* L)
 {
-    log::info("lua", "Talk (dialog not implemented)", {log::kv("pages", lua_gettop(L))});
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "Talk");
+    if (p == nullptr || n <= 2) return 0;   // 0x0811694D
+    if (lua_type(L, 1) != LUA_TNUMBER) return 0;   // 0x081169AD
+    int count = static_cast<int>(lua_tonumber(L, 1));
+    if (count >= n - 1) count = n - 2;   // 0x08116A01
+    const char* cb = lua_tostring(L, 2);
+    const std::string callback = cb != nullptr ? cb : "";
+    if (lua_type(L, 3) != LUA_TNUMBER && !lua_isstring(L, 3)) return 0;   // 0x08116A46 / 0x08116A5B
+    std::vector<std::string> pages;
+    for (int i = 0; i < count; ++i) {
+        const int at = 3 + i;
+        if (lua_type(L, at) == LUA_TNUMBER) {   // 0x08116B76: "%d"
+            pages.push_back(std::to_string(static_cast<long long>(lua_tonumber(L, at))));
+        } else {
+            const char* s = lua_tostring(L, at);
+            if (s == nullptr) break;   // 0x08116ADE
+            pages.emplace_back(s);
+        }
+    }
+    g_ScriptContext().world->dialog_talk(*p, callback, pages);
     return 0;
 }
 
@@ -608,6 +716,24 @@ int l_ForbitAura(lua_State* L)
     return 0;
 }
 
+// ForbitTalk(n) (0x0810CB70): Player+0x38c = (n ~= 0) - a channel line of the player is dropped (0x081E387A)
+int l_ForbitTalk(lua_State* L)
+{
+    KNpc* p = player_of(L, "ForbitTalk");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.forbid_talk = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    return 0;
+}
+
+// SetChatFlag(n) (0x08111460): bit 0 of Player+0x394 - set, the cost check refuses every channel (0x080502DD)
+int l_SetChatFlag(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetChatFlag");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.chat_flag = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    return 0;
+}
+
 // ForbitStamina(n): Player+0x86b4 = (n ~= 0) (0x0810CCC0) - no stamina gain while set (ProcessState 0x0808BD53)
 int l_ForbitStamina(lua_State* L)
 {
@@ -616,6 +742,46 @@ int l_ForbitStamina(lua_State* L)
     p->player.forbid_stamina = static_cast<int>(lua_tonumber(L, 1)) != 0 ? 1 : 0;
     return 0;
 }
+
+// RestoreLife() (0x08112480): the life back to max(+0x1a14, +0x1a18); RestoreMana() (0x08112430): the mana back to
+// max(+0x1a1c, +0x1a20).  The numbers reach the client with the next attribute sync.
+int l_RestoreLife(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "RestoreLife")) {
+        p->cur.life = p->life_max();
+        g_ScriptContext().world->send_player_attrib(g_ScriptContext().sid);
+    }
+    return 0;
+}
+
+int l_RestoreMana(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "RestoreMana")) {
+        p->cur.mana = p->mana_max();
+        g_ScriptContext().world->send_player_attrib(g_ScriptContext().sid);
+    }
+    return 0;
+}
+
+// GetLife(kind) (0x081124D0) / GetMana(kind) (0x08112270): kind 0 -> the current value (+0x118c / +0x11a0), 1 or 2 ->
+// the base maximum (m_LifeMax +0x15ac / m_ManaMax +0x15b4); anything else raises a Lua error (0x08232E70)
+int life_or_mana(lua_State* L, const char* fn, bool mana)
+{
+    const KNpc* p = player_of(L, fn);
+    if (p == nullptr) return 0;
+    const int kind = static_cast<int>(luaL_checknumber(L, 1));
+    if (kind == 1 || kind == 2) {
+        lua_pushnumber(L, mana ? p->base.mana_max : p->base.life_max);
+    } else if (kind == 0) {
+        lua_pushnumber(L, mana ? p->mana() : p->life());
+    } else {
+        return luaL_error(L, "%s: bad kind %d", fn, kind);
+    }
+    return 1;
+}
+
+int l_GetLife(lua_State* L) { return life_or_mana(L, "GetLife", false); }
+int l_GetMana(lua_State* L) { return life_or_mana(L, "GetMana", true); }
 
 // GetPK() -> the PK value (0x081103C0: KPlayerPK::GetPKValue +0x2c)
 int l_GetPK(lua_State* L)
@@ -657,6 +823,151 @@ int l_IsForbidChangePK(lua_State* L)
     const KNpc* p = player_of(L, "IsForbidChangePK");
     lua_pushinteger(L, p && p->player.pk.locked ? 1 : 0);
     return 1;
+}
+
+// ---- the team (docs/LINUX-SERVER.md §17) ----
+
+// IsCaptain() -> 1 when in a team as its captain (0x08115690: +0x5994 && +0x599c == 0)
+int l_IsCaptain(lua_State* L)
+{
+    const KNpc* p = player_of(L, "IsCaptain");
+    lua_pushinteger(L, p != nullptr && p->player.team.captain() ? 1 : 0);
+    return 1;
+}
+
+// GetTeam() -> the team id, nil out of a team (0x08115630)
+int l_GetTeam(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTeam");
+    if (p == nullptr || !p->player.team.flag) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, p->player.team.id);
+    return 1;
+}
+
+// GetTeamSize([team]) -> the members + the captain of that team, of one's own team without an argument; 0 out of a team
+// (0x08115480: g_Team[id]+0x28 + 1)
+int l_GetTeamSize(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    int id = -1;
+    if (lua_gettop(L) >= 1) {
+        id = static_cast<int>(lua_tonumber(L, 1));
+        if (id < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+    } else {
+        const KNpc* p = player_of(L, "GetTeamSize");
+        if (p == nullptr || !p->player.team.flag) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        id = p->player.team.id;
+    }
+    const KTeam* t = w != nullptr ? w->teams().get(id) : nullptr;
+    lua_pushinteger(L, t != nullptr && !t->empty() ? t->count + 1 : 0);
+    return 1;
+}
+
+// GetTeamMember(n) -> the npc id of the captain (n == 1) or of the (n - 1)-th member of one's team; -1 when none
+// (0x08115530: the player indices of g_Team - the zone hands out entity ids)
+int l_GetTeamMember(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTeamMember");
+    KSubWorld* w = g_ScriptContext().world;
+    const int n = lua_gettop(L) >= 1 ? static_cast<int>(lua_tonumber(L, 1)) : 0;
+    const KTeam* t = p != nullptr && w != nullptr ? w->team_of(*p) : nullptr;
+    if (t == nullptr || n <= 0) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    const KNpc* who = nullptr;
+    if (n == 1) {
+        who = w->find_player(t->captain);
+    } else {
+        int seen = 0;
+        for (const std::uint64_t sid : t->members) {
+            if (sid == 0) continue;
+            if (++seen == n - 1) {
+                who = w->find_player(sid);
+                break;
+            }
+        }
+    }
+    lua_pushinteger(L, who != nullptr ? static_cast<lua_Integer>(who->id.value) : -1);
+    return 1;
+}
+
+// LeaveTeam() (0x08121060 -> KPlayer::LeaveTeam 0x080B7C60)
+int l_LeaveTeam(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "LeaveTeam")) g_ScriptContext().world->team_leave(*p);
+    return 0;
+}
+
+// SetCreateTeam(n): KPlayerTeam::SetCanTeamFlag(n ~= 0, leave = 1) (0x08120FC0 -> 0x080CC580): can_team = n; n == 0 also
+// leaves the team
+int l_SetCreateTeam(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetCreateTeam");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const bool can = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    p->player.team.can_team = can;
+    if (!can) g_ScriptContext().world->team_leave(*p);
+    return 0;
+}
+
+// DisabledTeam(n) -> 1: the task value 0x87 bit 0x400 set (n ~= 0) or cleared (0x08126590; the packet 0xa4 of the task
+// value is not in the zone); IsDisabledTeam() -> that bit (0x0812EF50)
+int l_DisabledTeam(lua_State* L)
+{
+    KNpc* p = player_of(L, "DisabledTeam");
+    if (p == nullptr || lua_gettop(L) < 1) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    p->player.team.lua_disabled = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+int l_IsDisabledTeam(lua_State* L)
+{
+    const KNpc* p = player_of(L, "IsDisabledTeam");
+    lua_pushinteger(L, p != nullptr && p->player.team.lua_disabled ? 1 : 0);
+    return 1;
+}
+
+// ChangeTeamFeature(team, feature, value) (0x08103630): feature 1 = the leadership limit of g_Team[team] (+0x2c: 0 makes
+// CheckFull never full); other features are not in the binary's switch
+int l_ChangeTeamFeature(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr || lua_gettop(L) < 3) return 0;
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    const int feature = static_cast<int>(lua_tonumber(L, 2));
+    const int value = static_cast<int>(lua_tonumber(L, 3));
+    KTeam* t = w->mutable_team(id);
+    if (t == nullptr || t->empty()) return 0;
+    if (feature == 1) t->lead_limit = value != 0;
+    return 0;
+}
+
+// Msg2Team(text): the text to the captain and every member of one's team as a system message (0x081152C0 -> 0x081C9220(1, ...))
+int l_Msg2Team(lua_State* L)
+{
+    const KNpc* p = player_of(L, "Msg2Team");
+    KSubWorld* w = g_ScriptContext().world;
+    if (p == nullptr || w == nullptr || lua_gettop(L) < 1) return 0;
+    const char* text = lua_tostring(L, 1);
+    if (text == nullptr) return 0;
+    const KTeam* t = w->team_of(*p);
+    if (t == nullptr) return 0;
+    for (const std::uint64_t sid : t->people()) w->msg_to_player(sid, text);
+    return 0;
 }
 
 // SetPkReduceState(seconds, value, weaken, enhance) (0x08109570): Player+0x5a8c / +0x5a84 / +0x5a88 = (weaken << 8) | enhance;
@@ -1005,6 +1316,382 @@ int l_AddMagic(lua_State* L)
     return 0;
 }
 
+// ---- the task values (KPlayerTask at Player+0x809c; docs/LINUX-SERVER.md §21) ----
+
+// the integer of a Lua number the way the binary's fistp makes one (toward zero); out of range -> INT_MIN like the fpu
+int task_int(lua_State* L, int idx)
+{
+    const lua_Number n = lua_tonumber(L, idx);
+    if (!(n > -2147483648.0 && n < 2147483648.0)) return INT_MIN;
+    return static_cast<int>(n);
+}
+
+// GetTask(id) (0x08116890): the saved value of the id (GetTaskValue 0x080CB540) - nil without a player (0x08116910)
+int l_GetTask(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTask");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, p->player.task.get_save_val(task_int(L, 1)));
+    return 1;
+}
+
+// SetTask(id, value) (0x08116780): KPlayer::SetTaskValue(id, value, sync = 1); id 1 is traced (0x08116812)
+int l_SetTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetTask");
+    if (p == nullptr) return 0;
+    const int id = task_int(L, 1);
+    const int value = task_int(L, 2);
+    g_ScriptContext().world->task_set_value(*p, id, value, true);
+    if (id == kTaskTraceId) {
+        log::info("zone.task", "trace task value", {log::kv("entity", p->id), log::kv("id", id), log::kv("value", value), log::kv("name", p->name)});
+    }
+    return 0;
+}
+
+// GetTaskTemp(id) (0x08123A20): the temp value (GetClearVal 0x080CB5A0) of the last argument (Lua_GetTopIndex of 2003) -
+// nil above 0xff (0x08123A5F) or without a player; a negative id reads 0
+int l_GetTaskTemp(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    const int id = top >= 1 ? task_int(L, top) : 0;
+    const KNpc* p = id > 0xff ? nullptr : player_of(L, "GetTaskTemp");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, p->player.task.get_temp(id));
+    return 1;
+}
+
+// SetTaskTemp(id, value) (0x08123950): SetClearVal 0x080CB5C0 with the last two arguments as the id and the value; ids 0..0xff
+int l_SetTaskTemp(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    const int id = top >= 2 ? task_int(L, top - 1) : 0;
+    const int value = top >= 1 ? task_int(L, top) : 0;
+    KNpc* p = player_of(L, "SetTaskTemp");
+    if (p == nullptr) return 0;
+    p->player.task.set_temp(id, value);
+    return 0;
+}
+
+// SyncTaskValue(id) (0x0810E350): the 0xa7 packet of the id now (0x080A8CC0), whatever its flags; nothing without an argument
+int l_SyncTaskValue(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    KNpc* p = player_of(L, "SyncTaskValue");
+    if (p == nullptr) return 0;
+    g_ScriptContext().world->task_send_value(*p, task_int(L, 1));
+    return 0;
+}
+
+// SyncTaskValueMore(first, last [, only_non_zero]) (0x0810E240): the 0xb5 packets of the range (0x080A9550) -> 1, or 0
+// for a bad range; nothing with fewer than two arguments (0x0810E257)
+int l_SyncTaskValueMore(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    KNpc* p = player_of(L, "SyncTaskValueMore");
+    if (p == nullptr) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    const int first = task_int(L, 1);
+    const int last = task_int(L, 2);
+    const int only = top == 2 ? 0 : task_int(L, 3);
+    lua_pushnumber(L, g_ScriptContext().world->task_sync_more(*p, first, last, only != 0) ? 1 : 0);
+    return 1;
+}
+
+// GetBitTask(id, start, count) (0x081090A0): `count` bits from `start` of the value (GetBits 0x080CB5E0) as an unsigned
+// number; nothing with fewer than three arguments (0x081090D8) or without a player
+int l_GetBitTask(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetBitTask");
+    if (p == nullptr || lua_gettop(L) <= 2) return 0;
+    lua_pushnumber(L, static_cast<lua_Number>(p->player.task.get_bits(task_int(L, 1), task_int(L, 2), task_int(L, 3))));
+    return 1;
+}
+
+// SetBitTask(id, start, count, value) (0x08108F10): SetBits 0x080CB910 -> 1 / 0; id 1 is traced (0x08109032); nothing with
+// fewer than four arguments (0x08108F50) or without a player.  SetBits writes the map itself: the client is not told
+int l_SetBitTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetBitTask");
+    if (p == nullptr || lua_gettop(L) <= 3) return 0;
+    const int id = task_int(L, 1);
+    const int value = task_int(L, 4);
+    const bool ok = p->player.task.set_bits(id, task_int(L, 2), task_int(L, 3), value);
+    lua_pushnumber(L, ok ? 1 : 0);
+    if (id == kTaskTraceId) {
+        log::info("zone.task", "trace task value", {log::kv("entity", p->id), log::kv("id", id), log::kv("value", value), log::kv("name", p->name)});
+    }
+    return 1;
+}
+
+// ---- the TASKSYS library (KTaskManager, docs/LINUX-SERVER.md §22) ----
+
+// the text of an argument the way the old Lua handed it to lua_tostring: a number is written as an integer ("102",
+// what TaskNo returned), a string as is, anything else nothing
+std::optional<std::string> task_text(lua_State* L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        const lua_Number n = lua_tonumber(L, idx);
+        if (!(n > -9.0e18 && n < 9.0e18)) return std::nullopt;
+        return std::to_string(static_cast<long long>(n));
+    }
+    if (lua_type(L, idx) == LUA_TSTRING) return std::string(lua_tostring(L, idx));
+    return std::nullopt;
+}
+
+const KTaskManager* task_tables(lua_State* L, const char* fn)
+{
+    KScriptContext& c = g_ScriptContext();
+    if (c.world == nullptr) {
+        log::warn("lua", "script api called without a player", {log::kv("function", fn)});
+        (void)L;
+        return nullptr;
+    }
+    return c.world->config().tasks.get();
+}
+
+// TaskName(id) (0x08174CB0): the name of the task with that id (0x08170060), nil when none; one argument exactly
+int l_TaskName(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const KTaskManager* m = task_tables(L, "TaskName");
+    const char* name = m == nullptr ? nullptr : m->name_of(task_int(L, 1));
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushstring(L, name);
+    return 1;
+}
+
+// TaskNo(name) (0x08174740): the id of the task with that name (0x08170440), nil when none
+int l_TaskNo(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const KTaskManager* m = task_tables(L, "TaskNo");
+    const auto name = task_text(L, 1);
+    const auto id = m != nullptr && name ? m->id_of(*name) : std::nullopt;
+    if (!id) lua_pushnil(L);
+    else lua_pushinteger(L, *id);
+    return 1;
+}
+
+// GetTaskStatus(name) (0x08175090): the two status bits of the task, nil when the name or the player is unknown
+int l_GetTaskStatus(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;   // 0x081750D4: not a string -> nothing
+    const KNpc* p = player_of(L, "GetTaskStatus");
+    const auto status = p == nullptr ? std::nullopt : g_ScriptContext().world->task_status(*p, *name);
+    if (!status) lua_pushnil(L);
+    else lua_pushinteger(L, *status);
+    return 1;
+}
+
+// SetTaskStatus(name, status) (0x08174B70): the bits set -> 1, else 0
+int l_SetTaskStatus(lua_State* L)
+{
+    if (lua_gettop(L) != 2) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    KNpc* p = player_of(L, "SetTaskStatus");
+    const bool ok = p != nullptr && g_ScriptContext().world->task_set_status(*p, *name, task_int(L, 2));
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// StartTask(name) (0x081748E0): a group for the task among the temp values (0x0820E4E0); 1 when the name is known
+// whatever happened to the group (0x081749B2), 0 otherwise
+int l_StartTask(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    KNpc* p = player_of(L, "StartTask");
+    const KTaskManager* m = task_tables(L, "StartTask");
+    if (p == nullptr || m == nullptr || !m->id_of(*name)) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    g_ScriptContext().world->task_start(*p, *name);
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+// CloseTask(name) (0x081747D0): the group and its temp values dropped (0x0820E430) -> 1, 0 when there was none
+int l_CloseTask(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    KNpc* p = player_of(L, "CloseTask");
+    const bool ok = p != nullptr && g_ScriptContext().world->task_close(*p, *name);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// GetTmpValue(name, key) (0x08174F40): the temp value of the task under the key (0x0820DF10), nil when none
+int l_GetTmpValue(lua_State* L)
+{
+    if (lua_gettop(L) != 2) return 0;
+    const auto name = task_text(L, 1);
+    const auto key = task_text(L, 2);
+    if (!name || !key) return 0;
+    const KNpc* p = player_of(L, "GetTmpValue");
+    const auto v = p == nullptr ? std::nullopt : g_ScriptContext().world->task_temp(*p, *name, *key);
+    if (!v) lua_pushnil(L);
+    else lua_pushinteger(L, *v);
+    return 1;
+}
+
+// SetTmpValue(name, key, value) (0x081749F0): the temp value set (0x0820E5C0, a group when none) -> 1, 0 when the name is unknown
+int l_SetTmpValue(lua_State* L)
+{
+    if (lua_gettop(L) != 3) return 0;
+    const auto name = task_text(L, 1);
+    const auto key = task_text(L, 2);
+    if (!name || !key) return 0;
+    KNpc* p = player_of(L, "SetTmpValue");
+    const bool ok = p != nullptr && g_ScriptContext().world->task_set_temp(*p, *name, *key, task_int(L, 3));
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// FirstTask() (0x08174E30): the name of the first task the player has a group for, nil when none
+int l_FirstTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "FirstTask");
+    if (p == nullptr) return 0;
+    const char* name = g_ScriptContext().world->task_first(*p);
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushstring(L, name);
+    return 1;
+}
+
+// NextTask() (0x08174D40): the next one, nil at the end (the list starts over with FirstTask)
+int l_NextTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "NextTask");
+    if (p == nullptr) return 0;
+    const char* name = g_ScriptContext().world->task_next(*p);
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushstring(L, name);
+    return 1;
+}
+
+// TaskXxx(name, row, col) (0x081756D0 / 0x08175520 / 0x08175370 / 0x081751C0 / 0x08175A30 / 0x08175880): the cell of the
+// task's matrix in that table, rows and columns from 1, nil outside; TaskXxxMatrix(name): rows, cols of it
+int task_cell(lua_State* L, const char* fn, const KTaskMatrix* (KTaskManager::*table)(std::string_view) const)
+{
+    if (lua_gettop(L) != 3) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    const int row = task_int(L, 2);
+    const int col = task_int(L, 3);
+    if (row <= 0 || col <= 0) return 0;   // 0x0817576E / 0x08175778
+    const KTaskManager* m = task_tables(L, fn);
+    const KTaskMatrix* mat = m == nullptr ? nullptr : (m->*table)(*name);
+    const std::string* cell = mat == nullptr ? nullptr : mat->cell(row - 1, col - 1);
+    if (cell == nullptr) lua_pushnil(L);
+    else lua_pushlstring(L, cell->data(), cell->size());
+    return 1;
+}
+
+int task_matrix(lua_State* L, const char* fn, const KTaskMatrix* (KTaskManager::*table)(std::string_view) const)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    const KTaskManager* m = task_tables(L, fn);
+    const KTaskMatrix* mat = m == nullptr ? nullptr : (m->*table)(*name);
+    if (mat == nullptr) return 0;   // 0x08175830
+    lua_pushinteger(L, mat->row_count());
+    lua_pushinteger(L, mat->cols);
+    return 2;
+}
+
+int l_TaskCondition(lua_State* L) { return task_cell(L, "TaskCondition", &KTaskManager::condition); }
+int l_TaskConditionMatrix(lua_State* L) { return task_matrix(L, "TaskConditionMatrix", &KTaskManager::condition); }
+int l_TaskEntity(lua_State* L) { return task_cell(L, "TaskEntity", &KTaskManager::entity); }
+int l_TaskEntityMatrix(lua_State* L) { return task_matrix(L, "TaskEntityMatrix", &KTaskManager::entity); }
+int l_TaskAward(lua_State* L) { return task_cell(L, "TaskAward", &KTaskManager::award); }
+int l_TaskAwardMatrix(lua_State* L) { return task_matrix(L, "TaskAwardMatrix", &KTaskManager::award); }
+int l_TaskTalk(lua_State* L) { return task_cell(L, "TaskTalk", &KTaskManager::talk); }
+int l_TaskTalkMatrix(lua_State* L) { return task_matrix(L, "TaskTalkMatrix", &KTaskManager::talk); }
+int l_TaskId(lua_State* L) { return task_cell(L, "TaskId", &KTaskManager::id_matrix); }
+int l_TaskIdMatrix(lua_State* L) { return task_matrix(L, "TaskIdMatrix", &KTaskManager::id_matrix); }
+int l_TaskEvent(lua_State* L) { return task_cell(L, "TaskEvent", &KTaskManager::event_matrix); }
+int l_TaskEventMatrix(lua_State* L) { return task_matrix(L, "TaskEventMatrix", &KTaskManager::event_matrix); }
+
+// GetTaskEventID(name) (0x08174230): the EventID column of the task (0x08170830), nil when the name is unknown
+int l_GetTaskEventID(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    const KTaskManager* m = task_tables(L, "GetTaskEventID");
+    const auto ev = m == nullptr ? std::nullopt : m->event_of(*name);
+    if (!ev) lua_pushnil(L);
+    else lua_pushinteger(L, *ev);
+    return 1;
+}
+
+// GetEventTaskCount(event) (0x08174430): how many tasks name the event (0x081701A0)
+int l_GetEventTaskCount(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const KTaskManager* m = task_tables(L, "GetEventTaskCount");
+    lua_pushinteger(L, m == nullptr ? 0 : m->event_task_count(task_int(L, 1)));
+    return 1;
+}
+
+// GetEventTask(event, index) (0x081742C0): the name of the index-th task of the event, from 0 (0x08170200), nil outside
+int l_GetEventTask(lua_State* L)
+{
+    if (lua_gettop(L) != 2) return 0;
+    const KTaskManager* m = task_tables(L, "GetEventTask");
+    const std::string* name = m == nullptr ? nullptr : m->event_task(task_int(L, 1), task_int(L, 2));
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushlstring(L, name->data(), name->size());
+    return 1;
+}
+
+// SubWorldName(index) (0x08174390): the name of the subworld - the zone has one map; its id as text stands in for a
+// name until the map names of the old server are exported (the talk tables compare it with TalkNpcMap)
+int l_SubWorldName(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    KScriptContext& c = g_ScriptContext();
+    if (c.world == nullptr || task_int(L, 1) < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushstring(L, std::to_string(c.world->map_id()).c_str());
+    return 1;
+}
+
+// SelectTaskStart / SelectTaskFinish / SelectTaskAward(id) (0x08174690 / 0x081745E0 / 0x08174530): the menu functions of
+// task_function.lua (OnMenuTaskStart / OnMenuTaskFinish / OnMenuTaskAward) with the id, for the player
+int task_select(lua_State* L, const char* fn, const char* menu)
+{
+    if (lua_gettop(L) != 1) return 0;
+    KNpc* p = player_of(L, fn);
+    if (p == nullptr) return 0;
+    g_ScriptContext().world->task_select(*p, menu, task_int(L, 1));
+    return 0;
+}
+
+int l_SelectTaskStart(lua_State* L) { return task_select(L, "SelectTaskStart", "OnMenuTaskStart"); }
+int l_SelectTaskFinish(lua_State* L) { return task_select(L, "SelectTaskFinish", "OnMenuTaskFinish"); }
+int l_SelectTaskAward(lua_State* L) { return task_select(L, "SelectTaskAward", "OnMenuTaskAward"); }
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -1014,14 +1701,22 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetItemCount", l_GetItemCount},   {"GetItemCountEx", l_GetItemCountEx}, {"DelItem", l_DelItem},
     {"DelItemEx", l_DelItemEx},         {"HaveCommonItem", l_HaveCommonItem}, {"DelCommonItem", l_DelCommonItem},
     {"GetTotalItemCount", l_GetTotalItemCount},
+    {"Earn", l_Earn},                   {"Pay", l_Pay},                     {"GetCash", l_GetCash},
     {"SetSkillLevel", l_SetSkillLevel},   {"HaveMagic", l_HaveMagic},           {"DelMagic", l_DelMagic},
     {"GetCurrentMagicLevel", l_GetCurrentMagicLevel}, {"GetSkillMaxLevel", l_GetSkillMaxLevel}, {"GetSkillExp", l_GetSkillExp},
     {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
     {"ForbitAura", l_ForbitAura},         {"ForbitSyncAura", l_ForbitSyncAura},   {"ForbitStamina", l_ForbitStamina},
+    {"ForbitTalk", l_ForbitTalk},         {"SetChatFlag", l_SetChatFlag},
+    {"RestoreLife", l_RestoreLife},       {"RestoreMana", l_RestoreMana},         {"GetLife", l_GetLife},
+    {"GetMana", l_GetMana},
     {"GetPK", l_GetPK},                   {"SetPK", l_SetPK},                     {"SetPKFlag", l_SetPKFlag},
     {"ForbidChangePK", l_ForbidChangePK}, {"IsForbidChangePK", l_IsForbidChangePK},
     {"SetPkReduceState", l_SetPkReduceState}, {"GetPkReduceState", l_GetPkReduceState}, {"SetDeathPunish_PK10", l_SetDeathPunish_PK10},
+    {"IsCaptain", l_IsCaptain},           {"GetTeam", l_GetTeam},                 {"GetTeamSize", l_GetTeamSize},
+    {"GetTeamMember", l_GetTeamMember},   {"LeaveTeam", l_LeaveTeam},             {"SetCreateTeam", l_SetCreateTeam},
+    {"DisabledTeam", l_DisabledTeam},     {"IsDisabledTeam", l_IsDisabledTeam},   {"ChangeTeamFeature", l_ChangeTeamFeature},
+    {"Msg2Team", l_Msg2Team},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},
@@ -1030,6 +1725,19 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetLastAddFaction", l_GetLastAddFaction}, {"GetLastFactionNumber", l_GetLastFactionNumber}, {"SetLastFactionNumber", l_SetLastFactionNumber},
     {"ClearFactionRecord", l_ClearFactionRecord}, {"SetCamp", l_SetCamp},        {"SetCurCamp", l_SetCurCamp},
     {"GetCamp", l_GetCamp},               {"GetCurCamp", l_GetCurCamp},       {"AddMagic", l_AddMagic},
+    {"GetTask", l_GetTask},               {"SetTask", l_SetTask},             {"GetTaskTemp", l_GetTaskTemp},
+    {"SetTaskTemp", l_SetTaskTemp},       {"SyncTaskValue", l_SyncTaskValue}, {"SyncTaskValueMore", l_SyncTaskValueMore},
+    {"GetBitTask", l_GetBitTask},         {"SetBitTask", l_SetBitTask},
+    {"TaskName", l_TaskName},             {"TaskNo", l_TaskNo},               {"GetTaskStatus", l_GetTaskStatus},
+    {"SetTaskStatus", l_SetTaskStatus},   {"StartTask", l_StartTask},         {"CloseTask", l_CloseTask},
+    {"GetTmpValue", l_GetTmpValue},       {"SetTmpValue", l_SetTmpValue},     {"FirstTask", l_FirstTask},
+    {"NextTask", l_NextTask},             {"TaskCondition", l_TaskCondition}, {"TaskConditionMatrix", l_TaskConditionMatrix},
+    {"TaskEntity", l_TaskEntity},         {"TaskEntityMatrix", l_TaskEntityMatrix}, {"TaskAward", l_TaskAward},
+    {"TaskAwardMatrix", l_TaskAwardMatrix}, {"TaskTalk", l_TaskTalk},         {"TaskTalkMatrix", l_TaskTalkMatrix},
+    {"TaskId", l_TaskId},                 {"TaskIdMatrix", l_TaskIdMatrix},   {"TaskEvent", l_TaskEvent},
+    {"TaskEventMatrix", l_TaskEventMatrix}, {"GetTaskEventID", l_GetTaskEventID}, {"GetEventTaskCount", l_GetEventTaskCount},
+    {"GetEventTask", l_GetEventTask},     {"SubWorldName", l_SubWorldName},   {"SelectTaskStart", l_SelectTaskStart},
+    {"SelectTaskFinish", l_SelectTaskFinish}, {"SelectTaskAward", l_SelectTaskAward},
     {nullptr, nullptr},
 };
 

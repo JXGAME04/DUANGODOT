@@ -324,6 +324,11 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     case pb::C2G_RIDE:
     case pb::C2G_SIT:
     case pb::C2G_PK_STATE:
+    case pb::C2G_TRADE:
+    case pb::C2G_TEAM:
+    case pb::C2G_NPC_DIALOG:
+    case pb::C2G_DIALOG_ANSWER:
+    case pb::C2G_TASK_VALUE:
     case pb::C2G_SKILL_DESC:
     case pb::C2G_SET_AURA: {
         KCmdClientPacket cmd;
@@ -370,6 +375,34 @@ void KGameServer::flush_outbox()
             }
         }
     }
+}
+
+// the relay's broadcast classes done here: WORLD and CITY reach every session of the zone, a faction line the
+// sessions whose character is of that faction (the map instances are idle between the tick and the flush, so their
+// worlds may be read).  One ZonePacket per gateway carries all of its sessions.
+void KGameServer::send_chat(const KEvChat& e)
+{
+    std::unordered_map<std::uint64_t, pb::ZonePacket> per_gateway;
+    std::size_t receivers = 0;
+    for (const auto& [sid, inst] : session_instance_) {
+        if (inst == nullptr) continue;
+        if (e.channel == pb::CH_FACTION) {
+            const KNpc* p = inst->world().find_player(sid);
+            if (p == nullptr || p->player.faction.current != e.faction) continue;
+        }
+        const auto git = session_gateway_.find(sid);
+        if (git == session_gateway_.end()) continue;
+        per_gateway[git->second].add_sids(sid);
+        ++receivers;
+    }
+    for (auto& [conn_id, zp] : per_gateway) {
+        const auto git = gateways_.find(conn_id);
+        if (git == gateways_.end() || !git->second.conn) continue;
+        zp.set_msg_id(static_cast<std::uint32_t>(pb::G2C_CHAT_MSG));
+        zp.set_payload(e.payload);
+        net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_PACKET), zp);
+    }
+    log::debug("zone.chat", "chat spread", {log::kv("channel", static_cast<int>(e.channel)), log::kv("faction", e.faction), log::kv("receivers", receivers)});
 }
 
 void KGameServer::send_to_session(std::uint64_t sid, std::uint16_t msg_id, const google::protobuf::MessageLite& msg)
@@ -452,6 +485,7 @@ void KGameServer::handle_event(KMapInstance& source, KWorldEvent& ev)
                        }
                    },
                    [&](KEvPlayerSave& e) { send_save(e); },
+                   [&](KEvChat& e) { send_chat(e); },
                    [&](KEvWorldChange& e) {
                        KMapInstance* target = instance_of_map(e.map_id);
                        if (target == nullptr) {   // 不在这台服务器上: TobeExchangeServer is not there yet

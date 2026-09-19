@@ -281,6 +281,22 @@ TEST_CASE("gateway handshake, sessions, movement over ticks, save on close", "[z
     gw.send(jx::pb::GZ_CLIENT_PACKET, cp);
     REQUIRE(gw.run_until([&] { return gw.zone_packets(2, jx::pb::G2C_CHAT_MSG).size() == 1; }));
     CHECK(gw.zone_packets(2, jx::pb::G2C_CHAT_MSG)[0].sids_size() == 2);
+    // a world line goes through the server's fan-out (KEvChat): every session of the zone in one ZonePacket per
+    // gateway, the channel on the line (a free one here: the harness has no chatcost.ini)
+    chat.set_text("ca the gioi");
+    chat.set_channel(jx::pb::CH_WORLD);
+    chat.SerializeToString(cp.mutable_payload());
+    gw.send(jx::pb::GZ_CLIENT_PACKET, cp);
+    REQUIRE(gw.run_until([&] { return gw.zone_packets(2, jx::pb::G2C_CHAT_MSG).size() == 2; }));
+    {
+        const auto zp = gw.zone_packets(2, jx::pb::G2C_CHAT_MSG)[1];
+        CHECK(zp.sids_size() == 2);
+        jx::pb::ChatMsg m;
+        REQUIRE(m.ParseFromString(zp.payload()));
+        CHECK(m.channel() == jx::pb::CH_WORLD);
+        CHECK(m.text() == "ca the gioi");
+        CHECK(m.name() == "A");
+    }
 
     // session 1 leaves: PlayerSave(final) with the new position, B gets a despawn
     jx::pb::SessionClose close;

@@ -16,6 +16,7 @@
 #include "jx/log.hpp"
 #include "jx/net/asio.hpp"
 #include "jx/zone/KGameServer.h"
+#include "jx/zone/KPlayerChat.h"
 
 namespace {
 
@@ -224,6 +225,47 @@ int main(int argc, char** argv)
             jx::log::info("boot", "abrade rate table loaded", {jx::log::kv("file", abrade_file)});
         } else {
             jx::log::warn("boot", "no abrade rate table", {jx::log::kv("file", abrade_file), jx::log::kv("error", error)});
+        }
+    }
+    // the chat cost table (jxassets export-chat-cost, \settings\npc\player\chatcost.ini): what a line on the city / faction /
+    // world channels asks of the speaker; without it every channel is free
+    const std::string chat_cost_file = cfg.get_string("zone.chat_cost_file", "client/assets/chat_cost.json");
+    if (!chat_cost_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KChatCostTable::load(chat_cost_file, &error)) {
+            w.chat_cost = std::make_shared<const jx::zone::KChatCostTable>(std::move(*t));
+            jx::log::info("boot", "chat cost table loaded", {jx::log::kv("file", chat_cost_file)});
+        } else {
+            jx::log::warn("boot", "no chat cost table", {jx::log::kv("file", chat_cost_file), jx::log::kv("error", error)});
+        }
+    }
+    // the task value table (jxassets export-task-def, \settings\task\player_task_def.txt): which task values the client is told
+    // about (SYNC_FLAG) and which it may set (CLIENT_FLAG); without it no value leaves the zone (docs/LINUX-SERVER.md §21)
+    const std::string task_def_file = cfg.get_string("zone.task_def_file", "client/assets/task_def.json");
+    if (!task_def_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KTaskDefTable::load(task_def_file, &error)) {
+            const std::size_t ids = t->size();
+            const std::size_t ranges = t->sync_ranges().size();
+            w.task_def = std::make_shared<const jx::zone::KTaskDefTable>(std::move(*t));
+            jx::log::info("boot", "task def table loaded", {jx::log::kv("file", task_def_file), jx::log::kv("ids", ids), jx::log::kv("ranges", ranges)});
+        } else {
+            jx::log::warn("boot", "no task def table", {jx::log::kv("file", task_def_file), jx::log::kv("error", error)});
+        }
+    }
+    // the task system tables (jxassets export-task-tables, \settings\task): what the TASKSYS library of the scripts reads
+    // (task_id.txt, task_type.txt and the tables of every kind, task_event.txt); without them the library answers nothing (docs/LINUX-SERVER.md §22)
+    const std::string task_tables_file = cfg.get_string("zone.task_tables_file", "client/assets/task_tables.json");
+    if (!task_tables_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KTaskManager::load(task_tables_file, &error)) {
+            const std::size_t tasks = t->task_count();
+            const std::size_t types = t->type_count();
+            const std::size_t events = t->event_count();
+            w.tasks = std::make_shared<const jx::zone::KTaskManager>(std::move(*t));
+            jx::log::info("boot", "task tables loaded", {jx::log::kv("file", task_tables_file), jx::log::kv("tasks", tasks), jx::log::kv("types", types), jx::log::kv("events", events)});
+        } else {
+            jx::log::warn("boot", "no task tables", {jx::log::kv("file", task_tables_file), jx::log::kv("error", error)});
         }
     }
     // the revive / reference points of every map (jxassets export-revive-pos): where a fresh character is born in its

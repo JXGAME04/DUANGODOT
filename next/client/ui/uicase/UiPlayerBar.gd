@@ -16,11 +16,18 @@ const KWndText := preload("res://ui/elem/KWndText.gd")
 const KWndImage := preload("res://ui/elem/KWndImage.gd")
 const KWndButton := preload("res://ui/elem/KWndButton.gd")
 const KWndObjContainer := preload("res://ui/elem/KWndObjContainer.gd")
+const KWndLabeledButton := preload("res://ui/elem/KWndLabeledButton.gd")
 
 const SCHEME := "thanh-nhan-vat"
 const QUICK_SLOTS := 9        # 0x00472457: Item_0 .. Item_8 (0x2c70 / 0x4f0)
 
 signal chat_submitted(text: String)
+signal channel_clicked(at: Vector2)       # the ChannelBtn (0x004764A8): the channel menu opens at the mouse
+
+const HISTORY := 8                        # KUiPlayerBar+0x7c46: 8 lines of 0x200, the index at +0x7c45 (0x00475AB0..)
+var channel_btn: KWndLabeledButton = null
+var _history: Array = []                  # the last lines sent, oldest first
+var _history_pos := -1                    # -1 = the line being typed
 signal mouse_skill_clicked(right: bool)   # a click on ImediaLeftSkill / ImediaRightSkill
 signal quick_clicked(slot: int)           # a left click on a filled quick box, nothing on the cursor (msg 0x513 -> ShortcutUseItem)
 signal quick_put(slot: int)               # a left click on a quick box with something on the cursor (msg 0x511 -> 0x00472E70)
@@ -95,7 +102,17 @@ func load_scheme(screen: Vector2i) -> bool:
 		chat_input.add_theme_stylebox_override("normal", plain)
 		chat_input.add_theme_stylebox_override("focus", focus)
 		chat_input.text_submitted.connect(_on_submitted)
+		chat_input.gui_input.connect(_on_input_key)
 		add_child(chat_input)
+	# the channel button left of the line (0x004730D0 paints it in the channel's colour; the short name is written on
+	# it here so the channel can be read): a click opens the channel menu (0x004764A8 -> 0x00472620)
+	if ini.has_section("ChannelBtn"):
+		channel_btn = KWndLabeledButton.new()
+		add_child(channel_btn)
+		channel_btn.init_from(ini, "ChannelBtn")
+		channel_btn.font_size = maxi(ini.get_integer("ChannelBtn", "Font", 12), 12)
+		channel_btn.full_text = true
+		channel_btn.clicked.connect(func(): channel_clicked.emit(channel_btn.global_position + Vector2(0, -4)))
 	if ini.has_section("SendBtn"):
 		var send := KWndButton.new()
 		add_child(send)
@@ -121,7 +138,48 @@ func _on_submitted(text: String) -> void:
 	if chat_input != null:
 		chat_input.text = ""
 		chat_input.release_focus()
+	if text.strip_edges() != "":   # 0x00475AA7..0x00475B02: the line into the ring of eight
+		_history.append(text)
+		while _history.size() > HISTORY:
+			_history.pop_front()
+	_history_pos = -1
 	chat_submitted.emit(text)
+
+
+# Up / Down in the line walk the ring (KUiPlayerBar::WndProc: the edit's key message)
+func _on_input_key(event: InputEvent) -> void:
+	if chat_input == null or not (event is InputEventKey) or not event.pressed or _history.is_empty():
+		return
+	if event.keycode == KEY_UP:
+		_history_pos = (_history.size() - 1) if _history_pos < 0 else maxi(_history_pos - 1, 0)
+	elif event.keycode == KEY_DOWN:
+		if _history_pos < 0:
+			return
+		_history_pos += 1
+		if _history_pos >= _history.size():
+			_history_pos = -1
+			chat_input.text = ""
+			chat_input.accept_event()
+			return
+	else:
+		return
+	chat_input.text = str(_history[_history_pos])
+	chat_input.caret_column = chat_input.text.length()
+	chat_input.accept_event()
+
+
+# the current channel on the button: its short name in its colour (0x004730D0: the 3-byte colour code as the caption)
+func set_channel(short: String, color: Color) -> void:
+	if channel_btn == null:
+		return
+	channel_btn.font_color = color
+	channel_btn.over_color = color.lightened(0.3)
+	channel_btn.select_color = color
+	channel_btn.set_label(short)
+
+
+func history() -> Array:
+	return _history.duplicate()
 
 
 # the two mouse skills (KPlayer::m_nLeftSkillID / m_nRightSkillID): {id, name, icon} or empty

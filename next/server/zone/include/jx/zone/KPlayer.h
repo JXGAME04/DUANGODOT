@@ -9,9 +9,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <vector>
 
 #include "jx/ids.hpp"
 #include "jx/zone/KFaction.h"
+#include "jx/zone/KPlayerTeam.h"
+#include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerTask.h"
+#include "jx/zone/KPlayerTrade.h"
 
 namespace jx::pb {
 class RoleData;
@@ -54,6 +59,16 @@ struct KPlayer {
         int punish_weaken = 0;    // Player+0x5a88 high byte (arg 3), capped 100 (read by 0x080B9FA0, unused after the cap)
     } pk;
     int pk10_death_punish = 0;   // Player+0x384: Lua SetDeathPunish_PK10 (the arena death of 0x08089750; cleared when the PK value drops to 9)
+    KPlayerTeam team;            // m_cTeam +0x5994 (docs/LINUX-SERVER.md §17)
+    KPlayerMenuState menu;       // m_cMenuState +0x5700 (KPlayerMenuState.h 2002; docs/LINUX-SERVER.md §18)
+    KTrade trade;                // m_cTrade +0x5910 (KPlayerTrade.h 2003)
+    KPlayerDialog dialog;        // the Say / Talk of a npc script: +0x5f9c script, +0x5fa0 m_szTaskAnswerFun[50], +0x78e4 / +0x78e8 (KPlayerDialog.h)
+    KPlayerTask task;            // m_cTask +0x809c (KPlayerTask.h): the saved and the temp task values of the scripts (docs/LINUX-SERVER.md §21)
+    // the task ids FirstTask / NextTask of the TASKSYS library walk (the list at 0x9786620 + 0x78 + index * 12 of jx_linux_y; docs §22)
+    std::vector<int> task_list;
+    std::size_t task_cursor = 0;
+    std::int64_t lead_exp = 0;   // m_dwLeadExp +0x596c
+    int lead_level = 1;          // m_dwLeadLevel +0x5970: KTeam::CalcCaptainPower reads level_lead_exp.txt by it
     // the three PK attributes of states / equipment (KNpcAttribModify 254 / 257 / 256 -> Player+0x86f8 / +0x86fc / +0x8700,
     // cleared by KNpc::ClearAttrib 0x08082C73..): the killer's chance to add no PK value, and the two sides of the butcher points
     int not_add_pkvalue_p = 0;
@@ -68,6 +83,8 @@ struct KPlayer {
     int skill_max_level_addons = 0;   // +0x8600 (SetSkillMaxLevelAddons, <= 99): what a reborn character may add to every skill's MaxLevel
     bool loaded = false;       // LoadFrom ran (a player's npc; false for every other npc)
     bool forbid_aura = false;  // +0x375 (Lua ForbitAura(n)): the aura request of the client clears the aura instead
+    bool forbid_talk = false;  // +0x38c (Lua ForbitTalk(n) 0x0810CB70): a channel line of this player is dropped (0x081E387A)
+    bool chat_flag = false;    // +0x394 bit 0 (Lua SetChatFlag(n) 0x08111460): the cost check refuses every channel (0x080502DD)
     bool sync_aura = true;     // +0x388 (Lua ForbitSyncAura(n); 1 at KPlayer::Init 0x080BC1F0): the 0x85 packet of an aura tick goes to the players around
     // the revive point: KPlayer+0x20 (map), +0x28 / +0x2c (x, y) - SetTempRevPos 0x08110790 writes them, SetRevPos
     // 0x080B1E50 keeps the map and its reference point at +0x10 / +0x14 and copies the point's spot here; 0 = the

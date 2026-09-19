@@ -171,6 +171,58 @@ message EntityInfo {
   int32 horse_res = 26;          // -1 = no horse (HorseRes level 0)
   int32 mantle_res = 27;         // -1 = none
   int32 pk_state = 28;           // a player's PK state (Player+0x5a50 & 3 in the 0x4a / 0x4b flag -> KNpc+0x16e4): 0 exercise, 1 fight, 2 kill
+  // the full sync 0x4c of a player (0x0807FDD8): byte +0x10 = KPlayerMenuState Player+0x5700 (0 normal, 1 team open, 2 trade
+  // open, 3 trading, 4 idle) and the sentence Player+0x570c (at most 0x1e bytes) after the name - the 2.0 client's handler
+  // 0x0065C070 calls KNpc::SetMenuState with them (0x0065C4ED), so a sign already up is seen by whoever walks in
+  uint32 menu_state = 29;
+  string menu_sentence = 30;
+  uint32 npc_kind = 31;          // NPCKIND of npcs.txt (byte +0x13 of the 0x4c packet): 0 monster, 2 partner, 3 dialoger (a click talks, 0x6e), 4 bird, 5 mouse
+}
+
+// ---- npc dialog (M13) ----
+
+message NpcDialogReq {           // C2G_NPC_DIALOG: the 0x6e packet - a click on a npc within twice its m_DialogRadius (124)
+  uint64 npc = 1;
+  uint32 seq = 2;
+}
+
+message DialogAnswer {           // C2G_DIALOG_ANSWER: the 0x5f packet {0x5f, int index, int kind, int, int} of KPlayer::OnSelectFromUI (2.0 0x005FC7D0)
+  int32 index = 1;               // the answer picked (0-based); a Talk's last page confirmed = 0
+  int32 kind = 2;                // the dword at +5: 0 = a Say / Talk answer (0x080AC5D0), 1 = the item selection ui (0x081F68C0, not ported)
+}
+
+// The 0x63 packet PLAYER_SCRIPTACTION_SYNC (2003 KProtocol.h) as Lua Say 0x08123C90 / Talk 0x08116930 of jx_linux_y fill it:
+// byte m_nOperateType +3, m_bUIId +4, m_bOptionNum +5, m_bParam1 +6 (1 = the sentence is a string-table id), m_bParam2 +7
+// (1 = the answer goes to the server), int m_nParam +9 (Say -1; Talk 1 = the last page's confirm goes back), int m_nBufferLen
+// +0xd, the content +0x11: the sentence then the answers NUL-separated (Say), or the pages joined with "| |" (Talk).  The
+// 2.0 client's KPlayer::OnScriptAction 0x006004C0 shows ui 0 in KUiMsgSel (滚动选择界面.ini) and ui 2 in KUiInformation2
+// (提示2.ini, "Tiếp tục" G_PLAYER_14 / "Hoàn thành" G_PLAYER_15).
+message ScriptAction {
+  uint32 operate = 1;            // 0 SCRIPTACTION_UISHOW (1 EXESCRIPT "OnCall": the client runs its own script - never sent by the zone)
+  uint32 ui_id = 2;              // UIInfo: 0 UI_SELECTDIALOG (Say), 2 UI_TALKDIALOG (Talk)
+  string text = 3;               // the sentence (Say)
+  int32 text_id = 4;             // m_bParam1 = 1: the sentence is this string-table id instead (g_GetStringRes of the client)
+  bool interactive = 5;          // m_bParam2
+  int32 param = 6;               // m_nParam
+  repeated string options = 7;   // the answers (Say, the text before the '/') or the pages (Talk)
+}
+
+// one saved task value of the character (KPlayerTask, docs/LINUX-SERVER.md §21): the 0xa7 packet {0xa7, int id, int value}
+message TaskValue {
+  int32 id = 1;                  // 0..0x176f
+  int32 value = 2;
+}
+
+// the 0xb5 packet of SyncTaskValueMore 0x080A9550: up to eighty values in one go (the login sends 1000..1070 this way)
+message TaskValues {
+  repeated TaskValue values = 1;
+}
+
+// C2G_TASK_VALUE: the 0xaa packet {0xaa, int id, int value} (0x080DB070) - the zone takes it for an id with CLIENT_FLAG in
+// settings/task/player_task_def.txt and refuses every other one
+message TaskValueReq {
+  int32 id = 1;
+  int32 value = 2;
 }
 
 message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)
@@ -240,8 +292,24 @@ message EntityMoves {
   repeated EntityMove moves = 1;
 }
 
+// The chat channels of the 2.0 client (\ui\ui3_1024\消息集合面板_左.ini [Channels] Channel0..14, the FormatName of each
+// = the relay's channel name of relay_channcfg.ini / relay_channel.ini: NEARBY 'S', TEAM 'T', WORLD, \F<Faction#> 'F',
+// CITY 'B', TONG 'O', TONGUNION 'U', CHATROOM \C<ChatRoom#>).  The zone carries the ones a player can speak in.
+enum ChatChannel {
+  CH_NEARBY = 0;                 // Channel0: whoever sees the speaker (the relay's 'S' class 3 target = the player)
+  CH_TEAM = 1;                   // Channel1: the team (the relay's 'T' class 0 target = Player+0x5998)
+  CH_WORLD = 2;                  // Channel2: everybody (relay_channel.ini [WORLD] cost 4)
+  CH_FACTION = 3;                // Channel3: the faction (\F<Faction#>, cost 3)
+  CH_SYSTEM = 4;                 // Channel4: the server's lines (never sent by a client)
+  CH_CITY = 5;                   // Channel5: the relay's [broadcast] name=CITY 'B' (class 4, cost 2)
+  CH_TONG = 6;                   // Channel6: the tong (\O, cost 0) - no tongs in the zone yet
+  CH_WHISPER = 7;                // the 2003 chat_someonechat: one player by name (the "/name text" of the input line)
+}
+
 message ChatReq {
   string text = 1;
+  ChatChannel channel = 2;
+  string target = 3;             // CH_WHISPER: the name spoken to
 }
 
 // ---- items (M11) ----
@@ -456,6 +524,139 @@ message PlayerAttribSync {       // G2C_PLAYER_ATTRIB
   uint64 level_exp = 38;         // where this level starts (level_exp[level - 1]): the exp bar of the 2.0 top bar (Player_Exp 0x0044AD20) shows the way into the level
 }
 
+// ---- teams (KPlayerTeam / KTeam of the old game, docs/LINUX-SERVER.md §17) ----------------------------------------------------
+
+enum TeamCmd {                   // the sub-command byte of the 0x53 packet (the jump table 0x8257f48 of the handler 0x080DCC90)
+  TEAM_CMD_NONE = 0;
+  TEAM_INFO = 1;                 // the team of a npc around (KPlayer::S2CSendTeamInfo 0x080B1AD0): target = npc id
+  TEAM_CREATE = 2;               // KPlayerTeam::CreateTeam 0x080CE3C0
+  TEAM_OPEN_CLOSE = 3;           // KPlayer::SetTeamState 0x080B1CF0: flag 1 open / 0 close
+  TEAM_APPLY_ADD = 4;            // KPlayer::S2CSendAddTeamInfo 0x080B8000: ask a captain (target) to be taken in
+  TEAM_ACCEPT = 5;               // KPlayer::AddTeamMember 0x080B75B0: the captain takes an applicant (target)
+  TEAM_LEAVE = 6;                // KPlayer::LeaveTeam 0x080B7C60
+  TEAM_KICK = 7;                 // KPlayer::TeamKickOne 0x080B9880: target
+  TEAM_CHANGE_CAPTAIN = 8;       // KPlayer::TeamChangeCaptain 0x080B9400: target
+  TEAM_DISMISS = 9;              // KPlayer::TeamDismiss 0x080B7DE0
+  TEAM_INVITE = 10;              // KPlayerTeam::InviteAdd 0x080CE150: the captain invites target
+  TEAM_REPLY_INVITE = 11;        // KPlayerTeam::GetInviteReply 0x080CCBA0: target = the captain, flag 1 accept / 0 refuse
+}
+
+message TeamReq {                // C2G_TEAM
+  TeamCmd cmd = 1;
+  uint64 target = 2;             // the npc (entity) the command is about
+  int32 flag = 3;
+  uint32 seq = 4;
+}
+
+message TeamMember {
+  uint64 entity_id = 1;
+  string name = 2;
+  uint32 level = 3;
+}
+
+message TeamSelf {               // G2C_TEAM_SELF: PLAYER_SEND_SELF_TEAM_INFO - the whole team of the receiver, or in_team = false (s2c_teamleave)
+  bool in_team = 1;
+  int32 team_id = 2;
+  int32 state = 3;               // 1 open, 0 closed
+  bool captain = 4;              // the receiver leads it
+  TeamMember leader = 5;
+  repeated TeamMember members = 6;
+  uint32 lead_level = 7;         // the receiver's leadership level (Player+0x5970)
+  uint64 lead_exp = 8;
+  int32 members_max = 9;         // KTeam::CalcCaptainPower: what the captain's leadership allows
+}
+
+enum TeamEventKind {
+  TEAM_EV_NONE = 0;
+  TEAM_EV_CREATE_OK = 1;         // 0x69 sub 4 {team id, camp}
+  TEAM_EV_CREATE_FAIL = 2;       // 0x69 sub 5 {error}: arg = the error (0 in a team already, 4 cannot create, 2 no free team)
+  TEAM_EV_ADD_MEMBER = 3;        // s2c_teamaddmember: entity_id / name / level of the newcomer
+  TEAM_EV_LEAVE = 4;             // s2c_teamleave {npc}: entity_id left (the receiver itself when its team is gone)
+  TEAM_EV_KICK = 5;              // enumMSG_ID_TEAM_KICK_One: name
+  TEAM_EV_CHANGE_CAPTAIN = 6;    // s2c_teamchangecaptain {new, old}: entity_id = the new captain, arg = 1 when the receiver is it
+  TEAM_EV_OPEN_CLOSE = 7;        // s2c_teamopenclose: arg = 1 open / 0 closed
+  TEAM_EV_INVITE = 8;            // s2c_teaminviteadd: entity_id / name of the captain inviting the receiver
+  TEAM_EV_APPLY = 9;             // s2c_teamgetapply: entity_id / name / level of the applicant (to the captain)
+  TEAM_EV_INFO = 10;             // s2c_teaminfo: leader + members of the team asked about
+  TEAM_EV_INFO_FALSE = 11;       // s2c_teamapplyinfofalse
+  TEAM_EV_DISMISS = 12;          // enumMSG_ID_TEAM_DISMISS
+  TEAM_EV_REFUSE = 13;           // enumMSG_ID_TEAM_REFUSE_INVITE: name refused the invitation
+  TEAM_EV_MSG = 14;              // a 0x86 message: arg = its id, the client's stringtable_core key (docs/CLIENT-2.0.md §21): 6 / 7 change-captain
+                                 // fails, 0x12 / 0x13 MSG_TEAM_TARGET_CANNOT_ADD_TEAM, 0x24..0x28 MSG_TEAM_ERROR01..05 (a captain the system appointed)
+  TEAM_EV_SELF_ADD = 15;         // enumMSG_ID_TEAM_SELF_ADD: the receiver joined
+}
+
+// ---- trade (docs/LINUX-SERVER.md §18): KTrade Player+0x5910 and KPlayerMenuState Player+0x5700 of jx_linux_y ----
+
+enum TradeCmd {
+  TRADE_CMD_NONE = 0;
+  TRADE_APPLY_OPEN = 1;          // KPlayer::TradeApplyOpen 0x080AE590 {sentence}: the menu state TRADEOPEN (2) - others may ask
+  TRADE_APPLY_CLOSE = 2;         // the 0x6a packet 0x080AE320: back to NORMAL
+  TRADE_APPLY_START = 3;         // the 0x6b packet 0x080B4DE0 {npc}: ask a player whose state is TRADEOPEN
+  TRADE_REPLY = 4;               // c2sTradeReplyStart 0x080BAFD0: target = the applicant, flag 1 accept / 0 refuse
+  TRADE_MONEY = 5;               // the 0x6c packet 0x080AE510 {money}: the money put on the table
+  TRADE_DECISION = 6;            // the 0x6d packet 0x080B2C70 {decision}: 0 cancel, 1 ok, 2 lock, 3 / 4 sync only
+}
+
+message TradeReq {               // C2G_TRADE
+  TradeCmd cmd = 1;
+  uint64 target = 2;             // the npc (entity id) the command is about
+  int32 arg = 3;                 // the flag / money / decision
+  string text = 4;               // TRADE_APPLY_OPEN: the sentence over the head (up to 255 bytes)
+  uint32 seq = 5;
+}
+
+message TradeState {             // G2C_TRADE_STATE (the 0x76 sync to oneself)
+  uint32 state = 1;              // 0 normal, 1 open for trade, 2 trading
+  uint64 partner = 2;            // state 2: the partner's entity id
+  string partner_name = 3;
+}
+
+message TradeSync {              // G2C_TRADE_SYNC: the four flags of the 0x81 packet, the partner's money of the 0x77 packet
+  bool self_lock = 1;
+  bool dest_lock = 2;
+  bool self_ok = 3;
+  bool dest_ok = 4;
+  uint32 dest_money = 5;
+  uint32 self_money = 6;
+}
+
+message TradeItem {              // G2C_TRADE_ITEM: the partner put an item on the table (removed = false) or took it back
+  ItemView item = 1;             // the item as it lies in the partner's trade box (room 2, its x / y)
+  bool removed = 2;
+}
+
+message TradeApply {             // G2C_TRADE_APPLY: the 0x8b packet {player, npc}
+  uint64 entity_id = 1;
+  string name = 2;
+}
+
+message TradeEnd {               // G2C_TRADE_END: the 0x78 packet {byte ok}
+  bool ok = 1;
+}
+
+message SysMsg {                 // G2C_SYS_MSG: the 0x86 packet - id keys stringtable_core.txt (0xb / 0xc room full, 0xd refused, 0x2c cannot trade, ...)
+  uint32 id = 1;
+  uint64 entity_id = 2;
+  string name = 3;
+}
+
+message EntityMenuState {        // G2C_ENTITY_MENU_STATE: s2c_npcsetmenustate around a player
+  uint64 entity_id = 1;
+  uint32 state = 2;              // PLAYER_MENU_STATE_*: 0 normal, 1 team open, 2 trade open, 3 trading, 4 idle
+  string sentence = 3;           // state 2: what the player wrote
+}
+
+message TeamEvent {              // G2C_TEAM_EVENT
+  TeamEventKind event = 1;
+  uint64 entity_id = 2;
+  string name = 3;
+  uint32 level = 4;
+  int32 arg = 5;
+  TeamMember leader = 6;
+  repeated TeamMember members = 7;
+}
+
 // KNpc::SetCamp 0x0807B7B0 (the 0x59 packet of the old game): a npc's camp (m_Camp) changed - a player joined or left a faction
 message EntityCamp {             // G2C_ENTITY_CAMP
   uint64 entity_id = 1;
@@ -586,6 +787,7 @@ message ChatMsg {
   uint64 entity_id = 1;
   string name = 2;
   string text = 3;
+  ChatChannel channel = 4;
 }
 
 message Ping {

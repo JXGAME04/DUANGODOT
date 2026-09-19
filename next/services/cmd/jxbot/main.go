@@ -2,6 +2,9 @@
 //
 //	jxbot -gateway 127.0.0.1:19100 -bots 5 -duration 30s          load / soak
 //	jxbot -gateway 127.0.0.1:19100 -once                            smoke test for CI (exit 0 = ok)
+//	jxbot -gateway 127.0.0.1:19100 -partner -prefix auto -first 2   a partner for the Godot client's --auto run: it puts the
+//	                                                                trade sign up and says yes to every team invitation and
+//	                                                                trade application, locks and confirms (M14)
 //
 // Every bot logs JSON lines (proc=jxbot) so the whole path client->gateway->zone can be checked
 // from logs alone.
@@ -9,6 +12,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -64,6 +68,15 @@ type bot struct {
 	attack bool
 	home   *jxpb.Vec2 // where the bot entered: the middle of the crowd
 	target uint64     // what it is hitting right now
+	// the partner of the --auto client (M14): the trade sign up, yes to everything, the lock and the ok in turn
+	partner   bool
+	assets    string // client/assets: the map spawn the partner walks to
+	meetMap   uint32 // the map the --auto client plays on (0 = the bot's own)
+	tradeOpen bool   // the sign is up
+	trading   bool
+	selfLock  bool
+	destLock  bool
+	selfOk    bool
 }
 
 func (b *bot) logctx() context.Context {
@@ -228,6 +241,71 @@ func (b *bot) handleWorld(f frame.Frame) error {
 		var k jxpb.Kick
 		_ = proto.Unmarshal(f.Payload, &k)
 		return fmt.Errorf("kicked: %v %s", k.Reason, k.Text)
+	case jxpb.MsgId_G2C_TEAM_EVENT:
+		if !b.partner {
+			break
+		}
+		var ev jxpb.TeamEvent
+		if err := proto.Unmarshal(f.Payload, &ev); err != nil {
+			return err
+		}
+		if ev.Event == jxpb.TeamEventKind_TEAM_EV_INVITE {
+			// KPlayerTeam::GetInviteReply: the captain's npc and yes
+			log.InfoCtx(b.logctx(), "bot", "team invitation accepted", log.F("captain", ev.EntityId), log.F("name", ev.Name))
+			_ = b.send(jxpb.MsgId_C2G_TEAM, &jxpb.TeamReq{Cmd: jxpb.TeamCmd_TEAM_REPLY_INVITE, Target: ev.EntityId, Flag: 1})
+		}
+	case jxpb.MsgId_G2C_TEAM_SELF:
+		var ts jxpb.TeamSelf
+		if err := proto.Unmarshal(f.Payload, &ts); err != nil {
+			return err
+		}
+		log.InfoCtx(b.logctx(), "bot", "team", log.F("in_team", ts.InTeam), log.F("members", len(ts.Members)), log.F("captain", ts.Captain))
+	case jxpb.MsgId_G2C_TRADE_APPLY:
+		if !b.partner {
+			break
+		}
+		var ap jxpb.TradeApply
+		if err := proto.Unmarshal(f.Payload, &ap); err != nil {
+			return err
+		}
+		log.InfoCtx(b.logctx(), "bot", "trade application accepted", log.F("applicant", ap.EntityId), log.F("name", ap.Name))
+		_ = b.send(jxpb.MsgId_C2G_TRADE, &jxpb.TradeReq{Cmd: jxpb.TradeCmd_TRADE_REPLY, Target: ap.EntityId, Arg: 1})
+	case jxpb.MsgId_G2C_TRADE_STATE:
+		var ts jxpb.TradeState
+		if err := proto.Unmarshal(f.Payload, &ts); err != nil {
+			return err
+		}
+		b.trading = ts.State == 2
+		b.tradeOpen = ts.State == 1
+		if !b.trading {
+			b.selfLock, b.destLock, b.selfOk = false, false, false
+		}
+		log.InfoCtx(b.logctx(), "bot", "trade state", log.F("state", ts.State), log.F("partner", ts.Partner))
+	case jxpb.MsgId_G2C_TRADE_SYNC:
+		if !b.partner {
+			break
+		}
+		var sy jxpb.TradeSync
+		if err := proto.Unmarshal(f.Payload, &sy); err != nil {
+			return err
+		}
+		b.selfLock, b.destLock, b.selfOk = sy.SelfLock, sy.DestLock, sy.SelfOk
+		// the partner locks once the client has (the 0x6d decision 2), then confirms once both are locked (decision 1)
+		if b.trading && sy.DestLock && !sy.SelfLock {
+			log.InfoCtx(b.logctx(), "bot", "trade lock")
+			_ = b.send(jxpb.MsgId_C2G_TRADE, &jxpb.TradeReq{Cmd: jxpb.TradeCmd_TRADE_DECISION, Arg: 2})
+		} else if b.trading && sy.DestLock && sy.SelfLock && !sy.SelfOk {
+			log.InfoCtx(b.logctx(), "bot", "trade ok")
+			_ = b.send(jxpb.MsgId_C2G_TRADE, &jxpb.TradeReq{Cmd: jxpb.TradeCmd_TRADE_DECISION, Arg: 1})
+		}
+	case jxpb.MsgId_G2C_TRADE_END:
+		var te jxpb.TradeEnd
+		_ = proto.Unmarshal(f.Payload, &te)
+		log.InfoCtx(b.logctx(), "bot", "trade end", log.F("ok", te.Ok))
+		if b.partner {
+			// the sign up again for the next application
+			_ = b.send(jxpb.MsgId_C2G_TRADE, &jxpb.TradeReq{Cmd: jxpb.TradeCmd_TRADE_APPLY_OPEN, Text: "bot ban do"})
+		}
 	default:
 		log.DebugCtx(b.logctx(), "net", "unexpected message", log.F("msg", f.MsgID))
 	}
@@ -305,7 +383,48 @@ func (b *bot) login(password string) error {
 	b.pos = enter.Pos
 	b.home = &jxpb.Vec2{X: enter.Pos.X, Y: enter.Pos.Y}
 	log.InfoCtx(b.logctx(), "bot", "in world", log.F("account", b.name), log.F("pid", pid), log.F("entity", b.entityID), log.F("zone", enter.ZoneName), log.F("x", enter.Pos.X), log.F("y", enter.Pos.Y))
+	if b.partner && b.assets != "" {
+		// the partner goes to the spawn point of the meeting map, where the --auto client starts (its character is born
+		// there and saved near it; a bot's own character may be born in another village): "?gm ds NewWorld(map, cell x,
+		// cell y)" through the zone's GM chat (KGMCommand ds = DoSct; dev.py starts the zone with gm_chat)
+		meet := b.meetMap
+		if meet == 0 {
+			meet = enter.MapId
+		}
+		// NewWorld takes absolute Mps cells (KNpc::ChangeWorld x * 32: the map's origin region_left * 512 /
+		// region_top * 1024 plus the local spawn pixel, then / 32); the zone's to_local takes the origin off again
+		if x, y, ok := mapSpawn(b.assets, meet); ok {
+			_ = b.send(jxpb.MsgId_C2G_CHAT, &jxpb.ChatReq{Text: fmt.Sprintf("?gm ds NewWorld(%d, %d, %d)", meet, x/32, y/32)})
+			log.InfoCtx(b.logctx(), "bot", "partner to the spawn", log.F("map", meet), log.F("x", x), log.F("y", y))
+		}
+	}
 	return nil
+}
+
+// mapSpawn reads the spawn point of an exported map (client/assets/maps/<id>/map.json "spawn": [x, y], local pixels) and
+// returns it in absolute Mps pixels: the map's origin (region_left * region_w, region_top * region_h - KMapData.cpp) added.
+func mapSpawn(assets string, mapID uint32) (int, int, bool) {
+	data, err := os.ReadFile(fmt.Sprintf("%s/maps/%d/map.json", assets, mapID))
+	if err != nil {
+		return 0, 0, false
+	}
+	var doc struct {
+		Spawn      []int `json:"spawn"`
+		RegionLeft int   `json:"region_left"`
+		RegionTop  int   `json:"region_top"`
+		RegionW    int   `json:"region_w"`
+		RegionH    int   `json:"region_h"`
+	}
+	if json.Unmarshal(data, &doc) != nil || len(doc.Spawn) < 2 {
+		return 0, 0, false
+	}
+	if doc.RegionW == 0 {
+		doc.RegionW = 512
+	}
+	if doc.RegionH == 0 {
+		doc.RegionH = 1024
+	}
+	return doc.RegionLeft*doc.RegionW + doc.Spawn[0], doc.RegionTop*doc.RegionH + doc.Spawn[1], true
 }
 
 func (b *bot) move(dx, dy int32) error {
@@ -379,6 +498,14 @@ func (b *bot) wander() {
 				return
 			}
 		case <-moveTimer.C:
+			if b.partner {
+				// the partner stays where it is (the client must find it around) and keeps its trade sign up
+				if !b.tradeOpen && !b.trading {
+					_ = b.send(jxpb.MsgId_C2G_TRADE, &jxpb.TradeReq{Cmd: jxpb.TradeCmd_TRADE_APPLY_OPEN, Text: "bot ban do"})
+				}
+				moveTimer.Reset(1500 * time.Millisecond)
+				continue
+			}
 			dx, dy := int32(rand.Intn(801)-400), int32(rand.Intn(801)-400)
 			if b.hot && b.home != nil {
 				// a crowd fighting over one spot: never walk further than `radius` from it
@@ -396,6 +523,9 @@ func (b *bot) wander() {
 			}
 			moveTimer.Reset(time.Duration(1000+rand.Intn(3000)) * time.Millisecond)
 		case <-chatTimer.C:
+			if b.partner {
+				continue
+			}
 			_ = b.send(jxpb.MsgId_C2G_CHAT, &jxpb.ChatReq{Text: "xin chào từ " + b.name})
 		case <-pingTimer.C:
 			_ = b.send(jxpb.MsgId_C2G_PING, &jxpb.Ping{ClientMs: uint64(time.Now().UnixMilli())})
@@ -415,6 +545,9 @@ func main() {
 	radius := flag.Int("radius", 600, "hot scenario: how far from the meeting point a bot may walk")
 	attack := flag.Bool("attack", false, "attack whatever comes into view (MASTER SPEC 58 scenario C/D)")
 	ramp := flag.Duration("ramp", 0, "spread the logins over this long instead of all at once (MASTER SPEC 58 case E)")
+	partner := flag.Bool("partner", false, "the partner of the Godot client's --auto run: trade sign up, yes to team invitations and trade applications (M14)")
+	assets := flag.String("assets", "client/assets", "partner: the exported assets (the map spawn point it stands at)")
+	meetMap := flag.Uint("meet-map", 0, "partner: the map to meet the --auto client on (its spawn point), 0 = the bot's own")
 	level := flag.String("log-level", "info", "log level")
 	flag.Parse()
 
@@ -450,7 +583,7 @@ func main() {
 				}
 			}
 			b := &bot{name: fmt.Sprintf("%s%d", *prefix, *first+i), addr: *gw, ctx: ctx, st: st,
-				hot: *scenario == "hot", radius: int32(*radius), attack: *attack}
+				hot: *scenario == "hot", radius: int32(*radius), attack: *attack, partner: *partner, assets: *assets, meetMap: uint32(*meetMap)}
 			if err := b.connect(); err != nil {
 				log.Error("bot", "connect failed", log.F("bot", b.name), log.F("error", err))
 				failed.Add(1)
