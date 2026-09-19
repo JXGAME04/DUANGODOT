@@ -148,6 +148,32 @@ const KNpc* KSubWorld::find_player(std::uint64_t sid) const
     return it == players_.end() ? nullptr : find_entity(it->second);
 }
 
+const KNpc* KSubWorld::find_player_by_name(std::string_view name) const
+{
+    if (name.empty()) return nullptr;   // 0x080C6023
+    for (const auto& [sid, id] : players_) {
+        const KNpc* p = find_entity(id);
+        if (p != nullptr && p->name == name) return p;
+    }
+    return nullptr;
+}
+
+int KSubWorld::mission_value(int idx) const noexcept
+{
+    return idx >= 0 && idx < kMissionValues ? mission_values_[static_cast<std::size_t>(idx)] : 0;
+}
+
+void KSubWorld::set_mission_value(int idx, int value) noexcept
+{
+    if (idx >= 0 && idx < kMissionValues) mission_values_[static_cast<std::size_t>(idx)] = value;
+}
+
+bool KSubWorld::hosts_map(std::uint32_t map) const noexcept
+{
+    if (hosted_maps_.empty()) return map == map_id();
+    return std::find(hosted_maps_.begin(), hosted_maps_.end(), map) != hosted_maps_.end();
+}
+
 std::vector<std::uint64_t> KSubWorld::session_ids() const
 {
     std::vector<std::uint64_t> out;

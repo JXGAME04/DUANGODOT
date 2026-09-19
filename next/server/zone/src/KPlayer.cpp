@@ -70,6 +70,8 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     lucky = cur_lucky = s.lucky();
     attribute_point = s.attribute_point();
     skill_point = s.skill_point();
+    ext_point.fill(0);
+    for (int i = 0; i < kExtPoints && i < s.ext_point_size(); ++i) ext_point[static_cast<std::size_t>(i)] = s.ext_point(i);
     set_npc_physics_damage_base(npc);
     set_npc_attack_rating(npc);
     set_npc_defence(npc);
@@ -137,6 +139,8 @@ void KPlayer::save_to(const KNpc& npc, pb::RoleData& role) const
     s->set_lucky(lucky);
     s->set_attribute_point(attribute_point);
     s->set_skill_point(skill_point);
+    s->clear_ext_point();
+    for (const int v : ext_point) s->add_ext_point(v);
     s->set_reborn(static_cast<std::uint32_t>(std::max(0, reborn)));
     role.set_level(npc.level);
     role.set_exp(static_cast<std::uint64_t>(std::max<std::int64_t>(0, exp)));
@@ -439,6 +443,22 @@ void KPlayer::change_cur_energy(KNpc& npc, int n, const KPlayerSet& tables) noex
     const int mana = tables.mana_per_energy(static_cast<int>(npc.series)) * n;
     npc.cur.mana_max += mana;               // KNpc::AddCurManaMax 0x08078D10: both twins
     npc.cur.mana_max_yan += mana;
+}
+
+bool KPlayer::add_ext_point(int n, int value) noexcept
+{
+    if (n < 0 || n >= kExtPoints) return false;   // 0x080AB0A2: an unsigned compare against 7
+    ext_point[static_cast<std::size_t>(n)] += value;
+    return true;
+}
+
+bool KPlayer::pay_ext_point(int n, int value) noexcept
+{
+    if (n < 0 || n >= kExtPoints) return false;   // 0x080AB115
+    int& p = ext_point[static_cast<std::size_t>(n)];
+    if (p < value) return false;                  // 0x080AB121: not enough
+    p -= value;
+    return true;
 }
 
 } // namespace jx::zone

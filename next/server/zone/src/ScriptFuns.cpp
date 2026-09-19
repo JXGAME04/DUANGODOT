@@ -11,6 +11,8 @@ extern "C" {
 #include <array>
 #include <climits>
 #include <cstdint>
+#include <cstring>
+#include <ctime>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -2452,6 +2454,349 @@ int l_TabFile_Save(lua_State* L)
     return 1;
 }
 
+// ---- S1 (docs/SCRIPT-API.md, docs/LINUX-SERVER.md §30): the script api the Linux scripts call most that needs no new packet
+
+// the wall clock the scripts see: time(0) plus the map's offset (jx_linux_y adds [0x9789ee4] / [0x9789ee8] once the clock
+// flag [0x9789ee0] is set, 0 before it)
+std::int64_t script_now()
+{
+    const KSubWorld* w = g_ScriptContext().world;
+    return static_cast<std::int64_t>(std::time(nullptr)) + (w != nullptr ? w->config().time_offset : 0);
+}
+
+bool local_time(std::time_t t, std::tm& out)
+{
+#ifdef _WIN32
+    return localtime_s(&out, &t) == 0;
+#else
+    return localtime_r(&t, &out) != nullptr;
+#endif
+}
+
+// the conversions strftime knows (C99; glibc prints an unknown one as it is, the Windows runtime aborts on it - so an
+// unknown one is refused like an empty result is, "invalid `date' format")
+bool strftime_format_ok(const char* f)
+{
+    static const char* const kConv = "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%";
+    for (const char* p = f; *p != '\0'; ++p) {
+        if (*p != '%') continue;
+        ++p;
+        if (*p == 'E' || *p == 'O') ++p;
+        if (*p == '\0' || std::strchr(kConv, *p) == nullptr) return false;
+    }
+    return true;
+}
+
+// GetLocalDate(format) (0x0812A140): nothing without an argument; localtime(now + offset) - and when that is daylight saving
+// time (tm_isdst == 1) an hour earlier with tm_isdst cleared (0x0812A260: the game keeps standard time); strftime into 0x100
+// bytes; an empty result raises "invalid `date' format".  Returns the string.
+int l_GetLocalDate(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) return 0;
+    const char* fmt = lua_tostring(L, 1);
+    if (fmt == nullptr) fmt = "";
+    auto t = static_cast<std::time_t>(script_now());
+    std::tm tm{};
+    if (local_time(t, tm) && tm.tm_isdst == 1) {
+        t -= 3600;
+        local_time(t, tm);
+        tm.tm_isdst = 0;
+    }
+    char buf[0x100];
+    const std::size_t n = strftime_format_ok(fmt) ? std::strftime(buf, sizeof buf, fmt, &tm) : 0;
+    if (n == 0) return luaL_error(L, "invalid `date' format");
+    lua_pushlstring(L, buf, n);
+    return 1;
+}
+
+// GetCurServerTime() (0x08103800): time(0) + the offset once the clock is set (0 before; the zone's clock is always set)
+int l_GetCurServerTime(lua_State* L)
+{
+    lua_pushinteger(L, static_cast<lua_Integer>(script_now()));
+    return 1;
+}
+
+// SubWorldID2Idx(id) (0x08102580): -1 without an argument; else KSubWorldSet::GetSubWorldIdx 0x080F68A0 - the first hosted
+// map whose id (SubWorld+0xc) is it, -1 when none.  This zone's index of a map IS its id (GetWorldPos / NewWorld speak in
+// map ids), so a hosted map answers its own id.
+int l_SubWorldID2Idx(lua_State* L)
+{
+    lua_Integer idx = -1;
+    if (lua_gettop(L) > 0) {
+        const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        const KSubWorld* w = g_ScriptContext().world;
+        if (id >= 0 && w != nullptr && w->hosts_map(static_cast<std::uint32_t>(id))) idx = id;
+    }
+    lua_pushinteger(L, idx);
+    return 1;
+}
+
+// SubWorldIdx2ID([idx]) (0x081077D0): without an argument the script's own map (the "SubWorld" global of the old states,
+// 0x08106A40); an index below the count answers its id, anything else 0
+int l_SubWorldIdx2ID(lua_State* L)
+{
+    const KSubWorld* w = g_ScriptContext().world;
+    lua_Integer id = 0;
+    if (lua_gettop(L) <= 0) {
+        if (w != nullptr) id = w->map_id();
+    } else {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (idx >= 0 && w != nullptr && w->hosts_map(static_cast<std::uint32_t>(idx))) id = idx;
+    }
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+std::uint32_t arg_u32(lua_State* L, int i)
+{
+    return static_cast<std::uint32_t>(static_cast<std::int64_t>(lua_tonumber(L, i)));   // fistp then the low dword
+}
+
+// GetBit(value, bit) (0x080FEBA0): bit 1..32 -> (value >> (bit - 1)) & 1, else 0; the arguments are read as numbers whatever
+// they are (a missing one is 0)
+int l_GetBit(lua_State* L)
+{
+    const std::uint32_t value = arg_u32(L, 1);
+    const auto bit = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    lua_pushinteger(L, bit >= 1 && bit <= 32 ? static_cast<lua_Integer>((value >> (bit - 1)) & 1u) : 0);
+    return 1;
+}
+
+// SetBit(value, bit, on) (0x080FEAC0): bit 1..32 -> the bit set when `on` is exactly 1, cleared otherwise (0x080FEB5A: the
+// mask 0xfffffffe rolled); outside 1..32 the value as it is.  The result is the unsigned 32-bit value (0x080FEB72).
+int l_SetBit(lua_State* L)
+{
+    std::uint32_t value = arg_u32(L, 1);
+    const auto bit = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    const auto on = static_cast<std::int64_t>(lua_tonumber(L, 3));
+    if (bit >= 1 && bit <= 32) {
+        const std::uint32_t mask = 1u << (bit - 1);
+        value = on == 1 ? (value | mask) : (value & ~mask);
+    }
+    lua_pushinteger(L, static_cast<lua_Integer>(value));
+    return 1;
+}
+
+// GetByte(value, n) (0x080FEA20): byte n = 1..4 of the 32-bit value (0x080FEA7D: (n - 1) * 8), else 0
+int l_GetByte(lua_State* L)
+{
+    const std::uint32_t value = arg_u32(L, 1);
+    const auto n = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    lua_pushinteger(L, n >= 1 && n <= 4 ? static_cast<lua_Integer>((value >> ((n - 1) * 8)) & 0xffu) : 0);
+    return 1;
+}
+
+// SetByte(value, n, byte) (0x080FE950): byte n = 1..4 of the value replaced by the low byte of `byte` (0x080FE9E8); outside
+// 1..4 the value as it is (unsigned 32-bit)
+int l_SetByte(lua_State* L)
+{
+    std::uint32_t value = arg_u32(L, 1);
+    const auto n = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    const std::uint32_t b = arg_u32(L, 3) & 0xffu;
+    if (n >= 1 && n <= 4) {
+        const int shift = static_cast<int>((n - 1) * 8);
+        value = (value & ~(0xffu << shift)) | (b << shift);
+    }
+    lua_pushinteger(L, static_cast<lua_Integer>(value));
+    return 1;
+}
+
+// GetMissionV(idx) (0x081072F0): the script's map (the SubWorld global, 0x08106A40) and idx 1..99 -> the map's mission value
+// (SubWorld+0x484b8 + idx * 4), else 0
+int l_GetMissionV(lua_State* L)
+{
+    const KSubWorld* w = g_ScriptContext().world;
+    lua_Integer v = 0;
+    if (lua_gettop(L) > 0 && w != nullptr) {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (idx >= 1 && idx <= 99) v = w->mission_value(static_cast<int>(idx));
+    }
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+// SetMissionV(idx, value) (0x08107390): idx 0..99 -> the map's mission value = int(value); returns nothing
+int l_SetMissionV(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 1 && w != nullptr) {
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        const auto value = static_cast<std::int64_t>(lua_tonumber(L, 2));
+        if (idx >= 0 && idx <= 99) w->set_mission_value(static_cast<int>(idx), static_cast<int>(value));
+    }
+    return 0;
+}
+
+// GetItemName(idx) (0x081005D0): the item of that index (Item[] 0x830D300, 1..count-1; an id of the player's list here) ->
+// its name (Item+0x2c), else nil
+int l_GetItemName(lua_State* L)
+{
+    if (lua_gettop(L) > 0) {
+        if (const KItem* it = script_item(L, "GetItemName")) {
+            lua_pushstring(L, it->name().c_str());
+            return 1;
+        }
+    }
+    lua_pushnil(L);
+    return 1;
+}
+
+// GetItemParam(idx, n) (0x080FECC0): two arguments, a live item and n 1..6 -> Item+0x1e0 + n * 4 (the six numbers
+// SetItemMagicLevel writes: KItem::magic_level), else 0
+int l_GetItemParam(lua_State* L)
+{
+    lua_Integer v = 0;
+    if (lua_gettop(L) > 1) {
+        const KItem* it = script_item(L, "GetItemParam");
+        const auto n = static_cast<std::int64_t>(lua_tonumber(L, 2));
+        if (it != nullptr && n >= 1 && n <= 6) v = it->magic_level[static_cast<std::size_t>(n - 1)];
+    }
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+// GetExp() (0x08117860): the player's m_nExp (Player+0x595c, 64-bit); nil without a player (0x081178A0)
+int l_GetExp(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetExp");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, static_cast<lua_Integer>(p->player.exp));
+    return 1;
+}
+
+// GetExtPoint(n) (0x0810FA90 -> KPlayer 0x080A8080): n 0..7 -> Player+0x44 + n * 4; 0 otherwise, without a player or an argument
+int l_GetExtPoint(lua_State* L)
+{
+    lua_Integer v = 0;
+    if (lua_gettop(L) > 0) {
+        if (const KNpc* p = player_of(L, "GetExtPoint")) {
+            const auto n = static_cast<std::int64_t>(lua_tonumber(L, 1));
+            if (n >= 0 && n < KPlayer::kExtPoints) v = p->player.ext_point[static_cast<std::size_t>(n)];
+        }
+    }
+    lua_pushinteger(L, v);
+    return 1;
+}
+
+// AddExtPoint(n, value) (0x0810FBE0) / AddExtPointForGS (0x0810FB20): two arguments, a player, value >= 0 (0x0810FC48) ->
+// KPlayer::AddExtPoint 0x080AB090(n, value, for_gs) -> 1 when n is 0..7 (the point added, the KSG line logged for GS), else 0
+int ext_point_add(lua_State* L, const char* fn, bool for_gs)
+{
+    lua_Integer ok = 0;
+    if (lua_gettop(L) > 1) {
+        if (KNpc* p = player_of(L, fn)) {
+            const auto n = static_cast<std::int64_t>(lua_tonumber(L, 1));
+            const auto value = static_cast<std::int64_t>(lua_tonumber(L, 2));
+            if (value >= 0 && p->player.add_ext_point(static_cast<int>(n), static_cast<int>(value))) {
+                ok = 1;
+                log::info("zone.player", "ext point", {log::kv("entity", p->id), log::kv("index", n), log::kv("value", value),
+                                                       log::kv("gs", for_gs), log::kv("left", p->player.ext_point[static_cast<std::size_t>(n)])});
+            }
+        }
+    }
+    lua_pushinteger(L, ok);
+    return 1;
+}
+
+int l_AddExtPoint(lua_State* L) { return ext_point_add(L, "AddExtPoint", false); }
+int l_AddExtPointForGS(lua_State* L) { return ext_point_add(L, "AddExtPointForGS", true); }
+
+// PayExtPoint(n, value) (0x0810FCA0): two arguments, a player, value >= 0 -> KPlayer::PayExtPoint 0x080AB100: n 0..7 and enough
+// points -> paid (logged), 1; else 0
+int l_PayExtPoint(lua_State* L)
+{
+    lua_Integer ok = 0;
+    if (lua_gettop(L) > 1) {
+        if (KNpc* p = player_of(L, "PayExtPoint")) {
+            const auto n = static_cast<std::int64_t>(lua_tonumber(L, 1));
+            const auto value = static_cast<std::int64_t>(lua_tonumber(L, 2));
+            if (value >= 0 && p->player.pay_ext_point(static_cast<int>(n), static_cast<int>(value))) {
+                ok = 1;
+                log::info("zone.player", "ext point", {log::kv("entity", p->id), log::kv("index", n), log::kv("value", -value),
+                                                       log::kv("gs", false), log::kv("left", p->player.ext_point[static_cast<std::size_t>(n)])});
+            }
+        }
+    }
+    lua_pushinteger(L, ok);
+    return 1;
+}
+
+// CalcFreeItemCellCount() (0x0810CA20): a player -> KItemList::CalcFreeCellCount 0x081F8A90 of Player+0x5088 (the bag: the
+// cells holding nothing); 0 without a player
+int l_CalcFreeItemCellCount(lua_State* L)
+{
+    lua_Integer n = 0;
+    if (const KNpc* p = player_of(L, "CalcFreeItemCellCount")) {
+        if (const KItemList* items = g_ScriptContext().world->items_of(p->sid)) n = items->room(room_equipment).free_cells();
+    }
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+// SearchPlayer(name) (0x081020A0 -> KPlayerSet::SearchPlayer 0x080C6010): the player of that exact name -> its index (the
+// entity id here), 0 for nobody, an empty name or no argument
+int l_SearchPlayer(lua_State* L)
+{
+    lua_Integer idx = 0;
+    if (lua_gettop(L) > 0) {
+        const char* name = lua_tostring(L, 1);
+        const KSubWorld* w = g_ScriptContext().world;
+        if (name != nullptr && w != nullptr) {
+            if (const KNpc* p = w->find_player_by_name(name)) idx = static_cast<lua_Integer>(p->id.value);
+        }
+    }
+    lua_pushinteger(L, idx);
+    return 1;
+}
+
+// CallPlayerFunction(player, fn, ...) (0x08129580): at least two arguments; `player` 1..0x4af (an entity id of a player here);
+// `fn` a function value or the name of a global of the running script (an empty name does nothing, 0x08129633); the script's
+// current player becomes `player` for the call (SetPlayerIndex 0x080FBF10 before, the old one back after, 0x081296EE), the
+// remaining arguments are handed over (0x08221ED0 / 0x08221AF0 with top - 2 of them) and whatever the function returns is
+// returned.  Nothing when the player or the function is missing, or the call fails.
+int l_CallPlayerFunction(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    KNpc* target = id > 0 ? w->mutable_entity(EntityId{static_cast<std::uint64_t>(id)}) : nullptr;
+    if (target == nullptr || target->kind != KNpcKind::player) return 0;
+    const char* name = "";
+    if (lua_type(L, 2) == LUA_TFUNCTION) {
+        lua_pushvalue(L, 2);
+    } else {
+        name = lua_isstring(L, 2) ? lua_tostring(L, 2) : nullptr;
+        if (name == nullptr || *name == '\0') return 0;
+        lua_getglobal(L, name);
+        if (!lua_isfunction(L, -1)) {
+            lua_pop(L, 1);
+            log::warn("lua", "call player function failed", {log::kv("function", name), log::kv("error", "not a function")});
+            return 0;
+        }
+    }
+    for (int i = 3; i <= top; ++i) lua_pushvalue(L, i);
+    KScriptContext& ctx = g_ScriptContext();
+    KNpc* const saved_player = ctx.player;
+    const std::uint64_t saved_sid = ctx.sid;
+    ctx.player = target;
+    ctx.sid = target->sid;
+    const int rc = lua_pcall(L, top - 2, LUA_MULTRET, 0);
+    ctx.player = saved_player;
+    ctx.sid = saved_sid;
+    if (rc != LUA_OK) {
+        const char* err = lua_tostring(L, -1);
+        log::warn("lua", "call player function failed", {log::kv("function", name), log::kv("error", err != nullptr ? err : "?")});
+        lua_pop(L, 1);
+        return 0;
+    }
+    return lua_gettop(L) - top;   // the function's results sit above the arguments
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -2515,6 +2860,13 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GiveItemUI", l_GiveItemUI},         {"GetGiveItemUnit", l_GetGiveItemUnit}, {"GetGiveItemUnitWithPos", l_GetGiveItemUnitWithPos},
     {"SetUiGiveItemMsg", l_SetUiGiveItemMsg}, {"SetUiGiveItemMoreConfirmMsg", l_SetUiGiveItemMoreConfirmMsg},
     {"AddNote", l_AddNote},               {"AskClientForNumber", l_AskClientForNumber}, {"AskClientForString", l_AskClientForString},
+    {"GetLocalDate", l_GetLocalDate},     {"GetCurServerTime", l_GetCurServerTime}, {"SubWorldID2Idx", l_SubWorldID2Idx},
+    {"SubWorldIdx2ID", l_SubWorldIdx2ID}, {"GetBit", l_GetBit},               {"SetBit", l_SetBit},
+    {"GetByte", l_GetByte},               {"SetByte", l_SetByte},             {"GetMissionV", l_GetMissionV},
+    {"SetMissionV", l_SetMissionV},       {"GetItemName", l_GetItemName},     {"GetItemParam", l_GetItemParam},
+    {"GetExp", l_GetExp},                 {"GetExtPoint", l_GetExtPoint},     {"AddExtPoint", l_AddExtPoint},
+    {"AddExtPointForGS", l_AddExtPointForGS}, {"PayExtPoint", l_PayExtPoint},  {"CalcFreeItemCellCount", l_CalcFreeItemCellCount},
+    {"SearchPlayer", l_SearchPlayer},     {"CallPlayerFunction", l_CallPlayerFunction},
     {nullptr, nullptr},
 };
 

@@ -50,6 +50,10 @@ KGameServer::KGameServer(asio::io_context& io, KGameServerConfig cfg)
         instances_.push_back(std::move(inst));
         ++instance_id;
     }
+    // what SubWorldID2Idx / SubWorldIdx2ID of the scripts answer from (KSubWorldSet)
+    std::vector<std::uint32_t> hosted;
+    for (const KMapInstance* inst : instance_ptrs_) hosted.push_back(inst->map_id());
+    for (KMapInstance* inst : instance_ptrs_) inst->world().set_hosted_maps(hosted);
     workers_ = cfg_.simulation_threads != 0 ? cfg_.simulation_threads : auto_workers(instances_.size());
     scheduler_ = KWorldScheduler(workers_);
     scheduler_.assign_all(instance_ptrs_);

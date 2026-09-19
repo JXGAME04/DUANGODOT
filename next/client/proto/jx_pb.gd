@@ -12230,6 +12230,12 @@ class RoleStats:
 		service.field = __camp
 		data[__camp.tag] = service
 		
+		var __ext_point_default: Array[int] = []
+		__ext_point = PBField.new("ext_point", PB_DATA_TYPE.INT32, PB_RULE.REPEATED, 17, true, __ext_point_default)
+		service = PBServiceField.new()
+		service.field = __ext_point
+		data[__ext_point.tag] = service
+		
 	var data = {}
 	
 	var __hp: PBField
@@ -12439,6 +12445,15 @@ class RoleStats:
 		__camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_camp(value : int) -> void:
 		__camp.value = value
+	
+	var __ext_point: PBField
+	func get_ext_point() -> Array[int]:
+		return __ext_point.value
+	func clear_ext_point() -> void:
+		data[17].state = PB_SERVICE_STATE.UNFILLED
+		__ext_point.value.clear()
+	func add_ext_point(value : int) -> void:
+		__ext_point.value.append(value)
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

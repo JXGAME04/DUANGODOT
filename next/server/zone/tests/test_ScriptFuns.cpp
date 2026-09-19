@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -73,6 +74,98 @@ function exp_none()
     AddOwnExp(-5)
     AddOwnExp()
 end
+function s1_bits()
+    g_b1 = GetBit(5, 1)
+    g_b2 = GetBit(5, 2)
+    g_b3 = GetBit(5, 33)
+    g_b4 = GetBit()
+    g_s1 = SetBit(0, 3, 1)
+    g_s2 = SetBit(7, 1, 0)
+    g_s3 = SetBit(7, 40, 1)
+    g_s4 = SetBit(-1, 1, 0)
+    g_s5 = SetBit(0, 3, 2)
+    g_by1 = GetByte(305419896, 1)
+    g_by2 = GetByte(305419896, 4)
+    g_by3 = GetByte(305419896, 5)
+    g_sb1 = SetByte(305419896, 2, 171)
+    g_sb2 = SetByte(305419896, 9, 1)
+    g_sb3 = SetByte(305419896, 1, 256)
+end
+function s1_mission()
+    g_m0 = GetMissionV(5)
+    SetMissionV(5, 42)
+    SetMissionV(0, 7)
+    SetMissionV(100, 9)
+    SetMissionV(99, 3.7)
+    g_m1 = GetMissionV(5)
+    g_m2 = GetMissionV(0)
+    g_m3 = GetMissionV(100)
+    g_m4 = GetMissionV(99)
+    g_m5 = GetMissionV()
+end
+function s1_world(other)
+    g_w1 = SubWorldIdx2ID()
+    g_w2 = SubWorldID2Idx(g_w1)
+    g_w3 = SubWorldID2Idx(9999)
+    g_w4 = SubWorldIdx2ID(9999)
+    g_w5 = SubWorldID2Idx()
+    g_w6 = SubWorldID2Idx(other)
+    g_w7 = SubWorldIdx2ID(other)
+end
+function s1_time()
+    g_t1 = GetCurServerTime()
+    g_d1 = GetLocalDate("%Y")
+    g_d2 = GetLocalDate("%H:%M")
+    g_d3 = GetLocalDate()
+end
+function s1_bad_date()
+    return GetLocalDate("%q")
+end
+function s1_player()
+    g_exp = GetExp()
+    g_e0 = GetExtPoint(0)
+    g_a1 = AddExtPoint(0, 10)
+    g_a2 = AddExtPoint(0, -3)
+    g_a3 = AddExtPoint(8, 5)
+    g_a4 = AddExtPoint(0)
+    g_e1 = GetExtPoint(0)
+    g_p1 = PayExtPoint(0, 4)
+    g_p2 = PayExtPoint(0, 100)
+    g_e2 = GetExtPoint(0)
+    g_g1 = AddExtPointForGS(1, 2)
+    g_e3 = GetExtPoint(1)
+    g_e4 = GetExtPoint(7)
+    g_e5 = GetExtPoint(8)
+    g_e6 = GetExtPoint()
+    g_free = CalcFreeItemCellCount()
+    g_sp1 = SearchPlayer("A")
+    g_sp2 = SearchPlayer("nobody")
+    g_sp3 = SearchPlayer("")
+    g_spb = SearchPlayer("B")
+    g_cp = CallPlayerFunction(g_sp1, "Twice", 21)
+    g_cp2 = CallPlayerFunction(g_spb, "NameOf")
+    g_cp3 = CallPlayerFunction(0, "Twice", 1)
+    g_cp4 = CallPlayerFunction(g_sp1, "", 1)
+    g_cp5 = CallPlayerFunction(g_sp1, "NoSuchFunction", 1)
+    g_cp6 = CallPlayerFunction(g_spb, NameOf)
+    g_cp7, g_cp8 = CallPlayerFunction(g_sp1, "Pair", 1, 2)
+    g_me = GetName()
+end
+function s1_item(idx)
+    g_in1 = GetItemName(idx)
+    g_in2 = GetItemName(999999)
+    g_in3 = GetItemName()
+    g_ip1 = GetItemParam(idx, 1)
+    g_ip2 = GetItemParam(idx, 6)
+    g_ip3 = GetItemParam(idx, 7)
+    g_ip4 = GetItemParam(idx)
+    SetItemMagicLevel(idx, 6, 77)
+    g_ip5 = GetItemParam(idx, 6)
+end
+function Twice(n) return n * 2 end
+function NameOf() return GetName() end
+function Pair(a, b) return a + 10, b + 10 end
+function Num(name) return _G[name] end
 function Str(v)
     if v == nil then return "nil" end
     return tostring(v)
@@ -262,4 +355,123 @@ TEST_CASE("KPlayer::add_exp_direct 0x080AFEA0: the clamps of the core", "[script
     CHECK(n.player.add_exp_direct(n, 100, tables, nullptr) == 0);
     CHECK(n.player.exp == 10);
     CHECK(n.level == 200);
+}
+
+TEST_CASE("S1 script api: bits and bytes, mission values, subworld ids, the clock, ext points, the bag, SearchPlayer and CallPlayerFunction", "[scriptfuns][s1]")
+{
+    MiscWorld mw;
+    jx::zone::KLuaScript* s = mw.w.config().scripts->get(R"(\script\test\misc.lua)");
+    REQUIRE(s != nullptr);
+    auto num = [&](const char* name) { return s->call_number("Num", {std::string(name)}); };
+
+    // GetBit / SetBit (0x080FEBA0 / 0x080FEAC0), GetByte / SetByte (0x080FEA20 / 0x080FE950)
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s1_bits", mw.A(), 0));
+    CHECK(mw.is("g_b1", "1"));
+    CHECK(mw.is("g_b2", "0"));
+    CHECK(mw.is("g_b3", "0"));
+    CHECK(mw.is("g_b4", "0"));
+    CHECK(mw.is("g_s1", "4"));
+    CHECK(mw.is("g_s2", "6"));
+    CHECK(mw.is("g_s3", "7"));
+    CHECK(mw.is("g_s4", "4294967294"));   // -1 as the unsigned value with bit 1 cleared
+    CHECK(mw.is("g_s5", "0"));            // `on` must be exactly 1 to set
+    CHECK(mw.is("g_by1", "120"));         // 0x12345678: byte 1 = 0x78
+    CHECK(mw.is("g_by2", "18"));          // byte 4 = 0x12
+    CHECK(mw.is("g_by3", "0"));
+    CHECK(mw.is("g_sb1", "305441656"));   // 0x1234ab78
+    CHECK(mw.is("g_sb2", "305419896"));   // out of range: unchanged
+    CHECK(mw.is("g_sb3", "305419776"));   // the low byte of 256 is 0
+
+    // GetMissionV / SetMissionV (0x081072F0 / 0x08107390): 100 values of the map, 1..99 readable, 0..99 writable
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s1_mission", mw.A(), 0));
+    CHECK(mw.is("g_m0", "0"));
+    CHECK(mw.is("g_m1", "42"));
+    CHECK(mw.is("g_m2", "0"));
+    CHECK(mw.is("g_m3", "0"));
+    CHECK(mw.is("g_m4", "3"));
+    CHECK(mw.is("g_m5", "0"));
+    CHECK(mw.w.mission_value(0) == 7);
+    CHECK(mw.w.mission_value(99) == 3);
+    CHECK(mw.w.mission_value(100) == 0);
+
+    // SubWorldIdx2ID / SubWorldID2Idx (0x081077D0 / 0x08102580): the hosted maps of the zone
+    mw.w.set_hosted_maps({mw.w.map_id(), 25});
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s1_world", mw.A(), 25));
+    CHECK(num("g_w1") == static_cast<double>(mw.w.map_id()));
+    CHECK(num("g_w2") == static_cast<double>(mw.w.map_id()));
+    CHECK(mw.is("g_w3", "-1"));
+    CHECK(mw.is("g_w4", "0"));
+    CHECK(mw.is("g_w5", "-1"));
+    CHECK(mw.is("g_w6", "25"));
+    CHECK(mw.is("g_w7", "25"));
+
+    // GetCurServerTime / GetLocalDate (0x08103800 / 0x0812A140)
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s1_time", mw.A(), 0));
+    const auto now = static_cast<double>(std::time(nullptr));
+    const std::optional<double> t1 = num("g_t1");
+    REQUIRE(t1.has_value());
+    CHECK(std::abs(*t1 - now) <= 5.0);
+    std::time_t tt = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &tt);
+#else
+    localtime_r(&tt, &tm);
+#endif
+    char year[8];
+    std::strftime(year, sizeof year, "%Y", &tm);
+    CHECK(mw.is("g_d1", year));
+    CHECK(mw.is("g_d3", "nil"));   // no argument: nothing returned
+    CHECK_FALSE(s->call_number("s1_bad_date", {}).has_value());   // "invalid `date' format" is an error
+
+    // a second player for SearchPlayer / CallPlayerFunction
+    jx::EntityId b;
+    jx::zone::Pos at;
+    REQUIRE(mw.w.spawn_player(8, role_of(2, "B", 2100, 2000), b, at) == jx::pb::RESULT_OK);
+    mw.w.tick();
+    mw.A().player.exp = 1234567;
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s1_player", mw.A(), 0));
+    CHECK(mw.is("g_exp", "1234567"));
+    CHECK(mw.is("g_e0", "0"));
+    CHECK(mw.is("g_a1", "1"));
+    CHECK(mw.is("g_a2", "0"));    // a negative amount is refused by the script function (0x0810FC48)
+    CHECK(mw.is("g_a3", "0"));    // index 8 is outside 0..7
+    CHECK(mw.is("g_a4", "0"));    // one argument only
+    CHECK(mw.is("g_e1", "10"));
+    CHECK(mw.is("g_p1", "1"));
+    CHECK(mw.is("g_p2", "0"));    // not enough
+    CHECK(mw.is("g_e2", "6"));
+    CHECK(mw.is("g_g1", "1"));
+    CHECK(mw.is("g_e3", "2"));
+    CHECK(mw.is("g_e4", "0"));
+    CHECK(mw.is("g_e5", "0"));
+    CHECK(mw.is("g_e6", "0"));
+    CHECK(mw.A().player.ext_point[0] == 6);
+    CHECK(mw.A().player.ext_point[1] == 2);
+    const jx::zone::KItemList* items = mw.w.items_of(7);
+    REQUIRE(items != nullptr);
+    CHECK(num("g_free") == static_cast<double>(items->room(jx::zone::room_equipment).free_cells()));
+    CHECK(num("g_free") > 0.0);
+    CHECK(num("g_sp1") == static_cast<double>(mw.a.value));
+    CHECK(mw.is("g_sp2", "0"));
+    CHECK(mw.is("g_sp3", "0"));
+    CHECK(num("g_spb") == static_cast<double>(b.value));
+    CHECK(mw.is("g_cp", "42"));
+    CHECK(mw.is("g_cp2", "B"));    // GetName inside ran for B
+    CHECK(mw.is("g_cp3", "nil"));  // no such player
+    CHECK(mw.is("g_cp4", "nil"));  // an empty name
+    CHECK(mw.is("g_cp5", "nil"));  // not a function
+    CHECK(mw.is("g_cp6", "B"));    // a function value
+    CHECK(mw.is("g_cp7", "11"));
+    CHECK(mw.is("g_cp8", "12"));
+    CHECK(mw.is("g_me", "A"));     // the script's own player is back
+
+    // the ext points survive a save
+    jx::pb::RoleData saved;
+    REQUIRE(mw.w.role_snapshot(7, saved));
+    REQUIRE(saved.stats().ext_point_size() == jx::zone::KPlayer::kExtPoints);
+    CHECK(saved.stats().ext_point(0) == 6);
+    CHECK(saved.stats().ext_point(1) == 2);
+
+    // GetItemName / GetItemParam (0x081005D0 / 0x080FECC0) need an item: test_KItem.cpp ("S1 GetItemName / GetItemParam")
 }

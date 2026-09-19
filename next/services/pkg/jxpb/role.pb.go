@@ -108,8 +108,12 @@ type RoleStats struct {
 	SkillPoint     int32                  `protobuf:"varint,14,opt,name=skill_point,json=skillPoint,proto3" json:"skill_point,omitempty"`             // m_nSkillPoint: unspent (1 per level)
 	Reborn         uint32                 `protobuf:"varint,15,opt,name=reborn,proto3" json:"reborn,omitempty"`                                       // times reborn (KPlayer+0x86b8, <= 7): picks the experience table
 	Camp           uint32                 `protobuf:"varint,16,opt,name=camp,proto3" json:"camp,omitempty"`                                           // m_Camp (BaseInfo.iteam)
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// KPlayer+0x44..+0x60 of jx_linux_y: the eight extension points the scripts keep (GetExtPoint 0x0810FA90 / AddExtPoint
+	// 0x0810FBE0 / PayExtPoint 0x0810FCA0 / AddExtPointForGS 0x0810FB20 -> KPlayer 0x080AB090 / 0x080AB100); index 0 is the
+	// ticket count of the scripts (EXTPOINT_TICKET_NEW = 0)
+	ExtPoint      []int32 `protobuf:"varint,17,rep,packed,name=ext_point,json=extPoint,proto3" json:"ext_point,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RoleStats) Reset() {
@@ -252,6 +256,13 @@ func (x *RoleStats) GetCamp() uint32 {
 		return x.Camp
 	}
 	return 0
+}
+
+func (x *RoleStats) GetExtPoint() []int32 {
+	if x != nil {
+		return x.ExtPoint
+	}
+	return nil
 }
 
 // One attribute of an item (KMagicAttrib of the old core): a type and up to three parameters.
@@ -1034,7 +1045,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\fRolePosition\x12\x17\n" +
 	"\azone_id\x18\x01 \x01(\rR\x06zoneId\x12\x1d\n" +
 	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x15\n" +
-	"\x06map_id\x18\x03 \x01(\rR\x05mapId\"\xad\x03\n" +
+	"\x06map_id\x18\x03 \x01(\rR\x05mapId\"\xca\x03\n" +
 	"\tRoleStats\x12\x0e\n" +
 	"\x02hp\x18\x01 \x01(\x05R\x02hp\x12\x15\n" +
 	"\x06hp_max\x18\x02 \x01(\x05R\x05hpMax\x12\x0e\n" +
@@ -1055,7 +1066,8 @@ const file_jx_role_proto_rawDesc = "" +
 	"\vskill_point\x18\x0e \x01(\x05R\n" +
 	"skillPoint\x12\x16\n" +
 	"\x06reborn\x18\x0f \x01(\rR\x06reborn\x12\x12\n" +
-	"\x04camp\x18\x10 \x01(\rR\x04camp\"5\n" +
+	"\x04camp\x18\x10 \x01(\rR\x04camp\x12\x1b\n" +
+	"\text_point\x18\x11 \x03(\x05R\bextPoint\"5\n" +
 	"\tItemMagic\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12\x14\n" +
 	"\x05value\x18\x02 \x03(\x05R\x05value\"\x99\x05\n" +

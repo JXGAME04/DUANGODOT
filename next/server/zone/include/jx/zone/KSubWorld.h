@@ -12,6 +12,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <array>
 #include <vector>
 
 #include <google/protobuf/message_lite.h>
@@ -52,6 +53,9 @@ struct KSubWorldConfig {
     std::uint32_t zone_id = 1;
     std::string name = "Test Field";
     std::uint32_t tick_hz = 20;
+    // seconds added to the wall clock for the scripts: GetCurServerTime 0x08103800 / GetLocalDate 0x0812A140 of jx_linux_y
+    // add [0x9789ee4] / [0x9789ee8] to time(0) once the clock flag [0x9789ee0] is set (one offset here)
+    std::int64_t time_offset = 0;
     std::int32_t width = 8192;
     std::int32_t height = 8192;
     Pos spawn_point{4096, 4096};
@@ -361,6 +365,18 @@ public:
     // the entity to change (the script api and the tests set numbers on it)
     [[nodiscard]] KNpc* mutable_entity(EntityId id);
     [[nodiscard]] const KNpc* find_player(std::uint64_t sid) const;
+    // KPlayerSet::SearchPlayer 0x080C6010: the player on this map whose name is exactly this (the old set keeps a
+    // name -> index tree); nullptr for an empty name or nobody
+    [[nodiscard]] const KNpc* find_player_by_name(std::string_view name) const;
+    // the mission values of the map (KSubWorld+0x484b8.. of jx_linux_y: 100 ints the scripts share through GetMissionV /
+    // SetMissionV; in memory only, like the old server's)
+    static constexpr int kMissionValues = 100;
+    [[nodiscard]] int mission_value(int idx) const noexcept;
+    void set_mission_value(int idx, int value) noexcept;
+    // the maps this zone hosts (KSubWorldSet of the old server): SubWorldID2Idx / SubWorldIdx2ID answer from it; empty =
+    // only this map
+    void set_hosted_maps(std::vector<std::uint32_t> maps) { hosted_maps_ = std::move(maps); }
+    [[nodiscard]] bool hosts_map(std::uint32_t map) const noexcept;
     [[nodiscard]] std::vector<std::uint64_t> session_ids() const;
     // Copies the stored RoleData with the current position (what PlayerSave sends).
     bool role_snapshot(std::uint64_t sid, pb::RoleData& out) const;
@@ -874,6 +890,8 @@ private:
     // the creature that took the slot.  The live entities are contiguous for the hot loops.
     entity::EntityTable<KNpc> entities_;
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
+    std::array<int, kMissionValues> mission_values_{};          // SubWorld+0x484b8..: GetMissionV / SetMissionV
+    std::vector<std::uint32_t> hosted_maps_;                    // the zone's maps (set by KGameServer)
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)

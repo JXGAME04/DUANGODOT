@@ -558,6 +558,13 @@ void KInventory::clear()
     money_ = 0;
 }
 
+int KInventory::free_cells() const noexcept
+{
+    int n = 0;
+    for (const std::uint32_t c : cells_) n += c == 0 ? 1 : 0;   // 0x081F8ADA: `<= 0` on the cell's item index
+    return n;
+}
+
 std::uint32_t KInventory::at(int x, int y) const noexcept
 {
     if (x < 0 || y < 0 || x >= width_ || y >= height_) return 0;

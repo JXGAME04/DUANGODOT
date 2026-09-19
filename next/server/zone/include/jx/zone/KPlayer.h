@@ -81,6 +81,15 @@ struct KPlayer {
     int forbid_stamina = 0;    // +0x86b4: Lua ForbitStamina 0x0810CCC0 - no stamina gain while set (0x0808BD53)
     int attribute_point = 0;   // m_nAttributePoint +0x5924 (5 per level)
     int skill_point = 0;       // m_nSkillPoint     +0x5928 (1 per level)
+    // KPlayer+0x44..+0x60: the eight extension points of the scripts (GetExtPoint 0x080A8080 reads n <= 7; AddExtPoint /
+    // PayExtPoint below); saved in RoleStats.ext_point
+    static constexpr int kExtPoints = 8;
+    std::array<int, kExtPoints> ext_point{};
+    // KPlayer::AddExtPoint 0x080AB090(n, value, for_gs): n 0..7 -> ext_point[n] += value (any sign), true; the flag only
+    // chooses the KSG log line (the script functions log it here).  false outside 0..7.
+    bool add_ext_point(int n, int value) noexcept;
+    // KPlayer::PayExtPoint 0x080AB100(n, value): n 0..7 and ext_point[n] >= value -> paid, true; else false
+    bool pay_ext_point(int n, int value) noexcept;
     std::string account;       // the account's name (Player+0x264 of jx_linux_y; Lua GetAccount 0x0810F6A0 copies it)
     std::int64_t exp = 0;      // m_nExp           +0x595c
     std::int64_t next_level_exp = 0;   // m_nNextLevelExp +0x5964: what the current level needs to become the next

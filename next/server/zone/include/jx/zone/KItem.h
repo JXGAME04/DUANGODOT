@@ -281,6 +281,7 @@ public:
     [[nodiscard]] int height() const noexcept { return height_; }
     [[nodiscard]] std::uint32_t at(int x, int y) const noexcept;
     [[nodiscard]] bool check_room(int x, int y, int w, int h) const noexcept;   // KInventory::CheckRoom: the rectangle is inside and free
+    [[nodiscard]] int free_cells() const noexcept;   // KItemList::CalcFreeCellCount 0x081F8A90: the cells holding nothing, column by column
     bool place(int x, int y, std::uint32_t id, int w, int h);                   // KInventory::PlaceItem
     bool pick_up(std::uint32_t id, int x, int y, int w, int h);                 // KInventory::PickUpItem
     [[nodiscard]] bool find_room(int w, int h, int& x, int& y) const;           // KInventory::FindRoom: column by column, like the old one

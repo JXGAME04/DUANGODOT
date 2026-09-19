@@ -1122,6 +1122,10 @@ message RoleStats {
   int32 skill_point = 14;       // m_nSkillPoint: unspent (1 per level)
   uint32 reborn = 15;       // times reborn (KPlayer+0x86b8, <= 7): picks the experience table
   uint32 camp = 16;         // m_Camp (BaseInfo.iteam)
+  // KPlayer+0x44..+0x60 of jx_linux_y: the eight extension points the scripts keep (GetExtPoint 0x0810FA90 / AddExtPoint
+  // 0x0810FBE0 / PayExtPoint 0x0810FCA0 / AddExtPointForGS 0x0810FB20 -> KPlayer 0x080AB090 / 0x080AB100); index 0 is the
+  // ticket count of the scripts (EXTPOINT_TICKET_NEW = 0)
+  repeated int32 ext_point = 17;
 }
 
 // One attribute of an item (KMagicAttrib of the old core): a type and up to three parameters.

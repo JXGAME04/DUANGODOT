@@ -2209,3 +2209,38 @@ TEST_CASE("GiveItemUI 0x0812BBA0, the 0x89 list 0x080AB980 / 0x080AC560, GetGive
     CHECK(jx::zone::kGiveBoxWidth == 6);
     CHECK(jx::zone::kGiveBoxHeight == 4);
 }
+
+// ---- S1 of the script api (docs/SCRIPT-API.md): GetItemName 0x081005D0 / GetItemParam 0x080FECC0 ------------------
+
+TEST_CASE("S1 GetItemName / GetItemParam read a live item: its name, the six numbers of Item+0x1e4.. (SetItemMagicLevel), nil / 0 otherwise", "[item][world][lua][s1]")
+{
+    ItemWorld iw;
+    iw.w->take_outbox();
+    jx::zone::KLuaScript script;
+    REQUIRE(script.init(""));
+    jx::zone::KScriptContext& ctx = jx::zone::g_ScriptContext();
+    ctx.world = iw.w.get();
+    ctx.player = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
+    ctx.sid = 1;
+    REQUIRE(ctx.player != nullptr);
+    REQUIRE(script.call_number("AddItem", {0.0, 0.0, 0.0, 2.0, 2.0, 0.0}) == 1.0);   // "Kiem 2", id 1
+    REQUIRE(script.do_string(
+        "function S1NameLen(i) local n = GetItemName(i) if n == nil then return -1 end return string.len(n) end\n"
+        "function S1NameIs(i, s) return GetItemName(i) == s and 1 or 0 end\n"
+        "function S1NoArg() local n = GetItemName() if n == nil then return -1 end return 0 end\n"
+        "function S1ParamNoArg(i) return GetItemParam(i) end\n"
+        "function S1Set(i, n, v) SetItemMagicLevel(i, n, v) return 1 end\n", "s1"));
+    CHECK(script.call_number("S1NameIs", {1.0, std::string("Kiem 2")}) == 1.0);
+    CHECK(script.call_number("S1NameLen", {999.0}) == -1.0);    // no such item: nil
+    CHECK(script.call_number("S1NameLen", {0.0}) == -1.0);
+    CHECK(script.call_number("S1NoArg", {}) == -1.0);           // no argument: nil
+    CHECK(script.call_number("GetItemParam", {1.0, 1.0}) == 0.0);
+    CHECK(script.call_number("GetItemParam", {1.0, 6.0}) == 0.0);
+    CHECK(script.call_number("S1Set", {1.0, 6.0, 77.0}) == 1.0);   // SetItemMagicLevel returns nothing
+    CHECK(script.call_number("GetItemParam", {1.0, 6.0}) == 77.0);   // the same six numbers SetItemMagicLevel writes
+    CHECK(script.call_number("GetItemParam", {1.0, 7.0}) == 0.0);    // n outside 1..6
+    CHECK(script.call_number("GetItemParam", {1.0, 0.0}) == 0.0);
+    CHECK(script.call_number("GetItemParam", {999.0, 1.0}) == 0.0);  // no such item
+    CHECK(script.call_number("S1ParamNoArg", {1.0}) == 0.0);         // one argument only
+    ctx = jx::zone::KScriptContext{};
+}
