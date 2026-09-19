@@ -2340,6 +2340,16 @@ class EntityInfo:
 		service.field = __gold_type
 		data[__gold_type.tag] = service
 		
+		__camp = PBField.new("camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 21, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __camp
+		data[__camp.tag] = service
+		
+		__current_camp = PBField.new("current_camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 22, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __current_camp
+		data[__current_camp.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2601,6 +2611,32 @@ class EntityInfo:
 		__gold_type.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_gold_type(value : int) -> void:
 		__gold_type.value = value
+	
+	var __camp: PBField
+	func has_camp() -> bool:
+		if __camp.value != null:
+			return true
+		return false
+	func get_camp() -> int:
+		return __camp.value
+	func clear_camp() -> void:
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_camp(value : int) -> void:
+		__camp.value = value
+	
+	var __current_camp: PBField
+	func has_current_camp() -> bool:
+		if __current_camp.value != null:
+			return true
+		return false
+	func get_current_camp() -> int:
+		return __current_camp.value
+	func clear_current_camp() -> void:
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__current_camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_current_camp(value : int) -> void:
+		__current_camp.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

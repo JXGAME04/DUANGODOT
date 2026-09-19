@@ -26,6 +26,25 @@ static func name_color(entity_type: int, kind: int, client_rows: int) -> Color:
 	return NAME_COLOR_BOSS if kind > client_rows else NAME_COLOR_GOLD
 
 
+# PaintName 0x005F2507 for a player (kind 1 / 2): the colour of the name by KNpc+0xf8, the current camp of the 0x4c packet
+# (NPCCAMP: 0 begin, 1 justice, 2 evil, 3 balance, 4 free, 5 animal, 6 event) through the table 0x5f2d94 - 0xFFFFFFFF, 0xFFFFA85E,
+# 0xFFFF92FF, 0xFF55FF91, 0xFFFF0000, above 4 -> 0xFFFF69B4 (0x005F2519 .. 0x005F254B)
+static func player_name_color(current_camp: int) -> Color:
+	match current_camp:
+		0:
+			return Color(1.0, 1.0, 1.0)
+		1:
+			return Color(0xFF / 255.0, 0xA8 / 255.0, 0x5E / 255.0)
+		2:
+			return Color(0xFF / 255.0, 0x92 / 255.0, 0xFF / 255.0)
+		3:
+			return Color(0x55 / 255.0, 0xFF / 255.0, 0x91 / 255.0)
+		4:
+			return Color(1.0, 0.0, 0.0)
+		_:
+			return Color(0xFF / 255.0, 0x69 / 255.0, 0xB4 / 255.0)
+
+
 # 0x00642550: 1 plain, 2 gold, 3 above the client's table
 static func npc_class(kind: int, client_rows: int) -> int:
 	if kind == 0:
@@ -46,7 +65,8 @@ static func toggle_switch(value: int) -> int:
 
 
 # the pate loop 0x006702BD .. 0x00670331 for a monster (kind 0): nothing without bit 1 of the name value (0x0066B600(1)); hovered or
-# targeted -> the full block (size 14, a black background, 0x006702ED); else bit 2 (0x0066B600(2)) -> the block at size 12 (0x0067031A);
+# targeted -> the full block (size 14, a black outline - the BorderColor 0xff000000 of OutputText, 0x006702ED); else bit 2
+# (0x0066B600(2)) -> the block at size 12 (0x0067031A);
 # else nothing (show flag 0: PaintName 0x005F2316 returns for a monster).  Players and the other kinds always get their name line.
 # Returns 0 hidden, 12 / 14 the font size of the block.
 static func name_block(entity_type: int, name_switch: int, focus: bool) -> int:

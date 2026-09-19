@@ -64,6 +64,8 @@ var level := 0                     # m_Level (+0x28 of the 2.0 client): "%s/Lv:%
 # NpcGoldTemplate row + 1 while gold, 0 plain; a boss carries the server table's count + 1 (KNpcGold.gd)
 var gold_type := 0
 var hovered := false               # the npc under the mouse (the pate loop 0x0067021A: [core+0xa8c4] == this)
+var camp := 4                      # m_Camp (+0xf4 of the 2.0 client, the byte +0xb of the 0x4c packet)
+var current_camp := 4              # m_CurrentCamp (+0xf8, the byte +3): the colour of a player's name (0x005F2507)
 # the two show switches (KNpcGold.gd): "showplayername" (F7) and "showplayerlife" (F8) of the option word, shared by every npc
 static var name_switch := 3        # this client starts with the names on (2.0 starts at 0: docs/CLIENT-2.0.md §17)
 static var life_switch := 0
@@ -86,6 +88,8 @@ func setup(d: Dictionary, own: bool) -> void:
 	sex = int(d.get("sex", 0))
 	level = int(d.get("level", 0))
 	gold_type = int(d.get("gold_type", 0))
+	camp = int(d.get("camp", 4))
+	current_camp = int(d.get("current_camp", 4))
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -212,8 +216,8 @@ func _make_label() -> Label:
 
 # The name block as gamecl.exe 0x005F21B0 draws it: a monster (kind 0) gets "%d/%d" (0x005F2358, white) over "%s/Lv:%d"
 # (0x005F242F) in the colour of its gold kind (0x005F23E5: none = white, a kind = 0xFF6365FF, above the client's table =
-# 0xFFEBB200) - only as the show switch and the hover / target allow (KNpcGold.name_block: size 14 on black when hovered
-# or targeted, 12 with the switch's second bit, else nothing); players and the other kinds keep their name.
+# 0xFFEBB200) - only as the show switch and the hover / target allow (KNpcGold.name_block: size 14 with a black outline when
+# hovered or targeted, 12 with the switch's second bit, else nothing); players and the other kinds keep their name.
 # docs/CLIENT-2.0.md §16 / §17
 func _refresh_name() -> void:
 	if _label == null:
@@ -233,12 +237,10 @@ func _refresh_name() -> void:
 		var w: float = font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_CENTER, -1, block).x + 6.0
 		l.size = Vector2(w, float(block) + 6.0)
 		l.position.x = -w * 0.5
-		if block == 14:
-			var bg := StyleBoxFlat.new()
-			bg.bg_color = Color(0, 0, 0, 1)   # 0x006702ED: the block of the hovered / targeted npc on 0xff000000
-			l.add_theme_stylebox_override("normal", bg)
-		else:
-			l.remove_theme_stylebox_override("normal")
+		# 0x006702ED hands OutputText a BorderColor of 0xff000000 for the hovered / targeted npc (iRepresentShell::OutputText's last
+		# argument is the outline of the letters, not a background): a black outline at 14, none at 12
+		l.add_theme_constant_override("outline_size", 2 if block == 14 else 0)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 
 
 # the pate loop's hover (0x0067021A) and the switches (F7 / F8) changed: the block again
@@ -255,7 +257,16 @@ func set_hovered(on: bool) -> void:
 
 
 func name_color() -> Color:
+	if entity_type == ENTITY_PLAYER:
+		return KNpcGold.player_name_color(current_camp)   # 0x005F2507: the table 0x5f2d94 by +0xf8
 	return KNpcGold.name_color(entity_type, gold_type, NpcResList.gold_rows())
+
+
+# the 0x59 / 0x58 packets (G2C_ENTITY_CAMP): the camps, and a player's name colour with them
+func set_camp(c: int, current: int) -> void:
+	camp = c
+	current_camp = current
+	_refresh_name()
 
 
 # KNpcGold::SetGoldType 0x006E3560 (the 0x9a packet): the kind, 0 = plain again

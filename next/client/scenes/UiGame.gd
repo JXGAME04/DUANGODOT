@@ -74,6 +74,7 @@ func _ready() -> void:
 	Game.entity_life.connect(_on_life)
 	Game.state_icons_changed.connect(_on_state_icons)
 	Game.gold_changed.connect(_on_gold)
+	Game.entity_camp.connect(_on_entity_camp)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -497,6 +498,13 @@ func _on_state_icons(entity_id: int) -> void:
 	var d = Game.entities.get(entity_id)
 	if node != null and d != null and node.has_method("set_state_icons"):
 		node.set_state_icons(d.get("state_icons", []))
+
+
+# the 0x59 / 0x58 packets: a npc's camps - a player's name colour follows its current camp (0x005F2507)
+func _on_entity_camp(c: Dictionary) -> void:
+	var node: Node2D = _entities.get(int(c.id))
+	if node != null and node.has_method("set_camp"):
+		node.set_camp(int(c.camp), int(c.current_camp))
 
 
 # the 0x9a packet: a monster turned gold - its name takes the gold colour (0x005F23E5)

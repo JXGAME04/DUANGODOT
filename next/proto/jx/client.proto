@@ -160,6 +160,8 @@ message EntityInfo {
   bool riding = 19;              // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
   uint32 gold_type = 20;         // the gold word of the 0x4c packet (0x0807FCA5): KNpcGold::GetGoldKind = the NpcGoldTemplate row + 1 while gold, 0 plain; a boss
                                  // (+0x181c != 0) carries the table's count + 1 - the 2.0 client colours the name by it (0x005F23E5: 0xFF6365FF, above its table 0xFFEBB200)
+  int32 camp = 21;               // m_Camp +0x21c (the byte +0xb of the 0x4c packet -> the client's KNpc+0xf4)
+  int32 current_camp = 22;       // m_CurrentCamp +0x220 (the byte +3 -> KNpc+0xf8): the colour of a player's name (0x005F2507, the table 0x5f2d94)
 }
 
 message NpcGold {                // G2C_NPC_GOLD: the 0x9a packet {0x9a, npc id, word kind} of SetGoldTypeAndBackData 0x0809DF66 - a monster turned gold (the 2.0 handler 0x00653110)

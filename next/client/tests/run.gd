@@ -755,3 +755,8 @@ func test_gold_name() -> void:
 	check(not NpcGold.life_bar(1, 0, true) and NpcGold.life_bar(1, 1, false), "a player's bar needs the life switch")
 	check(NpcGold.life_bar(3, 0, true) and not NpcGold.life_bar(3, 0, false) and NpcGold.life_bar(3, 2, false), "a monster's bar: hovered or bit 2")
 	check(not NpcGold.life_bar(2, 3, true), "a townsman never (PaintLife refuses kind 3 unless forced)")
+	# a player's name by its current camp (0x005F2507, the table 0x5f2d94)
+	check(NpcGold.player_name_color(0) == Color(1, 1, 1), "camp_begin: white")
+	check(NpcGold.player_name_color(1).to_html(false) == "ffa85e", "camp_justice: 0xFFFFA85E (%s)" % NpcGold.player_name_color(1).to_html(false))
+	check(NpcGold.player_name_color(2).to_html(false) == "ff92ff" and NpcGold.player_name_color(3).to_html(false) == "55ff91", "evil / balance")
+	check(NpcGold.player_name_color(4) == Color(1, 0, 0) and NpcGold.player_name_color(6).to_html(false) == "ff69b4", "free red, above 4 pink")

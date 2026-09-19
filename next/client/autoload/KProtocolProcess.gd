@@ -1081,4 +1081,5 @@ func _entity_dict(e) -> Dictionary:
 		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir(),
 		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames(),
 		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false,
-		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0}
+		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0,
+		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4}

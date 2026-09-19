@@ -1205,27 +1205,30 @@ func (x *EntityLife) GetSource() uint64 {
 }
 
 type EntityInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	EntityType    EntityType             `protobuf:"varint,2,opt,name=entity_type,json=entityType,proto3,enum=jx.pb.EntityType" json:"entity_type,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Pos           *Vec2                  `protobuf:"bytes,4,opt,name=pos,proto3" json:"pos,omitempty"`
-	Target        *Vec2                  `protobuf:"bytes,5,opt,name=target,proto3" json:"target,omitempty"` // where it is currently moving to (== pos when idle)
-	MoveSpeed     uint32                 `protobuf:"varint,6,opt,name=move_speed,json=moveSpeed,proto3" json:"move_speed,omitempty"`
-	Level         uint32                 `protobuf:"varint,7,opt,name=level,proto3" json:"level,omitempty"`
-	Series        uint32                 `protobuf:"varint,8,opt,name=series,proto3" json:"series,omitempty"`
-	Sex           uint32                 `protobuf:"varint,9,opt,name=sex,proto3" json:"sex,omitempty"`
-	TemplateId    uint32                 `protobuf:"varint,10,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"` // npc/monster template, 0 for players
-	Path          []*Vec2                `protobuf:"bytes,11,rep,name=path,proto3" json:"path,omitempty"`                                // remaining waypoints after pos (server pathfinding)
-	Dir           uint32                 `protobuf:"varint,12,opt,name=dir,proto3" json:"dir,omitempty"`                                 // facing direction 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
-	Life          uint32                 `protobuf:"varint,13,opt,name=life,proto3" json:"life,omitempty"`
-	LifeMax       uint32                 `protobuf:"varint,14,opt,name=life_max,json=lifeMax,proto3" json:"life_max,omitempty"`
-	Doing         Action                 `protobuf:"varint,15,opt,name=doing,proto3,enum=jx.pb.Action" json:"doing,omitempty"` // what it is doing right now (a corpse reports ACTION_DEATH)
-	DoingFrames   uint32                 `protobuf:"varint,16,opt,name=doing_frames,json=doingFrames,proto3" json:"doing_frames,omitempty"`
-	Count         uint32                 `protobuf:"varint,17,opt,name=count,proto3" json:"count,omitempty"`                       // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
-	Hide          int32                  `protobuf:"varint,18,opt,name=hide,proto3" json:"hide,omitempty"`                         // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
-	Riding        bool                   `protobuf:"varint,19,opt,name=riding,proto3" json:"riding,omitempty"`                     // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
-	GoldType      uint32                 `protobuf:"varint,20,opt,name=gold_type,json=goldType,proto3" json:"gold_type,omitempty"` // the gold word of the 0x4c packet (0x0807FCA5): KNpcGold::GetGoldKind = the NpcGoldTemplate row + 1 while gold, 0 plain; a boss
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	EntityId    uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	EntityType  EntityType             `protobuf:"varint,2,opt,name=entity_type,json=entityType,proto3,enum=jx.pb.EntityType" json:"entity_type,omitempty"`
+	Name        string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Pos         *Vec2                  `protobuf:"bytes,4,opt,name=pos,proto3" json:"pos,omitempty"`
+	Target      *Vec2                  `protobuf:"bytes,5,opt,name=target,proto3" json:"target,omitempty"` // where it is currently moving to (== pos when idle)
+	MoveSpeed   uint32                 `protobuf:"varint,6,opt,name=move_speed,json=moveSpeed,proto3" json:"move_speed,omitempty"`
+	Level       uint32                 `protobuf:"varint,7,opt,name=level,proto3" json:"level,omitempty"`
+	Series      uint32                 `protobuf:"varint,8,opt,name=series,proto3" json:"series,omitempty"`
+	Sex         uint32                 `protobuf:"varint,9,opt,name=sex,proto3" json:"sex,omitempty"`
+	TemplateId  uint32                 `protobuf:"varint,10,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"` // npc/monster template, 0 for players
+	Path        []*Vec2                `protobuf:"bytes,11,rep,name=path,proto3" json:"path,omitempty"`                                // remaining waypoints after pos (server pathfinding)
+	Dir         uint32                 `protobuf:"varint,12,opt,name=dir,proto3" json:"dir,omitempty"`                                 // facing direction 0..63 (old g_GetDirIndex: 0 = down, clockwise on screen)
+	Life        uint32                 `protobuf:"varint,13,opt,name=life,proto3" json:"life,omitempty"`
+	LifeMax     uint32                 `protobuf:"varint,14,opt,name=life_max,json=lifeMax,proto3" json:"life_max,omitempty"`
+	Doing       Action                 `protobuf:"varint,15,opt,name=doing,proto3,enum=jx.pb.Action" json:"doing,omitempty"` // what it is doing right now (a corpse reports ACTION_DEATH)
+	DoingFrames uint32                 `protobuf:"varint,16,opt,name=doing_frames,json=doingFrames,proto3" json:"doing_frames,omitempty"`
+	Count       uint32                 `protobuf:"varint,17,opt,name=count,proto3" json:"count,omitempty"`                       // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
+	Hide        int32                  `protobuf:"varint,18,opt,name=hide,proto3" json:"hide,omitempty"`                         // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
+	Riding      bool                   `protobuf:"varint,19,opt,name=riding,proto3" json:"riding,omitempty"`                     // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
+	GoldType    uint32                 `protobuf:"varint,20,opt,name=gold_type,json=goldType,proto3" json:"gold_type,omitempty"` // the gold word of the 0x4c packet (0x0807FCA5): KNpcGold::GetGoldKind = the NpcGoldTemplate row + 1 while gold, 0 plain; a boss
+	// (+0x181c != 0) carries the table's count + 1 - the 2.0 client colours the name by it (0x005F23E5: 0xFF6365FF, above its table 0xFFEBB200)
+	Camp          int32 `protobuf:"varint,21,opt,name=camp,proto3" json:"camp,omitempty"`                                  // m_Camp +0x21c (the byte +0xb of the 0x4c packet -> the client's KNpc+0xf4)
+	CurrentCamp   int32 `protobuf:"varint,22,opt,name=current_camp,json=currentCamp,proto3" json:"current_camp,omitempty"` // m_CurrentCamp +0x220 (the byte +3 -> KNpc+0xf8): the colour of a player's name (0x005F2507, the table 0x5f2d94)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1396,6 +1399,20 @@ func (x *EntityInfo) GetRiding() bool {
 func (x *EntityInfo) GetGoldType() uint32 {
 	if x != nil {
 		return x.GoldType
+	}
+	return 0
+}
+
+func (x *EntityInfo) GetCamp() int32 {
+	if x != nil {
+		return x.Camp
+	}
+	return 0
+}
+
+func (x *EntityInfo) GetCurrentCamp() int32 {
+	if x != nil {
+		return x.CurrentCamp
 	}
 	return 0
 }
@@ -4992,7 +5009,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04life\x18\x02 \x01(\rR\x04life\x12\x19\n" +
 	"\blife_max\x18\x03 \x01(\rR\alifeMax\x12\x14\n" +
 	"\x05delta\x18\x04 \x01(\x05R\x05delta\x12\x16\n" +
-	"\x06source\x18\x05 \x01(\x04R\x06source\"\xbe\x04\n" +
+	"\x06source\x18\x05 \x01(\x04R\x06source\"\xf5\x04\n" +
 	"\n" +
 	"EntityInfo\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x122\n" +
@@ -5018,7 +5035,9 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x05count\x18\x11 \x01(\rR\x05count\x12\x12\n" +
 	"\x04hide\x18\x12 \x01(\x05R\x04hide\x12\x16\n" +
 	"\x06riding\x18\x13 \x01(\bR\x06riding\x12\x1b\n" +
-	"\tgold_type\x18\x14 \x01(\rR\bgoldType\"C\n" +
+	"\tgold_type\x18\x14 \x01(\rR\bgoldType\x12\x12\n" +
+	"\x04camp\x18\x15 \x01(\x05R\x04camp\x12!\n" +
+	"\fcurrent_camp\x18\x16 \x01(\x05R\vcurrentCamp\"C\n" +
 	"\aNpcGold\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x1b\n" +
 	"\tgold_type\x18\x02 \x01(\rR\bgoldType\"A\n" +

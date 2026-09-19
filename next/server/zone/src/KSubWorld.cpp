@@ -212,6 +212,8 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     int gold_word = e.gold.gold_kind();
     if (e.boss_flag != 0 && e.kind != KNpcKind::player) gold_word = (cfg_.gold ? cfg_.gold->count() : 0) + 1;
     out.set_gold_type(static_cast<std::uint32_t>(gold_word));
+    out.set_camp(e.camp);                   // +0xb of the packet (0x0807FBD2)
+    out.set_current_camp(e.current_camp);   // +3 (0x0807FBDB)
     switch (e.doing) {
     case KDoing::magic:
     case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
