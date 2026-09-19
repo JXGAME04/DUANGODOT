@@ -112,6 +112,7 @@ enum Action {
   ACTION_REVIVE = 4;
   ACTION_JUMP = 5;               // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
   ACTION_KNOCK_BACK = 6;         // KNpc::KnockBack 0x08087940 -> SendSyncAction 0x0807A970 (the 0x56 packet, doing 0x18): aim = the spot pushed to, frames = the frames of the push, target = who pushed
+  ACTION_SIT = 7;                // KNpc::DoSit 0x0807B550 (the 0x83 packet {npc id} around, the 0x9f {6, 1} to oneself): m_Doing 8, frames = m_SitFrame 15 - the last frame is held (0x08087880)
 }
 
 // An entity started an action (old NPC_HURT_SYNC / NPC_DEATH_SYNC / skill sync).
@@ -161,6 +162,40 @@ message EntityInfo {
                                  // (+0x181c != 0) carries the table's count + 1 - the 2.0 client colours the name by it (0x005F23E5: 0xFF6365FF, above its table 0xFFEBB200)
   int32 camp = 21;               // m_Camp +0x21c (the byte +0xb of the 0x4c packet -> the client's KNpc+0xf4)
   int32 current_camp = 22;       // m_CurrentCamp +0x220 (the byte +3 -> KNpc+0xf8): the colour of a player's name (0x005F2507, the table 0x5f2d94)
+  // +0x14dc..+0x14ec of the 0x4a / 0x4b player sync (0x0807BF86, 0x080813BD): the equipment rows of the main characters'
+  // part tables the client dresses a player in (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse, +0x13f8 mantle)
+  int32 helm_res = 23;
+  int32 armor_res = 24;
+  int32 weapon_res = 25;
+  int32 horse_res = 26;          // -1 = no horse (HorseRes level 0)
+  int32 mantle_res = 27;         // -1 = none
+  int32 pk_state = 28;           // a player's PK state (Player+0x5a50 & 3 in the 0x4a / 0x4b flag -> KNpc+0x16e4): 0 exercise, 1 fight, 2 kill
+}
+
+message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)
+  int32 state = 1;
+  uint32 seq = 2;
+}
+
+message PKState {                // G2C_PK_STATE: the 0x90 packet {state} of SetPKState 0x080C3740 and the 0x93 {value} of SetPKValue 0x080C38C0, to the owner
+  int32 state = 1;
+  int32 value = 2;               // 0..10
+  bool refused = 3;              // the switch was not taken (the message 0x86 {4, 0x23}: the state must be held NormalPKTimeLong seconds)
+}
+
+message EntityPK {               // G2C_ENTITY_PK: a player's PK state for the watchers (the 0x4b sync of the binary)
+  uint64 entity_id = 1;
+  int32 pk_state = 2;
+}
+
+message EntityRes {              // G2C_ENTITY_RES: the 0xad packet (0x0807A9D0) - a player's look changed (a piece put on / taken off)
+  uint64 entity_id = 1;
+  int32 helm_res = 2;
+  int32 armor_res = 3;
+  int32 weapon_res = 4;
+  int32 horse_res = 5;
+  int32 mantle_res = 6;
+  uint32 version = 7;            // +0x1504 (the client keeps it in KNpc+0x1408 and asks for a full sync when a 0x4b disagrees)
 }
 
 message NpcGold {                // G2C_NPC_GOLD: the 0x9a packet {0x9a, npc id, word kind} of SetGoldTypeAndBackData 0x0809DF66 - a monster turned gold (the 2.0 handler 0x00653110)
@@ -336,6 +371,11 @@ message ReviveReq {              // C2G_REVIVE: the revive request of the old cl
 
 message RideReq {                // C2G_RIDE: mount (on) or dismount the worn horse (the ride toggle 0x080AEFA0 of the old game)
   bool on = 1;
+  uint32 seq = 2;
+}
+
+message SitReq {                 // C2G_SIT: the 0x71 packet {0x71, byte sit} of the 2.0 client (Switch([[sit]]) of the tool bar) -> handler 0x080DC300: sit (1) or stand (0)
+  bool sit = 1;
   uint32 seq = 2;
 }
 
@@ -721,6 +761,8 @@ enum MsgId {
   C2G_RIDE = 1114;             // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
   C2G_SKILL_DESC = 1115;       // (zone) the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level script; the zone answers)
   C2G_SET_AURA = 1116;         // (zone) the aura switched on: the 0x6f packet of KNpc::SetAura 0x005EA870 (the right-mouse skill is an aura) -> handler cell 111 0x080DC460 -> KNpc::SetAura 0x08087290
+  C2G_SIT = 1117;
+  C2G_PK_STATE = 1118;         // (zone) the PK switch: the 0x76 packet {byte state} -> 0x080DBE00 -> KPlayerPK::SetPKState 0x080C3740              // (zone) sit down / stand up: the 0x71 packet -> handler cell 113 0x080DC300 -> 0x08078AA0(npc, 8 / 1)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -756,6 +798,9 @@ enum MsgId {
   G2C_MISSLE = 2124;           // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
   G2C_STATE_ICONS = 2125;      // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
   G2C_NPC_GOLD = 2126;         // the 0x9a packet (0x0809DF66): a monster turned gold - its kind (NpcGoldTemplate row + 1)
+  G2C_ENTITY_RES = 2127;       // the 0xad packet (0x0807A9D0): a player's equipment look (helm / armour / weapon / horse / mantle rows)
+  G2C_PK_STATE = 2128;         // the 0x90 / 0x93 packets: the character's own PK state and value
+  G2C_ENTITY_PK = 2129;        // a player's PK state for the others (the flag & 3 of the 0x4b sync)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;
@@ -886,5 +931,10 @@ message RoleData {
   // +0x59d8: 0 = never, the name of a character without faction depends on it); m_nFirstAddFaction is not saved (LoadFrom 0x080C1A62)
   int32 faction_last = 25;
   uint32 faction_count = 26;
+  // KPlayerPK (Player+0x5a50): the PK state 0..2 (the save 0x080BFCDD writes the byte), the PK value 0..10 (0x080BFCEF), the
+  // ForbidChangePK lock
+  uint32 pk_state = 27;
+  uint32 pk_value = 28;
+  bool pk_locked = 29;
 }
 

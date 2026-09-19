@@ -130,7 +130,11 @@ type NpcResOptions struct {
 	Names     []string                  // resource names (rows of 人物类型.txt)
 	Doings    []int                     // doings whose sprites are exported (npcres.Do*)
 	Equips    map[int]int               // equipment per part group for main characters (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); missing = none
-	Skills    map[int]npcres.Skill      // skills.txt by id, for the attack radius of the npc skills (nil = unknown)
+	// more equipment rows to export per group (the horses the zone can put a character on, the armours of its test
+	// items ...): every row here gets its sprites next to the default one; a group 3 row (a horse) also brings the
+	// on-horse actions (KNpcResNode::GetActNo with bRide) of every exported row
+	ExtraEquips map[int][]int
+	Skills      map[int]npcres.Skill // skills.txt by id, for the attack radius of the npc skills (nil = unknown)
 }
 
 // MergeAppearance returns the server's templates with the drawing side taken from the client's
@@ -242,10 +246,35 @@ func (e *Exporter) resFile(n *npcres.Node, opt NpcResOptions) *ResFile {
 		}
 		return rf
 	}
-	weapon := opt.Equips[2]
-	for _, d := range opt.Doings {
-		if a := n.ActNo(d, weapon, false); a >= 0 {
-			wanted[a] = true
+	// the rows to export per group: the default one first, then the extra ones
+	rows := map[int][]int{}
+	for g := 0; g < npcres.MaxBodyPart; g++ {
+		if eq, ok := opt.Equips[g]; ok {
+			rows[g] = append(rows[g], eq)
+		}
+		for _, eq := range opt.ExtraEquips[g] {
+			seen := false
+			for _, have := range rows[g] {
+				seen = seen || have == eq
+			}
+			if !seen {
+				rows[g] = append(rows[g], eq)
+			}
+		}
+	}
+	// the actions: every exported weapon row picks its own action numbers (KNpcResNode::GetActNo by the weapon row),
+	// on foot always, on horseback when a horse row is exported
+	ride := len(rows[3]) > 0
+	for _, weapon := range rows[2] {
+		for _, d := range opt.Doings {
+			if a := n.ActNo(d, weapon, false); a >= 0 {
+				wanted[a] = true
+			}
+			if ride {
+				if a := n.ActNo(d, weapon, true); a >= 0 {
+					wanted[a] = true
+				}
+			}
 		}
 	}
 	rf.Equips = map[string]int{}
@@ -259,8 +288,10 @@ func (e *Exporter) resFile(n *npcres.Node, opt NpcResOptions) *ResFile {
 			continue
 		}
 		rp := ResPart{Index: p.Index, Name: p.Name, Equips: map[string][]ResSprite{}}
-		eq, ok := opt.Equips[p.Index/npcres.MaxBodyPartSect]
-		if ok && eq >= 0 && eq < len(p.Equips) {
+		for _, eq := range rows[p.Index/npcres.MaxBodyPartSect] {
+			if eq < 0 || eq >= len(p.Equips) {
+				continue
+			}
 			row := make([]ResSprite, len(p.Equips[eq]))
 			for a, si := range p.Equips[eq] {
 				rs := ResSprite{File: si.File, Frames: si.Frames, Dirs: si.Dirs, Interval: si.Interval, Color: si.Color}
@@ -331,5 +362,5 @@ func ResNamesOf(templates []npcres.Template, ids []int) []string {
 
 // String for logs.
 func (o NpcResOptions) String() string {
-	return fmt.Sprintf("%d names, doings %v, equips %v", len(o.Names), o.Doings, o.Equips)
+	return fmt.Sprintf("%d names, doings %v, equips %v, extra %v", len(o.Names), o.Doings, o.Equips, o.ExtraEquips)
 }

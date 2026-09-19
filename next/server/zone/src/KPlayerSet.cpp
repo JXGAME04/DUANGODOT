@@ -78,6 +78,35 @@ bool KPlayerSet::load(const std::string& file, std::string* error)
         stamina_.kill_run_sub = geti(*it, "kill_run_sub", 6);
         stamina_.sit_add = geti(*it, "sit_add", 3);
     }
+    if (const auto it = j.find("pk_rate"); it != j.end() && it->is_object()) {
+        pk_rate_.rate = geti(*it, "rate", 20);
+        pk_rate_.faction_pk_faction = geti(*it, "faction_pk_faction", 1);
+        pk_rate_.killer_pk_faction = geti(*it, "killer_pk_faction", 1);
+        pk_rate_.enmity_pk = geti(*it, "enmity_pk", 2);
+        pk_rate_.be_killed = geti(*it, "be_killed", -1);
+        pk_rate_.kill_partner_pk = geti(*it, "kill_partner_pk", 1);
+        pk_rate_.level_distance = geti(*it, "level_distance", 25);
+        pk_rate_.butcher_pk_exercise = geti(*it, "butcher_pk_exercise", 1);
+        pk_rate_.not_sub_pk_exp_percent = geti(*it, "not_sub_pk_exp_percent", -50);
+        pk_rate_.not_enmity_exp_percent = geti(*it, "not_enmity_exp_percent", -50);
+        pk_rate_.not_fight_exp_percent = geti(*it, "not_fight_exp_percent", -80);
+    }
+    if (const auto it = j.find("pk_punish"); it != j.end() && it->is_object()) {
+        pk_punish_.normal_pk_time_long = geti(*it, "normal_pk_time_long", 3240);
+        if (const auto rows = it->find("rows"); rows != it->end() && rows->is_array()) {
+            for (std::size_t k = 0; k < pk_punish_.rows.size() && k < rows->size(); ++k) {
+                const auto& r = (*rows)[k];
+                if (!r.is_object()) continue;
+                KPKPunishRow& row = pk_punish_.rows[k];
+                row.exp_permille = geti(r, "exp_permille", 1);
+                row.money_permille = geti(r, "money_permille", 1);
+                row.item_permille = geti(r, "item_permille", 1);
+                row.equip_percent = geti(r, "equip_percent", 1);
+                row.col8 = geti(r, "col8", -1);
+                row.durability_percent = geti(r, "durability_percent", 0);
+            }
+        }
+    }
     if (const auto it = j.find("basevalue"); it != j.end() && it->is_object()) {
         base_value_.hurt_frame = geti(*it, "hurt_frame", 12);
         base_value_.run_speed = geti(*it, "run_speed", 10);

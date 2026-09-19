@@ -203,6 +203,18 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no weapon skill table", {jx::log::kv("file", weapon_file), jx::log::kv("error", error)});
         }
     }
+    // the looks of worn pieces (jxassets export-item-res: settings/item/*Res.txt, KItemSet 0x08068D90); without it every
+    // character keeps the bare rows and no horse is drawn
+    const std::string item_res_file = cfg.get_string("zone.item_res_file", items_dir.empty() ? std::string() : items_dir + "/item_res.json");
+    if (!item_res_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KItemChangeRes::load(item_res_file, &error)) {
+            w.item_res = std::make_shared<const jx::zone::KItemChangeRes>(std::move(*t));
+            jx::log::info("boot", "item res tables loaded", {jx::log::kv("file", item_res_file), jx::log::kv("gold", w.item_res->gold.size())});
+        } else {
+            jx::log::warn("boot", "no item res tables", {jx::log::kv("file", item_res_file), jx::log::kv("error", error)});
+        }
+    }
     // the wear table (jxassets export-abrade-rate): how fast a worn piece loses durability; without it nothing wears
     const std::string abrade_file = cfg.get_string("zone.abrade_rate_file", "client/assets/abrade_rate.json");
     if (!abrade_file.empty()) {

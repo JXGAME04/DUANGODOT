@@ -454,6 +454,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the pictures those tables name (the icons of the bag), out of the client's archives
     elif subprocess.call([*jxassets_args(), "export-item-images", "-out", out], cwd=ROOT) != 0:
         print("export-item-images: the item sprites could not be written - the bag shows names instead")
+    # what a worn piece makes the character look like (settings/item/*res.txt, KItemSet 0x08068D90): the zone's
+    # KItemChangeRes picks the equipment rows the clients draw (helm / armour / weapon / horse / mantle)
+    if subprocess.call([*jxassets_args(), "export-item-res", "-out", out], cwd=ROOT) != 0:
+        print("export-item-res: no settings/item/*res.txt - characters keep their bare looks")
     # the objects of the ground (ObjData.txt / MoneyObj.txt): what a dropped thing looks like
     if subprocess.call([*jxassets_args(), "export-objdata", "-out", out], cwd=ROOT) != 0:
         print("export-objdata: no settings/obj in the reference server folder - nothing can be dropped")

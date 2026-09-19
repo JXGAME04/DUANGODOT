@@ -48,6 +48,9 @@ signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a s
 var aura_skill := 0                          # KNpc+0x120 of the 2.0 client: the aura asked for (KNpc::SetAura 0x005EA870)
 signal state_icons_changed(entity_id: int)  # G2C_STATE_ICONS: the six icons over an entity changed (entities[id].state_icons)
 signal gold_changed(entity_id: int)         # G2C_NPC_GOLD: a monster turned gold (entities[id].gold_type = its kind, the 0x9a packet)
+signal entity_res(r: Dictionary)            # G2C_ENTITY_RES: a player's look (the 0xad packet -> KNpc::SetPlayerRes 0x005ED920)
+signal pk_changed(state: int, value: int, refused: bool)   # G2C_PK_STATE: one's own PK state (the 0x90 packet) / value (0x93)
+signal entity_pk(r: Dictionary)             # G2C_ENTITY_PK: a player's PK state (the flag & 3 of the 0x4b sync -> KNpc+0x16e4)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -96,6 +99,8 @@ var skills := {}
 # KPlayerFaction of the character (PlayerData+0x12078 current, +0x12080 last added, +0x12084 times joined of the 2.0
 # client): -1 = none; camp = m_Camp of the player's npc (C_FREE 4 after leaving)
 var faction := -1
+var pk_state := 0        # KPlayerPK state of one's own character: 0 exercise, 1 fight, 2 kill (the 0x90 packet)
+var pk_value := 0        # the PK value 0..10 (the 0x93 packet)
 var faction_last := -1
 var faction_count := 0
 var camp := 0
@@ -282,6 +287,34 @@ func set_aura(skill_id: int) -> void:
 	Net.send_msg(Proto.MsgId.C2G_SET_AURA, req)
 	aura_skill = skill_id
 	Log.debug("world", "aura request", {"skill": skill_id})
+
+
+# the 0x76 packet {0x76, byte state} of the PK switch (jx_linux_y 0x080DBE00 -> KPlayerPK::SetPKState 0x080C3740); the 2.0
+# client's Switch([[pk]]) (F9 / Ctrl+H, OperationRequest 0x14 -> 0x005FB240) sends {0x6d, 2} instead, a packet this server
+# reads as a trade - the zone takes the state the server handler expects
+func pk_state_request(wanted: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.PKStateReq.new()
+	req.set_state(wanted)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_PK_STATE, req)
+	Log.trace("world", "pk state request", {"state": wanted, "seq": _move_seq})
+	return _move_seq
+
+
+# the 0x71 packet {0x71, byte sit} of the 2.0 client (the tool bar's Switch([[sit]]) 0x0044B470): sit down (1) / stand up (0)
+func sit(on: bool) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.SitReq.new()
+	req.set_sit(on)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_SIT, req)
+	Log.trace("world", "sit request", {"sit": on, "seq": _move_seq})
+	return _move_seq
 
 
 func ride(on: bool) -> int:
@@ -830,6 +863,41 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d["state_icons"] = icons
 				state_icons_changed.emit(int(m.get_entity_id()))
 
+		Proto.MsgId.G2C_PK_STATE:
+			# the 0x90 handler (state) / 0x93 (value) of the 2.0 client: one's own KPlayerPK
+			var m := Proto.PKState.new()
+			if not _decode(m, payload):
+				return
+			pk_state = int(m.get_state())
+			pk_value = int(m.get_value())
+			var own = entities.get(entity_id)
+			if own != null:
+				own["pk_state"] = pk_state
+			pk_changed.emit(pk_state, pk_value, bool(m.get_refused()))
+			Log.info("player", "pk state", {"state": pk_state, "value": pk_value, "refused": bool(m.get_refused())})
+
+		Proto.MsgId.G2C_ENTITY_PK:
+			# the 0x4b sync's flag & 3 -> KNpc+0x16e4 of the others (0x0065D617): the life-bar colour
+			var m := Proto.EntityPK.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null:
+				d["pk_state"] = int(m.get_pk_state())
+			entity_pk.emit({"id": int(m.get_entity_id()), "pk_state": int(m.get_pk_state())})
+
+		Proto.MsgId.G2C_ENTITY_RES:
+			# the 0xad handler of the 2.0 client (0x006515A0): the rows into KNpc::SetPlayerRes 0x005ED920, the version into +0x1408
+			var m := Proto.EntityRes.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			var rows := {0: int(m.get_helm_res()), 1: int(m.get_armor_res()), 2: int(m.get_weapon_res()), 3: int(m.get_horse_res()),
+				4: int(m.get_mantle_res())}
+			if d != null:
+				d["res"] = rows
+			entity_res.emit({"id": int(m.get_entity_id()), "res": rows, "version": int(m.get_version())})
+
 		Proto.MsgId.G2C_NPC_GOLD:
 			# the 0x9a handler of the 2.0 client (0x00653110): a npc (kind 0) -> KNpcGold::SetGoldType(word) 0x006E3560
 			var m := Proto.NpcGold.new()
@@ -1088,4 +1156,14 @@ func _entity_dict(e) -> Dictionary:
 		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames(),
 		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false,
 		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0,
-		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4}
+		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4,
+		"res": _res_dict(e), "pk_state": int(e.get_pk_state()) if e.has_method("get_pk_state") else 0}
+
+
+# the equipment rows of the 0x4a / 0x4b player sync (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse,
+# +0x13f8 mantle), keyed by the part group of the resource tables (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); -1 = none
+func _res_dict(e) -> Dictionary:
+	if not e.has_method("get_helm_res"):
+		return {}
+	return {0: int(e.get_helm_res()), 1: int(e.get_armor_res()), 2: int(e.get_weapon_res()), 3: int(e.get_horse_res()),
+		4: int(e.get_mantle_res())}

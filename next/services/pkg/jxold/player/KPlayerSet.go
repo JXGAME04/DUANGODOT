@@ -63,6 +63,42 @@ type Stamina struct {
 	SitAdd         int `json:"sit_add"`
 }
 
+// PKRate is [PK] of settings/npc/PKRate.ini as KNpcSet::Init reads it (jx_linux_y 0x080A08F6..: KIniFile::GetInteger,
+// the defaults are the binary's when the file or a key is missing): rate = the damage percent between players
+// (KNpcSet+0x1490), the PK points a kill adds (GetPKRelation 0x0807A350), the exp-percent gates of the PK state
+// (0x080DBE00, the death penalty 0x080B9FA0).
+type PKRate struct {
+	Rate                int `json:"rate"`
+	FactionPKFaction    int `json:"faction_pk_faction"`
+	KillerPKFaction     int `json:"killer_pk_faction"`
+	EnmityPK            int `json:"enmity_pk"`
+	BeKilled            int `json:"be_killed"`
+	KillPartnerPK       int `json:"kill_partner_pk"`
+	LevelDistance       int `json:"level_distance"`
+	ButcherPKExercise   int `json:"butcher_pk_exercise"`
+	NotSubPKExpPercent  int `json:"not_sub_pk_exp_percent"`
+	NotEnmityExpPercent int `json:"not_enmity_exp_percent"`
+	NotFightExpPercent  int `json:"not_fight_exp_percent"`
+}
+
+// PKPunishRow is one row of settings/npc/player/PKPunish.txt (KPlayerSet+0x3710 + 24 * pk, 0x080C5B45..): what a
+// player of that PK value loses when killed by another player (KNpc::DeathPunish, jx_linux_y 0x080B9FA0).
+type PKPunishRow struct {
+	ExpPermille       int `json:"exp_permille"`       // col 2: of the level's exp (levels up to 129; above them a fixed table)
+	MoneyPermille     int `json:"money_permille"`     // col 3: of the money carried
+	ItemPermille      int `json:"item_permille"`      // col 4: chance per bag item to fall (KItemList 0x08203BE0)
+	EquipPercent      int `json:"equip_percent"`      // col 5 (2004: AutoLoseEquip chance)
+	Col8              int `json:"col8"`               // col 8, default -1 (unread so far)
+	DurabilityPercent int `json:"durability_percent"` // col 9: durability off every worn piece (0x08201D90)
+}
+
+// PKPunish is the whole table plus NormalPKTimeLong (row 2, col 7, default 3240 seconds: how long a PK state must be
+// held before the switch back to normal is accepted, 0x080C3789).
+type PKPunish struct {
+	Rows             [11]PKPunishRow `json:"rows"` // index = PK value 0..10
+	NormalPKTimeLong int             `json:"normal_pk_time_long"`
+}
+
 // BaseValue is [Common] of basevalue.ini: the frame counts of a player's actions.
 type BaseValue struct {
 	HurtFrame   int `json:"hurt_frame"`
@@ -126,6 +162,8 @@ type Set struct {
 	LevelAdd  [MaxSeries]LevelAdd   `json:"level_add"` // index = series
 	Stamina   Stamina               `json:"stamina"`
 	BaseValue BaseValue             `json:"basevalue"`
+	PKRate    PKRate                `json:"pk_rate"`
+	PKPunish  PKPunish              `json:"pk_punish"`
 	NewPlayer [NewPlayers]NewPlayer `json:"new_player"` // index = series * 2 + sex
 	Missing   []string              `json:"missing,omitempty"`
 }
@@ -225,6 +263,42 @@ func Load(dir string) (*Set, error) {
 		s.BaseValue.WalkSpeed = iniInt(ini, "common", "WalkSpeed", 5)
 		s.BaseValue.AttackFrame = iniInt(ini, "common", "AttackFrame", 18)
 		s.BaseValue.CastFrame = iniInt(ini, "common", "CastFrame", 18)
+	}
+	// settings/npc/PKRate.ini (one folder up): the binary's defaults (0x080A08F6..) when missing
+	s.PKRate = PKRate{Rate: 20, FactionPKFaction: 1, KillerPKFaction: 1, EnmityPK: 2, BeKilled: -1, KillPartnerPK: 1,
+		LevelDistance: 25, ButcherPKExercise: 1, NotSubPKExpPercent: -50, NotEnmityExpPercent: -50, NotFightExpPercent: -80}
+	if data, err := readAnyCase(filepath.Dir(dir), "pkrate.ini"); err == nil {
+		ini := npcres.ParseIni(data)
+		s.PKRate.Rate = iniInt(ini, "pk", "rate", 20)
+		s.PKRate.FactionPKFaction = iniInt(ini, "pk", "FactionPKFaction", 1)
+		s.PKRate.KillerPKFaction = iniInt(ini, "pk", "KillerPKFaction", 1)
+		s.PKRate.EnmityPK = iniInt(ini, "pk", "EnmityPK", 2)
+		s.PKRate.BeKilled = iniInt(ini, "pk", "BeKilled", -1)
+		s.PKRate.KillPartnerPK = iniInt(ini, "pk", "KillPartnerPK", 1)
+		s.PKRate.LevelDistance = iniInt(ini, "pk", "LevelDistance", 25)
+		s.PKRate.ButcherPKExercise = iniInt(ini, "pk", "ButcherPKExercise", 1)
+		s.PKRate.NotSubPKExpPercent = iniInt(ini, "pk", "NotSubPKExpPercent", -50)
+		s.PKRate.NotEnmityExpPercent = iniInt(ini, "pk", "NotEnmityExpPercent", -50)
+		s.PKRate.NotFightExpPercent = iniInt(ini, "pk", "NotFightExpPercent", -80)
+	} else {
+		s.Missing = append(s.Missing, "../PKRate.ini")
+	}
+	// PKPunish.txt: rows 2..12 = PK value 0..10, KTabFile::GetInteger with the defaults of 0x080C5B71.. (cols 2..5 -> 1,
+	// col 8 -> -1, col 9 -> 0); NormalPKTimeLong = row 2 col 7 (default 3240)
+	s.PKPunish.NormalPKTimeLong = 3240
+	for k := range s.PKPunish.Rows {
+		s.PKPunish.Rows[k] = PKPunishRow{ExpPermille: 1, MoneyPermille: 1, ItemPermille: 1, EquipPercent: 1, Col8: -1}
+	}
+	if data, ok := read("pkpunish.txt"); ok {
+		t := npcres.ParseTab(data)
+		for k := 0; k < 11; k++ {
+			row := k + 2
+			s.PKPunish.Rows[k] = PKPunishRow{
+				ExpPermille: cell(t, row, 2, 1), MoneyPermille: cell(t, row, 3, 1), ItemPermille: cell(t, row, 4, 1),
+				EquipPercent: cell(t, row, 5, 1), Col8: cell(t, row, 8, -1), DurabilityPercent: cell(t, row, 9, 0),
+			}
+		}
+		s.PKPunish.NormalPKTimeLong = cell(t, 2, 7, 3240)
 	}
 	for i := 0; i < NewPlayers; i++ {
 		p, ok := names[fmt.Sprintf("newplayerini%02d.ini", i)]
@@ -415,4 +489,18 @@ func iniInt(ini map[string]map[string]string, sec, key string, def int) int {
 		return def
 	}
 	return n
+}
+
+// readAnyCase reads a file of a folder whatever the case of its name (the old server folders mix cases).
+func readAnyCase(dir, name string) ([]byte, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range entries {
+		if strings.EqualFold(e.Name(), name) {
+			return os.ReadFile(filepath.Join(dir, e.Name()))
+		}
+	}
+	return nil, os.ErrNotExist
 }

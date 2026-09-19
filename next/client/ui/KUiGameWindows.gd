@@ -213,6 +213,11 @@ func _on_bar_command(cmd: String) -> void:
 			item_window.toggle_window()
 		"skills":
 			skills_window.toggle_window()
+		"sit":
+			# Switch([[sit]]) 0x0044B470 of the 2.0 tool bar: the 0x71 packet - down when standing, up when sitting
+			var own = Game.entities.get(Game.entity_id)
+			var sitting: bool = own != null and int(own.get("doing", 0)) == 7   # jx.pb.Action ACTION_SIT
+			Game.sit(not sitting)
 		_:
 			Log.info("ui", "window not built yet", {"command": cmd})
 

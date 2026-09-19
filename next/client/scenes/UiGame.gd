@@ -49,10 +49,13 @@ func _ready() -> void:
 	Game.entity_action.connect(_on_action)
 	Game.missle_sync.connect(_on_missle)
 	Game.entity_life.connect(_on_life)
-	Game.entity_ride.connect(_on_ride)
 	Game.state_icons_changed.connect(_on_state_icons)
 	Game.gold_changed.connect(_on_gold)
 	Game.entity_camp.connect(_on_entity_camp)
+	Game.entity_res.connect(_on_entity_res)
+	Game.entity_ride.connect(_on_entity_ride)
+	Game.entity_pk.connect(_on_entity_pk)
+	Game.pk_changed.connect(_on_pk_changed)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -175,9 +178,10 @@ func _process(delta: float) -> void:
 	var target_text := ""
 	if _target != null and is_instance_valid(_target):
 		target_text = "  target %s %d/%d" % [_target.display_name, _target.life, _target.life_max]
-	_hud.text = "%s  zone %d  map %d  entity %d  sid %d (%s)\npos %s  hp %d/%d%s\nentities %d  regions %d  sprites %d (%d MB)  rtt %d ms  fps %d" % [
+	_hud.text = "%s  zone %d  map %d  entity %d  sid %d (%s)\npos %s  hp %d/%d%s  pk %s/%d\nentities %d  regions %d  sprites %d (%d MB)  rtt %d ms  fps %d" % [
 		Game.zone_name, Game.zone_id, Game.map_id, Game.entity_id, Game.sid, Net.transport,
 		str(Vector2i(own.scene_pos)) if own else "-", own.life if own else 0, own.life_max if own else 0, target_text,
+		["tu luyện", "chiến đấu", "sát nhân"][clampi(Game.pk_state, 0, 2)], Game.pk_value,
 		_entities.size(), _world.region_count(), st.sprites, st.mb, Game.last_rtt_ms, Engine.get_frames_per_second()]
 
 
@@ -233,6 +237,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_F8 and not event.echo:
 			# AddCommand("F8", "", "Switch([[showplayerlife]])") -> 0x0042FC2D
 			set_show_switches(NpcScript.name_switch, KNpcGold.toggle_switch(NpcScript.life_switch))
+		elif event.keycode == KEY_F9 and not event.echo and not _chat_input.has_focus():
+			# AddCommand("F9", "", "Switch([[pk]])") / Ctrl+H: the PK switch - the zone's three states in turn (0x080DBE00 takes a state byte)
+			Game.pk_state_request((Game.pk_state + 1) % 3)
+		elif event.keycode == KEY_V and not event.echo and not _chat_input.has_focus():
+			# AddCommand("V", "", "Switch([[sit]])"): the 0x71 packet - down when standing, up when sitting (0x005C37C2)
+			var own: Node = _entities.get(Game.entity_id)
+			Game.sit(not (own != null and own.has_method("is_sitting") and own.is_sitting()))
 
 
 # the npc under the mouse (the pate loop 0x0067021A compares [core+0xa8c4], the hovered npc, with each one)
@@ -451,12 +462,6 @@ static func cast_sound(skill_id: int, sex: int) -> String:
 	return "" if s == "0" else s
 
 
-func _on_ride(r: Dictionary) -> void:
-	var node: Node = _entities.get(int(r.id))
-	if node != null and node.has_method("set_riding"):
-		node.set_riding(bool(r.riding))
-
-
 func _on_life(l: Dictionary) -> void:
 	var node: Node = _entities.get(int(l.id))
 	if node:
@@ -473,14 +478,44 @@ func _on_state_icons(entity_id: int) -> void:
 
 # the 0x59 / 0x58 packets: a npc's camps - a player's name colour follows its current camp (0x005F2507)
 func _on_entity_camp(c: Dictionary) -> void:
-	var node: Node2D = _entities.get(int(c.id))
+	var node: Node = _entities.get(int(c.id))
 	if node != null and node.has_method("set_camp"):
 		node.set_camp(int(c.camp), int(c.current_camp))
 
 
+# the 0xad packet: a player's equipment look changed (KNpc::SetPlayerRes 0x005ED920)
+func _on_entity_res(r: Dictionary) -> void:
+	var node: Node = _entities.get(int(r.id))
+	if node != null and node.has_method("set_equip_rows"):
+		node.set_equip_rows(r.res)
+
+
+# the flag & 3 of the 0x4b sync (G2C_ENTITY_PK): the PK state of another player -> KNpc+0x16e4
+func _on_entity_pk(r: Dictionary) -> void:
+	var node: Node = _entities.get(int(r.id))
+	if node != null and node.has_method("set_pk_state"):
+		node.set_pk_state(int(r.pk_state))
+
+
+# the 0x90 / 0x93 packets: one's own PK state and value (G2C_PK_STATE); a refused switch keeps the state
+func _on_pk_changed(state: int, _value: int, refused: bool) -> void:
+	var own: Node = _entities.get(Game.entity_id)
+	if own != null and own.has_method("set_pk_state"):
+		own.set_pk_state(state)
+	if refused:
+		_append_chat("[PK] chưa đủ thời gian để đổi trạng thái PK (NormalPKTimeLong)")
+
+
+# the ride flag of the 0x4a / 0x4b sync (G2C_ENTITY_RIDE): KNpc::SetRideHorse 0x005EC3E0
+func _on_entity_ride(r: Dictionary) -> void:
+	var node: Node = _entities.get(int(r.id))
+	if node != null and node.has_method("set_riding"):
+		node.set_riding(bool(r.riding))
+
+
 # the 0x9a packet: a monster turned gold - its name takes the gold colour (0x005F23E5)
 func _on_gold(entity_id: int) -> void:
-	var node: Node2D = _entities.get(entity_id)
+	var node: Node = _entities.get(entity_id)
 	var d = Game.entities.get(entity_id)
 	if node != null and d != null and node.has_method("set_gold_type"):
 		node.set_gold_type(int(d.get("gold_type", 0)))
@@ -541,6 +576,9 @@ func _auto_run() -> void:
 	await _auto_items()
 	await _auto_skills()
 	await _auto_fight()
+	await _auto_sit()
+	await _auto_ride()
+	await _auto_pk()
 	await _auto_death()
 	var _sounds = _world.sounds()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
@@ -818,6 +856,23 @@ func _auto3d_run() -> void:
 # afterwards: 0 when the zone has no item tables or gm_chat is off; AUTO_MAGIC how many prefixes /
 # suffixes the level-5 sword rolled (Gen_MagicAttrib of the zone on the real tables).
 func _auto_items() -> void:
+	# the test character keeps its bag between runs: drop the junk of earlier runs (bag items that are not quest ones)
+	# down to a few, so the AddItems below and the horse of _auto_ride find room
+	var junk: Array = []
+	for id in Game.items:
+		var it: Dictionary = Game.items[id]
+		if int(it.get("room", -1)) == Game.ROOM_BAG and int(it.get("genre", -1)) != 4:
+			junk.append(int(id))
+	if junk.size() > 4:
+		var total := Game.items.size()
+		var dropping := junk.size() - 4
+		for i in range(dropping):
+			Game.item_drop(junk[i])
+		var cleaned := 0.0
+		while cleaned < 3.0 and Game.items.size() > total - dropping:
+			await get_tree().create_timer(0.25).timeout
+			cleaned += 0.25
+		Log.info("auto", "bag cleaned", {"dropped": dropping, "left": Game.items.size()})
 	var before := Game.items.size()
 	Game.chat("?gm ds AddItem(0,0,0,1,0,0)")
 	Game.chat("?gm ds AddItem(1,0,0,1,0,0)")
@@ -942,6 +997,129 @@ func _auto_fight() -> void:
 # unblockable hit of 200 000 000 from oneself) - the character falls (ACTION_DEATH, the exp / money loss
 # of KNpc::OnDeath), its picture is taken, then C2G_REVIVE stands it up at its revive point
 # (KPlayer::Revive(0)) and another picture follows; AUTO_DEATH sums it up for tools/dev.py.
+# the sit of the 2.0 tool bar (Switch([[sit]]) -> the 0x71 packet): the wounded character sits, its life climbs by
+# SitAddLife every ten frames (0x0808BBE6), the sit animation holds its last frame, then it stands up again
+func _auto_sit() -> void:
+	var own: Node = _entities.get(Game.entity_id)
+	if own == null:
+		print("AUTO_SIT none")
+		return
+	if own.riding:
+		Game.ride(false)   # 0x080DC367: no sitting on horseback - down first (a horse worn from an earlier run)
+		for i in 20:
+			await get_tree().create_timer(0.1).timeout
+			own = _entities.get(Game.entity_id)
+			if own != null and not own.riding:
+				break
+	var life_before: int = own.life
+	Game.sit(true)
+	var sat := false
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and own.is_sitting():
+			sat = true
+			break
+	await get_tree().create_timer(1.6).timeout
+	own = _entities.get(Game.entity_id)
+	var frame_held: int = own.cur_frame if own != null else -1
+	await _save_screenshot("user://logs/auto_sit.png")
+	var life_after: int = own.life if own != null else -1
+	Game.sit(false)
+	var stood := false
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and not own.is_sitting():
+			stood = true
+			break
+	print("AUTO_SIT sat=%s frame=%d life_before=%d life_after=%d stood=%s" % [sat, frame_held, life_before, life_after, stood])
+
+
+# a horse from the gm (AddItem genre 0 detail 10 = equip_horse, particular 0, level 1 -> HorseRes row 3 -> horse row 8), worn
+# (0x081FE752: worn = ridden), the on-horse pictures (KNpcRes::SetRideHorse -> actions 38..) with the name 38 higher, then off
+# the PK switch (F9): the fight state is taken at once (0x080DBF10: forced when not in fight mode - the auto character is,
+# so SetPKState 0x080C3740 unforced: still taken for 1 / 2), the way back to 0 needs NormalPKTimeLong seconds in the state
+# (0x080C3789) -> refused; the own life bar turns red-ish, AUTO_PK reports both answers
+func _auto_pk() -> void:
+	Game.pk_state_request(1)
+	var on := false
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if Game.pk_state == 1:
+			on = true
+			break
+	var own: Node = _entities.get(Game.entity_id)
+	var bar_state: int = own.pk_state if own != null else -1
+	await _save_screenshot("user://logs/auto_pk.png")
+	var answer := {"refused": false, "back": false, "done": false}   # a lambda captures locals by value: the answer lives in a dictionary
+	var cb := func(state: int, _value: int, r: bool) -> void:
+		answer.refused = answer.refused or r
+		answer.back = state == 0
+		answer.done = true
+	Game.pk_changed.connect(cb)
+	Game.pk_state_request(0)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if answer.done:
+			break
+	Game.pk_changed.disconnect(cb)
+	Log.info("auto", "auto pk", {"on": on, "bar_state": bar_state, "value": Game.pk_value, "back": answer.back, "refused": answer.refused})
+	print("AUTO_PK on=%s bar_state=%d value=%d back=%s refused=%s" % [on, bar_state, Game.pk_value, answer.back, answer.refused])
+
+
+func _auto_ride() -> void:
+	var own: Node = _entities.get(Game.entity_id)
+	if own == null:
+		print("AUTO_RIDE none")
+		return
+	var before := Game.items.size()
+	Game.chat("?gm ds AddItem(0,10,0,1,0,0)")
+	var waited := 0.0
+	while waited < 3.0 and Game.items.size() < before + 1:
+		await get_tree().create_timer(0.1).timeout
+		waited += 0.1
+	var horse_id := 0
+	for id in Game.items:
+		var it: Dictionary = Game.items[id]
+		if int(it.get("genre", -1)) == 0 and int(it.get("detail", -1)) == 10 and int(it.get("room", -1)) == Game.ROOM_BAG:
+			horse_id = int(id)
+	if horse_id == 0:
+		print("AUTO_RIDE horse=false")
+		return
+	Game.item_equip(horse_id)
+	var mounted := false
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and own.riding:
+			mounted = true
+			break
+	await get_tree().create_timer(0.8).timeout
+	own = _entities.get(Game.entity_id)
+	var rows: Dictionary = own.equip_rows if own != null else {}
+	var action: int = own._res.action if own != null and own.has_res else -1
+	var parts: int = own._res.parts.size() if own != null and own.has_res else 0
+	await _save_screenshot("user://logs/auto_ride.png")
+	Game.ride(false)
+	var down := false
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and not own.riding:
+			down = true
+			break
+	var action_down: int = own._res.action if own != null and own.has_res else -1
+	var parts_down: int = own._res.parts.size() if own != null and own.has_res else 0
+	# the horse comes off again (0x08200311): a character logging in with it worn rides at once (0x080C1F83) and could not sit
+	Game.item_unequip(10)
+	await get_tree().create_timer(0.4).timeout
+	Log.info("auto", "auto ride", {"mounted": mounted, "horse_row": rows.get(3, -1), "action": action, "parts": parts,
+		"down": down, "action_down": action_down})
+	print("AUTO_RIDE mounted=%s horse_row=%d action=%d parts=%d down=%s action_down=%d parts_down=%d" % [mounted, rows.get(3, -1),
+		action, parts, down, action_down, parts_down])
+
+
 func _auto_death() -> void:
 	var own := _own()
 	if own == null:

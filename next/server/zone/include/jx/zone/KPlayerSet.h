@@ -6,7 +6,9 @@
 // (jxassets export-player, services/pkg/jxold/player) - the numbers of settings/npc/player of
 // the JX2 server, loaded the way jx_linux_y loads them (docs/LINUX-SERVER.md §10.3).
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -50,6 +52,41 @@ struct KStaminaRule {
     int sit_add = 3;   // per mille of the maximum, every state tick while sitting
 };
 
+// [PK] of \settings\npc\PKRate.ini as KNpcSet::Init 0x080A08F6.. reads it (KNpcSet+0x1490..; the binary's defaults when a key
+// is missing): the damage percent between players, the PK points a kill adds (KNpc::GetPKRelation 0x0807A350), the exp-percent
+// gates of the PK state (0x080DBE00) and of the death penalty (0x080B9FA0)
+struct KPKRate {
+    int rate = 20;                    // +0x1490 [0x8badf50]
+    int faction_pk_faction = 1;       // +0x1494 [0x8badf54]
+    int killer_pk_faction = 1;        // +0x1498 [0x8badf58]
+    int enmity_pk = 2;                // +0x149c [0x8badf5c]
+    int be_killed = -1;               // +0x14a0 [0x8badf60]: added to the victim of a PK death
+    int kill_partner_pk = 1;          // +0x14a4 [0x8badf64]: a killed companion (kind 2)
+    int level_distance = 25;          // +0x14a8 [0x8badf68]
+    int butcher_pk_exercise = 1;      // +0x14ac [0x8badf6c]: a normal-mode player killing a kill-mode one
+    int not_sub_pk_exp_percent = -50; // +0x14b0 [0x8badf70]: below this percent of the level's exp no BeKilled is added
+    int not_enmity_exp_percent = -50; // +0x14b4 [0x8badf74]
+    int not_fight_exp_percent = -80;  // +0x14b8 [0x8badf78]: below it a PK state cannot be entered (0x080DBEF3) and a PK death drops the state (0x080BA0D2)
+};
+
+// one row of \settings\npc\player\PKPunish.txt (KPlayerSet+0x3710 + 24 x pk, 0x080C5B45..): the PK death penalty of a
+// PK value 0..10 (KNpc::DeathPunish 0x080B9FA0)
+struct KPKPunishRow {
+    int exp_permille = 1;        // col 2: of the level's exp (levels up to 129)
+    int money_permille = 1;      // col 3: of the money carried
+    int item_permille = 1;       // col 4: chance per bag item to fall (0x08203BE0)
+    int equip_percent = 1;       // col 5 (2004: the chance to lose a worn piece; not read by 0x080B9FA0)
+    int col8 = -1;               // col 8 (default -1; unread so far)
+    int durability_percent = 0;  // col 9: durability off every worn piece (0x08201D90)
+};
+
+struct KPKPunish {
+    static constexpr int kRows = 11;
+    std::array<KPKPunishRow, kRows> rows{};
+    int normal_pk_time_long = 3240;   // row 2 col 7 [0x8bb2b38]: seconds a PK state must be held before the switch back is accepted
+    [[nodiscard]] const KPKPunishRow& row(int pk) const noexcept { return rows[static_cast<std::size_t>(std::clamp(pk, 0, kRows - 1))]; }
+};
+
 // [Common] of basevalue.ini
 struct KBaseValue {
     int hurt_frame = 12;
@@ -91,6 +128,8 @@ public:
 
     [[nodiscard]] const KStaminaRule& stamina() const noexcept { return stamina_; }
     [[nodiscard]] const KBaseValue& base_value() const noexcept { return base_value_; }
+    [[nodiscard]] const KPKRate& pk_rate() const noexcept { return pk_rate_; }
+    [[nodiscard]] const KPKPunish& pk_punish() const noexcept { return pk_punish_; }
     // the resist maxima a player starts with when the role data has none (KPlayer::LoadFrom: 0x4b)
     static constexpr int kDefaultResistMax = 75;
 
@@ -98,6 +137,8 @@ public:
     void set_level_exp(int level, std::int64_t exp) noexcept;
     void set_level_add(int series, const KLevelAddRow& row) noexcept;
     void set_stamina(const KStaminaRule& r) noexcept { stamina_ = r; }
+    void set_pk_rate(const KPKRate& r) noexcept { pk_rate_ = r; }
+    void set_pk_punish(const KPKPunish& p) noexcept { pk_punish_ = p; }
 
 private:
     bool loaded_ = false;
@@ -105,6 +146,8 @@ private:
     std::array<KLevelAddRow, kMaxSeries> level_add_{};
     KStaminaRule stamina_;
     KBaseValue base_value_;
+    KPKRate pk_rate_;
+    KPKPunish pk_punish_;
 };
 
 } // namespace jx::zone

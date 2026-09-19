@@ -38,9 +38,27 @@ struct KPlayer {
     int cur_vitality = 0;      // +0x5950
     int cur_energy = 0;        // +0x5954
     int cur_lucky = 0;         // m_nCurLucky      +0x5958
-    // +0x5a50: the PK state (0 normal, 1 fight, 2 kill; B3c-4 keeps the rest) - the run's stamina cost and threshold pick
-    // ExerciseRunSub / FightRunSub / KillRunSub of stamina.ini by it (0x0808BE0B, 0x08080C5F, 0x0807B620)
-    int pk_state = 0;
+    // KPlayerPK (Core/Src/KPlayerPK.h of 2003; Player+0x5a50 of jx_linux_y, docs/LINUX-SERVER.md §16.16): the PK state, the PK
+    // value and the locks.  The enmity / duel modes (+0x14..+0x28, the 0x77 / 0x91 / 0x92 packets) are not in the zone.
+    struct KPlayerPK {
+        // +0 (m_nNormalPKFlag of 2003, three states in the Linux build): 0 exercise, 1 fight, 2 kill.  The run's stamina cost
+        // (0x0808BE0B), the clients' life-bar colour (the 0x4a / 0x4b flag & 3 -> KNpc+0x16e4), the PK points of a kill
+        int state = 0;
+        bool locked = false;      // +8: Lua ForbidChangePK / IsForbidChangePK - SetPKState refused unless forced
+        int state_time = 0;       // +0x10: seconds in the state (KPlayerPK 0x080C35E0 once a second); leaving a state needs NormalPKTimeLong of them (0x080C3789)
+        int value = 0;            // +0x2c: 0..10 (SetPKValue 0x080C38C0)
+        int dodge_percent = 0;    // +0x34: AddPKValue skips the add when g_Random(100) < it (0x080C394E; nothing sets it in the zone)
+        int reduce_seconds = 0;   // Player+0x5a8c (Lua SetPkReduceState arg 1): while > 0 the punish_enhance below counts
+        int reduce_value = 0;     // Player+0x5a84 (arg 2)
+        int punish_enhance = 0;   // Player+0x5a88 low byte (arg 4): percent more money lost on a PK death (0x080BA12D), capped 100
+        int punish_weaken = 0;    // Player+0x5a88 high byte (arg 3), capped 100 (read by 0x080B9FA0, unused after the cap)
+    } pk;
+    int pk10_death_punish = 0;   // Player+0x384: Lua SetDeathPunish_PK10 (the arena death of 0x08089750; cleared when the PK value drops to 9)
+    // the three PK attributes of states / equipment (KNpcAttribModify 254 / 257 / 256 -> Player+0x86f8 / +0x86fc / +0x8700,
+    // cleared by KNpc::ClearAttrib 0x08082C73..): the killer's chance to add no PK value, and the two sides of the butcher points
+    int not_add_pkvalue_p = 0;
+    int pk_punish_enhance = 0;
+    int pk_punish_weaken = 0;
     int forbid_stamina = 0;    // +0x86b4: Lua ForbitStamina 0x0810CCC0 - no stamina gain while set (0x0808BD53)
     int attribute_point = 0;   // m_nAttributePoint +0x5924 (5 per level)
     int skill_point = 0;       // m_nSkillPoint     +0x5928 (1 per level)

@@ -32,7 +32,8 @@ enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 
 // The zone's own numbering; the m_Doing of jx_linux_y in brackets: stand (1), walk (3), attack = do_attack (7),
 // hurt (9), death (10), revive (21), knock_back (24), magic = do_magic (6); the moves of a style-1 skill
 // (docs/LINUX-SERVER.md §16.2): jump (4), special_skill (14), run (18), special_cast (19), jump_attack (20), blink (23)
-enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic, jump, special_skill, run, special_cast, jump_attack, blink };
+// sit = do_sit (8): KNpc::DoSit 0x0807B550, the frame 0x08087880 holds the last picture; ProcessState feeds life / mana / stamina (0x0808BBE6)
+enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic, jump, special_skill, run, special_cast, jump_attack, blink, sit };
 
 // NPC_COMMAND of the old core: the JX2 ring of five at KNpc+0x169c (24 bytes each) that
 // KNpc::SendCommand 0x0809B750 fills - only do_skill (5) goes through it - and
@@ -193,6 +194,17 @@ struct KNpc {
     int boss_flag = 0;
     // KNpc+0x88 KNpcGold: the gold (elite) monster state and its backup (KNpcGold.h)
     KNpcGold gold;
+    // +0x14dc .. +0x14ec: the equipment rows the clients draw (KItemChangeRes::equip_res of the worn pieces, 0x0807ACB0):
+    // helm, armour, weapon, horse (-1 none), mantle (-1); +0x1504: bumped with every change so a client can tell a stale look
+    int helm_res = 0;
+    int armor_res = 0;
+    int weapon_res = 0;
+    int horse_res = -1;
+    int mantle_res = -1;
+    std::uint8_t res_version = 0;
+    // +0x1818 (m_nCurPKPunishState of 2003): 3 = a PK-battle death (no penalty, GetPKRelation 0x0807A3C2 returns 3); the scripts of
+    // the arenas set it (0x0810F400) - nothing in the zone does yet
+    int pk_punish_state = 0;
     // +0x174c: the drop table the death rolls on - the template's DropRateFile (SetTemplate 0x080830BA), the map's
     // `<id>_NormalDropRate` for a placement (0x0809FD30), its `<id>_GoldenDropRate` while gold (0x08086073); a
     // lower-cased game path here, the table's index in the binary
@@ -223,6 +235,7 @@ struct KNpc {
     std::uint32_t hurt_frame = 10;
     std::uint32_t death_frame = 15;
     std::uint32_t revive_frame = 2400;
+    static constexpr std::uint32_t kSitFrame = 15;   // m_SitFrame +0x1930: KNpc::Init 0x0807E09B sets 15, nothing else writes it
     bool level_data_from_script = false;
 
     // KNpcAI state (server side of KNpc.h), named after the old members
@@ -317,6 +330,11 @@ struct KNpc {
         skill_list.clear_attrib(skill_mgr);   // 0x0807F341: the current levels back to the learned ones
         hide = 0;                             // 0x0807F3DE / 0x0807F4A6: the hiding too (a state puts it back when applied again)
         hide_syncing = false;
+        if (kind == KNpcKind::player) {       // 0x08082C73..0x08082C87: Player+0x86f8 / +0x8700 / +0x86fc = 0
+            player.not_add_pkvalue_p = 0;
+            player.pk_punish_weaken = 0;
+            player.pk_punish_enhance = 0;
+        }
         auto_skills[static_cast<std::size_t>(KAutoSkillList::every_frame)].clear();   // 0x0807F5AC: the every-frame list and
         on_cast_skills.clear();                                                        // 0x0807F5F3: the on-cast map, always
         if (clear_state) {

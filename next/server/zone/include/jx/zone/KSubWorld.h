@@ -23,6 +23,7 @@
 #include "jx/entity/EntityTable.h"
 #include "jx/ids.hpp"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KItemChangeRes.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KFaction.h"
@@ -124,6 +125,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMissleTable> missles;
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
+    std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
 };
@@ -529,6 +531,25 @@ public:
     void set_horse(KNpc& e, int n);
     // the ride toggle 0x080AEFA0 (C2G_RIDE): true when the state changed
     bool ride_request(std::uint64_t sid, bool on, std::uint32_t seq);
+    // the 0x71 packet (handler 0x080DC300): the script event 2, riding -> refused, then 0x08078AA0(npc, sit ? 8 : 1) - refused
+    // while frozen_action (+0x1479, the mask 0x11e covers 1 and 8); the action runs at 0x08088640: 8 -> KNpc::DoSit 0x0807B550,
+    // 1 -> DoStand 0x08080030
+    bool sit_request(std::uint64_t sid, bool sit, std::uint32_t seq);
+    // KPlayerPK (Player+0x5a50): SetPKState 0x080C3740, SetPKValue 0x080C38C0, AddPKValue 0x080C3930, the packet 0x76 handler 0x080DBE00
+    bool pk_set_state(KNpc& e, int state, bool force);
+    void pk_set_value(KNpc& e, int value);
+    void pk_add_value(KNpc& e, int add);
+    bool pk_state_request(std::uint64_t sid, int state);
+    void emit_pk(const KNpc& e);   // G2C_ENTITY_PK: the state & 3 of the 0x4a / 0x4b sync for the watchers
+    [[nodiscard]] const KNpc* owner_of(EntityId id) const;       // 0x08078E80: a companion's master, else the npc itself
+    // KNpc::GetPKRelation 0x0807A350 (KNpc::DeathCalcPKValue of 2003): the death mode 0..4 and the PK points the killer's owner gains
+    int death_calc_pk_value(const KNpc& victim, const KNpc* killer_owner, const KNpc* victim_owner, int& points) const;
+    void death_punish_pk(KNpc& e, EntityId killer);              // KNpc::DeathPunish 0x080B9FA0 for a player's kill
+    [[nodiscard]] int exp_percent(const KNpc& e) const noexcept; // 0x080A8120: the exp held, in percent of the level's
+    // KNpc::DoSit 0x0807B550: already sitting -> nothing; a run attack (0x12) is ended first; m_Doing = 8, the 0x83 packet
+    // {npc id} to the players around and the 0x9f {6, 1} to oneself (0x080796D0), the frame counter 0 / m_SitFrame
+    void do_sit(KNpc& e);
+    void leave_sit(KNpc& e);
     // C2G_SKILL_DESC: the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client; docs/CLIENT-2.0.md §10)
     void skill_desc_request(std::uint64_t sid, int skill_id, int level);
     // KPlayer::SetFaction 0x080AEEC0 (docs §16.7): the faction named `name` joined - its camp on the npc, the 0x7b packet;
@@ -589,7 +610,7 @@ private:
     void jump_attack_frame(KNpc& e);          // 0x08084E00
     void cast_child_skill(KNpc& e, bool style0_only);   // the ChildSkillId at the kept target / spot
     void wear_result(KNpc& e, KItemList& list, int part, std::uint32_t id, int before, int left);   // after KItem::Abrade: the sync / the break
-    void on_death_player(KNpc& e, EntityId killer);   // KNpc::OnDeath 0x08088D50: the experience and the money lost
+    void on_death_player(KNpc& e, EntityId killer, int mode);   // KNpc::OnDeath 0x08088D50 by the death mode: the experience and the money lost
     void player_corpse(KNpc& e);                      // KNpc::Revive 0x080833B0 for a player: the corpse waits, the states off
     void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look
@@ -680,6 +701,10 @@ private:
     void emit_action(const KNpc& e, pb::Action action, EntityId target, int skill_id = 0, int skill_level = 0, Pos aim = Pos{});
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
     void emit_ride(const KNpc& e);
+    // 0x0807ACB0 for a player: the five equipment rows from the worn pieces (KItemChangeRes::equip_res of parts 0 / 1 / 3 / 10,
+    // the mantle -1), +0x1504 bumped and the look told around (the 0xad packet 0x0807A9D0 -> G2C_ENTITY_RES) when it changed
+    void update_equip_res(KNpc& e);
+    void emit_res(const KNpc& e);
     void emit_camp(const KNpc& e);
     void emit_player_faction(const KNpc& e);
     // the 0x87 packet of SetStateSkillEffect 0x08086892 / RemoveStateSkillEffect 0x0807D40A to the player's client

@@ -118,4 +118,9 @@ message RoleData {
   // +0x59d8: 0 = never, the name of a character without faction depends on it); m_nFirstAddFaction is not saved (LoadFrom 0x080C1A62)
   int32 faction_last = 25;
   uint32 faction_count = 26;
+  // KPlayerPK (Player+0x5a50): the PK state 0..2 (the save 0x080BFCDD writes the byte), the PK value 0..10 (0x080BFCEF), the
+  // ForbidChangePK lock
+  uint32 pk_state = 27;
+  uint32 pk_value = 28;
+  bool pk_locked = 29;
 }

@@ -615,8 +615,13 @@ type RoleData struct {
 	// KPlayerFaction (Core/Src/KPlayerFaction.h; KPlayer+0x59cc..+0x59d8 of jx_linux_y): the faction last added (m_nLastAddFaction,
 	// +0x59d4, the one the client's skill book shows the branches of) and how many times a faction was joined (m_nAddTimes,
 	// +0x59d8: 0 = never, the name of a character without faction depends on it); m_nFirstAddFaction is not saved (LoadFrom 0x080C1A62)
-	FactionLast   int32  `protobuf:"varint,25,opt,name=faction_last,json=factionLast,proto3" json:"faction_last,omitempty"`
-	FactionCount  uint32 `protobuf:"varint,26,opt,name=faction_count,json=factionCount,proto3" json:"faction_count,omitempty"`
+	FactionLast  int32  `protobuf:"varint,25,opt,name=faction_last,json=factionLast,proto3" json:"faction_last,omitempty"`
+	FactionCount uint32 `protobuf:"varint,26,opt,name=faction_count,json=factionCount,proto3" json:"faction_count,omitempty"`
+	// KPlayerPK (Player+0x5a50): the PK state 0..2 (the save 0x080BFCDD writes the byte), the PK value 0..10 (0x080BFCEF), the
+	// ForbidChangePK lock
+	PkState       uint32 `protobuf:"varint,27,opt,name=pk_state,json=pkState,proto3" json:"pk_state,omitempty"`
+	PkValue       uint32 `protobuf:"varint,28,opt,name=pk_value,json=pkValue,proto3" json:"pk_value,omitempty"`
+	PkLocked      bool   `protobuf:"varint,29,opt,name=pk_locked,json=pkLocked,proto3" json:"pk_locked,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -833,6 +838,27 @@ func (x *RoleData) GetFactionCount() uint32 {
 	return 0
 }
 
+func (x *RoleData) GetPkState() uint32 {
+	if x != nil {
+		return x.PkState
+	}
+	return 0
+}
+
+func (x *RoleData) GetPkValue() uint32 {
+	if x != nil {
+		return x.PkValue
+	}
+	return 0
+}
+
+func (x *RoleData) GetPkLocked() bool {
+	if x != nil {
+		return x.PkLocked
+	}
+	return false
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -896,7 +922,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +
-	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xc6\x06\n" +
+	"\x03exp\x18\x03 \x01(\rR\x03exp\"\x99\a\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -931,7 +957,10 @@ const file_jx_role_proto_rawDesc = "" +
 	"\n" +
 	"revive_ref\x18\x18 \x01(\rR\treviveRef\x12!\n" +
 	"\ffaction_last\x18\x19 \x01(\x05R\vfactionLast\x12#\n" +
-	"\rfaction_count\x18\x1a \x01(\rR\ffactionCountB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"\rfaction_count\x18\x1a \x01(\rR\ffactionCount\x12\x19\n" +
+	"\bpk_state\x18\x1b \x01(\rR\apkState\x12\x19\n" +
+	"\bpk_value\x18\x1c \x01(\rR\apkValue\x12\x1b\n" +
+	"\tpk_locked\x18\x1d \x01(\bR\bpkLockedB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once

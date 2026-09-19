@@ -129,3 +129,43 @@ func atoi(s string) int {
 	}
 	return n
 }
+
+// IntRows is the table as the zone's KItemChangeRes reads it: every row of the file (the first is the header)
+// as C atoi of each cell, so KTabFile::GetInteger(row, col) is rows[row-1][col-1] with the same 1-based
+// numbering (an absent cell is the caller's default).
+func (t *TabFile) IntRows() [][]int {
+	out := make([][]int, len(t.rows))
+	for i, r := range t.rows {
+		out[i] = make([]int, len(r))
+		for j, c := range r {
+			out[i][j] = atoi(c)
+		}
+	}
+	return out
+}
+
+// AllRows is every equipment row the five tables can select (col 2 - 2 of every data row), per part group: 0 helms,
+// 1 armours, 2 melee + range weapons, 3 horses.  Negative rows (no horse) are left out.
+func (r *ItemChangeRes) AllRows() map[int][]int {
+	out := map[int][]int{}
+	add := func(group int, t *TabFile) {
+		seen := map[int]bool{}
+		for _, have := range out[group] {
+			seen[have] = true
+		}
+		for row := 2; row <= len(t.rows); row++ {
+			v := t.GetInteger(row, 2, 2) - 2
+			if v < 0 || seen[v] {
+				continue
+			}
+			seen[v] = true
+			out[group] = append(out[group], v)
+		}
+	}
+	add(0, r.helm)
+	add(1, r.armor)
+	add(2, r.melee)
+	add(2, r.ranged)
+	add(3, r.horse)
+	return out
+}

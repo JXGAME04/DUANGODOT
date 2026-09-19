@@ -24,6 +24,8 @@ const ACTION_DEATH := 3
 const ACTION_REVIVE := 4
 const ACTION_JUMP := 5
 const ACTION_KNOCK_BACK := 6
+const ACTION_SIT := 7
+const SIT_FRAME := 15              # m_SitFrame +0x1930 of the server (KNpc::Init 0x0807E09B): the sit runs 15 frames, then holds
 # the name block over a character as gamecl.exe 0x005F2DB0 sizes it with names shown: 3 (life bar) + 5, the name
 # line 12 + 2 - the Head state pictures hang from it (0x006DFAC0: z = block height + 9 - 100)
 const INFO_LINES := 22
@@ -64,6 +66,9 @@ var level := 0                     # m_Level (+0x28 of the 2.0 client): "%s/Lv:%
 var gold_type := 0
 var hovered := false               # the npc under the mouse (the pate loop 0x0067021A: [core+0xa8c4] == this)
 var camp := 4                      # m_Camp (+0xf4 of the 2.0 client, the byte +0xb of the 0x4c packet)
+var equip_rows: Dictionary = {}    # the equipment rows of the 0x4a / 0x4b sync (KNpc+0x13f0..+0x1400): group -> row, -1 none
+var riding := false                # m_bRideHorse (+0x19c0): the on-horse actions, the pate + 38
+var pk_state := 0                  # KNpc+0x16e4 (the 0x4a / 0x4b flag & 3): a player's PK state - the life-bar colour (PaintLife 0x005EADF4)
 var current_camp := 4              # m_CurrentCamp (+0xf8, the byte +3): the colour of a player's name (0x005F2507)
 # the two show switches (KNpcGold.gd): "showplayername" (F7) and "showplayerlife" (F8) of the option word, shared by every npc
 static var name_switch := 3        # this client starts with the names on (2.0 starts at 0: docs/CLIENT-2.0.md §17)
@@ -73,9 +78,8 @@ var no_2d := false                 # a 3D view draws it (KWorldView3D): no sprit
 var _snd_res: Dictionary = {}      # no_2d: the npcres row, only for the action sounds (KNpcRes::GetSoundName without the pictures)
 var _snd_name := ""                # no_2d: m_szSoundName of the current doing
 var view_dir_offset := 0           # a 2.5D view adds the camera's turn to the painted facing (the sprite seen from the camera)
-var riding := false                # on its horse (EntityInfo.riding / G2C_ENTITY_RIDE; the 0x20 flag of the 0x4c / 0x4d packets)
 
-signal riding_changed(on: bool)
+signal riding_changed(on: bool)   # the ride flag changed (set_riding), for a 3D view's mount
 
 signal doing_changed(doing: int, total_frame: int)   # the doing (and its frame count) was set, for a 3D view
 
@@ -98,6 +102,9 @@ func setup(d: Dictionary, own: bool) -> void:
 	gold_type = int(d.get("gold_type", 0))
 	camp = int(d.get("camp", 4))
 	current_camp = int(d.get("current_camp", 4))
+	equip_rows = d.get("res", {})
+	riding = bool(d.get("riding", false))
+	pk_state = int(d.get("pk_state", 0))
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -105,7 +112,6 @@ func setup(d: Dictionary, own: bool) -> void:
 	res_dir = dir64
 	life = int(d.get("life", 0))
 	life_max = int(d.get("life_max", 0))
-	riding = bool(d.get("riding", false))
 	path = _waypoints(d)
 	position = to_screen(scene_pos)
 	_rng.seed = entity_id
@@ -142,11 +148,15 @@ func setup(d: Dictionary, own: bool) -> void:
 	if not has_res and not no_2d:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
+	elif entity_type == ENTITY_PLAYER:
+		# 0x005F1A15..0x005F1A63: SetRideHorse(+0x19c0), SetArmor(+0x13f4), SetHelm(+0x13f0), SetMantle(+0x13f8), SetHorse(+0x13fc), the weapon
+		if not equip_rows.is_empty():
+			_res.set_equips(equip_rows)
+		_res.set_ride(riding)
 	set_state_icons(d.get("state_icons", state_icons))
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
 	if _label != null:
-		_label.position.y = -float(_pate()) - 20.0
-		_life_label.position.y = _label.position.y - 16.0
+		_place_labels()
 	doing = -1
 	_set_doing(KNpcResNode.Doing.STAND)
 	# a late joiner sees corpses and swings already under way
@@ -156,6 +166,10 @@ func setup(d: Dictionary, own: bool) -> void:
 		cur_frame = total_frame - 1
 	elif now == ACTION_ATTACK or now == ACTION_HURT or now == ACTION_KNOCK_BACK:
 		apply_action({"action": now, "frames": d.get("doing_frames", 1), "x": d.x, "y": d.y, "dir": dir64})
+	elif now == ACTION_SIT:
+		# the 0x4c sync carries m_Doing 8: a late joiner sees the sitter already down (the last frame held)
+		_set_action(KNpcResNode.Doing.SIT, SIT_FRAME)
+		cur_frame = total_frame - 1
 	_tick_acc = 0.0
 	queue_redraw()
 
@@ -165,8 +179,8 @@ func apply_move(mv: Dictionary) -> void:
 	speed = float(mv.speed)
 	path = _waypoints(mv)
 	position = to_screen(scene_pos)
-	if doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1:
-		_set_doing(KNpcResNode.Doing.STAND)   # KNpc::DoWalk interrupts the swing
+	if doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.SIT:
+		_set_doing(KNpcResNode.Doing.STAND)   # KNpc::DoWalk interrupts the swing (and writes m_Doing 3 over a sit)
 
 
 # EntityAction from the zone: KNpc::DoAttack / DoHurt / DoDeath on the client side.
@@ -198,6 +212,10 @@ func apply_action(a: Dictionary) -> void:
 			if face >= 0:
 				dir64 = face
 			_set_action(KNpcResNode.Doing.HURT, n)
+		ACTION_SIT:
+			# the 0x83 packet (KNpc::DoSit 0x0807B550) -> the 2.0 handler 0x00650400 -> KNpc::DoAction(8) 0x005EA2E0: the sit
+			# animation plays its frames once and holds the last one (the server's frame 0x08087880 does the same)
+			_set_action(KNpcResNode.Doing.SIT, SIT_FRAME)
 		ACTION_JUMP:
 			# a jump of a style-1 skill (zone KSubWorld::start_jump): to the landing spot within `frames` logic frames;
 			# shown as a run until the jump animation of the 2.0 client is wired (B4)
@@ -284,6 +302,35 @@ func set_camp(c: int, current: int) -> void:
 	_refresh_name()
 
 
+# the 0xad packet (KNpc::SetPlayerRes 0x005ED920 -> 0x005EBF90): the equipment rows of a player - the pictures are picked again
+func set_equip_rows(rows: Dictionary) -> void:
+	equip_rows = rows
+	if has_res and entity_type == ENTITY_PLAYER:
+		_res.set_equips(rows)
+		queue_redraw()
+
+
+# the flag & 3 of the 0x4b sync (0x0065D617 -> +0x16e4): the PK state colours the life bar
+func set_pk_state(s: int) -> void:
+	if pk_state == s:
+		return
+	pk_state = s
+	queue_redraw()
+
+
+# the ride flag of the 0x4a / 0x4b sync -> KNpc::SetRideHorse 0x005EC3E0 -> KNpcRes::SetRideHorse 0x006DF420: the on-horse
+# actions of the same doing, the name 38 higher (GetNpcPate)
+func set_riding(on: bool) -> void:
+	if riding == on:
+		return
+	riding = on
+	if has_res and entity_type == ENTITY_PLAYER:
+		_res.set_ride(on)
+	_place_labels()
+	queue_redraw()
+	riding_changed.emit(on)
+
+
 # KNpcGold::SetGoldType 0x006E3560 (the 0x9a packet): the kind, 0 = plain again
 func set_gold_type(kind: int) -> void:
 	gold_type = kind
@@ -317,18 +364,13 @@ func _head_effect_z() -> int:
 	return _pate() + INFO_LINES + 9 - 100
 
 
+func is_sitting() -> bool:
+	return doing == KNpcResNode.Doing.SIT
+
+
 func set_target(on: bool) -> void:
 	is_target = on
 	refresh_info()
-
-
-# G2C_ENTITY_RIDE: mounted or dismounted (the 2.0 client redraws with the on_horse action table, KNpcResNode.act_no)
-func set_riding(on: bool) -> void:
-	if riding == on:
-		return
-	riding = on
-	riding_changed.emit(on)
-	queue_redraw()
 
 
 func is_dead() -> bool:
@@ -401,8 +443,9 @@ func _process(delta: float) -> void:
 # One old logic frame: choose the doing, advance the frame counter, turn, and draw.
 @warning_ignore("integer_division")
 func _tick() -> void:
-	if doing == KNpcResNode.Doing.DEATH:
-		# KNpc::OnDeath: the corpse keeps its last frame until the zone removes it
+	if doing == KNpcResNode.Doing.DEATH or doing == KNpcResNode.Doing.SIT:
+		# KNpc::OnDeath: the corpse keeps its last frame until the zone removes it; a sitter holds its last frame too
+		# (0x08087880) until the zone says it stood up (ACTION_STAND) or moved
 		if cur_frame < total_frame - 1:
 			cur_frame += 1
 	elif doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.HURT:
@@ -439,6 +482,8 @@ func _tick() -> void:
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
 		_res.paint(posmod(res_dir + view_dir_offset, 64), total_frame, cur_frame, _head_effect_z())
+	if entity_type == ENTITY_PLAYER and _label != null:
+		_place_labels()   # a sitter's name sinks over the last sit frames and comes back up on standing
 	_play_action_sound()
 
 
@@ -465,12 +510,23 @@ func _sound_of_doing(d: int) -> String:
 	return NpcResList.action_sound(str(_snd_res.get("name", "")), special, action) if action >= 0 else ""
 
 
-# KNpc::GetNpcPate (no jump height, sitting or riding yet).
+# KNpc::GetNpcPate 0x005EBCF0: m_nStature (+84 for a player, 0x005EC13D) + m_nHeight; a sitting player's head sinks with the
+# sit frames (KNpcGold.sit_pate_drop); riding adds 38 (no jump height or riding on this client yet).
 func _pate() -> int:
 	var h := stature
 	if entity_type == ENTITY_PLAYER:
-		h += 84
+		h += 84 - KNpcGold.sit_pate_drop(doing == KNpcResNode.Doing.SIT, cur_frame, total_frame)
+		if riding:
+			h += 38   # 0x005EBD58: +0x19c0 -> + 0x26
 	return h
+
+
+# where the pate puts the name lines this frame (the pate loop 0x00670130 measures it every frame: a sitter's sink)
+func _place_labels() -> void:
+	if _label == null:
+		return
+	_label.position.y = -float(_pate()) - 20.0
+	_life_label.position.y = _label.position.y - 16.0
 
 
 func _set_doing(d: int) -> void:
@@ -530,7 +586,7 @@ func _draw() -> void:
 		var pct := int(round(float(life) * 100.0 / float(life_max)))
 		var w := float(pct * 38 / 100)
 		var top := Vector2(-19.0, -float(_pate()) + 2.0)
-		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct))
+		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct, pk_state, pk_state != 0))
 		draw_rect(Rect2(top + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
 	if is_target and not is_dead():
 		draw_arc(Vector2(0, 0), 18.0, 0, TAU, 24, Color(1.0, 0.9, 0.2, 0.8), 2.0)

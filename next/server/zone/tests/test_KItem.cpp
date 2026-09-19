@@ -604,7 +604,8 @@ struct ItemWorld {
     jx::EntityId id;
     jx::zone::Pos p;
 
-    explicit ItemWorld(std::shared_ptr<const jx::zone::KAbradeRate> abrade = nullptr)
+    explicit ItemWorld(std::shared_ptr<const jx::zone::KAbradeRate> abrade = nullptr,
+                       std::shared_ptr<const jx::zone::KItemChangeRes> item_res = nullptr)
     {
         jx::log::Options lo;
         lo.console = false;
@@ -620,6 +621,7 @@ struct ItemWorld {
         cfg.spawn_point = jx::zone::Pos{2000, 2000};
         cfg.items = lib;
         cfg.abrade_rate = std::move(abrade);
+        cfg.item_res = std::move(item_res);
         w = std::make_unique<jx::zone::KSubWorld>(cfg);
         jx::pb::RoleData role;
         role.set_player_id(11);
@@ -833,6 +835,17 @@ TEST_CASE("a horse: worn = ridden, its defence counts only while riding, the rid
     CHECK_FALSE(iw.w->ride_request(1, false, 45));
     CHECK(iw.w->mutable_entity(iw.id)->horse == 1);
     iw.w->mutable_entity(iw.id)->cur.frozen_action = false;
+    // sitting refuses the toggle (0x080AEFA0: m_Doing == 8) and riding refuses the sit (0x080DC367)
+    REQUIRE(iw.w->ride_request(1, false, 145));
+    REQUIRE(iw.w->sit_request(1, true, 146));
+    CHECK(iw.w->mutable_entity(iw.id)->doing == jx::zone::KDoing::sit);
+    CHECK_FALSE(iw.w->ride_request(1, true, 147));
+    CHECK(iw.w->mutable_entity(iw.id)->horse == 0);
+    REQUIRE(iw.w->sit_request(1, false, 148));
+    REQUIRE(iw.w->ride_request(1, true, 149));
+    CHECK(iw.w->mutable_entity(iw.id)->horse == 1);
+    CHECK_FALSE(iw.w->sit_request(1, true, 150));
+    CHECK(iw.w->mutable_entity(iw.id)->doing != jx::zone::KDoing::sit);
     // the horse comes off: dismounted (0x08200311); without a horse the toggle is refused (0x080AF066)
     REQUIRE(iw.w->item_unequip_request(1, jx::zone::itempart_horse, 46));
     CHECK(iw.w->mutable_entity(iw.id)->horse == 0);
@@ -1395,4 +1408,142 @@ TEST_CASE("equipment wears one in N on an attack, a hit and a step; a piece at 0
     CHECK(iw.w->receive_damage(*hero, *p, -1, true, d.data(), false, 0, jx::zone::relation_enemy, 1) == 1);
     CHECK(hero->life() < before);
     CHECK(iw.list().find(armor)->durability == 89);
+}
+
+// ---- the looks of worn pieces (M12 B6b): KItemChangeRes 0x08068AC0 / 0x081FE0E0, the sync 0x0807ACB0 -------
+
+namespace {
+
+// the five tables and the gold map as jxassets export-item-res writes them (row 1 = header; KTabFile rows are 1-based):
+// MeleeRes row 2 = bare hands (col 2 = 2 -> 0), row 3 = particular 0 level 1 (-> 5); RangeRes row 2 = particular 0 level 1
+// (-> 19); ArmorRes / HelmRes row 2 = nothing worn (20 -> 18), row 13 = particular 1 level 1 (-> 30 / 27); HorseRes row 3 =
+// particular 0 level 1 (10 -> 8); GoldEquipRes: id 6 kind 5 (the weapon part's kind, 0x080685B0) -> 31, id 6 kind 0 -> 40
+std::string write_item_res()
+{
+    const auto path = (std::filesystem::temp_directory_path() / "jx_item_res_test.json").string();
+    std::ofstream out(path, std::ios::binary);
+    out << R"({"melee": [[0, 0], [1, 2], [2, 7]], "range": [[0, 0], [1, 21]],
+ "armor": [[0, 0], [1, 20], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0], [10, 0], [11, 0], [12, 32]],
+ "helm": [[0, 0], [1, 20], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0], [10, 0], [11, 0], [12, 29]],
+ "horse": [[0, 0], [1, 0], [2, 10]],
+ "gold": [[0, 0, 0], [6, 33, 5], [6, 42, 0]], "platina": []})";
+    return path;
+}
+
+} // namespace
+
+TEST_CASE("KItemChangeRes: the rows of the five tables, the gold map, nothing worn", "[item][res]")
+{
+    std::string error;
+    auto t = jx::zone::KItemChangeRes::load(write_item_res(), &error);
+    REQUIRE(t);
+    // 0x08068A00: bare hands = row 2 of MeleeRes; melee particular 0 level 1 = row 3; range = row particular*10+level+1
+    CHECK(t->weapon_res(jx::zone::equip_meleeweapon, 3, 0) == 0);
+    CHECK(t->weapon_res(jx::zone::equip_meleeweapon, 0, 1) == 5);
+    CHECK(t->weapon_res(jx::zone::equip_rangeweapon, 0, 1) == 19);
+    CHECK(t->weapon_res(jx::zone::equip_meleeweapon, 9, 9) == 0);   // outside the table: the default 2 - 2
+    // 0x08068980 / 0x08068900: row 2 when nothing is worn (20 - 2), particular 1 level 1 -> row 13
+    CHECK(t->armor_res(0, 0) == 18);
+    CHECK(t->helm_res(0, 0) == 18);
+    CHECK(t->armor_res(1, 0) == 18);
+    CHECK(t->armor_res(1, 1) == 30);
+    CHECK(t->helm_res(1, 1) == 27);
+    CHECK(t->armor_res(5, 5) == 17);   // outside: the default 19 - 2
+    // 0x080688B0: level 0 = no horse, else the row's col 2 - 2
+    CHECK(t->horse_res(0, 0) == -1);
+    CHECK(t->horse_res(0, 1) == 8);
+    CHECK(t->horse_res(3, 3) == 0);    // outside: 2 - 2
+    // 0x080686A0: (kind << 16 | gen_param + 1) -> col 2 - 2; a miss = -1
+    CHECK(t->gold_res(5, 5) == 31);
+    CHECK(t->gold_res(5, 0) == 40);
+    CHECK(t->gold_res(5, 1) == -1);
+    // 0x08068730: tier <= 5 reads the gold map, a miss with a kind falls back to kind 0, the platina map is empty
+    CHECK(t->platina_res(5, 1, 3) == 40);
+    CHECK(t->platina_res(5, 1, 7) == -1);
+    // 0x081FE0E0: nothing worn on each part
+    CHECK(t->equip_res(nullptr, jx::zone::itempart_head) == 18);
+    CHECK(t->equip_res(nullptr, jx::zone::itempart_body) == 18);
+    CHECK(t->equip_res(nullptr, jx::zone::itempart_weapon) == 0);
+    CHECK(t->equip_res(nullptr, jx::zone::itempart_horse) == -1);
+    CHECK(t->equip_res(nullptr, jx::zone::itempart_mantle) == -1);
+    CHECK(t->equip_res(nullptr, jx::zone::itempart_belt) == 0);
+}
+
+TEST_CASE("the look of a player: the bare rows at spawn, a horse and a gold armour change it and are told around", "[item][world][res]")
+{
+    std::string error;
+    auto t = jx::zone::KItemChangeRes::load(write_item_res(), &error);
+    REQUIRE(t);
+    ItemWorld iw(nullptr, std::make_shared<const jx::zone::KItemChangeRes>(std::move(*t)));
+    const jx::zone::KNpc* me = iw.w->mutable_entity(iw.id);
+    REQUIRE(me != nullptr);
+    // 0x080C1F50 / 0x0807ACB0 at load: the bare rows (helm / armour row 18, bare hands 0, no horse, no mantle), version 1
+    CHECK(me->helm_res == 18);
+    CHECK(me->armor_res == 18);
+    CHECK(me->weapon_res == 0);
+    CHECK(me->horse_res == -1);
+    CHECK(me->mantle_res == -1);
+    CHECK(me->res_version == 1);
+    // the spawn's EntityInfo carries the rows
+    {
+        const auto out = iw.w->take_outbox();
+        const auto spawns = packets(out, 1, jx::pb::G2C_ENTITY_SPAWN);
+        REQUIRE_FALSE(spawns.empty());
+        const auto sp = decode_packet<jx::pb::EntitySpawn>(spawns.front());
+        REQUIRE(sp.entities_size() >= 1);
+        bool found = false;
+        for (const auto& e : sp.entities()) {
+            if (e.entity_id() != iw.id.value) continue;
+            found = true;
+            CHECK(e.helm_res() == 18);
+            CHECK(e.armor_res() == 18);
+            CHECK(e.horse_res() == -1);
+        }
+        CHECK(found);
+    }
+    auto g = iw.gen();
+    // a horse of particular 0 level 1: HorseRes row 3 -> 8; the G2C_ENTITY_RES with version 2
+    const auto horse = iw.w->give_item(1, *g.equipment(jx::zone::equip_horse, 0, 1, 1));
+    REQUIRE(horse);
+    iw.w->take_outbox();
+    REQUIRE(iw.w->item_equip_request(1, horse, -1, 61));
+    me = iw.w->mutable_entity(iw.id);
+    CHECK(me->horse_res == 8);
+    CHECK(me->res_version == 2);
+    {
+        const auto res = packets(iw.w->take_outbox(), 1, jx::pb::G2C_ENTITY_RES);
+        REQUIRE(res.size() == 1);
+        const auto r = decode_packet<jx::pb::EntityRes>(res.front());
+        CHECK(r.entity_id() == iw.id.value);
+        CHECK(r.horse_res() == 8);
+        CHECK(r.helm_res() == 18);
+        CHECK(r.version() == 2);
+    }
+    // the ride toggle changes nothing of the look (0x080AEFA0 sends 0x9c only); taking the horse off makes it -1 again
+    REQUIRE(iw.w->ride_request(1, false, 62));
+    CHECK(packets(iw.w->take_outbox(), 1, jx::pb::G2C_ENTITY_RES).empty());
+    CHECK(iw.w->mutable_entity(iw.id)->res_version == 2);
+    REQUIRE(iw.w->item_unequip_request(1, jx::zone::itempart_horse, 63));
+    CHECK(iw.w->mutable_entity(iw.id)->horse_res == -1);
+    CHECK(iw.w->mutable_entity(iw.id)->res_version == 3);
+    // a gold sword (ex_type 1, gen_param 5): the gold map's (kind 5 << 16 | 6) -> 31 (0x081FE158), not MeleeRes
+    auto goldpiece = *g.equipment(jx::zone::equip_meleeweapon, 0, 1, 1);
+    goldpiece.ex_type = 1;
+    goldpiece.gen_param = 5;
+    const auto gid = iw.w->give_item(1, goldpiece);
+    REQUIRE(gid);
+    iw.w->take_outbox();
+    REQUIRE(iw.w->item_equip_request(1, gid, -1, 64));
+    CHECK(iw.w->mutable_entity(iw.id)->weapon_res == 31);
+    CHECK(iw.w->mutable_entity(iw.id)->res_version == 4);
+    // off again: bare hands (MeleeRes row 2)
+    REQUIRE(iw.w->item_unequip_request(1, jx::zone::itempart_weapon, 65));
+    CHECK(iw.w->mutable_entity(iw.id)->weapon_res == 0);
+    CHECK(iw.w->mutable_entity(iw.id)->res_version == 5);
+    // a plain sword of particular 0 level 1: MeleeRes row 3 -> 5
+    const auto plain = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 1, 1));
+    REQUIRE(plain);
+    REQUIRE(iw.w->item_equip_request(1, plain, -1, 66));
+    CHECK(iw.w->mutable_entity(iw.id)->weapon_res == 5);
+    CHECK(iw.w->mutable_entity(iw.id)->res_version == 6);
 }
