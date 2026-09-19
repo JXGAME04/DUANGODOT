@@ -44,6 +44,8 @@ struct KChatCostTable {
 // a line for people beyond this map (WORLD / CITY / FACTION): the map hands it to KGameServer, which sends it to every
 // session of the zone that qualifies
 struct KChatBroadcast {
+    std::uint32_t msg_id = 0;   // 0 = G2C_CHAT_MSG; a script action (G2C_SCRIPT_ACTION) for AddGlobalNews - the relay's broadcast
+                                // to every server (0x08077560, class 0x21 target -1) is the server's fan-out here
     pb::ChatChannel channel = pb::CH_WORLD;
     int faction = -1;      // CH_FACTION: KPlayerFaction::current of the speaker
     std::string payload;   // the serialized ChatMsg

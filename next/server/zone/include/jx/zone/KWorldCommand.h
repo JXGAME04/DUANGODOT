@@ -88,6 +88,7 @@ struct KEvWorldChange {
 // a chat line for people beyond the map (WORLD / CITY / FACTION): the server sends it to every session of the zone
 // that qualifies - the relay's broadcast class of the old game, done here
 struct KEvChat {
+    std::uint32_t msg_id = 0;   // 0 = G2C_CHAT_MSG, else the message the payload is (a global news script action)
     pb::ChatChannel channel = pb::CH_WORLD;
     int faction = -1;
     std::string payload;

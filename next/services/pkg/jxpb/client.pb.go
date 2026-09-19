@@ -1901,15 +1901,17 @@ func (x *DialogAnswer) GetKind() int32 {
 // 2.0 client's KPlayer::OnScriptAction 0x006004C0 shows ui 0 in KUiMsgSel (滚动选择界面.ini) and ui 2 in KUiInformation2
 // (提示2.ini, "Tiếp tục" G_PLAYER_14 / "Hoàn thành" G_PLAYER_15).
 type ScriptAction struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Operate       uint32                 `protobuf:"varint,1,opt,name=operate,proto3" json:"operate,omitempty"`                                  // 0 SCRIPTACTION_UISHOW (1 EXESCRIPT "OnCall": the client runs its own script - never sent by the zone)
-	UiId          uint32                 `protobuf:"varint,2,opt,name=ui_id,json=uiId,proto3" json:"ui_id,omitempty"`                            // UIInfo: 0 UI_SELECTDIALOG (Say), 2 UI_TALKDIALOG (Talk)
-	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`                                         // the sentence (Say)
-	TextId        int32                  `protobuf:"varint,4,opt,name=text_id,json=textId,proto3" json:"text_id,omitempty"`                      // m_bParam1 = 1: the sentence is this string-table id instead (g_GetStringRes of the client)
-	Interactive   bool                   `protobuf:"varint,5,opt,name=interactive,proto3" json:"interactive,omitempty"`                          // m_bParam2
-	Param         int32                  `protobuf:"varint,6,opt,name=param,proto3" json:"param,omitempty"`                                      // m_nParam
-	Options       []string               `protobuf:"bytes,7,rep,name=options,proto3" json:"options,omitempty"`                                   // the answers (Say, the text before the '/') or the pages (Talk); the title (GiveItemUI)
-	NotifyChanges bool                   `protobuf:"varint,8,opt,name=notify_changes,json=notifyChanges,proto3" json:"notify_changes,omitempty"` // +8 of the 0x63 packet: GiveItemUI's seventh argument - the client reports every change of its box (C2G_GIVE_ITEMS kind 0)
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Operate     uint32                 `protobuf:"varint,1,opt,name=operate,proto3" json:"operate,omitempty"`             // 0 SCRIPTACTION_UISHOW (1 EXESCRIPT "OnCall": the client runs its own script - never sent by the zone)
+	UiId        uint32                 `protobuf:"varint,2,opt,name=ui_id,json=uiId,proto3" json:"ui_id,omitempty"`       // UIInfo: 0 UI_SELECTDIALOG (Say), 2 UI_TALKDIALOG (Talk)
+	Text        string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`                    // the sentence (Say)
+	TextId      int32                  `protobuf:"varint,4,opt,name=text_id,json=textId,proto3" json:"text_id,omitempty"` // m_bParam1 = 1: the sentence is this string-table id instead (g_GetStringRes of the client)
+	Interactive bool                   `protobuf:"varint,5,opt,name=interactive,proto3" json:"interactive,omitempty"`     // m_bParam2
+	Param       int32                  `protobuf:"varint,6,opt,name=param,proto3" json:"param,omitempty"`                 // m_nParam
+	Options     []string               `protobuf:"bytes,7,rep,name=options,proto3" json:"options,omitempty"`              // the answers (Say, the text before the '/') or the pages (Talk); the title (GiveItemUI)
+	Count       int32                  `protobuf:"varint,9,opt,name=count,proto3" json:"count,omitempty"`                 // ui 5 with param 1 (AddGlobalCountNews 0x081258E0): the dword after the text - how many times the news
+	// shows (0x004D61ED of the 2.0 client: 3 when 0)
+	NotifyChanges bool `protobuf:"varint,8,opt,name=notify_changes,json=notifyChanges,proto3" json:"notify_changes,omitempty"` // +8 of the 0x63 packet: GiveItemUI's seventh argument - the client reports every change of its box (C2G_GIVE_ITEMS kind 0)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1991,6 +1993,13 @@ func (x *ScriptAction) GetOptions() []string {
 		return x.Options
 	}
 	return nil
+}
+
+func (x *ScriptAction) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
 }
 
 func (x *ScriptAction) GetNotifyChanges() bool {
@@ -2157,6 +2166,7 @@ func (x *TaskValueReq) GetValue() int32 {
 type TaskTip struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Kind          uint32                 `protobuf:"varint,2,opt,name=kind,proto3" json:"kind,omitempty"` // 0: TaskTip 0x08122730 - the 0x10 byte first -> the client's ui message 0x5d {type 1, blink 1, priority 3};
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2196,6 +2206,13 @@ func (x *TaskTip) GetText() string {
 		return x.Text
 	}
 	return ""
+}
+
+func (x *TaskTip) GetKind() uint32 {
+	if x != nil {
+		return x.Kind
+	}
+	return 0
 }
 
 // one piece the player put into the give-item box (the 0x89 packet, 5 bytes each: 0x080ABA20): where it lies in the
@@ -7372,7 +7389,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x03seq\x18\x02 \x01(\rR\x03seq\"8\n" +
 	"\fDialogAnswer\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x12\n" +
-	"\x04kind\x18\x02 \x01(\x05R\x04kind\"\xe3\x01\n" +
+	"\x04kind\x18\x02 \x01(\x05R\x04kind\"\xf9\x01\n" +
 	"\fScriptAction\x12\x18\n" +
 	"\aoperate\x18\x01 \x01(\rR\aoperate\x12\x13\n" +
 	"\x05ui_id\x18\x02 \x01(\rR\x04uiId\x12\x12\n" +
@@ -7380,7 +7397,8 @@ const file_jx_client_proto_rawDesc = "" +
 	"\atext_id\x18\x04 \x01(\x05R\x06textId\x12 \n" +
 	"\vinteractive\x18\x05 \x01(\bR\vinteractive\x12\x14\n" +
 	"\x05param\x18\x06 \x01(\x05R\x05param\x12\x18\n" +
-	"\aoptions\x18\a \x03(\tR\aoptions\x12%\n" +
+	"\aoptions\x18\a \x03(\tR\aoptions\x12\x14\n" +
+	"\x05count\x18\t \x01(\x05R\x05count\x12%\n" +
 	"\x0enotify_changes\x18\b \x01(\bR\rnotifyChanges\"1\n" +
 	"\tTaskValue\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x14\n" +
@@ -7390,9 +7408,10 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x06values\x18\x01 \x03(\v2\x10.jx.pb.TaskValueR\x06values\"4\n" +
 	"\fTaskValueReq\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value\"\x1d\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"1\n" +
 	"\aTaskTip\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"m\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\rR\x04kind\"m\n" +
 	"\rGiveItemEntry\x12\x12\n" +
 	"\x04room\x18\x01 \x01(\rR\x04room\x12\f\n" +
 	"\x01x\x18\x02 \x01(\rR\x01x\x12\f\n" +

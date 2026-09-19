@@ -2991,6 +2991,11 @@ class ScriptAction:
 		service.field = __options
 		data[__options.tag] = service
 		
+		__count = PBField.new("count", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __count
+		data[__count.tag] = service
+		
 		__notify_changes = PBField.new("notify_changes", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
 		service = PBServiceField.new()
 		service.field = __notify_changes
@@ -3084,6 +3089,19 @@ class ScriptAction:
 		__options.value.clear()
 	func add_options(value : String) -> void:
 		__options.value.append(value)
+	
+	var __count: PBField
+	func has_count() -> bool:
+		if __count.value != null:
+			return true
+		return false
+	func get_count() -> int:
+		return __count.value
+	func clear_count() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_count(value : int) -> void:
+		__count.value = value
 	
 	var __notify_changes: PBField
 	func has_notify_changes() -> bool:
@@ -3303,6 +3321,11 @@ class TaskTip:
 		service.field = __text
 		data[__text.tag] = service
 		
+		__kind = PBField.new("kind", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __kind
+		data[__kind.tag] = service
+		
 	var data = {}
 	
 	var __text: PBField
@@ -3317,6 +3340,19 @@ class TaskTip:
 		__text.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
 	func set_text(value : String) -> void:
 		__text.value = value
+	
+	var __kind: PBField
+	func has_kind() -> bool:
+		if __kind.value != null:
+			return true
+		return false
+	func get_kind() -> int:
+		return __kind.value
+	func clear_kind() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__kind.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_kind(value : int) -> void:
+		__kind.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

@@ -1595,3 +1595,16 @@ Sau lát: 269 hàm có (83 676 lượt) / 758 thiếu (9 186 lượt).
 **JX NEXT**: `KObjectBuffer.h/.cpp` (`KObjectBufferSet`, `g_ObjectBuffers()` — mutex), `KScriptCache::id_of/path_of`, `KPlayer::save_now`, `KSubWorld::add_script_trap/script_trap_at` (+ `check_trap`), `emit_npc_chat/npc_chat_later/npc_chat_tick`, `save_request_tick/take_save_requests`, `KMapInstance` lưu sau tick; proto `NpcChat` (`G2C_NPC_CHAT 2145`); client `KProtocolProcess` tín hiệu `npc_chat`. Test `[s6]` (`test_ScriptFuns.cpp`: 2 ca / 146 assertion).
 
 **Chưa**: bong bóng npc (0xfb) và gói 0x85 phía client; `AddMapTrap` đối số 5; id script khi bên gửi/nhận khác nhau (một máy chủ nên không cần); `WriteGoldLog` chỉ ghi log; `SaveQuickly` đếm ngược `+0x248` (coi như lưu ngay).
+
+## 36. Lát S7 phủ hàm script — `PutMessage`, `AddGlobalNews` / `AddGlobalCountNews`, `SendTaskOrder` (gói 0x63 ui 4/5 và gói 0xb6 trần; đã kiểm từng dòng, phía client ở `CLIENT-2.0.md` §30)
+
+Bố cục gói 0x63 (`KPlayer::OnScriptAction` phía client): `+0` 0x63, `+1..2` word cỡ, `+3` `m_nOperateType` (0 = UI), `+4` `m_bUIId`, `+5` param1, `+6` = 1 khi câu là **id chuỗi tài nguyên** (4 byte), `+7` param2, `+0xd` dword dài chữ, `+0x11` chữ.
+
+| Hàm | Đọc được (`jx_linux_y`) | JX NEXT |
+|---|---|---|
+| **`PutMessage(chữ \| id)` `0x08116F80`** | `top > 0`; chỉ số người chơi `≥ 0` (`js` `0x08116FAA` — 0 lọt qua nhưng `Player[0]` không có ai); `+4 = 4`, `+5 = 1`, `+7 = 1`; số → `+6 = 1`, 4 byte; chuỗi → `strncpy 0x40` (`0x08116FF0`); `0x080A8510(player, gói)` = gửi gói 0x63 cho **chính người chơi**; không trả gì | `send_script_action(e, ui_msg_info, chữ, id, {}, param 1, interactive)` → client: khung tin hệ thống `{kiểu 2, không nháy, ưu tiên 0}` |
+| **`AddGlobalNews(chữ \| id)` `0x08125A90`** | `top > 0`, **không cần người chơi**; `+4 = 5`, `+5 = 0`, `+7 = 1`; chuỗi `strncpy 0x12c`; `0x08077560(0x836ea80, gói, dài)` = gói relay `{1, 0x21, −1, 0…, 0x60}` + gói 0x63 → **mọi máy chủ** (`0x080774C0(obj+0x38, đầu 0x14, gói, dài, 1)`) → mọi người chơi mọi bản đồ | `KSubWorld::broadcast_script_action(ui_news_info, chữ, id, 0, 0)` → `KChatBroadcast{msg_id = G2C_SCRIPT_ACTION}` → `KEvChat` → `KGameServer::send_chat` tới **mọi phiên của zone** (kênh phát toàn zone sẵn có của chat WORLD, thêm `msg_id`) |
+| **`AddGlobalCountNews(chữ \| id[, n])` `0x081258E0`** | như trên với `+5 = 1`; `n` = đối số 2 khi `> 0`, không thì 1 (`0x08125971`); **dword `n` ghi ngay sau chữ** (`0x081259C5`, dài += 4) | `param 1`, `ScriptAction.count = n` |
+| **`SendTaskOrder(chữ)` `0x08117100`** | `top > 0`, người chơi 1..0x4af, chuỗi; `strncpy 0x40` (`0x08117173`) vào gói `{0xb6, chữ[0x40]}` 0x41 byte (`0x0811718D`) — **không có byte 0x10 đầu** như `TaskTip` → client thông điệp UI 0x52 `{kiểu 5, nháy 0x12, ưu tiên 3}` | `task_tip(e, chữ ≤ 0x40, kind 1)` → `TaskTip.kind = 1` → khung tin hệ thống kiểu 5 không nháy |
+
+Test `[s7]` (`test_ScriptFuns.cpp`, 50 assertion): hai gói ui 4 (chữ / id), gói 0xb6 kind 1 cắt 0x40, năm tin `KChatBroadcast` (kiểu 0 / id / đếm 3 / 0 → 1 / thiếu → 1). **Chưa**: client vẽ băng tin (ui 5) — lát S7b; `Player[0]` của `PutMessage` khi không có người chơi.

@@ -179,7 +179,13 @@ func _ready() -> void:
 		sys_msg_pane.queue_free()
 		sys_msg_pane = null
 	else:
-		Game.task_tip.connect(func(text: String): sys_msg_pane.add_message(text, 1, true, 3))
+		# the 0xb6 packet: with the 0x10 byte (TaskTip) the ui message 0x5d {type 1, blink 1, priority 3}; without it (SendTaskOrder)
+		# 0x52 {type 5, blink 0x12 - not 1, so no blinking - priority 3} (0x0042A10A / 0x0042A0C3)
+		Game.task_tip.connect(func(text: String, kind: int):
+			if kind == 1:
+				sys_msg_pane.add_message(text, 5, false, 3)
+			else:
+				sys_msg_pane.add_message(text, 1, true, 3))
 	give_window = UiGiveItem.new()
 	_canvas.add_child(give_window)
 	if not give_window.load_scheme(screen):
@@ -398,6 +404,11 @@ func _on_script_action(a: Dictionary) -> void:
 				if msg_sel != null and msg_sel.visible:
 					msg_sel.close_dialog()
 				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		4:
+			# 0x0060124F -> the ui message 0x1f GDCNI_SYSTEM_MESSAGE {type 2, blink 2, priority 0}: PutMessage of a script on the
+			# system message pane (blink 2 is not 1: the icon holds still)
+			if sys_msg_pane != null:
+				sys_msg_pane.add_message(text, 2, false, 0)
 		3:
 			# 0x00601058 -> the ui message 0x24 GDCNI_MISSION_RECORD: a system record of the journal (KUiTaskNote::WakeUp), kept
 			# with the character whether the window is open or not

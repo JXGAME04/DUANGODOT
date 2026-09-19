@@ -18,6 +18,7 @@
 #include "jx/role.pb.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KPlayerChat.h"
 #include "jx/zone/KObjectBuffer.h"
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcAI.h"
@@ -423,6 +424,18 @@ function s6_chat(npc)
     g_nc3 = NpcChat(npc, "")
     g_nc4 = NpcChat(999999, "x")
     g_nc5 = NpcChat(npc)
+end
+function s7_actions()
+    PutMessage("thong bao")
+    PutMessage(1234)
+    PutMessage()
+    AddGlobalNews("tin chung")
+    AddGlobalNews(77)
+    AddGlobalCountNews("tin dem", 3)
+    AddGlobalCountNews("tin mot", 0)
+    AddGlobalCountNews("tin mac dinh")
+    SendTaskOrder("lenh nhiem vu 0123456789012345678901234567890123456789012345678901234567890123456789")
+    SendTaskOrder()
 end
 function Is(name, expected)
     if Str(_G[name]) == expected then return 1 end
@@ -1195,4 +1208,63 @@ TEST_CASE("S6 AddMapTrap: a trap cell a script adds runs its main() when a playe
     REQUIRE(w.set_pos(a, jx::zone::Pos{71 * 32 + 16, 62 * 32 + 16}));   // the second cell
     w.tick();
     CHECK(trap->call_number("Num", {std::string("g_trap")}) == 2.0);
+}
+
+TEST_CASE("S7 script api: PutMessage on the pane, AddGlobalNews / AddGlobalCountNews to everyone, SendTaskOrder as the bare 0xb6 packet", "[scriptfuns][s7]")
+{
+    MiscWorld mw;
+    mw.w.take_outbox();
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s7_actions", mw.A(), 0));
+    // PutMessage: a script action ui 4 to the player, a number as a string-table id, the text cut at 0x40
+    std::vector<jx::pb::ScriptAction> actions;
+    std::vector<jx::pb::TaskTip> tips;
+    for (const auto& p : mw.w.take_outbox()) {
+        if (std::find(p.sids.begin(), p.sids.end(), 7) == p.sids.end()) continue;
+        if (p.msg_id == jx::pb::G2C_SCRIPT_ACTION) {
+            jx::pb::ScriptAction a;
+            REQUIRE(a.ParseFromString(p.payload));
+            actions.push_back(a);
+        } else if (p.msg_id == jx::pb::G2C_TASK_TIP) {
+            jx::pb::TaskTip t;
+            REQUIRE(t.ParseFromString(p.payload));
+            tips.push_back(t);
+        }
+    }
+    REQUIRE(actions.size() == 2);
+    CHECK(actions[0].ui_id() == 4);
+    CHECK(actions[0].text() == "thong bao");
+    CHECK(actions[0].text_id() == 0);
+    CHECK(actions[0].param() == 1);
+    CHECK(actions[0].interactive());
+    CHECK(actions[1].ui_id() == 4);
+    CHECK(actions[1].text_id() == 1234);
+    CHECK(actions[1].text().empty());
+    // SendTaskOrder: kind 1, 0x40 bytes at most; no argument -> nothing
+    REQUIRE(tips.size() == 1);
+    CHECK(tips[0].kind() == 1);
+    CHECK(tips[0].text().size() == 0x40);
+    CHECK(tips[0].text().rfind("lenh nhiem vu", 0) == 0);
+    // the news: chat broadcasts carrying script actions for the server to spread over the zone
+    std::vector<jx::zone::KChatBroadcast> news = mw.w.take_chat_broadcasts();
+    REQUIRE(news.size() == 5);
+    for (const auto& b : news) {
+        CHECK(b.msg_id == static_cast<std::uint32_t>(jx::pb::G2C_SCRIPT_ACTION));
+        CHECK(b.channel == jx::pb::CH_WORLD);
+    }
+    auto action = [&](std::size_t i) {
+        jx::pb::ScriptAction a;
+        REQUIRE(a.ParseFromString(news[i].payload));
+        return a;
+    };
+    CHECK(action(0).ui_id() == 5);
+    CHECK(action(0).text() == "tin chung");
+    CHECK(action(0).param() == 0);
+    CHECK(action(0).count() == 0);
+    CHECK(action(1).text_id() == 77);
+    CHECK(action(2).param() == 1);
+    CHECK(action(2).text() == "tin dem");
+    CHECK(action(2).count() == 3);
+    CHECK(action(3).count() == 1);   // 0 -> 1
+    CHECK(action(4).count() == 1);   // missing -> 1
+    CHECK(mw.w.take_chat_broadcasts().empty());
 }

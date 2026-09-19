@@ -47,6 +47,7 @@ void KMapInstance::tick()
     // 4. lines for people beyond this map (WORLD / CITY / FACTION): the server spreads them over the zone
     for (KChatBroadcast& b : world_.take_chat_broadcasts()) {
         KEvChat ev;
+        ev.msg_id = b.msg_id;
         ev.channel = b.channel;
         ev.faction = b.faction;
         ev.payload = std::move(b.payload);

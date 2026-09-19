@@ -4476,6 +4476,83 @@ int l_CastSkill(lua_State* L)
     return 0;
 }
 
+// ---- S7 (docs/LINUX-SERVER.md §36): the script actions the client shows without a dialog - PutMessage (ui 4), AddGlobalNews /
+// AddGlobalCountNews (ui 5, to everyone) - and SendTaskOrder (the 0xb6 packet without the 0x10 byte)
+
+// the sentence of a script action: a number is a string-table id (m_bParam1 = 1, 0x08116FD5 / 0x08125AD2), a string is copied
+// up to `max` bytes (strncpy 0x08227030)
+void action_text(lua_State* L, int idx, std::size_t max, std::string& text, int& text_id)
+{
+    text_id = 0;
+    text.clear();
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        text_id = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, idx)));
+        return;
+    }
+    const char* s = lua_tostring(L, idx);
+    if (s != nullptr) text = std::string(s).substr(0, max);
+}
+
+// PutMessage(text | id) (0x08116F80): top > 0 and a player index >= 0 (0x08116FAA); the 0x63 packet {operate 0, ui 4, +5 = 1, +6 =
+// number flag, +7 = 1, len, text (0x40 at most)} to the player (0x080A8510) - the client's OnScriptAction ui 4 (0x0060124F) puts it
+// on the system message pane as {type 2, blink 2, priority 0} (ui message 0x1f); nothing returned
+int l_PutMessage(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) return 0;
+    const KNpc* p = player_of(L, "PutMessage");
+    if (p == nullptr) return 0;
+    std::string text;
+    int text_id = 0;
+    action_text(L, 1, 0x40, text, text_id);
+    g_ScriptContext().world->send_script_action(*p, ui_msg_info, text, text_id, {}, 1, true);
+    return 0;
+}
+
+// AddGlobalNews(text | id) (0x08125A90): top > 0 (no player needed); the 0x63 packet {ui 5, +5 = 0, +6 = number flag, +7 = 1, text
+// (0x12c at most)} to every server through the relay (0x08077560: class 0x21, target -1) - every player of every map; the client's
+// ui 5 branch 0x006015B9 (type 0) -> ui message 0x20 -> the news window 新闻消息来了.ini; nothing returned
+int l_AddGlobalNews(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    std::string text;
+    int text_id = 0;
+    action_text(L, 1, 0x12c, text, text_id);
+    w->broadcast_script_action(ui_news_info, text, text_id, 0, 0);
+    return 0;
+}
+
+// AddGlobalCountNews(text | id[, count]) (0x081258E0): top > 0; count = arg 2 when > 0, else 1 (0x08125971); the same packet with
+// +5 = 1 and the dword count right after the text (0x081259C5) - the client's 0x0060148A (type 1) shows the news `count` times
+// (0x004D61ED); nothing returned
+int l_AddGlobalCountNews(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    const auto n = lua_gettop(L) > 1 ? static_cast<std::int64_t>(lua_tonumber(L, 2)) : 1;
+    std::string text;
+    int text_id = 0;
+    action_text(L, 1, 0x12c, text, text_id);
+    w->broadcast_script_action(ui_news_info, text, text_id, 1, n > 0 ? static_cast<int>(std::min<std::int64_t>(n, INT_MAX)) : 1);
+    return 0;
+}
+
+// SendTaskOrder(text) (0x08117100): top > 0 and the player 1..0x4af; a string (else nothing) copied to 0x40 bytes (0x08117173) into
+// the 0xb6 packet {0xb6, text[0x40]} 0x41 bytes (0x0811718D) - the client's 0x00651390 without the 0x10 byte -> ui message 0x52 ->
+// the system message pane {type 5, blink 0x12, priority 3}; nothing returned
+int l_SendTaskOrder(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) return 0;
+    KNpc* p = player_of(L, "SendTaskOrder");
+    if (p == nullptr) return 0;
+    const char* s = lua_tostring(L, 1);
+    if (s == nullptr) return 0;
+    g_ScriptContext().world->task_tip(*p, std::string_view(s).substr(0, 0x40), 1);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -4577,7 +4654,8 @@ const luaL_Reg kGameScriptFuns[] = {
     {"OB_PopByte", l_OB_PopByte},         {"OB_PopString", l_OB_PopString},   {"RemoteExecute", l_RemoteExecute},
     {"FileName2Id", l_FileName2Id},       {"SaveNow", l_SaveNow},             {"SaveQuickly", l_SaveQuickly},
     {"WriteGoldLog", l_WriteGoldLog},     {"AddMapTrap", l_AddMapTrap},       {"NpcChat", l_NpcChat},
-    {"CastSkill", l_CastSkill},
+    {"CastSkill", l_CastSkill},           {"PutMessage", l_PutMessage},       {"AddGlobalNews", l_AddGlobalNews},
+    {"AddGlobalCountNews", l_AddGlobalCountNews}, {"SendTaskOrder", l_SendTaskOrder},
     {nullptr, nullptr},
 };
 

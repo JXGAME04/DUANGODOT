@@ -414,6 +414,12 @@ public:
     // KNpc 0x0807B2D0 (Lua SetTmpCamp): +0x1900 = camp, then the 0xd1 packet {npc, camp} - to the player itself when the npc is
     // one (0x0807B294), else to the watchers (0x0807B2C2); EntityCamp.tmp_camp here
     void set_tmp_camp(KNpc& e, int camp);
+    // AddGlobalNews 0x08125A90 / AddGlobalCountNews 0x081258E0: the 0x63 packet (ui 5) through the relay to every server
+    // (0x08077560) - here a chat broadcast with the script action as its payload: the server sends it to every session
+    void broadcast_script_action(int ui_id, std::string_view text, int text_id, int param, int count);
+    // the 0x63 packet to one player (KPlayer 0x080A8510): Say / Talk / Describe / GiveItemUI / PutMessage build on it
+    void send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options, int param,
+                            bool interactive, bool notify = false);
     // AddMapTrap 0x08102700 -> 0x080EFCF0 -> KRegion::AddTrap 0x080E1260: a trap cell a script added (world units in), checked
     // after the map's own; the same cell again replaces its script
     bool add_script_trap(Pos at, const std::string& script);
@@ -659,7 +665,7 @@ public:
     // Lua Describe 0x081242A0: Say's shape with the ui id 12 (the client's npc description window), the answers within 0x1f4 bytes
     void dialog_describe(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
     // Lua TaskTip 0x08122730: the 0xb6 packet {0xb6, 0x10, text} of 0x40 bytes -> G2C_TASK_TIP (the client's system message pane)
-    void task_tip(KNpc& e, std::string_view text);
+    void task_tip(KNpc& e, std::string_view text, int kind = 0);   // kind 1 = SendTaskOrder (the 0xb6 packet without the 0x10 byte)
     // Lua GiveItemUI 0x0812BBA0: the 0x63 packet with the ui id 0xb (the give-item box of the client), the confirm / cancel
     // functions as the two answers, the sixth argument's function for the box's changes, the player's box lists cleared
     void dialog_give_item_ui(KNpc& e, std::string_view title, std::string_view content, int text_id, std::string_view confirm_fun,
@@ -1044,8 +1050,6 @@ private:
     std::vector<KChatBroadcast> chat_broadcasts_;
     // 0x080502A0: the cost of a line by chatcost.ini type - false when it cannot be paid (nothing is taken then)
     bool chat_pay(KNpc& e, int type);
-    void send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options, int param,
-                            bool interactive, bool notify = false);
     // after an exp change: the log, a level up (life sync, the passives that open), the attrib sync (the 0xc6 packet)
     void player_exp_changed(KNpc& e, std::int64_t exp, std::uint32_t level_before);
     std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about

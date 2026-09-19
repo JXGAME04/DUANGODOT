@@ -63,7 +63,7 @@ signal sys_msg(id: int, entity_id: int, name: String)   # G2C_SYS_MSG: the 0x86 
 signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id].menu_state / menu_sentence changed (the sign over the head)
 signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, text, text_id, interactive, param, options} of a npc script's Say / Talk
 signal task_value_changed(id: int, value: int)   # G2C_TASK_VALUE / G2C_TASK_VALUES: task_values[id] changed (the 0xa7 / 0xb5 packets -> KPlayer::SetTaskValue 0x00601ED0)
-signal task_tip(text: String)               # G2C_TASK_TIP: the 0xb6 packet of a script's TaskTip (the system message pane, type 1)
+signal task_tip(text: String, kind: int)    # G2C_TASK_TIP: the 0xb6 packet of a script's TaskTip (kind 0, pane type 1) / SendTaskOrder (kind 1, type 5)
 signal give_item_msg(kind: int, text: String)   # G2C_GIVE_ITEM_MSG: SetUiGiveItemMsg (0) / SetUiGiveItemMoreConfirmMsg (1) of a script
 signal script_ask(ask: Dictionary)          # G2C_SCRIPT_ASK: {kind (1 number / 0 string), title, min, max, default_text} of AskClientForNumber / String
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
@@ -967,6 +967,11 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				return
 			Log.debug("player", "npc chat", {"entity": int(m.get_entity_id()), "text": m.get_text()})
 			npc_chat.emit(int(m.get_entity_id()), m.get_text())
+			# 0x00652860 of the 2.0 client: the line also goes to the chat pad under the npc's name (vtable[1](1, name, text, len, 1, 0)
+			# of the pad; the first 1 is taken as the nearby channel here - the pad's own channel table is not matched yet); the
+			# bubble over the npc (0x005EAAB0: npc+0x16ec, 0x32 columns, 10 lines) is a later slice
+			var npc_name := str(entities.get(int(m.get_entity_id()), {}).get("name", ""))
+			chat_msg.emit({"id": int(m.get_entity_id()), "name": npc_name, "text": str(m.get_text()), "channel": int(Proto.ChatChannel.CH_NEARBY)})
 		Proto.MsgId.G2C_ENTITY_CAMP:
 			# the 0x59 handler (slot 0x5a of the 2.0 client): the npc's camp; the player's own npc too
 			var m := Proto.EntityCamp.new()
@@ -1147,7 +1152,8 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			for o in m.get_options():
 				options.append(str(o))
 			var a := {"operate": int(m.get_operate()), "ui": int(m.get_ui_id()), "text": str(m.get_text()), "text_id": int(m.get_text_id()),
-				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options, "notify": bool(m.get_notify_changes())}
+				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options, "notify": bool(m.get_notify_changes()),
+				"count": int(m.get_count())}
 			Log.debug("world", "script action", {"ui": a.ui, "options": options.size(), "param": a.param})
 			script_action.emit(a)
 
@@ -1188,7 +1194,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				return
 			task_tips += 1
 			Log.debug("world", "task tip", {"len": str(m.get_text()).length()})
-			task_tip.emit(str(m.get_text()))
+			task_tip.emit(str(m.get_text()), int(m.get_kind()))
 
 		Proto.MsgId.G2C_ENTITY_MENU_STATE:
 			# s2c_npcsetmenustate (the client's 0x006522F0 -> KNpc 0x005EB2A0): the sign over a player's head, its sentence

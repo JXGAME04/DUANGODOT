@@ -111,6 +111,23 @@ void KSubWorld::send_script_action(const KNpc& e, int ui_id, std::string_view te
     emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_SCRIPT_ACTION), a);
 }
 
+void KSubWorld::broadcast_script_action(int ui_id, std::string_view text, int text_id, int param, int count)
+{
+    pb::ScriptAction a;
+    a.set_operate(static_cast<std::uint32_t>(script_action_ui_show));
+    a.set_ui_id(static_cast<std::uint32_t>(ui_id));
+    a.set_text(std::string(text));
+    a.set_text_id(text_id);
+    a.set_interactive(true);   // +7 = 1 (0x08125B20)
+    a.set_param(param);
+    a.set_count(count);
+    KChatBroadcast b;
+    b.msg_id = static_cast<std::uint32_t>(pb::G2C_SCRIPT_ACTION);
+    b.channel = pb::CH_WORLD;
+    b.payload = a.SerializeAsString();
+    chat_broadcasts_.push_back(std::move(b));
+}
+
 // Lua Say (0x08123C90): the sentence (a string, or a number = a string-table id: m_bParam1 1), the count of answers,
 // the answers as more strings or as a table (0x08123D8B / 0x08124120); at most 50 (0x08123DBC); an answer is
 // "text/function" - the function name (0x7f bytes) goes to m_szTaskAnswerFun[i], "main" when there is no '/'
@@ -230,11 +247,12 @@ void KSubWorld::dialog_describe(KNpc& e, std::string_view text, int text_id, con
 // 0x08227030 takes 0x3f bytes of it and a NUL, and the 0x41 byte packet {0xb6, buffer} goes to the player (0x080A8400):
 // 0x3e bytes of text.  The client (0x00651390) copies the text, and the leading 0x10 picks the ui message 0x5d (else
 // 0x52): the system message pane 0x004C4060 with the type 1, the blink flag 1 and the priority 3 (docs/CLIENT-2.0.md §26).
-void KSubWorld::task_tip(KNpc& e, std::string_view text)
+void KSubWorld::task_tip(KNpc& e, std::string_view text, int kind)
 {
-    const std::string raw(text.substr(0, kTaskTipMax));
+    const std::string raw(text.substr(0, kind == 1 ? 0x40 : kTaskTipMax));   // SendTaskOrder copies 0x40 bytes (0x08117173), TaskTip 0x3e
     pb::TaskTip m;
     m.set_text(text::decode_mixed(raw));
+    m.set_kind(static_cast<std::uint32_t>(kind));
     emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_TASK_TIP), m);
     log::debug("zone.dialog", "task tip", {log::kv("entity", e.id), log::kv("len", raw.size())});
 }

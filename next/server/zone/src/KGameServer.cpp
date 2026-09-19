@@ -405,7 +405,7 @@ void KGameServer::send_chat(const KEvChat& e)
     for (auto& [conn_id, zp] : per_gateway) {
         const auto git = gateways_.find(conn_id);
         if (git == gateways_.end() || !git->second.conn) continue;
-        zp.set_msg_id(static_cast<std::uint32_t>(pb::G2C_CHAT_MSG));
+        zp.set_msg_id(e.msg_id != 0 ? e.msg_id : static_cast<std::uint32_t>(pb::G2C_CHAT_MSG));
         zp.set_payload(e.payload);
         net::send(*git->second.conn, static_cast<std::uint16_t>(pb::ZG_ZONE_PACKET), zp);
     }

@@ -205,6 +205,8 @@ message ScriptAction {
   bool interactive = 5;          // m_bParam2
   int32 param = 6;               // m_nParam
   repeated string options = 7;   // the answers (Say, the text before the '/') or the pages (Talk); the title (GiveItemUI)
+  int32 count = 9;               // ui 5 with param 1 (AddGlobalCountNews 0x081258E0): the dword after the text - how many times the news
+                                 // shows (0x004D61ED of the 2.0 client: 3 when 0)
   bool notify_changes = 8;       // +8 of the 0x63 packet: GiveItemUI's seventh argument - the client reports every change of its box (C2G_GIVE_ITEMS kind 0)
 }
 
@@ -230,6 +232,8 @@ message TaskValueReq {
 // 0x00651390 hands it to the system message pane (0x004C4060: type 1, blinking icon, priority 3; 系统消息.ini)
 message TaskTip {
   string text = 1;
+  uint32 kind = 2;               // 0: TaskTip 0x08122730 - the 0x10 byte first -> the client's ui message 0x5d {type 1, blink 1, priority 3};
+                                 // 1: SendTaskOrder 0x08117100 - the bare string -> 0x52 {type 5, blink 0x12, priority 3}
 }
 
 // one piece the player put into the give-item box (the 0x89 packet, 5 bytes each: 0x080ABA20): where it lies in the

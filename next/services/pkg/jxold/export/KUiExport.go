@@ -110,6 +110,11 @@ var GameScreens = []UiScreenDef{
 	// message 0x5d -> 0x004C4060; 0x004C3D1D loads "%s\系统消息.ini", [Main] SysMsgDisappearInterval default 30000 ms)
 	{"mo-ta-npc", "Hộp thoại mô tả của npc (Describe)", "KUiNpcDescribe", `npc描述界面.ini`},
 	{"thong-diep-he-thong", "Thông điệp hệ thống (nhắc nhiệm vụ)", "KUiSysMsg", `系统消息.ini`},
+	// S7: the global news ticker (the news window [0x8bf730] of gamecl.exe: ctor 0x004D5850, vtable 0x795444, 0x004D59F0 names
+	// "新闻消息来了.ini"; AddGlobalNews / AddGlobalCountNews -> the 0x63 packet ui 5 -> ui message 0x20 -> 0x004D60E0) and the idle
+	// lines it shows when no news is queued (0x004D5AE0 loads "\Ui\DefaultMessage.ini": [Main] Count, then a random line)
+	{"tin-toan-cuc", "Băng tin toàn cục (AddGlobalNews)", "KUiNews", `新闻消息来了.ini`},
+	{"tin-mac-dinh", "Dòng tin mặc định của băng tin", "KUiNews", `\Ui\DefaultMessage.ini`},
 	// M13 D8: Lua GiveItemUI (ui 0xb of the 0x63 packet: OnScriptAction 0x0060194C -> ui message 0x3e -> 0x00519C80 opens
 	// "%s\给予界面.ini"): the box the player puts items into for a npc script
 	{"dua-vat-pham", "Đưa vật phẩm cho npc (GiveItemUI)", "KUiGiveItem", `给予界面.ini`},
@@ -374,16 +379,21 @@ func (e *Exporter) UiTheme(want string) (path string, width, height int) {
 	return `\Ui\` + best, bestW, bestH
 }
 
-// UiByName exports one window: the file <theme>\<def.File>, the name the game asks for.
+// UiByName exports one window: the file <theme>\<def.File>, the name the game asks for; a def.File that starts with a
+// backslash is a path of its own outside the theme (\Ui\DefaultMessage.ini of the news window, 0x004D5AE0)
 func (e *Exporter) UiByName(def UiScreenDef, theme string, width, height int) (*UiScreen, error) {
-	gbk, err := text.UTF8ToGBK(theme + `\` + def.File)
+	full := theme + `\` + def.File
+	if strings.HasPrefix(def.File, `\`) {
+		full = def.File
+	}
+	gbk, err := text.UTF8ToGBK(full)
 	if err != nil {
 		return nil, err
 	}
 	gamePath := string(gbk)
 	f, entry, ok := e.Set.Lookup(gamePath)
 	if !ok {
-		return nil, fmt.Errorf("khong co %s trong client nay", theme+`\`+def.File)
+		return nil, fmt.Errorf("khong co %s trong client nay", full)
 	}
 	data, err := f.Read(entry)
 	if err != nil {
