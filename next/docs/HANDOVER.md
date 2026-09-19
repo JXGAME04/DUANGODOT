@@ -865,6 +865,19 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-72) — người cưỡi lún vào ngựa (chủ dự án báo): `generate_scene` lần 2 trên cùng `GLTFState` đổi tên xương `_2`
+
+- Triệu chứng: rider ở 1,3 m (nhánh dự phòng "horse has no ma_qi1 seat") vì `hang_node("ma_qi1")` không thấy xương `Bip001 Spine1` — skeleton của
+  ngựa lần sinh thứ hai mang tên `Bip001 Spine1_2`… Nguyên nhân: `Scn3DNpc` cache `GLTFDocument/GLTFState` và gọi `generate_scene` mỗi thể hiện;
+  Godot cộng dồn `unique_names` / `GLTFSkeleton.unique_names` / `unique_animation_names` trong state → lần 2 trở đi mọi node/xương/anim bị thêm
+  hậu tố. Ảnh hưởng rộng: **vũ khí của người chơi thứ hai** (điểm treo tay), `sys_bd` của quái thứ 2+ (hiệu ứng trúng), mesh da của hiệu ứng
+  spawn lần 2 (rồng tìm theo tên), yên ngựa (lỗi này xuất hiện từ khi có đồng bộ 0xad `reload_horse` sinh ngựa lần 2 — ảnh 3D-56 chụp lần sinh đầu).
+- Sửa: `Scn3DGltfCache.gd` (mới, RefCounted không phụ thuộc autoload): giữ các tập tên như lúc parse, đặt lại trước mỗi `generate_scene`;
+  `Scn3DNpc` (model + vũ khí) và `Scn3DSfx` dùng chung. Test `test_gltf_cache_names` (3 thể hiện cùng tên xương; kiểm cả hành vi thô của Godot
+  đổi tên) — Godot 637/637. `AUTO3D_SEAT`: yên `y = chân + 1,61 m`, hông 1,80 m (trước: 1,30 / 1,49); ảnh `auto3d_ride.png` người ngồi trên yên.
+- `--auto3d`: thêm `--horse=<số>`, ảnh `auto3d_ride_move.png` (phi ngựa), dòng `AUTO3D_SEAT`; `THU-NGHIEM-3D.md` mục "Test tay: nhận đồ, ngựa, phái".
+- commit: `JX NEXT 3D: 3D-72 - Scn3DGltfCache giu ten xuong moi the hien (rider lun vao ngua, vu khi nguoi choi 2), test 637`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-71) — bóng mờ `TaskGhost` đúng nhị phân, lỗi tỉ lệ billboard × TweenScale (tia sét 33 m), `--skill` đeo đúng loại vũ khí
 
 - **Bóng mờ** [TK `TaskGhost.Start(crt, interval, duration, num, matUrl) 0x5268a0`, `MirageData.RenderTick 0x528860`]: mỗi `interval` s (cột 16

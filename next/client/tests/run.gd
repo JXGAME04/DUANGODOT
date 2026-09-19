@@ -17,6 +17,7 @@ const SprControl := preload("res://scenes/KSprControl.gd")
 const StateSpr := preload("res://scenes/KStateSpr.gd")
 const WavSound := preload("res://scenes/KWavSound.gd")
 const Scene3DMath := preload("res://scenes3d/KScene3DMath.gd")
+const GltfCache := preload("res://scenes3d/Scn3DGltfCache.gd")
 const NpcGold := preload("res://scenes/KNpcGold.gd")
 
 var _failed := 0
@@ -43,6 +44,7 @@ func _init() -> void:
 	test_ipot_order()
 	test_kmath_direction()
 	test_scene3d_math()
+	test_gltf_cache_names()
 	test_npcres_tables()
 	test_skill_book_layout()
 	test_part_math()
@@ -82,6 +84,45 @@ func test_kmath_direction() -> void:
 	check(KMath.dir64_to_sprite(0, 8) == 0 and KMath.dir64_to_sprite(16, 8) == 2 and KMath.dir64_to_sprite(31, 8) == 4
 		and KMath.dir64_to_sprite(63, 8) == 0 and KMath.dir64_to_sprite(47, 8) == 6, "64 directions to 8 sprite directions")
 	check(KMath.dir64_to_sprite(20, 1) == 0, "single direction sprite")
+
+
+# ---- one parsed glTF, many instances: every instance keeps the file's bone names (Scn3DGltfCache.gd, 3D-72) -------------
+func test_gltf_cache_names() -> void:
+	# the horse of the reference (assets3d is not in git: the test stands aside without it)
+	var dir := ProjectSettings.globalize_path("res://assets3d/npc")
+	var idx = JSON.parse_string(FileAccess.get_file_as_string(dir + "/npc_models.json")) if FileAccess.file_exists(dir + "/npc_models.json") else null
+	if not (idx is Dictionary) or not idx.has("1503"):
+		check(true, "gltf cache: no assets3d (skipped)")
+		return
+	var full: String = dir + "/" + str(idx["1503"].get("file", ""))
+	var cache = GltfCache.new()
+	var names: Array = []
+	for k in 3:
+		var scene: Node = cache.instantiate(full)
+		check(scene != null, "gltf cache: instance %d made" % k)
+		if scene == null:
+			return
+		var bones: Array = []
+		for sk in scene.find_children("*", "Skeleton3D", true, false):
+			for bi in (sk as Skeleton3D).get_bone_count():
+				bones.append((sk as Skeleton3D).get_bone_name(bi))
+		names.append(bones)
+		scene.free()
+	check(names[0].has("Bip001 Spine1"), "gltf cache: the first instance has the seat bone Bip001 Spine1")
+	check(names[1] == names[0] and names[2] == names[0], "gltf cache: later instances keep the same bone names (no _2 suffix): %s" % str(names[1].slice(0, 3)))
+	# what Godot does on its own: a second generate_scene on one state renames the bones
+	var doc := GLTFDocument.new()
+	var st := GLTFState.new()
+	if doc.append_from_file(full, st) == OK:
+		var s1: Node = doc.generate_scene(st)
+		var s2: Node = doc.generate_scene(st)
+		var b2: Array = []
+		for sk in s2.find_children("*", "Skeleton3D", true, false):
+			for bi in (sk as Skeleton3D).get_bone_count():
+				b2.append((sk as Skeleton3D).get_bone_name(bi))
+		check(not b2.has("Bip001 Spine1"), "gltf: a raw second generate_scene renames the bones (%s) - the cache guards it" % str(b2.slice(0, 2)))
+		s1.free()
+		s2.free()
 
 
 # ---- scene units <-> metres of the 3D world (KScene3DMath.gd, docs/3D-QUY-UOC.md) -----------------------------

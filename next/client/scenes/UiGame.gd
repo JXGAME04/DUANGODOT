@@ -927,7 +927,11 @@ func _auto3d_run() -> void:
 	# a horse (AddItem genre 0 detail 10 particular 2 level 1 = Liệt Bạch Mã), worn on part 10, then C2G_RIDE: the 3D view mounts
 	# (the reference 白马 under the rider, group 20 / 21)
 	var horses_before := Game.items.size()
-	Game.chat("?gm ds AddItem(0,10,2,1,0,0)")
+	var horse_particular := 2
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--horse="):
+			horse_particular = int(arg.substr(8))   # --horse=<particular>: another horse row (0 Liệt mã .. 5)
+	Game.chat("?gm ds AddItem(0,10,%d,1,0,0)" % horse_particular)
 	waited = 0.0
 	while waited < 3.0 and Game.items.size() < horses_before + 1:
 		await get_tree().create_timer(0.25).timeout
@@ -951,6 +955,43 @@ func _auto3d_run() -> void:
 			await get_tree().process_frame
 		await _save_screenshot("user://logs/auto3d_ride.png")
 		print("AUTO3D_RIDE item=%d worn=%d riding=%s" % [horse_item, Game.item_worn(10), bool(own.get("riding")) if own != null else false])
+		# the seat geometry: horse feet / seat hinge / rider root / rider pelvis bone / horse back top (the reference parents the
+		# rider at hinge ma_qi1 with an identity local transform - RideUnit.CreateRide 0x5bd930)
+		var hv0 = _world.get("_views").get(own) if own != null else null
+		if hv0 != null and hv0.get("horse") != null:
+			var horse: Node3D = hv0.horse
+			var seat: Node3D = horse.hang_node("ma_qi1") if horse.has_method("hang_node") else null
+			var rider: Node3D = hv0.model
+			var pelvis_y := -1.0
+			var top_y := -1.0
+			for sk in rider.find_children("*", "Skeleton3D", true, false):
+				var bi: int = (sk as Skeleton3D).find_bone("Bip001 Pelvis")
+				if bi >= 0:
+					pelvis_y = ((sk as Skeleton3D).global_transform * (sk as Skeleton3D).get_bone_global_pose(bi)).origin.y
+			for mi in horse.find_children("*", "MeshInstance3D", true, false):
+				var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+				top_y = maxf(top_y, ab.end.y)
+			var hs_y := -1.0
+			for sk in horse.find_children("*", "Skeleton3D", true, false):
+				var bi2: int = (sk as Skeleton3D).find_bone("Bip001 Spine1")
+				if bi2 >= 0:
+					hs_y = ((sk as Skeleton3D).global_transform * (sk as Skeleton3D).get_bone_global_pose(bi2)).origin.y
+			print("AUTO3D_SEAT horse_y=%.2f spine1_y=%.2f seat=%s rider_root=%s pelvis_y=%.2f horse_top_y=%.2f rider_scale=%s" % [
+				horse.global_position.y, hs_y, str(seat.global_position) if seat != null else "-", str(rider.global_position), pelvis_y, top_y, str(rider.scale)])
+		# riding on the move: the horse's run clip under the rider's ride-run clip (group 20 zp), two pictures along the way
+		if own != null and is_instance_valid(own):
+			var sp0: Vector2 = own.scene_pos
+			Game.move_to(int(sp0.x) + 260, int(sp0.y))
+			await get_tree().create_timer(0.5).timeout
+			await _save_screenshot("user://logs/auto3d_ride_move.png")
+			await get_tree().create_timer(0.5).timeout
+			await _save_screenshot("user://logs/auto3d_ride_move2.png")
+			var hv2 = _world.get("_views").get(own)
+			print("AUTO3D_RIDE_MOVE from=%s to=%s doing=%s horse_anim=%s rider_anim=%s" % [str(sp0), str(own.scene_pos), str(own.get("doing")),
+				str(hv2.horse.get("current")) if hv2 != null and hv2.get("horse") != null else "-",
+				str(hv2.model.get("current")) if hv2 != null and hv2.get("model") != null else "-"])
+			Game.move_to(int(sp0.x), int(sp0.y))
+			await get_tree().create_timer(1.2).timeout
 		if _world.has_method("debug_equip_rows"):
 			var eq: Dictionary = _world.debug_equip_rows()
 			var hv = _world.get("_views").get(own) if own != null else null

@@ -140,6 +140,24 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 6. Map không có bộ 3D (979 map còn lại) chạy **2.5D** tự động (M3D-4): nền tile + nhà/cây là bảng đứng, nhân vật là sprite 2.0
    trên bảng quay theo camera, camera trực giao 30° (yaw ±25°, zoom = kích thước khung). `--2d` giữ client 2D cũ.
 
+## Test tay: nhận đồ, nhận ngựa, nhận phái + kỹ năng (lệnh GM gõ vào ô chat, server dev có `gm_chat`)
+
+1. Bật server: `python tools\dev.py start` (zone 19001, gateway 19100). Mở client: `client3d.cmd` (tự `NewWorld(9053,232,194)` = Ba Lăng 3D;
+   `client3d.cmd 9078 171 421` map khác). Tạo nhân vật rồi vào map. **Mở client sau khi kéo mã mới** (client đang mở chạy mã cũ).
+2. Vũ khí: `?gm ds AddItem(0,0,<loại>,<cấp>,0,0)` — loại 0 kiếm, 1 đao, 2 thương, 3 côn, 4 song đao, 5 song chuỳ, 6 quyền; cấp 1..10 đổi hình
+   (`weapons.json` id = gốc loại + cấp: kiếm 1..10, đao 51.., thương 101.., côn 151.., song đao 201.., song chuỳ 251.., quyền 301..).
+   Ám khí (Đường Môn): `AddItem(0,1,<0 phi tiêu | 1 phi đao | 2 nỏ>,1,0,0)`. Mở túi **I** (F4), nhấp đúp món đồ để mặc — mô hình 3D theo món đang mặc.
+3. Ngựa: `?gm ds AddItem(0,10,<số>,1,0,0)` (2 = Liệt Bạch Mã, 0/1 ngựa nâu, 3 ngựa trắng…; ngựa rồng cần cấp cao) → mặc vào ô ngựa trong túi →
+   phím **M** lên / xuống ngựa (`KUiGameWindows`: `Game.ride`). Đi lại khi cưỡi: nhấp chuột trái.
+4. Cấp: `?gm ds AddExp(2000000000, 0)` — mỗi lần **một cấp** (`KPlayer::add_exp 0x080AFEA0` chặn), gõ lặp tới cấp cần (kỹ năng 90 cần cấp ≥ 80).
+5. Phái + kỹ năng: `?gm ds SetFaction("<phái>")` với `shaolin | tianwang | tangmen | wudu | emei | cuiyan | gaibang | tianren | wudang | kunlun`,
+   rồi `?gm ds Include("\\script\\global\\skills_table.lua") add_<xx>(90)` (`add_sl / add_tw / add_tm / add_wu / add_em / add_cy / add_gb / add_tr /
+   add_wd / add_kl`; số = cấp nhân vật giả định để cấp kỹ năng). Một kỹ năng lẻ: `?gm ds AddMagic(<id>, 1)`. Mở bảng kỹ năng **K** (F5), kéo ra
+   ô phím tắt, bấm số / nhấp phải quái. Kỹ năng cần đúng vũ khí (`EqtLimit` trong `skills.json`: 0 kiếm… 100+ ám khí).
+6. Kiểm tự động thay tay: `--auto --auto3d --skill=<id>:<phái> --series=<0..4>` (tự lên 90, tự đeo vũ khí đúng loại, 4 ảnh `auto3d_skill_<id>_k.png`
+   trong `%APPDATA%\Godot\app_userdata\JX NEXT\logs`), `--factions` (mọi kỹ năng có hình), `--horse=<số>` (ngựa khác trong luồng `--auto3d`,
+   ảnh `auto3d_ride.png` / `auto3d_ride_move.png`, dòng `AUTO3D_SEAT` = cao độ yên / hông).
+
 ## Lộ trình
 
 Lịch từng bước để lên 3D chuẩn (mốc M3D-0 … M3D-6, mã và nội dung chạy song song, bản 2.5D dự phòng cho 980 map):

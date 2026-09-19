@@ -5,7 +5,7 @@
 # (rotation.y = 180 + goc trong mark JSON, giong Scn3DPlayer).
 extends Node3D
 
-static var _cache := {}   # duong dan -> [GLTFDocument, GLTFState]
+static var _gltf := preload("res://scenes3d/Scn3DGltfCache.gd").new()   # duong dan -> [GLTFDocument, GLTFState]
 
 var model: Node3D
 var anim: AnimationPlayer
@@ -32,18 +32,8 @@ signal action_finished(clip: String)
 
 func setup(dir: String, file: String, scale: float, name_text: String, size_y: float, model_info: Dictionary = {}) -> bool:
 	var full := dir + "/" + file
-	var pair = _cache.get(full)
-	if pair == null:
-		var doc := GLTFDocument.new()
-		var st := GLTFState.new()
-		var err := doc.append_from_file(full, st)
-		if err != OK:
-			push_error("Scn3DNpc: nap %s loi %d" % [full, err])
-			return false
-		pair = [doc, st]
-		_cache[full] = pair
-	# remove_immutable_tracks = false: Godot bo track xoay hang so (vd node Bip001 cua thu) roi AnimationMixer dua xoay ve 0 -> thu nam
-	model = pair[0].generate_scene(pair[1], 30.0, false, false)
+	# one parse per file, a scene with the file's own node / bone names for every instance (Scn3DGltfCache)
+	model = _gltf.instantiate(full)
 	if model == null:
 		return false
 	model.name = "Model"
@@ -329,6 +319,7 @@ func hang_node(hname: String) -> Node3D:
 				target = ba
 				break
 	if not (target is Node3D):
+		Log.warn("map3d", "hang point bone missing", {"hang": hname, "node": str(h.get("node", "")), "model": str(info.get("name", ""))})
 		return null
 	var hinge := Node3D.new()
 	hinge.name = "hinge_" + hname
@@ -345,21 +336,12 @@ func attach_weapon(weapon_dir: String, winfo: Dictionary) -> int:
 	if winfo.is_empty() or model == null:
 		return 0
 	var full := weapon_dir + "/" + str(winfo.get("file", ""))
-	var pair = _cache.get(full)
-	if pair == null:
-		var doc := GLTFDocument.new()
-		var st := GLTFState.new()
-		if doc.append_from_file(full, st) != OK:
-			push_error("Scn3DNpc: nap vu khi %s loi" % full)
-			return 0
-		pair = [doc, st]
-		_cache[full] = pair
 	var n := 0
 	for hname in winfo.get("hangs", []):
 		var hinge := hang_node(str(hname))
 		if hinge == null:
 			continue
-		var w: Node3D = pair[0].generate_scene(pair[1])
+		var w: Node3D = _gltf.instantiate(full)
 		if w == null:
 			continue
 		w.name = "weapon_%s" % hname

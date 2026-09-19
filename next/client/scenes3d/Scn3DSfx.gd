@@ -4,6 +4,7 @@
 extends Node3D
 
 static var _cache := {}   # duong dan gltf -> [GLTFDocument, GLTFState, json]
+static var _gltf := preload("res://scenes3d/Scn3DGltfCache.gd").new()   # the parsed glTF, a scene with its own names each time
 static var _tex_cache := {}
 
 var life := 0.0          # giay; <= 0: tu tinh
@@ -26,11 +27,9 @@ static func load_desc(dir: String, name: String) -> Array:
 	if txt == "":
 		return []
 	var desc = JSON.parse_string(txt)
-	var doc := GLTFDocument.new()
-	var st := GLTFState.new()
-	if doc.append_from_file(key + ".gltf", st) != OK:
+	if not FileAccess.file_exists(key + ".gltf"):
 		return []
-	var pair := [doc, st, desc]
+	var pair := [key + ".gltf", desc]
 	_cache[key] = pair
 	return pair
 
@@ -149,10 +148,11 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 	if pair.is_empty():
 		push_error("Scn3DSfx: khong co hieu ung %s" % name)
 		return false
-	var doc: GLTFDocument = pair[0]
-	var st: GLTFState = pair[1]
-	var desc: Dictionary = pair[2]
-	var root: Node = doc.generate_scene(st, 30.0, false, false)
+	var desc: Dictionary = pair[1]
+	# a fresh scene from the cached parse: the skinned nodes are found by name (the dragon), so every instance must keep
+	# the file's names (a second generate_scene on one state would call them "<name>_2")
+	var root: Node = _gltf.instantiate(str(pair[0]))
+	var st: GLTFState = _gltf.state(str(pair[0]))
 	if root == null:
 		return false
 	root.name = "Fx"
