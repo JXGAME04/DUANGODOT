@@ -634,6 +634,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (phiên tiếp theo, phần 35) — 3D bước 3–5 trên `exp/3d-baling`: vũ khí treo tay, hiệu ứng kỹ năng, navmesh, phân tích thiếu gì, lộ trình từng bước
+
+- Chủ dự án yêu cầu theo thứ tự: toàn bộ NPC 3D + tên Việt, vũ khí/vật treo tay, hình kỹ năng theo phái, chạy server để thử, sửa (NPC nằm → `remove_immutable_tracks=false`; đất đen → nắng thời gian thực + lightmap làm phát xạ; tên mờ → nhãn 2D; đi xuyên nhà → navmesh AIS), rồi phân tích còn thiếu gì và **lên lịch từng bước**.
+- Mã: `tools/scn3d/export_weapon.py` (71 vũ khí `smodels.bdd` → glTF + điểm `start/end`), `export_sfx.py` (ParticleSystem/mesh/đèn → JSON + glTF), `ten_viet.json` (197 NPC); client `Scn3DNpc.attach_weapon`, `Scn3DTrail.gd` (vệt đao), `Scn3DSfx.gd` (CPUParticles3D), `Scn3D.gd` (nhãn 2D, LOD animation 45 m → 145 FPS, NavigationRegion3D + `nav_clamp/nav_path`, phím 1–7 vũ khí, Z/X/C kỹ năng, `--auto` chụp + `SCN3D_NAVTEST`).
+- Tài liệu: `docs/PHAN-TICH-3D-THIEU.md` (đối chiếu 7 hệ thống với bản tham khảo; mục 5 = 12 mục còn thiếu để chuẩn 3D), `docs/LO-TRINH-3D.md` (lộ trình M3D-0 … M3D-6: ADR + quy ước toạ độ → tách `IWorldView` → `KWorldView3D` nối zone thật → pipeline nội dung + map/nhân vật thí điểm → hệ thống hiển thị đầy đủ → bản 2.5D dự phòng 980 map → mở rộng nội dung → hiệu năng/phát hành; ước lượng ~14 tuần mã, 6–8 tháng nội dung cho 1 họa sĩ).
+- Server bản 3D chạy `JX_CONFIG=Release python tools/dev.py start` (zone 19001, gateway 19100/19102); client thử `client3d.cmd`. 11 dòng CRLF của phần 33 trong tệp này đã đưa về LF.
+- commit: `7ad96e8` (navmesh), `d027629` (phân tích), và lộ trình `JX NEXT 3D: lo trinh tung buoc len 3D chuan (docs/LO-TRINH-3D.md)`.
+
 ### 2026-09-19 (phiên tiếp theo, phần 34) — thử nghiệm 3D bước 2 (bản riêng `swrod3-3d`, nhánh `exp/3d-baling`): NPC + nhân vật 3D có skin/animation, cổng riêng 19xxx
 
 - Bản sao riêng `D:\JXWIN-NANGGODOT\JXN\JXN\swrod3-3d` (nhân bản kho, luôn ở `exp/3d-baling`), `swrod3` giữ cho 2D; cổng bản 3D đổi sang 19001/19100/19102 (e2e 20xxx, pprof 19199), test client 417/417 + Go xanh.

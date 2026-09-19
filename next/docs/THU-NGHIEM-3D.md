@@ -114,6 +114,11 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 2. Nước / lá cây đung đưa (đang là vật liệu tĩnh), che mờ nhà chắn camera.
 3. Nối với zone: `X = x`, `Z = y` (đơn vị scene của zone), cao độ chỉ để vẽ; map 3D không có tầng đi được chồng nhau.
 
+## Lộ trình
+
+Lịch từng bước để lên 3D chuẩn (mốc M3D-0 … M3D-6, mã và nội dung chạy song song, bản 2.5D dự phòng cho 980 map):
+`docs/LO-TRINH-3D.md`. Phân tích thiếu gì: `docs/PHAN-TICH-3D-THIEU.md` (mục 5).
+
 ## Cách nối vào dự án chính nếu được duyệt
 
 Chỉ thay lớp "vẽ thế giới" của client (~2 300–2 500 dòng: `KScenePlaceC`, `KIpo*`, `KNpc/KNpcRes`, `KObj`, `KMissle*`,
