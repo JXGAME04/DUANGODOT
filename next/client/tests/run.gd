@@ -758,6 +758,10 @@ func test_gold_name() -> void:
 	# the life bar's colour by the percent (PaintLife 0x005EAE2F ..): 50 green, 25 yellow, below red
 	check(NpcGold.life_bar_color(100) == Color(0, 1, 0) and NpcGold.life_bar_color(50) == Color(0, 1, 0), "green from 50")
 	check(NpcGold.life_bar_color(49) == Color(1, 1, 0) and NpcGold.life_bar_color(25) == Color(1, 1, 0), "yellow from 25")
+	# GetNpcPate 0x005EBCF0: a sitting player's head sinks MulDiv(30, cur, total) once MulDiv(10, cur, total) >= 8 (rounded)
+	check(NpcGold.sit_pate_drop(false, 14, 15) == 0 and NpcGold.sit_pate_drop(true, 11, 15) == 0, "no sink standing or before frame 12 of 15")
+	check(NpcGold.sit_pate_drop(true, 12, 15) == 24 and NpcGold.sit_pate_drop(true, 13, 15) == 26 and NpcGold.sit_pate_drop(true, 14, 15) == 28, "24 / 26 / 28 over the last three frames")
+	check(NpcGold.sit_pate_drop(true, 8, 10) == 24 and NpcGold.sit_pate_drop(true, 7, 10) == 0, "MulDiv(10, 8, 10) = 8 sinks, 7 does not")
 	check(NpcGold.life_bar_color(24) == Color(1, 0, 0) and NpcGold.life_bar_color(0) == Color(1, 0, 0), "red below")
 	# a player's name by its current camp (0x005F2507, the table 0x5f2d94)
 	check(NpcGold.player_name_color(0) == Color(1, 1, 1), "camp_begin: white")

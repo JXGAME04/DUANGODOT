@@ -278,6 +278,19 @@ func set_aura(skill_id: int) -> void:
 	Log.debug("world", "aura request", {"skill": skill_id})
 
 
+# the 0x71 packet {0x71, byte sit} of the 2.0 client (the tool bar's Switch([[sit]]) 0x0044B470): sit down (1) / stand up (0)
+func sit(on: bool) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.SitReq.new()
+	req.set_sit(on)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_SIT, req)
+	Log.trace("world", "sit request", {"sit": on, "seq": _move_seq})
+	return _move_seq
+
+
 func ride(on: bool) -> int:
 	if state != "world":
 		return 0

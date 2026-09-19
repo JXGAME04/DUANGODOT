@@ -2012,7 +2012,7 @@ func main() {
 		opt := export.NpcResOptions{
 			DropRates: loadDropRates(templates, findServer(dir), mapListDropRates(dir, set)),
 			Names:     names,
-			Doings:    []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1},
+			Doings:    []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1, npcres.DoSit},
 			Equips:    icr.DefaultEquips(),
 			Skills:    loadSkills(set, findServer(dir)),
 		}

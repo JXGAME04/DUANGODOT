@@ -24,6 +24,8 @@ const ACTION_DEATH := 3
 const ACTION_REVIVE := 4
 const ACTION_JUMP := 5
 const ACTION_KNOCK_BACK := 6
+const ACTION_SIT := 7
+const SIT_FRAME := 15              # m_SitFrame +0x1930 of the server (KNpc::Init 0x0807E09B): the sit runs 15 frames, then holds
 # the name block over a character as gamecl.exe 0x005F2DB0 sizes it with names shown: 3 (life bar) + 5, the name
 # line 12 + 2 - the Head state pictures hang from it (0x006DFAC0: z = block height + 9 - 100)
 const INFO_LINES := 22
@@ -129,8 +131,7 @@ func setup(d: Dictionary, own: bool) -> void:
 			"template": template_id, "res": res_name})
 	set_state_icons(d.get("state_icons", state_icons))
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
-	_label.position.y = -float(_pate()) - 20.0
-	_life_label.position.y = _label.position.y - 16.0
+	_place_labels()
 	doing = -1
 	_set_doing(KNpcResNode.Doing.STAND)
 	# a late joiner sees corpses and swings already under way
@@ -140,6 +141,10 @@ func setup(d: Dictionary, own: bool) -> void:
 		cur_frame = total_frame - 1
 	elif now == ACTION_ATTACK or now == ACTION_HURT or now == ACTION_KNOCK_BACK:
 		apply_action({"action": now, "frames": d.get("doing_frames", 1), "x": d.x, "y": d.y, "dir": dir64})
+	elif now == ACTION_SIT:
+		# the 0x4c sync carries m_Doing 8: a late joiner sees the sitter already down (the last frame held)
+		_set_action(KNpcResNode.Doing.SIT, SIT_FRAME)
+		cur_frame = total_frame - 1
 	_tick_acc = 0.0
 	queue_redraw()
 
@@ -149,8 +154,8 @@ func apply_move(mv: Dictionary) -> void:
 	speed = float(mv.speed)
 	path = _waypoints(mv)
 	position = to_screen(scene_pos)
-	if doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1:
-		_set_doing(KNpcResNode.Doing.STAND)   # KNpc::DoWalk interrupts the swing
+	if doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.SIT:
+		_set_doing(KNpcResNode.Doing.STAND)   # KNpc::DoWalk interrupts the swing (and writes m_Doing 3 over a sit)
 
 
 # EntityAction from the zone: KNpc::DoAttack / DoHurt / DoDeath on the client side.
@@ -182,6 +187,10 @@ func apply_action(a: Dictionary) -> void:
 			if face >= 0:
 				dir64 = face
 			_set_action(KNpcResNode.Doing.HURT, n)
+		ACTION_SIT:
+			# the 0x83 packet (KNpc::DoSit 0x0807B550) -> the 2.0 handler 0x00650400 -> KNpc::DoAction(8) 0x005EA2E0: the sit
+			# animation plays its frames once and holds the last one (the server's frame 0x08087880 does the same)
+			_set_action(KNpcResNode.Doing.SIT, SIT_FRAME)
 		ACTION_JUMP:
 			# a jump of a style-1 skill (zone KSubWorld::start_jump): to the landing spot within `frames` logic frames;
 			# shown as a run until the jump animation of the 2.0 client is wired (B4)
@@ -301,6 +310,10 @@ func _head_effect_z() -> int:
 	return _pate() + INFO_LINES + 9 - 100
 
 
+func is_sitting() -> bool:
+	return doing == KNpcResNode.Doing.SIT
+
+
 func set_target(on: bool) -> void:
 	is_target = on
 	refresh_info()
@@ -376,8 +389,9 @@ func _process(delta: float) -> void:
 # One old logic frame: choose the doing, advance the frame counter, turn, and draw.
 @warning_ignore("integer_division")
 func _tick() -> void:
-	if doing == KNpcResNode.Doing.DEATH:
-		# KNpc::OnDeath: the corpse keeps its last frame until the zone removes it
+	if doing == KNpcResNode.Doing.DEATH or doing == KNpcResNode.Doing.SIT:
+		# KNpc::OnDeath: the corpse keeps its last frame until the zone removes it; a sitter holds its last frame too
+		# (0x08087880) until the zone says it stood up (ACTION_STAND) or moved
 		if cur_frame < total_frame - 1:
 			cur_frame += 1
 	elif doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.HURT:
@@ -414,6 +428,8 @@ func _tick() -> void:
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
 		_res.paint(res_dir, total_frame, cur_frame, _head_effect_z())
+	if entity_type == ENTITY_PLAYER:
+		_place_labels()   # a sitter's name sinks over the last sit frames and comes back up on standing
 	_play_action_sound()
 
 
@@ -426,12 +442,21 @@ func _play_action_sound() -> void:
 		sounds.play(_res.sound_name, scene_pos, false, true)
 
 
-# KNpc::GetNpcPate (no jump height, sitting or riding yet).
+# KNpc::GetNpcPate 0x005EBCF0: m_nStature (+84 for a player, 0x005EC13D) + m_nHeight; a sitting player's head sinks with the
+# sit frames (KNpcGold.sit_pate_drop); riding adds 38 (no jump height or riding on this client yet).
 func _pate() -> int:
 	var h := stature
 	if entity_type == ENTITY_PLAYER:
-		h += 84
+		h += 84 - KNpcGold.sit_pate_drop(doing == KNpcResNode.Doing.SIT, cur_frame, total_frame)
 	return h
+
+
+# where the pate puts the name lines this frame (the pate loop 0x00670130 measures it every frame: a sitter's sink)
+func _place_labels() -> void:
+	if _label == null:
+		return
+	_label.position.y = -float(_pate()) - 20.0
+	_life_label.position.y = _label.position.y - 16.0
 
 
 func _set_doing(d: int) -> void:

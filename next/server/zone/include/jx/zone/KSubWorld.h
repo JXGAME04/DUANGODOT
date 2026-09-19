@@ -529,6 +529,14 @@ public:
     void set_horse(KNpc& e, int n);
     // the ride toggle 0x080AEFA0 (C2G_RIDE): true when the state changed
     bool ride_request(std::uint64_t sid, bool on, std::uint32_t seq);
+    // the 0x71 packet (handler 0x080DC300): the script event 2, riding -> refused, then 0x08078AA0(npc, sit ? 8 : 1) - refused
+    // while frozen_action (+0x1479, the mask 0x11e covers 1 and 8); the action runs at 0x08088640: 8 -> KNpc::DoSit 0x0807B550,
+    // 1 -> DoStand 0x08080030
+    bool sit_request(std::uint64_t sid, bool sit, std::uint32_t seq);
+    // KNpc::DoSit 0x0807B550: already sitting -> nothing; a run attack (0x12) is ended first; m_Doing = 8, the 0x83 packet
+    // {npc id} to the players around and the 0x9f {6, 1} to oneself (0x080796D0), the frame counter 0 / m_SitFrame
+    void do_sit(KNpc& e);
+    void leave_sit(KNpc& e);
     // C2G_SKILL_DESC: the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client; docs/CLIENT-2.0.md §10)
     void skill_desc_request(std::uint64_t sid, int skill_id, int level);
     // KPlayer::SetFaction 0x080AEEC0 (docs §16.7): the faction named `name` joined - its camp on the npc, the 0x7b packet;

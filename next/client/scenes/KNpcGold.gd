@@ -99,3 +99,15 @@ static func life_bar_color(pct: int) -> Color:
 	if pct >= 25:
 		return Color(1.0, 1.0, 0.0)
 	return Color(1.0, 0.0, 0.0)
+
+
+# KNpc::GetNpcPate 0x005EBCF0 (2004 KNpc.cpp:6148): a sitting player's head (m_Doing 8) sinks with the sit animation - once
+# MulDiv(10, cur, total) >= 8 the pate loses MulDiv(30, cur, total) (24 / 26 / 28 over the last three of 15 frames, held at 28);
+# MulDiv rounds half up.  The 2.0 client skips it for the armour kind 45 (+0x13f4, not on this client yet).
+@warning_ignore("integer_division")
+static func sit_pate_drop(sitting: bool, cur_frame: int, total_frame: int) -> int:
+	if not sitting or total_frame <= 0:
+		return 0
+	if (10 * cur_frame + total_frame / 2) / total_frame < 8:
+		return 0
+	return (30 * cur_frame + total_frame / 2) / total_frame

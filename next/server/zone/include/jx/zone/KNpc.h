@@ -32,7 +32,8 @@ enum class KNpcKind : std::uint8_t { player = 1, npc = 2, monster = 3, drop = 4 
 // The zone's own numbering; the m_Doing of jx_linux_y in brackets: stand (1), walk (3), attack = do_attack (7),
 // hurt (9), death (10), revive (21), knock_back (24), magic = do_magic (6); the moves of a style-1 skill
 // (docs/LINUX-SERVER.md §16.2): jump (4), special_skill (14), run (18), special_cast (19), jump_attack (20), blink (23)
-enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic, jump, special_skill, run, special_cast, jump_attack, blink };
+// sit = do_sit (8): KNpc::DoSit 0x0807B550, the frame 0x08087880 holds the last picture; ProcessState feeds life / mana / stamina (0x0808BBE6)
+enum class KDoing : std::uint8_t { stand = 0, walk, attack, hurt, death, revive, knock_back, magic, jump, special_skill, run, special_cast, jump_attack, blink, sit };
 
 // NPC_COMMAND of the old core: the JX2 ring of five at KNpc+0x169c (24 bytes each) that
 // KNpc::SendCommand 0x0809B750 fills - only do_skill (5) goes through it - and
@@ -223,6 +224,7 @@ struct KNpc {
     std::uint32_t hurt_frame = 10;
     std::uint32_t death_frame = 15;
     std::uint32_t revive_frame = 2400;
+    static constexpr std::uint32_t kSitFrame = 15;   // m_SitFrame +0x1930: KNpc::Init 0x0807E09B sets 15, nothing else writes it
     bool level_data_from_script = false;
 
     // KNpcAI state (server side of KNpc.h), named after the old members

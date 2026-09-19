@@ -160,6 +160,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.ride_request(cmd.sid, req.on(), req.seq());
         break;
     }
+    case pb::C2G_SIT: {
+        pb::SitReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.sit_request(cmd.sid, req.sit(), req.seq());
+        break;
+    }
     case pb::C2G_SET_AURA: {
         pb::SetAuraReq req;
         if (!req.ParseFromString(cmd.payload)) break;

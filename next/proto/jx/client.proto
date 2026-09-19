@@ -113,6 +113,7 @@ enum Action {
   ACTION_REVIVE = 4;
   ACTION_JUMP = 5;               // a jump of a style-1 skill (the 0x54 packet of KNpc 0x0807B320): aim = where it lands, frames = the frames in the air
   ACTION_KNOCK_BACK = 6;         // KNpc::KnockBack 0x08087940 -> SendSyncAction 0x0807A970 (the 0x56 packet, doing 0x18): aim = the spot pushed to, frames = the frames of the push, target = who pushed
+  ACTION_SIT = 7;                // KNpc::DoSit 0x0807B550 (the 0x83 packet {npc id} around, the 0x9f {6, 1} to oneself): m_Doing 8, frames = m_SitFrame 15 - the last frame is held (0x08087880)
 }
 
 // An entity started an action (old NPC_HURT_SYNC / NPC_DEATH_SYNC / skill sync).
@@ -337,6 +338,11 @@ message ReviveReq {              // C2G_REVIVE: the revive request of the old cl
 
 message RideReq {                // C2G_RIDE: mount (on) or dismount the worn horse (the ride toggle 0x080AEFA0 of the old game)
   bool on = 1;
+  uint32 seq = 2;
+}
+
+message SitReq {                 // C2G_SIT: the 0x71 packet {0x71, byte sit} of the 2.0 client (Switch([[sit]]) of the tool bar) -> handler 0x080DC300: sit (1) or stand (0)
+  bool sit = 1;
   uint32 seq = 2;
 }
 

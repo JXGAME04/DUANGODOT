@@ -1898,7 +1898,8 @@ enum Action {
 	DEATH = 3,
 	REVIVE = 4,
 	JUMP = 5,
-	KNOCK_BACK = 6
+	KNOCK_BACK = 6,
+	SIT = 7
 }
 
 class EntityAction:
@@ -4820,6 +4821,70 @@ class RideReq:
 		__on.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
 	func set_on(value : bool) -> void:
 		__on.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class SitReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__sit = PBField.new("sit", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __sit
+		data[__sit.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __sit: PBField
+	func has_sit() -> bool:
+		if __sit.value != null:
+			return true
+		return false
+	func get_sit() -> bool:
+		return __sit.value
+	func clear_sit() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__sit.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_sit(value : bool) -> void:
+		__sit.value = value
 	
 	var __seq: PBField
 	func has_seq() -> bool:
@@ -9103,6 +9168,7 @@ enum MsgId {
 	C2G_RIDE = 1114,
 	C2G_SKILL_DESC = 1115,
 	C2G_SET_AURA = 1116,
+	C2G_SIT = 1117,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,

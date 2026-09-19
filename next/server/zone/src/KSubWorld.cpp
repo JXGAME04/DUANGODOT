@@ -224,6 +224,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     case KDoing::blink: out.set_doing(pb::ACTION_ATTACK); break;   // the animations of the moves of style 1 (a jump lands within a second: stand until then)
     case KDoing::death: out.set_doing(pb::ACTION_DEATH); break;
     case KDoing::revive: out.set_doing(pb::ACTION_REVIVE); break;
+    case KDoing::sit: out.set_doing(pb::ACTION_SIT); break;   // (the 0x4c sync carries m_Doing 8: the client shows the sit)
     default: out.set_doing(pb::ACTION_STAND); break;
     }
     out.set_doing_frames(e.frame_total);
@@ -412,6 +413,7 @@ bool KSubWorld::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     e.attack_target = EntityId{};
     if (e.doing == KDoing::jump || e.doing == KDoing::jump_attack || e.doing == KDoing::blink) return false;   // in the air / vanishing: +0x194c holds the walk back
     if (e.doing == KDoing::attack || e.doing == KDoing::special_skill || e.doing == KDoing::special_cast || e.doing == KDoing::run) stop_action(e);
+    if (e.doing == KDoing::sit) leave_sit(e);   // DoWalk 0x0807B620 writes m_Doing 3 over the 8
     e.move_seq = seq;
     Pos dest = clamp(target);
     std::size_t waypoints = 1;
@@ -1089,8 +1091,17 @@ const KPlayerSet& KSubWorld::tables() const noexcept
 void KSubWorld::process_state(KNpc& e)
 {
     if (!e.alive()) return;
-    // (0x0808BBE6: a sitting npc first gets SitAddLife / SitAddMana - no sit state yet)
     const int before = e.cur.life;
+    if (e.doing == KDoing::sit) {
+        // 0x0808BBE6: a sitting npc first gets SitAddLife = max(1, max x 3 x lifereplenish_p / 100000) (the 0x14f8b589 >> 13
+        // division), logged "SitAddLife: %d * %d%% = %d" when the percent is not 100, then SitAddMana alike with manareplenish_p
+        const auto sit_add = [](int max, int percent) {
+            const std::int64_t v = static_cast<std::int64_t>(max) * 3 * percent / 100000;
+            return std::max(1, static_cast<int>(v));
+        };
+        e.cur.life = std::min(e.life_max(), e.cur.life + sit_add(e.life_max(), e.cur.life_replenish_percent));
+        e.cur.mana = std::min(e.mana_max(), e.cur.mana + sit_add(e.mana_max(), e.cur.mana_replenish_percent));
+    }
     if (e.cur.life_replenish != 0) {   // 0x0808B65F
         if (e.cur.life_replenish_percent == 100 || e.cur.life_replenish <= 0) e.cur.life += e.cur.life_replenish;
         else e.cur.life += e.cur.life_replenish * e.cur.life_replenish_percent / 100;
@@ -1110,6 +1121,7 @@ void KSubWorld::process_state(KNpc& e)
         // an exhausted character walks (m_Doing 2, 0x08080C86): the walk step 0x08080B70 has no stamina line, only the gain
         // (the zone keeps a moving character at KDoing::stand: `moving` is its m_Doing 3)
         if (e.moving && (e.doing == KDoing::stand || e.doing == KDoing::walk) && e.cur.stamina >= sub) e.cur.stamina += gain - sub;
+        else if (e.doing == KDoing::sit) e.cur.stamina += gain + e.cur.stamina_sit_add;   // 0x0808BE36: + SitAdd per mille of the maximum
         else e.cur.stamina += gain;
         if (e.cur.stamina > e.cur.stamina_max) e.cur.stamina = e.cur.stamina_max;
         else if (e.cur.stamina < 0) e.cur.stamina = 0;
@@ -1997,6 +2009,49 @@ bool KSubWorld::ride_request(std::uint64_t sid, bool on, std::uint32_t seq)
     set_horse(*me, on ? 1 : 0);
     if (KNpc* me2 = entities_.find(players_.at(sid))) recalc_player(*me2);
     return true;
+}
+
+bool KSubWorld::sit_request(std::uint64_t sid, bool sit, std::uint32_t seq)
+{
+    (void)seq;
+    const auto pit = players_.find(sid);
+    KNpc* me = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    if (me == nullptr) return false;
+    // (0x080DC338: 0x080AEBC0(player, 2) - the script event broadcaster, M13)
+    if (me->horse != 0) return false;                 // 0x080DC367: riding
+    if (me->cur.frozen_action) return false;          // 0x08078ABD: kinds 1 / 8 refused while +0x1479
+    if (!me->alive() || me->doing == KDoing::hurt || me->doing == KDoing::knock_back) return false;   // a corpse / a hit keeps its frames
+    if (sit) {
+        if (me->doing == KDoing::sit) return false;   // 0x0807B560
+        if (me->in_action()) stop_action(*me);        // 0x0807B565: a run attack (0x12) is ended
+        if (me->moving) me->set_pos(me->pos());       // m_Doing 8 leaves the walk step (0x08087880 holds the frame)
+        do_sit(*me);
+    } else {
+        if (me->doing != KDoing::sit) return false;
+        leave_sit(*me);                               // 0x0808871A: DoStand 0x08080030
+    }
+    return true;
+}
+
+void KSubWorld::do_sit(KNpc& e)
+{
+    e.doing = KDoing::sit;
+    e.frame_cur = 0;                          // +0x230 = 0
+    e.frame_total = KNpc::kSitFrame;          // +0x22c = max(1, +0x1930)
+    e.attack_target = EntityId{};
+    emit_action(e, pb::ACTION_SIT, EntityId{});   // the 0x83 packet around (the 0x9f {6, 1} to oneself: the same action reaches its own client)
+    log::debug("zone.player", "sit", {log::kv("entity", e.id)});
+}
+
+// DoStand out of a sit (the 0x71 packet with 0, a walk, a blow): m_Doing 1 again, told around as ACTION_STAND
+void KSubWorld::leave_sit(KNpc& e)
+{
+    if (e.doing != KDoing::sit) return;
+    e.doing = KDoing::stand;
+    e.frame_cur = 0;
+    e.frame_total = 0;
+    emit_action(e, pb::ACTION_STAND, EntityId{});
+    log::debug("zone.player", "stand up", {log::kv("entity", e.id)});
 }
 
 void KSubWorld::emit_life(const KNpc& e, std::int32_t delta, EntityId source)

@@ -604,3 +604,18 @@ Luật ở `LINUX-SERVER.md` §16.12. Client 2.0 chỉ nhận **một word** "lo
 | `PaintName 0x005F2507` người chơi (kind 1/2) | màu theo `+0xf8` (camp hiện tại, byte +3 của gói 0x4c; bảng nhảy `0x5f2d94`): 0 begin `0xFFFFFFFF`, 1 justice `0xFFFFA85E`, 2 evil `0xFFFF92FF`, 3 balance `0xFF55FF91`, 4 free `0xFFFF0000`, > 4 `0xFFFF69B4`; rồi `+0x40 ≠ 0` và chuỗi `0x21a03b0` → `<%s>%s` (danh hiệu; chính mình `0x21a0390` → `<%s%s>%s` với `0x00653AB0`), các dòng bang/… `+0xb0/+0xa0/+0xc0` (`0x9bf4c8`) — **chưa port** (chưa có danh hiệu/bang) | `KNpcGold.player_name_color(current_camp)`; `EntityInfo.camp/current_camp` (+0xb/+3 của gói 0x4c), `G2C_ENTITY_CAMP` → `KNpc.set_camp` |
 
 `--auto` `auto_fight.png`: mục tiêu npc3 "78/160" + "npc3/Lv:10" cỡ 14 viền đen, các quái khác cỡ 12, thanh máu chỉ dưới mục tiêu (C = 0).
+
+## 18. Ngồi thiền trên client — `Switch([[sit]])` `0x0044B470` → `OperationRequest(6, 2)` `0x005C37A6`, gói 0x71 `0x0067D080`, gói 0x83 / 0x9f → `KNpc::DoAction(8) 0x005EA2E0`, `GetNpcPate 0x005EBCF0` (M12 lát B6a, đã đọc từng dòng `gamecl.exe` + mã 2004)
+
+| Hàm | Luật (đã đọc) | Client mới |
+|---|---|---|
+| nút ngồi của thanh công cụ `0x0044B470` | Lua `Switch([[sit]])` → `0x0042FA60` (bảng tên `0x80dbc8`: 0 run, **1 sit**, 2 trade, 3 pk, 4 horse, rồi `showplayer*`) → `OperationRequest(6, 2, 0)` (`0x005C1CF0`; `run` là `(6, 1, 0)`) | `UiControlBar` lệnh `"sit"` → `KUiGameWindows._on_bar_command` |
+| `0x005C37A6..0x005C37FC` (thao tác 6, tham số 2) | npc mình `[0x1ab34f4] + [core+0xc0cc]·0x12bd4`; **`+0x19c0 ≠ 0` (cưỡi) → hộp thoại `0x005C3801`**, không gửi; `m_Doing (+0xfc) == 8` → `KNpc::DoAction(1, 0, 0, 0)` **tại chỗ** (đứng ngay, không chờ server) rồi `0x0067D080(0)`; khác → `0x005F7F60(core+0xa878, 1, 1)` (`+0x44 \|= 2`, cờ chờ ngồi) rồi `0x0067D080(1)` | `Game.sit(not sitting)` (`sitting` = `doing == ACTION_SIT` của mình); client mới **chờ `ACTION_STAND` của zone** thay vì đứng trước |
+| `0x0067D080(ngồi)` | `[core+0xa8a0] ≠ 0` → thôi; gói **`{0x71, byte ngồi ≠ 0}`** 2 byte qua `[0x9bd88c]->vtable+0x10` | `KProtocolProcess.sit(on)` → `SitReq{sit, seq}` `C2G_SIT` (gateway chuyển tiếp `session.go`) |
+| gói 0x83 `0x00650400` (`{0x83, dword npc}`) | npc → `KNpc::DoAction(8, 0, 0, 0) 0x005EA2E0`: `m_Doing = 8`, hành động ngồi (cột 12 của bảng doing → hành động **36**, `MA_*_019_ZZ01.spr` 72 khung / 8 hướng, vũ khí `*_000_ZZ01`) chạy hết khung rồi **giữ khung cuối** | `G2C_ENTITY_ACTION ACTION_SIT` → `KNpc._set_action(Doing.SIT, SIT_FRAME 15)`; `_tick` giữ khung cuối; gói đồng bộ (`doing` 8) cho người vào sau → khung cuối ngay; đi / đánh / bị đánh ghi đè |
+| gói 0x9f giá trị 6 | chính mình `DoAction(8)` (sau khi server nhận) | cùng một `ACTION_SIT` (zone phát cho cả mình) |
+| `KNpc::GetNpcPate 0x005EBCF0` (mã 2004 `KNpc.cpp` 6139) | `pate = m_nStature (+0x3c, người chơi 84) + m_nHeight (+0x34)`; mẫu −1/−2 (nhân vật): `m_Doing == 8` **và** `MulDiv(10, +0x108 cur, +0x104 total) ≥ 8` **và** `+0x13f4 (m_ArmorType) ≠ 45` → `pate −= MulDiv(30, cur, total)` (15 khung: 24 / 26 / 28 ở ba khung cuối, giữ 28); `+0x19c0` (cưỡi) → `+ 38`. (Mã 2004 không có điều kiện áo 45; `MulDiv` làm tròn nửa lên) | `KNpcGold.sit_pate_drop`, `KNpc._pate` + `_place_labels` mỗi khung logic (tên và hiệu ứng đầu hạ theo khung, lên lại khi đứng); áo 45 chưa có trên client mới |
+| sprite ngồi trong gói xuất | — | `jxassets export-npcres` thêm `npcres.DoSit` vào `Doings` (8 phần × ZZ01) — chạy lại `python tools/dev.py assets`, không thì người ngồi **biến mất** (không có sprite) |
+
+`--auto` `auto_sit.png` (sau trận): `AUTO_SIT sat=true frame=14 life_before=596 life_after=596 stood=true` — ngồi khoanh chân, giữ khung 14, tên hạ 28 điểm, đứng dậy
+khi gửi 0x71 = 0 (máu đầy nên không thấy hồi; luật hồi có test `[sit]` của zone).

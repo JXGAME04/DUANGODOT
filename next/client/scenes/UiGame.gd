@@ -570,6 +570,7 @@ func _auto_run() -> void:
 	await _auto_items()
 	await _auto_skills()
 	await _auto_fight()
+	await _auto_sit()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -749,6 +750,38 @@ func _auto_fight() -> void:
 # unblockable hit of 200 000 000 from oneself) - the character falls (ACTION_DEATH, the exp / money loss
 # of KNpc::OnDeath), its picture is taken, then C2G_REVIVE stands it up at its revive point
 # (KPlayer::Revive(0)) and another picture follows; AUTO_DEATH sums it up for tools/dev.py.
+# the sit of the 2.0 tool bar (Switch([[sit]]) -> the 0x71 packet): the wounded character sits, its life climbs by
+# SitAddLife every ten frames (0x0808BBE6), the sit animation holds its last frame, then it stands up again
+func _auto_sit() -> void:
+	var own: Node2D = _entities.get(Game.entity_id)
+	if own == null:
+		print("AUTO_SIT none")
+		return
+	var life_before: int = own.life
+	Game.sit(true)
+	var sat := false
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and own.is_sitting():
+			sat = true
+			break
+	await get_tree().create_timer(1.6).timeout
+	own = _entities.get(Game.entity_id)
+	var frame_held: int = own.cur_frame if own != null else -1
+	await _save_screenshot("user://logs/auto_sit.png")
+	var life_after: int = own.life if own != null else -1
+	Game.sit(false)
+	var stood := false
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and not own.is_sitting():
+			stood = true
+			break
+	print("AUTO_SIT sat=%s frame=%d life_before=%d life_after=%d stood=%s" % [sat, frame_held, life_before, life_after, stood])
+
+
 func _auto_death() -> void:
 	var own := _own()
 	if own == null:

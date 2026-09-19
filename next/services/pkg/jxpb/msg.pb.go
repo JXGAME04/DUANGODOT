@@ -101,6 +101,7 @@ const (
 	MsgId_C2G_RIDE            MsgId = 1114 // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
 	MsgId_C2G_SKILL_DESC      MsgId = 1115 // (zone) the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level script; the zone answers)
 	MsgId_C2G_SET_AURA        MsgId = 1116 // (zone) the aura switched on: the 0x6f packet of KNpc::SetAura 0x005EA870 (the right-mouse skill is an aura) -> handler cell 111 0x080DC460 -> KNpc::SetAura 0x08087290
+	MsgId_C2G_SIT             MsgId = 1117 // (zone) sit down / stand up: the 0x71 packet -> handler cell 113 0x080DC300 -> 0x08078AA0(npc, 8 / 1)
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK       MsgId = 2001
 	MsgId_G2C_LOGIN_RES       MsgId = 2002
@@ -174,6 +175,7 @@ var (
 		1114: "C2G_RIDE",
 		1115: "C2G_SKILL_DESC",
 		1116: "C2G_SET_AURA",
+		1117: "C2G_SIT",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -242,6 +244,7 @@ var (
 		"C2G_RIDE":            1114,
 		"C2G_SKILL_DESC":      1115,
 		"C2G_SET_AURA":        1116,
+		"C2G_SIT":             1117,
 		"G2C_HELLO_ACK":       2001,
 		"G2C_LOGIN_RES":       2002,
 		"G2C_CHAR_LIST_RES":   2003,
@@ -321,7 +324,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xd6\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xe4\n" +
 	"\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
@@ -349,7 +352,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"C2G_REVIVE\x10\xd9\b\x12\r\n" +
 	"\bC2G_RIDE\x10\xda\b\x12\x13\n" +
 	"\x0eC2G_SKILL_DESC\x10\xdb\b\x12\x11\n" +
-	"\fC2G_SET_AURA\x10\xdc\b\x12\x12\n" +
+	"\fC2G_SET_AURA\x10\xdc\b\x12\f\n" +
+	"\aC2G_SIT\x10\xdd\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +

@@ -587,3 +587,89 @@ TEST_CASE("stamina: running costs the PK state's RunSub every state tick, standi
     h = w.mutable_entity(hero);
     CHECK(h->speed == 10u * 18u);
 }
+
+TEST_CASE("sit: the 0x71 packet sits the character (m_Doing 8, the 0x83 action), ProcessState feeds life / mana / stamina every ten frames, a walk or the packet stands it up; riding and frozen refuse", "[player][world][sit]")
+{
+    jx::log::Options o;
+    o.console = false;
+    o.default_level = jx::log::Level::warn;
+    jx::log::init(o);
+    jx::zone::KSubWorldConfig c = hero_world();
+    jx::zone::KSubWorld w(c);
+    jx::EntityId hero;
+    jx::zone::Pos at;
+    jx::pb::RoleData role = shaolin_role();
+    role.mutable_position()->set_zone_id(1);
+    role.mutable_position()->mutable_pos()->set_x(2000);
+    role.mutable_position()->mutable_pos()->set_y(2000);
+    REQUIRE(w.spawn_player(7, role, hero, at) == jx::pb::RESULT_OK);
+    w.tick();
+    jx::zone::KNpc* h = w.mutable_entity(hero);
+    REQUIRE(h != nullptr);
+    h->cur.life = h->life_max() / 2;
+    h->cur.mana = 0;
+    h->cur.stamina = 10;
+    const int life0 = h->cur.life, max_life = h->life_max(), max_mana = h->mana_max();
+    w.take_outbox();
+    REQUIRE(w.sit_request(7, true, 1));
+    h = w.mutable_entity(hero);
+    CHECK(h->doing == jx::zone::KDoing::sit);
+    CHECK(h->frame_total == 15);   // m_SitFrame
+    CHECK_FALSE(w.sit_request(7, true, 2));   // 0x0807B560: already sitting
+    auto acts = of(w.take_outbox(), 7, jx::pb::G2C_ENTITY_ACTION);
+    REQUIRE(acts.size() == 1);
+    jx::pb::EntityAction a;
+    REQUIRE(a.ParseFromString(acts[0].payload));
+    CHECK(a.action() == jx::pb::ACTION_SIT);
+    CHECK(a.frames() == 15);
+    // 0x0808BBE6 every ten frames: life += max(1, max x 3 x 100 / 100000) = max x 3 / 1000, mana alike; stamina += NormalAdd + SitAdd (10 per mille of the maximum)
+    for (int i = 0; i < 20; ++i) w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->doing == jx::zone::KDoing::sit);
+    CHECK(h->cur.life == life0 + 2 * std::max(1, max_life * 3 / 1000));
+    CHECK(h->cur.mana == 2 * std::max(1, max_mana * 3 / 1000));
+    CHECK(h->cur.stamina == 10 + 2 * (1 + std::max(1, h->cur.stamina_max * 10 / 1000)));
+    // the late joiner's sync says it sits
+    jx::EntityId other;
+    REQUIRE(w.spawn_player(8, role, other, at) == jx::pb::RESULT_OK);
+    for (int i = 0; i < 3; ++i) w.tick();
+    bool seen = false;
+    for (const auto& p : of(w.take_outbox(), 8, jx::pb::G2C_ENTITY_SPAWN)) {
+        jx::pb::EntitySpawn sp;
+        REQUIRE(sp.ParseFromString(p.payload));
+        for (const auto& e : sp.entities()) {
+            if (e.entity_id() == hero.value) {
+                seen = true;
+                CHECK(e.doing() == jx::pb::ACTION_SIT);
+            }
+        }
+    }
+    CHECK(seen);
+    // a walk writes m_Doing 3 over the 8 (DoWalk 0x0807B620)
+    REQUIRE(w.move_request(7, jx::zone::Pos{2200, 2000}, 3));
+    h = w.mutable_entity(hero);
+    CHECK(h->doing == jx::zone::KDoing::stand);
+    CHECK(h->moving);
+    CHECK_FALSE(w.sit_request(7, false, 4));   // not sitting: nothing to stand up from
+    // sit again, the packet with 0 stands it up (0x0808871A DoStand)
+    REQUIRE(w.sit_request(7, true, 5));
+    h = w.mutable_entity(hero);
+    CHECK_FALSE(h->moving);
+    CHECK(h->doing == jx::zone::KDoing::sit);
+    w.take_outbox();
+    REQUIRE(w.sit_request(7, false, 6));
+    h = w.mutable_entity(hero);
+    CHECK(h->doing == jx::zone::KDoing::stand);
+    acts = of(w.take_outbox(), 7, jx::pb::G2C_ENTITY_ACTION);
+    REQUIRE(acts.size() == 1);
+    REQUIRE(a.ParseFromString(acts[0].payload));
+    CHECK(a.action() == jx::pb::ACTION_STAND);
+    // riding (0x080DC367) and frozen_action (0x08078ABD) refuse
+    h->horse = 1;
+    CHECK_FALSE(w.sit_request(7, true, 7));
+    h->horse = 0;
+    h->cur.frozen_action = true;
+    CHECK_FALSE(w.sit_request(7, true, 8));
+    h->cur.frozen_action = false;
+    CHECK(w.sit_request(7, true, 9));
+}

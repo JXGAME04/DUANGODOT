@@ -39,6 +39,7 @@ enum MsgId {
   C2G_RIDE = 1114;             // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
   C2G_SKILL_DESC = 1115;       // (zone) the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level script; the zone answers)
   C2G_SET_AURA = 1116;         // (zone) the aura switched on: the 0x6f packet of KNpc::SetAura 0x005EA870 (the right-mouse skill is an aura) -> handler cell 111 0x080DC460 -> KNpc::SetAura 0x08087290
+  C2G_SIT = 1117;              // (zone) sit down / stand up: the 0x71 packet -> handler cell 113 0x080DC300 -> 0x08078AA0(npc, 8 / 1)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
