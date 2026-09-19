@@ -299,7 +299,11 @@ func _setup_environment() -> void:
 	_sun.position = Vector3(0, 60, 0)
 	_sun.look_at_from_position(_sun.position, _sun.position + d, Vector3.UP)
 	_sun.light_color = _col(l.get("color", [1, 1, 0.95]))
-	_sun.light_energy = 1.35
+	# the reference lightmaps carry only indirect light, so their maps take a strong real-time sun; a map of our own
+	# has plain PBR materials lit by the sun and the ambient alone [tự chọn]
+	_sun.light_energy = 1.0 if bool(scene.get("own", false)) else 1.35
+	if bool(scene.get("own", false)):
+		env.ambient_light_energy = 0.6
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_max_distance = 90.0
 	add_child(_sun)
@@ -393,10 +397,15 @@ func _post_process(root: Node) -> void:
 		if mi.name.begins_with("g") and mi.name.substr(1).is_valid_int():
 			idx = int(mi.name.substr(1))
 		var meta: Dictionary = nodes[idx] if idx >= 0 and idx < nodes.size() else {}
+		if bool(scene.get("own", false)):
+			# a map of our own (import_map3d.py, docs/3D-HOA-SI.md): the node name's prefix says what it is
+			meta = {"group": _own_group(mi.name)}
 		stats["nodes"] += 1
 		var mesh := mi.mesh
 		if mesh == null:
 			continue
+		if bool(scene.get("own", false)):
+			_own_materials(mi, str(meta.get("group", "")))
 		var is_terrain := false
 		for s in mesh.get_surface_count():
 			stats["surfaces"] += 1
@@ -417,6 +426,58 @@ func _post_process(root: Node) -> void:
 			mi.add_to_group("terrain")
 		elif str(meta.get("group", "")) == "Buildings":
 			_fade_meshes.append(mi)
+
+
+# docs/3D-HOA-SI.md: terrain / walk / building / tree / grass / water / stone / prop by the node name's prefix
+static func _own_group(node_name: String) -> String:
+	var n := node_name.to_lower()
+	if n.begins_with("terrain"):
+		return "terrain"
+	if n.begins_with("building"):
+		return "Buildings"
+	if n.begins_with("tree"):
+		return "Tree"
+	if n.begins_with("grass"):
+		return "Grass"
+	if n.begins_with("water"):
+		return "Water"
+	if n.begins_with("walk"):
+		return "walk"
+	return "Stone"
+
+
+# Our own map's glTF materials stay as they are (PBR + the sun), except: the walk mesh is not drawn (it is the zone's
+# obstacle grid), tree / grass get the sway shader over their albedo, water gets the water shader
+func _own_materials(mi: MeshInstance3D, group: String) -> void:
+	if group == "walk":
+		mi.visible = false
+		return
+	if group != "Tree" and group != "Grass" and group != "Water":
+		return
+	for s in mi.mesh.get_surface_count():
+		var src := mi.mesh.surface_get_material(s)
+		var std := src as StandardMaterial3D if src is StandardMaterial3D else null
+		var sm := ShaderMaterial.new()
+		if group == "Water":
+			sm.shader = SH_WATER
+			if std != null and std.albedo_texture != null:
+				sm.set_shader_parameter("bottom_tex", std.albedo_texture)
+			sm.set_shader_parameter("water_color", std.albedo_color if std != null else Color(0.2, 0.45, 0.6))
+			sm.set_shader_parameter("brightness", 1.0)
+			sm.set_shader_parameter("alpha_add", 0.7)
+		else:
+			sm.shader = SH_SWAY
+			if std != null and std.albedo_texture != null:
+				sm.set_shader_parameter("albedo_tex", std.albedo_texture)
+			sm.set_shader_parameter("tint", std.albedo_color if std != null else Color.WHITE)
+			sm.set_shader_parameter("use_lm", false)
+			sm.set_shader_parameter("alpha_test", std != null and std.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR)
+			sm.set_shader_parameter("cutoff", std.alpha_scissor_threshold if std != null else 0.5)
+			sm.set_shader_parameter("sway_mode", 2 if group == "Grass" else 1)
+			sm.set_shader_parameter("sway_amount", 0.08 if group == "Grass" else 0.15)
+			sm.set_shader_parameter("sway_radius", 0.8 if group == "Grass" else 4.0)
+		mi.set_surface_override_material(s, sm)
+		_shader_mats.append(sm)
 
 
 func _make_material(mm: Dictionary, meta: Dictionary) -> Material:

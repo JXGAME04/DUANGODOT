@@ -673,6 +673,15 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-42) — M3D-2 (phần mã) 2.1 + 2.2: hướng dẫn họa sĩ, bộ nhập map tự làm, map mẫu
+
+- `docs/3D-HOA-SI.md`: quy ước cho người dựng (mét, Y lên, −Z bắc, gốc tây-bắc; tiền tố tên node `terrain/walk/building/tree/grass/water/stone/prop`, empty `spawn`, `npc_<template>_<n>`, `exit_<map>_<x>_<y>_<n>` (scale = vùng bẫy), `light_sun`, `cam` extras; nhân vật: xương, tên clip theo `animation_list`, điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_bd/sys_bar/sys_foot/ma_qi1`; bố cục theo map 2D).
+- `tools/scn3d/import_map3d.py <ten>.gltf --id N [--check]`: đọc glTF (numpy, không cần Blender/Godot), phân loại node theo tên, rasterize mesh `walk*` → `obstacle.bin`, `spawn`/NPC/cổng → `map.json` + Lua `NewWorld`, `scene.json` (render, marks, `own: true`), `map3d.json`, `models.json` (NPC có model tham khảo theo `CHA_TO_TEMPLATE`); báo lỗi thiếu `walk`/`terrain`/`spawn`, template lạ, map ngoài gốc.
+- `tools/scn3d/make_sample_map.py` → `docs/3d-sample/sample_map.gltf` (thôn 64×48 m: đất hai bậc, đường, 2 nhà, 4 cây, hồ, spawn, Thợ rèn 197, Heo trắng 43, cổng về Phượng Tường) — tệp mẫu cho họa sĩ và bài kiểm bộ nhập; **không commit** tệp sinh (build lại bằng lệnh).
+- Client `KScenePlace3D`: map `own` phân loại node theo tên (`_own_group`), giữ vật liệu PBR của glTF, `walk*` ẩn, `tree*/grass*` shader đung đưa từ albedo, `water*` shader nước, nắng 1,0 + ambient 0,6.
+- Kiểm: `import_map3d.py docs/3d-sample/sample_map.gltf --id 9001` → zone nạp `Thôn thử 3D` 128×96 ô, 2 NPC; client `NewWorld(9001,50,31)` → nhà, đất, Thợ rèn + Heo trắng (model tham khảo), đi được, cổng về map 1 (`AUTO3D_TRAP from=9001 to=1`), 143 FPS. Ảnh `auto3d_0.png`.
+- commit: `JX NEXT 3D: M3D-2 (2.1, 2.2) - huong dan hoa si, import_map3d.py (glTF tu lam -> zone + client), make_sample_map.py, map own trong KScenePlace3D`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-41) — M3D-3 bước 3.2 / 3.3 / 3.6: mờ nhà che camera, nước + lá cỏ đung đưa, cưỡi ngựa
 
 - **3.2** `CameraBuildingFade` của bản tham khảo đọc từ nhị phân: hằng tĩnh trong `global-metadata.dat` (`fieldDefaultValues`): `FadeAlpha 0,25`, `FadeSpeed 10/s`, `RayPadding 0,15 m`, `DetectInterval 0,3 s`; `Update` (RVA 0x4a3ee0): đoạn camera → mục tiêu trừ padding, mỗi 0,3 s tìm renderer lớp "Building" cắt đoạn (`CollectByBounds`), mờ dần về 0,25 và phục hồi 10/s; `RebuildCache` lọc theo `GameObject.layer == Global` lớp nhà → ta dùng nhóm `Buildings` của scene.json (167 mesh). Cài ở `KScenePlace3D._update_building_fade` + shader `scn3d_lm_fade` / `scn3d_lm_2side_fade` (bản ghi `ALPHA`, hoán đổi vật liệu khi mờ). Kiểm `--auto3d --fade` ở quảng trường: yaw 180/300 có 2 vật che → mờ (`auto3d_fade_180.png`).
