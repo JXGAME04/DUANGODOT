@@ -20,6 +20,8 @@
 //	                                 fire) as missles.json for the zone's KMissleTable
 //	export-state-gfx -out <dir>      settings/npcres/状态图形对照表.txt of the client (the picture a state puts on a
 //	                                 character) as npcres/state_gfx.json + the sprites the skills' StateSpecialId use
+//	export-menu-state -out <dir>     settings/npcres/界面状态与图形对照表.txt of the client (the sign over a player's head:
+//	                                 team open / trade open / trading) as npcres/menu_state.json + the sprites
 //	export-sounds -out <dir>         the .wav files the skills (ManCastSnd / FMCastSnd of skills.json), the missiles
 //	                                 (SndFile1..4 of missles/missle_res.json) and the characters' actions (主角动作声音表.txt,
 //	                                 npc动作声音表.txt for the exported npcres) name -> sounds/<id>.wav + sounds/sounds.json,
@@ -1494,6 +1496,53 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-state-gfx: %d trang thai (%d Special, %d ky nang dung), %d sprite (%d moi) -> %s\n", len(rows), special, len(want), sprites, ex.Exported, p)
+
+	case "export-menu-state":
+		// \settings\npcres\界面状态与图形对照表.txt of the client (KPlayerMenuStateGraph::Init, gamecl.exe 2.0 0x00703F40 /
+		// 0x00704102): the sign over a player's head by menu state - row 1 team open (menustate01), 2 trade open (02),
+		// 3 trading (03), 4 sleeping (04), 5 stall (02), 6 stall trading (03) -> <out>/npcres/menu_state.json + the sprites.
+		// docs/CLIENT-2.0.md §22
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		const table = `\settings\npcres\界面状态与图形对照表.txt`
+		data, err := set.ReadFile(gamePath(table))
+		if err != nil {
+			fail("no %s in the client's archives: %v", table, err)
+		}
+		ex := export.New(set, out)
+		rows := map[string]any{}
+		state := 0
+		for i, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimRight(line, "\r")
+			if i == 0 || strings.TrimSpace(line) == "" {
+				continue
+			}
+			cells := strings.Split(line, "\t")
+			if len(cells) < 2 {
+				continue
+			}
+			state++
+			file := strings.TrimSpace(cells[1])
+			rows[strconv.Itoa(state)] = map[string]any{
+				"name": text.GBKToUTF8([]byte(strings.TrimSpace(cells[0]))), "file": text.GBKToUTF8([]byte(file)), "sprite": ex.SpriteID(file),
+			}
+		}
+		p := filepath.Join(out, "npcres", "menu_state.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			fail("%v", err)
+		}
+		js, err := json.MarshalIndent(map[string]any{"source": "the client's archives: " + table + " (KPlayerMenuStateGraph, gamecl.exe 2.0 0x00703F40)", "rows": rows}, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(p, js, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-menu-state: %d trang thai, %d sprite -> %s\n", len(rows), ex.Exported, p)
 
 	case "export-npc-gold":
 		// \settings\npc\NpcGoldTemplate.txt of the old server (KNpcGoldTemplate::Init jx_linux_y 0x0809CCC0): the kinds of

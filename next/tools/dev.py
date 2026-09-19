@@ -491,6 +491,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     if subprocess.call([*jxassets_args(), "export-state-gfx", "-out", out], cwd=ROOT) != 0:
         print("export-state-gfx: no settings/npcres/状态图形对照表.txt in the client's archives - states show no picture")
     # the gold monster kinds (settings/npc/NpcGoldTemplate.txt): what a placed monster may revive as
+    # the sign over a player's head (team open / trade open / trading; M14)
+    if subprocess.call([*jxassets_args(), "export-menu-state", "-out", out], cwd=ROOT) != 0:
+        print("export-menu-state: no settings/npcres/界面状态与图形对照表.txt in the client's archives - no signs over the heads")
     if subprocess.call([*jxassets_args(), "export-npc-gold", "-out", out], cwd=ROOT) != 0:
         print("export-npc-gold: no settings/npc/NpcGoldTemplate.txt in the reference server folder - no monster turns gold")
     # the weapon -> physical skill table (settings/武器物理攻击对照表.txt): which attack a weapon swings

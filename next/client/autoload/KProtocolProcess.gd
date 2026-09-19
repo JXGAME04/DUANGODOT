@@ -53,6 +53,12 @@ signal pk_changed(state: int, value: int, refused: bool)   # G2C_PK_STATE: one's
 signal entity_pk(r: Dictionary)             # G2C_ENTITY_PK: a player's PK state (the flag & 3 of the 0x4b sync -> KNpc+0x16e4)
 signal team_changed()                       # G2C_TEAM_SELF: one's own team as it stands (the 0x69 sub 2 / sub 9 packets; `team`)
 signal team_event(ev: Dictionary)           # G2C_TEAM_EVENT: {event, id, name, level, arg, leader, members} (the other 0x69 sub-commands, the 0x86 team messages)
+signal trade_changed()                      # G2C_TRADE_STATE / G2C_TRADE_SYNC / G2C_TRADE_END: `trade` changed (docs/LINUX-SERVER.md §18)
+signal trade_item(ev: Dictionary)           # G2C_TRADE_ITEM: {item, removed} - the partner's trade box changed (trade.other_items holds it)
+signal trade_apply(ev: Dictionary)          # G2C_TRADE_APPLY: {id, name} asks to trade with me (the 0x8b packet)
+signal trade_end(ok: bool)                  # G2C_TRADE_END: the 0x78 packet
+signal sys_msg(id: int, entity_id: int, name: String)   # G2C_SYS_MSG: the 0x86 packet - a stringtable_core.txt sentence by id (CLIENT-2.0.md §21)
+signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id].menu_state / menu_sentence changed (the sign over the head)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -106,6 +112,10 @@ var pk_value := 0        # the PK value 0..10 (the 0x93 packet)
 # the client's KPlayerTeam (core+0xa878+0x7258 of the 2.0 client) + the s2c_teamselfinfo table (0x1f17608..): in_team, team_id,
 # state (1 open), captain (am I), leader {id, name, level}, members [{id, name, level}], lead_level, lead_exp, members_max
 var team := {"in_team": false, "team_id": -1, "state": 0, "captain": false, "leader": {}, "members": [], "lead_level": 1, "lead_exp": 0, "members_max": 0}
+# the client's KTrade (core+0xa878+0x... of the 2.0 client; KPlayerTrade.h): state 0 normal / 1 open for trade / 2 trading,
+# the partner, the four flags of the 0x81 sync, the money on both tables, the partner's items (the 0xcc-byte syncs) by id
+var trade := {"state": 0, "partner": 0, "partner_name": "", "self_lock": false, "dest_lock": false, "self_ok": false, "dest_ok": false,
+	"self_money": 0, "dest_money": 0, "other_items": {}}
 var faction_last := -1
 var faction_count := 0
 var camp := 0
@@ -318,6 +328,27 @@ func team_request(cmd: int, target: int = 0, flag: int = 0) -> int:
 	Net.send_msg(Proto.MsgId.C2G_TEAM, req)
 	Log.trace("world", "team request", {"cmd": cmd, "target": target, "flag": flag, "seq": _move_seq})
 	return _move_seq
+
+
+# the trade packets of the 2.0 client (KPlayer::TradeApplyOpen 0x005FB010 / Close 0x005F7460 {0x6a} / TradeApplyStart 0x005F7480
+# {0x6b, npc} / the money 0x6c / the decision 0x6d 0x005FB201; docs/LINUX-SERVER.md §18)
+func trade_request(cmd: int, target: int = 0, arg: int = 0, text: String = "") -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.TradeReq.new()
+	req.set_cmd(cmd)
+	req.set_target(target)
+	req.set_arg(arg)
+	req.set_text(text)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_TRADE, req)
+	Log.trace("world", "trade request", {"cmd": cmd, "target": target, "arg": arg, "seq": _move_seq})
+	return _move_seq
+
+
+func trading() -> bool:
+	return int(trade.state) == 2
 
 
 # the entity ids of one's team mates (the captain and the members but oneself): the life bar of a team mate is
@@ -926,6 +957,94 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			if d != null:
 				d["pk_state"] = int(m.get_pk_state())
 			entity_pk.emit({"id": int(m.get_entity_id()), "pk_state": int(m.get_pk_state())})
+
+		Proto.MsgId.G2C_TRADE_STATE:
+			# s2c_tradechangestate of KPlayerMenuState::SetState 0x080C29D0: 0 normal, 1 open for trade, 2 trading {partner}
+			var m := Proto.TradeState.new()
+			if not _decode(m, payload):
+				return
+			var was := int(trade.state)
+			trade.state = int(m.get_state())
+			trade.partner = int(m.get_partner())
+			trade.partner_name = str(m.get_partner_name())
+			if trade.state != 2 or was != 2:
+				trade.self_lock = false
+				trade.dest_lock = false
+				trade.self_ok = false
+				trade.dest_ok = false
+				trade.self_money = 0
+				trade.dest_money = 0
+				trade.other_items = {}
+			trade_changed.emit()
+			Log.info("player", "trade state", {"state": trade.state, "partner": trade.partner, "name": trade.partner_name})
+
+		Proto.MsgId.G2C_TRADE_SYNC:
+			# the 0x81 packet of SyncTradeState 0x080A85B0 {self lock, dest lock, self ok, dest ok} + the 0x77 money of the partner
+			var m := Proto.TradeSync.new()
+			if not _decode(m, payload):
+				return
+			trade.self_lock = bool(m.get_self_lock())
+			trade.dest_lock = bool(m.get_dest_lock())
+			trade.self_ok = bool(m.get_self_ok())
+			trade.dest_ok = bool(m.get_dest_ok())
+			trade.self_money = int(m.get_self_money())
+			trade.dest_money = int(m.get_dest_money())
+			trade_changed.emit()
+			Log.info("player", "trade sync", {"self_lock": trade.self_lock, "dest_lock": trade.dest_lock, "self_ok": trade.self_ok,
+				"dest_ok": trade.dest_ok, "self_money": trade.self_money, "dest_money": trade.dest_money})
+
+		Proto.MsgId.G2C_TRADE_ITEM:
+			# the partner put an item on the table (the 0xcc-byte sync of ExchangeItem 0x08207172) or took it back
+			var m := Proto.TradeItem.new()
+			if not _decode(m, payload):
+				return
+			var removed := bool(m.get_removed())
+			var d := _item_dict(m.get_item()) if m.has_item() else {}
+			var id := int(d.get("id", 0))
+			if removed:
+				trade.other_items.erase(id)
+			elif id != 0:
+				trade.other_items[id] = d
+			trade_item.emit({"item": d, "removed": removed})
+			trade_changed.emit()
+
+		Proto.MsgId.G2C_TRADE_APPLY:
+			# the 0x8b packet (0x080B4DE0): somebody asks to trade with me
+			var m := Proto.TradeApply.new()
+			if not _decode(m, payload):
+				return
+			trade_apply.emit({"id": int(m.get_entity_id()), "name": str(m.get_name())})
+			Log.info("player", "trade apply", {"id": int(m.get_entity_id()), "name": str(m.get_name())})
+
+		Proto.MsgId.G2C_TRADE_END:
+			# the 0x78 packet: over - the state packet that follows (NORMAL, or the one before a cancel) resets the table
+			var m := Proto.TradeEnd.new()
+			if not _decode(m, payload):
+				return
+			trade.other_items = {}
+			trade.self_money = 0
+			trade.dest_money = 0
+			trade_end.emit(bool(m.get_ok()))
+			trade_changed.emit()
+			Log.info("player", "trade end", {"ok": bool(m.get_ok())})
+
+		Proto.MsgId.G2C_SYS_MSG:
+			# the 0x86 packet {word 8, word id, dword npc}: the client's 0x00657AD0 picks the sentence by id
+			var m := Proto.SysMsg.new()
+			if not _decode(m, payload):
+				return
+			sys_msg.emit(int(m.get_id()), int(m.get_entity_id()), str(m.get_name()))
+
+		Proto.MsgId.G2C_ENTITY_MENU_STATE:
+			# s2c_npcsetmenustate (the client's 0x006522F0 -> KNpc 0x005EB2A0): the sign over a player's head, its sentence
+			var m := Proto.EntityMenuState.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null:
+				d["menu_state"] = int(m.get_state())
+				d["menu_sentence"] = str(m.get_sentence())
+			entity_menu_state.emit(int(m.get_entity_id()))
 
 		Proto.MsgId.G2C_TEAM_SELF:
 			# the 0x69 sub 2 handler of the 2.0 client (0x005F8280: +0x7258 flag, +0x725c figure, the captain 0x1f17610, the

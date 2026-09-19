@@ -82,10 +82,13 @@ enum KItemPart : int {
 
 // The rooms a player's items lie in (INVENTORY_ROOM without the trade backups) and the equipment
 // slots as a pseudo room, so one (room, x, y) names any place an item can be.
+// jx_linux_y keeps fifteen rooms (KItemList+0x4c8c + room x 0x1c; Init 0x081FF0B0): 0 the bag 6x10, 1 the repository 6x10,
+// 2 the trade box 8x4, 3 the extended repository 12x20, 5 the quick slots 9x1, 7 / 8 / 9 / 14 more 6x10 pages - the zone
+// keeps the four of the 2004 game.
 enum KItemRoom : int {
     room_equipment = 0,   // the bag (6 x 10)
     room_repository,      // the storage box (6 x 10)
-    room_trade,           // the trade box (10 x 4)
+    room_trade,           // the trade box (8 x 4: KItemList::Init of jx_linux_y 0x081FF129, the 2.0 window's SelfItemsBox)
     room_immediacy,       // the quick slots (3 x 1)
     room_num,
     room_body = 10,       // worn: x = KItemPart
@@ -93,7 +96,7 @@ enum KItemRoom : int {
 
 constexpr int kEquipmentRoomWidth = 6, kEquipmentRoomHeight = 10;
 constexpr int kRepositoryRoomWidth = 6, kRepositoryRoomHeight = 10;
-constexpr int kTradeRoomWidth = 10, kTradeRoomHeight = 4;
+constexpr int kTradeRoomWidth = 8, kTradeRoomHeight = 4;
 constexpr int kImmediacyRoomWidth = 3, kImmediacyRoomHeight = 1;
 
 // MAGIC_ATTRIB ids (magic_weapondamagemin_v = 28 ...) and KMagicAttrib: KMagicAttrib.h

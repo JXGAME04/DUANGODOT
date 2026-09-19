@@ -96,6 +96,8 @@ var GameScreens = []UiScreenDef{
 	// to two text buttons (KUiInformation, 提示.ini: [Info], [FirstBtn], [SecondBtn]) the invitations and applications use
 	{"to-doi", "Tổ đội", "KUiTeamManage", `队伍管理.ini`},
 	{"hop-thoai", "Hộp thông báo hai nút", "KUiInformation", `提示.ini`},
+	// M14 G2: the trade window (KUiTrade, gamecl.exe 0x004C02D2 loads "%s\玩家间交易.ini")
+	{"giao-dich", "Giao dịch giữa hai người chơi", "KUiTrade", `玩家间交易.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

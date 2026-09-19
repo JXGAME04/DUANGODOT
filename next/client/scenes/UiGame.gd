@@ -10,6 +10,7 @@ const KWavSound := preload("res://scenes/KWavSound.gd")
 const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const ACTION_ATTACK := 1
 const ENTITY_DROP := 4
+const ENTITY_PLAYER_KIND := 1
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
@@ -63,6 +64,7 @@ func _ready() -> void:
 	_windows.name = "Windows"
 	add_child(_windows)
 	Game.team_changed.connect(_on_team_changed)
+	Game.entity_menu_state.connect(_on_entity_menu_state)
 	# the 2.0 bottom bar carries the chat line ([InputEdit] of 玩家信息主界面.ini): the plain one steps aside
 	if _windows.player_bar != null and _windows.player_bar.chat_input != null:
 		_chat_input.visible = false
@@ -231,6 +233,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				var y := clampi(int(p.y * 2.0), 0, _scene_h - 1)
 				var seq := Game.move_to(x, y)
 				Log.debug("ui", "click move", {"x": x, "y": y, "seq": seq})
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.ctrl_pressed:
+			# autoexec.lua: AddCommand("Ctrl+RButton", "", "Mouse_Menu()") - the player menu (gamecl.exe 0x004C2450)
+			var hit := _entity_at(get_global_mouse_position())
+			if hit != null and hit.entity_type == ENTITY_PLAYER_KIND and hit.entity_id != Game.entity_id and _windows != null:
+				_windows.open_player_menu(hit.entity_id, get_viewport().get_mouse_position())
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# the right mouse skill (m_nRightSkillID): on the entity under the cursor, else on the spot
 			if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
@@ -538,6 +545,14 @@ func _on_entity_pk(r: Dictionary) -> void:
 		node.set_pk_state(int(r.pk_state))
 
 
+# s2c_npcsetmenustate: the sign over a player's head (and its trade sentence)
+func _on_entity_menu_state(id: int) -> void:
+	var node: Node2D = _entities.get(id)
+	var d = Game.entities.get(id)
+	if node != null and d != null and node.has_method("set_menu_state"):
+		node.set_menu_state(int(d.get("menu_state", 0)), str(d.get("menu_sentence", "")))
+
+
 # G2C_TEAM_SELF: the life bar of a team mate is (230, 190, 0) (PaintLife 0x005EADB8 when 0x0066D070 == 8) - every player
 # node learns whether it is one now
 func _on_team_changed() -> void:
@@ -630,6 +645,7 @@ func _auto_run() -> void:
 	await _auto_ride()
 	await _auto_pk()
 	await _auto_team()
+	await _auto_trade()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -938,6 +954,37 @@ func _auto_team() -> void:
 		"members_max": members_max, "window": window_ok, "closed": closed_ok, "dismissed": dismissed, "changes": answer.changes})
 	print("AUTO_TEAM created=%s captain=%s open=%d lead_level=%d members_max=%d window=%s closed=%s dismissed=%s changes=%d" % [created, captain,
 		open_state, lead_level, members_max, window_ok, closed_ok, dismissed, answer.changes])
+
+
+# the trade of one character: T puts the sign up (TradeApplyOpen -> G2C_TRADE_STATE 1 + the sign over the head), a picture,
+# T takes it down; a real trade needs a second player (the [trade] tests of the zone cover it)
+func _auto_trade() -> void:
+	var answer := {"changes": 0}
+	var cb := func() -> void:
+		answer.changes += 1
+	Game.trade_changed.connect(cb)
+	if _windows != null:
+		_windows.toggle_trade_sign("ban gi cung mua")
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if int(Game.trade.state) == 1:
+			break
+	var opened := int(Game.trade.state) == 1
+	var own: Node2D = _entities.get(Game.entity_id)
+	var sign_state: int = own.menu_state if own != null and "menu_state" in own else -1
+	var sign_drawn: bool = own != null and own.get("_sign") != null and own._sign.visible
+	await get_tree().create_timer(0.3).timeout
+	await _save_screenshot("user://logs/auto_trade.png")
+	if _windows != null:
+		_windows.toggle_trade_sign()
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if int(Game.trade.state) == 0:
+			break
+	var closed := int(Game.trade.state) == 0
+	Game.trade_changed.disconnect(cb)
+	Log.info("auto", "auto trade", {"opened": opened, "sign": sign_state, "drawn": sign_drawn, "closed": closed, "changes": answer.changes})
+	print("AUTO_TRADE opened=%s sign=%d drawn=%s closed=%s changes=%d" % [opened, sign_state, sign_drawn, closed, answer.changes])
 
 
 func _auto_ride() -> void:
