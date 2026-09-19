@@ -1,14 +1,14 @@
 # Address of the gateway, as the player types it on the login screen.  Pure functions so the
 # headless tests cover every form:
 #
-#   127.0.0.1:17100        raw TCP (default, what the old client had)
+#   127.0.0.1:19100        raw TCP (default, what the old client had)
 #   tcp://host:port        the same
 #   tls://host:port        TCP inside TLS
 #   ws://host:port/ws      WebSocket (web build, mobile behind a proxy)
 #   wss://host:port/ws     WebSocket inside TLS
 extends RefCounted
 
-const DEFAULT_PORT := 17100
+const DEFAULT_PORT := 19100
 const DEFAULT_WS_PATH := "/ws"
 const SCHEMES := ["wss://", "ws://", "tls://", "tcp://"]
 

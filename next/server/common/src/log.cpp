@@ -322,7 +322,7 @@ std::size_t catalog_size() noexcept
     return state().catalog.size();
 }
 
-// "[khởi động] Zone đã mở cổng, chờ gateway kết nối · cổng=17001 · phiên=42"
+// "[khởi động] Zone đã mở cổng, chờ gateway kết nối · cổng=19001 · phiên=42"
 std::string format_text(Level level, std::string_view category, std::string_view msg,
                         const std::vector<Field>& fields, const Context& context)
 {

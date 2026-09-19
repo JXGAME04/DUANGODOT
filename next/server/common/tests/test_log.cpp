@@ -244,17 +244,17 @@ TEST_CASE("text console speaks through the catalogue, the ring stays JSON", "[lo
 
     jx::log::Context ctx;
     ctx.sid = 42;
-    const std::vector<jx::log::Field> fields{jx::log::kv("port", 17001), jx::log::kv("addr", "0.0.0.0")};
+    const std::vector<jx::log::Field> fields{jx::log::kv("port", 19001), jx::log::kv("addr", "0.0.0.0")};
     CHECK(jx::log::format_text(jx::log::Level::info, "boot", "zone listening", fields, ctx) ==
-          "[khởi động]   Zone đã mở cổng, chờ gateway kết nối \xC2\xB7 cổng=17001 \xC2\xB7 addr=0.0.0.0 \xC2\xB7 phiên=42");
+          "[khởi động]   Zone đã mở cổng, chờ gateway kết nối \xC2\xB7 cổng=19001 \xC2\xB7 addr=0.0.0.0 \xC2\xB7 phiên=42");
     // what the catalogue does not know stays English; a category is translated by its first part
     CHECK(jx::log::format_text(jx::log::Level::warn, "zone.fight", "a brand new message", {}, jx::log::Context{}) ==
           "[zone.fight]  a brand new message");
 
-    jx::log::info("boot", "zone listening", {jx::log::kv("port", 17001)});
+    jx::log::info("boot", "zone listening", {jx::log::kv("port", 19001)});
     const auto j = last_line();
     CHECK(j["msg"] == "zone listening");     // English for the tools
-    CHECK(j["port"] == "17001");
+    CHECK(j["port"] == "19001");
 
     // English console: no catalogue is read at all
     o.language = "en";

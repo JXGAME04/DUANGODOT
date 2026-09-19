@@ -9,7 +9,7 @@
 //	jxrecord proxy -listen 127.0.0.1:7100 -to 203.0.113.9:5600 -out logs/old-login.jxrec -note "dang nhap"
 //
 //	# the new one (checking the recorder itself, or a client bug)
-//	jxrecord proxy -listen 127.0.0.1:7100 -to 127.0.0.1:17100 -out logs/new.jxrec
+//	jxrecord proxy -listen 127.0.0.1:7100 -to 127.0.0.1:19100 -out logs/new.jxrec
 //
 //	jxrecord dump logs/old-login.jxrec            # what was recorded, one line per chunk
 //	jxrecord dump -hex -max 64 logs/old.jxrec     # with the first bytes of every chunk

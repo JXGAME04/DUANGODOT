@@ -1,6 +1,6 @@
 @echo off
 rem Mo client JX NEXT (Godot 4.7) - nhap doi (double-click) la chay.
-rem Server phai dang chay truoc:  python tools\dev.py start   (zone 17001, gateway 17100)
+rem Server phai dang chay truoc:  python tools\dev.py start   (zone 19001, gateway 19100)
 setlocal
 set "HERE=%~dp0"
 set "GODOT="

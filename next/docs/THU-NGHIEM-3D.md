@@ -37,6 +37,18 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 `world_baling` (Ba Lăng Huyện): 1714 node, 300 mesh, 51 vật liệu, 62 texture, buffer 32 MB — nạp 0,8 s, **145 FPS**,
 591 draw call, 465 k tam giác/khung, VRAM 156 MB. Xoay 0/90/180/270 và nghiêng 75° đúng; bóng đổ + lightmap đúng chỗ.
 
+## Cổng riêng của bản 3D (không trùng bản 2D)
+
+| | bản 2D (`swrod3`) | bản 3D (`swrod3-3d`) |
+|---|---|---|
+| zone | 17001 | **19001** |
+| gateway TCP / WebSocket | 17100 / 17102 | **19100 / 19102** |
+| e2e (`JX_PORT_OFFSET=1000`) | 18001 / 18100 | 20001 / 20100 |
+| pprof gateway | 17199 | 19199 |
+
+Đã đổi mặc định trong `config/zone.json`, `config/gateway.json`, client (`KNetAddress.gd`, `KProtocolProcess.gd`,
+`serverlist.json`, màn đăng nhập), `tools/dev.py`, Go/C++ và test/tài liệu tương ứng.
+
 ## Bước sau (theo thứ tự chủ dự án nêu)
 
 1. Hình nhân vật & NPC: sprite 8 hướng JX1 làm billboard, chọn hướng theo góc tương đối với camera, khóa pitch ≈ 30°

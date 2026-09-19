@@ -26,14 +26,14 @@ const Version = "0.2.0"
 
 type Config struct {
 	ID       string // gateway id sent to the zone
-	Listen   string // raw TCP address for the PC client and bots, e.g. ":17100" ("" = closed)
-	ListenWS string // WebSocket address for web / mobile clients, e.g. ":17102" ("" = closed)
+	Listen   string // raw TCP address for the PC client and bots, e.g. ":19100" ("" = closed)
+	ListenWS string // WebSocket address for web / mobile clients, e.g. ":19102" ("" = closed)
 	WSPath   string // WebSocket path ("" = "/ws")
 	// TLS for both doors (tcp -> tls, ws -> wss).  Empty = plain, which is what a LAN dev
 	// machine uses; a public server must set both.
 	CertFile     string
 	KeyFile      string
-	ZoneAddr     string        // "127.0.0.1:17001"
+	ZoneAddr     string        // "127.0.0.1:19001"
 	MaxChars     int           // characters per account (MAX_PLAYER_PER_ACCOUNT of the old client: 3)
 	IdleTimeout  time.Duration // read timeout in the lobby (0 = 5 min)
 	WriteTimeout time.Duration // 0 = 10 s
@@ -60,10 +60,10 @@ func (c *Config) defaults() {
 		c.ID = "gw1"
 	}
 	if c.Listen == "" && c.ListenWS == "" {
-		c.Listen = ":17100"
+		c.Listen = ":19100"
 	}
 	if c.ZoneAddr == "" {
-		c.ZoneAddr = "127.0.0.1:17001"
+		c.ZoneAddr = "127.0.0.1:19001"
 	}
 	if c.MaxChars <= 0 {
 		c.MaxChars = 3

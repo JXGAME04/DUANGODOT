@@ -1,7 +1,7 @@
 # Net (KSocketClient, cf. old S3Client/NetConnect) - one connection to the gateway using the
 # Protocol V2 framing (net/KProtocol.gd), over whichever transport the address asks for:
 #
-#   127.0.0.1:17100        raw TCP          (PC, LAN, the old game had only this)
+#   127.0.0.1:19100        raw TCP          (PC, LAN, the old game had only this)
 #   tcp://host:port        the same
 #   tls://host:port        TCP inside TLS   (public server)
 #   ws://host:port/ws      WebSocket        (web build, mobile behind a proxy)

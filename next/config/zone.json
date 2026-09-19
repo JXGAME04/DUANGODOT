@@ -4,7 +4,7 @@
     "id": 1,
     "name": "Test Field",
     "listen": "0.0.0.0",
-    "port": 17001,
+    "port": 19001,
     "simulation_threads": 0,     // 0 = tu quyet theo so nhan may va so map (MASTER SPEC 15)
     "rebalance_interval_s": 15,  // scheduler doi map khoi worker nong
     "tick_hz": 18,                      // the old logic loop: frame counts of npcs.txt are ticks

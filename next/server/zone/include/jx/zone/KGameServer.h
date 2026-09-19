@@ -31,7 +31,7 @@ namespace jx::zone {
 
 struct KGameServerConfig {
     std::string listen_address = "0.0.0.0";
-    std::uint16_t port = 17001;
+    std::uint16_t port = 19001;
     KSubWorldConfig world;                 // the default map (and the template every entry of `worlds` copies)
     std::vector<KSubWorldConfig> worlds;   // one per hosted map (KSubWorldSet of the old server); empty = just `world`
     std::uint32_t save_interval_s = 60;

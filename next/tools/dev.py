@@ -44,10 +44,10 @@ EXE = ".exe" if os.name == "nt" else ""
 PRESET = os.environ.get("JX_PRESET", "windows-msvc" if os.name == "nt" else "linux-gcc")
 CONFIG = os.environ.get("JX_CONFIG", "Debug")
 # A second copy of the system on the same machine (another checkout, a worktree) moves every port
-# by this much: JX_PORT_OFFSET=1000 -> zone 18001, gateway 18100 / 18102.  Without it two
-# checkouts fight over 17001 and the second one reports a zone that "did not open its port".
+# by this much: JX_PORT_OFFSET=1000 -> zone 20001, gateway 20100 / 20102.  Without it two
+# checkouts fight over 19001 and the second one reports a zone that "did not open its port".
 PORT_OFFSET = int(os.environ.get("JX_PORT_OFFSET", "0"))
-ZONE_PORT = 17001 + PORT_OFFSET
+ZONE_PORT = 19001 + PORT_OFFSET
 
 
 def zone_exe() -> str:
@@ -253,7 +253,7 @@ def cmd_build() -> None:
 
 def gateway_ports(i: int) -> tuple[int, int]:
     """TCP and WebSocket port of gateway i (0 = the one in config/gateway.json)."""
-    return 17100 + PORT_OFFSET + 10 * i, 17102 + PORT_OFFSET + 10 * i
+    return 19100 + PORT_OFFSET + 10 * i, 19102 + PORT_OFFSET + 10 * i
 
 
 def gateway_data_dir(i: int) -> str:

@@ -77,7 +77,7 @@ func _build() -> void:
 
 	_login_box = VBoxContainer.new()
 	box.add_child(_login_box)
-	_server = _field(_login_box, "Máy chủ (host:port, tls://, ws://)", "127.0.0.1:17100")
+	_server = _field(_login_box, "Máy chủ (host:port, tls://, ws://)", "127.0.0.1:19100")
 	_account = _field(_login_box, "Tài khoản", "")
 	_password = _field(_login_box, "Mật khẩu", "")
 	_password.secret = true

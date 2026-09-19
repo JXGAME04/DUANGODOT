@@ -53,7 +53,7 @@ signal connection_lost(reason: String)
 signal pong(rtt_ms: int, server_ms: int)
 
 var host := "127.0.0.1"
-var port := 17100
+var port := 19100
 var state := "offline"   # offline, connecting, hello, auth, lobby, entering, world
 var sid := 0
 var account_id := 0

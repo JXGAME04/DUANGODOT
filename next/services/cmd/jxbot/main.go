@@ -1,7 +1,7 @@
 // jxbot - headless test client: logs in through the gateway, enters the world and walks around.
 //
-//	jxbot -gateway 127.0.0.1:17100 -bots 5 -duration 30s          load / soak
-//	jxbot -gateway 127.0.0.1:17100 -once                            smoke test for CI (exit 0 = ok)
+//	jxbot -gateway 127.0.0.1:19100 -bots 5 -duration 30s          load / soak
+//	jxbot -gateway 127.0.0.1:19100 -once                            smoke test for CI (exit 0 = ok)
 //
 // Every bot logs JSON lines (proc=jxbot) so the whole path client->gateway->zone can be checked
 // from logs alone.
@@ -404,7 +404,7 @@ func (b *bot) wander() {
 }
 
 func main() {
-	gw := flag.String("gateway", "127.0.0.1:17100", "gateway address: host:port, tls://host:port or ws(s)://host:port/ws")
+	gw := flag.String("gateway", "127.0.0.1:19100", "gateway address: host:port, tls://host:port or ws(s)://host:port/ws")
 	n := flag.Int("bots", 1, "number of bots")
 	prefix := flag.String("prefix", "bot", "account name prefix")
 	first := flag.Int("first", 1, "first account number, so several bot processes can share one set of accounts")

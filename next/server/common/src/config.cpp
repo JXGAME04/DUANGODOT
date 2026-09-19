@@ -68,7 +68,7 @@ std::vector<std::string> split_path(std::string_view dotted_path)
 std::vector<std::pair<std::string, std::string>> Config::flatten() const
 {
     std::vector<std::pair<std::string, std::string>> out;
-    const nlohmann::json flat = root_.flatten();     // {"/zone/port": 17001, ...}
+    const nlohmann::json flat = root_.flatten();     // {"/zone/port": 19001, ...}
     for (const auto& [pointer, value] : flat.items()) {
         std::string key;
         bool note = false;

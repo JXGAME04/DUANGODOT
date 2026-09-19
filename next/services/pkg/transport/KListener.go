@@ -13,8 +13,8 @@ import (
 
 // Options describe the doors the gateway opens.  Empty address = that door stays closed.
 type Options struct {
-	TCP        string // raw frame stream, e.g. ":17100" (PC client, bots, LAN)
-	WS         string // HTTP(S) endpoint carrying the same frames, e.g. ":17102" (web / mobile)
+	TCP        string // raw frame stream, e.g. ":19100" (PC client, bots, LAN)
+	WS         string // HTTP(S) endpoint carrying the same frames, e.g. ":19102" (web / mobile)
 	WSPath     string // "" = "/ws"
 	CertFile   string // PEM certificate; set both Cert and Key to serve TLS on both doors
 	KeyFile    string

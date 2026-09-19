@@ -38,17 +38,17 @@ trạng thái phiên) **giống hệt nhau**, chỉ khác cách mở kết nối
 
 | Địa chỉ client nhập | Đường | Dùng cho | Cổng dev |
 |---|---|---|---|
-| `host:port` hoặc `tcp://host:port` | TCP thô | client PC, bot, LAN | 17100 |
-| `tls://host:port` | TCP trong TLS 1.2+ | server công khai | 17100 (khi bật chứng chỉ) |
-| `ws://host:port/ws` | WebSocket (RFC 6455) | bản web, mobile, sau proxy công ty | 17102 |
-| `wss://host:port/ws` | WebSocket trong TLS | như trên, công khai | 17102 (khi bật chứng chỉ) |
+| `host:port` hoặc `tcp://host:port` | TCP thô | client PC, bot, LAN | 19100 |
+| `tls://host:port` | TCP trong TLS 1.2+ | server công khai | 19100 (khi bật chứng chỉ) |
+| `ws://host:port/ws` | WebSocket (RFC 6455) | bản web, mobile, sau proxy công ty | 19102 |
+| `wss://host:port/ws` | WebSocket trong TLS | như trên, công khai | 19102 (khi bật chứng chỉ) |
 
 Server: `services/pkg/transport` (`KListener.go` mở cửa, `KWebSocket.go` bắt tay + khung RFC 6455,
 chỉ message nhị phân, ping/pong, close; không extension/nén). Gateway mở cả hai cửa cùng lúc
 (`gateway.listen`, `gateway.listen_ws`), TLS bật khi có `gateway.tls_cert` + `gateway.tls_key` và áp
 cho **cả hai**. Mỗi message WebSocket mang đúng một khung tin. Client: `client/net/KNetAddress.gd`
 tách địa chỉ, `KSocketClient.gd` chọn `StreamPeerTCP` / `StreamPeerTLS` / `WebSocketPeer`; HUD hiện
-đường đang dùng. Bot: `jxbot -gateway ws://127.0.0.1:17102/ws`. Chứng chỉ tự ký khi thử: client chạy
+đường đang dùng. Bot: `jxbot -gateway ws://127.0.0.1:19102/ws`. Chứng chỉ tự ký khi thử: client chạy
 với `--tls-insecure` (hoặc `JX_TLS_INSECURE=1`), bot tự bỏ kiểm tra cho `tls://`/`wss://`.
 
 Cổng WebSocket còn trả lời `GET /healthz` (JSON: `zone_ready`, `sessions`, `online`, `stopping`;

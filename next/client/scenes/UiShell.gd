@@ -399,7 +399,7 @@ func _say_later(what: String) -> void:
 # ---------------------------------------------------------------- without a person
 
 func _auto_login() -> void:
-	var address := str(_args.get("server", "127.0.0.1:17100"))
+	var address := str(_args.get("server", "127.0.0.1:19100"))
 	server = {"title": address, "address": address}
 	Log.info("auto", "auto login", {"server": address, "account": _args.get("account", "")})
 	_open_info(UiConnectInfo.CI_MI_CONNECTING, UiConnectInfo.CI_NS_NONE)
@@ -418,7 +418,7 @@ func _show_for_shot(window_name: String) -> void:
 		"bat-dau":
 			open_init()
 		"dang-nhap":
-			server = _servers.server(0, 0) if not _servers.regions.is_empty() else {"title": "Máy chủ", "address": "127.0.0.1:17100"}
+			server = _servers.server(0, 0) if not _servers.regions.is_empty() else {"title": "Máy chủ", "address": "127.0.0.1:19100"}
 			open_login()
 		"thong-bao-ket-noi":
 			bg.set_config("Login")

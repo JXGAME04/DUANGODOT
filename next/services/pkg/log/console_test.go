@@ -66,18 +66,18 @@ func TestCatalogueOfTheRepositoryAndTheFileStaysJSON(t *testing.T) {
 	if err := Init(Options{Level: LevelInfo, Console: true, File: file, Process: "gateway"}); err != nil {
 		t.Fatal(err)
 	}
-	Info("boot", "gateway listening", F("tcp", 17100))
+	Info("boot", "gateway listening", F("tcp", 19100))
 	Shutdown()
 	console.Close()
 	text, _ := os.ReadFile(console.Name())
-	if !strings.Contains(string(text), "Gateway đã mở cổng cho người chơi · cổng TCP=17100") {
+	if !strings.Contains(string(text), "Gateway đã mở cổng cho người chơi · cổng TCP=19100") {
 		t.Errorf("console: %q", text)
 	}
 	if strings.Contains(string(text), "\x1b[") {
 		t.Errorf("a console that is a file gets no colour codes: %q", text)
 	}
 	line, _ := os.ReadFile(file)
-	if !strings.Contains(string(line), `"msg":"gateway listening","tcp":"17100"`) {
+	if !strings.Contains(string(line), `"msg":"gateway listening","tcp":"19100"`) {
 		t.Errorf("the file must stay JSON in English: %q", line)
 	}
 }

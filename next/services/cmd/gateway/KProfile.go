@@ -7,8 +7,8 @@ package main
 // the next guess (the queue's linear scan) changed nothing, which is exactly why a profiler belongs
 // in the binary.
 //
-//	"gateway": { "pprof": "127.0.0.1:17199" }
-//	go tool pprof -http : http://127.0.0.1:17199/debug/pprof/profile?seconds=30
+//	"gateway": { "pprof": "127.0.0.1:19199" }
+//	go tool pprof -http : http://127.0.0.1:19199/debug/pprof/profile?seconds=30
 
 import (
 	"net/http"

@@ -5,8 +5,8 @@
     {
       "title": "Máy chủ nội bộ",
       "servers": [
-        {"title": "Máy này (TCP)", "address": "127.0.0.1:17100"},
-        {"title": "Máy này (WebSocket)", "address": "ws://127.0.0.1:17102/ws"}
+        {"title": "Máy này (TCP)", "address": "127.0.0.1:19100"},
+        {"title": "Máy này (WebSocket)", "address": "ws://127.0.0.1:19102/ws"}
       ]
     }
   ]

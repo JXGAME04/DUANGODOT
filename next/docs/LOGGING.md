@@ -34,9 +34,9 @@ người đang ngồi trước máy: mỗi sự kiện một câu, tiếng Việ
 
 ```text
 14:32:05.118 THÔNG TIN    [khởi động]   jx_zone bắt đầu khởi động · phiên bản=0.4.0 · tệp cấu hình=config/zone.json
-14:32:05.119 THÔNG TIN    [cấu hình]    Thiết lập · khoá=zone.port · giá trị=17001
+14:32:05.119 THÔNG TIN    [cấu hình]    Thiết lập · khoá=zone.port · giá trị=19001
 14:32:05.640 THÔNG TIN    [bản đồ]      Đã nạp map · map=1 · tên=Phượng Tường · số ô=262144 · nạp (ms)=212
-14:32:05.702 THÔNG TIN    [khởi động]   Zone đã mở cổng, chờ gateway kết nối · cổng=17001
+14:32:05.702 THÔNG TIN    [khởi động]   Zone đã mở cổng, chờ gateway kết nối · cổng=19001
 14:32:07.330 THÔNG TIN    [tài khoản]   Đăng nhập thành công · tài khoản=test1 · mã tài khoản=12 · phiên=562949953421313
 14:32:09.004 CẢNH BÁO     [tài khoản]   Sai mật khẩu · tài khoản=test1 · số lần thử=2
 ```

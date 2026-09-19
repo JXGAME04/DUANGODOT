@@ -4,8 +4,8 @@ Ba tiến trình: **jx_zone** (C++, mô phỏng), **gateway** (Go, phiên/auth/p
 — cộng **jxbot** (Go) để test tự động. Tất cả chạy trên một máy Windows hoặc Linux.
 
 ```text
-Godot client ──TCP 17100──> gateway (Go) ──TCP 17001──> jx_zone (C++)
-jxbot ×N     ──TCP 17100──>                              data/gateway/*.json (persist dev)
+Godot client ──TCP 19100──> gateway (Go) ──TCP 19001──> jx_zone (C++)
+jxbot ×N     ──TCP 19100──>                              data/gateway/*.json (persist dev)
 ```
 
 ## 1. Yêu cầu
@@ -85,7 +85,7 @@ python tools/dev.py bots 5 60          # 5 bot đi lại 60 giây (nhìn thấy 
 python tools/dev.py stop
 ```
 
-Client: nhập máy chủ `127.0.0.1:17100`, tài khoản bất kỳ (tự tạo lần đầu, mật khẩu phải giống
+Client: nhập máy chủ `127.0.0.1:19100`, tài khoản bất kỳ (tự tạo lần đầu, mật khẩu phải giống
 lần sau) → tạo nhân vật → **Vào game** → click chuột trái để đi, Enter để chat, cuộn chuột để zoom,
 **I** mở túi đồ, **C** mở cửa sổ nhân vật (click nhấc vật phẩm lên tay, click đặt; đúp/chuột phải để mặc,
 uống, cởi), click đồ dưới đất để nhặt (đi tới nếu xa), Esc để về màn chọn nhân vật. Quái bị giết rơi tiền/đồ theo
@@ -107,29 +107,29 @@ tiền tố / hậu tố (`Gen_MagicAttrib`), ví dụ `AddItem(0,0,0,5,0,100,5,
 sáu ô ma pháp; `AddGoldItem(luck, dòng)` cho hoàng kim.
 
 **Hai bản chạy cùng máy** (checkout chính và worktree): đặt `JX_PORT_OFFSET=1000` cho bản thứ hai → zone
-18001, gateway 18100 / 18102, và mọi lệnh `dev.py` của bản đó dùng đúng cổng ấy. Không đặt thì bản thứ hai
-báo "port 17001 is already taken".
+20001, gateway 20100 / 20102, và mọi lệnh `dev.py` của bản đó dùng đúng cổng ấy. Không đặt thì bản thứ hai
+báo "port 19001 is already taken".
 
 Không có dữ liệu game (`client/assets`, `data/`): `dev.py start` thấy thiếu `zone.map_dir` thì chạy zone
 trên **thế giới phẳng thử nghiệm** (`--set zone.map_dir=`) và nói rõ — đó là cách CI chạy `e2e`.
 
 ## 3a. Đường truyền: TCP, TLS, WebSocket
 
-Gateway mở sẵn hai cửa: **17100** (TCP thô, client PC và bot) và **17102** (WebSocket, cho bản web /
+Gateway mở sẵn hai cửa: **19100** (TCP thô, client PC và bot) và **19102** (WebSocket, cho bản web /
 mobile sau này) — cùng một giao thức. Ở màn đăng nhập gõ:
 
 | Gõ vào ô "Máy chủ" | Đường |
 |---|---|
-| `127.0.0.1:17100` | TCP thô (mặc định) |
-| `ws://127.0.0.1:17102/ws` | WebSocket |
-| `tls://host:17100`, `wss://host:17102/ws` | khi máy chủ có chứng chỉ |
+| `127.0.0.1:19100` | TCP thô (mặc định) |
+| `ws://127.0.0.1:19102/ws` | WebSocket |
+| `tls://host:19100`, `wss://host:19102/ws` | khi máy chủ có chứng chỉ |
 
 ```bash
-build/go/jxbot -gateway ws://127.0.0.1:17102/ws -bots 3 -duration 30s
+build/go/jxbot -gateway ws://127.0.0.1:19102/ws -bots 3 -duration 30s
 ```
 
-Bật TLS: đặt `gateway.tls_cert` + `gateway.tls_key` (PEM) trong `config/gateway.json`; cổng 17100 thành
-`tls://`, 17102 thành `wss://`. Chứng chỉ tự ký thì client chạy thêm `-- --tls-insecure` (hoặc đặt biến
+Bật TLS: đặt `gateway.tls_cert` + `gateway.tls_key` (PEM) trong `config/gateway.json`; cổng 19100 thành
+`tls://`, 19102 thành `wss://`. Chứng chỉ tự ký thì client chạy thêm `-- --tls-insecure` (hoặc đặt biến
 môi trường `JX_TLS_INSECURE=1`) vì mặc định client **có** kiểm tra chứng chỉ. Tạo chứng chỉ thử:
 
 ```bash
@@ -144,7 +144,7 @@ nhận được người chơi (đã nối zone, chưa tắt), `503` khi chưa s
 chờ đúng tín hiệu này thay vì chỉ chờ cổng mở.
 
 ```bash
-curl -s http://127.0.0.1:17102/healthz
+curl -s http://127.0.0.1:19102/healthz
 {"status":"ok","version":"0.2.0","gateway":"gw1","auth_mode":"dev","zone_ready":true,"sessions":0,"online":0,"stopping":false}
 ```
 
@@ -251,8 +251,8 @@ grep '"sid":3' logs/gateway.log logs/zone.log
 
 | Tiến trình | Cổng | File | Ghi đè |
 |---|---|---|---|
-| zone | 17001 | `config/zone.json` | `--set zone.port=…`, `JX_ZONE__PORT=…` |
-| gateway | 17100 (client), nối zone 17001 | `config/gateway.json` | `-set gateway.listen=:17200` |
+| zone | 19001 | `config/zone.json` | `--set zone.port=…`, `JX_ZONE__PORT=…` |
+| gateway | 19100 (client), nối zone 19001 | `config/gateway.json` | `-set gateway.listen=:17200` |
 
 Chạy 2 zone/gateway song song để test trên cùng máy: đổi `zone.port`, `gateway.zone`, `gateway.listen`
 và `gateway.data_dir`.

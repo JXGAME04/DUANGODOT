@@ -240,7 +240,7 @@ func (c *Config) Dump() string {
 	return string(b)
 }
 
-// Flatten returns every setting as {"gateway.listen", ":17100"}, sorted by key, for a start-up log
+// Flatten returns every setting as {"gateway.listen", ":19100"}, sorted by key, for a start-up log
 // a person can read line by line.  Keys that start with '_' are notes, not settings; a value whose
 // key smells of a secret (password, secret, token) is shown as "***".  Same rule as the C++ side.
 func (c *Config) Flatten() [][2]string {
