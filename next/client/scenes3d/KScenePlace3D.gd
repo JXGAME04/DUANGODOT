@@ -307,7 +307,14 @@ func _setup_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = _col(r.get("ambient_light", [0.5, 0.5, 0.55]))
 	env.ambient_light_energy = 1.0
-	if r.get("fog", false):
+	# the mazes carry a linear fog of 4..12 m (maze_wuling) while their camera sits 10..20 m away: in the reference only
+	# the materials compiled with FOG_LINEAR see it (the scene statics do not), a global fog would black the cave out
+	# -> fog only when its end lies beyond the camera's farthest distance [tự chọn]
+	var cam_far := float(camera_table().get("dist_max", 21.0)) if camera_table() is Dictionary else 21.0
+	var fog_end_m := float(r.get("fog_end", 120.0))
+	if r.get("fog", false) and int(r.get("fog_mode", 1)) == 1 and fog_end_m <= cam_far + 2.0:
+		Log.info("map3d", "fog skipped (ends before the camera)", {"fog_end": fog_end_m, "cam_far": cam_far})
+	elif r.get("fog", false):
 		env.fog_enabled = true
 		env.fog_light_color = fogc
 		env.fog_sun_scatter = 0.0
@@ -336,9 +343,7 @@ func _setup_environment() -> void:
 	_sun.light_color = _col(l.get("color", [1, 1, 0.95]))
 	# the reference lightmaps carry only indirect light, so their maps take a strong real-time sun; a map of our own
 	# has plain PBR materials lit by the sun and the ambient alone [tự chọn]
-	_sun.light_energy = 1.0 if bool(scene.get("own", false)) else (1.0 if _indoor else 1.35)   # indoor: the maze terrain shader (地形_迷宫_A高度) has no lightmap path yet -> a fill sun [tự chọn, F6]
-	if _indoor:
-		env.ambient_light_energy = 0.35   # a little fill so unlit faces are not pitch black [tự chọn]
+	_sun.light_energy = 1.0 if bool(scene.get("own", false)) else 1.35
 	if bool(scene.get("own", false)):
 		env.ambient_light_energy = 0.6
 	var q := quality_settings()

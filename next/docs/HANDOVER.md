@@ -702,6 +702,12 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-55) — hang/mê cung tối: do sương mù, không phải shader
+
+- Đọc lại `render` của `maze_wuling` đầy đủ: có `MainLightDir` 1,5 (mê cung **có** đèn hướng — shader `地形_迷宫_A高度` GLSL: Lambert theo `_MainLightPosition` × `_MainLightColor` + 4 splat, không phải lightmap) và **sương mù tuyến tính 4..12 m** màu tối (0,13; 0,07; 0,10) trong khi camera cách 10–20 m → sương phủ kín = đen. Ở bản tham khảo chỉ vật liệu biên dịch với `FOG_LINEAR` (hạt, một vài prefab) thấy sương, đồ tĩnh của scene không.
+- `KScenePlace3D`: bỏ sương khi `fog_end ≤ dist_max + 2` [tự chọn] (log `fog skipped`), bỏ nhánh `_indoor` giảm nắng; giữ lightmap ×2 cho scene không có đèn. Kiểm `NewWorld(9072,359,78)`: Vũ Lăng Động sáng, sàn hang + sơn tặc + hiệu ứng thấy rõ (ảnh `auto_fight_end.png`), 144 FPS.
+- commit: `JX NEXT 3D: 3D-55 - hang toi do suong 4..12 m (bo suong ket thuc truoc camera), me cung co den huong that`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-54) — 45 map 3D dựng xong theo lô, quái ghép template JX1 tự động (17 604 vị trí), khối chọn theo `cha_pic`
 
 - `batch_maps.py --all`: **44/45 scene** dựng được (`copy_fengxiangzhanchang` không có navmesh → bỏ), ~10 phút; zone nạp **1 025 map** (`maps hosted 1025`, 15 s lần đầu vì đọc `obstacle.bin`).

@@ -139,8 +139,8 @@ chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 
 | F3 | Va chạm camera | `GameCamera.UpdateCameraParam` 0x4ae1d0 | **xong** (3D-52): tham khảo không va chạm; JX NEXT giữ `SpringArm3D` địa hình [tự chọn] |
 | F4 | Rung camera `CameraAnim`, `TweenCamera`, `CameraSave` | IL2CPP | **chưa** (C10) |
 | F5 | Sương mù/ambient/đèn đổi theo vùng (`scn_area_list` cột 10–12) | A13 | *bỏ* (4 vùng toàn game); nhạc vùng chờ 3.5 (3D-52) |
-| F6 | Shader: lightmap 2 mặt, nước, cỏ đung đưa (float vật liệu), dissolve, distortion, bloom, **địa hình mê cung `地形_迷宫_A高度`** (hang tối) | bundle shader (GLSL APK `shaders_apk`) | **một phần**: lightmap/nước/cỏ xong (công thức tự chọn); dissolve/bloom **chưa** |
-| F7 | 45 map 3D: `batch_maps.py --all` (id 9052 + scene), mark → nhân vật (vai trò chung, xương, pinyin), nhân vật → template (`map_npcs.py`) | scenes_* | **xong** (3D-54): 44 map dựng, 17 604 vị trí, 6 map trống; hang/mê cung còn tối (F6 shader `地形_迷宫_A高度`) |
+| F6 | Shader: lightmap 2 mặt, nước, cỏ đung đưa (float vật liệu), dissolve, distortion, bloom; mê cung `地形_迷宫_A高度` = Lambert đèn hướng + 4 splat (hang tối là do sương 4..12 m → 3D-55) | bundle shader (GLSL APK `shaders_apk`) | **một phần**: lightmap/nước/cỏ xong (công thức tự chọn); dissolve/bloom **chưa** |
+| F7 | 45 map 3D: `batch_maps.py --all` (id 9052 + scene), mark → nhân vật (vai trò chung, xương, pinyin), nhân vật → template (`map_npcs.py`) | scenes_* | **xong** (3D-54/55): 44 map dựng, 17 604 vị trí, 6 map trống; hang sáng sau khi bỏ sương ngắn |
 
 ### G. Lua uLua của bản tham khảo (245 tệp, vừa trích)
 
