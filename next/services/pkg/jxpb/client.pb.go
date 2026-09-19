@@ -4419,16 +4419,21 @@ func (x *MissleSync) GetZAcceleration() int32 {
 }
 
 type SkillDesc struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SkillId       uint32                 `protobuf:"varint,1,opt,name=skill_id,json=skillId,proto3" json:"skill_id,omitempty"`
-	WithCur       bool                   `protobuf:"varint,2,opt,name=with_cur,json=withCur,proto3" json:"with_cur,omitempty"` // cur is filled (a bool of its own: the C++ generator owns has_cur())
-	Cur           *SkillDescLevel        `protobuf:"bytes,3,opt,name=cur,proto3" json:"cur,omitempty"`                         // the level asked for (1 to the max level)
-	WithNext      bool                   `protobuf:"varint,4,opt,name=with_next,json=withNext,proto3" json:"with_next,omitempty"`
-	Next          *SkillDescLevel        `protobuf:"bytes,5,opt,name=next,proto3" json:"next,omitempty"` // the level after it, when there is one
-	MaxLevel      uint32                 `protobuf:"varint,6,opt,name=max_level,json=maxLevel,proto3" json:"max_level,omitempty"`
-	LevelInc      int32                  `protobuf:"varint,7,opt,name=level_inc,json=levelInc,proto3" json:"level_inc,omitempty"`    // the increments of the skill list on the level shown (0x006233B0 with - 0x00623380 without): G_Skills_38 "Cap hien tai: %d (%d+%d)" when not 0
-	Enhance       int32                  `protobuf:"varint,8,opt,name=enhance,proto3" json:"enhance,omitempty"`                      // KSkillList::enhance[skill] (+0xf14 of the 2.0 list, the addskilldamage of the skills held): G_Skills_39 when not 0
-	HeldLevel     uint32                 `protobuf:"varint,9,opt,name=held_level,json=heldLevel,proto3" json:"held_level,omitempty"` // the level the zone described as the current one (the list's current level, increments included)
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	SkillId      uint32                 `protobuf:"varint,1,opt,name=skill_id,json=skillId,proto3" json:"skill_id,omitempty"`
+	WithCur      bool                   `protobuf:"varint,2,opt,name=with_cur,json=withCur,proto3" json:"with_cur,omitempty"` // cur is filled (a bool of its own: the C++ generator owns has_cur())
+	Cur          *SkillDescLevel        `protobuf:"bytes,3,opt,name=cur,proto3" json:"cur,omitempty"`                         // the level asked for (1 to the max level)
+	WithNext     bool                   `protobuf:"varint,4,opt,name=with_next,json=withNext,proto3" json:"with_next,omitempty"`
+	Next         *SkillDescLevel        `protobuf:"bytes,5,opt,name=next,proto3" json:"next,omitempty"` // the level after it, when there is one
+	MaxLevel     uint32                 `protobuf:"varint,6,opt,name=max_level,json=maxLevel,proto3" json:"max_level,omitempty"`
+	LevelInc     int32                  `protobuf:"varint,7,opt,name=level_inc,json=levelInc,proto3" json:"level_inc,omitempty"`              // the increments of the skill list on the level shown (0x006233B0 with - 0x00623380 without): G_Skills_38 "Cap hien tai: %d (%d+%d)" when not 0
+	Enhance      int32                  `protobuf:"varint,8,opt,name=enhance,proto3" json:"enhance,omitempty"`                                // KSkillList::enhance[skill] (+0xf14 of the 2.0 list, the addskilldamage of the skills held): G_Skills_39 when not 0
+	HeldLevel    uint32                 `protobuf:"varint,9,opt,name=held_level,json=heldLevel,proto3" json:"held_level,omitempty"`           // the level the zone described as the current one (the list's current level, increments included)
+	EquipPercent int32                  `protobuf:"varint,10,opt,name=equip_percent,json=equipPercent,proto3" json:"equip_percent,omitempty"` // the asker's magicdamage_p (244, +0x1284; the 2.0 client's Npc+0x1148): G_Skills_76 "Trang bi gom co: %d%%" when the
+	// skill's Attrib is a [SkillType] 1 / 2 (the client's +0x1278 part comes from its attribute 299
+	// movedistanc_710_enhance, which this jx_linux_y build does not have)
+	WithModifier  bool             `protobuf:"varint,11,opt,name=with_modifier,json=withModifier,proto3" json:"with_modifier,omitempty"` // the asker's state modifier (KNpc+0x19d8, the client's Player+0x12ac8) aims at this skill: G_Skills_76 + its line
+	Modifier      *SkillDescAttrib `protobuf:"bytes,12,opt,name=modifier,proto3" json:"modifier,omitempty"`                              // that attribute (index / delta as one KMagicAttrib), described by [Descript] (0x005EC4F0 -> KMagicDesc::GetDesc)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4524,6 +4529,27 @@ func (x *SkillDesc) GetHeldLevel() uint32 {
 		return x.HeldLevel
 	}
 	return 0
+}
+
+func (x *SkillDesc) GetEquipPercent() int32 {
+	if x != nil {
+		return x.EquipPercent
+	}
+	return 0
+}
+
+func (x *SkillDesc) GetWithModifier() bool {
+	if x != nil {
+		return x.WithModifier
+	}
+	return false
+}
+
+func (x *SkillDesc) GetModifier() *SkillDescAttrib {
+	if x != nil {
+		return x.Modifier
+	}
+	return nil
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
@@ -5201,7 +5227,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\bcollided\x18\x13 \x01(\bR\bcollided\x12\x16\n" +
 	"\x06height\x18\x14 \x01(\x05R\x06height\x12!\n" +
 	"\fheight_speed\x18\x15 \x01(\x05R\vheightSpeed\x12%\n" +
-	"\x0ez_acceleration\x18\x16 \x01(\x05R\rzAcceleration\"\xa5\x02\n" +
+	"\x0ez_acceleration\x18\x16 \x01(\x05R\rzAcceleration\"\xa3\x03\n" +
 	"\tSkillDesc\x12\x19\n" +
 	"\bskill_id\x18\x01 \x01(\rR\askillId\x12\x19\n" +
 	"\bwith_cur\x18\x02 \x01(\bR\awithCur\x12'\n" +
@@ -5212,7 +5238,11 @@ const file_jx_client_proto_rawDesc = "" +
 	"\tlevel_inc\x18\a \x01(\x05R\blevelInc\x12\x18\n" +
 	"\aenhance\x18\b \x01(\x05R\aenhance\x12\x1d\n" +
 	"\n" +
-	"held_level\x18\t \x01(\rR\theldLevel\"\x90\x01\n" +
+	"held_level\x18\t \x01(\rR\theldLevel\x12#\n" +
+	"\requip_percent\x18\n" +
+	" \x01(\x05R\fequipPercent\x12#\n" +
+	"\rwith_modifier\x18\v \x01(\bR\fwithModifier\x122\n" +
+	"\bmodifier\x18\f \x01(\v2\x16.jx.pb.SkillDescAttribR\bmodifier\"\x90\x01\n" +
 	"\tChangeMap\x12\x15\n" +
 	"\x06map_id\x18\x01 \x01(\rR\x05mapId\x12\x1d\n" +
 	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x17\n" +
@@ -5368,13 +5398,14 @@ var file_jx_client_proto_depIdxs = []int32{
 	55, // 33: jx.pb.SkillDescLevel.related:type_name -> jx.pb.SkillDescRelated
 	56, // 34: jx.pb.SkillDesc.cur:type_name -> jx.pb.SkillDescLevel
 	56, // 35: jx.pb.SkillDesc.next:type_name -> jx.pb.SkillDescLevel
-	66, // 36: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
-	65, // 37: jx.pb.Kick.reason:type_name -> jx.pb.Result
-	38, // [38:38] is the sub-list for method output_type
-	38, // [38:38] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	53, // 36: jx.pb.SkillDesc.modifier:type_name -> jx.pb.SkillDescAttrib
+	66, // 37: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
+	65, // 38: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	39, // [39:39] is the sub-list for method output_type
+	39, // [39:39] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_jx_client_proto_init() }

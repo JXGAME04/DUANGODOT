@@ -132,8 +132,8 @@ const (
 	MsgId_G2C_PLAYER_FACTION  MsgId = 2121 // the character's faction record (the 0x7b packet; 0x7c = cleared)
 	MsgId_G2C_ENTITY_STATE    MsgId = 2122 // a skill's timed state on the character (the 0x87 packet; empty = removed)
 	MsgId_G2C_SKILL_DESC      MsgId = 2123 // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
-	MsgId_G2C_STATE_ICONS     MsgId = 2125 // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
 	MsgId_G2C_MISSLE          MsgId = 2124 // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
+	MsgId_G2C_STATE_ICONS     MsgId = 2125 // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -203,8 +203,8 @@ var (
 		2121: "G2C_PLAYER_FACTION",
 		2122: "G2C_ENTITY_STATE",
 		2123: "G2C_SKILL_DESC",
-		2125: "G2C_STATE_ICONS",
 		2124: "G2C_MISSLE",
+		2125: "G2C_STATE_ICONS",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -270,8 +270,8 @@ var (
 		"G2C_PLAYER_FACTION":  2121,
 		"G2C_ENTITY_STATE":    2122,
 		"G2C_SKILL_DESC":      2123,
-		"G2C_STATE_ICONS":     2125,
 		"G2C_MISSLE":          2124,
+		"G2C_STATE_ICONS":     2125,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
 		"GZ_SESSION_OPEN":     9003,
@@ -376,10 +376,10 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x0fG2C_ENTITY_CAMP\x10\xc8\x10\x12\x17\n" +
 	"\x12G2C_PLAYER_FACTION\x10\xc9\x10\x12\x15\n" +
 	"\x10G2C_ENTITY_STATE\x10\xca\x10\x12\x13\n" +
-	"\x0eG2C_SKILL_DESC\x10\xcb\x10\x12\x14\n" +
-	"\x0fG2C_STATE_ICONS\x10\xcd\x10\x12\x0f\n" +
+	"\x0eG2C_SKILL_DESC\x10\xcb\x10\x12\x0f\n" +
 	"\n" +
-	"G2C_MISSLE\x10\xcc\x10\x12\x12\n" +
+	"G2C_MISSLE\x10\xcc\x10\x12\x14\n" +
+	"\x0fG2C_STATE_ICONS\x10\xcd\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +

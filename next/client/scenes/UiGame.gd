@@ -167,11 +167,12 @@ func _own() -> Node2D:
 	return _entities.get(Game.entity_id)
 
 
-func _update_camera(snap: bool) -> void:
+func _update_camera(snap: bool, delta: float = 0.0) -> void:
 	var own := _own()
 	if own:
-		# whole pixels only: a fractional camera position makes nearest-filtered tiles shimmer
-		var target := own.position if snap else _camera.position.lerp(own.position, 0.3)
+		# whole pixels only: a fractional camera position makes nearest-filtered tiles shimmer; the follow eases by time,
+		# not by frame (rule 13): the same feel at 60 and 144 fps (0.3 a frame at 60 fps = 21 / s)
+		var target := own.position if snap else _camera.position.lerp(own.position, 1.0 - exp(-21.0 * delta))
 		_camera.position = target.round()
 
 
@@ -181,7 +182,7 @@ func _view_rect() -> Rect2:
 
 
 func _process(delta: float) -> void:
-	_update_camera(false)
+	_update_camera(false, delta)
 	_walk_to_pickup()
 	if _map.map_id > 0:
 		_map.update_view(_view_rect(), delta)

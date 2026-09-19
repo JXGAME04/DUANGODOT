@@ -794,7 +794,11 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			if not _decode(m, payload):
 				return
 			var d := {"skill_id": int(m.get_skill_id()), "max_level": int(m.get_max_level()), "has_cur": m.get_with_cur(), "has_next": m.get_with_next(),
-				"level_inc": int(m.get_level_inc()), "enhance": int(m.get_enhance()), "held_level": int(m.get_held_level())}
+				"level_inc": int(m.get_level_inc()), "enhance": int(m.get_enhance()), "held_level": int(m.get_held_level()),
+				"equip_percent": int(m.get_equip_percent())}
+			if m.get_with_modifier():
+				var ma = m.get_modifier()
+				d["modifier"] = {"group": int(ma.get_group()), "name": str(ma.get_name()), "v0": int(ma.get_v0()), "v1": int(ma.get_v1()), "v2": int(ma.get_v2())}
 			if m.get_with_cur():
 				d["cur"] = _skill_desc_level(m.get_cur())
 			if m.get_with_next():

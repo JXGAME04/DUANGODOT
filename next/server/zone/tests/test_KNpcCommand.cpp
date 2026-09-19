@@ -1258,6 +1258,24 @@ TEST_CASE("the skill tip names the skills of a level the way 0x006FAA00 / 0x006F
     CHECK(descs[0].held_level() == 3);
     CHECK(descs[0].level_inc() == 2);
     CHECK((descs[0].with_cur() && descs[0].cur().level() == 3));
+    CHECK(descs[0].equip_percent() == 0);
+    CHECK_FALSE(descs[0].with_modifier());
+    // G_Skills_76 (0x006FC348 / 0x005EC4F0): the asker's magicdamage_p and a state modifier aimed at the skill go out with the tip
+    a.h->cur.magic_damage_percent = 12;
+    a.h->state_modifier = KStateModifier{1101, magic_armordefense_v, 2, 7};
+    a.w.skill_desc_request(7, 1101, 1);
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK(descs[0].equip_percent() == 12);
+    REQUIRE(descs[0].with_modifier());
+    CHECK(descs[0].modifier().name() == "armordefense_v");
+    CHECK(descs[0].modifier().v2() == 7);
+    CHECK(descs[0].modifier().v0() == 0);
+    a.w.skill_desc_request(7, 1102, 1);   // another skill: no modifier line
+    descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
+    REQUIRE(descs.size() == 1);
+    CHECK_FALSE(descs[0].with_modifier());
+    CHECK(descs[0].equip_percent() == 12);
 }
 
 

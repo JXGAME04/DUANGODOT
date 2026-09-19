@@ -1601,6 +1601,19 @@ void KSubWorld::skill_desc_request(std::uint64_t sid, int skill_id, int level)
             d.set_level_inc(held - asker->skill_list.get_level(skill_id));
         }
         if (const auto it = asker->skill_list.enhance.find(skill_id); it != asker->skill_list.enhance.end()) d.set_enhance(it->second);
+        // 0x006FC348: G_Skills_76 sums the 2.0 client's Npc+0x1148 (its attribute 244 magicdamage_p = +0x1284 here) and +0x1278 (its
+        // attribute 299 movedistanc_710_enhance, absent from this jx_linux_y); 0x005EC4F0: the state modifier aimed at this skill
+        d.set_equip_percent(asker->cur.magic_damage_percent);
+        if (asker->state_modifier.skill_id == skill_id && asker->state_modifier.attrib > 0) {
+            d.set_with_modifier(true);
+            pb::SkillDescAttrib* a = d.mutable_modifier();
+            a->set_group(2);
+            a->set_name(magic_attrib_name(asker->state_modifier.attrib));
+            const int k = asker->state_modifier.index;
+            a->set_v0(k == 0 ? asker->state_modifier.delta : 0);
+            a->set_v1(k == 1 ? asker->state_modifier.delta : 0);
+            a->set_v2(k == 2 ? asker->state_modifier.delta : 0);
+        }
     }
     d.set_held_level(static_cast<std::uint32_t>(std::max(0, level)));
     const auto put = [](pb::SkillDescAttrib* a, int group, const KMagicAttrib& m) {

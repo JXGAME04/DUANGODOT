@@ -498,6 +498,23 @@ func test_skill_desc() -> void:
 		"next": {"level": 2, "cost": 11, "cost_type": 0, "attack_radius": 90, "attribs": [{"group": 1, "name": "physicsdamage_v", "v0": 14, "v1": 0, "v2": 33}], "appends": []}}
 	var name_of := func(id: int) -> String: return "Kim Cang Phục Ma" if id == 10 else ("La Hán Trận" if id == 11 else str(id))
 	var t: String = D.build(row, {"level": 1, "exp_percent": 0}, 20, desc, text, name_of)
+	# G_Skills_76 (0x006FC300): Attrib 202 is [SkillType] 1 -> the equipment's percent; the state modifier's line follows (0x005EC4F0)
+	var text76 := text.duplicate(true)
+	text76.strings["G_Skills_76"] = "Trang bị gồm có:"
+	text76["skill_type"] = {"202": 1, "304": 2}
+	var desc76 := desc.duplicate(true)
+	desc76["equip_percent"] = 12
+	desc76["modifier"] = {"group": 2, "name": "attackrating_p", "v0": 7, "v1": 0, "v2": 0}
+	var t76: String = D.build(row, {"level": 1, "exp_percent": 0}, 20, desc76, text76, name_of)
+	check("Trang bị gồm có:12%
+" in t76, "the equipment's share on a [SkillType] skill")
+	check("Trang bị gồm có:Độ chính xác: 7%
+" in t76, "the modifier's line through [Descript]")
+	var row_other := row.duplicate()
+	row_other["Attrib"] = "999"
+	var t_other: String = D.build(row_other, {"level": 1, "exp_percent": 0}, 20, desc76, text76, name_of)
+	check("Trang bị gồm có:12%" not in t_other and "Trang bị gồm có:Độ chính xác" in t_other, "no percent line outside [SkillType], the modifier line still")
+	check("Trang bị gồm có" not in t, "nothing without equipment or a modifier")
 	var lines := t.split("\n")
 	check(lines[0] == "<color=Yellow>Hàng Long Bất Vũ" and lines[1] == "<bclr=Black><color>", "the title in yellow, the black outline back: %s" % [lines.slice(0, 2)])
 	check(lines[2] == "Võ công nhập môn" and lines[3] == "", "the description after a blank")

@@ -7312,6 +7312,22 @@ class SkillDesc:
 		service.field = __held_level
 		data[__held_level.tag] = service
 		
+		__equip_percent = PBField.new("equip_percent", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __equip_percent
+		data[__equip_percent.tag] = service
+		
+		__with_modifier = PBField.new("with_modifier", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 11, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __with_modifier
+		data[__with_modifier.tag] = service
+		
+		__modifier = PBField.new("modifier", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __modifier
+		service.func_ref = Callable(self, "new_modifier")
+		data[__modifier.tag] = service
+		
 	var data = {}
 	
 	var __skill_id: PBField
@@ -7432,6 +7448,46 @@ class SkillDesc:
 		__held_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_held_level(value : int) -> void:
 		__held_level.value = value
+	
+	var __equip_percent: PBField
+	func has_equip_percent() -> bool:
+		if __equip_percent.value != null:
+			return true
+		return false
+	func get_equip_percent() -> int:
+		return __equip_percent.value
+	func clear_equip_percent() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__equip_percent.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_equip_percent(value : int) -> void:
+		__equip_percent.value = value
+	
+	var __with_modifier: PBField
+	func has_with_modifier() -> bool:
+		if __with_modifier.value != null:
+			return true
+		return false
+	func get_with_modifier() -> bool:
+		return __with_modifier.value
+	func clear_with_modifier() -> void:
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__with_modifier.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_with_modifier(value : bool) -> void:
+		__with_modifier.value = value
+	
+	var __modifier: PBField
+	func has_modifier() -> bool:
+		if __modifier.value != null:
+			return true
+		return false
+	func get_modifier() -> SkillDescAttrib:
+		return __modifier.value
+	func clear_modifier() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__modifier.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_modifier() -> SkillDescAttrib:
+		__modifier.value = SkillDescAttrib.new()
+		return __modifier.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -8959,8 +9015,8 @@ enum MsgId {
 	G2C_PLAYER_FACTION = 2121,
 	G2C_ENTITY_STATE = 2122,
 	G2C_SKILL_DESC = 2123,
-	G2C_STATE_ICONS = 2125,
 	G2C_MISSLE = 2124,
+	G2C_STATE_ICONS = 2125,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

@@ -515,6 +515,11 @@ message SkillDesc {              // G2C_SKILL_DESC
   int32 level_inc = 7;           // the increments of the skill list on the level shown (0x006233B0 with - 0x00623380 without): G_Skills_38 "Cap hien tai: %d (%d+%d)" when not 0
   int32 enhance = 8;             // KSkillList::enhance[skill] (+0xf14 of the 2.0 list, the addskilldamage of the skills held): G_Skills_39 when not 0
   uint32 held_level = 9;         // the level the zone described as the current one (the list's current level, increments included)
+  int32 equip_percent = 10;      // the asker's magicdamage_p (244, +0x1284; the 2.0 client's Npc+0x1148): G_Skills_76 "Trang bi gom co: %d%%" when the
+                                 // skill's Attrib is a [SkillType] 1 / 2 (the client's +0x1278 part comes from its attribute 299
+                                 // movedistanc_710_enhance, which this jx_linux_y build does not have)
+  bool with_modifier = 11;       // the asker's state modifier (KNpc+0x19d8, the client's Player+0x12ac8) aims at this skill: G_Skills_76 + its line
+  SkillDescAttrib modifier = 12; // that attribute (index / delta as one KMagicAttrib), described by [Descript] (0x005EC4F0 -> KMagicDesc::GetDesc)
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
