@@ -97,9 +97,10 @@ bool KSubWorld::dialog_npc_request(std::uint64_t sid, EntityId npc_id)
 
 // the 0x63 packet (0x080A8510: +7 must be 1, the protocol byte 0x63, the size = +0xd + 0x10) to the player
 void KSubWorld::send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options,
-                                   int param, bool interactive)
+                                   int param, bool interactive, bool notify)
 {
     pb::ScriptAction a;
+    a.set_notify_changes(notify);
     a.set_operate(static_cast<std::uint32_t>(script_action_ui_show));
     a.set_ui_id(static_cast<std::uint32_t>(ui_id));
     a.set_text(std::string(text));
@@ -236,6 +237,115 @@ void KSubWorld::task_tip(KNpc& e, std::string_view text)
     m.set_text(text::decode_mixed(raw));
     emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_TASK_TIP), m);
     log::debug("zone.dialog", "task tip", {log::kv("entity", e.id), log::kv("len", raw.size())});
+}
+
+// Lua GiveItemUI (0x0812BBA0): three arguments at least, a player above 0; +0x5f9c = the script (0x0812BBFB); the packet with
+// the ui id 0xb, +5 = 1, +7 = 1 (0x0812C044), +8 = the seventh argument (0x0812C180), +9 = the fifth (0x0812BFE0); the
+// content (the second argument) a string copied whole with the title (the first) after its NUL (0x0812BC89..0x0812BCD5),
+// or a string-table id as 4 bytes with the title after (0x0812BD30); **no confirm function (the third) -> the answers
+// cleared and nothing sent** (0x0812BD0A); else m_szTaskAnswerFun[0] = confirm, [1] = cancel (the fourth; 0x80 bytes each,
+// 0x0812BDD1 / 0x0812BE04), m_nAvailableAnswerNum = 2, m_bWaitingPlayerFeedBack = 1; the sixth argument into +0x60a0
+// (0x0812C131); the trade block reset into the give mode: +0x52a4 = -3, +0x52a8 = the npc talked to, +0x52ac / +0x52b0
+// its position (0x080EF710), +0x52b8 = the fifth argument, the six units of 0x98 bytes cleared (0x0812BE36..0x0812BF98);
+// then the packet (0x080A8400, the content's length + 0x11 bytes).
+void KSubWorld::dialog_give_item_ui(KNpc& e, std::string_view title, std::string_view content, int text_id, std::string_view confirm_fun,
+                                    std::string_view cancel_fun, int param, std::string_view select_fun, bool notify)
+{
+    KPlayerDialog& d = e.player.dialog;
+    KPlayerGiveItem& g = e.player.give;
+    d.script = g_ScriptContext().script_path;
+    if (confirm_fun.empty()) {   // 0x0812BD0A
+        d.clear_answers();
+        d.waiting = false;
+        log::debug("zone.dialog", "give item ui without a confirm function", {log::kv("entity", e.id), log::kv("script", d.script)});
+        return;
+    }
+    d.clear_answers();
+    std::string confirm(confirm_fun), cancel(cancel_fun), select(select_fun);
+    if (confirm.size() > kDialogAnswerFunMax) confirm.resize(kDialogAnswerFunMax);
+    if (cancel.size() > kDialogAnswerFunMax) cancel.resize(kDialogAnswerFunMax);
+    if (select.size() > kDialogAnswerFunMax) select.resize(kDialogAnswerFunMax);
+    d.answer_fun[0] = confirm;
+    d.answer_fun[1] = cancel;
+    d.available_answers = 2;   // 0x0812BDB2
+    d.waiting = true;          // 0x0812BE18
+    g.active = true;
+    g.npc = d.npc;
+    g.param = param;
+    g.select_fun = select;
+    g.clear_units();
+    const std::string shown_content = text::decode_mixed(std::string(content));
+    const std::vector<std::string> options{text::decode_mixed(std::string(title))};
+    log::debug("zone.dialog", "give item ui", {log::kv("entity", e.id), log::kv("function", confirm), log::kv("cancel", cancel),
+                                               log::kv("select", select), log::kv("param", param), log::kv("notify", notify), log::kv("script", d.script)});
+    send_script_action(e, ui_give_item, shown_content, text_id, options, param, true, notify);
+}
+
+bool KSubWorld::give_items_request(std::uint64_t sid, int kind, const std::vector<KGiveItemEntry>& entries)
+{
+    const auto pit = players_.find(sid);
+    if (pit == players_.end()) return false;
+    KNpc& e = entities_.at(pit->second);
+    log::ScopedContext lctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
+    KPlayerGiveItem& g = e.player.give;
+    if (trading(e) || !g.active) {   // 0x080AB992..0x080AB9BF
+        log::debug("zone.dialog", "give items refused", {log::kv("entity", e.id), log::kv("reason", trading(e) ? "trading" : "no box")});
+        return false;
+    }
+    g.clear_units();   // 0x080AB9C1
+    const KItemList* list = items_of(sid);
+    const std::size_t n = std::min<std::size_t>(entries.size(), static_cast<std::size_t>(kGiveItemUnits));   // 0x080AB9F7: 24 at most
+    for (std::size_t i = 0; i < n; ++i) {
+        const KGiveItemEntry& en = entries[i];
+        const std::uint32_t id = list != nullptr ? list->item_at(en.room, en.x, en.y) : 0;   // 0x081FB0D0
+        if (id == 0 || en.cell_x < 0 || en.cell_x >= kGiveBoxWidth || en.cell_y < 0 || en.cell_y >= kGiveBoxHeight) continue;   // 0x080ABA57..0x080ABA6B: skipped
+        // 0x080ABA71: with the fifth argument 0 a bound piece (Item+0x350) refuses the whole list - the zone has no binding yet
+        const int cell = en.cell_y * kGiveBoxWidth + en.cell_x + 1;   // 0x080ABA96..0x080ABAA3
+        for (int j = 0; j < g.count; ++j) {
+            if (g.units[static_cast<std::size_t>(j)] == id || g.cells[static_cast<std::size_t>(j)] == cell) {   // 0x080ABAC8..0x080ABAD8: twice -> nothing
+                g.clear_units();
+                log::debug("zone.dialog", "give items refused", {log::kv("entity", e.id), log::kv("reason", "duplicate"), log::kv("item", id), log::kv("cell", cell)});
+                return false;
+            }
+        }
+        g.units[static_cast<std::size_t>(g.count)] = id;
+        g.cells[static_cast<std::size_t>(g.count)] = cell;
+        ++g.count;
+    }
+    KPlayerDialog& d = e.player.dialog;
+    if (kind == 0) {   // 0x080AC595 -> 0x080AC400: the sixth argument's function in the npc's script
+        const KNpc* npc = entities_.find(g.npc);
+        if (npc == nullptr || npc->script.empty() || g.select_fun.empty()) {
+            log::debug("zone.dialog", "give items", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("count", g.count), log::kv("function", "")});
+            return true;
+        }
+        const bool ok = execute_script(npc->script, g.select_fun.c_str(), e, g.count);
+        log::debug("zone.dialog", "give items", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("count", g.count), log::kv("function", g.select_fun), log::kv("ok", ok)});
+        return ok;
+    }
+    // 0x080AC4B0: the confirm function of the dialog script with the count; every answer cleared first (0x080AC508..0x080AC51A)
+    if (d.script.empty() || d.answer_fun[0].empty()) {
+        log::debug("zone.dialog", "give items", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("count", g.count), log::kv("function", "")});
+        return true;
+    }
+    const std::string fn = d.answer_fun[0];
+    d.clear_answers();
+    const bool ok = execute_script(d.script, fn.c_str(), e, g.count);
+    log::debug("zone.dialog", "give items", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("count", g.count), log::kv("function", fn), log::kv("ok", ok)});
+    return ok;
+}
+
+// SetUiGiveItemMsg 0x0810B020 / SetUiGiveItemMoreConfirmMsg 0x0810AF50: a string and a player 1..0x4af; the packet {0xd8 |
+// 0xdf, int size = length + 9, int 0, the text} (0x0810B097..0x0810B0D2) - the 2.0 client answers 0xdf with the ui message
+// 0xa8 (0x0064FD10, a box asking once more); its 0xd8 handler (0x00654C60) is another feature, so the hint of the window
+// comes from this message here
+void KSubWorld::give_item_msg(KNpc& e, int kind, std::string_view text)
+{
+    pb::GiveItemMsg m;
+    m.set_kind(kind);
+    m.set_text(text::decode_mixed(std::string(text)));
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_GIVE_ITEM_MSG), m);
+    log::debug("zone.dialog", "give item message", {log::kv("entity", e.id), log::kv("kind", kind), log::kv("len", text.size())});
 }
 
 // the 0x5f packet (0x080AC5D0): not trading; m_bWaitingPlayerFeedBack = 0; a negative index becomes 0 (0x080AC609);

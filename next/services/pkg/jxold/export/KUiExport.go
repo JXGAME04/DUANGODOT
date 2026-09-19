@@ -110,6 +110,9 @@ var GameScreens = []UiScreenDef{
 	// message 0x5d -> 0x004C4060; 0x004C3D1D loads "%s\系统消息.ini", [Main] SysMsgDisappearInterval default 30000 ms)
 	{"mo-ta-npc", "Hộp thoại mô tả của npc (Describe)", "KUiNpcDescribe", `npc描述界面.ini`},
 	{"thong-diep-he-thong", "Thông điệp hệ thống (nhắc nhiệm vụ)", "KUiSysMsg", `系统消息.ini`},
+	// M13 D8: Lua GiveItemUI (ui 0xb of the 0x63 packet: OnScriptAction 0x0060194C -> ui message 0x3e -> 0x00519C80 opens
+	// "%s\给予界面.ini"): the box the player puts items into for a npc script
+	{"dua-vat-pham", "Đưa vật phẩm cho npc (GiveItemUI)", "KUiGiveItem", `给予界面.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

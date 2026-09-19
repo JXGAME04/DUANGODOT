@@ -75,3 +75,30 @@ static func sys_msg_blinks(messages: Array, type: int) -> bool:
 		if int(e.type) == type and bool(e.blink):
 			return true
 	return false
+
+
+# the give-item box of GiveItemUI (给予界面.ini [Items]: 6 x 4 cells): a piece of w x h cells dropped with its top-left on
+# `cell` fits when it lies inside and covers no piece already there; the cell, or null
+static func give_box_place(objects: Array, cell: Vector2i, w: int, h: int, box_w: int, box_h: int):
+	if cell.x < 0 or cell.y < 0 or cell.x + w > box_w or cell.y + h > box_h:
+		return null
+	for o in objects:
+		if cell.x < int(o.x) + int(o.w) and cell.x + w > int(o.x) and cell.y < int(o.y) + int(o.h) and cell.y + h > int(o.y):
+			return null
+	return cell
+
+
+# the cell code the server keeps for a piece (0x080ABA96: y * 6 + x + 1, what GetGiveItemUnitWithPos answers)
+static func give_cell_code(x: int, y: int) -> int:
+	return y * 6 + x + 1
+
+
+# the 0x89 list from the pieces in the box: where each lies in the bag ({room, x, y} of the item) and its cell
+static func give_entries(placed: Array, items: Dictionary) -> Array:
+	var out: Array = []
+	for p in placed:
+		var it = items.get(int(p.id))
+		if it == null:
+			continue
+		out.append({"room": int(it.get("room", 0)), "x": int(it.get("x", 0)), "y": int(it.get("y", 0)), "cell_x": int(p.x), "cell_y": int(p.y)})
+	return out

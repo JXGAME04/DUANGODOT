@@ -24,6 +24,7 @@ const UiMsgSel := preload("res://ui/uicase/UiMsgSel.gd")
 const UiInformation2 := preload("res://ui/uicase/UiInformation2.gd")
 const UiNpcDescribe := preload("res://ui/uicase/UiNpcDescribe.gd")
 const UiSysMsg := preload("res://ui/uicase/UiSysMsg.gd")
+const UiGiveItem := preload("res://ui/uicase/UiGiveItem.gd")
 const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
@@ -53,6 +54,7 @@ var msg_sel: UiMsgSel = null            # a npc script's Say: the sentence and t
 var info2: UiInformation2 = null        # a npc script's Talk: the pages (提示2.ini)
 var describe: UiNpcDescribe = null      # a npc script's Describe: the description and the answers (npc描述界面.ini)
 var sys_msg_pane: UiSysMsg = null       # the system message pane (系统消息.ini): a script's TaskTip lands there
+var give_window: UiGiveItem = null      # a npc script's GiveItemUI: the 6 x 4 box the player puts pieces into (给予界面.ini)
 var _channel_entries: Array = []
 var _menu_target := 0                   # the entity the player menu is about
 var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
@@ -173,6 +175,19 @@ func _ready() -> void:
 		sys_msg_pane = null
 	else:
 		Game.task_tip.connect(func(text: String): sys_msg_pane.add_message(text, 1, true, 3))
+	give_window = UiGiveItem.new()
+	_canvas.add_child(give_window)
+	if not give_window.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiGiveItem.SCHEME})
+		give_window.queue_free()
+		give_window = null
+	else:
+		give_window.cell_clicked.connect(_put_in_give_box)
+		give_window.confirmed.connect(func(entries: Array): Game.give_items(1, entries))
+		give_window.changed.connect(func(entries: Array): Game.give_items(0, entries))
+		give_window.cancelled.connect(func(): Game.dialog_answer(1, 0))
+		give_window.item_hovered.connect(_on_item_hovered)
+		Game.give_item_msg.connect(func(kind: int, text: String): give_window.set_message(kind, text))
 	Game.script_action.connect(_on_script_action)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
@@ -358,6 +373,11 @@ func _on_script_action(a: Dictionary) -> void:
 				if msg_sel != null and msg_sel.visible:
 					msg_sel.close_dialog()
 				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		11:
+			# 0x0060194C -> the ui message 0x3e -> the give-item box: the content, the title (the packet's second string), the flags
+			if give_window != null:
+				var opts: Array = a.get("options", [])
+				give_window.open_box(text, str(opts[0]) if opts.size() > 0 else "", bool(a.get("notify", false)), int(a.get("param", 0)))
 		12:
 			# 0x006007FD -> the ui message 0x40 -> the npc description window; the name under the portrait is the npc talked to
 			if describe != null:
@@ -846,6 +866,8 @@ func _tell_hand() -> void:
 	status_window.set_hand(hand.cells)
 	if player_bar != null:
 		player_bar.set_hand(hand.cells)
+	if give_window != null:
+		give_window.set_hand(hand.cells)
 
 
 # A click in the bag with an item on the cursor: the zone decides (C2G_ITEM_MOVE); the item
@@ -854,6 +876,15 @@ func _put_in_bag(x: int, y: int) -> void:
 	if not hand.holding():
 		return
 	hand.pending_seq = Game.item_move(hand.item_id, Game.ROOM_BAG, x, y)
+
+
+# A click on the give-item box with a bag piece on the cursor: the box remembers it (the piece stays in the bag)
+func _put_in_give_box(x: int, y: int) -> void:
+	if not hand.holding() or give_window == null:
+		return
+	var it = Game.items.get(hand.item_id)
+	if it != null and give_window.put_item(it, Vector2i(x, y)):
+		_drop_hand()
 
 
 func _put_on(part: int) -> void:

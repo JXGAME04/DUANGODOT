@@ -1,4 +1,5 @@
 #include "jx/zone/KMapInstance.h"
+#include "jx/zone/KPlayerDialog.h"
 
 #include <algorithm>
 
@@ -197,6 +198,18 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         pb::DialogAnswer req;
         if (!req.ParseFromString(cmd.payload)) break;
         world_.dialog_answer(cmd.sid, req.index(), req.kind());
+        break;
+    }
+    case pb::C2G_GIVE_ITEMS: {
+        pb::GiveItemsReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        std::vector<KGiveItemEntry> entries;
+        entries.reserve(static_cast<std::size_t>(req.items_size()));
+        for (const auto& it : req.items()) {
+            entries.push_back(KGiveItemEntry{static_cast<int>(it.room()), static_cast<int>(it.x()), static_cast<int>(it.y()),
+                                             static_cast<int>(it.cell_x()), static_cast<int>(it.cell_y())});
+        }
+        world_.give_items_request(cmd.sid, req.kind(), entries);
         break;
     }
     case pb::C2G_TASK_VALUE: {

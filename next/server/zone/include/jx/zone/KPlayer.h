@@ -65,6 +65,7 @@ struct KPlayer {
     KPlayerMenuState menu;       // m_cMenuState +0x5700 (KPlayerMenuState.h 2002; docs/LINUX-SERVER.md §18)
     KTrade trade;                // m_cTrade +0x5910 (KPlayerTrade.h 2003)
     KPlayerDialog dialog;        // the Say / Talk of a npc script: +0x5f9c script, +0x5fa0 m_szTaskAnswerFun[50], +0x78e4 / +0x78e8 (KPlayerDialog.h)
+    KPlayerGiveItem give;        // the give-item box of GiveItemUI (Player+0x52a4 in its give mode, +0x2b4 / +0x314, +0x60a0)
     KPlayerTask task;            // m_cTask +0x809c (KPlayerTask.h): the saved and the temp task values of the scripts (docs/LINUX-SERVER.md §21)
     // the task ids FirstTask / NextTask of the TASKSYS library walk (the list at 0x9786620 + 0x78 + index * 12 of jx_linux_y; docs §22)
     std::vector<int> task_list;

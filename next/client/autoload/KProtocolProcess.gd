@@ -63,6 +63,7 @@ signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id
 signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, text, text_id, interactive, param, options} of a npc script's Say / Talk
 signal task_value_changed(id: int, value: int)   # G2C_TASK_VALUE / G2C_TASK_VALUES: task_values[id] changed (the 0xa7 / 0xb5 packets -> KPlayer::SetTaskValue 0x00601ED0)
 signal task_tip(text: String)               # G2C_TASK_TIP: the 0xb6 packet of a script's TaskTip (the system message pane, type 1)
+signal give_item_msg(kind: int, text: String)   # G2C_GIVE_ITEM_MSG: SetUiGiveItemMsg (0) / SetUiGiveItemMoreConfirmMsg (1) of a script
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -448,6 +449,23 @@ func dialog_answer(index: int, kind: int = 0) -> void:
 	req.set_kind(kind)
 	Net.send_msg(Proto.MsgId.C2G_DIALOG_ANSWER, req)
 	Log.debug("world", "dialog answer", {"index": index, "kind": kind})
+
+
+# the give-item box (GiveItemUI): the 0x89 packet {kind, {room, x, y, cell_x, cell_y}...} - kind 0 = the box changed, else "Đồng ý"
+func give_items(kind: int, entries: Array) -> void:
+	if state != "world":
+		return
+	var req := Proto.GiveItemsReq.new()
+	req.set_kind(kind)
+	for e in entries:
+		var it = req.add_items()
+		it.set_room(int(e.get("room", 0)))
+		it.set_x(int(e.get("x", 0)))
+		it.set_y(int(e.get("y", 0)))
+		it.set_cell_x(int(e.get("cell_x", 0)))
+		it.set_cell_y(int(e.get("cell_y", 0)))
+	Net.send_msg(Proto.MsgId.C2G_GIVE_ITEMS, req)
+	Log.debug("world", "give items", {"kind": kind, "count": entries.size()})
 
 
 # ---- the task values (docs/LINUX-SERVER.md §21) ----
@@ -1107,7 +1125,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			for o in m.get_options():
 				options.append(str(o))
 			var a := {"operate": int(m.get_operate()), "ui": int(m.get_ui_id()), "text": str(m.get_text()), "text_id": int(m.get_text_id()),
-				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options}
+				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options, "notify": bool(m.get_notify_changes())}
 			Log.debug("world", "script action", {"ui": a.ui, "options": options.size(), "param": a.param})
 			script_action.emit(a)
 
@@ -1127,6 +1145,12 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			task_packets += 1
 			for v in m.get_values():
 				_set_task_value(int(v.get_id()), int(v.get_value()))
+
+		Proto.MsgId.G2C_GIVE_ITEM_MSG:
+			var m := Proto.GiveItemMsg.new()
+			if not _decode(m, payload):
+				return
+			give_item_msg.emit(int(m.get_kind()), str(m.get_text()))
 
 		Proto.MsgId.G2C_TASK_TIP:
 			# the 0xb6 packet (the client's 0x00651390): the text after the 0x10 byte -> the ui message 0x5d -> the system message pane

@@ -204,7 +204,8 @@ message ScriptAction {
   int32 text_id = 4;             // m_bParam1 = 1: the sentence is this string-table id instead (g_GetStringRes of the client)
   bool interactive = 5;          // m_bParam2
   int32 param = 6;               // m_nParam
-  repeated string options = 7;   // the answers (Say, the text before the '/') or the pages (Talk)
+  repeated string options = 7;   // the answers (Say, the text before the '/') or the pages (Talk); the title (GiveItemUI)
+  bool notify_changes = 8;       // +8 of the 0x63 packet: GiveItemUI's seventh argument - the client reports every change of its box (C2G_GIVE_ITEMS kind 0)
 }
 
 // one saved task value of the character (KPlayerTask, docs/LINUX-SERVER.md §21): the 0xa7 packet {0xa7, int id, int value}
@@ -229,6 +230,30 @@ message TaskValueReq {
 // 0x00651390 hands it to the system message pane (0x004C4060: type 1, blinking icon, priority 3; 系统消息.ini)
 message TaskTip {
   string text = 1;
+}
+
+// one piece the player put into the give-item box (the 0x89 packet, 5 bytes each: 0x080ABA20): where it lies in the
+// player's list and the cell of the 6 x 4 box it was dropped on
+message GiveItemEntry {
+  uint32 room = 1;
+  uint32 x = 2;
+  uint32 y = 3;
+  uint32 cell_x = 4;             // 0..5
+  uint32 cell_y = 5;             // 0..3
+}
+
+// C2G_GIVE_ITEMS: the 0x89 packet (0x080AC560): kind 0 = the box changed (the sixth argument's function of GiveItemUI
+// runs with the count), anything else = "Đồng ý" (the confirm function runs with the count)
+message GiveItemsReq {
+  int32 kind = 1;
+  repeated GiveItemEntry items = 2;
+}
+
+// G2C_GIVE_ITEM_MSG: SetUiGiveItemMsg (kind 0, the 0xd8 packet: a hint for the window) / SetUiGiveItemMoreConfirmMsg (kind 1,
+// the 0xdf packet: the client's 0x0064FD10 -> ui message 0xa8, a box asking once more)
+message GiveItemMsg {
+  int32 kind = 1;
+  string text = 2;
 }
 
 message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)

@@ -61,6 +61,7 @@ func _init() -> void:
 	test_dialog()
 	test_task_values()
 	test_describe_tip()
+	test_give_item()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -973,3 +974,41 @@ func test_describe_tip() -> void:
 	check(not math.sys_msg_prune(msgs, 30000, 30000) and msgs.size() == 3, "nothing older than the interval yet")
 	check(math.sys_msg_prune(msgs, 31000, 30000) and msgs.size() == 2 and math.sys_msg_latest(msgs, 1).text == "B", "a message goes after SysMsgDisappearInterval")
 	check(math.sys_msg_prune(msgs, 40000, 30000) and msgs.is_empty(), "all gone")
+
+
+# ---- the give-item box (UiGiveItem.gd; docs/CLIENT-2.0.md §27) ----------------------------------------------------
+
+func test_give_item() -> void:
+	check(Proto.MsgId.C2G_GIVE_ITEMS == 1124 and Proto.MsgId.G2C_GIVE_ITEM_MSG == 2143, "give item message ids")
+	var req := Proto.GiveItemsReq.new()
+	req.set_kind(1)
+	var e1 := req.add_items()
+	e1.set_room(0)
+	e1.set_x(3)
+	e1.set_y(2)
+	e1.set_cell_x(5)
+	e1.set_cell_y(3)
+	var req2 := Proto.GiveItemsReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_kind() == 1 and req2.get_items().size() == 1
+		and req2.get_items()[0].get_x() == 3 and req2.get_items()[0].get_cell_y() == 3, "GiveItemsReq round trip")
+	var m := Proto.GiveItemMsg.new()
+	m.set_kind(1)
+	m.set_text("Chắc chưa?")
+	var m2 := Proto.GiveItemMsg.new()
+	check(m2.from_bytes(m.to_bytes()) == Proto.PB_ERR.NO_ERRORS and m2.get_kind() == 1 and m2.get_text() == "Chắc chưa?", "GiveItemMsg round trip")
+	var a := Proto.ScriptAction.new()
+	a.set_ui_id(11)
+	a.set_notify_changes(true)
+	a.add_options("Giao nộp")
+	var a2 := Proto.ScriptAction.new()
+	check(a2.from_bytes(a.to_bytes()) == Proto.PB_ERR.NO_ERRORS and a2.get_ui_id() == 11 and a2.get_notify_changes() and a2.get_options()[0] == "Giao nộp", "ScriptAction ui 11 round trip")
+	var math: GDScript = load("res://ui/KUiDialogMath.gd")
+	# the 6 x 4 box: a 1 x 3 piece fits at (0,0), not at (0,2) (out of the bottom), not on a 2 x 2 piece at (0,0)
+	check(math.give_box_place([], Vector2i(0, 0), 1, 3, 6, 4) == Vector2i(0, 0), "a piece fits in the empty box")
+	check(math.give_box_place([], Vector2i(0, 2), 1, 3, 6, 4) == null and math.give_box_place([], Vector2i(6, 0), 1, 1, 6, 4) == null
+		and math.give_box_place([], Vector2i(-1, 0), 1, 1, 6, 4) == null, "outside the box")
+	var taken := [{"x": 0, "y": 0, "w": 2, "h": 2}]
+	check(math.give_box_place(taken, Vector2i(1, 1), 1, 1, 6, 4) == null and math.give_box_place(taken, Vector2i(2, 0), 1, 1, 6, 4) == Vector2i(2, 0), "no two pieces on one cell")
+	check(math.give_cell_code(0, 0) == 1 and math.give_cell_code(5, 3) == 24 and math.give_cell_code(2, 1) == 9, "the cell code y * 6 + x + 1")
+	var entries: Array = math.give_entries([{"id": 7, "x": 2, "y": 1}, {"id": 9, "x": 0, "y": 0}], {7: {"room": 0, "x": 4, "y": 5}})
+	check(entries.size() == 1 and entries[0].room == 0 and entries[0].x == 4 and entries[0].y == 5 and entries[0].cell_x == 2 and entries[0].cell_y == 1, "the 0x89 entries: the bag place and the cell; a piece that is gone is left out")

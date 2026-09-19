@@ -592,6 +592,16 @@ public:
     void dialog_describe(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
     // Lua TaskTip 0x08122730: the 0xb6 packet {0xb6, 0x10, text} of 0x40 bytes -> G2C_TASK_TIP (the client's system message pane)
     void task_tip(KNpc& e, std::string_view text);
+    // Lua GiveItemUI 0x0812BBA0: the 0x63 packet with the ui id 0xb (the give-item box of the client), the confirm / cancel
+    // functions as the two answers, the sixth argument's function for the box's changes, the player's box lists cleared
+    void dialog_give_item_ui(KNpc& e, std::string_view title, std::string_view content, int text_id, std::string_view confirm_fun,
+                             std::string_view cancel_fun, int param, std::string_view select_fun, bool notify);
+    // the 0x89 packet (0x080DB680 -> 0x080AC560): the pieces of the box checked and kept (0x080AB980), then kind 0 -> the
+    // sixth argument's function in the npc's script with the count (0x080AC400), else the confirm function of the dialog
+    // script with the count (0x080AC4B0, the answers cleared first)
+    bool give_items_request(std::uint64_t sid, int kind, const std::vector<KGiveItemEntry>& entries);
+    // SetUiGiveItemMsg 0x0810B020 (kind 0, the 0xd8 packet) / SetUiGiveItemMoreConfirmMsg 0x0810AF50 (kind 1, 0xdf)
+    void give_item_msg(KNpc& e, int kind, std::string_view text);
     // the task values (docs §21, KSubWorldTask.cpp): KPlayer::SetTaskValue 0x080A9190 (a change; a SYNC_FLAG id with `sync` goes to
     // the client as G2C_TASK_VALUE), the 0xa7 packet of one id (0x080A8CC0), SyncTaskValueMore 0x080A9550 (G2C_TASK_VALUES of
     // eighty), the enter-world sync 0x080B9CF0, the client's 0xaa packet 0x080DB070 (a CLIENT_FLAG id only)
@@ -924,7 +934,7 @@ private:
     // 0x080502A0: the cost of a line by chatcost.ini type - false when it cannot be paid (nothing is taken then)
     bool chat_pay(KNpc& e, int type);
     void send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options, int param,
-                            bool interactive);
+                            bool interactive, bool notify = false);
     // after an exp change: the log, a level up (life sync, the passives that open), the attrib sync (the 0xc6 packet)
     void player_exp_changed(KNpc& e, std::int64_t exp, std::uint32_t level_before);
     std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about

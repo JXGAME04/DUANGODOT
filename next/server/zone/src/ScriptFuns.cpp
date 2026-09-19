@@ -454,6 +454,74 @@ int l_PopString(lua_State* L)
     return 1;
 }
 
+// GiveItemUI(title, content | id, confirm, cancel [, param [, select [, notify]]]) (jx_linux_y 0x0812BBA0): three arguments at
+// least (0x0812BBC0); the title a string (0x0812BC34), the content a string or a string-table id (0x0812BC4B / 0x0812BC5F,
+// else nothing); the confirm function (the third) empty -> the answers cleared, nothing sent (0x0812BD0A); the cancel
+// function (the fourth), the fifth a number into +0x52b8 (0x0812C0B0), the sixth a function into +0x60a0 (0x0812C131), the
+// seventh a number into the packet's +8 (0x0812C180: the client reports the box's changes)
+int l_GiveItemUI(lua_State* L)
+{
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "GiveItemUI");
+    if (p == nullptr || n <= 2) return 0;
+    const char* title = lua_tostring(L, 1);
+    std::string content;
+    int text_id = 0;
+    if (lua_type(L, 2) == LUA_TNUMBER) {
+        text_id = static_cast<int>(lua_tonumber(L, 2));
+    } else if (lua_isstring(L, 2)) {
+        content = lua_tostring(L, 2);
+    } else {
+        return 0;
+    }
+    const char* confirm = lua_tostring(L, 3);
+    const char* cancel = lua_tostring(L, 4);
+    const int param = n > 4 ? static_cast<int>(lua_tonumber(L, 5)) : 0;
+    const char* select = n > 5 ? lua_tostring(L, 6) : nullptr;
+    const bool notify = n > 6 && static_cast<int>(lua_tonumber(L, 7)) != 0;
+    g_ScriptContext().world->dialog_give_item_ui(*p, title != nullptr ? title : "", content, text_id, confirm != nullptr ? confirm : "",
+                                                 cancel != nullptr ? cancel : "", param, select != nullptr ? select : "", notify);
+    return 0;
+}
+
+// GetGiveItemUnit(n) -> the item index in cell n of the last report (0x08114E60: a player above 0 and n in 1..24 -> Player+0x2b4[n - 1];
+// else nothing)
+int l_GetGiveItemUnit(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetGiveItemUnit");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int n = static_cast<int>(lua_tonumber(L, 1));
+    if (n <= 0 || n > kGiveItemUnits) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->player.give.units[static_cast<std::size_t>(n - 1)]));
+    return 1;
+}
+
+// GetGiveItemUnitWithPos(n) -> the item index and the cell code (y * 6 + x + 1) (0x08114D90: Player+0x2b4[n - 1], +0x314[n - 1])
+int l_GetGiveItemUnitWithPos(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetGiveItemUnitWithPos");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int n = static_cast<int>(lua_tonumber(L, 1));
+    if (n <= 0 || n > kGiveItemUnits) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->player.give.units[static_cast<std::size_t>(n - 1)]));
+    lua_pushinteger(L, p->player.give.cells[static_cast<std::size_t>(n - 1)]);
+    return 2;
+}
+
+// SetUiGiveItemMsg(text) (0x0810B020) / SetUiGiveItemMoreConfirmMsg(text) (0x0810AF50): a string and a player 1..0x4af -> the
+// 0xd8 / 0xdf packet (KSubWorld::give_item_msg)
+int give_item_msg(lua_State* L, const char* fn, int kind)
+{
+    KNpc* p = player_of(L, fn);
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const char* s = lua_tostring(L, 1);
+    if (s == nullptr) return 0;
+    g_ScriptContext().world->give_item_msg(*p, kind, s);
+    return 0;
+}
+int l_SetUiGiveItemMsg(lua_State* L) { return give_item_msg(L, "SetUiGiveItemMsg", 0); }
+int l_SetUiGiveItemMoreConfirmMsg(lua_State* L) { return give_item_msg(L, "SetUiGiveItemMoreConfirmMsg", 1); }
+
 // AddItem(genre, detail, particular, level, series, luck [, magic1 [, magic2 .. magic6]]) -> 1 / 0
 //
 // LuaAddItem of the old ScriptFuns.cpp, and jx_linux_y 0x08120D30 -> 0x08120B30: fewer than six
@@ -2386,6 +2454,8 @@ const luaL_Reg kGameScriptFuns[] = {
     {"AddItemEx", l_AddItemEx},           {"GetItemProp", l_GetItemProp},     {"SyncItem", l_SyncItem},
     {"RemoveItemByIndex", l_RemoveItemByIndex}, {"GetItemStackCount", l_GetItemStackCount}, {"GetGlodEqIndex", l_GetGlodEqIndex},
     {"SetItemMagicLevel", l_SetItemMagicLevel}, {"ITEM_GetItemRandSeed", l_ITEM_GetItemRandSeed},
+    {"GiveItemUI", l_GiveItemUI},         {"GetGiveItemUnit", l_GetGiveItemUnit}, {"GetGiveItemUnitWithPos", l_GetGiveItemUnitWithPos},
+    {"SetUiGiveItemMsg", l_SetUiGiveItemMsg}, {"SetUiGiveItemMoreConfirmMsg", l_SetUiGiveItemMoreConfirmMsg},
     {nullptr, nullptr},
 };
 

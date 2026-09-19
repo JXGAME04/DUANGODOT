@@ -28,6 +28,9 @@ inline constexpr std::size_t kDialogSentenceMax = 0x257; // a Say sentence (0x08
 inline constexpr std::size_t kDescribeContentMax = 0x1f4; // Describe 0x081242A0: the answers alone, each + 3 for the "| |" (0x081245BB)
 inline constexpr std::size_t kDescribeAnswerMax = 0xc8;   // an answer of a Describe is cut to 200 bytes (0x081245A3 -> 0x0822A0A0)
 inline constexpr std::size_t kTaskTipMax = 0x3e;          // TaskTip 0x08122730: 0x40 bytes hold a 0x10 byte, the text and the NUL
+inline constexpr int kGiveItemUnits = 24;                 // GiveItemUI's box: Player+0x2b4[24] the pieces, +0x314[24] their cells (0x080AB9C7)
+inline constexpr int kGiveBoxWidth = 6;                   // a cell x of 0..5 (0x080ABA5D)
+inline constexpr int kGiveBoxHeight = 4;                  // a cell y of 0..3 (0x080ABA67)
 inline constexpr int kDialogRadius = 124;               // m_DialogRadius +0x1634: KNpc::Init 0x0807E02D writes 0x7c; the
                                                         // talk reaches twice that (0x080B13C7: dist <= 2 * radius)
 
@@ -41,6 +44,7 @@ enum KDialogUi : int {
     ui_news_info = 5,
     ui_play_music = 6,
     ui_open_tong_ui = 7,
+    ui_give_item = 11,         // GiveItemUI: the give-item box (0x0060194C -> ui message 0x3e -> KUiGiveItem 0x00519C80, 给予界面.ini)
     ui_describe_dialog = 12,   // Describe: the sentence and the answers in the npc description window (0x006007FD -> ui message
                                // 0x40 -> KUiNpcDescribe 0x00508410, npc描述界面.ini)
 };
@@ -49,6 +53,37 @@ enum KDialogUi : int {
 enum KScriptActionKind : int {
     script_action_ui_show = 0,
     script_action_exe_script = 1,   // the client runs a script of its own ("OnCall") - never sent by the zone
+};
+
+// one piece the client put into the give-item box (5 bytes of the 0x89 packet, 0x080ABA20): where it lies in the player's
+// list and the cell it was dropped on
+struct KGiveItemEntry {
+    int room = 0;
+    int x = 0;
+    int y = 0;
+    int cell_x = 0;
+    int cell_y = 0;
+};
+
+// The give-item box a script opened with GiveItemUI (0x0812BBA0): the trade block of the player in its "give" mode
+// (+0x52a4 = -3, +0x52a8 the npc talked to, +0x52b8 the fifth argument), the third callback (+0x60a0, the sixth argument:
+// the box changed, 0x080AC400) and the pieces the client last reported (0x080AB980: +0x2b4 the indices, +0x314 the
+// cells as y * 6 + x + 1).  GetGiveItemUnit / GetGiveItemUnitWithPos read them.
+struct KPlayerGiveItem {
+    bool active = false;                                  // +0x52a4 == -3
+    EntityId npc;                                         // +0x52a8
+    int param = 0;                                        // +0x52b8: 0 = a bound piece refuses the list (0x080ABA71; no binding in the zone yet)
+    std::string select_fun;                               // +0x60a0 (0x7f bytes)
+    std::array<std::uint32_t, kGiveItemUnits> units{};    // +0x2b4
+    std::array<int, kGiveItemUnits> cells{};              // +0x314
+    int count = 0;
+
+    void clear_units() noexcept
+    {
+        units.fill(0);
+        cells.fill(0);
+        count = 0;
+    }
 };
 
 struct KPlayerDialog {

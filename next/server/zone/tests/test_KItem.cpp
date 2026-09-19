@@ -22,6 +22,7 @@
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KObj.h"
+#include "jx/zone/KPlayerDialog.h"
 #include "jx/zone/KRandom.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSubWorld.h"
@@ -2012,4 +2013,199 @@ TEST_CASE("AddItemEx 0x08120470 with a seed, GetItemProp / SyncItem / RemoveItem
     CHECK(back.rand_seed == 12345);
     CHECK(back.magic_level[0] == 777);
     CHECK(back.luck == 50);
+}
+
+// ---- the give-item box of GiveItemUI (M13 D8, docs/LINUX-SERVER.md §27) ----------------------------------------
+
+namespace {
+
+constexpr const char* kGiveScript = R"(
+g_last = -1
+function main(param)
+    Say("Chao", 0)
+end
+function give()
+    GiveItemUI("Nop do", "Dat vao", "OnGive", "OnGiveCancel", 1, "OnGiveChange", 1)
+end
+function give_noconfirm()
+    GiveItemUI("Nop do", "Dat vao", "")
+end
+function give_short()
+    GiveItemUI("Nop do", "Dat vao")
+end
+function OnGive(n)
+    g_last = 600 + n
+end
+function OnGiveCancel(i)
+    g_last = 700 + i
+end
+function OnGiveChange(n)
+    g_last = 800 + n
+end
+function read_units()
+    g_u1 = GetGiveItemUnit(1)
+    g_u2 = GetGiveItemUnit(2)
+    g_u3 = GetGiveItemUnit(3)
+    g_u0 = GetGiveItemUnit(0)
+    local a, b = GetGiveItemUnitWithPos(2)
+    g_p2 = b
+end
+function Get(name)
+    return _G[name]
+end
+function give_msgs()
+    SetUiGiveItemMsg("goi y")
+    SetUiGiveItemMoreConfirmMsg("chac chua")
+end
+function GetLast()
+    return g_last
+end
+)";
+
+}   // namespace
+
+TEST_CASE("GiveItemUI 0x0812BBA0, the 0x89 list 0x080AB980 / 0x080AC560, GetGiveItemUnit / WithPos, the give-item messages", "[item][world][dialog]")
+{
+    jx::log::Options lo;
+    lo.console = false;
+    lo.default_level = jx::log::Level::warn;
+    jx::log::init(lo);
+    auto lib = std::make_shared<jx::zone::KItemLibrary>();
+    {
+        KItemTemplateSet set;
+        std::string error;
+        REQUIRE(set.load(write_tables(), &error));
+        lib->add(3, std::move(set));
+    }
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "jxnext_give_test";
+    std::filesystem::create_directories(root / "script" / "test");
+    std::ofstream(root / "script" / "test" / "give.lua") << kGiveScript;
+    jx::zone::KSubWorldConfig cfg;
+    cfg.zone_id = 1;
+    cfg.width = cfg.height = 4096;
+    cfg.spawn_point = jx::zone::Pos{2000, 2000};
+    cfg.items = lib;
+    cfg.scripts = std::make_shared<jx::zone::KScriptCache>(root.string());
+    jx::zone::KSubWorld w(cfg);
+    jx::pb::RoleData role;
+    role.set_player_id(11);
+    role.set_name("A");
+    role.set_level(9);
+    jx::EntityId id;
+    jx::zone::Pos p;
+    REQUIRE(w.spawn_player(1, role, id, p) == jx::pb::RESULT_OK);
+    const jx::EntityId npc = w.spawn_npc("Ban", jx::zone::Pos{2100, 2000}, 0, 0, jx::zone::KNpcKind::npc, 1, 0, 0);
+    {
+        jx::zone::KNpc* n = w.mutable_entity(npc);
+        REQUIRE(n != nullptr);
+        n->script = R"(\script\test\give.lua)";
+        n->npc_kind = 3;
+    }
+    w.tick();
+    w.tick();
+    // two pieces in the bag
+    auto gen = w.item_generator();
+    REQUIRE(gen.has_value());
+    KItemList* list = w.items_of(1);
+    REQUIRE(list != nullptr);
+    const auto sword = list->add(*gen->equipment(jx::zone::equip_meleeweapon, 0, 2, 1), jx::zone::room_equipment);
+    const auto potion = list->add(*gen->medicine(0, 2), jx::zone::room_equipment);
+    REQUIRE((sword && potion));
+    const auto at_sword = list->place_of(sword);
+    const auto at_potion = list->place_of(potion);
+    REQUIRE((at_sword && at_potion));
+    // the dialog with the npc (main -> Say) sets the npc talked to; then the script opens the box
+    REQUIRE(w.dialog_npc_request(1, npc));
+    w.take_outbox();
+    jx::zone::KNpc& A = *w.mutable_entity(id);
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "give", A, 0));
+    auto out = w.take_outbox();
+    auto acts = packets(out, 1, jx::pb::G2C_SCRIPT_ACTION);
+    REQUIRE(acts.size() == 1);
+    const auto act = decode_packet<jx::pb::ScriptAction>(acts[0]);
+    CHECK(act.ui_id() == jx::zone::ui_give_item);
+    CHECK(act.text() == "Dat vao");
+    REQUIRE(act.options_size() == 1);
+    CHECK(act.options(0) == "Nop do");
+    CHECK(act.param() == 1);
+    CHECK(act.interactive());
+    CHECK(act.notify_changes());
+    CHECK(A.player.dialog.answer_fun[0] == "OnGive");
+    CHECK(A.player.dialog.answer_fun[1] == "OnGiveCancel");
+    CHECK(A.player.dialog.available_answers == 2);
+    CHECK(A.player.dialog.waiting);
+    CHECK(A.player.give.active);
+    CHECK(A.player.give.npc == npc);
+    CHECK(A.player.give.param == 1);
+    CHECK(A.player.give.select_fun == "OnGiveChange");
+    CHECK(A.player.give.count == 0);
+    jx::zone::KLuaScript* s = cfg.scripts->get(R"(\script\test\give.lua)");
+    REQUIRE(s != nullptr);
+    const auto last = [&]() { return s->call_number("GetLast", {}).value_or(-999.0); };
+    const auto get = [&](const char* name) { return s->call_number("Get", {std::string(name)}).value_or(-1.0); };
+    // the box changed (kind 0): the sword on cell (0,0), the potion on (2,1) -> the sixth argument's function with 2
+    const jx::zone::KGiveItemEntry e_sword{at_sword->room, at_sword->x, at_sword->y, 0, 0};
+    const jx::zone::KGiveItemEntry e_potion{at_potion->room, at_potion->x, at_potion->y, 2, 1};
+    CHECK(w.give_items_request(1, 0, {e_sword, e_potion}));
+    CHECK(A.player.give.count == 2);
+    CHECK(A.player.give.units[0] == sword);
+    CHECK(A.player.give.units[1] == potion);
+    CHECK(A.player.give.cells[0] == 1);    // y * 6 + x + 1
+    CHECK(A.player.give.cells[1] == 9);
+    CHECK(last() == 802.0);
+    // GetGiveItemUnit / GetGiveItemUnitWithPos read the lists (a script call with the player on the context)
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "read_units", A, 0));
+    CHECK(get("g_u1") == static_cast<double>(sword));
+    CHECK(get("g_u2") == static_cast<double>(potion));
+    CHECK(get("g_u3") == 0.0);
+    CHECK(get("g_u0") == -1.0);   // n outside 1..24 answers nothing (nil)
+    CHECK(get("g_p2") == 9.0);
+    // an empty place and a cell outside the box are skipped (0x080ABA57 / 0x080ABA5D), the rest stays
+    const jx::zone::KGiveItemEntry e_none{0, 5, 9, 1, 1};
+    const jx::zone::KGiveItemEntry e_far{at_potion->room, at_potion->x, at_potion->y, 6, 0};
+    CHECK(w.give_items_request(1, 0, {e_none, e_sword, e_far}));
+    CHECK(A.player.give.count == 1);
+    CHECK(last() == 801.0);
+    // the same cell twice, or the same piece twice: the whole list is refused and cleared (0x080ABB20)
+    const jx::zone::KGiveItemEntry e_potion_same_cell{at_potion->room, at_potion->x, at_potion->y, 0, 0};
+    CHECK_FALSE(w.give_items_request(1, 0, {e_sword, e_potion_same_cell}));
+    CHECK(A.player.give.count == 0);
+    CHECK(last() == 801.0);
+    CHECK_FALSE(w.give_items_request(1, 0, {e_sword, e_sword}));
+    // "Đồng ý" (kind 1): the confirm function with the count, the answers cleared; a second one finds no function
+    CHECK(w.give_items_request(1, 1, {e_potion}));
+    CHECK(last() == 601.0);
+    CHECK(A.player.dialog.available_answers == 0);
+    CHECK(A.player.dialog.answer_fun[0].empty());
+    CHECK(w.give_items_request(1, 1, {e_potion}));
+    CHECK(last() == 601.0);
+    // the box opened again: "Hủy bỏ" is the second answer of the dialog (the 0x5f packet with index 1)
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "give", A, 0));
+    CHECK(w.dialog_answer(1, 1, 0));
+    CHECK(last() == 701.0);
+    // no confirm function: nothing is sent, nothing waits (0x0812BD0A); two arguments: nothing at all
+    w.take_outbox();
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "give_noconfirm", A, 0));
+    CHECK(packets(w.take_outbox(), 1, jx::pb::G2C_SCRIPT_ACTION).empty());
+    CHECK(A.player.dialog.available_answers == 0);
+    CHECK_FALSE(A.player.dialog.waiting);
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "give_short", A, 0));
+    CHECK(packets(w.take_outbox(), 1, jx::pb::G2C_SCRIPT_ACTION).empty());
+    // while trading the list is refused (0x080AB992)
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "give", A, 0));
+    A.player.trade.trading = true;
+    CHECK_FALSE(w.give_items_request(1, 0, {e_sword}));
+    A.player.trade.trading = false;
+    // SetUiGiveItemMsg / SetUiGiveItemMoreConfirmMsg: the two sentences (kinds 0 and 1)
+    w.take_outbox();
+    REQUIRE(w.execute_script(R"(\script\test\give.lua)", "give_msgs", A, 0));
+    const auto msgs = packets(w.take_outbox(), 1, jx::pb::G2C_GIVE_ITEM_MSG);
+    REQUIRE(msgs.size() == 2);
+    CHECK(decode_packet<jx::pb::GiveItemMsg>(msgs[0]).kind() == 0);
+    CHECK(decode_packet<jx::pb::GiveItemMsg>(msgs[0]).text() == "goi y");
+    CHECK(decode_packet<jx::pb::GiveItemMsg>(msgs[1]).kind() == 1);
+    CHECK(decode_packet<jx::pb::GiveItemMsg>(msgs[1]).text() == "chac chua");
+    CHECK(jx::zone::kGiveItemUnits == 24);
+    CHECK(jx::zone::kGiveBoxWidth == 6);
+    CHECK(jx::zone::kGiveBoxHeight == 4);
 }

@@ -663,6 +663,7 @@ func _auto_run() -> void:
 	await _auto_dialog()
 	await _auto_task()
 	await _auto_describe()
+	await _auto_give()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1314,6 +1315,53 @@ func _auto_describe() -> void:
 		"tip_len": got.tip.length(), "pane": pane_open})
 	print("AUTO_DESCRIBE ui=%d options=%d window=%s tip_len=%d pane=%s" % [got.action.get("ui", -1), got.action.get("options", []).size(), window_open,
 		got.tip.length(), pane_open])
+
+
+# GiveItemUI (ui 11 -> the give-item box) from the GM console: a bag piece into cell (0,0), "Đồng ý" (C2G_GIVE_ITEMS kind 1),
+# then GetGiveItemUnit(1) read back through TaskTip; prints AUTO_GIVE for tools/dev.py screenshot
+func _auto_give() -> void:
+	var got := {"action": {}, "tip": ""}
+	var on_action := func(a: Dictionary) -> void:
+		if int(a.get("ui", -1)) == 11:
+			got.action = a
+	var on_tip := func(text: String) -> void:
+		if text.begins_with("unit "):
+			got.tip = text
+	Game.script_action.connect(on_action)
+	Game.task_tip.connect(on_tip)
+	Game.chat("?gm ds GiveItemUI(\"Giao nop\", \"Hay dat vat pham vao o\", \"OnGive\", \"OnCancel\", 1)")
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if not got.action.is_empty():
+			break
+	var window_open: bool = _windows != null and _windows.give_window != null and _windows.give_window.visible
+	var placed := 0
+	var placed_id := 0
+	if window_open:
+		for id in Game.items:
+			var it: Dictionary = Game.items[id]
+			if int(it.room) == Game.ROOM_BAG and _windows.give_window.put_item(it, Vector2i(0, 0)):
+				placed = 1
+				placed_id = int(id)
+				break
+	await get_tree().create_timer(0.3).timeout
+	await _save_screenshot("user://logs/auto_give.png")
+	var confirmed := false
+	if window_open:
+		_windows.give_window._on_ok()   # "Đồng ý": the 0x89 list; the gm chunk has no confirm script, the zone keeps the units
+		confirmed = true
+		await get_tree().create_timer(0.4).timeout
+	Game.chat("?gm ds TaskTip(\"unit \" .. GetGiveItemUnit(1))")
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if got.tip != "":
+			break
+	Game.script_action.disconnect(on_action)
+	Game.task_tip.disconnect(on_tip)
+	Log.info("auto", "auto give", {"ui": got.action.get("ui", -1), "window": window_open, "placed": placed, "placed_id": placed_id,
+		"confirmed": confirmed, "unit": got.tip})
+	print("AUTO_GIVE ui=%d window=%s placed=%d placed_id=%d confirmed=%s unit=%s" % [got.action.get("ui", -1), window_open, placed, placed_id,
+		confirmed, got.tip])
 
 
 func _auto_death() -> void:
