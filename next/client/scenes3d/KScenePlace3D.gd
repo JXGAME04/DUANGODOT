@@ -11,6 +11,8 @@ const SH_LM2 := preload("res://scenes3d/scn3d_lm_2side.gdshader")
 const SH_TER := preload("res://scenes3d/scn3d_terrain.gdshader")
 const SH_LM_FADE := preload("res://scenes3d/scn3d_lm_fade.gdshader")
 const SH_LM2_FADE := preload("res://scenes3d/scn3d_lm_2side_fade.gdshader")
+const SH_SWAY := preload("res://scenes3d/scn3d_lm_sway.gdshader")
+const SH_WATER := preload("res://scenes3d/scn3d_water.gdshader")
 # CameraBuildingFade of the reference client (GameAssembly.dll, static defaults in global-metadata fieldDefaultValues [TK]):
 # the renderers of the building layer between the camera and the character fade to FadeAlpha at FadeSpeed per second,
 # the occluders are looked for every DetectInterval seconds along the camera -> target segment shortened by RayPadding.
@@ -445,9 +447,45 @@ func _make_material(mm: Dictionary, meta: Dictionary) -> Material:
 		_shader_mats.append(sm)
 		return sm
 	var base: String = str(mm.get("base", ""))
+	var shader_name := str(mm.get("shader", ""))
+	var floats: Dictionary = mm.get("floats", {})
+	if kind == "water":
+		# 水体高光双浪_水底扭曲: the reference water material's numbers on our water shader
+		var w := ShaderMaterial.new()
+		w.shader = SH_WATER
+		if texs.has("_NormalTex"):
+			w.set_shader_parameter("normal_tex", _tex(texs["_NormalTex"]["file"]))
+			w.set_shader_parameter("normal_st", _st(texs["_NormalTex"].get("st")))
+		if texs.has("_BottomTex"):
+			w.set_shader_parameter("bottom_tex", _tex(texs["_BottomTex"]["file"]))
+		if texs.has("_ReflectTex"):
+			w.set_shader_parameter("reflect_tex", _tex(texs["_ReflectTex"]["file"]))
+		var c = mm.get("color", null)
+		if c is Array and c.size() >= 4:
+			w.set_shader_parameter("water_color", Color(c[0], c[1], c[2], c[3]))
+		w.set_shader_parameter("flow_dir", Vector2(float(floats.get("_FlowDirX", 0.6)), float(floats.get("_FlowDirY", 0.0))))
+		for pair in [["flow_speed", "_FlowSpeed"], ["ripple", "_ripple"], ["distort", "_DistortStrength"], ["distort_time", "_DistortTimeFactor"],
+				["brightness", "_Brightness"], ["spec_size", "_SpecSize"], ["spec_strength", "_SpecSt"], ["alpha", "_Alpha"], ["alpha_add", "_AlphaAdd"],
+				["blend_ref_bottom", "_BlendRefBottom"]]:
+			if floats.has(pair[1]):
+				w.set_shader_parameter(pair[0], float(floats[pair[1]]))
+		var sun = scene.get("render", {}).get("light", {}).get("dir", null)
+		if sun is Array and sun.size() >= 3:
+			w.set_shader_parameter("sun_dir", Vector3(sun[0], sun[1], sun[2]))
+		_shader_mats.append(w)
+		return w
+	var sway := shader_name.contains("晃动")   # the swaying leaf / grass shaders of the reference (Alpha剪裁_树叶_自圆周晃动, Alpha剪裁_草_晃动_...)
 	if lm != null and base != "" and texs.has(base) and kind == "static":
 		var sm2 := ShaderMaterial.new()
 		sm2.shader = SH_LM2 if mm.get("double", false) else SH_LM
+		if sway:
+			sm2.shader = SH_SWAY
+			var grass := shader_name.contains("草")
+			sm2.set_shader_parameter("sway_mode", 2 if grass else 1)
+			sm2.set_shader_parameter("sway_speed", float(floats.get("speed", 3.0)))
+			sm2.set_shader_parameter("sway_amount", float(floats.get("windStr", 0.08)) if grass else float(floats.get("noroff", 0.2)))
+			sm2.set_shader_parameter("sway_radius", float(floats.get("gHeight", 0.8)) if grass else float(floats.get("_radius", 10.0)))
+			sm2.set_shader_parameter("wind_speed", float(floats.get("windSpeed", 1.5)))
 		sm2.set_shader_parameter("albedo_tex", _tex(texs[base]["file"]))
 		sm2.set_shader_parameter("lightmap_tex", _lightmap(int(lm[0])))
 		sm2.set_shader_parameter("lm_st", Vector4(lm[1], lm[2], lm[3], lm[4]))
