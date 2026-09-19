@@ -24,6 +24,7 @@ const UiMsgSel := preload("res://ui/uicase/UiMsgSel.gd")
 const UiInformation2 := preload("res://ui/uicase/UiInformation2.gd")
 const UiNpcDescribe := preload("res://ui/uicase/UiNpcDescribe.gd")
 const UiSysMsg := preload("res://ui/uicase/UiSysMsg.gd")
+const UiNews := preload("res://ui/uicase/UiNews.gd")
 const UiGiveItem := preload("res://ui/uicase/UiGiveItem.gd")
 const UiTaskNote := preload("res://ui/uicase/UiTaskNote.gd")
 const UiGetString := preload("res://ui/uicase/UiGetString.gd")
@@ -57,6 +58,7 @@ var msg_sel: UiMsgSel = null            # a npc script's Say: the sentence and t
 var info2: UiInformation2 = null        # a npc script's Talk: the pages (提示2.ini)
 var describe: UiNpcDescribe = null      # a npc script's Describe: the description and the answers (npc描述界面.ini)
 var sys_msg_pane: UiSysMsg = null       # the system message pane (系统消息.ini): a script's TaskTip lands there
+var news: UiNews = null                 # the news ticker (新闻消息来了.ini): AddGlobalNews / AddGlobalCountNews scroll there
 var give_window: UiGiveItem = null      # a npc script's GiveItemUI: the 6 x 4 box the player puts pieces into (给予界面.ini)
 var journal: UiTaskNote = null          # the journal "Ký Sự" (任务记事.ini): a script's AddNote lands on its system page
 var get_string: UiGetString = null      # a script's AskClientForNumber / AskClientForString (输入字串界面.ini)
@@ -178,6 +180,12 @@ func _ready() -> void:
 		Log.warn("ui", "layout missing", {"window": UiSysMsg.SCHEME})
 		sys_msg_pane.queue_free()
 		sys_msg_pane = null
+	news = UiNews.new()
+	_canvas.add_child(news)
+	if not news.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiNews.SCHEME})
+		news.queue_free()
+		news = null
 	else:
 		# the 0xb6 packet: with the 0x10 byte (TaskTip) the ui message 0x5d {type 1, blink 1, priority 3}; without it (SendTaskOrder)
 		# 0x52 {type 5, blink 0x12 - not 1, so no blinking - priority 3} (0x0042A10A / 0x0042A0C3)
@@ -404,6 +412,11 @@ func _on_script_action(a: Dictionary) -> void:
 				if msg_sel != null and msg_sel.visible:
 					msg_sel.close_dialog()
 				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		5:
+			# 0x00601386 -> the ui message 0x20 GDCNI_NEWS_MESSAGE -> the news window 0x004D60E0: param 0 = shown once,
+			# 1 = `count` times (AddGlobalCountNews), 2 = a dated news (as 0 here)
+			if news != null:
+				news.add_news(text, int(a.get("param", 0)), int(a.get("count", 0)))
 		4:
 			# 0x0060124F -> the ui message 0x1f GDCNI_SYSTEM_MESSAGE {type 2, blink 2, priority 0}: PutMessage of a script on the
 			# system message pane (blink 2 is not 1: the icon holds still)

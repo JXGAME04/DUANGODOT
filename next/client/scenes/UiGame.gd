@@ -666,6 +666,7 @@ func _auto_run() -> void:
 	await _auto_give()
 	await _auto_note()
 	await _auto_ask()
+	await _auto_news()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1398,6 +1399,23 @@ func _auto_note() -> void:
 # showing the min (1), "0" is refused (below the min the box stays, 0x0051C831), "42" and "Đồng ý" -> the 0x82 answer of
 # kind 3 (the gm chunk has no script to call back; the zone logs `script input ignored` at debug level); prints AUTO_ASK for
 # tools/dev.py screenshot
+# a global news from the zone (AddGlobalNews -> the 0x63 packet ui 5 to every session of the zone): the ticker shows it, the
+# screenshot proves it.  Prints AUTO_NEWS so tools/dev.py screenshot can check it.
+func _auto_news() -> void:
+	Game.chat("?gm ds AddGlobalNews(\"Tin toan cuc: kiem thu bang tin JX NEXT\")")
+	var ticker = _windows.news if _windows != null else null
+	var shown := false
+	for i in 40:
+		await get_tree().create_timer(0.1).timeout
+		if ticker != null and ticker.current_text() != "":
+			shown = true
+			break
+	await get_tree().create_timer(0.8).timeout   # a few ticks in: the text has entered the bar
+	await _save_screenshot("user://logs/auto_news.png")
+	print("AUTO_NEWS shown=%s text_len=%d queue=%d x=%d" % [shown, ticker.current_text().length() if ticker != null else 0,
+		ticker.queue_size() if ticker != null else -1, ticker.text_x() if ticker != null else 0])
+
+
 func _auto_ask() -> void:
 	var got := {"ask": {}}
 	var on_ask := func(a: Dictionary) -> void:

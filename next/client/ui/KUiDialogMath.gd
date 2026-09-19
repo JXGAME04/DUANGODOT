@@ -171,3 +171,41 @@ static func pad_value(digits: String) -> int:
 
 static func pad_accepts(value: int, lo: int, hi: int) -> bool:
 	return value >= lo and (hi < lo or value <= hi)
+
+
+# ---- the news ticker (UiNews.gd, 新闻消息来了.ini; docs/CLIENT-2.0.md §30) ---------------------------------------------
+
+# the top-centre anchor (rule 14): the bar keeps its offset from the horizontal centre of the theme's screen and its
+# distance to the top edge (400x16 at (312,30) of 1024x768 is exactly centred)
+static func top_center_anchor(theme_pos: Vector2, theme_size: Vector2, theme_screen: Vector2, screen: Vector2) -> Vector2:
+	var centre_offset := theme_pos.x + theme_size.x / 2.0 - theme_screen.x / 2.0
+	return Vector2(screen.x / 2.0 + centre_offset - theme_size.x / 2.0, theme_pos.y)
+
+
+# 0x004D5C20: a node at the FRONT of the list; a count of 0 for a type-1 news is 3 (0x004D61ED)
+static func news_add(queue: Array, text: String, type: int, count: int) -> Dictionary:
+	var node := {"type": type, "text": text, "count": count if count > 0 else 3, "shown": 0}
+	queue.push_front(node)
+	return node
+
+
+# 0x004D6860: the head of the list is shown while it has passes left - type 0 once, type 1 `count` times (type 2, the
+# dated news, as type 0 here); a used-up head is dropped and the next tried; {} when nothing is left
+static func news_pick(queue: Array) -> Dictionary:
+	while not queue.is_empty():
+		var node: Dictionary = queue[0]
+		node.shown = int(node.shown) + 1
+		var passes: int = int(node.count) if int(node.type) == 1 else 1
+		if int(node.shown) <= passes:
+			return node
+		queue.pop_front()
+	return {}
+
+
+# 0x004D5C80 + 0x004D5CF0: after a pass the node leaves the head and joins the end (a multi-pass news comes back after the
+# others; a one-pass news is dropped when its turn comes again)
+static func news_pass_done(queue: Array, node: Dictionary) -> void:
+	var i := queue.find(node)
+	if i >= 0:
+		queue.remove_at(i)
+	queue.push_back(node)
