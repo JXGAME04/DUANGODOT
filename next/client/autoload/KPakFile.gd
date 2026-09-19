@@ -4,6 +4,7 @@
 extends Node
 
 const ASSETS_DIR := "res://assets"
+const ASSETS3D_DIR := "res://assets3d"   # the 3D bundles (ADR-008): maps/<id>/map3d.json, npc/, weapon/, sfx/
 
 class SpriteAtlas:
 	var id: String
@@ -80,6 +81,19 @@ func assets_root() -> String:
 
 func has_map(map_id: int) -> bool:
 	return FileAccess.file_exists("%s/maps/%d/map.json" % [assets_root(), map_id])
+
+
+func assets3d_root() -> String:
+	return ProjectSettings.globalize_path(ASSETS3D_DIR)
+
+
+# A 3D bundle of the map (docs/3D-QUY-UOC.md §6): the world is drawn by KWorldView3D
+func has_map3d(map_id: int) -> bool:
+	return FileAccess.file_exists("%s/maps/%d/map3d.json" % [assets3d_root(), map_id])
+
+
+func map3d_info(map_id: int):
+	return load_json("%s/maps/%d/map3d.json" % [assets3d_root(), map_id])
 
 
 func load_json(path: String):

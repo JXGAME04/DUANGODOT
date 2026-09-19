@@ -55,6 +55,9 @@ var _rng := RandomNumberGenerator.new()
 var _knock_dest := Vector2.ZERO    # KNpc+0x13b4/+0x13b8 of the 2.0 client: where a knock back pushes to
 var _knocked := false
 var state_icons: Array = []        # the six StateSpecialIds of the 0x7a packet (G2C_STATE_ICONS), drawn by KNpcRes
+var no_2d := false                 # a 3D view draws it (KWorldView3D): no sprites, no label, nothing on the canvas
+
+signal doing_changed(doing: int, total_frame: int)   # the doing (and its frame count) was set, for a 3D view
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -81,12 +84,14 @@ func setup(d: Dictionary, own: bool) -> void:
 	path = _waypoints(d)
 	position = to_screen(scene_pos)
 	_rng.seed = entity_id
-	if _res == null:
+	if no_2d:
+		visible = false
+	if _res == null and not no_2d:
 		_res = Node2D.new()
 		_res.set_script(KNpcResScript)
 		_res.name = "Res"
 		add_child(_res)
-	if _label == null:
+	if _label == null and not no_2d:
 		_label = Label.new()
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_label.size = Vector2(140, 20)
@@ -95,8 +100,9 @@ func setup(d: Dictionary, own: bool) -> void:
 		_label.add_theme_constant_override("shadow_offset_x", 1)
 		_label.add_theme_constant_override("shadow_offset_y", 1)
 		add_child(_label)
-	_label.text = display_name
-	_label.position = Vector2(-70, -RADIUS - 26)
+	if _label != null:
+		_label.text = display_name
+		_label.position = Vector2(-70, -RADIUS - 26)
 	# appearance: players are the composed main characters, everything else its npcs.txt template
 	var res_name := ""
 	if entity_type == ENTITY_PLAYER:
@@ -110,13 +116,14 @@ func setup(d: Dictionary, own: bool) -> void:
 		frames = {"stand": int(tpl.get("stand_frame", 15)), "stand1": int(tpl.get("stand_frame1", 15)),
 			"walk": int(tpl.get("walk_frame", 12)), "run": int(tpl.get("run_frame", 15))}
 		stature = int(tpl.get("stature", 0))
-	has_res = _res.setup(res_name)
-	if not has_res:
+	has_res = _res.setup(res_name) if _res != null else false
+	if not has_res and not no_2d:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
 	set_state_icons(d.get("state_icons", state_icons))
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
-	_label.position.y = -float(_pate()) - 20.0
+	if _label != null:
+		_label.position.y = -float(_pate()) - 20.0
 	doing = -1
 	_set_doing(KNpcResNode.Doing.STAND)
 	# a late joiner sees corpses and swings already under way
@@ -340,6 +347,7 @@ func _set_doing(d: int) -> void:
 	if has_res:
 		_res.set_action(d)
 		queue_redraw()
+	doing_changed.emit(doing, total_frame)
 
 
 # An action whose length the zone dictates (attack / hurt / death frames).
@@ -350,9 +358,12 @@ func _set_action(d: int, n: int) -> void:
 	if has_res:
 		_res.set_action(d)
 	queue_redraw()
+	doing_changed.emit(doing, total_frame)
 
 
 func _draw() -> void:
+	if no_2d:
+		return
 	if not has_res:
 		var color := Color(0.95, 0.6, 0.2)          # npc
 		if entity_type == ENTITY_PLAYER:

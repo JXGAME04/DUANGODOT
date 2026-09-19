@@ -138,6 +138,17 @@ func _ready() -> void:
 	Net.message.connect(_on_message)
 
 
+# The world is drawn in 3D (KWorldView3D, ADR-008) when the map has a 3D bundle, or --3d / --2d on the command line
+# decides for every map (a 3D view without a bundle draws the 2.5D fallback of the 2D map).
+func want_3d() -> bool:
+	var args := OS.get_cmdline_user_args()
+	if "--2d" in args:
+		return false
+	if "--3d" in args:
+		return true
+	return map_id > 0 and Assets.has_map3d(map_id)
+
+
 func _set_state(s: String) -> void:
 	Log.debug("session", "state", {"from": state, "to": s})
 	state = s

@@ -634,6 +634,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (phiên tiếp theo, phần 36) — M3D-0: ADR-008 client 3D, quy ước toạ độ, tách lớp vẽ thế giới `KWorldView` (chủ dự án: làm từng bước tới khi xong, mọi số có nguồn nhị phân)
+
+- **0.1** `docs/adr/ADR-008-client-3d.md`: client vẽ 3D, zone/gateway/giao thức/Lua và luật hiển thị 2.0 giữ nguyên; nguồn chân lý từng tầng (Linux / gamecl 2.0 / bản tham khảo); số không đọc được từ nhị phân phải ghi "tự chọn".
+- **0.2** `docs/3D-QUY-UOC.md` + `client/scenes3d/KScene3DMath.gd` (+137 kiểm `test_scene3d_math`): `UNIT = 0,02 m` suy từ phép chiếu 2.0 `sy = y/2 − z·887/1024` (= trực giao ngẩng 30°), sprite nam đứng 75 px (đầu `MA_HR_019_ST01` 123 → thân `MA_BD_019_ST01` 198) = 86,6 đơn vị = 1,73 m, tên +84 px (`0x005EC13D`) = 1,94 m ≈ `sys_bar` 2,03–2,15 m của bản tham khảo; chạy 200 đơn vị/s = 4 m/s; `X = x·UNIT, Z = y·UNIT`, `yaw = (32 − dir)·5,625°`, `dir_vector` khớp `g_GetDirIndex` cả 64 hướng.
+- **0.3** `client/scenes/KWorldView.gd` (giao diện: load_map, add/remove_entity, add_missle(_effect), follow, center_on, pick, screen_to_scene, scene_to_screen, zoom_step, update, sounds, camera_state) + `KWorldView2D.gd` (mã map/camera/lớp thực thể/đạn tách từ `UiGame.gd`); `UiGame.gd` chỉ còn luật chơi + UI + `--auto`, chọn bản vẽ bằng `Game.want_3d()` (`--3d`/`--2d` hoặc có `client/assets3d/maps/<id>/map3d.json`, `Assets.has_map3d`). `KNpc/KObj/KMissle` thêm `no_2d` (giữ máy trạng thái, không vẽ canvas) và `KNpc.doing_changed` cho bản vẽ 3D; `UiGame.tscn` bỏ Camera (bản vẽ 2D tự tạo).
+- Kiểm: `tests/run.gd` 554/554, `UiCheck` 26/26 (bộ ui đầy đủ chưa xuất trên máy này), `dev.py e2e` xanh TCP + WS, `dev.py screenshot` ảnh 2D như trước (map, tên, thanh dưới 2.0).
+- commit: `JX NEXT 3D: M3D-0 (0.1-0.3) - ADR-008, quy uoc toa do KScene3DMath, tach lop ve the gioi KWorldView/KWorldView2D`.
+
 ### 2026-09-19 (phiên tiếp theo, phần 35) — 3D bước 3–5 trên `exp/3d-baling`: vũ khí treo tay, hiệu ứng kỹ năng, navmesh, phân tích thiếu gì, lộ trình từng bước
 
 - Chủ dự án yêu cầu theo thứ tự: toàn bộ NPC 3D + tên Việt, vũ khí/vật treo tay, hình kỹ năng theo phái, chạy server để thử, sửa (NPC nằm → `remove_immutable_tracks=false`; đất đen → nắng thời gian thực + lightmap làm phát xạ; tên mờ → nhãn 2D; đi xuyên nhà → navmesh AIS), rồi phân tích còn thiếu gì và **lên lịch từng bước**.

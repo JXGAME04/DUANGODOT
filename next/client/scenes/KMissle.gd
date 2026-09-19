@@ -47,9 +47,13 @@ var _fly_sounded := false     # SndFile2 played once
 var _vanish_started := -1     # cur_life when the vanish movie began
 var _tick_acc := 0.0
 var _rng := RandomNumberGenerator.new()
+var no_2d := false            # a 3D view draws it: no sprite (is_drawn stays false)
 
 
 func _ready() -> void:
+	if no_2d:
+		visible = false
+		return
 	_sprite = Sprite2D.new()
 	_sprite.centered = false   # the old renderer draws a frame from its top-left: spot - centre + frame offset (KRepresentShell2.cpp 2004)
 	_sprite.visible = false
@@ -190,6 +194,12 @@ func _show_frame(anim: Dictionary, frame: int) -> bool:
 
 func _refresh() -> void:
 	if _sprite == null:
+		# a 3D view draws it; the node still ends itself when the vanish movie would be over
+		if no_2d and status == STATUS_VANISHED:
+			var av := _anim(ANIM_VANISH)
+			if KMissleResMath.special_frame(int(av.get("frames", 0)), int(av.get("dirs", 0)), int(av.get("interval", 1)), dir64, cur_life - _vanish_started) < 0:
+				gone.emit(index)
+				queue_free()
 		return
 	match status:
 		STATUS_FLY:

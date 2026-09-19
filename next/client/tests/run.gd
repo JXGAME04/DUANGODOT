@@ -16,6 +16,7 @@ const NpcResNode := preload("res://scenes/KNpcResNode.gd")
 const SprControl := preload("res://scenes/KSprControl.gd")
 const StateSpr := preload("res://scenes/KStateSpr.gd")
 const WavSound := preload("res://scenes/KWavSound.gd")
+const Scene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 
 var _failed := 0
 var _passed := 0
@@ -40,6 +41,7 @@ func _init() -> void:
 	test_scene_math()
 	test_ipot_order()
 	test_kmath_direction()
+	test_scene3d_math()
 	test_npcres_tables()
 	test_skill_book_layout()
 	test_part_math()
@@ -74,6 +76,29 @@ func test_kmath_direction() -> void:
 	check(KMath.dir64_to_sprite(0, 8) == 0 and KMath.dir64_to_sprite(16, 8) == 2 and KMath.dir64_to_sprite(31, 8) == 4
 		and KMath.dir64_to_sprite(63, 8) == 0 and KMath.dir64_to_sprite(47, 8) == 6, "64 directions to 8 sprite directions")
 	check(KMath.dir64_to_sprite(20, 1) == 0, "single direction sprite")
+
+
+# ---- scene units <-> metres of the 3D world (KScene3DMath.gd, docs/3D-QUY-UOC.md) -----------------------------
+func test_scene3d_math() -> void:
+	var M := Scene3DMath
+	# 1 unit = 2 cm: a cell is 0.64 m, a region 10.24 x 20.48 m; screen-down (+y) is +Z, height is +Y
+	check(M.to_world(Vector2(32, 0)).is_equal_approx(Vector3(0.64, 0, 0)), "a cell east is 0.64 m of +X")
+	check(M.to_world(Vector2(0, 1024), 50).is_equal_approx(Vector3(0, 1.0, 20.48)), "a region south is 20.48 m of +Z, z 50 = 1 m up")
+	check(M.to_scene(M.to_world(Vector2(8496, 10224))).is_equal_approx(Vector2(8496, 10224)), "round trip")
+	# the 2.0 projection sy = y/2 - z*887/1024 is a 30 degree view: 75 px of standing man = 86.6 units = 1.73 m
+	check(absf(M.px_height_to_m(75.0) - 1.732) < 0.005, "75 px tall sprite is 1.73 m: %f" % M.px_height_to_m(75.0))
+	check(absf(M.px_height_to_m(84.0) - 1.94) < 0.005, "the player's name (84 px, GetNpcPate) sits 1.94 m up")
+	# yaw: the model looks down -Z at yaw 0; dir 32 (up the screen, -y) is that, dir 0 faces the camera
+	check(M.yaw_of_dir(32) == 0.0 and M.yaw_of_dir(0) == 180.0 and M.yaw_of_dir(16) == 90.0 and M.yaw_of_dir(48) == -90.0, "yaw of the four axes")
+	for d in 64:
+		check(M.dir_of_yaw(M.yaw_of_dir(d)) == d, "dir %d survives the yaw round trip" % d)
+	check(M.dir_of_yaw(M.yaw_of_dir(48) + 360.0) == 48, "a full turn more is the same dir")
+	# the ground vector of a dir agrees with g_GetDirIndex: walking that way gives the index back
+	for d in 64:
+		var v := M.dir_vector(d) * 1000.0
+		check(KMath.get_dir_index(0, 0, int(roundf(v.x)), int(roundf(v.y))) == d, "dir_vector(%d) points at dir %d" % [d, d])
+	check(M.yaw_delta(170.0, -170.0) == 20.0 and M.yaw_delta(-170.0, 170.0) == -20.0, "shortest turn across 180")
+	check(M.cell_of(Vector2(8496, 10224)) == Vector2i(265, 319) and M.cell_of(Vector2(31.9, 0)) == Vector2i(0, 0), "obstacle cell of a spot")
 
 
 func test_npcres_tables() -> void:

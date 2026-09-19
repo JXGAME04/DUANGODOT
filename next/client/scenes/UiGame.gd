@@ -1,58 +1,38 @@
-# World view: the exported map (or a grid when the zone has no map bundle), entities as
-# circles, click to move, chat box, debug HUD.  Screen = (scene x, scene y / 2).
+# The game screen: the world (drawn by a KWorldView - 2D sprites or 3D models, ADR-008), click to
+# move, the 2.0 windows, chat box, debug HUD.  Every position here is in scene units of the zone;
+# the view does the projecting.
 extends Node2D
 
 const NpcScript := preload("res://scenes/KNpc.gd")
-const ObjScript := preload("res://scenes/KObj.gd")
-const MissleScript := preload("res://scenes/KMissle.gd")
-const MissleEffectScript := preload("res://scenes/KMissleEffect.gd")
-const KWavSound := preload("res://scenes/KWavSound.gd")
+const WorldView2D := preload("res://scenes/KWorldView2D.gd")
 const ACTION_ATTACK := 1
 const ENTITY_DROP := 4
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
-const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
 const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
-const GRID_CELL := 512
 
-var _entities := {}          # entity_id -> Node2D
-var _target: Node2D = null   # the entity the player attacks / selected
-var _camera: Camera2D
-var _map: Node2D             # MapView
-var _entity_layer: Node2D    # y-sorted parent of entity nodes (MapView.ysort or a local one)
-var _grid: Node2D
+var _entities := {}          # entity_id -> Node (KNpc / KObj)
+var _target: Node = null     # the entity the player attacks / selected
+var _world: Node             # the KWorldView drawing the map, the entities, the missiles
 var _hud: Label
 var _chat_log: RichTextLabel
 var _chat_input: LineEdit
-var _zoom := 1.0
 var _spawn_count := 0
 var _move_count := 0
 var _action_count := 0
 var _scene_w := 8192
 var _scene_h := 8192
 var _windows: KUiGameWindows = null   # the bag, the character window, the tooltip, the item on the cursor
-var _sounds: KWavSound = null         # the fight sounds (KSoundCache / KWavSound), placed in the entity layer
 var _pending_pickup := 0              # the ground object the player walks to (0 = none)
 
 
 func _ready() -> void:
-	_camera = $Camera
-	_camera.zoom = Vector2(_zoom, _zoom)
-	_map = Node2D.new()
-	_map.set_script(ScenePlaceScript)
-	_map.name = "Map"
-	add_child(_map)
+	_world = _make_world_view()
+	_world.name = "WorldView"
+	add_child(_world)
 	var has_map := _setup_map()
-	_sounds = KWavSound.new()
-	_sounds.name = "Sounds"
-	_sounds.stream_provider = Assets.sound
-	_sounds.focus_provider = func() -> Vector2:
-		var o := _own()
-		return o.scene_pos if o != null else Vector2.ZERO
-	_entity_layer.add_child(_sounds)
-
 	_build_hud()
 	_windows = KUiGameWindows.new()
 	_windows.quick_skill.connect(func(id: int): cast_skill_at_mouse(id))
@@ -78,10 +58,20 @@ func _ready() -> void:
 		_add_entity(d)
 	_update_camera(true)
 	Log.info("ui", "world screen", {"zone": Game.zone_name, "entity": Game.entity_id, "entities": _entities.size(),
-		"map": Game.map_id, "bundle": has_map})
+		"map": Game.map_id, "bundle": has_map, "view": _world.get_script().resource_path.get_file()})
 	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, F4 túi đồ, F3 nhân vật, F5 kỹ năng, Q..C kỹ năng tắt, 1..9 ô nhanh, Esc để thoát.[/color]" % Game.zone_name)
 	if "--auto" in OS.get_cmdline_user_args():
 		_auto_run()
+
+
+# The world view: 3D when the map has a 3D bundle (client/assets3d/maps/<id>) or --3d asks for it, else the 2D one
+func _make_world_view() -> Node:
+	var view := Node.new()
+	if Game.want_3d():
+		view.set_script(load("res://scenes3d/KWorldView3D.gd"))
+	else:
+		view.set_script(WorldView2D)
+	return view
 
 
 func _build_hud() -> void:
@@ -113,37 +103,16 @@ func _build_hud() -> void:
 	chat_box.add_child(_chat_input)
 
 
-# Loads the map bundle of Game.map_id (or the plain grid) and sizes the camera; called on entering
-# the world and again after a ChangeMap.
+# Loads the world of Game.map_id through the view; called on entering the world and again after a ChangeMap.
 func _setup_map() -> bool:
 	_scene_w = Game.scene_w if Game.scene_w > 0 else 8192
 	_scene_h = Game.scene_h if Game.scene_h > 0 else 8192
-	if _grid != null:
-		_grid.queue_free()
-		_grid = null
-	if _entity_layer != null and _entity_layer != _map.objects and is_instance_valid(_entity_layer):
-		_entity_layer.queue_free()
-	_entity_layer = null
-	var has_map: bool = Game.map_id > 0 and Assets.has_map(Game.map_id) and bool(_map.load_map(Game.map_id))
-	if has_map:
-		_entity_layer = _map.objects   # ordered by the old sorting tree, see KScenePlaceC
-	else:
-		_map.clear()
-		_grid = Node2D.new()
-		_grid.name = "Grid"
-		_grid.set_script(preload("res://scenes/KSceneGrid.gd"))
-		_grid.size = Vector2(_scene_w, _scene_h * 0.5)
-		add_child(_grid)
-		_entity_layer = Node2D.new()
-		_entity_layer.y_sort_enabled = true
-		_entity_layer.z_index = 1
-		add_child(_entity_layer)
-		if Game.map_id > 0:
-			Log.warn("map", "map bundle missing, drawing grid", {"map_id": Game.map_id, "dir": Assets.assets_root()})
-	_camera.limit_left = 0
-	_camera.limit_top = 0
-	_camera.limit_right = maxi(_scene_w, 1280)
-	_camera.limit_bottom = maxi(int(_scene_h / 2), 720)
+	var has_map: bool = _world.load_map()
+	var snd = _world.sounds()
+	if snd != null:
+		snd.focus_provider = func() -> Vector2:
+			var o := _own()
+			return o.scene_pos if o != null else Vector2.ZERO
 	return has_map
 
 
@@ -152,39 +121,30 @@ func _setup_map() -> bool:
 func _on_map_changed(info: Dictionary) -> void:
 	_select_target(null)
 	for id in _entities.keys():
-		var node: Node2D = _entities[id]
-		if _map.map_id > 0:
-			_map.remove_entity(node)
+		var node: Node = _entities[id]
+		_world.remove_entity(node)
 		node.queue_free()
 	_entities.clear()
 	var has_map := _setup_map()
-	_camera.position = Vector2(float(info.get("x", 0)), float(info.get("y", 0)) * 0.5)
-	_append_chat("[color=gray]Sang %s (map %d).[/color]" % [_map.info.get("name", "?") if has_map else "map", Game.map_id])
+	_world.center_on(Vector2(float(info.get("x", 0)), float(info.get("y", 0))))
+	_append_chat("[color=gray]Sang %s (map %d).[/color]" % [_world.map_name() if has_map else "map", Game.map_id])
 	Log.info("ui", "map changed", {"map": Game.map_id, "bundle": has_map, "x": info.get("x", 0), "y": info.get("y", 0)})
 
 
-func _own() -> Node2D:
+func _own() -> Node:
 	return _entities.get(Game.entity_id)
 
 
 func _update_camera(snap: bool) -> void:
 	var own := _own()
 	if own:
-		# whole pixels only: a fractional camera position makes nearest-filtered tiles shimmer
-		var target := own.position if snap else _camera.position.lerp(own.position, 0.3)
-		_camera.position = target.round()
-
-
-func _view_rect() -> Rect2:
-	var size := get_viewport_rect().size / _camera.zoom
-	return Rect2(_camera.get_screen_center_position() - size * 0.5, size)
+		_world.follow(own, snap)
 
 
 func _process(delta: float) -> void:
 	_update_camera(false)
 	_walk_to_pickup()
-	if _map.map_id > 0:
-		_map.update_view(_view_rect(), delta)
+	_world.update(delta)
 	var own := _own()
 	var st: Dictionary = Assets.stats()
 	var target_text := ""
@@ -193,13 +153,23 @@ func _process(delta: float) -> void:
 	_hud.text = "%s  zone %d  map %d  entity %d  sid %d (%s)\npos %s  hp %d/%d%s\nentities %d  regions %d  sprites %d (%d MB)  rtt %d ms  fps %d" % [
 		Game.zone_name, Game.zone_id, Game.map_id, Game.entity_id, Game.sid, Net.transport,
 		str(Vector2i(own.scene_pos)) if own else "-", own.life if own else 0, own.life_max if own else 0, target_text,
-		_entities.size(), _map.region_count(), st.sprites, st.mb, Game.last_rtt_ms, Engine.get_frames_per_second()]
+		_entities.size(), _world.region_count(), st.sprites, st.mb, Game.last_rtt_ms, Engine.get_frames_per_second()]
+
+
+# the cursor in viewport pixels (the views project it)
+func _mouse() -> Vector2:
+	return get_viewport().get_mouse_position()
+
+
+# a scene point clamped to the map
+func _clamp_scene(p: Vector2) -> Vector2i:
+	return Vector2i(clampi(int(p.x), 0, _scene_w - 1), clampi(int(p.y), 0, _scene_h - 1))
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			var p := get_global_mouse_position()
+			var p := _mouse()
 			var hit := _entity_at(p)
 			if hit != null and hit.entity_type == ENTITY_DROP:
 				_pick_up(hit)
@@ -214,19 +184,18 @@ func _unhandled_input(event: InputEvent) -> void:
 					var aseq := Game.attack(hit.entity_id)
 					Log.debug("ui", "click attack", {"target": hit.entity_id, "name": hit.display_name, "seq": aseq})
 			else:
-				var x := clampi(int(p.x), 0, _scene_w - 1)
-				var y := clampi(int(p.y * 2.0), 0, _scene_h - 1)
-				var seq := Game.move_to(x, y)
-				Log.debug("ui", "click move", {"x": x, "y": y, "seq": seq})
+				var s := _clamp_scene(_world.screen_to_scene(p))
+				var seq := Game.move_to(s.x, s.y)
+				Log.debug("ui", "click move", {"x": s.x, "y": s.y, "seq": seq})
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			# the right mouse skill (m_nRightSkillID): on the entity under the cursor, else on the spot
 			if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
 				var cseq := cast_skill_at_mouse(Game.right_skill)
 				Log.debug("ui", "right click cast", {"skill": Game.right_skill, "seq": cseq})
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_set_zoom(_zoom * 1.15)
+			_world.zoom_step(1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_set_zoom(_zoom / 1.15)
+			_world.zoom_step(-1)
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE:
 			if _windows == null or not _windows.any_open():
@@ -236,25 +205,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				_chat_input.grab_focus()
 
 
-func _set_zoom(z: float) -> void:
-	_zoom = clampf(z, 0.25, 3.0)
-	_camera.zoom = Vector2(_zoom, _zoom)
-
-
 # A skill on the entity under the cursor, else on the spot (the right mouse skill; ShortcutUseItem of a quick cell
 # holding a skill casts the same way, 0x005BC500 with the cursor position)
 func cast_skill_at_mouse(skill_id: int) -> int:
-	var p := get_global_mouse_position()
+	var p := _mouse()
 	var hit := _entity_at(p)
 	if hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
 		_select_target(hit)
 		return Game.cast_skill(skill_id, hit.entity_id)
-	return Game.cast_skill(skill_id, 0, clampi(int(p.x), 0, _scene_w - 1), clampi(int(p.y * 2.0), 0, _scene_h - 1))
+	var s := _clamp_scene(_world.screen_to_scene(p))
+	return Game.cast_skill(skill_id, 0, s.x, s.y)
 
 
 # A click on a thing on the ground: picked up at once when near enough, else the character walks
 # next to it and asks when it arrives (the old client did the same through KPlayer::PickUpItem).
-func _pick_up(node: Node2D) -> void:
+func _pick_up(node: Node) -> void:
 	var own := _own()
 	if own == null:
 		return
@@ -271,7 +236,7 @@ func _pick_up(node: Node2D) -> void:
 func _walk_to_pickup() -> void:
 	if _pending_pickup == 0:
 		return
-	var node: Node2D = _entities.get(_pending_pickup)
+	var node: Node = _entities.get(_pending_pickup)
 	var own := _own()
 	if node == null or own == null:
 		_pending_pickup = 0
@@ -283,16 +248,12 @@ func _walk_to_pickup() -> void:
 		_pending_pickup = 0   # could not get there
 
 
-# The entity drawn under a world point (the one on top wins).
-func _entity_at(world: Vector2) -> Node2D:
-	var best: Node2D = null
-	for node in _entities.values():
-		if node.hit_test(node.to_local(world)) and (best == null or node.z_index > best.z_index):
-			best = node
-	return best
+# The entity drawn under a viewport point (the one on top wins).
+func _entity_at(screen: Vector2) -> Node:
+	return _world.pick(screen, _entities)
 
 
-func _select_target(node: Node2D) -> void:
+func _select_target(node: Node) -> void:
 	if _target != null and is_instance_valid(_target) and _target != node:
 		_target.set_target(false)
 	_target = node
@@ -306,7 +267,7 @@ func _leave() -> void:
 
 
 
-# ---- the missiles (G2C_MISSLE): KMissle nodes in the entity layer, one per slot while it lives -----------------
+# ---- the missiles (G2C_MISSLE): KMissle nodes in the world, one per slot while it lives -----------------------
 var _missles := {}
 var _missle_spawns := 0
 var _missle_effects := 0
@@ -320,26 +281,22 @@ func _on_missle(d: Dictionary) -> void:
 		var row := Game.missle_row(int(d.get("missle_id", 0)))
 		var anims: Array = row.get("anims", [])
 		if anims.size() > 3 and anims[3] is Dictionary and str(anims[3].get("sprite", "")) != "":
-			var fx = MissleEffectScript.new()
-			_entity_layer.add_child(fx)
-			fx.setup(anims[3], int(d.get("dir", 0)), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), int(d.get("z", 0)))
+			_world.add_missle_effect(anims[3], int(d.get("dir", 0)), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), int(d.get("z", 0)))
 			_missle_effects += 1
 			# CreateSpecialEffect 0x006B1DC0: the status' sound (SndFile4) after the movie is added, only with a movie,
 			# and not while the same file still plays (KMissleRes::PlaySound 0x00717ED0)
-			if _sounds != null:
-				_sounds.play(str(anims[3].get("sound", "")), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), false, true)
+			var snd = _world.sounds()
+			if snd != null:
+				snd.play(str(anims[3].get("sound", "")), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), false, true)
 		if node != null:
 			node.apply(d)
 		return
 	if node == null:
 		if bool(d.get("removed", false)):
 			return   # a missile this client never saw fly: nothing to end
-		node = MissleScript.new()
-		node.sounds = _sounds
-		_entity_layer.add_child(node)
+		node = _world.add_missle(d, Game.missle_row(int(d.get("missle_id", 0))))
 		_missles[idx] = node
 		node.gone.connect(func(i: int): _missles.erase(i))
-		node.setup(d, Game.missle_row(int(d.get("missle_id", 0))))
 		_missle_spawns += 1
 		return
 	node.apply(d)
@@ -353,7 +310,7 @@ func _missle_shot_info() -> String:
 		if node == null or not is_instance_valid(node) or not node.is_drawn():
 			continue
 		var r: Rect2 = node.drawn_rect()
-		var c := r.get_center() - (own.position if own != null else Vector2.ZERO)
+		var c: Vector2 = r.get_center() - (own.position if own != null else Vector2.ZERO)
 		parts.append("m%d:%s@(%d,%d)%dx%d" % [node.missle_id, node.status, int(c.x), int(c.y), int(r.size.x), int(r.size.y)])
 	return " ".join(parts)
 
@@ -378,15 +335,7 @@ func _clear_missles() -> void:
 
 func _add_entity(d: Dictionary) -> void:
 	var id := int(d.id)
-	var node: Node2D = _entities.get(id)
-	if node == null:
-		node = Node2D.new()
-		node.set_script(ObjScript if int(d.get("type", 0)) == ENTITY_DROP else NpcScript)
-		_entity_layer.add_child(node)
-		_entities[id] = node
-	node.setup(d, id == Game.entity_id)
-	if _map.map_id > 0:
-		_map.add_entity(node)
+	_entities[id] = _world.add_entity(d, id == Game.entity_id, _entities.get(id))
 	_spawn_count += 1
 
 
@@ -397,18 +346,17 @@ func _on_spawn(list: Array) -> void:
 
 func _on_despawn(ids: Array) -> void:
 	for id in ids:
-		var node: Node2D = _entities.get(int(id))
+		var node: Node = _entities.get(int(id))
 		if node:
 			if node == _target:
 				_target = null
-			if _map.map_id > 0:
-				_map.remove_entity(node)
+			_world.remove_entity(node)
 			node.queue_free()
 			_entities.erase(int(id))
 
 
 func _on_move(mv: Dictionary) -> void:
-	var node: Node2D = _entities.get(int(mv.id))
+	var node: Node = _entities.get(int(mv.id))
 	if node:
 		node.apply_move(mv)
 		if node.entity_type != ENTITY_DROP:
@@ -419,7 +367,7 @@ func _on_move(mv: Dictionary) -> void:
 
 func _on_action(a: Dictionary) -> void:
 	_action_count += 1
-	var node: Node2D = _entities.get(int(a.id))
+	var node: Node = _entities.get(int(a.id))
 	if node:
 		node.apply_action(a)
 		if node == _target and node.is_dead():
@@ -427,9 +375,10 @@ func _on_action(a: Dictionary) -> void:
 		# KNpc::DoSkill of the 2.0 client (0x005EF90F for a synced cast, 0x005F1E26 for the local player's): a player's
 		# cast plays the skill's ManCastSnd / FMCastSnd by sex at the caster (KSkill::PlayCastSound 0x006F6D90); npcs
 		# have their own sounds (KNpcRes::PlaySound, B4f-2)
+		var snd = _world.sounds()
 		if int(a.action) == ACTION_ATTACK and int(a.get("skill", 0)) > 0 and node.has_method("apply_action") \
-				and node.entity_type == NpcScript.ENTITY_PLAYER and _sounds != null:
-			_sounds.play(cast_sound(int(a.skill), node.sex), node.scene_pos)
+				and node.entity_type == NpcScript.ENTITY_PLAYER and snd != null:
+			snd.play(cast_sound(int(a.skill), node.sex), node.scene_pos)
 
 
 # the cast sound of a skill for a sex (0 male ManCastSnd, otherwise FMCastSnd), "" when the row has none
@@ -440,14 +389,14 @@ static func cast_sound(skill_id: int, sex: int) -> String:
 
 
 func _on_life(l: Dictionary) -> void:
-	var node: Node2D = _entities.get(int(l.id))
+	var node: Node = _entities.get(int(l.id))
 	if node:
 		node.set_life(l)
 
 
 # G2C_STATE_ICONS (the 0x7a packet): the pictures of the states an entity holds
 func _on_state_icons(entity_id: int) -> void:
-	var node: Node2D = _entities.get(entity_id)
+	var node: Node = _entities.get(entity_id)
 	var d = Game.entities.get(entity_id)
 	if node != null and d != null and node.has_method("set_state_icons"):
 		node.set_state_icons(d.get("state_icons", []))
@@ -502,24 +451,25 @@ func _auto_run() -> void:
 		own = _own()
 		arrived = own != null and _move_count > 0 and not own.is_moving() and own.scene_pos.distance_to(from) > 8.0
 	Log.info("auto", "auto result", {"arrived": arrived, "entities": _entities.size(), "spawns": _spawn_count, "moves": _move_count,
-		"rtt_ms": Game.last_rtt_ms, "regions": _map.region_count(), "sprites": Assets.stats().sprites})
-	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d transport=%s" % [arrived, _entities.size(), _move_count, _map.region_count(), Net.transport])
+		"rtt_ms": Game.last_rtt_ms, "regions": _world.region_count(), "sprites": Assets.stats().sprites})
+	print("AUTO_RESULT arrived=%s entities=%d moves=%d regions=%d transport=%s" % [arrived, _entities.size(), _move_count, _world.region_count(), Net.transport])
 	await _save_screenshot("user://logs/auto_world.png")
 	await _auto_items()
 	await _auto_skills()
 	await _auto_fight()
 	await _auto_death()
+	var _sounds = _world.sounds()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0])
 	print("AUTO_SOUNDS %s" % str(_sounds.history if _sounds != null else []))
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout
-		var cam_a := _camera.position
+		var cam_a: String = _world.camera_state()
 		await RenderingServer.frame_post_draw
 		var img_a := get_viewport().get_texture().get_image()
 		await get_tree().create_timer(0.5).timeout
-		var cam_b := _camera.position
+		var cam_b: String = _world.camera_state()
 		await RenderingServer.frame_post_draw
 		var img_b := get_viewport().get_texture().get_image()
 		var diff := 0
@@ -529,9 +479,9 @@ func _auto_run() -> void:
 				total += 1
 				if img_a.get_pixel(x, y) != img_b.get_pixel(x, y):
 					diff += 1
-		Log.info("auto", "idle frame diff", {"diff": diff, "sampled": total, "cam_a": str(cam_a), "cam_b": str(cam_b), "fps": Engine.get_frames_per_second(),
-			"anims": _map.anim_count(), "regions": _map.region_count()})
-		print("AUTO_IDLE_DIFF diff=%d of %d cam_a=%s cam_b=%s anims=%d" % [diff, total, str(cam_a), str(cam_b), _map.anim_count()])
+		Log.info("auto", "idle frame diff", {"diff": diff, "sampled": total, "cam_a": cam_a, "cam_b": cam_b, "fps": Engine.get_frames_per_second(),
+			"anims": _world.anim_count(), "regions": _world.region_count()})
+		print("AUTO_IDLE_DIFF diff=%d of %d cam_a=%s cam_b=%s anims=%d" % [diff, total, cam_a, cam_b, _world.anim_count()])
 		img_a.save_png("user://logs/auto_world_a.png")
 		img_b.save_png("user://logs/auto_world_b.png")
 	Game.leave_world()
@@ -574,7 +524,7 @@ func _auto_items() -> void:
 				drop_id = int(id)
 				break
 		Game.item_drop(drop_id)
-		var ground: Node2D = null
+		var ground: Node = null
 		waited = 0.0
 		while waited < 3.0 and ground == null:
 			await get_tree().create_timer(0.25).timeout
@@ -622,7 +572,7 @@ func _auto_fight() -> void:
 	if own == null:
 		print("AUTO_FIGHT none")
 		return
-	var best: Node2D = null
+	var best: Node = null
 	var best_d := 400.0
 	for node in _entities.values():
 		if node == own or not node.is_attackable():
@@ -849,7 +799,7 @@ func _auto_skills() -> void:
 				(tip_desc.cur.get("related", []).size() if tip_desc != null and tip_desc.get("has_cur", false) else -1)])
 			_windows._show_skill_tip(0)
 		var own := _own()
-		var best: Node2D = null
+		var best: Node = null
 		var best_d := 400.0
 		if own != null:
 			for node in _entities.values():
@@ -903,7 +853,7 @@ func _auto_skills() -> void:
 				await get_tree().create_timer(0.05).timeout
 				shown += 0.05
 			await _save_screenshot("user://logs/auto_cast.png")
-			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d" % [shown, _missle_drawn(), _missle_shot_info(), _sounds.played if _sounds != null else 0])
+			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d" % [shown, _missle_drawn(), _missle_shot_info(), _world.sounds().played if _world.sounds() != null else 0])
 			await get_tree().create_timer(maxf(1.0 - shown, 0.1)).timeout
 			cast_told = _action_count > actions_before
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]
@@ -953,7 +903,7 @@ func _auto_aura() -> void:
 		var icons: Array = own_d.get("state_icons", []) if own_d != null else []
 		var special := KUiSkillDesc._cell_int(Game.skill_row(aura_id), "StateSpecialId", 0)
 		# the state pictures on the body (B4e): the aura's StateSpecialId ring at the feet and the child's state
-		var own_node: Node2D = _entities.get(Game.entity_id)
+		var own_node: Node = _entities.get(Game.entity_id)
 		var pics: Array = own_node.state_spr_info() if own_node != null and own_node.has_method("state_spr_info") else []
 		await _save_screenshot("user://logs/auto_aura_state.png")
 		print("AUTO_AURA skill=%d child=%d packets=%d spawned=%d icons=%s icon_ok=%s child_state=%s pictures=%s" % [aura_id, child, Game.missle_packets - packets_before, _missle_spawns - spawned_before, str(icons), icons.has(special), Game.states.has(child), _state_pics_text(pics)])

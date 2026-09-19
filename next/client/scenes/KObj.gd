@@ -28,6 +28,7 @@ var _label: Label
 var _atlas = null                 # SpriteAtlas
 var _frame := 0
 var _frame_acc := 0.0
+var no_2d := false                # a 3D view draws it: no sprite, no label
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -43,6 +44,9 @@ func setup(d: Dictionary, own: bool) -> void:
 	scene_pos = Vector2(d.x, d.y)
 	position = to_screen(scene_pos)
 	obj = Assets.objdata_row(template_id)
+	if no_2d:
+		visible = false
+		return
 	if _sprite == null:
 		_sprite = Sprite2D.new()
 		_sprite.centered = false
@@ -72,6 +76,8 @@ func setup(d: Dictionary, own: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if no_2d:
+		return
 	# the item's own animation (an item on the ground twinkles now and then: KObj::Activate plays
 	# the loop every so often); the interval is the sprite's
 	if _atlas == null or _atlas.frame_count() <= 1:
@@ -127,6 +133,8 @@ func hit_test(local: Vector2) -> bool:
 
 
 func _draw() -> void:
+	if no_2d:
+		return
 	if _atlas == null:
 		draw_circle(Vector2.ZERO, 6.0, LABEL_COLOR_MONEY if str(obj.get("kind", "")) == "Money" else LABEL_COLOR_ITEM)
 	if is_target:
