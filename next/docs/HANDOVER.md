@@ -827,6 +827,15 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-67) — bảng tổng hợp tay cầm 71 vũ khí (`Scn3D --weapons` + `weapon_sheet.py`), quét lại 133 kỹ năng
+
+- `Scn3D.gd --auto --map=copy_baling --weapons`: đeo lần lượt 71 vũ khí (`weapons.json` theo loại), camera trước mặt (yaw 20, pitch 10, 3,6 m),
+  ảnh `scn3d_weapon_<id>.png` + dòng `SCN3D_WEAPON id name type hangs group`; `tools/scn3d/weapon_sheet.py --crop 330,100,950,700 --cols 8`
+  → `build/weapons_sheet.png` (2480×2826). Soi: 11 kiếm / 10 đao / 10 thương / 10 côn cầm tay phải đúng chuôi, 10 song đao + 10 song chuỳ hai tay,
+  10 quyền (găng) hai tay — không vũ khí nào lơ lửng sau sửa gốc prefab (3D-59). Dùng lại khi đổi `export_weapon.py`/`attach_weapon`.
+- Quét `--factions` sau 3D-63..66: `AUTO3D_FACTIONS factions=10 skills=170 with_fx=133 shown=133` (không hồi quy).
+- commit: `JX NEXT 3D: 3D-67 - Scn3D --weapons + weapon_sheet.py (bang tay cam 71 vu khi), quet 133/133`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-66) — bloom của bản 3D là URP Volume (không phải lớp `PostEffectBloom`): glow theo số của profile
 
 - Sửa kết luận 3D-61: `PostEffectBloom.IsEnable` là stub, **nhưng** bản 3D vẫn có bloom qua URP: chuỗi `Assets/Settings/GlobalVolume.prefab`

@@ -47,6 +47,7 @@ var name_labels := {}      # npc -> Label 2D
 var _lod_timer := 0.0
 var spawn_mark := ""     # --at=<diem danh dau>: dung tai diem do (so anh voi game goc)
 var test_sfx := ""       # --sfx=<ten tep hieu ung> de chup rieng mot hieu ung
+var test_weapons := false  # --weapons: every weapon in the character's hand, one picture each (the grip check)
 var nav_region: NavigationRegion3D
 var nav_map: RID
 var show_nav := false
@@ -69,6 +70,8 @@ func _ready() -> void:
 			spawn_mark = a.substr(5)
 		elif a.begins_with("--sfx="):
 			test_sfx = a.substr(6)   # --auto: this effect at the character, a picture every 10 frames (checking one export)
+		elif a == "--weapons":
+			test_weapons = true
 	dir = ProjectSettings.globalize_path(ASSETS3D) + "/" + map_name
 	sfx_dir = ProjectSettings.globalize_path(ASSETS3D) + "/sfx"
 	var t0 := Time.get_ticks_msec()
@@ -641,6 +644,28 @@ func _screenshot(path: String) -> void:
 func _auto() -> void:
 	for i in 6:
 		await get_tree().process_frame
+	if test_weapons:
+		# every weapon in turn (weapons.json order by type), camera close in front of the character, one picture each:
+		# scn3d_weapon_<id>.png - tools/scn3d/weapon_sheet.py lays them out as a contact sheet
+		cam_rig.yaw = 20.0
+		cam_rig.pitch = 10.0
+		cam_rig.dist = 3.6
+		var ids: Array = []
+		for t in weapon_by_type.keys():
+			for id in weapon_by_type[t]:
+				ids.append(str(id))
+		for id in ids:
+			var w: Dictionary = weapons[id]
+			var m: Node = player.model
+			var n: int = m.attach_weapon(ProjectSettings.globalize_path(ASSETS3D) + "/weapon", w)
+			var g := str(int(w.get("animgrp", 0)))
+			m.set_group(g if g != "0" else "1")
+			for i in 4:
+				await get_tree().process_frame
+			await _screenshot("user://logs/scn3d_weapon_%s.png" % id)
+			print("SCN3D_WEAPON id=%s name=%s type=%s hangs=%d group=%s" % [id, str(w.get("name", "")), str(w.get("type_vi", "")), n, g])
+		get_tree().quit()
+		return
 	if test_sfx != "":
 		cam_rig.yaw = 20.0
 		cam_rig.pitch = 40.0
