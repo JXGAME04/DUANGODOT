@@ -20,6 +20,8 @@ add_library(jx_zone_core STATIC
     src/KSubWorldDialog.cpp
     src/KSubWorldTask.cpp
     src/KPlayerTask.cpp
+    src/KSubWorldTaskSys.cpp
+    src/KTaskManager.cpp
     src/KText.cpp
     src/KSubWorld.cpp
     src/KInterest.cpp

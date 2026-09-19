@@ -11,6 +11,7 @@ extern "C" {
 #include <array>
 #include <climits>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "jx/log.hpp"
@@ -22,6 +23,7 @@ extern "C" {
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KSkillList.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/KTaskManager.h"
 
 namespace jx::zone {
 
@@ -1431,6 +1433,265 @@ int l_SetBitTask(lua_State* L)
     return 1;
 }
 
+// ---- the TASKSYS library (KTaskManager, docs/LINUX-SERVER.md §22) ----
+
+// the text of an argument the way the old Lua handed it to lua_tostring: a number is written as an integer ("102",
+// what TaskNo returned), a string as is, anything else nothing
+std::optional<std::string> task_text(lua_State* L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        const lua_Number n = lua_tonumber(L, idx);
+        if (!(n > -9.0e18 && n < 9.0e18)) return std::nullopt;
+        return std::to_string(static_cast<long long>(n));
+    }
+    if (lua_type(L, idx) == LUA_TSTRING) return std::string(lua_tostring(L, idx));
+    return std::nullopt;
+}
+
+const KTaskManager* task_tables(lua_State* L, const char* fn)
+{
+    KScriptContext& c = g_ScriptContext();
+    if (c.world == nullptr) {
+        log::warn("lua", "script api called without a player", {log::kv("function", fn)});
+        (void)L;
+        return nullptr;
+    }
+    return c.world->config().tasks.get();
+}
+
+// TaskName(id) (0x08174CB0): the name of the task with that id (0x08170060), nil when none; one argument exactly
+int l_TaskName(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const KTaskManager* m = task_tables(L, "TaskName");
+    const char* name = m == nullptr ? nullptr : m->name_of(task_int(L, 1));
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushstring(L, name);
+    return 1;
+}
+
+// TaskNo(name) (0x08174740): the id of the task with that name (0x08170440), nil when none
+int l_TaskNo(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const KTaskManager* m = task_tables(L, "TaskNo");
+    const auto name = task_text(L, 1);
+    const auto id = m != nullptr && name ? m->id_of(*name) : std::nullopt;
+    if (!id) lua_pushnil(L);
+    else lua_pushinteger(L, *id);
+    return 1;
+}
+
+// GetTaskStatus(name) (0x08175090): the two status bits of the task, nil when the name or the player is unknown
+int l_GetTaskStatus(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;   // 0x081750D4: not a string -> nothing
+    const KNpc* p = player_of(L, "GetTaskStatus");
+    const auto status = p == nullptr ? std::nullopt : g_ScriptContext().world->task_status(*p, *name);
+    if (!status) lua_pushnil(L);
+    else lua_pushinteger(L, *status);
+    return 1;
+}
+
+// SetTaskStatus(name, status) (0x08174B70): the bits set -> 1, else 0
+int l_SetTaskStatus(lua_State* L)
+{
+    if (lua_gettop(L) != 2) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    KNpc* p = player_of(L, "SetTaskStatus");
+    const bool ok = p != nullptr && g_ScriptContext().world->task_set_status(*p, *name, task_int(L, 2));
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// StartTask(name) (0x081748E0): a group for the task among the temp values (0x0820E4E0); 1 when the name is known
+// whatever happened to the group (0x081749B2), 0 otherwise
+int l_StartTask(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    KNpc* p = player_of(L, "StartTask");
+    const KTaskManager* m = task_tables(L, "StartTask");
+    if (p == nullptr || m == nullptr || !m->id_of(*name)) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    g_ScriptContext().world->task_start(*p, *name);
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+// CloseTask(name) (0x081747D0): the group and its temp values dropped (0x0820E430) -> 1, 0 when there was none
+int l_CloseTask(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    KNpc* p = player_of(L, "CloseTask");
+    const bool ok = p != nullptr && g_ScriptContext().world->task_close(*p, *name);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// GetTmpValue(name, key) (0x08174F40): the temp value of the task under the key (0x0820DF10), nil when none
+int l_GetTmpValue(lua_State* L)
+{
+    if (lua_gettop(L) != 2) return 0;
+    const auto name = task_text(L, 1);
+    const auto key = task_text(L, 2);
+    if (!name || !key) return 0;
+    const KNpc* p = player_of(L, "GetTmpValue");
+    const auto v = p == nullptr ? std::nullopt : g_ScriptContext().world->task_temp(*p, *name, *key);
+    if (!v) lua_pushnil(L);
+    else lua_pushinteger(L, *v);
+    return 1;
+}
+
+// SetTmpValue(name, key, value) (0x081749F0): the temp value set (0x0820E5C0, a group when none) -> 1, 0 when the name is unknown
+int l_SetTmpValue(lua_State* L)
+{
+    if (lua_gettop(L) != 3) return 0;
+    const auto name = task_text(L, 1);
+    const auto key = task_text(L, 2);
+    if (!name || !key) return 0;
+    KNpc* p = player_of(L, "SetTmpValue");
+    const bool ok = p != nullptr && g_ScriptContext().world->task_set_temp(*p, *name, *key, task_int(L, 3));
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// FirstTask() (0x08174E30): the name of the first task the player has a group for, nil when none
+int l_FirstTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "FirstTask");
+    if (p == nullptr) return 0;
+    const char* name = g_ScriptContext().world->task_first(*p);
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushstring(L, name);
+    return 1;
+}
+
+// NextTask() (0x08174D40): the next one, nil at the end (the list starts over with FirstTask)
+int l_NextTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "NextTask");
+    if (p == nullptr) return 0;
+    const char* name = g_ScriptContext().world->task_next(*p);
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushstring(L, name);
+    return 1;
+}
+
+// TaskXxx(name, row, col) (0x081756D0 / 0x08175520 / 0x08175370 / 0x081751C0 / 0x08175A30 / 0x08175880): the cell of the
+// task's matrix in that table, rows and columns from 1, nil outside; TaskXxxMatrix(name): rows, cols of it
+int task_cell(lua_State* L, const char* fn, const KTaskMatrix* (KTaskManager::*table)(std::string_view) const)
+{
+    if (lua_gettop(L) != 3) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    const int row = task_int(L, 2);
+    const int col = task_int(L, 3);
+    if (row <= 0 || col <= 0) return 0;   // 0x0817576E / 0x08175778
+    const KTaskManager* m = task_tables(L, fn);
+    const KTaskMatrix* mat = m == nullptr ? nullptr : (m->*table)(*name);
+    const std::string* cell = mat == nullptr ? nullptr : mat->cell(row - 1, col - 1);
+    if (cell == nullptr) lua_pushnil(L);
+    else lua_pushlstring(L, cell->data(), cell->size());
+    return 1;
+}
+
+int task_matrix(lua_State* L, const char* fn, const KTaskMatrix* (KTaskManager::*table)(std::string_view) const)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    const KTaskManager* m = task_tables(L, fn);
+    const KTaskMatrix* mat = m == nullptr ? nullptr : (m->*table)(*name);
+    if (mat == nullptr) return 0;   // 0x08175830
+    lua_pushinteger(L, mat->row_count());
+    lua_pushinteger(L, mat->cols);
+    return 2;
+}
+
+int l_TaskCondition(lua_State* L) { return task_cell(L, "TaskCondition", &KTaskManager::condition); }
+int l_TaskConditionMatrix(lua_State* L) { return task_matrix(L, "TaskConditionMatrix", &KTaskManager::condition); }
+int l_TaskEntity(lua_State* L) { return task_cell(L, "TaskEntity", &KTaskManager::entity); }
+int l_TaskEntityMatrix(lua_State* L) { return task_matrix(L, "TaskEntityMatrix", &KTaskManager::entity); }
+int l_TaskAward(lua_State* L) { return task_cell(L, "TaskAward", &KTaskManager::award); }
+int l_TaskAwardMatrix(lua_State* L) { return task_matrix(L, "TaskAwardMatrix", &KTaskManager::award); }
+int l_TaskTalk(lua_State* L) { return task_cell(L, "TaskTalk", &KTaskManager::talk); }
+int l_TaskTalkMatrix(lua_State* L) { return task_matrix(L, "TaskTalkMatrix", &KTaskManager::talk); }
+int l_TaskId(lua_State* L) { return task_cell(L, "TaskId", &KTaskManager::id_matrix); }
+int l_TaskIdMatrix(lua_State* L) { return task_matrix(L, "TaskIdMatrix", &KTaskManager::id_matrix); }
+int l_TaskEvent(lua_State* L) { return task_cell(L, "TaskEvent", &KTaskManager::event_matrix); }
+int l_TaskEventMatrix(lua_State* L) { return task_matrix(L, "TaskEventMatrix", &KTaskManager::event_matrix); }
+
+// GetTaskEventID(name) (0x08174230): the EventID column of the task (0x08170830), nil when the name is unknown
+int l_GetTaskEventID(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const auto name = task_text(L, 1);
+    if (!name) return 0;
+    const KTaskManager* m = task_tables(L, "GetTaskEventID");
+    const auto ev = m == nullptr ? std::nullopt : m->event_of(*name);
+    if (!ev) lua_pushnil(L);
+    else lua_pushinteger(L, *ev);
+    return 1;
+}
+
+// GetEventTaskCount(event) (0x08174430): how many tasks name the event (0x081701A0)
+int l_GetEventTaskCount(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    const KTaskManager* m = task_tables(L, "GetEventTaskCount");
+    lua_pushinteger(L, m == nullptr ? 0 : m->event_task_count(task_int(L, 1)));
+    return 1;
+}
+
+// GetEventTask(event, index) (0x081742C0): the name of the index-th task of the event, from 0 (0x08170200), nil outside
+int l_GetEventTask(lua_State* L)
+{
+    if (lua_gettop(L) != 2) return 0;
+    const KTaskManager* m = task_tables(L, "GetEventTask");
+    const std::string* name = m == nullptr ? nullptr : m->event_task(task_int(L, 1), task_int(L, 2));
+    if (name == nullptr) lua_pushnil(L);
+    else lua_pushlstring(L, name->data(), name->size());
+    return 1;
+}
+
+// SubWorldName(index) (0x08174390): the name of the subworld - the zone has one map; its id as text stands in for a
+// name until the map names of the old server are exported (the talk tables compare it with TalkNpcMap)
+int l_SubWorldName(lua_State* L)
+{
+    if (lua_gettop(L) != 1) return 0;
+    KScriptContext& c = g_ScriptContext();
+    if (c.world == nullptr || task_int(L, 1) < 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushstring(L, std::to_string(c.world->map_id()).c_str());
+    return 1;
+}
+
+// SelectTaskStart / SelectTaskFinish / SelectTaskAward(id) (0x08174690 / 0x081745E0 / 0x08174530): the menu functions of
+// task_function.lua (OnMenuTaskStart / OnMenuTaskFinish / OnMenuTaskAward) with the id, for the player
+int task_select(lua_State* L, const char* fn, const char* menu)
+{
+    if (lua_gettop(L) != 1) return 0;
+    KNpc* p = player_of(L, fn);
+    if (p == nullptr) return 0;
+    g_ScriptContext().world->task_select(*p, menu, task_int(L, 1));
+    return 0;
+}
+
+int l_SelectTaskStart(lua_State* L) { return task_select(L, "SelectTaskStart", "OnMenuTaskStart"); }
+int l_SelectTaskFinish(lua_State* L) { return task_select(L, "SelectTaskFinish", "OnMenuTaskFinish"); }
+int l_SelectTaskAward(lua_State* L) { return task_select(L, "SelectTaskAward", "OnMenuTaskAward"); }
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -1467,6 +1728,16 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetTask", l_GetTask},               {"SetTask", l_SetTask},             {"GetTaskTemp", l_GetTaskTemp},
     {"SetTaskTemp", l_SetTaskTemp},       {"SyncTaskValue", l_SyncTaskValue}, {"SyncTaskValueMore", l_SyncTaskValueMore},
     {"GetBitTask", l_GetBitTask},         {"SetBitTask", l_SetBitTask},
+    {"TaskName", l_TaskName},             {"TaskNo", l_TaskNo},               {"GetTaskStatus", l_GetTaskStatus},
+    {"SetTaskStatus", l_SetTaskStatus},   {"StartTask", l_StartTask},         {"CloseTask", l_CloseTask},
+    {"GetTmpValue", l_GetTmpValue},       {"SetTmpValue", l_SetTmpValue},     {"FirstTask", l_FirstTask},
+    {"NextTask", l_NextTask},             {"TaskCondition", l_TaskCondition}, {"TaskConditionMatrix", l_TaskConditionMatrix},
+    {"TaskEntity", l_TaskEntity},         {"TaskEntityMatrix", l_TaskEntityMatrix}, {"TaskAward", l_TaskAward},
+    {"TaskAwardMatrix", l_TaskAwardMatrix}, {"TaskTalk", l_TaskTalk},         {"TaskTalkMatrix", l_TaskTalkMatrix},
+    {"TaskId", l_TaskId},                 {"TaskIdMatrix", l_TaskIdMatrix},   {"TaskEvent", l_TaskEvent},
+    {"TaskEventMatrix", l_TaskEventMatrix}, {"GetTaskEventID", l_GetTaskEventID}, {"GetEventTaskCount", l_GetEventTaskCount},
+    {"GetEventTask", l_GetEventTask},     {"SubWorldName", l_SubWorldName},   {"SelectTaskStart", l_SelectTaskStart},
+    {"SelectTaskFinish", l_SelectTaskFinish}, {"SelectTaskAward", l_SelectTaskAward},
     {nullptr, nullptr},
 };
 

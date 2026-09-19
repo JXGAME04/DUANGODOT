@@ -1161,6 +1161,17 @@ func _auto_dialog() -> void:
 	if best == null:
 		print("AUTO_DIALOG npc=0")
 		return
+	# the 2.0 client walks up to a npc that is out of reach before it talks (twice m_DialogRadius = 248 px): so do we
+	if own != null and best_d > 240.0:
+		Game.move_to(int(best.scene_pos.x) - 120, int(best.scene_pos.y))
+		for i in 40:
+			await get_tree().create_timer(0.2).timeout
+			own = _own()
+			if own == null:
+				break
+			best_d = own.scene_pos.distance_to(best.scene_pos)
+			if best_d <= 240.0 and not own.is_moving():
+				break
 	var got := {"action": {}}
 	var on_action := func(a: Dictionary) -> void:
 		got.action = a
@@ -1256,9 +1267,20 @@ func _auto_task() -> void:
 		await get_tree().create_timer(0.1).timeout
 		if got.has(1276) and got.has(100):
 			break
+	# the task system (docs/LINUX-SERVER.md §22): StartTask opens a group among the temp values (2200 = the count, 2201 = the
+	# id), SetTaskStatus sets two bits of value 2000 - every changed value reaches us as G2C_TASK_VALUE (0x0820E1E0)
+	Game.chat("?gm ds CloseTask(TaskName(101))")
+	await get_tree().create_timer(0.3).timeout
+	Game.chat("?gm ds StartTask(TaskName(101))")
+	Game.chat("?gm ds SetTaskStatus(TaskName(101), 2)")   # two writes: whatever the last run left, one of them changes value 2000
+	Game.chat("?gm ds SetTaskStatus(TaskName(101), 1)")
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if got.has(2201) and got.has(2000):
+			break
 	Game.task_value_changed.disconnect(on_value)
 	await _save_screenshot("user://logs/auto_task.png")
-	print("AUTO_TASK packets=%d synced=%d client_set=%s script_set=%s expected=%d stored=%d" % [Game.task_packets, synced, str(got.get(1276, "-")), str(got.get(100, "-")), v, Game.task_value(100)])
+	print("AUTO_TASK packets=%d synced=%d client_set=%s script_set=%s expected=%d stored=%d task_count=%s task_id=%s status_value=%s" % [Game.task_packets, synced, str(got.get(1276, "-")), str(got.get(100, "-")), v, Game.task_value(100), str(got.get(2200, "-")), str(got.get(2201, "-")), str(got.get(2000, "-"))])
 
 
 func _auto_death() -> void:

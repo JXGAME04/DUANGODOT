@@ -38,6 +38,7 @@
 #include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KPlayerChat.h"
 #include "jx/zone/KPlayerTask.h"
+#include "jx/zone/KTaskManager.h"
 #include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
@@ -130,6 +131,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
     std::shared_ptr<const KChatCostTable> chat_cost;          // chatcost.ini (KPlayerChat.h; jxassets export-chat-cost); null = every channel free
     std::shared_ptr<const KTaskDefTable> task_def;            // settings/task/player_task_def.txt (KPlayerTask.h; jxassets export-task-def): which task values the client is told; null = none
+    std::shared_ptr<const KTaskManager> tasks;                // settings/task (KTaskManager.h; jxassets export-task-tables): the TASKSYS library of the scripts; null = the library answers nothing
     std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
@@ -585,6 +587,19 @@ public:
     bool task_sync_more(const KNpc& e, int first, int last, bool only_non_zero);
     void task_login_sync(const KNpc& e);
     bool task_value_request(std::uint64_t sid, int id, int value);
+    // the task system of the scripts (docs §22, KSubWorldTaskSys.cpp): the status bits and the temp values of a task in the
+    // task values, written back through 0x0820E1E0 (a change goes to the client as G2C_TASK_VALUE whatever the table says)
+    void task_set_value_synced(KNpc& e, int id, int value);
+    void task_write_temp(KNpc& e, const task_status::KTaskTemp& temp);
+    [[nodiscard]] std::optional<int> task_status(const KNpc& e, std::string_view name) const;   // GetTaskStatus 0x0820E800
+    bool task_set_status(KNpc& e, std::string_view name, int status);                           // SetTaskStatus 0x0820E720
+    bool task_start(KNpc& e, std::string_view name);                                            // StartTask 0x0820E4E0
+    bool task_close(KNpc& e, std::string_view name);                                            // CloseTask 0x0820E430
+    [[nodiscard]] std::optional<int> task_temp(const KNpc& e, std::string_view name, std::string_view key) const;   // GetTmpValue 0x0820DF10
+    bool task_set_temp(KNpc& e, std::string_view name, std::string_view key, int value);       // SetTmpValue 0x0820E5C0
+    const char* task_first(KNpc& e);                                                            // FirstTask 0x08174E30
+    const char* task_next(KNpc& e);                                                             // NextTask 0x08174D40
+    bool task_select(KNpc& e, const char* fn, int task_id);                                     // SelectTaskStart / Finish / Award
     [[nodiscard]] bool trading(const KNpc& e) const noexcept;   // KPlayer::CheckTrading 0x080A7E90
     void trade_cancel(KNpc& e);                                 // 0x080AE380: both sides, the boxes back, the menu states restored
     void set_menu_state(KNpc& e, int state, std::string_view sentence, EntityId dest);   // KPlayerMenuState::SetState 0x080C29D0

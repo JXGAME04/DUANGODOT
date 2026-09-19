@@ -1213,6 +1213,44 @@ func main() {
 		}
 		fmt.Printf("export-task-def: dinh nghia gia tri nhiem vu %s (%d dong, %d id dong bo) -> %s\n", file, len(table.Rows), table.SyncCount(), p)
 
+	case "export-task-tables":
+		// \settings\task of the old server the way the task system of jx_linux_y loads it (0x081725F0: task_id.txt, task_type.txt
+		// and the condition / entity / award / talk table of every kind, task_event.txt) -> <out>/task_tables.json for the
+		// zone's KTaskManager (docs/LINUX-SERVER.md §22): what the TASKSYS library of the scripts reads.  The cells keep the
+		// bytes of the files (as Latin-1 runes): the scripts compare them with their own bytes
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		var source string
+		read := func(rel string) ([]byte, error) {
+			data, file, err := readServerFile(sdir, rel, strings.ToLower(rel))
+			if err == nil && source == "" {
+				source = filepath.Dir(filepath.Dir(file))
+			}
+			return data, err
+		}
+		table, err := player.ParseTaskTables(read)
+		if err != nil {
+			fail("no settings/task under %s: %v", sdir, err)
+		}
+		table.Source = source
+		p := filepath.Join(out, "task_tables.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-task-tables: he nhiem vu %s (%d nhiem vu, %d loai, %d su kien) -> %s\n", source, len(table.Tasks), len(table.Types), len(table.Events), p)
+
 	case "export-faction":
 		// \settings\faction\门派设定.ini of the old server: the eleven factions the way
 		// KFactionSet::Init 0x08060C70 of jx_linux_y reads them (Name / ShowName / Series / Camp per

@@ -508,6 +508,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the task value table (settings/task/player_task_def.txt): which task values the client is told about / may set
     if subprocess.call([*jxassets_args(), "export-task-def", "-out", out], cwd=ROOT) != 0:
         print("export-task-def: no settings/task/player_task_def.txt in the reference server folder - no task value reaches the client")
+    # the task system tables (settings/task: task_id.txt, task_type.txt + the tables of every kind, task_event.txt)
+    if subprocess.call([*jxassets_args(), "export-task-tables", "-out", out], cwd=ROOT) != 0:
+        print("export-task-tables: no settings/task/task_id.txt in the reference server folder - the TASKSYS library of the scripts answers nothing")
     # the revive / reference points of every map (settings/revivepos.ini): where a new character is
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:

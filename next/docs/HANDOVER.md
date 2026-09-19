@@ -372,6 +372,20 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `TestParseTaskDef`, Godot +9 (`test_task_values`, 494); e2e `AUTO_TASK packets=181 synced=2 client_set=665 script_set=664 expected=664 stored=664` + `auto_task.png`; zone log
   `task def table loaded ids=179 ranges=68`. **Chưa**: gói 0xa4, `0xb41 → +0x7cfc`, các hệ ghi giá trị (trạm/điểm đường/chống nghiện), `AddNote`, trạng thái
   nhiệm vụ (D3). **Chạy lại `python tools/dev.py assets`** (`export-task-def`).
+- **M13 lát D3 (xong 2026-09-19)**: **hệ nhiệm vụ TASKSYS của script** (`LINUX-SERVER.md` §22): bộ quản lý `0x9786620` (`Init 0x081725F0`; bộ nạp chung
+  `0x08170990` từ dòng 2, khoá cột 1, ô là các cột còn lại — chuỗi thô; `task_id.txt` `0x08171390` thứ tự = dòng − 2; `task_type.txt` `0x08172030` → 4 bảng
+  condition/entity/award/talk mỗi loại; `task_event.txt`), trạng thái 2 bit/nhiệm vụ trong giá trị `2000 + thứ tự/16` (`0x0820E800/0x0820E720`), giá trị tạm
+  tuần tự hoá `2200..2299` (`0x0820DF90` đọc, `0x0820E250` ghi qua `0x0820E1E0` = SetTaskValue + luôn gói 0xa7; khoá băm `0x0821DF00`; StartTask `0x0820E4E0`
+  ≤ 98 ô, CloseTask `0x0820E430`, SetTmpValue `0x0820E5C0` tạo nhóm, GetTmpValue `0x0820DF10`), `FirstTask/NextTask` duyệt khoá các nhóm (`0x0820DCD0`,
+  danh sách `+0x78 + chỉ số·12`), 30 hàm Lua `0x08174230..0x08175B40` (`TaskName/TaskNo/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/
+  TaskXxx(Matrix)×6/GetTaskEventID/GetEventTaskCount/GetEventTask(i từ 0)/SubWorldName/SelectTaskStart|Finish|Award`). Zone: `KTaskManager.h/.cpp`,
+  `KSubWorldTaskSys.cpp`, `ScriptFuns.cpp` (+30), `KPlayer::task_list/task_cursor`, `KSubWorldConfig.tasks`, `main.cpp` `zone.task_tables_file`; Go
+  `player.ParseTaskTables/TaskKeyHash` + `jxassets export-task-tables` → `task_tables.json` (ô byte thô dạng Latin-1; 104 nhiệm vụ, 4 loại, 5 sự kiện);
+  client `_auto_dialog` đi tới npc khi xa hơn 240 px, `_auto_task` thêm `CloseTask/StartTask/SetTaskStatus` qua `?gm ds`. Test `[tasksys]` 7 ca 229
+  khẳng định (278 tổng), Go `TestParseTaskTables/TestTaskKeyHash`; e2e `AUTO_TASK packets=187 synced=2 client_set=887 script_set=886 expected=886 stored=886 task_count=1 task_id=101 status_value=268435456`
+  (2200 = 1 nhóm, 2201 = id 101, 2000 = bit thấp thứ tự 1) + `AUTO_DIALOG npc=4294967977 name=Bành Tiểu đệ distance=115 ui=0 text_len=81 options=0 window=true answered=true`. **Chưa** (D4): `NpcDialog`,
+  sự kiện giết quái (`RemovePlayerEvent/OnEventKillNpc`), `GetNpcName/GetNpcPos/NpcName2Replace`, tên subworld, `AddNote`, gói 0xa4, `0xb41`. **Chạy lại
+  `python tools/dev.py assets`** (`export-task-tables`).
 - **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
   `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
   `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
@@ -489,7 +503,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
-| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) | còn **M13 D3**: trạng thái nhiệm vụ (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/GetEventTaskCount/GetTaskEventID` `0x08174230..0x08175090`, bit theo bảng `0x081E92B0/0x081E93C0`, `task_id.txt/task_type.txt/task_event.txt`, `TalkWithNpc`) để `OnEventTalkNpc` chạy, `AddNote 0x08124DC0` (gói 0x63 ui 3), gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
+| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) ~~M13 D3 — hệ nhiệm vụ TASKSYS (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/TaskXxx`)~~ (xong 2026-09-19, §22 `LINUX-SERVER.md`) | còn **M13 D4**: `NpcDialog 0x081744B0`, sự kiện giết quái (`RemovePlayerEvent 0x0810C440`, `OnEventKillNpc`), `GetNpcName 0x08100040/GetNpcPos 0x081293F0/NpcName2Replace 0x081006D0`, tên subworld cho `SubWorldName`, `AddNote 0x08124DC0` (gói 0x63 ui 3), gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
@@ -812,6 +826,26 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 54) — M13 lát D3: hệ nhiệm vụ TASKSYS (bộ quản lý 0x9786620, bảng task_id/task_type/task_event + condition/entity/award/talk, trạng thái 2 bit 0x0820E800/0x0820E720, giá trị tạm 0x0820DF90/0x0820E250, 30 hàm Lua 0x08174230..0x08175B40)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §22): `Init 0x081725F0` (3 bảng chung từ `0x82e6140`, `task_id.txt` `0x08171390`, `task_type.txt` `0x08172030`), bộ nạp
+  chung `0x08170990` (KTabFile, từ dòng 2, khoá cột 1, ô chuỗi thô, ma trận `0x08175BE0`), tra cứu `0x08170060/0x08170100/0x081702F0/0x08172820/0x08170830/0x081701A0/
+  0x08170200/0x08170660/0x081726C0/0x08170630`, iterator `0x0820E170` (`0x0820DF90` đọc 2200.., `0x0820E250` ghi, `0x0820E1E0` đặt + gói 0xa7, `0x0820E800/0x0820E720`
+  trạng thái, `0x0820E4E0/0x0820E430/0x0820E5C0/0x0820DF10/0x0820DE40/0x0820DDF0`, `0x0820DCD0` danh sách), băm `0x0821DF00`, 30 hàm Lua; `AddNote 0x08124DC0`,
+  `NpcDialog 0x081744B0`, `SelectTask* → task_function.lua`, `GetEventTask` i từ 0, `SubWorldName` (`0x830ca50`, `0x8fc81e0` bước 0x63fc8) đọc xong để ghi.
+- **Zone**: `KTaskManager.h/.cpp` (`KTaskTable/KTaskMatrix/KTaskType/KTaskRecord/KTaskManager`, `task_status::{value_id,hi_bit,lo_bit,status_of,status_value,key_hash,KTaskTemp}`),
+  `KSubWorldTaskSys.cpp`, `ScriptFuns.cpp` +30 hàm (`task_text` viết số thành "102", `pushinteger`), `KPlayer::task_list/task_cursor`, `KSubWorldConfig.tasks`,
+  `main.cpp` `zone.task_tables_file`, `log.vi.json` (+7 câu, +5 trường). **Go**: `KTaskManager.go` (`ParseTaskTables/ParseTaskTable/ParseTaskRecords/TaskKeyHash`,
+  ô byte thô → rune Latin-1), `jxassets export-task-tables` (→ `client/assets/task_tables.json`), `dev.py assets`. **Client**: `_auto_dialog` đi tới npc khi
+  xa (> 240 px → `move_to` cách 120 px), `_auto_task` thêm `CloseTask/StartTask/SetTaskStatus(2 rồi 1)` qua `?gm ds` và in `task_count/task_id/status_value`.
+  Test: `[tasksys]` 7 ca 229 khẳng định (ctest 278/278 Release + Debug), Go 2 test, Godot 494, `check_log_catalog`/`check_includes`/`gofmt`/`go vet` sạch.
+- **Đo được**: e2e `AUTO_TASK packets=187 synced=2 client_set=887 script_set=886 expected=886 stored=886 task_count=1 task_id=101 status_value=268435456` (2200 = 1 nhóm, 2201 = id 101, 2000 = 0x10000000 = bit thấp
+  của thứ tự 1 = trạng thái 1) + `AUTO_DIALOG npc=4294967977 name=Bành Tiểu đệ distance=115 ui=0 text_len=81 options=0 window=true answered=true` (đi tới npc rồi nói); zone log `task tables loaded tasks=104 types=4 events=5`;
+  `auto_task.png`, `auto_dialog.png`.
+- Ghi chú: bản gốc đọc cấu trúc tạm đòi dư 2 ô sau nhóm cuối (`0x0820E00C`) nên cấu trúc đầy 98 ô đọc thiếu nhóm cuối — giữ nguyên (test ghi rõ); `ParseTab` bỏ dòng
+  trống nên thứ tự nhiệm vụ có thể lệch bản gốc nếu tệp có dòng trống (không có dữ liệu cũ để so).
+- commit: `JX NEXT: M13 lat D3 - he nhiem vu TASKSYS …` (xem git log).
 
 ### 2026-09-19 (phiên tiếp theo, phần 53) — M13 lát D2: giá trị nhiệm vụ (KPlayerTask Player+0x809c, SetTaskValue 0x080A9190, gói 0xa7/0xb5, player_task_def.txt 0x081C6E00, Lua GetTask/SetTask/GetTaskTemp/SetTaskTemp/SyncTaskValue(More)/GetBitTask/SetBitTask)
 
