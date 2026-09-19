@@ -864,6 +864,24 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-71) — bóng mờ `TaskGhost` đúng nhị phân, lỗi tỉ lệ billboard × TweenScale (tia sét 33 m), `--skill` đeo đúng loại vũ khí
+
+- **Bóng mờ** [TK `TaskGhost.Start(crt, interval, duration, num, matUrl) 0x5268a0`, `MirageData.RenderTick 0x528860`]: mỗi `interval` s (cột 16
+  của sự kiện 111: 0,06 / 0,033 / 0,014) bake mesh da ở tư thế hiện tại; mỗi bóng sống `duration` s (cột 17: 0,38 / 1 / 0,25 — bản trước hiểu
+  nhầm là alpha) với `_AdjustA = 1 − t/duration` rồi xoá; trần cột 12 (999). Không có vật liệu (36/36 kỹ năng JX có bóng) → `Init(null)` nhân
+  bản `sharedMaterial` của nhân vật (shader `cha_base_rim`: Blend SrcAlpha OneMinusSrcAlpha, ZWrite, alpha = `_AdjustA`) → bóng là **chính hình
+  nhân vật mờ dần**, không phải trắng cộng sáng như [tự chọn] cũ; 5 dòng có `3418skill_mid_add_ghost_{jin,mu,shui,huo,tu}.mat` (kỹ năng
+  chưa ghép JX) = shader `blend_dst_rimlight` cộng sáng: `rgb = tex×_AdjustC×_Enhance → _EdgeColor×_Enhance theo viền pow(1−N·V, _RimPower)`,
+  số ghi ở `KNpc3DView.GHOST_MATS`, shader `scn3d_sfx_rim_add.gdshader`. `map_skills` xuất `ghost {interval, duration, max, mat}`.
+- **Lỗi billboard**: `Scn3DSfx` bọc node billboard bằng wrapper mang cả tỉ lệ, node con về identity, nhưng `TweenScale` đặt `scale` tuyệt đối lên
+  node → nhân đôi tỉ lệ: `hit_jinxi_dao` "mesh" 0,4×4 m thành 0,16×16 m, con "faguang" ×2,09 = tia sét **33 m** xuyên màn hình (ảnh
+  `auto3d_skill_34_1.png` trước sửa). Sửa: wrapper chỉ giữ vị trí + xoay (`basis.orthonormalized()`), node giữ `Basis.from_scale(scale toàn cục)`.
+  Ảnh hưởng mọi node có `SFXBillboardHelper` + tween tỉ lệ (128 node billboard). Sau sửa: chùm sét vàng 4–8 m tại hươu.
+- `--skill=<id>:<phái>`: `EqtLimit` 0..6 → `AddItem(0,0,<loại>,1,0,0)` và đeo (đao/thương/côn/song đao/song chuỳ/quyền) — trước chỉ tự đeo ám khí.
+  `AUTO3D_GHOST` đếm đúng (bóng đặt tên `Ghost<n>`; trùng tên Godot đổi thành `@Node3D@n` nên đếm được 1): 3–5 bóng sống ở 0,3 s.
+- Kiểm: Godot 631/631; quét `--factions` 133/133; ảnh `auto3d_skill_30_0.png` (Hồi Phong Lạc Nhạn): các bản sao xanh mờ dần theo đòn xoay.
+- commit: `JX NEXT 3D: 3D-71 - bong mo TaskGhost (duration, vat lieu nhan vat/he), sua ti le billboard x TweenScale, --skill deo dung vu khi`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-70) — điểm treo theo từng model (`HangItemMgr`) thay bảng cao độ cố định; hiệu ứng `sys_bd` bám xương Spine
 
 - `HangItemMgr` của 124 bone prefab [TK `exprolesbone`]: `sys_bar` 124/124 (thanh máu, trên gốc, cao độ riêng: người 2,0 m, heo trắng 1,37,

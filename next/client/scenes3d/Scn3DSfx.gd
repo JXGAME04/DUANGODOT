@@ -285,11 +285,14 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 		var idx := n3.get_index()
 		par.add_child(wrap)
 		par.move_child(wrap, idx)
-		wrap.global_transform = gt
+		# the wrapper carries the place and the turn only; the scale stays on the node itself, where a TweenScale sets
+		# localScale absolutely (hit_jinxi_dao "mesh" 0.4 x 4 m: a wrapper holding the scale too made the streak 16 m)
+		var gs: Vector3 = gt.basis.get_scale()
+		wrap.global_transform = Transform3D(gt.basis.orthonormalized(), gt.origin)
 		par.remove_child(n3)
 		wrap.add_child(n3)
-		n3.transform = Transform3D.IDENTITY
-		_billboards.append({"bb": wrap, "mode": b["mode"], "euler": b["euler"], "offset": b["offset"], "pos_node": b["pos_node"], "base": gt})
+		n3.transform = Transform3D(Basis.from_scale(gs), Vector3.ZERO)
+		_billboards.append({"bb": wrap, "mode": b["mode"], "euler": b["euler"], "offset": b["offset"], "pos_node": b["pos_node"], "base": wrap.global_transform})
 	if life <= 0.0:
 		life = maxf(0.6, longest) if not looping else 0.0
 	return true

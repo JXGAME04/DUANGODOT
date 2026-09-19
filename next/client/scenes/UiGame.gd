@@ -762,9 +762,13 @@ func _auto3d_factions() -> void:
 				await get_tree().create_timer(0.3).timeout
 				var ghosts := 0
 				for gn in get_tree().current_scene.get_children():
-					if str(gn.name).begins_with("Ghost"):
+					if "Ghost" in str(gn.name):   # Godot renames the later holders "@Ghost@n"
 						ghosts += 1
-				print("AUTO3D_GHOST skill=%d ghosts=%d" % [sid, ghosts])
+				var gnames: Array = []
+				for gn in get_tree().current_scene.get_children():
+					if "Ghost" in str(gn.name):
+						gnames.append(str(gn.name) + ":" + str(gn.get_child_count()))
+				print("AUTO3D_GHOST skill=%d ghosts=%d alive=%s names=%s" % [sid, ghosts, str(view.get("_ghosts_alive")), str(gnames)])
 			if not f.is_empty():
 				_world.fx.hit(_world.get("_views_root"), sid, aim + Vector3(0, 0.9, 0))
 				_world.fx.hit_on(view, sid, -1, float(view.rotation.y))   # the hit picture a struck entity would get (here: on the caster)
@@ -1014,6 +1018,19 @@ func _auto3d_run() -> void:
 					waited += 0.25
 				for id in Game.items:
 					if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 1 and int(Game.items[id].room) == Game.ROOM_BAG:
+						Game.item_equip(int(id), 3)
+				await get_tree().create_timer(0.8).timeout
+			elif lim >= 0:
+				# a melee weapon of that type (EqtLimit = particular of genre 0 detail 0: 0 sword, 1 blade, 2 spear, 3 staff, 4 dual
+				# blades, 5 dual hammers, 6 fists) instead of the sword the flow wore
+				var nb2 := Game.items.size()
+				Game.chat("?gm ds AddItem(0,0,%d,1,0,0)" % lim)
+				waited = 0.0
+				while waited < 3.0 and Game.items.size() < nb2 + 1:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+				for id in Game.items:
+					if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 0 and int(Game.items[id].particular) == lim and int(Game.items[id].room) == Game.ROOM_BAG:
 						Game.item_equip(int(id), 3)
 				await get_tree().create_timer(0.8).timeout
 		if true:

@@ -218,8 +218,13 @@ def main():
                     s["on_hit"] = trig == "2"
                     casts.append(s)
             elif kind == "111" and ev[11].strip() == "1":
-                # Ghost: afterimages of the caster every d7 seconds at alpha d8 until the section ends (TriggerEnd row)
-                ghosts.append({"at": at, "interval": fnum(ev[16], 0.06), "alpha": fnum(ev[17], 0.38)})
+                # Ghost [TaskGhost.Start(crt, interval, duration, num, matUrl)]: an afterimage every d7 s, each living d8 s
+                # (MirageData.RenderTick: _AdjustA = 1 - t / duration, gone at duration), cap d2 (999); col 19 = the ghost material
+                # (Assets/Particles/Materials/3418skill_mid_add_ghost_<jin|mu|shui|huo|tu>.mat: additive rim tint per element),
+                # empty = the character's own materials fading (Init(null) clones sharedMaterial)
+                mat = ev[19].strip() if len(ev) > 19 else ""
+                elem = mat.rsplit("_", 1)[-1].replace(".mat", "") if "ghost_" in mat else ""
+                ghosts.append({"at": at, "interval": fnum(ev[16], 0.06), "duration": fnum(ev[17], 0.38), "max": int(fnum(ev[12], 999)), "mat": elem})
             elif kind == "201" and ev[10].strip().isdigit():
                 # AddState after the hit: a buff's picture is the state's own halo (state_list) while it holds
                 for st in state_effects(ev[10].strip()):

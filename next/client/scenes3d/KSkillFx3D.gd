@@ -97,10 +97,11 @@ func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: flo
 	var e := entry(skill_id)
 	var duration := float(maxi(frames, 1)) * TICK
 	var any := false
-	# Ghost (skill_event 111 [TK]): afterimages of the caster every `interval` s at `alpha` until the section ends
+	# Ghost (skill_event 111 [TK TaskGhost]): an afterimage of the caster every `interval` s, each living `duration` s, until
+	# the section ends; `mat` = the element ghost material (empty = the character's own look fading)
 	if e.has("ghost") and view != null and view.has_method("start_ghost"):
 		var g: Dictionary = e["ghost"]
-		view.start_ghost(float(g.get("interval", 0.06)), float(g.get("alpha", 0.38)), duration * (1.0 - float(g.get("at", 0.0))))
+		view.start_ghost(float(g.get("interval", 0.06)), float(g.get("duration", 0.38)), duration * (1.0 - float(g.get("at", 0.0))), str(g.get("mat", "")), int(g.get("max", 999)))
 		any = true
 	for c in e.get("cast", []):
 		if bool(c.get("on_hit", false)):

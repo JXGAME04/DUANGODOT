@@ -286,32 +286,50 @@ func _add_blob_shadow() -> void:
 	add_child(mi)
 
 
-# Ghost [TK skill_event 111]: afterimages of the model - its skinned meshes baked at the pose of the moment (a static
-# copy left behind), unshaded white at `alpha`, fading out over GHOST_FADE s [tự chọn]; one every `interval` s for
-# `duration` s (the reference: 16 or 30 a second, cap 999)
-const GHOST_FADE := 0.45
+# Ghost [TK skill_event 111 -> TaskGhost.Start(crt, interval, duration, num, matUrl) 0x5268a0]: every `interval` s the
+# model's skinned meshes are baked at the pose of the moment (SkinnedMeshRenderer.BakeMesh) into a static copy that lives
+# `duration` s: MirageData.RenderTick 0x528860 sets the material's _AdjustA = 1 - t / duration and clears it at duration;
+# at most `max` alive.  Without a material (every JX-mapped skill: 0.06 s / 0.38 s, two at 0.033 s) Init(null) clones the
+# character's own materials (cha_base_rim: SrcAlpha OneMinusSrcAlpha, alpha = _AdjustA) - the copy fades out as it is;
+# with an element material (3418skill_mid_add_ghost_<jin|mu|shui|huo|tu>: blend_dst_rimlight, additive) the copy is the
+# texture x _AdjustC x _Enhance blended to _EdgeColor x _Enhance by the fresnel rim, alpha fading the same way.
+const GHOST_MATS := {
+	"jin": {"adjust": Color(0.377, 0.368, 0.0), "edge": Color(1.498, 1.365, 0.29), "rim": 8.0, "enhance": 1.0},
+	"huo": {"adjust": Color(0.717, 0.526, 0.24), "edge": Color(1.498, 0.199, 0.092), "rim": 12.7, "enhance": 1.05},
+	"tu": {"adjust": Color(0.547, 0.511, 0.359), "edge": Color(1.498, 1.151, 0.742), "rim": 8.0, "enhance": 0.59},
+	"shui": {"adjust": Color(0.051, 0.446, 0.642), "edge": Color(0.0, 0.0, 1.498), "rim": 8.0, "enhance": 1.94},
+	"mu": {"adjust": Color(0.024, 0.557, 0.464), "edge": Color(0.431, 1.498, 0.465), "rim": 12.4, "enhance": 1.0}}
 var _ghost_left := 0.0
 var _ghost_interval := 0.06
-var _ghost_alpha := 0.38
+var _ghost_duration := 0.38
+var _ghost_max := 999
+var _ghost_mat := ""
 var _ghost_timer := 0.0
+var _ghosts_alive := 0
+var _ghost_serial := 0
 
 
-func start_ghost(interval: float, alpha: float, duration: float) -> void:
-	_ghost_interval = maxf(0.02, interval)
-	_ghost_alpha = alpha
-	_ghost_left = maxf(duration, _ghost_interval)
+func start_ghost(interval: float, duration: float, life: float, mat := "", max_num := 999) -> void:
+	_ghost_interval = maxf(0.01, interval)
+	_ghost_duration = maxf(0.05, duration)
+	_ghost_mat = mat
+	_ghost_max = maxi(1, max_num)
+	_ghost_left = maxf(life, _ghost_interval)
 	_ghost_timer = 0.0
 
 
 func _spawn_ghost() -> void:
-	if model == null or model.model == null:
+	if model == null or model.model == null or _ghosts_alive >= _ghost_max:
 		return
 	var holder := Node3D.new()
-	holder.name = "Ghost"
+	_ghost_serial += 1
+	holder.name = "Ghost%d" % _ghost_serial   # unique: a clash would make Godot call it "@Node3D@n"
 	holder.top_level = true
 	get_tree().current_scene.add_child(holder)
 	holder.global_transform = Transform3D.IDENTITY
 	var any := false
+	var mats: Array = []
+	var em: Dictionary = GHOST_MATS.get(_ghost_mat, {})
 	for mi in model.model.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh == null or mi.get_skeleton_path() == NodePath(""):
 			continue
@@ -322,21 +340,55 @@ func _spawn_ghost() -> void:
 		g.mesh = baked
 		var sk: Node = mi.get_node_or_null(mi.get_skeleton_path())
 		g.global_transform = sk.global_transform if sk is Node3D else mi.global_transform
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		mat.albedo_color = Color(1, 1, 1, _ghost_alpha)
-		g.material_override = mat
+		for si in baked.get_surface_count():
+			var src: Material = mi.get_active_material(si)
+			var tex: Texture2D = src.albedo_texture if src is BaseMaterial3D else null
+			var gm: Material
+			if em.is_empty():
+				# the character's own material, alpha-blended, alpha = _AdjustA
+				if src is BaseMaterial3D:
+					var d := (src as BaseMaterial3D).duplicate() as BaseMaterial3D
+					d.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+					d.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+					gm = d
+				else:
+					var d2 := StandardMaterial3D.new()
+					d2.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+					d2.albedo_texture = tex
+					gm = d2
+			else:
+				var sm := ShaderMaterial.new()
+				sm.shader = load("res://scenes3d/scn3d_sfx_rim_add.gdshader")
+				sm.set_shader_parameter("tex", tex)
+				sm.set_shader_parameter("edge_color", (em["edge"] as Color) * float(em["enhance"]))
+				sm.set_shader_parameter("rim_power", float(em["rim"]))
+				sm.set_shader_parameter("enhance", 1.0)
+				sm.set_shader_parameter("use_vcol_mod", true)
+				sm.set_shader_parameter("vcol_mod", (em["adjust"] as Color) * float(em["enhance"]))
+				sm.set_shader_parameter("adjust_a", 1.0)
+				gm = sm
+			g.set_surface_override_material(si, gm)
+			mats.append(gm)
 		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(g)
 		any = true
-		var tw := g.create_tween()
-		tw.tween_property(mat, "albedo_color:a", 0.0, GHOST_FADE)
 	if not any:
 		holder.queue_free()
 		return
-	get_tree().create_timer(GHOST_FADE + 0.05).timeout.connect(holder.queue_free)
+	_ghosts_alive += 1
+	var dur := _ghost_duration
+	var tw := holder.create_tween()
+	tw.tween_method(func(a: float) -> void:
+		for m in mats:
+			if m is BaseMaterial3D:
+				var c: Color = (m as BaseMaterial3D).albedo_color
+				c.a = a
+				(m as BaseMaterial3D).albedo_color = c
+			elif m is ShaderMaterial:
+				(m as ShaderMaterial).set_shader_parameter("adjust_a", a), 1.0, 0.0, dur)
+	tw.tween_callback(func() -> void:
+		_ghosts_alive = maxi(0, _ghosts_alive - 1)
+		holder.queue_free())
 
 
 # Mounted / dismounted: the horse model under the rider, the rider on the horse's ma_qi1 hang point with its riding
