@@ -7,6 +7,7 @@ extends Node3D
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 const STATUS_FLY := 1
 const STATUS_VANISHED := 2
+const MirrorScript := preload("res://scenes3d/KSpriteMirror3D.gd")
 
 var missle: Node = null
 var place: Node3D = null
@@ -15,11 +16,20 @@ var _trail: CPUParticles3D
 var _burst: CPUParticles3D = null
 var _ground := 0.0
 var _last := Vector2(INF, INF)
+var mirror: Node3D = null      # the 2.5D world: the missile's own 2.0 frames (KMissle._sprite) as a board
 
 
 func bind(state: Node, place3d: Node3D) -> void:
 	missle = state
 	place = place3d
+	if state.get("no_2d") != null and not bool(state.no_2d):
+		mirror = Node3D.new()
+		mirror.set_script(MirrorScript)
+		mirror.name = "Mirror"
+		add_child(mirror)
+		mirror.bind(state)
+		_update()
+		return
 	_ball = MeshInstance3D.new()
 	var sph := SphereMesh.new()
 	sph.radius = 0.18
@@ -69,6 +79,11 @@ func _update() -> void:
 			_ground = place.ground_height(w.x, w.z)
 		_last = sp
 	var world: Vector3 = place.to_world(sp)
+	if mirror != null:
+		# the 2.0 frames already draw the flying height; only the z lift (m_nCurrentMapZ) is added
+		world.y = _ground + KScene3DMath.px_height_to_m(float(missle.z))
+		global_position = world
+		return
 	# the 2.0 client lifts the frame by z screen pixels (m_nCurrentMapZ): metres through the 30 degree rule, plus the
 	# height a flying thing has anyway (a missile at z 0 flies at chest height in the 2D pictures) [tự chọn: 0.9 m]
 	world.y = _ground + 0.9 + KScene3DMath.px_height_to_m(float(missle.z))
@@ -112,8 +127,9 @@ static func _make_burst(color: Color) -> CPUParticles3D:
 func _process(_delta: float) -> void:
 	if missle == null or not is_instance_valid(missle):
 		# the state node ended (the vanish movie is over): let the burst finish, then go
-		if _burst == null or not _burst.emitting:
+		if mirror != null or _burst == null or not _burst.emitting:
 			queue_free()
+			return
 		_ball.visible = false
 		_trail.emitting = false
 		return

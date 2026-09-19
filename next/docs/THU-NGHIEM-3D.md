@@ -130,6 +130,8 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
    Bản vẽ chọn tự động theo `client/assets3d/maps/<id>/map3d.json` (`Game.want_3d`), `--3d`/`--2d` ép.
 5. Điều khiển 3D: chuột trái đi/chọn/đánh như 2.0, kéo chuột phải xoay camera (click phải không kéo = kỹ năng chuột phải),
    con lăn zoom trong [dist_min, dist_max] của `cameraInit`.
+6. Map không có bộ 3D (979 map còn lại) chạy **2.5D** tự động (M3D-4): nền tile + nhà/cây là bảng đứng, nhân vật là sprite 2.0
+   trên bảng quay theo camera, camera trực giao 30° (yaw ±25°, zoom = kích thước khung). `--2d` giữ client 2D cũ.
 
 ## Lộ trình
 

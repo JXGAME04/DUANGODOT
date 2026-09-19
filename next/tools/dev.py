@@ -512,14 +512,15 @@ def godot_headless_exe() -> str:
     return console if os.path.exists(console) else exe
 
 
-def run_client_auto(account: str = "auto1", windowed: bool = False, server: str = "") -> int:
+def run_client_auto(account: str = "auto1", windowed: bool = False, server: str = "", extra: list[str] | None = None) -> int:
     """Godot client: login -> character -> enter world -> move -> quit(0 on arrival).
-    Headless by default; windowed=True renders and saves screenshots to user://logs/auto_*.png."""
+    Headless by default; windowed=True renders and saves screenshots to user://logs/auto_*.png.
+    extra: more client arguments ("--2d" = the 2D world view, the default being the 3D / 2.5D one on this branch)."""
     server = server or f"127.0.0.1:{gateway_ports(0)[0]}"
     cmd = [godot_headless_exe(), "--path", os.path.join(ROOT, "client")]
     if not windowed:
         cmd.insert(1, "--headless")
-    cmd += ["--", "--auto", f"--server={server}", f"--account={account}", "--password=auto"]
+    cmd += ["--", "--auto", f"--server={server}", f"--account={account}", "--password=auto"] + list(extra or [])
     try:
         # the client logs UTF-8 (map and character names); never let the console code page break the run
         res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
@@ -721,6 +722,10 @@ def cmd_e2e() -> int:
         print("BOT OK" if rc == 0 else f"BOT FAILED ({rc})")
         rc2 = run_client_auto()
         print("CLIENT OK" if rc2 == 0 else f"CLIENT FAILED ({rc2})")
+        # the same flow through the 2D world view (the 3D / 2.5D one is the default on this branch)
+        rc2d = run_client_auto(account="auto2d", extra=["--2d"])
+        print("CLIENT 2D OK" if rc2d == 0 else f"CLIENT 2D FAILED ({rc2d})")
+        rc2 = rc2 or rc2d
         rc3 = 0
         if port_open(gateway_ports(0)[1]):   # the same client over the WebSocket door (web / mobile build)
             rc3 = run_client_auto(account="autows", server=f"ws://127.0.0.1:{gateway_ports(0)[1]}/ws")

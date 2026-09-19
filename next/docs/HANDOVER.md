@@ -673,6 +673,15 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-39) — **M3D-4 đạt**: bản 2.5D dự phòng — cả 980 map 2D chạy trong thế giới 3D, bản 3D/2.5D là mặc định của nhánh
+
+- `KGround25D.gd`: mỗi region 2D → 64 tile blit vào một ảnh 512×512 (`Image.blit_rect` từ ảnh atlas, đọc lại một lần) trên một quad 10,24 × 20,48 m (kéo giãn ×2 theo chiều sâu vì phép chiếu 2.0 chia đôi y); `cover` nằm phẳng trên đất (Sprite3D trục Y, scale z 2), `object`/`above` = bảng đứng quay theo camera (`BILLBOARD_FIXED_Y`) tại đường chân `p1`, cao h/cos 30° × UNIT; vật động (`n > 1`) đổi khung theo `interval` như `BuildinObjNextFrame`; stream 5×5 region quanh nhân vật, nạp dần mỗi khung.
+- `KSpriteMirror3D.gd`: mọi Sprite2D dưới một node canvas (các phần `KNpcRes`, khung `KMissle`, `KMissleEffect`) chiếu sang Sprite3D trên một bảng quay theo yaw camera; canvas node `visible = false` nhưng máy trạng thái 2.0 vẫn vẽ khung (`KNpcRes.paint`), 1 px = UNIT ngang, UNIT/cos 30° dọc; thứ tự con = thứ tự vẽ (`_reorder`), lệch 4 mm về phía camera mỗi lớp. `KNpc.view_dir_offset`: hướng sprite = `res_dir + 32 − dir_of_yaw(yaw camera)` (dir 0 = nhìn về camera).
+- `KScenePlace3D.mode` = `3d` / `2.5d` / `flat`; `KCamera3D` chế độ cổ điển (trực giao, pitch 30° [2.0], size 14,4 m = đúng 1 đơn vị = 1 px ở 1280×720, yaw giới hạn ±25° [tự chọn] vì bảng giấy lộ khi quay nhiều, zoom = size). `Game.want_3d()` = luôn 3D trừ `--2d`; `dev.py e2e` chạy thêm client `--2d`.
+- Tài sản: `client/assets/sprites` (9 448) và `npcres` (204 res + `action_sounds`/`npc_gold`/`state_gfx`) thành thư mục thật = hợp hai bộ xuất (bộ 980 map thiếu `ani013` và bảng vàng); `maps` vẫn junction.
+- Đo: `dev.py e2e` xanh 3 client (3D/2.5D TCP: 11 hành động, 49 đạn, 5 hiệu ứng va chạm, 28 tiếng; `--2d`; WS), `--auto3d --3d` trên Phượng Tường: nhân vật/quái/NPC là sprite 2.0 trên bảng, kiếm trên tay (2.0 vẽ), đánh npc3, 140–144 FPS, 25 region; `dev.py screenshot`: hào quang/kỹ năng/đạn hiện đúng trong 2.5D (`auto_aura.png`, `auto_cast.png`). Còn: khi quay yaw bảng nhà lộ là mặt phẳng (bản chất 2.5D), region ngoài bộ dữ liệu để đen, ảnh trạng thái minimap.
+- commit: `JX NEXT 3D: M3D-4 - the gioi 2.5D cho 980 map 2D (KGround25D, KSpriteMirror3D, camera co dien 30 do), 3D/2.5D la mac dinh, e2e ca --2d`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-38) — **M3D-1 đạt**: đánh/kỹ năng/bị đánh/chết, vũ khí theo vật phẩm, khối tên 2.0, bẫy chuyển map 3D↔2D; gộp `origin/main` (13 commit)
 
 - Gộp `origin/main` (B4f-2, B5a–c, nội suy đạn FPS, `item_uid`): xung đột ở `KNpc.gd` (giữ cả `no_2d`/`doing_changed` lẫn khối tên B5c), `UiGame.gd` (hover, follow theo thời gian → `KWorldView.follow(own, snap, delta)`), `run.gd`, HANDOVER (đánh số lại phần 3D-35..37). ctest 234/234, Go xanh, client 582/582, UI 162/162, `dev.py e2e` xanh (vật phẩm 3, kỹ năng 9, đánh chết npc4).

@@ -11,6 +11,7 @@ extends Node3D
 
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
+const MirrorScript := preload("res://scenes3d/KSpriteMirror3D.gd")
 const TICK := 1.0 / 18.0
 const TURN_TAU := 0.055        # seconds: the yaw closes 63 % of the gap in one logic frame [tự chọn]
 const ENTITY_PLAYER := 1
@@ -29,13 +30,14 @@ var _yaw := 0.0
 var _marker: MeshInstance3D = null
 var _ring: MeshInstance3D = null
 var _doing := -1
+var mirror: Node3D = null      # KSpriteMirror3D in the 2.5D world: the 2.0 sprites of the entity as a board
 
 
 # Binds the state node; `model_node` is a set-up Scn3DNpc (or null for a marker), `model_info` its npc_models.json row.
 func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictionary) -> void:
 	npc = state
 	place = place3d
-	is_own = bool(state.get("is_own"))
+	is_own = _flag(state, "is_own")
 	if model_node != null:
 		model = model_node
 		model.name = "Model"
@@ -44,8 +46,27 @@ func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictiona
 		var cp = model_info.get("cp_radius", null)
 		if cp != null and float(cp) > 0.0:
 			radius = float(cp)
+	elif not _flag(state, "no_2d") and _flag(state, "has_res"):
+		# the 2.5D world: the KNpcRes parts of the invisible canvas node, mirrored onto a board facing the camera
+		mirror = Node3D.new()
+		mirror.set_script(MirrorScript)
+		mirror.name = "Mirror"
+		add_child(mirror)
+		mirror.bind(state)
+		var pate_px: float = float(npc.get("stature")) if npc.get("stature") != null else 0.0
+		if int(npc.get("entity_type")) == ENTITY_PLAYER:
+			pate_px += 84.0
+		bar_height = KScene3DMath.px_height_to_m(pate_px) if pate_px > 0.0 else 1.8
 	else:
-		_make_marker()
+		if not _flag(state, "no_2d") and int(state.get("entity_type")) == ENTITY_DROP:
+			# a thing on the ground in the 2.5D world: its own KObj picture
+			mirror = Node3D.new()
+			mirror.set_script(MirrorScript)
+			mirror.name = "Mirror"
+			add_child(mirror)
+			mirror.bind(state)
+		else:
+			_make_marker()
 		# GetNpcPate of the 2.0 client in metres: stature (+84 for players) screen px over the feet
 		var pate: float = float(npc.get("stature")) if npc.get("stature") != null else 0.0
 		if int(npc.get("entity_type")) == ENTITY_PLAYER:
@@ -57,11 +78,17 @@ func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictiona
 		_yaw = KScene3DMath.yaw_of_dir(int(npc.res_dir))
 		rotation.y = deg_to_rad(_yaw)
 	_place(true)
-	if npc.get("doing") != null:
+	if npc.get("doing") != null and npc.get("total_frame") != null:
 		_on_doing_changed(int(npc.doing), int(npc.total_frame))
 		# a late joiner sees a corpse at its last frame (KNpc.setup puts cur_frame at the end)
 		if int(npc.doing) == KNpcResNode.Doing.DEATH and int(npc.cur_frame) >= int(npc.total_frame) - 1 and model != null:
 			model.seek_end()
+
+
+# a bool property of the state node, false when it has none (a KObj has no hovered / res_dir)
+static func _flag(n: Node, prop: String) -> bool:
+	var v = n.get(prop)
+	return v != null and bool(v)
 
 
 func _make_marker() -> void:
@@ -144,16 +171,16 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	_place(false)
-	if npc.get("res_dir") != null:
+	if npc.get("res_dir") != null and mirror == null:
 		var want := KScene3DMath.yaw_of_dir(int(npc.res_dir))
 		var k := 1.0 - exp(-delta / TURN_TAU)
 		_yaw = wrapf(_yaw + KScene3DMath.yaw_delta(_yaw, want) * k, -180.0, 180.0)
 		rotation.y = deg_to_rad(_yaw)
-	var target := bool(npc.get("is_target"))
+	var target := _flag(npc, "is_target")
 	if target and _ring == null:
 		_make_ring()
 	if _ring != null:
-		_ring.visible = target and not bool(npc.call("is_dead"))
+		_ring.visible = target and not (npc.has_method("is_dead") and bool(npc.call("is_dead")))
 		_ring.global_position = global_position + Vector3(0, 0.03, 0)
 
 

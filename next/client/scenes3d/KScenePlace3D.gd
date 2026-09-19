@@ -11,6 +11,7 @@ const SH_LM2 := preload("res://scenes3d/scn3d_lm_2side.gdshader")
 const SH_TER := preload("res://scenes3d/scn3d_terrain.gdshader")
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 const TERRAIN_LAYER := 1
+const Ground25DScript := preload("res://scenes3d/KGround25D.gd")
 
 var map_id := 0
 var info := {}            # map3d.json
@@ -26,6 +27,8 @@ var _map_root: Node = null
 var _env: WorldEnvironment = null
 var _sun: DirectionalLight3D = null
 var _ground_plane: StaticBody3D = null   # the flat ground of a map without a bundle
+var mode := ""            # "3d" (a map3d bundle), "2.5d" (the 2D bundle as boards and ground pictures), "flat" (nothing)
+var ground25: Node3D = null   # KGround25D in 2.5D mode
 
 
 # Loads the bundle of a map; false when there is none (the caller falls back to a flat ground).
@@ -35,7 +38,15 @@ func load_map(id: int) -> bool:
 	var t0 := Time.get_ticks_msec()
 	var m3 = Assets.map3d_info(id)
 	if not (m3 is Dictionary):
+		# no 3D bundle: the 2D bundle as the 2.5D world (M3D-4), or a flat floor when there is none either
+		if Assets.has_map(id):
+			var m2 = Assets.map_info(id)
+			if m2 is Dictionary:
+				_setup_25d(id, m2)
+				stats["load_ms"] = Time.get_ticks_msec() - t0
+				return true
 		_make_flat_ground()
+		mode = "flat"
 		return false
 	info = m3
 	var base := "%s/maps/%d" % [Assets.assets3d_root(), id]
@@ -64,6 +75,7 @@ func load_map(id: int) -> bool:
 	_map_root.name = "Map"
 	add_child(_map_root)
 	_post_process(_map_root)
+	mode = "3d"
 	stats["load_ms"] = Time.get_ticks_msec() - t0
 	Log.info("map3d", "map loaded", {"map": id, "nodes": stats["nodes"], "lightmapped": stats["lm_surfaces"], "terrain": stats["terrain"],
 		"load_ms": stats["load_ms"], "origin": str(origin)})
@@ -77,6 +89,8 @@ func clear() -> void:
 	_env = null
 	_sun = null
 	_ground_plane = null
+	ground25 = null
+	mode = ""
 	_shader_mats.clear()
 	_tex_cache.clear()
 	info = {}
@@ -86,6 +100,42 @@ func clear() -> void:
 
 func map_name() -> String:
 	return str(info.get("name", ""))
+
+
+func region_count() -> int:
+	return ground25.region_count() if ground25 != null else 0
+
+
+func anim_count() -> int:
+	return ground25.anim_count() if ground25 != null else 0
+
+
+# per frame: the 2.5D ground streams around the character
+func update(focus_scene: Vector2, delta: float) -> void:
+	if ground25 != null:
+		ground25.update(focus_scene, delta)
+
+
+# The 2D map bundle in 3D (KGround25D): a flat collision floor for the rays, a sky-lit environment, the regions stream
+# around the character.  The scene origin is the bundle's own (0, 0); the ground is y = 0.
+func _setup_25d(id: int, m2: Dictionary) -> void:
+	info = {"id": id, "name": str(m2.get("name", "")), "camera": {"mode": "classic"}, "origin": [0, 0], "scale": 1.0, "ground_y": 0.0}
+	scene = {}
+	origin = Vector3.ZERO
+	unit_scale = 1.0
+	ground_y = 0.0
+	_make_flat_ground()
+	if _ground_plane != null:
+		for c in _ground_plane.get_children():
+			if c is MeshInstance3D:
+				c.visible = false   # the pictures are the floor; the box stays for the rays
+	ground25 = Node3D.new()
+	ground25.set_script(Ground25DScript)
+	ground25.name = "Ground25D"
+	add_child(ground25)
+	ground25.setup(id, m2)
+	mode = "2.5d"
+	Log.info("map3d", "2.5D map", {"map": id, "name": info["name"], "regions": m2.get("regions", []).size()})
 
 
 func camera_table() -> Dictionary:

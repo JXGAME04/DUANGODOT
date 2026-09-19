@@ -20,6 +20,14 @@ var target_height := 1.4       # metres over the character's feet the camera loo
 var rotate_speed := 0.25       # degrees per pixel
 var zoom_metres := 1.0         # per wheel step
 var follow: Node3D = null      # the node the camera orbits (the character's 3D view)
+# the classic mode of a 2.5D map: the 2.0 view - orthographic, raised 30 degrees (sy = y/2 - z*887/1024 [2.0]); the size
+# 14.4 m tall keeps 1 scene unit = 1 screen pixel at 1280 x 720 (720 px of screen = 1440 units of depth = 28.8 m x sin 30)
+var classic := false
+const CLASSIC_SIZE := 14.4
+const CLASSIC_YAW := 25.0       # the boards of a 2.5D map look like boards past this turn [tự chọn]
+var yaw_min := -360.0            # a limited turn (classic mode); a full circle when min <= -360
+var yaw_max := 360.0
+var ortho_size := CLASSIC_SIZE
 var focus := Vector3.ZERO      # where it looks when there is no follow node
 
 var arm: SpringArm3D
@@ -30,6 +38,27 @@ var _dragged := false
 
 
 func setup(p: Dictionary, fov: float = 40.0) -> void:
+	classic = str(p.get("mode", "")) == "classic"
+	if classic:
+		dist = 30.0
+		dist_min = 30.0
+		dist_max = 30.0
+		pitch = 30.0
+		pitch_min = 30.0
+		pitch_max = 30.0
+		yaw = float(p.get("yaw", 0.0))
+		yaw_min = -CLASSIC_YAW
+		yaw_max = CLASSIC_YAW
+		ortho_size = CLASSIC_SIZE
+		if cam:
+			cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+			cam.size = ortho_size
+			cam.keep_aspect = Camera3D.KEEP_HEIGHT
+		return
+	if cam:
+		cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+	yaw_min = -360.0
+	yaw_max = 360.0
 	dist = float(p.get("dist", dist))
 	dist_min = float(p.get("dist_min", dist_min))
 	dist_max = float(p.get("dist_max", dist_max))
@@ -79,6 +108,11 @@ func _process(_delta: float) -> void:
 
 
 func zoom_step(steps: int) -> void:
+	if classic:
+		ortho_size = clampf(ortho_size / pow(1.15, float(steps)), CLASSIC_SIZE * 0.5, CLASSIC_SIZE * 2.0)
+		if cam:
+			cam.size = ortho_size
+		return
 	dist = clampf(dist - float(steps) * zoom_metres, dist_min, dist_max)
 
 
@@ -103,9 +137,13 @@ func _unhandled_input(ev: InputEvent) -> void:
 			return
 		_dragged = true
 		yaw = fmod(yaw - mm.relative.x * rotate_speed, 360.0)
+		if yaw_min > -360.0:
+			yaw = clampf(wrapf(yaw, -180.0, 180.0), yaw_min, yaw_max)
 		pitch = clampf(pitch + mm.relative.y * rotate_speed, pitch_min, pitch_max)
 		get_viewport().set_input_as_handled()
 
 
 func state_text() -> String:
+	if classic:
+		return "classic yaw %.0f size %.1f at %s" % [yaw, ortho_size, str(global_position.snapped(Vector3(0.1, 0.1, 0.1)))]
 	return "yaw %.0f pitch %.0f dist %.1f at %s" % [yaw, pitch, dist, str(global_position.snapped(Vector3(0.1, 0.1, 0.1)))]

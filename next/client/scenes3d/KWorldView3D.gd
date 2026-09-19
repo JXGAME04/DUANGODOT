@@ -14,6 +14,8 @@ const PlaceScript := preload("res://scenes3d/KScenePlace3D.gd")
 const CameraScript := preload("res://scenes3d/KCamera3D.gd")
 const NpcViewScript := preload("res://scenes3d/KNpc3DView.gd")
 const MissleViewScript := preload("res://scenes3d/KMissle3DView.gd")
+const MissleEffectScript := preload("res://scenes/KMissleEffect.gd")
+const MirrorScript := preload("res://scenes3d/KSpriteMirror3D.gd")
 const ModelScript := preload("res://scenes3d/Scn3DNpc.gd")
 const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const ENTITY_PLAYER := 1
@@ -49,6 +51,7 @@ var _weapons := {}             # weapon/weapons.json: id -> {file, hangs, animgr
 var _weapon_dir := ""
 var _own_weapon := ""          # weapons.json id on the character now ("" = bare hands)
 var _trail: Node = null        # Scn3DTrail of the character's weapon
+var _last_dir_offset := -1
 
 
 func is_3d() -> bool:
@@ -129,6 +132,14 @@ func map_name() -> String:
 	return place.map_name()
 
 
+func region_count() -> int:
+	return place.region_count()
+
+
+func anim_count() -> int:
+	return place.anim_count()
+
+
 func sounds():
 	return _sounds
 
@@ -137,14 +148,19 @@ func sounds():
 
 func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	var node: Node2D = existing
+	var sprites: bool = place.mode == "2.5d"   # the 2D map's world: the entities keep their 2.0 sprites (mirrored boards)
 	if node == null:
 		node = Node2D.new()
 		node.set_script(ObjScript if int(d.get("type", 0)) == ENTITY_DROP else NpcScript)
-		node.no_2d = true
+		node.no_2d = not sprites
 		if int(d.get("type", 0)) != ENTITY_DROP:
-			node.sounds = _sounds   # the action sounds (KNpcRes::PlaySound) - silent until the 3D view knows the sound table
+			node.sounds = _sounds   # the action sounds (KNpcRes::PlaySound)
 		_states.add_child(node)
 	node.setup(d, own)
+	if sprites:
+		node.visible = false   # painted by KNpcRes on the invisible canvas, shown through KSpriteMirror3D
+		if node.get("view_dir_offset") != null:
+			node.view_dir_offset = _view_dir_offset()
 	if own:
 		_own = node
 	var old = _views.get(node)
@@ -181,7 +197,7 @@ func _model_for(node: Node) -> Array:
 		cha = int(_models.get("player", {}).get(str(int(node.get("sex"))), 0))
 	elif t != ENTITY_DROP:
 		cha = int(_models.get("templates", {}).get(str(int(node.get("template_id"))), 0))
-	if cha == 0:
+	if cha == 0 or place.mode != "3d":
 		return [null, {}]
 	var mi = _npc_models.get(str(cha))
 	if not (mi is Dictionary):
@@ -244,10 +260,12 @@ func _refresh_own_weapon() -> void:
 
 func add_missle(d: Dictionary, row: Dictionary) -> Node:
 	var node = MissleScript.new()
-	node.no_2d = true
+	node.no_2d = place.mode != "2.5d"
 	node.sounds = _sounds
 	_states.add_child(node)
 	node.setup(d, row)
+	if place.mode == "2.5d":
+		node.visible = false
 	var view := Node3D.new()
 	view.set_script(MissleViewScript)
 	_views_root.add_child(view)
@@ -255,7 +273,24 @@ func add_missle(d: Dictionary, row: Dictionary) -> Node:
 	return node
 
 
-func add_missle_effect(_anim: Dictionary, _dir64: int, scene_pos: Vector2, z: int) -> void:
+func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int) -> void:
+	if place.mode == "2.5d":
+		# the 2.0 collision movie itself (KMissleEffect on the invisible canvas), mirrored onto a board
+		var fx = MissleEffectScript.new()
+		_states.add_child(fx)
+		fx.setup(anim, dir64, scene_pos, z)
+		fx.visible = false
+		var v := Node3D.new()
+		_views_root.add_child(v)
+		var w2: Vector3 = place.to_world(scene_pos)
+		w2.y = place.ground_height(w2.x, w2.z) + KScene3DMath.px_height_to_m(float(z))
+		v.global_position = w2
+		var m := Node3D.new()
+		m.set_script(MirrorScript)
+		v.add_child(m)
+		m.bind(fx)
+		fx.tree_exited.connect(v.queue_free)
+		return
 	var w: Vector3 = place.to_world(scene_pos)
 	w.y = place.ground_height(w.x, w.z) + 0.9 + KScene3DMath.px_height_to_m(float(z))
 	var burst: CPUParticles3D = MissleViewScript._make_burst(Color(1.0, 0.85, 0.4))
@@ -362,8 +397,22 @@ func _on_right_click(screen: Vector2) -> void:
 
 # ---- per frame --------------------------------------------------------------------------------------
 
+# a 2.5D sprite's painted facing is relative to the camera: dir 0 (down the 2.0 screen) faces the camera
+func _view_dir_offset() -> int:
+	return 32 - KScene3DMath.dir_of_yaw(cam_rig.yaw)
+
+
 func update(delta: float) -> void:
 	_names.queue_redraw()
+	if place.mode == "2.5d":
+		var focus: Vector2 = _own.scene_pos if _own != null and is_instance_valid(_own) else place.to_scene(cam_rig.global_position)
+		place.update(focus, delta)
+		var off := _view_dir_offset()
+		if off != _last_dir_offset:
+			_last_dir_offset = off
+			for node in _views.keys():
+				if is_instance_valid(node) and node.get("view_dir_offset") != null:
+					node.view_dir_offset = off
 	if _trail != null and _own != null and is_instance_valid(_own):
 		var view = _views.get(_own)
 		_trail.active = view != null and view.model != null and view.model.busy and str(view.model.current).begins_with("gj")
@@ -407,7 +456,7 @@ func _draw_names() -> void:
 			continue
 		var sp := cam.unproject_position(top)
 		var etype := int(node.get("entity_type"))
-		var focus: bool = bool(node.get("hovered")) or bool(node.get("is_target"))
+		var focus: bool = NpcViewScript._flag(node, "hovered") or NpcViewScript._flag(node, "is_target")
 		var life := int(node.get("life")) if node.get("life") != null else 0
 		var life_max := int(node.get("life_max")) if node.get("life_max") != null else 0
 		var dead: bool = bool(node.call("is_dead")) if node.has_method("is_dead") else false

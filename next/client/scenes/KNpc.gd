@@ -72,6 +72,7 @@ var _life_label: Label             # the "%d/%d" line over the name line of a mo
 var no_2d := false                 # a 3D view draws it (KWorldView3D): no sprites, no label, nothing on the canvas
 var _snd_res: Dictionary = {}      # no_2d: the npcres row, only for the action sounds (KNpcRes::GetSoundName without the pictures)
 var _snd_name := ""                # no_2d: m_szSoundName of the current doing
+var view_dir_offset := 0           # a 2.5D view adds the camera's turn to the painted facing (the sprite seen from the camera)
 
 signal doing_changed(doing: int, total_frame: int)   # the doing (and its frame count) was set, for a 3D view
 
@@ -424,7 +425,7 @@ func _tick() -> void:
 			off += 64
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
-		_res.paint(res_dir, total_frame, cur_frame, _head_effect_z())
+		_res.paint(posmod(res_dir + view_dir_offset, 64), total_frame, cur_frame, _head_effect_z())
 	_play_action_sound()
 
 
