@@ -377,7 +377,10 @@ LightRadius` (ánh sáng), `MissleHeight` khi bay (z chỉ lấy lúc sinh), gia
 `0x080760E0`): mỗi khung `height += height_speed`, `< 0 → 0`, `map_z = height >> 10`, `height_speed −= z_acceleration`; đạn dạng 7 (parabol) sinh với
 `height_speed = (khung − 1)·Zacc/2` (`0x080EC263`). Zone gửi thêm `height, height_speed, z_acceleration` trong `MissleSync`; client `KMissle.gd` chạy cùng luật giữa hai
 gói (`KMissleResMath.z_step`, test `test_missle_math`) và, khi `Zacc ≠ 0`, quay mặt theo vector (`KMath.get_dir_index(0, 0, x_factor, y_factor)`, luật 2.0 `64 − k`).
-Chưa: chia bước vẽ trong một khung logic (`nStep`) — client vẽ 18 fps theo khung logic.
+**Bước con trong khung (đã đọc 2026-09-18, không cần port)**: bản 2.0 **không** còn `OnFlyFPS` theo khung vẽ (mã JX1 2004 gọi từ `GOI_PROCFRAME_POSSHIFT`,
+`CoreShell.cpp` 6227 — bốn nơi gọi `0x006B2F00` đều nằm trong `KMissle::Activate` khung logic). Với đạn `MoveKind 1` (thẳng): `n = speed / [0x81f878]` (= **10**
+đơn vị, `0x006B3549`) lần `OnFly(10, kiểm va chạm) 0x006B2F00` rồi `OnFly(speed % 10)` (`0x006B360D`) — chia bước chỉ để **kiểm va chạm phía client** (zone đã kiểm),
+`KMissle::Paint 0x006B24E0` vẽ đúng ô hiện tại, không nội suy → đạn 2.0 cũng đổi chỗ 18 lần/giây. Client mới đi một bước mỗi tick 18 Hz: cùng vị trí, cùng nhịp.
 
 ## 12. Đánh lùi trên client — gói `0x56` (`SendSyncAction`) → `KNpc::KnockBack` `0x005EE950` / `OnKnockBack` `0x005EFE00` (M12 lát B4c-4, đã đọc từng dòng)
 
