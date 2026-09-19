@@ -17,6 +17,7 @@ extern "C" {
 #include "jx/log.hpp"
 #include "jx/zone/KItem.h"
 #include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerEvent.h"
 #include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
@@ -1692,6 +1693,149 @@ int l_SelectTaskStart(lua_State* L) { return task_select(L, "SelectTaskStart", "
 int l_SelectTaskFinish(lua_State* L) { return task_select(L, "SelectTaskFinish", "OnMenuTaskFinish"); }
 int l_SelectTaskAward(lua_State* L) { return task_select(L, "SelectTaskAward", "OnMenuTaskAward"); }
 
+// ---- the player events and the npc helpers of the task scripts (KPlayerEvent.h, docs/LINUX-SERVER.md §23) ----
+
+// the entity behind a "npc index" argument (the old index was a small number; the zone's ids are 64-bit)
+EntityId entity_arg(lua_State* L, int idx)
+{
+    const lua_Number n = lua_tonumber(L, idx);
+    if (!(n >= 0.0 && n < 18446744073709551616.0)) return EntityId{};
+    return EntityId{static_cast<std::uint64_t>(n)};
+}
+
+// AddPlayerEvent(id) (0x0810C510): the event on the player's list (0x081560C0) -> 1; 0 when the list is full or no player
+int l_AddPlayerEvent(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    KNpc* p = player_of(L, "AddPlayerEvent");
+    const bool ok = p != nullptr && g_ScriptContext().world->player_event_add(*p, task_int(L, 1) & 0xffff);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// RemovePlayerEvent(id) (0x0810C440): the event off the list (0x08156050) -> 1; 0 when it was not there or no player
+int l_RemovePlayerEvent(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    KNpc* p = player_of(L, "RemovePlayerEvent");
+    const bool ok = p != nullptr && g_ScriptContext().world->player_event_remove(*p, task_int(L, 1) & 0xffff);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// RemoveAllPlayerEvent() (0x0810C3E0): the list cleared (0x08155F60) -> 1
+int l_RemoveAllPlayerEvent(lua_State* L)
+{
+    KNpc* p = player_of(L, "RemoveAllPlayerEvent");
+    if (p == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    p->player.events.clear();
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+// GetNpcName(index) (0x08100040): the name of the npc (+0x1505), nil when the index names none.  (The zone's names are
+// UTF-8: a script comparing them with the TCVN3 bytes of a table sees no match yet)
+int l_GetNpcName(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    const KNpc* n = c.world == nullptr ? nullptr : c.world->find_entity(entity_arg(L, 1));
+    if (n == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushlstring(L, n->name.data(), n->name.size());
+    return 1;
+}
+
+// GetNpcPos(index) (0x081293F0): x, y of the npc (cells, like GetPos) and its subworld index; one argument; a
+// npc the index does not name gives a single 0
+int l_GetNpcPos(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    const KNpc* n = lua_gettop(L) == 1 && c.world != nullptr ? c.world->find_entity(entity_arg(L, 1)) : nullptr;
+    if (n == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const Pos a = c.world->to_absolute(n->pos());
+    lua_pushinteger(L, a.x / 32);
+    lua_pushinteger(L, a.y / 32);
+    lua_pushinteger(L, 0);
+    return 3;
+}
+
+// NpcName2Replace(name) (0x081006D0): the name through the replacement table 0x080A0420 (the Taiwanese names of the
+// old data); the zone has no such table - the name comes back as it is
+int l_NpcName2Replace(lua_State* L)
+{
+    if (lua_type(L, 1) != LUA_TSTRING) return 0;
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
+// NpcDialog() (0x081744B0): the npc the player talked to last (Player+0xc) runs its script's main for the player again
+int l_NpcDialog(lua_State* L)
+{
+    KNpc* p = player_of(L, "NpcDialog");
+    if (p == nullptr) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    const KNpc* npc = w->find_entity(p->player.dialog.npc);
+    if (npc != nullptr && !npc->script.empty()) w->execute_script(npc->script, "main", *p, 0);
+    return 0;
+}
+
+// GetLastDiagNpc() (0x0810C5E0): the index of the npc the player talked to last (Player+0xc), 0 when none or gone
+int l_GetLastDiagNpc(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetLastDiagNpc");
+    if (p == nullptr) return 0;
+    const KNpc* npc = g_ScriptContext().world->find_entity(p->player.dialog.npc);
+    lua_pushinteger(L, npc == nullptr ? 0 : static_cast<lua_Integer>(p->player.dialog.npc.value));   // an integer: tostring gives "0" like the old Lua
+    return 1;
+}
+
+// GetNpcSettingIdx(index) (0x080FDE50): the template id of the npc (+0x1530); 0 when the index names none
+int l_GetNpcSettingIdx(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    const KNpc* n = lua_gettop(L) == 1 && c.world != nullptr ? c.world->find_entity(entity_arg(L, 1)) : nullptr;
+    lua_pushinteger(L, n == nullptr ? 0 : static_cast<lua_Integer>(n->template_id));
+    return 1;
+}
+
+// GetLevel() (0x081111E0): the level of the player's npc (+0x20)
+int l_GetLevel(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetLevel");
+    if (p == nullptr) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->level));
+    return 1;
+}
+
+// GetName() (0x08111E70): the player's name; nil without a player
+int l_GetName(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetName");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushlstring(L, p->name.data(), p->name.size());
+    return 1;
+}
+
+// GetSex() (0x08112020): the sex of the player's npc (+0x152c)
+int l_GetSex(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetSex");
+    if (p == nullptr) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->sex));
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -1738,6 +1882,10 @@ const luaL_Reg kGameScriptFuns[] = {
     {"TaskEventMatrix", l_TaskEventMatrix}, {"GetTaskEventID", l_GetTaskEventID}, {"GetEventTaskCount", l_GetEventTaskCount},
     {"GetEventTask", l_GetEventTask},     {"SubWorldName", l_SubWorldName},   {"SelectTaskStart", l_SelectTaskStart},
     {"SelectTaskFinish", l_SelectTaskFinish}, {"SelectTaskAward", l_SelectTaskAward},
+    {"AddPlayerEvent", l_AddPlayerEvent}, {"RemovePlayerEvent", l_RemovePlayerEvent}, {"RemoveAllPlayerEvent", l_RemoveAllPlayerEvent},
+    {"GetNpcName", l_GetNpcName},         {"GetNpcPos", l_GetNpcPos},         {"NpcName2Replace", l_NpcName2Replace},
+    {"NpcDialog", l_NpcDialog},           {"GetLastDiagNpc", l_GetLastDiagNpc}, {"GetNpcSettingIdx", l_GetNpcSettingIdx},
+    {"GetLevel", l_GetLevel},             {"GetName", l_GetName},             {"GetSex", l_GetSex},
     {nullptr, nullptr},
 };
 

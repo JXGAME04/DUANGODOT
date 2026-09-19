@@ -87,6 +87,13 @@ message RoleTaskValue {
   int32 value = 2;            // never 0 (a 0 erases the entry)
 }
 
+// One event a script registered on the character (KPlayerEvent, Player+0x8064 of jx_linux_y: {word id, word count};
+// the extra block of TRoleData keeps them, 0x080BEB60): AddPlayerEvent, counted by the kills of event_killnpc.txt
+message RolePlayerEvent {
+  uint32 id = 1;
+  uint32 count = 2;           // the kills so far
+}
+
 message RoleData {
   uint64 player_id = 1;
   uint64 account_id = 2;
@@ -136,4 +143,5 @@ message RoleData {
   uint64 lead_exp = 30;
   uint32 lead_level = 31;
   repeated RoleTaskValue task_values = 32;   // the task values the scripts keep (GetTask / SetTask; docs/LINUX-SERVER.md §21)
+  repeated RolePlayerEvent events = 33;      // the kill events registered on the character (AddPlayerEvent; docs/LINUX-SERVER.md §23)
 }

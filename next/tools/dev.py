@@ -511,6 +511,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the task system tables (settings/task: task_id.txt, task_type.txt + the tables of every kind, task_event.txt)
     if subprocess.call([*jxassets_args(), "export-task-tables", "-out", out], cwd=ROOT) != 0:
         print("export-task-tables: no settings/task/task_id.txt in the reference server folder - the TASKSYS library of the scripts answers nothing")
+    # the kill events (settings/npc/player/event_killnpc.txt): what a kill counts for the events a script registered
+    if subprocess.call([*jxassets_args(), "export-kill-events", "-out", out], cwd=ROOT) != 0:
+        print("export-kill-events: no settings/npc/player/event_killnpc.txt in the reference server folder - a kill counts nothing")
     # the revive / reference points of every map (settings/revivepos.ini): where a new character is
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:

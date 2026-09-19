@@ -1251,6 +1251,35 @@ func main() {
 		}
 		fmt.Printf("export-task-tables: he nhiem vu %s (%d nhiem vu, %d loai, %d su kien) -> %s\n", source, len(table.Tasks), len(table.Types), len(table.Events), p)
 
+	case "export-kill-events":
+		// \settings\npc\player\event_killnpc.txt of the old server the way 0x08156760 of jx_linux_y reads it -> <out>/kill_events.json
+		// for the zone's KKillEventTable (docs/LINUX-SERVER.md §23): what a kill counts for the events a script registered
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/npc/player/event_killnpc.txt", "Settings/npc/player/event_killnpc.txt", "Settings/Npc/Player/event_killnpc.txt")
+		if err != nil {
+			fail("no settings/npc/player/event_killnpc.txt under %s: %v", sdir, err)
+		}
+		table := player.ParseKillEvents(data)
+		table.Source = file
+		p := filepath.Join(out, "kill_events.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-kill-events: su kien giet quai %s (%d dong) -> %s\n", file, len(table.Rows), p)
+
 	case "export-faction":
 		// \settings\faction\门派设定.ini of the old server: the eleven factions the way
 		// KFactionSet::Init 0x08060C70 of jx_linux_y reads them (Name / ShowName / Series / Camp per

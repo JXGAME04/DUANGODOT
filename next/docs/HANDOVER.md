@@ -386,6 +386,17 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   (2200 = 1 nhóm, 2201 = id 101, 2000 = bit thấp thứ tự 1) + `AUTO_DIALOG npc=4294967977 name=Bành Tiểu đệ distance=115 ui=0 text_len=81 options=0 window=true answered=true`. **Chưa** (D4): `NpcDialog`,
   sự kiện giết quái (`RemovePlayerEvent/OnEventKillNpc`), `GetNpcName/GetNpcPos/NpcName2Replace`, tên subworld, `AddNote`, gói 0xa4, `0xb41`. **Chạy lại
   `python tools/dev.py assets`** (`export-task-tables`).
+- **M13 lát D4 (xong 2026-09-19)**: **sự kiện giết quái + hàm npc/người chơi** (`LINUX-SERVER.md` §23): `KPlayerEvent` `Player+0x8064` (vector `{word id,
+  word đếm}` ≤ 64, `0x081560C0/0x08156050/0x08155F60`, nạp từ khối phụ `TRoleData` `0x080BEB60`), bảng `settings/npc/player/event_killnpc.txt` (`0x08156760`,
+  428 dòng: script/hàm/ô giá trị/một lần/tổng/bản đồ/mẫu/sức mạnh/cấp), bắn ở cuối khung chết `0x08083720` (kẻ đánh cuối `+0x1598` → người chơi `+0x1908`;
+  `0x08155F80` duyệt theo thứ tự, `0x08156330` lọc −1/bằng, đếm, đủ tổng → `0x080AD300(script, hàm, "dddddddd", chỉ số, ô, id, bản đồ, mẫu, đếm, sức mạnh,
+  cấp)`, một lần → xoá, không → đếm 0; ô giá trị ← đếm + gói 0xa7; chỉ sự kiện khớp đầu tiên); Lua `AddPlayerEvent/RemovePlayerEvent/RemoveAllPlayerEvent`,
+  `GetNpcName/GetNpcPos/NpcName2Replace/NpcDialog/GetLastDiagNpc/GetNpcSettingIdx/GetLevel/GetName/GetSex`. Zone: `KPlayerEvent.h/.cpp`, `KSubWorldEvent.cpp`
+  (`fire_kill_events` trong `do_revive`, `execute_script_args`), 12 hàm Lua, `RoleData.events`; Go `export-kill-events` → `kill_events.json` (420 dòng);
+  test `[event]` 5 ca 225 khẳng định (283 tổng, có ca giết thật qua `receive_damage` → khung chết → đếm), Go `TestParseKillEvents`; e2e không đổi (`AUTO_FIGHT`
+  dead=true, `AUTO_TASK`, `AUTO_DIALOG`), zone log `kill events loaded rows=420`. **Chưa**: `TabFile_Load…` (`class/ktabfile.lua` — `task/random/task_head.lua`
+  và `tong_setting.lua` lỗi khi Include), `Describe/TaskTip/WriteLog/GetAccount`, hàm vật phẩm/chuỗi/PARTNER, `AddNote`, tên subworld thật, tên npc byte thô
+  cho `OnTaskNpcTalk`. **Chạy lại `python tools/dev.py assets`** (`export-kill-events`).
 - **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
   `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
   `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
@@ -503,7 +514,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
-| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) ~~M13 D3 — hệ nhiệm vụ TASKSYS (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/TaskXxx`)~~ (xong 2026-09-19, §22 `LINUX-SERVER.md`) | còn **M13 D4**: `NpcDialog 0x081744B0`, sự kiện giết quái (`RemovePlayerEvent 0x0810C440`, `OnEventKillNpc`), `GetNpcName 0x08100040/GetNpcPos 0x081293F0/NpcName2Replace 0x081006D0`, tên subworld cho `SubWorldName`, `AddNote 0x08124DC0` (gói 0x63 ui 3), gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
+| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) ~~M13 D3 — hệ nhiệm vụ TASKSYS (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/TaskXxx`)~~ (xong 2026-09-19, §22 `LINUX-SERVER.md`) ~~M13 D4 — sự kiện giết quái + hàm npc/người chơi~~ (xong 2026-09-19, §23 `LINUX-SERVER.md`) | còn **M13 D5**: thư viện `TabFile_*` cho `class/ktabfile.lua` (luamap), `Describe 0x081242A0`, `TaskTip 0x08122730`, `WriteLog 0x081237D0`, `GetAccount 0x0810F6A0`, hàm vật phẩm/chuỗi/PARTNER mà `task_main.lua` cần, `AddNote 0x08124DC0` (gói 0x63 ui 3 + UI client), tên subworld/tên npc byte thô, gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
@@ -826,6 +837,23 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 55) — M13 lát D4: sự kiện giết quái (KPlayerEvent Player+0x8064, event_killnpc.txt 0x08156760, bắn 0x08083720 → 0x08155F80 → 0x08156330) + GetNpcName/GetNpcPos/NpcName2Replace/NpcDialog/GetLastDiagNpc/GetNpcSettingIdx/GetLevel/GetName/GetSex
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §23): `KPlayerEvent` (`0x081560C0` thêm ≤ 64/trùng = 1, `0x08156050` xoá memmove, `0x08155F60` xoá hết), bộ nạp
+  `0x08156760` (chuỗi `0x0825EED8`, cột 1..11, ô > 0x176f bỏ), định nghĩa `0x8bb2b54` (`+0x14/+0x18/+0x1c/+0x20` lọc, `+0x2c/+0x30` script/hàm, `+0x34` ô, `+0x38` một lần,
+  `+0x3c` tổng, `+0x40` log), khối phụ role `0x080BEB60` (thẻ 0x21 byte, cặp `{đếm, id}`), cuối khung chết `0x08083720` (`+0x1598 → +0x1908`, `+0x1538`, `0x08079750`
+  sức mạnh), `0x08155F80` (duyệt, dừng ở sự kiện khớp đầu), `0x08156330` (lọc, đếm, `0x080AD300 "dddddddd"` thứ tự chỉ số/ô/id/bản đồ/mẫu/đếm/sức mạnh/cấp, xoá
+  hoặc đếm 0, `0x080A93D0` + `0x080A8CC0`), Lua 12 hàm; hàm chữ ký `killwolfone(nPlayerIdx, nTaskID)` trong `branch_killtimer.lua`.
+- **Zone**: `KPlayerEvent.h/.cpp`, `KSubWorldEvent.cpp` (`fire_kill_events` gọi trong `do_revive` trước `recover_gold`; `player_event_add/remove`; `npc_power`;
+  `load/save_player_events`), `KSubWorld::execute_script_args`, `ScriptFuns.cpp` +12, `KPlayer::events`, `KSubWorldConfig.kill_events`, `main.cpp`
+  `zone.kill_events_file`, proto `RolePlayerEvent` / `RoleData.events = 33`, `log.vi.json` (+6 câu, +2 trường). **Go**: `KPlayerEvent.go` (`ParseKillEvents` + test),
+  `jxassets export-kill-events`, `dev.py assets`. Test `[event]` 5 ca 225 khẳng định (ctest 283/283 Release + Debug), Go, Godot 494, các check sạch.
+- **Đo được**: e2e `AUTO_FIGHT target=… dead=true`, `AUTO_DIALOG distance=115 … answered=true`, `AUTO_TASK … task_count=1 task_id=101 status_value=268435456`;
+  zone log `kill events loaded rows=420`. Bảng thật không có dòng khớp map 174 (mẫu 43) với quái cạnh điểm sinh (mẫu 436..438) → đường giết quái
+  chứng minh bằng test C++ (`receive_damage` → khung chết → đếm + gói 0xa7).
+- Còn lỗi log khi Include từ `task_main.lua`: `TabFile_Load` nil (`class/ktabfile.lua`) — thư viện TabFile Lua là lát D5.
+- commit: `JX NEXT: M13 lat D4 - su kien giet quai …` (xem git log).
 
 ### 2026-09-19 (phiên tiếp theo, phần 54) — M13 lát D3: hệ nhiệm vụ TASKSYS (bộ quản lý 0x9786620, bảng task_id/task_type/task_event + condition/entity/award/talk, trạng thái 2 bit 0x0820E800/0x0820E720, giá trị tạm 0x0820DF90/0x0820E250, 30 hàm Lua 0x08174230..0x08175B40)
 

@@ -37,6 +37,7 @@
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KPlayerChat.h"
+#include "jx/zone/KPlayerEvent.h"
 #include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KTaskManager.h"
 #include "jx/zone/KPlayerTeam.h"
@@ -132,6 +133,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KChatCostTable> chat_cost;          // chatcost.ini (KPlayerChat.h; jxassets export-chat-cost); null = every channel free
     std::shared_ptr<const KTaskDefTable> task_def;            // settings/task/player_task_def.txt (KPlayerTask.h; jxassets export-task-def): which task values the client is told; null = none
     std::shared_ptr<const KTaskManager> tasks;                // settings/task (KTaskManager.h; jxassets export-task-tables): the TASKSYS library of the scripts; null = the library answers nothing
+    std::shared_ptr<const KKillEventTable> kill_events;      // settings/npc/player/event_killnpc.txt (KPlayerEvent.h; jxassets export-kill-events): what a kill counts; null = nothing
     std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
@@ -323,6 +325,8 @@ public:
     void msg_to_player(std::uint64_t sid, std::string_view text);
     // KPlayer::ExecuteScript: runs fn(param) of the script (a game path) for the player.
     bool execute_script(const std::string& game_path, const char* fn, KNpc& player, int param = 0);
+    // the same with any arguments (CallFunction(fn, 0, "dddddddd", ...) of 0x080AD300)
+    bool execute_script_args(const std::string& game_path, const char* fn, KNpc& player, const std::vector<KLuaScript::Arg>& args);
 
     void tick();
     [[nodiscard]] std::uint64_t tick_count() const noexcept { return tick_; }
@@ -600,6 +604,12 @@ public:
     const char* task_first(KNpc& e);                                                            // FirstTask 0x08174E30
     const char* task_next(KNpc& e);                                                             // NextTask 0x08174D40
     bool task_select(KNpc& e, const char* fn, int task_id);                                     // SelectTaskStart / Finish / Award
+    // the kill events (docs §23, KSubWorldEvent.cpp): AddPlayerEvent 0x081560C0 / RemovePlayerEvent 0x08156050 on the player,
+    // the walk of the killer's events at the end of a npc's death frames (0x08083720 -> 0x08155F80 -> 0x08156330)
+    bool player_event_add(KNpc& e, int id);
+    bool player_event_remove(KNpc& e, int id);
+    void fire_kill_events(const KNpc& dead);
+    [[nodiscard]] int npc_power(const KNpc& e) const noexcept;   // 0x08079750: 0 player, 1 npc, 2 gold, 3 boss
     [[nodiscard]] bool trading(const KNpc& e) const noexcept;   // KPlayer::CheckTrading 0x080A7E90
     void trade_cancel(KNpc& e);                                 // 0x080AE380: both sides, the boxes back, the menu states restored
     void set_menu_state(KNpc& e, int state, std::string_view sentence, EntityId dest);   // KPlayerMenuState::SetState 0x080C29D0
@@ -851,6 +861,8 @@ private:
     void save_skills(const KNpc& e, pb::RoleData& out) const;   // KSkillList 0x080E48D0
     void load_task_values(KNpc& e, const pb::RoleData& role);   // KPlayer::LoadPlayerTaskList 0x080C0050
     void save_task_values(const KNpc& e, pb::RoleData& out) const;   // KPlayer::SavePlayerTaskList 0x080BF1C0 / Serialize 0x080CB6A0
+    void load_player_events(KNpc& e, const pb::RoleData& role);   // the extra block of TRoleData (0x080BEB60)
+    void save_player_events(const KNpc& e, pb::RoleData& out) const;
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);
     void item_moved(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);
