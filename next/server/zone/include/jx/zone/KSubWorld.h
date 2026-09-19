@@ -535,6 +535,17 @@ public:
     // while frozen_action (+0x1479, the mask 0x11e covers 1 and 8); the action runs at 0x08088640: 8 -> KNpc::DoSit 0x0807B550,
     // 1 -> DoStand 0x08080030
     bool sit_request(std::uint64_t sid, bool sit, std::uint32_t seq);
+    // KPlayerPK (Player+0x5a50): SetPKState 0x080C3740, SetPKValue 0x080C38C0, AddPKValue 0x080C3930, the packet 0x76 handler 0x080DBE00
+    bool pk_set_state(KNpc& e, int state, bool force);
+    void pk_set_value(KNpc& e, int value);
+    void pk_add_value(KNpc& e, int add);
+    bool pk_state_request(std::uint64_t sid, int state);
+    void emit_pk(const KNpc& e);   // G2C_ENTITY_PK: the state & 3 of the 0x4a / 0x4b sync for the watchers
+    [[nodiscard]] const KNpc* owner_of(EntityId id) const;       // 0x08078E80: a companion's master, else the npc itself
+    // KNpc::GetPKRelation 0x0807A350 (KNpc::DeathCalcPKValue of 2003): the death mode 0..4 and the PK points the killer's owner gains
+    int death_calc_pk_value(const KNpc& victim, const KNpc* killer_owner, const KNpc* victim_owner, int& points) const;
+    void death_punish_pk(KNpc& e, EntityId killer);              // KNpc::DeathPunish 0x080B9FA0 for a player's kill
+    [[nodiscard]] int exp_percent(const KNpc& e) const noexcept; // 0x080A8120: the exp held, in percent of the level's
     // KNpc::DoSit 0x0807B550: already sitting -> nothing; a run attack (0x12) is ended first; m_Doing = 8, the 0x83 packet
     // {npc id} to the players around and the 0x9f {6, 1} to oneself (0x080796D0), the frame counter 0 / m_SitFrame
     void do_sit(KNpc& e);
@@ -599,7 +610,7 @@ private:
     void jump_attack_frame(KNpc& e);          // 0x08084E00
     void cast_child_skill(KNpc& e, bool style0_only);   // the ChildSkillId at the kept target / spot
     void wear_result(KNpc& e, KItemList& list, int part, std::uint32_t id, int before, int left);   // after KItem::Abrade: the sync / the break
-    void on_death_player(KNpc& e, EntityId killer);   // KNpc::OnDeath 0x08088D50: the experience and the money lost
+    void on_death_player(KNpc& e, EntityId killer, int mode);   // KNpc::OnDeath 0x08088D50 by the death mode: the experience and the money lost
     void player_corpse(KNpc& e);                      // KNpc::Revive 0x080833B0 for a player: the corpse waits, the states off
     void drop_viewer(std::uint64_t sid);                   // the session leaves: nobody is watched by it any more
     static constexpr int kSwapsPerLook = 4;                // how many far players a full client trades for near ones per look

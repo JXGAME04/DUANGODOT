@@ -333,7 +333,16 @@ bool KNpcAttribModify::modify(KNpc& npc, const KMagicAttrib& m, const KNpcAttrib
     case magic_frozen_action: c.frozen_action = v0 == 1; return true;                      // 251
     case magic_forbit_takemedicine: c.forbid_medicine = v0 == 1; return true;              // 252
     case magic_invincibility: c.invincibility = v0 == 1; return true;                      // 253
+    case magic_not_add_pkvalue_p:                                                          // 254 (0x08095BE0): Player+0x86f8 = v0 (> 0)
+        if (npc.kind == KNpcKind::player) npc.player.not_add_pkvalue_p = v0 > 0 ? v0 : 0;
+        return true;
     case magic_add_boss_damage: c.add_boss_damage = v0 > 0 ? v0 : 0; return true;          // 255 (0x08095C30): set, not added
+    case magic_pk_punish_weaken:                                                           // 256 (0x080961D0): Player+0x8700 += v0
+        if (npc.kind == KNpcKind::player) npc.player.pk_punish_weaken += v0;
+        return true;
+    case magic_pk_punish_enhance:                                                          // 257 (0x08096210): Player+0x86fc += v0
+        if (npc.kind == KNpcKind::player) npc.player.pk_punish_enhance += v0;
+        return true;
     case magic_anti_poisontimereduce_p: add_pair(c.anti_poison_time_reduce, v0); return true;   // 258 (0x080969B0)
     case magic_do_hurt_p: add_pair(c.do_hurt, v0); return true;                            // 259 (0x08096970)
     case magic_anti_do_hurt_p: add_pair(c.anti_do_hurt, v0); return true;                  // 260

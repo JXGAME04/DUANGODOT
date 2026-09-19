@@ -551,20 +551,20 @@ TEST_CASE("stamina: running costs the PK state's RunSub every state tick, standi
     CHECK(h->moving);
     CHECK(h->cur.stamina == max - 3 - 2);
     // the kill state (2): - KillRunSub 18 (0x0808BE4D)
-    h->player.pk_state = 2;
+    h->player.pk.state = 2;
     for (int i = 0; i < 20; ++i) w.tick();
     h = w.mutable_entity(hero);
     CHECK(h->cur.stamina == max - 5 - 34);
     // ForbitStamina (Player+0x86b4): no gain, the cost stays (0x0808BD53)
     h->player.forbid_stamina = 1;
-    h->player.pk_state = 1;   // FightRunSub 5
+    h->player.pk.state = 1;   // FightRunSub 5
     for (int i = 0; i < 20; ++i) w.tick();
     h = w.mutable_entity(hero);
     CHECK(h->cur.stamina == max - 39 - 10);
     h->player.forbid_stamina = 0;
     // exhausted: below the run cost the frame walks (0x08080C50 -> 0x0807B430): m_CurrentWalkSpeed 5 a frame, told to the clients
     h->cur.stamina = 3;
-    h->player.pk_state = 0;   // ExerciseRunSub 2: 3 >= 2 still runs
+    h->player.pk.state = 0;   // ExerciseRunSub 2: 3 >= 2 still runs
     w.take_outbox();
     w.tick();
     h = w.mutable_entity(hero);
@@ -672,4 +672,204 @@ TEST_CASE("sit: the 0x71 packet sits the character (m_Doing 8, the 0x83 action),
     CHECK_FALSE(w.sit_request(7, true, 8));
     h->cur.frozen_action = false;
     CHECK(w.sit_request(7, true, 9));
+}
+
+// ---- PK (M12 B3c-4): KPlayerPK state / value, GetPKRelation 0x0807A350, the PK death penalty 0x080B9FA0 ----------------
+
+namespace {
+
+struct PKWorld {
+    jx::zone::KSubWorld w;
+    jx::EntityId a, b;   // two players: a = the killer, b = the victim
+    PKWorld() : w(pk_world())
+    {
+        jx::log::Options o;
+        o.console = false;
+        o.default_level = jx::log::Level::warn;
+        jx::log::init(o);
+        jx::zone::Pos at;
+        jx::pb::RoleData ra = shaolin_role();
+        ra.mutable_position()->set_zone_id(1);
+        ra.mutable_position()->mutable_pos()->set_x(2000);
+        ra.mutable_position()->mutable_pos()->set_y(2000);
+        REQUIRE(w.spawn_player(7, ra, a, at) == jx::pb::RESULT_OK);
+        jx::pb::RoleData rb = shaolin_role();
+        rb.set_player_id(12);
+        rb.set_name("B");
+        rb.mutable_position()->set_zone_id(1);
+        rb.mutable_position()->mutable_pos()->set_x(2040);
+        rb.mutable_position()->mutable_pos()->set_y(2000);
+        REQUIRE(w.spawn_player(8, rb, b, at) == jx::pb::RESULT_OK);
+        w.tick();
+        w.take_outbox();
+    }
+    static jx::zone::KSubWorldConfig pk_world()
+    {
+        jx::zone::KSubWorldConfig c = hero_world();
+        KPlayerSet t = linux_tables();
+        jx::zone::KPKPunish pun;
+        for (int k = 0; k < jx::zone::KPKPunish::kRows; ++k) {
+            pun.rows[static_cast<std::size_t>(k)] = jx::zone::KPKPunishRow{10 + 10 * k, 50 * (k + 1), k >= 5 ? 1000 : 0, 0, -1, k >= 4 ? 5 * k : 0};
+        }
+        pun.normal_pk_time_long = 30;
+        t.set_pk_punish(pun);
+        c.player_set = std::make_shared<KPlayerSet>(t);
+        return c;
+    }
+    jx::zone::KNpc& A() { return *w.mutable_entity(a); }
+    jx::zone::KNpc& B() { return *w.mutable_entity(b); }
+};
+
+} // namespace
+
+TEST_CASE("PK state: the 0x76 request, SetPKState's lock and NormalPKTimeLong, the value 0..10 and the dodge of AddPKValue", "[player][world][pk]")
+{
+    PKWorld pw;
+    jx::zone::KNpc& h = pw.A();
+    CHECK(h.player.pk.state == 0);
+    // 0x080DBEF3: a state other than 0 needs the exp above NotFightExpPercent (-80 < any percent: allowed)
+    REQUIRE(pw.w.pk_state_request(7, 1));
+    CHECK(h.player.pk.state == 1);
+    CHECK(h.player.pk.state_time == 0);
+    {
+        auto own = of(pw.w.take_outbox(), 7, jx::pb::G2C_PK_STATE);
+        REQUIRE(own.size() == 1);
+        jx::pb::PKState m;
+        REQUIRE(m.ParseFromString(own[0].payload));
+        CHECK(m.state() == 1);
+        CHECK_FALSE(m.refused());
+    }
+    // out of fight mode the switch back is forced (0x080DBF10): at once
+    REQUIRE(pw.w.pk_state_request(7, 0));
+    CHECK(h.player.pk.state == 0);
+    // in fight mode (0x080DBE47) the unforced SetPKState needs NormalPKTimeLong seconds in the state (0x080C3784)
+    h.fight_mode = true;
+    REQUIRE(pw.w.pk_state_request(7, 2));
+    CHECK(h.player.pk.state == 2);
+    pw.w.take_outbox();
+    CHECK_FALSE(pw.w.pk_state_request(7, 0));
+    CHECK(h.player.pk.state == 2);
+    {
+        auto own = of(pw.w.take_outbox(), 7, jx::pb::G2C_PK_STATE);
+        REQUIRE(own.size() == 1);
+        jx::pb::PKState m;
+        REQUIRE(m.ParseFromString(own[0].payload));
+        CHECK(m.refused());
+        CHECK(m.state() == 2);
+    }
+    h.player.pk.state_time = 30;   // the seconds of KPlayerPK 0x080C35E0 (30 in this table)
+    REQUIRE(pw.w.pk_state_request(7, 0));
+    CHECK(h.player.pk.state == 0);
+    // the lock (ForbidChangePK): refused unless forced (0x080C3755)
+    h.player.pk.locked = true;
+    CHECK_FALSE(pw.w.pk_state_request(7, 1));
+    CHECK(h.player.pk.state == 0);
+    REQUIRE(pw.w.pk_set_state(h, 1, true));
+    CHECK(h.player.pk.state == 1);
+    h.player.pk.locked = false;
+    h.fight_mode = false;
+    // the state ticks once a second (18 loop frames)
+    for (int i = 0; i < 36; ++i) pw.w.tick();
+    CHECK(pw.A().player.pk.state_time == 2);
+    // the value: clamped 0..10 (0x080C38C0), a positive add dodged by dodge_percent (0x080C394E), 9 or less clears the arena flag
+    jx::zone::KNpc& hh = pw.A();
+    pw.w.pk_set_value(hh, 25);
+    CHECK(hh.player.pk.value == 10);
+    pw.w.pk_set_value(hh, -3);
+    CHECK(hh.player.pk.value == 0);
+    hh.player.pk10_death_punish = 1;
+    pw.w.pk_add_value(hh, 3);
+    CHECK(hh.player.pk.value == 3);
+    CHECK(hh.player.pk10_death_punish == 0);
+    hh.player.pk.dodge_percent = 100;
+    pw.w.pk_add_value(hh, 3);
+    CHECK(hh.player.pk.value == 3);   // dodged
+    pw.w.pk_add_value(hh, -1);
+    CHECK(hh.player.pk.value == 2);   // a negative add is never dodged
+    // the watchers hear the state (G2C_ENTITY_PK)
+    pw.w.take_outbox();
+    REQUIRE(pw.w.pk_state_request(7, 2));
+    auto told = of(pw.w.take_outbox(), 8, jx::pb::G2C_ENTITY_PK);
+    REQUIRE(told.size() == 1);
+    jx::pb::EntityPK e;
+    REQUIRE(e.ParseFromString(told[0].payload));
+    CHECK(e.entity_id() == pw.a.value);
+    CHECK(e.pk_state() == 2);
+    // the save keeps state, value and lock
+    jx::pb::RoleData saved;
+    REQUIRE(pw.w.role_snapshot(7, saved));
+    CHECK(saved.pk_state() == 2);
+    CHECK(saved.pk_value() == 2);
+}
+
+TEST_CASE("GetPKRelation 0x0807A350: the death modes and the butcher points; the death penalty 0x080B9FA0 by PKPunish.txt", "[player][world][pk]")
+{
+    PKWorld pw;
+    int pts = -1;
+    // no victim owner / not a player behind it -> 1; no killer owner -> 0; the victim not in fight mode -> 0
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), nullptr, pts) == 1);
+    CHECK(pw.w.death_calc_pk_value(pw.B(), nullptr, &pw.B(), pts) == 0);
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 0);
+    pw.B().fight_mode = true;
+    // 0x0807A3C2: +0x1818 == 3 -> a PK battle, no penalty
+    pw.B().pk_punish_state = 3;
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 3);
+    pw.B().pk_punish_state = 0;
+    // both in state 0: a player's kill (2) with no points (0x0807A512)
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 2);
+    CHECK(pts == 0);
+    // the killer in fight / kill mode earns nothing either (0x0807A4F8 -> 0x0807A512)
+    pw.A().player.pk.state = 1;
+    pw.B().player.pk.state = 2;
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 2);
+    CHECK(pts == 0);
+    // a normal-mode killer of a kill-mode victim: enhance + ButcherPKExercise - weaken, never below 0 (0x0807A6F5..)
+    pw.A().player.pk.state = 0;
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 2);
+    CHECK(pts == 1);
+    pw.A().player.pk_punish_enhance = 4;
+    pw.B().player.pk_punish_weaken = 2;
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 2);
+    CHECK(pts == 3);
+    pw.B().player.pk_punish_weaken = 9;
+    CHECK(pw.w.death_calc_pk_value(pw.B(), &pw.A(), &pw.B(), pts) == 2);
+    CHECK(pts == 0);
+    pw.A().player.pk_punish_enhance = 0;
+    pw.B().player.pk_punish_weaken = 0;
+    // the penalty: PK value 6 -> row 6 (exp 70 per mille of the level's exp, money 350 per mille, every bag item, durability 30 %)
+    jx::zone::KNpc& v = pw.B();
+    v.player.pk.value = 6;
+    v.player.pk.state = 2;
+    v.player.exp = 1000;          // level-2 exp 500 in linux_tables: 500 x 70 / 1000 = 35 lost
+    v.player.next_level_exp = 500;
+    const auto level_exp = linux_tables().level_exp(static_cast<int>(v.level), v.player.reborn);
+    const std::int64_t exp_loss = level_exp > 99999 ? level_exp / 1000 * 70 : level_exp * 70 / 1000;
+    jx::zone::KItemList* list = pw.w.items_of(8);
+    REQUIRE(list != nullptr);
+    list->add_money(jx::zone::room_equipment, 10000);
+    const int money = list->money();
+    pw.w.take_outbox();
+    pw.w.death_punish_pk(v, pw.a);
+    CHECK(v.player.exp == 1000 - exp_loss);
+    CHECK(list->money() == money - money * 350 / 1000);
+    // BeKilled -1 (0x080BA201: the exp percent 100 > NotSubPKExpPercent -50), the state kept (-80 < 100)
+    CHECK(v.player.pk.value == 5);
+    CHECK(v.player.pk.state == 2);
+    // (a quarter of the money lies at the corpse through drop_money - no ObjData in this world, so no pile here)
+    pw.w.take_outbox();
+    // through the death itself: a player's kill in fight mode takes the PK road (mode 2), a npc's does not
+    v.player.pk.value = 0;
+    v.player.pk.state = 0;
+    v.player.exp = 1000;
+    v.cur.life = 10;
+    pw.A().player.pk.state = 0;
+    pw.w.take_outbox();
+    jx::zone::KMagicAttrib hit;
+    hit.type = 0;
+    hit.value[0] = hit.value[1] = 200000000;
+    pw.w.receive_damage(v, pw.A(), 0, true, &hit, false, 0, 0x1f, 0);
+    CHECK(pw.B().doing == jx::zone::KDoing::death);
+    // row 0: exp 10 per mille -> 500 x 10 / 1000 = 5 (mode 2), not the plain death's 2 % of 500 = 10
+    CHECK(pw.B().player.exp == 1000 - (level_exp > 99999 ? level_exp / 1000 * 10 : level_exp * 10 / 1000));
+    CHECK(pw.B().player.pk.value == 0);   // BeKilled -1 from 0 stays 0 (SetPKValue clamps)
 }

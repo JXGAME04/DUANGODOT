@@ -170,6 +170,23 @@ message EntityInfo {
   int32 weapon_res = 25;
   int32 horse_res = 26;          // -1 = no horse (HorseRes level 0)
   int32 mantle_res = 27;         // -1 = none
+  int32 pk_state = 28;           // a player's PK state (Player+0x5a50 & 3 in the 0x4a / 0x4b flag -> KNpc+0x16e4): 0 exercise, 1 fight, 2 kill
+}
+
+message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)
+  int32 state = 1;
+  uint32 seq = 2;
+}
+
+message PKState {                // G2C_PK_STATE: the 0x90 packet {state} of SetPKState 0x080C3740 and the 0x93 {value} of SetPKValue 0x080C38C0, to the owner
+  int32 state = 1;
+  int32 value = 2;               // 0..10
+  bool refused = 3;              // the switch was not taken (the message 0x86 {4, 0x23}: the state must be held NormalPKTimeLong seconds)
+}
+
+message EntityPK {               // G2C_ENTITY_PK: a player's PK state for the watchers (the 0x4b sync of the binary)
+  uint64 entity_id = 1;
+  int32 pk_state = 2;
 }
 
 message EntityRes {              // G2C_ENTITY_RES: the 0xad packet (0x0807A9D0) - a player's look changed (a piece put on / taken off)

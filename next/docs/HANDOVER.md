@@ -317,6 +317,17 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `-equip-rows all` xuất mọi hàng năm bảng nêu — nặng, chỉ khi cần đủ trang bị lên người).
   **Phát hiện**: `gamecl.exe` của chủ dự án và `jx_linux_y` **khác bố cục** gói 0x4a/0x4b/0xad (client: cờ `+0x15`, 6 word; server: hai byte `+0x14f0/f4` chen, dword)
   → zone theo ý nghĩa trường. Kiểm: ctest 237/237 (`[res]` +2), Godot 448/448, e2e `AUTO_RIDE mounted=true horse_row=8 action=38 parts=10 down=true`, `auto_ride.png`.
+- **M12 lát B3c-4 (xong 2026-09-18)**: **PK** (`LINUX-SERVER.md` §16.16, `CLIENT-2.0.md` §20): `KPlayerPK` `Player+0x5a50` (ba trạng thái 0/1/2, khoá, giây
+  trong trạng thái, giá trị 0..10, % né), `SetPKState 0x080C3740` (về 0 cần `NormalPKTimeLong` 3240 s trừ khi ép; gói 0x90), `SetPKValue 0x080C38C0` (0x93),
+  `AddPKValue 0x080C3930`, tick `0x080C35E0`, gói 0x76 → `0x080DBE00` (cửa `NotFightExpPercent`, ép khi ngoài chiến và không khoá), `GetPKRelation 0x0807A350`
+  (kiểu chết 0/1/2/3/4 + điểm: cừu sát, đồ tể `pk_punish_enhance + ButcherPKExercise − pk_punish_weaken`; **so cấp của nhị phân so A với chính A** nên nhánh
+  phe không tới — giữ nguyên), `KNpc::Death` cộng điểm cho kẻ giết (né `not_add_pkvalue_p`), `OnDeath` kiểu 2 → **phạt `0x080B9FA0`** (kinh nghiệm ‰/bảng
+  `0x08256EE0`, tiền ‰ + `SetPkReduceState`, rơi nửa, đồ túi ‰ `0x08203BE0`, độ bền %, `BeKilled`, hạ trạng thái khi thiếu exp); `PKRate.ini` + `PKPunish.txt`
+  → `player.json`; thuộc tính 254/256/257; 8 hàm Lua; `RoleData.pk_*`; client: `EntityInfo.pk_state`/`G2C_ENTITY_PK` → màu thanh máu `PaintLife 0x005EADF4`
+  (đỏ / (255,0,64) / hồng), F9 xoay trạng thái, V ngồi, HUD `pk`. **Phát hiện**: client 2.0 của chủ dự án gửi `{0x6d, 2}` cho `Switch([[pk]])` — ô 0x6d của
+  `jx_linux_y` là giao dịch (`0x080B2C70`); handler PK thật là gói 0x76 (ô 116/118 của bảng = 0x74 hồi sinh / 0x76 PK — đính chính "ô 118" của §16.4).
+  Chưa port: cừu sát/tỉ thí (0x77/0x91/0x92), bang chiến, đội, bảng bảo hộ `+0x809c`, nhà tù, `MakeEnemy`. Kiểm: ctest 239/239 (`[pk]` 65), Godot 452/452,
+  e2e `AUTO_PK on=true bar_state=1 back=false refused=true`, `auto_pk.png`.
 - **M12 lát B4f-2 (xong 2026-09-18)**: **tiếng hành động của nhân vật** (`CLIENT-2.0.md` §15.1): bảng `主角动作声音表.txt` (hàng = action, cột MainMan/MainLady) và
   `npc动作声音表.txt` (hàng = res, cột = action npc) trong `reslst.dat`, đường dẫn `\sound\<tên>`; `KNpcRes::Draw 0x006E06E5` phát khi tỉ lệ tiến `< 0.05` (đồng hồ
   `+0x10c` reset mỗi vòng ở `WaitForFrame 0x005EA700`), `PlaySound 0x006DFA20` có IsPlaying → `KActionSound.go` + `npcres/action_sounds.json`, `NpcResList.action_sound`,
@@ -364,7 +375,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | **M12 lát C — công thức sát thương**: **xong trong B2a** (`ReceiveDamage 0x0808A4A0`, `CalcDamage 0x08089C90`, kháng `0x0807BCD0/0x0807BB20/0x08078910`, `AppendSkillEffect 0x0807CE70`, `OnHurt 0x0807F780`, §12) | còn thuộc B2b/B3: `KnockBack` cần `0x08081B70` (ô trống trên đường); hằng PK `[0x8BADF50]` = `PKRate.ini rate` 20 (đã tìm: `KNpcSet::Init 0x080A0810`, §16.4; `pk_damage_percent`); `[0x830D234]`/`[0x830D248]`/`[0x830D24C]` (cap đóng băng/độc) đang 0 như nhị phân; ~~ngồi (`m_Doing 8`)~~ (xong B6a, §16.14) và chạy đánh (`0x12`, thưởng `+0x14b0`) chưa có trạng thái trong zone. |
 | ~~Trạng thái (độc / băng / choáng / thuốc)~~ (xong trong B2a/B3: `ProcessState 0x0808B610` §9, độc/băng/choáng `0x0807BD60`/`ReceiveDamage`, `KStateNode` `+0x234`; `ReCalcStateEffect 0x0807D270` trong `UpdataCurData` xong 2026-09-18) | còn: trạng thái ngồi. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
-| ~~Hình phạt chết của người chơi~~ (loại 0 xong B3c-3: `on_death_player` — kinh nghiệm 2 %/3 % trần 130 000 (hạng tông = 0), nửa tiền + rơi 1/4) | còn **phạt PK `0x080B9FA0`** (B3c-4: bảng `0x08256EE0[pk]`, `0x8BB2A34/38/44[pk]`, nhà tù `[0x830D0EC]`) và `0x08203530` (rơi đồ theo bảng bảo hộ `+0x809c`). |
+| ~~Hình phạt chết của người chơi~~ (loại 0 xong B3c-3: `on_death_player` — kinh nghiệm 2 %/3 % trần 130 000 (hạng tông = 0), nửa tiền + rơi 1/4; **phạt PK `0x080B9FA0` xong B3c-4**, §16.16) | còn của B3c-4: cừu sát/tỉ thí, bang chiến, bảng bảo hộ `+0x809c`, nhà tù (`0x08256EE0[pk]`, `0x8BB2A34/38/44[pk]` đã port`, nhà tù `[0x830D0EC]`) và `0x08203530` (rơi đồ theo bảng bảo hộ `+0x809c`). |
 | ~~Chạy trừ thể lực~~ (xong 2026-09-18: `ProcessState 0x0808BD3D` gain/`RunSub` theo `Player+0x5a50`, `ForbitStamina`; bước chạy `0x08080C50` → kiệt sức đi bộ `0x0807B430`; tốc độ người chơi = `m_CurrentRunSpeed`/khung = 180/giây, bỏ `move_speed` 200 của persist) | ~~ngồi~~ (xong B6a 2026-09-18: `0x080DC300` → `DoSit 0x0807B550`, `SitAddLife/Mana` `0x0808BBE6`, `SitAdd` ‰; §16.14, `CLIENT-2.0.md` §18). Còn: cưỡi ngựa chặn ngồi đã có (`horse ≠ 0`); áo 45 của `GetNpcPate`; chạy đánh `0x12`. |
 | ~~`m_nLucky` vào rơi đồ~~ (xong 2026-09-18) | `GenRandomItem 0x08083D52..0x08083DB5`: `luck = (Player+0x5994 ≠ 0 && +0x5998 ≥ 0 ? 0x080CC620(bảng tông + 0x30·+0x5998, player) : 0) + Player+0x5958` (cờ tham số 4 ≠ 0 hay không có người → 0) → `lose_treasure` truyền `k->player.cur_lucky` (phần tông chờ M14). |
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
@@ -690,6 +701,32 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-18 (phiên tiếp theo, phần 43) — M12 lát B3c-4: PK (KPlayerPK, GetPKRelation, phạt chết PK, PKRate.ini/PKPunish.txt)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §16.16): `KPlayerPK` `Player+0x5a50` (bố cục theo mã 2003 `KPlayerPK.h` + ô Linux: `+8` khoá, `+0x10` giây,
+  `+0x34` % né), `SetPKState 0x080C3740` (khoá, đội `0x080C3680`, `NormalPKTimeLong [0x8bb2b38]`, gói 0x90), `SetPKValue 0x080C38C0` (kẹp 0..10, 0x93),
+  `AddPKValue 0x080C3930` (né, `Player+0x384`), tick `0x080C35E0` (từ `0x080B6F5F`), `0x080C32C0` (huỷ tỉ thí/cừu sát khi chết), gói 0x76 ô 118 `0x080DBE00`
+  (`0x080A8120` % exp, `NotFightExpPercent`, ép khi ngoài chiến/không khoá/giá trị ≤ 2 hay không đội), `GetPKRelation 0x0807A350` (0/1/2/3/4, cừu sát,
+  **`2·cấpA < 3·cấpA`** = lỗi nhị phân → nhánh phe `0x0807A726` chết), `KNpc::Death 0x0808996A..` (chủ hai bên `0x08078E80`, né `Player+0x86f8`, `AddPKValue`),
+  `OnDeath` kiểu 2 → `0x080B9FA0` (đọc hết: kinh nghiệm bảng `0x08256EE0` khi cấp > 129, ‰ cột 2 `KPlayerSet+0x3710`, `SetPkReduceState` `+0x5a88`, tiền ‰ cột 3,
+  rơi nửa `0x0807FA50`, nhà tù `[0x830D0EC]`, đồ `0x08203BE0` (túi, bỏ ràng buộc/khoá/nhiệm vụ/hỏng, ‰ cột 4), độ bền `0x08201D90` cột 9, `BeKilled`,
+  `0x081C8B20` MakeEnemy), `PKPunish.txt` loader `0x080C5B45..` (cột 2/3/4/5/8/9, `NormalPKTimeLong` dòng 2 cột 7), thuộc tính 254/256/257 → `+0x86f8/+0x8700/+0x86fc`,
+  Lua 8 hàm (`luamap`).
+- **gamecl.exe** (`CLIENT-2.0.md` §20): `Switch([[pk]])` `0x0042FB3D` → `OperationRequest(0x14)` `0x005C3271` → `0x005FB240` gói `{0x6d, 2}` (jx_linux_y: giao dịch);
+  0x4a/0x4b cờ `& 3` → `+0x16e4`, `+0x1e & 1` → `+0x16e8`; `PaintLife 0x005EADB8..` màu PK; `autoexec.lua` F9/Ctrl+H pk, V sit.
+- **Go**: `player.PKRate` (`../PKRate.ini`, `readAnyCase`) + `PKPunish` (11 dòng) → `player.json`; gateway chuyển tiếp `C2G_PK_STATE`.
+- **Zone**: `KPKRate/KPKPunish` (`KPlayerSet`), `KPlayer::KPlayerPK` (thay `pk_state`), `pk10_death_punish`, ba thuộc tính PK (+ `clear_attrib`), `KNpc::pk_punish_state`,
+  `KSubWorld::pk_set_state/pk_set_value/pk_add_value/pk_state_request/emit_pk/owner_of/death_calc_pk_value/death_punish_pk/exp_percent`, `do_death` cộng điểm,
+  `on_death_player(e, killer, mode)`, tick giây; proto `PKStateReq/PKState/EntityPK`, `C2G_PK_STATE` 1118, `G2C_PK_STATE` 2128, `G2C_ENTITY_PK` 2129,
+  `EntityInfo.pk_state`, `RoleData.pk_state/pk_value/pk_locked`; Lua `GetPK/SetPK/SetPKFlag/ForbidChangePK/IsForbidChangePK/SetPkReduceState/GetPkReduceState/SetDeathPunish_PK10`;
+  test `[pk]` 2 ca 65 khẳng định.
+- **Client**: `Game.pk_state/pk_value/pk_state_request`, tín hiệu `pk_changed/entity_pk`, `KNpc.pk_state/set_pk_state`, `KNpcGold.life_bar_color(pct, pk_state, pk_flag)`
+  (+4 test), `UiGame` F9/V, HUD, `_auto_pk` (`AUTO_PK`, `auto_pk.png`); `_auto_ride` cởi ngựa cuối bước, `_auto_sit` xuống ngựa trước (ngựa mặc từ lần chạy trước
+  làm `sat=false`). Bài học: lambda GDScript bắt biến **theo giá trị** → kết quả gom vào Dictionary.
+- **Kiểm**: ctest 239/239, Godot 452/452, `go vet` xanh, catalog/includes sạch, e2e `AUTO_SIT sat=true`, `AUTO_RIDE mounted=true`, `AUTO_PK on=true bar_state=1
+  back=false refused=true`, `AUTO_DEATH revived=true` (KillPlayer tự sát → kiểu 2 → phạt PK 24 exp, đúng nhị phân), exit=0.
+- commit: `JX NEXT: M12 lat B3c-4 - PK (KPlayerPK Player+0x5a50: SetPKState 0x080C3740, SetPKValue 0x080C38C0, AddPKValue 0x080C3930; goi 0x76 0x080DBE00; GetPKRelation 0x0807A350; phat chet PK 0x080B9FA0; PKRate.ini + PKPunish.txt; client PaintLife 0x005EADB8, F9)`.
 
 ### 2026-09-18 (phiên tiếp theo, phần 42) — M12 lát B6b: dáng trang bị (KItemChangeRes, +0x14dc.., gói 0xad/0x4a/0x4b) + cưỡi ngựa trên client
 

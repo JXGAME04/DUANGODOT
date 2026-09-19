@@ -83,6 +83,11 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     faction.last = role.faction_last();
     faction.count = static_cast<int>(role.faction_count());
     faction.first = -1;
+    // KPlayerPK from the role data (0x080C1C79: Init, then the state and the value the last session kept)
+    pk = KPlayerPK{};
+    pk.state = std::clamp(static_cast<int>(role.pk_state()), 0, 2);
+    pk.value = std::clamp(static_cast<int>(role.pk_value()), 0, 10);
+    pk.locked = role.pk_locked();
     // m_LifeMax straight from the role data (TRoleData+0xeb), the stamina from the tables, the
     // mana from the role data; a player has no natural life / mana replenish of its own
     npc.base.life_max = std::max(1, s.hp_max());
@@ -138,6 +143,9 @@ void KPlayer::save_to(const KNpc& npc, pb::RoleData& role) const
     role.set_faction(faction.current);
     role.set_faction_last(faction.last);
     role.set_faction_count(static_cast<std::uint32_t>(std::max(0, faction.count)));
+    role.set_pk_state(static_cast<std::uint32_t>(pk.state));   // 0x080BFCDD / 0x080BFCEF: the state byte and the value saved
+    role.set_pk_value(static_cast<std::uint32_t>(std::max(0, pk.value)));
+    role.set_pk_locked(pk.locked);
 }
 
 void KPlayer::lose_exp(std::int64_t loss) noexcept

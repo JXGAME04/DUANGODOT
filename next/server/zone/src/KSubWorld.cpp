@@ -205,6 +205,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_dir(e.dir);
     out.set_hide(e.hide);   // the hide bit of the 0x4d status packet (0x08081230); only its own client gets a hidden npc
     out.set_riding(e.horse != 0);   // the 0x20 flag (0x0807C07E / 0x080814ED)
+    if (e.kind == KNpcKind::player) out.set_pk_state(e.player.pk.state);   // the flag & 3 of the 0x4a / 0x4b sync (0x0807C02D)
     // the 0x4a / 0x4b bytes +0x14dc..+0x14ec (0x0807BF86.., 0x080813BD..): what the clients dress the character in
     out.set_helm_res(e.helm_res);
     out.set_armor_res(e.armor_res);
@@ -618,7 +619,10 @@ void KSubWorld::tick()
         if (e.alive()) {   // ProcessState runs only while m_ProcessState (cleared by DoDeath)
             trigger_auto_skills(e, KAutoSkillList::every_frame, e.id, EntityId{});   // 0x0808BEDF, before ProcessState
             frozen = process_frame_state(e, e.loop_frames % state_every == 0);
-            if (e.loop_frames % 18 == 0) per_second_attribs(e);   // 0x0808BFD4
+            if (e.loop_frames % 18 == 0) {
+                per_second_attribs(e);   // 0x0808BFD4
+                if (e.kind == KNpcKind::player) ++e.player.pk.state_time;   // KPlayerPK 0x080C35E0 from the player's second (0x080B6F5F)
+            }
         }
         // 0x0808BF5C: the state icons - a change of the states (2) rebuilds them, anything changed (1) is told around, then 0
         if (e.state_flag > 1) rebuild_state_icons(e);
@@ -1193,9 +1197,22 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
     emit_action(e, pb::ACTION_DEATH, killer);
     if (player) {
         emit_life(e, 0, killer);
-        on_death_player(e, killer);
+        // 0x0808996A..0x080899AA: the owners of both sides (0x08078E80: a companion's master, else itself), the death mode and
+        // the PK points of KNpc::GetPKRelation 0x0807A350; a player killer gets them through AddPKValue unless its
+        // not_add_pkvalue_p (Player+0x86f8) wins the roll (0x08089AE8 / 0x08089B78); the protection tables +0x809c and the
+        // items 0x081FA8A0 of 0x08089A30.. are not in the zone
+        const KNpc* killer_owner = owner_of(killer);
+        int points = 0;
+        const int mode = death_calc_pk_value(e, killer_owner, owner_of(e.id), points);
+        if (points > 0 && killer_owner != nullptr && killer_owner->kind == KNpcKind::player) {
+            if (KNpc* k = entities_.find(killer_owner->id)) {
+                const int protect = k->player.not_add_pkvalue_p;
+                if (protect <= 0 || random(100) >= protect) pk_add_value(*k, points);
+            }
+        }
+        on_death_player(e, killer, mode);
         // 0x08089750: a player killed by a player on an arena (Player+0x384) stands up at once with full life,
-        // G_PLAYER_27 and \script\global\pk10_deathpunish.lua - B3c-4
+        // G_PLAYER_27 and \script\global\pk10_deathpunish.lua - not in the zone
         return;
     }
     share_experience(e);
@@ -1325,10 +1342,17 @@ bool KSubWorld::add_point_request(std::uint64_t sid, int attribute, int points, 
 // KNpc::OnDeath 0x08088B60 for a player (0x08088D50) that died the plain way (the death type 0 of 0x08089920;
 // a type of 1 / 3 / 4 loses nothing, any other goes to the PK punishment 0x080B9FA0 - B3c-4).  KItemList
 // 0x08203530 (the drop of a protected list, B3c-4), then the experience and the money.
-void KSubWorld::on_death_player(KNpc& e, EntityId killer)
+void KSubWorld::on_death_player(KNpc& e, EntityId killer, int mode)
 {
-    (void)killer;
     KPlayer& p = e.player;
+    // KNpc::OnDeath 0x08088D50 by the death mode (KNpc::DeathPunish of 2003): 1 (a npc's kill or no player behind it),
+    // 3 (a PK battle) and 4 (a guild war) cost nothing; 2 (a player's kill) is the PK penalty 0x080B9FA0; 0 (no fight
+    // mode / no player killer) is the plain death below
+    if (mode == 1 || mode == 3 || mode == 4) return;
+    if (mode == 2) {
+        death_punish_pk(e, killer);
+        return;
+    }
     // 0x08088D7C: an experience of 0 loses nothing.  The loss is 2 % of the level's experience up to level 10
     // and 3 % above it (KLevelAdd::GetLevelExp 0x080C3FF0: / 50 or x 3 / 100 below 100 000, / 100 x 2 or x 3
     // above - the binary's two roundings), at most 130 000 (0x1fbd0), x (7 - the faction rank) / 7 for a member
@@ -1358,6 +1382,198 @@ void KSubWorld::on_death_player(KNpc& e, EntityId killer)
         }
     }
     // (0x08088E9D: the death line "NewWorld(map, x, y)" of the log when [0x830D0F0] == 1 - the lines above)
+}
+
+// 0x08078E80(npc, &idx, 0): the npc that answers for one - a companion's master (+0x1698 -> its player's npc), else itself
+const KNpc* KSubWorld::owner_of(EntityId id) const
+{
+    const KNpc* e = entities_.find(id);
+    if (e == nullptr) return nullptr;
+    if (e->summon_master.value != 0) {
+        if (const KNpc* m = entities_.find(e->summon_master)) return m;
+    }
+    return e;
+}
+
+// KNpc::GetPKRelation 0x0807A350(this = the dying npc, A = the killer's owner, B = the victim's owner, &points) - the death
+// mode of KNpc::DeathCalcPKValue (2003): 0 plain, 1 no player behind the victim, 2 a player's kill (points = what the
+// killer's PK value gains), 3 a PK battle (+0x1818 == 3), 4 a guild war (the guild map 0x8bc6a84 - no guilds in the zone).
+// The enmity mode (A.+0x14 == 2 aiming at B: EnmityPK / KillPartnerPK, 0x0807A64C) is not in the zone.  The level test of
+// 0x0807A454.. compares the killer's level with itself (2 x A < 3 x A, a slip of the binary) so the camp branch 0x0807A726
+// (FactionPKFaction / KillerPKFaction) is never reached: kept as the binary has it.
+int KSubWorld::death_calc_pk_value(const KNpc& victim, const KNpc* a, const KNpc* b, int& points) const
+{
+    points = 0;
+    if (a == nullptr) return 0;                                    // 0x0807A365: A out of range
+    if (b == nullptr || b->kind != KNpcKind::player) return 1;     // 0x0807A3AC / 0x0807A3BA: no player behind the victim
+    if (b->pk_punish_state == 3) return 3;                         // 0x0807A3C2
+    if (a->kind != KNpcKind::player) return 0;                     // 0x0807A3D4
+    if (!victim.fight_mode) return 0;                              // 0x0807A3E2: the victim was not fighting
+    const KPlayer::KPlayerPK& pa = a->player.pk;
+    const KPlayer::KPlayerPK& pb = b->player.pk;
+    if (pa.state != 0) return 2;                                   // 0x0807A4F8 -> 0x0807A512: a fighter / killer earns nothing
+    if (pb.state == 2) {                                           // 0x0807A505 -> 0x0807A6E3: the victim was in kill mode
+        if (victim.summon_master.value != 0) points = tables().pk_rate().kill_partner_pk;   // 0x0807A69A (this kind 2)
+        else points = std::max(0, a->player.pk_punish_enhance + tables().pk_rate().butcher_pk_exercise - b->player.pk_punish_weaken);   // 0x0807A6F5..
+        return 2;
+    }
+    return 2;                                                      // 0x0807A512: 0x0806FBA0(B, A) then 2 with no points
+}
+
+// KPlayerPK::SetPKState 0x080C3740(pk, state, force): a locked object refuses unless forced; 1 / 2 are taken (the team
+// check 0x080C3680 - a PK value above 2 throws one out of a team - has no team to act on); 0 needs the state held for
+// NormalPKTimeLong seconds unless forced, else the message 0x86 {4, 0x23} and the current state again.  The 0x90 packet
+// {state} goes to the owner; the zone tells the watchers too (the 0x4b sync of the binary carries state & 3)
+bool KSubWorld::pk_set_state(KNpc& e, int state, bool force)
+{
+    if (e.kind != KNpcKind::player || state < 0 || state > 2) return false;
+    KPlayer::KPlayerPK& pk = e.player.pk;
+    if (!force && pk.locked) return false;                         // 0x080C3755
+    bool refused = false;
+    if (state == 0) {
+        if (!force && pk.state != 0 && pk.state_time < tables().pk_punish().normal_pk_time_long) refused = true;   // 0x080C3784
+        else if (!force && pk.state == 0) refused = true;          // 0x080C3782: nothing to leave - the message all the same
+        if (!refused) {
+            pk.state = 0;
+            pk.state_time = 0;                                     // 0x080C3858
+        }
+    } else {
+        if (pk.state == 0) pk.state_time = 0;                      // 0x080C37EE / 0x080C3842
+        pk.state = state;
+    }
+    pb::PKState m;
+    m.set_state(pk.state);
+    m.set_value(pk.value);
+    m.set_refused(refused);
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_PK_STATE), m);   // 0x080C3806: the 0x90 packet
+    if (!refused) {
+        log::info("zone.player", "pk state", {log::kv("entity", e.id), log::kv("state", pk.state), log::kv("force", force)});
+        emit_pk(e);
+    }
+    return !refused;
+}
+
+// KPlayerPK::SetPKValue 0x080C38C0: clamped to 0..10, the team check, the 0x93 packet {value} to the owner
+void KSubWorld::pk_set_value(KNpc& e, int value)
+{
+    if (e.kind != KNpcKind::player) return;
+    KPlayer::KPlayerPK& pk = e.player.pk;
+    pk.value = std::clamp(value, 0, 10);
+    pb::PKState m;
+    m.set_state(pk.state);
+    m.set_value(pk.value);
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_PK_STATE), m);
+    log::info("zone.player", "pk value", {log::kv("entity", e.id), log::kv("value", pk.value)});
+}
+
+// KPlayerPK::AddPKValue 0x080C3930: a positive add is skipped when the dodge percent (+0x34) beats g_Random(100); then
+// SetPKValue(value + add); a value of 9 or less clears the arena flag Player+0x384
+void KSubWorld::pk_add_value(KNpc& e, int add)
+{
+    if (e.kind != KNpcKind::player) return;
+    KPlayer::KPlayerPK& pk = e.player.pk;
+    if (add > 0 && pk.dodge_percent > 0 && pk.dodge_percent > random(100)) return;
+    pk_set_value(e, pk.value + add);
+    if (pk.value <= 9) e.player.pk10_death_punish = 0;
+}
+
+// the packet 0x76 {0x76, byte state} -> 0x080DBE00(player, packet): a state other than 0 needs the character's exp above
+// NotFightExpPercent of its level; in fight mode or locked the change goes through SetPKState unforced, else forced (a PK
+// value above 2 with a team would be the unforced path too - no teams)
+bool KSubWorld::pk_state_request(std::uint64_t sid, int state)
+{
+    const auto pit = players_.find(sid);
+    KNpc* me = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    if (me == nullptr || state < 0 || state > 2) return false;
+    if (state != 0 && tables().pk_rate().not_fight_exp_percent >= exp_percent(*me)) return false;   // 0x080DBEF3
+    const bool forced = !me->fight_mode && !me->player.pk.locked;   // 0x080DBE47 / 0x080DBE51; 0x080DBF10 with the value <= 2 or no team
+    return pk_set_state(*me, state, forced);
+}
+
+// 0x080A8120(player, &out): how much of the level's exp the character holds, in percent (capped at 100)
+int KSubWorld::exp_percent(const KNpc& e) const noexcept
+{
+    const std::int64_t need = e.player.next_level_exp;
+    if (need <= 0) return 0;
+    const std::int64_t p = e.player.exp / (need / 100 > 0 ? need / 100 : 1);
+    return static_cast<int>(std::min<std::int64_t>(100, std::max<std::int64_t>(0, p)));
+}
+
+void KSubWorld::emit_pk(const KNpc& e)
+{
+    pb::EntityPK m;
+    m.set_entity_id(e.id.value);
+    m.set_pk_state(e.player.pk.state);
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_PK), m);
+}
+
+// KNpc::DeathPunish 0x080B9FA0(player, killer) for a player's kill (death mode 2): the exp of PKPunish.txt (levels above 129:
+// the table 0x08256EE0), the state dropped to 0 when the exp is under NotFightExpPercent, the money of the bag by the row's
+// per mille (more by the punish_enhance of a reduce state), half of it dropped at the corpse, every bag item rolled against
+// the row's per mille, the durability of the worn pieces, then BeKilled added to the PK value unless the exp is under
+// NotSubPKExpPercent.  The prison ([0x830D0EC] == 1: NewWorld to [0x9777F08..]) and the enemy list (0x081C8B20) are not in the zone.
+void KSubWorld::death_punish_pk(KNpc& e, EntityId killer)
+{
+    KPlayer& p = e.player;
+    const int pk = std::clamp(p.pk.value, 0, 10);
+    const KPKPunishRow& row = tables().pk_punish().row(pk);
+    const KPKRate& rate = tables().pk_rate();
+    int enhance = 0;
+    if (p.pk.reduce_seconds > 0) enhance = std::min(100, p.pk.punish_enhance);   // 0x080B9FE8..0x080BA00E (the weaken half is capped and unused)
+    // the experience: 0x08256EE0[pk] above level 129 (capped at 2 000 000 000), else the level's exp per mille
+    static constexpr std::int64_t kHighLevelLoss[11] = {500000, 1000000, 2000000, 5000000, 8000000, 12000000, 16000000, 20000000, 30000000, 40000000, 50000000};
+    std::int64_t loss;
+    if (e.level > 129) loss = std::min<std::int64_t>(kHighLevelLoss[pk], 2000000000);
+    else {
+        const std::int64_t level_exp = tables().level_exp(static_cast<int>(e.level), p.reborn);
+        loss = level_exp > 99999 ? level_exp / 1000 * row.exp_permille : level_exp * row.exp_permille / 1000;   // 0x080BA680 / 0x080BA308
+    }
+    loss = std::min(loss, p.exp);
+    if (loss > 0) {
+        p.lose_exp(loss);   // 0x080AFEA0(player, -loss)
+        send_player_attrib(e.sid);
+    }
+    const int percent = exp_percent(e);   // 0x080BA0C6
+    if (rate.not_fight_exp_percent >= percent) pk_set_state(e, 0, true);   // 0x080BA0D2 -> 0x080BA2A0
+    // the money (0x080BA0E0..0x080BA1B1)
+    int money_loss = 0;
+    if (KItemList* list = items_of(e.sid)) {
+        const int money = list->money();
+        money_loss = money > 99999 ? money / 1000 * row.money_permille : money * row.money_permille / 1000;
+        if (money_loss > 0) {
+            if (enhance != 0) {
+                if (money_loss > 20000000) money_loss += static_cast<int>(static_cast<std::int64_t>(enhance) * money_loss / 100);   // 0x080BA280
+                else money_loss += money_loss / 100 * enhance;   // 0x080BA140
+            }
+            list->cost_money(money_loss);   // 0x081FC940
+            send_money(e.sid);
+            if (money_loss > 1) drop_money(money_loss / 2, e.pos(), 0);   // 0x0807FA50(this, loss / 2)
+        }
+        // the bag items (0x08203BE0(list, per mille)): the unbound, unlocked ones that are not task / broken items, each rolled
+        if (row.item_permille >= 1 && row.item_permille <= 1000 && cfg_.objdata) {
+            std::vector<std::uint32_t> candidates;
+            list->each([&](const KItem& item, const KItemPlace& at) {
+                if (at.room != room_equipment) return;
+                if (item.genre == KItemGenre::task || item.genre == KItemGenre::broken) return;
+                candidates.push_back(item.id);
+            });
+            int dropped = 0;
+            for (const std::uint32_t id : candidates) {
+                if (row.item_permille <= random(1000)) continue;
+                const KItem* it = list->find(id);
+                if (it == nullptr) continue;
+                KItem copy = *it;
+                if (take_item(e.sid, id) && drop_item(std::move(copy), e.pos(), 0).value != 0) ++dropped;
+            }
+            if (dropped > 0) log::info("zone.player", "pk death items dropped", {log::kv("entity", e.id), log::kv("count", dropped)});
+        }
+    }
+    // the worn pieces: 0x08201D90(list, percent) (0x080BA1EF)
+    if (row.durability_percent > 0) abrade_equipments_percent(e, row.durability_percent);
+    // BeKilled (0x080BA201): unless the exp is under NotSubPKExpPercent
+    if (rate.not_sub_pk_exp_percent < percent) pk_add_value(e, rate.be_killed);
+    log::info("zone.player", "pk death penalty", {log::kv("entity", e.id), log::kv("killer", killer), log::kv("pk", pk), log::kv("exp_loss", loss),
+                                                   log::kv("money", money_loss), log::kv("durability", row.durability_percent)});
 }
 
 // KNpc::Revive 0x080833B0 for a player, from the end of the death frames (0x08083B50 -> 0x08083720: the death
@@ -1522,7 +1738,7 @@ const KMapSettings& KSubWorld::map_settings() const noexcept
 int KSubWorld::run_stamina_sub(const KNpc& e) const noexcept
 {
     const KStaminaRule& s = tables().stamina();
-    switch (e.player.pk_state) {
+    switch (e.player.pk.state) {
     case 0: return s.exercise_run_sub;
     case 1: return s.fight_run_sub;
     default: return s.kill_run_sub;

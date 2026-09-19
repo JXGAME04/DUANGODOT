@@ -637,3 +637,15 @@ khi gửi 0x71 = 0 (máu đầy nên không thấy hồi; luật hồi có test 
 
 `--auto` `auto_ride.png`: `?gm ds AddItem(0,10,0,1,0,0)` → mặc → `AUTO_RIDE mounted=true horse_row=8 action=38 parts=10 down=true action_down=1 parts_down=7`
 (7 phần thân + 3 phần ngựa, tên cao thêm 38; xuống ngựa về hành động 1 với 7 phần). Túi của nhân vật thử được dọn (`bag cleaned`) trước `AUTO_ITEMS` vì nhân vật giữ đồ giữa các lần chạy.
+
+## 20. PK trên client — `Switch([[pk]])` `0x0042FB3D` → `OperationRequest(0x14)` `0x005C3271` → `0x005FB240` (gói `{0x6d, 2}`), gói 0x4a/0x4b cờ `& 3` → `KNpc+0x16e4`, `PaintLife 0x005EADB8` (M12 lát B3c-4, đã đọc từng dòng `gamecl.exe` + mã 2004)
+
+| Hàm | Luật (đã đọc) | Client mới |
+|---|---|---|
+| `autoexec.lua` | `F9` và `Ctrl+H` → `Switch([[pk]])`; `V` → `Switch([[sit]])`; `R` run, `M` horse, `T`/`O` trade | `UiGame`: F9 xoay 0 → 1 → 2 → 0 (`C2G_PK_STATE`), V ngồi/đứng |
+| `Switch([[pk]])` `0x0042FB3D` | `OperationRequest(0x14, 0, 1)` → `0x005C3271`: `0x005F7C10(core+0xa878)` (`+0x6f98 == 3`, đang trong game) → `[core+0x11a28] == 0` → `0x005FB240(0)` (không gửi gì) / ≠ 0 → `0x005FB240(1)`: gói **`{0x6d, 2}`** 2 byte | jx_linux_y đọc 0x6d là giao dịch (`0x080B2C70`), handler trạng thái PK của nó là gói 0x76 `{byte}` → zone dùng ý nghĩa 0x76 |
+| gói 0x4a `0x0065D282` / 0x4b `0x0065D617` | byte cờ `& 3` → `+0x16e4` (trạng thái PK), khác trước → sự kiện 0x15 cho UI (`0x005C66A0`); 0x4b `+0x1e & 1` → `+0x16e8` (cờ PK bật) | `EntityInfo.pk_state`, `G2C_ENTITY_PK` → `KNpc.pk_state` (`+0x16e8` = trạng thái ≠ 0) |
+| gói 0x90 / 0x93 (handler ô 0x91/0x94 của bảng) | trạng thái / giá trị PK của mình → HUD | `G2C_PK_STATE{state, value, refused}` → `Game.pk_state/pk_value`, HUD `pk <tên>/<giá trị>`, dòng chat khi bị từ chối |
+| `PaintLife 0x005EADB8..0x005EAE5B` | kind 1/2 không phải mình và `0x0066D070 == 8` (cùng đội) → (230, 190, 0); khác: `+0x16e8 ≠ 0` → R 255, G 0, `+0x16e4 == 2` → B 0 (đỏ) khác B 64; `+0x16e8 == 0 && +0x16e4 == 2` → (255, 105, 180); còn lại theo % (§17) | `KNpcGold.life_bar_color(pct, pk_state, pk_flag)`; đội chưa có |
+
+`--auto` `auto_pk.png` + `AUTO_PK on=true bar_state=1 value=0 back=false refused=true` (đang chiến → về 0 cần `NormalPKTimeLong`).

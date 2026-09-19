@@ -617,6 +617,82 @@ int l_ForbitStamina(lua_State* L)
     return 0;
 }
 
+// GetPK() -> the PK value (0x081103C0: KPlayerPK::GetPKValue +0x2c)
+int l_GetPK(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetPK");
+    lua_pushinteger(L, p ? p->player.pk.value : 0);
+    return 1;
+}
+
+// SetPK(value) (0x08110420: KPlayerPK::SetPKValue - clamped to 0..10)
+int l_SetPK(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetPK");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    g_ScriptContext().world->pk_set_value(*p, static_cast<int>(lua_tonumber(L, 1)));
+    return 0;
+}
+
+// SetPKFlag(state) (0x0810F610: KPlayerPK::SetPKState(state, force = 1))
+int l_SetPKFlag(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetPKFlag");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    g_ScriptContext().world->pk_set_state(*p, static_cast<int>(lua_tonumber(L, 1)), true);
+    return 0;
+}
+
+// ForbidChangePK(n): Player+0x5a58 = (n == 1) (0x0810F590); IsForbidChangePK() -> it (0x0810F540)
+int l_ForbidChangePK(lua_State* L)
+{
+    KNpc* p = player_of(L, "ForbidChangePK");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.pk.locked = static_cast<int>(lua_tonumber(L, 1)) == 1;
+    return 0;
+}
+
+int l_IsForbidChangePK(lua_State* L)
+{
+    const KNpc* p = player_of(L, "IsForbidChangePK");
+    lua_pushinteger(L, p && p->player.pk.locked ? 1 : 0);
+    return 1;
+}
+
+// SetPkReduceState(seconds, value, weaken, enhance) (0x08109570): Player+0x5a8c / +0x5a84 / +0x5a88 = (weaken << 8) | enhance;
+// GetPkReduceState() -> seconds, value, weaken, enhance (0x081094D0)
+int l_SetPkReduceState(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetPkReduceState");
+    if (p == nullptr || lua_gettop(L) < 4) return 0;
+    const int seconds = static_cast<int>(lua_tonumber(L, 1));
+    if (seconds <= 0) return 0;   // 0x08109616
+    p->player.pk.reduce_seconds = seconds;
+    p->player.pk.reduce_value = static_cast<int>(lua_tonumber(L, 2));
+    p->player.pk.punish_weaken = static_cast<int>(lua_tonumber(L, 3));
+    p->player.pk.punish_enhance = static_cast<int>(lua_tonumber(L, 4));
+    return 0;
+}
+
+int l_GetPkReduceState(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetPkReduceState");
+    lua_pushinteger(L, p ? p->player.pk.reduce_seconds : 0);
+    lua_pushinteger(L, p ? p->player.pk.reduce_value : 0);
+    lua_pushinteger(L, p ? p->player.pk.punish_weaken : 0);
+    lua_pushinteger(L, p ? p->player.pk.punish_enhance : 0);
+    return 4;
+}
+
+// SetDeathPunish_PK10(n): Player+0x384 = n (0x08110680) - the arena death of 0x08089750 (not in the zone)
+int l_SetDeathPunish_PK10(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetDeathPunish_PK10");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.pk10_death_punish = static_cast<int>(lua_tonumber(L, 1));
+    return 0;
+}
+
 // ForbitSyncAura(n): Player+0x388 = 0 when n ~= 0, 1 otherwise (0x0810CC10) - whether an aura tick is shown to others
 int l_ForbitSyncAura(lua_State* L)
 {
@@ -943,6 +1019,9 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
     {"ForbitAura", l_ForbitAura},         {"ForbitSyncAura", l_ForbitSyncAura},   {"ForbitStamina", l_ForbitStamina},
+    {"GetPK", l_GetPK},                   {"SetPK", l_SetPK},                     {"SetPKFlag", l_SetPKFlag},
+    {"ForbidChangePK", l_ForbidChangePK}, {"IsForbidChangePK", l_IsForbidChangePK},
+    {"SetPkReduceState", l_SetPkReduceState}, {"GetPkReduceState", l_GetPkReduceState}, {"SetDeathPunish_PK10", l_SetDeathPunish_PK10},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},

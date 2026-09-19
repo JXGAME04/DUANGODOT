@@ -323,6 +323,7 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     case pb::C2G_REVIVE:
     case pb::C2G_RIDE:
     case pb::C2G_SIT:
+    case pb::C2G_PK_STATE:
     case pb::C2G_SKILL_DESC:
     case pb::C2G_SET_AURA: {
         KCmdClientPacket cmd;

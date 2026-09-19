@@ -202,6 +202,9 @@ struct KNpc {
     int horse_res = -1;
     int mantle_res = -1;
     std::uint8_t res_version = 0;
+    // +0x1818 (m_nCurPKPunishState of 2003): 3 = a PK-battle death (no penalty, GetPKRelation 0x0807A3C2 returns 3); the scripts of
+    // the arenas set it (0x0810F400) - nothing in the zone does yet
+    int pk_punish_state = 0;
     // +0x174c: the drop table the death rolls on - the template's DropRateFile (SetTemplate 0x080830BA), the map's
     // `<id>_NormalDropRate` for a placement (0x0809FD30), its `<id>_GoldenDropRate` while gold (0x08086073); a
     // lower-cased game path here, the table's index in the binary
@@ -327,6 +330,11 @@ struct KNpc {
         skill_list.clear_attrib(skill_mgr);   // 0x0807F341: the current levels back to the learned ones
         hide = 0;                             // 0x0807F3DE / 0x0807F4A6: the hiding too (a state puts it back when applied again)
         hide_syncing = false;
+        if (kind == KNpcKind::player) {       // 0x08082C73..0x08082C87: Player+0x86f8 / +0x8700 / +0x86fc = 0
+            player.not_add_pkvalue_p = 0;
+            player.pk_punish_weaken = 0;
+            player.pk_punish_enhance = 0;
+        }
         auto_skills[static_cast<std::size_t>(KAutoSkillList::every_frame)].clear();   // 0x0807F5AC: the every-frame list and
         on_cast_skills.clear();                                                        // 0x0807F5F3: the on-cast map, always
         if (clear_state) {

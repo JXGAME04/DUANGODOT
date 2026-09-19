@@ -93,7 +93,14 @@ static func life_bar(entity_type: int, life_switch: int, focus: bool) -> bool:
 # PaintLife 0x005EADF4 .. 0x005EAE5B: the colour of the filled part by the percent - green (0, 255, 0) from 50, yellow (255, 255, 0)
 # from 25, red (255, 0, 0) below; the team mate (0x0066D070 == 8: 230, 190, 0), the PK states of KNpc+0x16e4 / +0x16e8 (pink
 # 255, 105, 180; red 255, 0, 0 / 255, 0, 64) wait for the team and PK systems
-static func life_bar_color(pct: int) -> Color:
+# PaintLife 0x005EADB8..0x005EAE5B in order: a team mate (0x0066D070 == 8, not on this client) (230, 190, 0); the PK flag
+# (KNpc+0x16e8, the switch on) -> (255, 0, 0) for the kill state 2, (255, 0, 64) otherwise; no flag but state 2 -> (255, 105, 180);
+# else by the percent: 50 green, 25 yellow, below red
+static func life_bar_color(pct: int, pk_state: int = 0, pk_flag: bool = false) -> Color:
+	if pk_flag:
+		return Color(1.0, 0.0, 0.0) if pk_state == 2 else Color(1.0, 0.0, 64.0 / 255.0)
+	if pk_state == 2:
+		return Color(1.0, 105.0 / 255.0, 180.0 / 255.0)
 	if pct >= 50:
 		return Color(0.0, 1.0, 0.0)
 	if pct >= 25:

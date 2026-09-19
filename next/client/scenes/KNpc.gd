@@ -68,6 +68,7 @@ var hovered := false               # the npc under the mouse (the pate loop 0x00
 var camp := 4                      # m_Camp (+0xf4 of the 2.0 client, the byte +0xb of the 0x4c packet)
 var equip_rows: Dictionary = {}    # the equipment rows of the 0x4a / 0x4b sync (KNpc+0x13f0..+0x1400): group -> row, -1 none
 var riding := false                # m_bRideHorse (+0x19c0): the on-horse actions, the pate + 38
+var pk_state := 0                  # KNpc+0x16e4 (the 0x4a / 0x4b flag & 3): a player's PK state - the life-bar colour (PaintLife 0x005EADF4)
 var current_camp := 4              # m_CurrentCamp (+0xf8, the byte +3): the colour of a player's name (0x005F2507)
 # the two show switches (KNpcGold.gd): "showplayername" (F7) and "showplayerlife" (F8) of the option word, shared by every npc
 static var name_switch := 3        # this client starts with the names on (2.0 starts at 0: docs/CLIENT-2.0.md §17)
@@ -95,6 +96,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	current_camp = int(d.get("current_camp", 4))
 	equip_rows = d.get("res", {})
 	riding = bool(d.get("riding", false))
+	pk_state = int(d.get("pk_state", 0))
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -292,6 +294,14 @@ func set_equip_rows(rows: Dictionary) -> void:
 	if has_res and entity_type == ENTITY_PLAYER:
 		_res.set_equips(rows)
 		queue_redraw()
+
+
+# the flag & 3 of the 0x4b sync (0x0065D617 -> +0x16e4): the PK state colours the life bar
+func set_pk_state(s: int) -> void:
+	if pk_state == s:
+		return
+	pk_state = s
+	queue_redraw()
 
 
 # the ride flag of the 0x4a / 0x4b sync -> KNpc::SetRideHorse 0x005EC3E0 -> KNpcRes::SetRideHorse 0x006DF420: the on-horse
@@ -539,7 +549,7 @@ func _draw() -> void:
 		var pct := int(round(float(life) * 100.0 / float(life_max)))
 		var w := float(pct * 38 / 100)
 		var top := Vector2(-19.0, -float(_pate()) + 2.0)
-		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct))
+		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct, pk_state, pk_state != 0))
 		draw_rect(Rect2(top + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
 	if is_target and not is_dead():
 		draw_arc(Vector2(0, 0), 18.0, 0, TAU, 24, Color(1.0, 0.9, 0.2, 0.8), 2.0)
