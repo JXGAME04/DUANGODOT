@@ -37,6 +37,7 @@
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KPlayerChat.h"
+#include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
@@ -128,6 +129,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
     std::shared_ptr<const KChatCostTable> chat_cost;          // chatcost.ini (KPlayerChat.h; jxassets export-chat-cost); null = every channel free
+    std::shared_ptr<const KTaskDefTable> task_def;            // settings/task/player_task_def.txt (KPlayerTask.h; jxassets export-task-def): which task values the client is told; null = none
     std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
@@ -575,6 +577,14 @@ public:
     // Lua Say / Talk: the 0x63 packet to the player and the answer functions kept on it
     void dialog_say(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
     void dialog_talk(KNpc& e, std::string_view callback, const std::vector<std::string>& pages);
+    // the task values (docs §21, KSubWorldTask.cpp): KPlayer::SetTaskValue 0x080A9190 (a change; a SYNC_FLAG id with `sync` goes to
+    // the client as G2C_TASK_VALUE), the 0xa7 packet of one id (0x080A8CC0), SyncTaskValueMore 0x080A9550 (G2C_TASK_VALUES of
+    // eighty), the enter-world sync 0x080B9CF0, the client's 0xaa packet 0x080DB070 (a CLIENT_FLAG id only)
+    void task_set_value(KNpc& e, int id, int value, bool sync);
+    void task_send_value(const KNpc& e, int id);
+    bool task_sync_more(const KNpc& e, int first, int last, bool only_non_zero);
+    void task_login_sync(const KNpc& e);
+    bool task_value_request(std::uint64_t sid, int id, int value);
     [[nodiscard]] bool trading(const KNpc& e) const noexcept;   // KPlayer::CheckTrading 0x080A7E90
     void trade_cancel(KNpc& e);                                 // 0x080AE380: both sides, the boxes back, the menu states restored
     void set_menu_state(KNpc& e, int state, std::string_view sentence, EntityId dest);   // KPlayerMenuState::SetState 0x080C29D0
@@ -824,6 +834,8 @@ private:
     void load_items(std::uint64_t sid, const pb::RoleData& role);
     void load_skills(KNpc& e, const pb::RoleData& role);   // KPlayer::LoadPlayerFightSkillList 0x080C0240
     void save_skills(const KNpc& e, pb::RoleData& out) const;   // KSkillList 0x080E48D0
+    void load_task_values(KNpc& e, const pb::RoleData& role);   // KPlayer::LoadPlayerTaskList 0x080C0050
+    void save_task_values(const KNpc& e, pb::RoleData& out) const;   // KPlayer::SavePlayerTaskList 0x080BF1C0 / Serialize 0x080CB6A0
     void save_items(std::uint64_t sid, pb::RoleData& out) const;
     void item_result(std::uint64_t sid, std::uint32_t seq, pb::Result result);
     void item_moved(std::uint64_t sid, std::uint32_t id, std::uint32_t seq);

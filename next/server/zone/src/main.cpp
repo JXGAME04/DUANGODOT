@@ -239,6 +239,20 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no chat cost table", {jx::log::kv("file", chat_cost_file), jx::log::kv("error", error)});
         }
     }
+    // the task value table (jxassets export-task-def, \settings\task\player_task_def.txt): which task values the client is told
+    // about (SYNC_FLAG) and which it may set (CLIENT_FLAG); without it no value leaves the zone (docs/LINUX-SERVER.md §21)
+    const std::string task_def_file = cfg.get_string("zone.task_def_file", "client/assets/task_def.json");
+    if (!task_def_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KTaskDefTable::load(task_def_file, &error)) {
+            const std::size_t ids = t->size();
+            const std::size_t ranges = t->sync_ranges().size();
+            w.task_def = std::make_shared<const jx::zone::KTaskDefTable>(std::move(*t));
+            jx::log::info("boot", "task def table loaded", {jx::log::kv("file", task_def_file), jx::log::kv("ids", ids), jx::log::kv("ranges", ranges)});
+        } else {
+            jx::log::warn("boot", "no task def table", {jx::log::kv("file", task_def_file), jx::log::kv("error", error)});
+        }
+    }
     // the revive / reference points of every map (jxassets export-revive-pos): where a fresh character is born in its
     // village and where the revive / SetRevPos put a character; without it the spawn point of each map stands in
     const std::string revive_file = cfg.get_string("zone.revive_pos_file", "client/assets/revive_pos.json");

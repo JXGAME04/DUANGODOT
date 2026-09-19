@@ -79,6 +79,14 @@ message RoleSkill {
   uint32 exp = 3;
 }
 
+// One saved task value of the character (KPlayerTask of the old core, the std::map at Player+0x809c+0x54c of jx_linux_y;
+// KPlayer::SavePlayerTaskList 0x080BF1C0 writes the non-zero {int id, int value} pairs into TRoleData, LoadPlayerTaskList
+// 0x080C0050 reads them back through SetSaveVal).  The temp values (m_nTaskTemp) are never saved.
+message RoleTaskValue {
+  uint32 id = 1;              // 0..0x176f
+  int32 value = 2;            // never 0 (a 0 erases the entry)
+}
+
 message RoleData {
   uint64 player_id = 1;
   uint64 account_id = 2;
@@ -127,4 +135,5 @@ message RoleData {
   // character can hold (level_lead_exp.txt col 3, KTeam::CalcCaptainPower 0x080CC960); 0 = level 1
   uint64 lead_exp = 30;
   uint32 lead_level = 31;
+  repeated RoleTaskValue task_values = 32;   // the task values the scripts keep (GetTask / SetTask; docs/LINUX-SERVER.md §21)
 }

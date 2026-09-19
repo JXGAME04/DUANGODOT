@@ -206,6 +206,24 @@ message ScriptAction {
   repeated string options = 7;   // the answers (Say, the text before the '/') or the pages (Talk)
 }
 
+// one saved task value of the character (KPlayerTask, docs/LINUX-SERVER.md §21): the 0xa7 packet {0xa7, int id, int value}
+message TaskValue {
+  int32 id = 1;                  // 0..0x176f
+  int32 value = 2;
+}
+
+// the 0xb5 packet of SyncTaskValueMore 0x080A9550: up to eighty values in one go (the login sends 1000..1070 this way)
+message TaskValues {
+  repeated TaskValue values = 1;
+}
+
+// C2G_TASK_VALUE: the 0xaa packet {0xaa, int id, int value} (0x080DB070) - the zone takes it for an id with CLIENT_FLAG in
+// settings/task/player_task_def.txt and refuses every other one
+message TaskValueReq {
+  int32 id = 1;
+  int32 value = 2;
+}
+
 message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)
   int32 state = 1;
   uint32 seq = 2;
@@ -950,6 +968,7 @@ enum MsgId {
   C2G_TEAM = 1119;             // (zone) a team command: the 0x53 packet {0x53, word len, byte sub 1..11, dword npc} of jx_linux_y (docs/LINUX-SERVER.md §17)
   C2G_TRADE = 1120;
   C2G_NPC_DIALOG = 1121;       // (zone) the 0x6e packet {0x6e, dword npc id, dword sync}: KPlayer::DialogNpc 0x080B1300 (docs/LINUX-SERVER.md §20)
+  C2G_TASK_VALUE = 1123;       // (zone) the 0xaa packet {0xaa, int id, int value} (0x080DB070): a CLIENT_FLAG value of player_task_def.txt set by the client (docs/LINUX-SERVER.md §21)
   C2G_DIALOG_ANSWER = 1122;    // (zone) the 0x5f packet {0x5f, int index, int kind, int, int}: the answer of a Say / Talk (0x080AC5D0)            // (zone) a trade command: the trade packets of jx_linux_y (apply open / close / start, reply, money 0x6c, decision 0x6d; docs/LINUX-SERVER.md §18)
 
   // gateway -> client
@@ -998,6 +1017,8 @@ enum MsgId {
   G2C_TRADE_END = 2136;        // the 0x78 packet: the trade is over {ok = the exchange happened, 0 = cancelled}
   G2C_SYS_MSG = 2137;          // the 0x86 packet {word 8, word id, dword npc}: a sentence of stringtable_core.txt by id (docs/CLIENT-2.0.md §21)
   G2C_ENTITY_MENU_STATE = 2138;
+  G2C_TASK_VALUE = 2140;       // the 0xa7 packet {0xa7, int id, int value} of KPlayer::SetTaskValue 0x080A9190 / SyncTaskValue (0x080A8CC0) -> the client's 0x006512F0 (docs/LINUX-SERVER.md §21)
+  G2C_TASK_VALUES = 2141;      // the 0xb5 packet of SyncTaskValueMore 0x080A9550: up to eighty {id, value} (the client's 0x00651350)
   G2C_SCRIPT_ACTION = 2139;    // the 0x63 packet PLAYER_SCRIPTACTION_SYNC: Say (a sentence + answers) / Talk (pages) of a npc script (docs/LINUX-SERVER.md §20)   // s2c_npcsetmenustate: the sign over a player's head (1 looking for team mates, 2 trading wanted + sentence, 3 trading)
 
   // gateway <-> zone
@@ -1090,6 +1111,14 @@ message RoleSkill {
   uint32 exp = 3;
 }
 
+// One saved task value of the character (KPlayerTask of the old core, the std::map at Player+0x809c+0x54c of jx_linux_y;
+// KPlayer::SavePlayerTaskList 0x080BF1C0 writes the non-zero {int id, int value} pairs into TRoleData, LoadPlayerTaskList
+// 0x080C0050 reads them back through SetSaveVal).  The temp values (m_nTaskTemp) are never saved.
+message RoleTaskValue {
+  uint32 id = 1;              // 0..0x176f
+  int32 value = 2;            // never 0 (a 0 erases the entry)
+}
+
 message RoleData {
   uint64 player_id = 1;
   uint64 account_id = 2;
@@ -1138,5 +1167,6 @@ message RoleData {
   // character can hold (level_lead_exp.txt col 3, KTeam::CalcCaptainPower 0x080CC960); 0 = level 1
   uint64 lead_exp = 30;
   uint32 lead_level = 31;
+  repeated RoleTaskValue task_values = 32;   // the task values the scripts keep (GetTask / SetTask; docs/LINUX-SERVER.md §21)
 }
 

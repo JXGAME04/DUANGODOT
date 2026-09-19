@@ -9,12 +9,14 @@ extern "C" {
 
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <optional>
 #include <utility>
 
 #include "jx/log.hpp"
 #include "jx/zone/KItem.h"
 #include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KSkill.h"
@@ -1312,6 +1314,123 @@ int l_AddMagic(lua_State* L)
     return 0;
 }
 
+// ---- the task values (KPlayerTask at Player+0x809c; docs/LINUX-SERVER.md §21) ----
+
+// the integer of a Lua number the way the binary's fistp makes one (toward zero); out of range -> INT_MIN like the fpu
+int task_int(lua_State* L, int idx)
+{
+    const lua_Number n = lua_tonumber(L, idx);
+    if (!(n > -2147483648.0 && n < 2147483648.0)) return INT_MIN;
+    return static_cast<int>(n);
+}
+
+// GetTask(id) (0x08116890): the saved value of the id (GetTaskValue 0x080CB540) - nil without a player (0x08116910)
+int l_GetTask(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTask");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, p->player.task.get_save_val(task_int(L, 1)));
+    return 1;
+}
+
+// SetTask(id, value) (0x08116780): KPlayer::SetTaskValue(id, value, sync = 1); id 1 is traced (0x08116812)
+int l_SetTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetTask");
+    if (p == nullptr) return 0;
+    const int id = task_int(L, 1);
+    const int value = task_int(L, 2);
+    g_ScriptContext().world->task_set_value(*p, id, value, true);
+    if (id == kTaskTraceId) {
+        log::info("zone.task", "trace task value", {log::kv("entity", p->id), log::kv("id", id), log::kv("value", value), log::kv("name", p->name)});
+    }
+    return 0;
+}
+
+// GetTaskTemp(id) (0x08123A20): the temp value (GetClearVal 0x080CB5A0) of the last argument (Lua_GetTopIndex of 2003) -
+// nil above 0xff (0x08123A5F) or without a player; a negative id reads 0
+int l_GetTaskTemp(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    const int id = top >= 1 ? task_int(L, top) : 0;
+    const KNpc* p = id > 0xff ? nullptr : player_of(L, "GetTaskTemp");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushnumber(L, p->player.task.get_temp(id));
+    return 1;
+}
+
+// SetTaskTemp(id, value) (0x08123950): SetClearVal 0x080CB5C0 with the last two arguments as the id and the value; ids 0..0xff
+int l_SetTaskTemp(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    const int id = top >= 2 ? task_int(L, top - 1) : 0;
+    const int value = top >= 1 ? task_int(L, top) : 0;
+    KNpc* p = player_of(L, "SetTaskTemp");
+    if (p == nullptr) return 0;
+    p->player.task.set_temp(id, value);
+    return 0;
+}
+
+// SyncTaskValue(id) (0x0810E350): the 0xa7 packet of the id now (0x080A8CC0), whatever its flags; nothing without an argument
+int l_SyncTaskValue(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    KNpc* p = player_of(L, "SyncTaskValue");
+    if (p == nullptr) return 0;
+    g_ScriptContext().world->task_send_value(*p, task_int(L, 1));
+    return 0;
+}
+
+// SyncTaskValueMore(first, last [, only_non_zero]) (0x0810E240): the 0xb5 packets of the range (0x080A9550) -> 1, or 0
+// for a bad range; nothing with fewer than two arguments (0x0810E257)
+int l_SyncTaskValueMore(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    KNpc* p = player_of(L, "SyncTaskValueMore");
+    if (p == nullptr) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    const int first = task_int(L, 1);
+    const int last = task_int(L, 2);
+    const int only = top == 2 ? 0 : task_int(L, 3);
+    lua_pushnumber(L, g_ScriptContext().world->task_sync_more(*p, first, last, only != 0) ? 1 : 0);
+    return 1;
+}
+
+// GetBitTask(id, start, count) (0x081090A0): `count` bits from `start` of the value (GetBits 0x080CB5E0) as an unsigned
+// number; nothing with fewer than three arguments (0x081090D8) or without a player
+int l_GetBitTask(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetBitTask");
+    if (p == nullptr || lua_gettop(L) <= 2) return 0;
+    lua_pushnumber(L, static_cast<lua_Number>(p->player.task.get_bits(task_int(L, 1), task_int(L, 2), task_int(L, 3))));
+    return 1;
+}
+
+// SetBitTask(id, start, count, value) (0x08108F10): SetBits 0x080CB910 -> 1 / 0; id 1 is traced (0x08109032); nothing with
+// fewer than four arguments (0x08108F50) or without a player.  SetBits writes the map itself: the client is not told
+int l_SetBitTask(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetBitTask");
+    if (p == nullptr || lua_gettop(L) <= 3) return 0;
+    const int id = task_int(L, 1);
+    const int value = task_int(L, 4);
+    const bool ok = p->player.task.set_bits(id, task_int(L, 2), task_int(L, 3), value);
+    lua_pushnumber(L, ok ? 1 : 0);
+    if (id == kTaskTraceId) {
+        log::info("zone.task", "trace task value", {log::kv("entity", p->id), log::kv("id", id), log::kv("value", value), log::kv("name", p->name)});
+    }
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -1345,6 +1464,9 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetLastAddFaction", l_GetLastAddFaction}, {"GetLastFactionNumber", l_GetLastFactionNumber}, {"SetLastFactionNumber", l_SetLastFactionNumber},
     {"ClearFactionRecord", l_ClearFactionRecord}, {"SetCamp", l_SetCamp},        {"SetCurCamp", l_SetCurCamp},
     {"GetCamp", l_GetCamp},               {"GetCurCamp", l_GetCurCamp},       {"AddMagic", l_AddMagic},
+    {"GetTask", l_GetTask},               {"SetTask", l_SetTask},             {"GetTaskTemp", l_GetTaskTemp},
+    {"SetTaskTemp", l_SetTaskTemp},       {"SyncTaskValue", l_SyncTaskValue}, {"SyncTaskValueMore", l_SyncTaskValueMore},
+    {"GetBitTask", l_GetBitTask},         {"SetBitTask", l_SetBitTask},
     {nullptr, nullptr},
 };
 

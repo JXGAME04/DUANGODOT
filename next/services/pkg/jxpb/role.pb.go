@@ -577,6 +577,61 @@ func (x *RoleSkill) GetExp() uint32 {
 	return 0
 }
 
+// One saved task value of the character (KPlayerTask of the old core, the std::map at Player+0x809c+0x54c of jx_linux_y;
+// KPlayer::SavePlayerTaskList 0x080BF1C0 writes the non-zero {int id, int value} pairs into TRoleData, LoadPlayerTaskList
+// 0x080C0050 reads them back through SetSaveVal).  The temp values (m_nTaskTemp) are never saved.
+type RoleTaskValue struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`       // 0..0x176f
+	Value         int32                  `protobuf:"varint,2,opt,name=value,proto3" json:"value,omitempty"` // never 0 (a 0 erases the entry)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RoleTaskValue) Reset() {
+	*x = RoleTaskValue{}
+	mi := &file_jx_role_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RoleTaskValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RoleTaskValue) ProtoMessage() {}
+
+func (x *RoleTaskValue) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_role_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RoleTaskValue.ProtoReflect.Descriptor instead.
+func (*RoleTaskValue) Descriptor() ([]byte, []int) {
+	return file_jx_role_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RoleTaskValue) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *RoleTaskValue) GetValue() int32 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
 type RoleData struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	PlayerId    uint64                 `protobuf:"varint,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
@@ -624,15 +679,16 @@ type RoleData struct {
 	PkLocked bool   `protobuf:"varint,29,opt,name=pk_locked,json=pkLocked,proto3" json:"pk_locked,omitempty"`
 	// the leadership (m_dwLeadExp +0x596c / m_dwLeadLevel +0x5970 of KPlayer): the level says how many a team led by the
 	// character can hold (level_lead_exp.txt col 3, KTeam::CalcCaptainPower 0x080CC960); 0 = level 1
-	LeadExp       uint64 `protobuf:"varint,30,opt,name=lead_exp,json=leadExp,proto3" json:"lead_exp,omitempty"`
-	LeadLevel     uint32 `protobuf:"varint,31,opt,name=lead_level,json=leadLevel,proto3" json:"lead_level,omitempty"`
+	LeadExp       uint64           `protobuf:"varint,30,opt,name=lead_exp,json=leadExp,proto3" json:"lead_exp,omitempty"`
+	LeadLevel     uint32           `protobuf:"varint,31,opt,name=lead_level,json=leadLevel,proto3" json:"lead_level,omitempty"`
+	TaskValues    []*RoleTaskValue `protobuf:"bytes,32,rep,name=task_values,json=taskValues,proto3" json:"task_values,omitempty"` // the task values the scripts keep (GetTask / SetTask; docs/LINUX-SERVER.md §21)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RoleData) Reset() {
 	*x = RoleData{}
-	mi := &file_jx_role_proto_msgTypes[5]
+	mi := &file_jx_role_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -644,7 +700,7 @@ func (x *RoleData) String() string {
 func (*RoleData) ProtoMessage() {}
 
 func (x *RoleData) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_role_proto_msgTypes[5]
+	mi := &file_jx_role_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -657,7 +713,7 @@ func (x *RoleData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoleData.ProtoReflect.Descriptor instead.
 func (*RoleData) Descriptor() ([]byte, []int) {
-	return file_jx_role_proto_rawDescGZIP(), []int{5}
+	return file_jx_role_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RoleData) GetPlayerId() uint64 {
@@ -877,6 +933,13 @@ func (x *RoleData) GetLeadLevel() uint32 {
 	return 0
 }
 
+func (x *RoleData) GetTaskValues() []*RoleTaskValue {
+	if x != nil {
+		return x.TaskValues
+	}
+	return nil
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -940,7 +1003,10 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +
-	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xd3\a\n" +
+	"\x03exp\x18\x03 \x01(\rR\x03exp\"5\n" +
+	"\rRoleTaskValue\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"\x8a\b\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -981,7 +1047,9 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tpk_locked\x18\x1d \x01(\bR\bpkLocked\x12\x19\n" +
 	"\blead_exp\x18\x1e \x01(\x04R\aleadExp\x12\x1d\n" +
 	"\n" +
-	"lead_level\x18\x1f \x01(\rR\tleadLevelB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"lead_level\x18\x1f \x01(\rR\tleadLevel\x125\n" +
+	"\vtask_values\x18  \x03(\v2\x14.jx.pb.RoleTaskValueR\n" +
+	"taskValuesB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once
@@ -995,18 +1063,19 @@ func file_jx_role_proto_rawDescGZIP() []byte {
 	return file_jx_role_proto_rawDescData
 }
 
-var file_jx_role_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_jx_role_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_jx_role_proto_goTypes = []any{
-	(*RolePosition)(nil), // 0: jx.pb.RolePosition
-	(*RoleStats)(nil),    // 1: jx.pb.RoleStats
-	(*ItemMagic)(nil),    // 2: jx.pb.ItemMagic
-	(*ItemData)(nil),     // 3: jx.pb.ItemData
-	(*RoleSkill)(nil),    // 4: jx.pb.RoleSkill
-	(*RoleData)(nil),     // 5: jx.pb.RoleData
-	(*Vec2)(nil),         // 6: jx.pb.Vec2
+	(*RolePosition)(nil),  // 0: jx.pb.RolePosition
+	(*RoleStats)(nil),     // 1: jx.pb.RoleStats
+	(*ItemMagic)(nil),     // 2: jx.pb.ItemMagic
+	(*ItemData)(nil),      // 3: jx.pb.ItemData
+	(*RoleSkill)(nil),     // 4: jx.pb.RoleSkill
+	(*RoleTaskValue)(nil), // 5: jx.pb.RoleTaskValue
+	(*RoleData)(nil),      // 6: jx.pb.RoleData
+	(*Vec2)(nil),          // 7: jx.pb.Vec2
 }
 var file_jx_role_proto_depIdxs = []int32{
-	6,  // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
+	7,  // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
 	2,  // 1: jx.pb.ItemData.base:type_name -> jx.pb.ItemMagic
 	2,  // 2: jx.pb.ItemData.require:type_name -> jx.pb.ItemMagic
 	2,  // 3: jx.pb.ItemData.magic:type_name -> jx.pb.ItemMagic
@@ -1015,12 +1084,13 @@ var file_jx_role_proto_depIdxs = []int32{
 	1,  // 6: jx.pb.RoleData.stats:type_name -> jx.pb.RoleStats
 	3,  // 7: jx.pb.RoleData.items:type_name -> jx.pb.ItemData
 	4,  // 8: jx.pb.RoleData.skills:type_name -> jx.pb.RoleSkill
-	6,  // 9: jx.pb.RoleData.revive_pos:type_name -> jx.pb.Vec2
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	7,  // 9: jx.pb.RoleData.revive_pos:type_name -> jx.pb.Vec2
+	5,  // 10: jx.pb.RoleData.task_values:type_name -> jx.pb.RoleTaskValue
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_jx_role_proto_init() }
@@ -1035,7 +1105,7 @@ func file_jx_role_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_role_proto_rawDesc), len(file_jx_role_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

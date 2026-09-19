@@ -59,6 +59,7 @@ func _init() -> void:
 	test_team()
 	test_chat_channels()
 	test_dialog()
+	test_task_values()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -910,3 +911,32 @@ func test_dialog() -> void:
 	check(info_script.page_label(0, 3, "Tiếp tục", "Hoàn thành") == "Tiếp tục" and info_script.page_label(2, 3, "Tiếp tục", "Hoàn thành") == "Hoàn thành"
 		and info_script.page_label(0, 1, "Tiếp tục", "Hoàn thành") == "Hoàn thành", "page labels (G_PLAYER_14 / G_PLAYER_15)")
 
+
+# ---- the task values (KPlayerTask.gd, docs/LINUX-SERVER.md §21) ----------------------------------------------
+
+func test_task_values() -> void:
+	check(Proto.MsgId.G2C_TASK_VALUE == 2140 and Proto.MsgId.G2C_TASK_VALUES == 2141 and Proto.MsgId.C2G_TASK_VALUE == 1123, "task value message ids")
+	var v := Proto.TaskValue.new()
+	v.set_id(5)
+	v.set_value(77)
+	var v2 := Proto.TaskValue.new()
+	check(v2.from_bytes(v.to_bytes()) == Proto.PB_ERR.NO_ERRORS and v2.get_id() == 5 and v2.get_value() == 77, "TaskValue round trip")
+	var b := Proto.TaskValues.new()
+	var e := b.add_values()
+	e.set_id(1000)
+	e.set_value(-3)
+	var b2 := Proto.TaskValues.new()
+	check(b2.from_bytes(b.to_bytes()) == Proto.PB_ERR.NO_ERRORS and b2.get_values().size() == 1 and b2.get_values()[0].get_value() == -3, "TaskValues round trip")
+	var req := Proto.TaskValueReq.new()
+	req.set_id(1276)
+	req.set_value(4)
+	var req2 := Proto.TaskValueReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_id() == 1276 and req2.get_value() == 4, "TaskValueReq round trip")
+	var math: GDScript = load("res://scenes/KPlayerTask.gd")
+	var values := {}
+	check(math.set_value(values, 5, 77) and math.value_of(values, 5) == 77 and not math.set_value(values, 5, 77), "SetTaskValue stores and reports a change")
+	check(math.set_value(values, 5, 0) and not values.has(5) and math.value_of(values, 5) == 0, "a zero drops the entry")
+	check(not math.set_value(values, 0x1770, 1) and not math.set_value(values, -1, 1) and values.is_empty(), "ids outside 0..0x176f are refused")
+	var changed: Array = math.apply_batch(values, [{"id": 1000, "value": 1}, {"id": 1001, "value": 0}, {"id": 1002, "value": 2}])
+	check(changed == [1000, 1002] and math.value_of(values, 1002) == 2 and values.size() == 2, "a batch applies in order and names what changed")
+	check(math.bits(0x53, 4, 3) == 5 and math.bits(0x53, 0, 8) == 0x53 and math.bits(0x53, 30, 3) == 0 and math.bits(-1, 31, 1) == 1, "GetBits")

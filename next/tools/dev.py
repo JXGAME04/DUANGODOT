@@ -505,6 +505,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the chat cost table (settings/npc/player/chatcost.ini): what a line on the city / faction / world channels costs
     if subprocess.call([*jxassets_args(), "export-chat-cost", "-out", out], cwd=ROOT) != 0:
         print("export-chat-cost: no settings/npc/player/chatcost.ini in the reference server folder - every channel is free")
+    # the task value table (settings/task/player_task_def.txt): which task values the client is told about / may set
+    if subprocess.call([*jxassets_args(), "export-task-def", "-out", out], cwd=ROOT) != 0:
+        print("export-task-def: no settings/task/player_task_def.txt in the reference server folder - no task value reaches the client")
     # the revive / reference points of every map (settings/revivepos.ini): where a new character is
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:

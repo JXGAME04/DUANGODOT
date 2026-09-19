@@ -383,7 +383,7 @@ func (s *session) handle(f frame.Frame) bool {
 		switch id {
 		case jxpb.MsgId_C2G_MOVE, jxpb.MsgId_C2G_CHAT, jxpb.MsgId_C2G_ATTACK,
 			jxpb.MsgId_C2G_ITEM_MOVE, jxpb.MsgId_C2G_ITEM_EQUIP, jxpb.MsgId_C2G_ITEM_UNEQUIP, jxpb.MsgId_C2G_ITEM_USE, jxpb.MsgId_C2G_ITEM_DROP,
-			jxpb.MsgId_C2G_PICK_UP, jxpb.MsgId_C2G_ADD_POINT, jxpb.MsgId_C2G_ADD_SKILL_POINT, jxpb.MsgId_C2G_CAST_SKILL, jxpb.MsgId_C2G_REVIVE, jxpb.MsgId_C2G_RIDE, jxpb.MsgId_C2G_SKILL_DESC, jxpb.MsgId_C2G_SET_AURA, jxpb.MsgId_C2G_SIT, jxpb.MsgId_C2G_PK_STATE, jxpb.MsgId_C2G_TEAM, jxpb.MsgId_C2G_TRADE, jxpb.MsgId_C2G_NPC_DIALOG, jxpb.MsgId_C2G_DIALOG_ANSWER:
+			jxpb.MsgId_C2G_PICK_UP, jxpb.MsgId_C2G_ADD_POINT, jxpb.MsgId_C2G_ADD_SKILL_POINT, jxpb.MsgId_C2G_CAST_SKILL, jxpb.MsgId_C2G_REVIVE, jxpb.MsgId_C2G_RIDE, jxpb.MsgId_C2G_SKILL_DESC, jxpb.MsgId_C2G_SET_AURA, jxpb.MsgId_C2G_SIT, jxpb.MsgId_C2G_PK_STATE, jxpb.MsgId_C2G_TEAM, jxpb.MsgId_C2G_TRADE, jxpb.MsgId_C2G_NPC_DIALOG, jxpb.MsgId_C2G_DIALOG_ANSWER, jxpb.MsgId_C2G_TASK_VALUE:
 			return s.relay(id, f.Payload)
 		case jxpb.MsgId_C2G_LEAVE_WORLD:
 			s.leaveZone()

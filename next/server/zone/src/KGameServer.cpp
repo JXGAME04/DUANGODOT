@@ -328,6 +328,7 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     case pb::C2G_TEAM:
     case pb::C2G_NPC_DIALOG:
     case pb::C2G_DIALOG_ANSWER:
+    case pb::C2G_TASK_VALUE:
     case pb::C2G_SKILL_DESC:
     case pb::C2G_SET_AURA: {
         KCmdClientPacket cmd;

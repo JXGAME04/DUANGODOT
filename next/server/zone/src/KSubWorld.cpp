@@ -318,6 +318,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     entities_.at(id).player.load_from(entities_.at(id), role, tables(), items_of(sid));
     update_equip_res(entities_.at(id));   // 0x080C1F50: the look of what came back on (before the spawn goes out)
     load_skills(entities_.at(id), role);   // KPlayer::LoadPlayerFightSkillList: the skills, each through KSkillList::Add
+    load_task_values(entities_.at(id), role);   // KPlayer::LoadPlayerTaskList 0x080C0050: the {id, value} pairs of the record
     // the pace: m_CurrentRunSpeed units a frame (0x08080C01; 10 for a player, 0x080A7FF0) = 180 a second at 18 Hz - the role's
     // move_speed (a 200 the persist layer fills in) is not a rule of the old server and is ignored
     entities_.at(id).speed = player_move_speed(entities_.at(id));
@@ -336,6 +337,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     // and the character's own numbers (CURPLAYER_SYNC), then its skills (s2c_synccurplayerskill)
     send_player_attrib(sid);
     send_skill_list(sid);
+    task_login_sync(entities_.at(id));   // the enter-world stage 0x080B9CF0: the SYNC_FLAG values one by one, then 1000..1070 in a batch
 
     entity_out = id;
     pos_out = start;
@@ -2380,6 +2382,7 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
         out.set_fight_mode(e->fight_mode);   // KNpc::SetFightMode survives a logout like in the old game
         if (e->player.loaded) e->player.save_to(*e, out);   // the points, the base maxima, life / mana / stamina, exp
         save_skills(*e, out);
+        save_task_values(*e, out);   // KPlayer::SavePlayerTaskList 0x080BF1C0: the non-zero task values
     }
     save_items(sid, out);
     return true;

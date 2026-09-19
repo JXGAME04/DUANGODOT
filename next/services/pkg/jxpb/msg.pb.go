@@ -106,6 +106,7 @@ const (
 	MsgId_C2G_TEAM            MsgId = 1119 // (zone) a team command: the 0x53 packet {0x53, word len, byte sub 1..11, dword npc} of jx_linux_y (docs/LINUX-SERVER.md §17)
 	MsgId_C2G_TRADE           MsgId = 1120
 	MsgId_C2G_NPC_DIALOG      MsgId = 1121 // (zone) the 0x6e packet {0x6e, dword npc id, dword sync}: KPlayer::DialogNpc 0x080B1300 (docs/LINUX-SERVER.md §20)
+	MsgId_C2G_TASK_VALUE      MsgId = 1123 // (zone) the 0xaa packet {0xaa, int id, int value} (0x080DB070): a CLIENT_FLAG value of player_task_def.txt set by the client (docs/LINUX-SERVER.md §21)
 	MsgId_C2G_DIALOG_ANSWER   MsgId = 1122 // (zone) the 0x5f packet {0x5f, int index, int kind, int, int}: the answer of a Say / Talk (0x080AC5D0)            // (zone) a trade command: the trade packets of jx_linux_y (apply open / close / start, reply, money 0x6c, decision 0x6d; docs/LINUX-SERVER.md §18)
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK         MsgId = 2001
@@ -153,6 +154,8 @@ const (
 	MsgId_G2C_TRADE_END         MsgId = 2136 // the 0x78 packet: the trade is over {ok = the exchange happened, 0 = cancelled}
 	MsgId_G2C_SYS_MSG           MsgId = 2137 // the 0x86 packet {word 8, word id, dword npc}: a sentence of stringtable_core.txt by id (docs/CLIENT-2.0.md §21)
 	MsgId_G2C_ENTITY_MENU_STATE MsgId = 2138
+	MsgId_G2C_TASK_VALUE        MsgId = 2140 // the 0xa7 packet {0xa7, int id, int value} of KPlayer::SetTaskValue 0x080A9190 / SyncTaskValue (0x080A8CC0) -> the client's 0x006512F0 (docs/LINUX-SERVER.md §21)
+	MsgId_G2C_TASK_VALUES       MsgId = 2141 // the 0xb5 packet of SyncTaskValueMore 0x080A9550: up to eighty {id, value} (the client's 0x00651350)
 	MsgId_G2C_SCRIPT_ACTION     MsgId = 2139 // the 0x63 packet PLAYER_SCRIPTACTION_SYNC: Say (a sentence + answers) / Talk (pages) of a npc script (docs/LINUX-SERVER.md §20)   // s2c_npcsetmenustate: the sign over a player's head (1 looking for team mates, 2 trading wanted + sentence, 3 trading)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
@@ -198,6 +201,7 @@ var (
 		1119: "C2G_TEAM",
 		1120: "C2G_TRADE",
 		1121: "C2G_NPC_DIALOG",
+		1123: "C2G_TASK_VALUE",
 		1122: "C2G_DIALOG_ANSWER",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
@@ -244,6 +248,8 @@ var (
 		2136: "G2C_TRADE_END",
 		2137: "G2C_SYS_MSG",
 		2138: "G2C_ENTITY_MENU_STATE",
+		2140: "G2C_TASK_VALUE",
+		2141: "G2C_TASK_VALUES",
 		2139: "G2C_SCRIPT_ACTION",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
@@ -285,6 +291,7 @@ var (
 		"C2G_TEAM":              1119,
 		"C2G_TRADE":             1120,
 		"C2G_NPC_DIALOG":        1121,
+		"C2G_TASK_VALUE":        1123,
 		"C2G_DIALOG_ANSWER":     1122,
 		"G2C_HELLO_ACK":         2001,
 		"G2C_LOGIN_RES":         2002,
@@ -331,6 +338,8 @@ var (
 		"G2C_TRADE_END":         2136,
 		"G2C_SYS_MSG":           2137,
 		"G2C_ENTITY_MENU_STATE": 2138,
+		"G2C_TASK_VALUE":        2140,
+		"G2C_TASK_VALUES":       2141,
 		"G2C_SCRIPT_ACTION":     2139,
 		"GZ_ZONE_HELLO":         9001,
 		"ZG_ZONE_HELLO_ACK":     9002,
@@ -378,7 +387,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xd8\r\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\x98\x0e\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -410,7 +419,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fC2G_PK_STATE\x10\xde\b\x12\r\n" +
 	"\bC2G_TEAM\x10\xdf\b\x12\x0e\n" +
 	"\tC2G_TRADE\x10\xe0\b\x12\x13\n" +
-	"\x0eC2G_NPC_DIALOG\x10\xe1\b\x12\x16\n" +
+	"\x0eC2G_NPC_DIALOG\x10\xe1\b\x12\x13\n" +
+	"\x0eC2G_TASK_VALUE\x10\xe3\b\x12\x16\n" +
 	"\x11C2G_DIALOG_ANSWER\x10\xe2\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
@@ -457,7 +467,9 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x0fG2C_TRADE_APPLY\x10\xd7\x10\x12\x12\n" +
 	"\rG2C_TRADE_END\x10\xd8\x10\x12\x10\n" +
 	"\vG2C_SYS_MSG\x10\xd9\x10\x12\x1a\n" +
-	"\x15G2C_ENTITY_MENU_STATE\x10\xda\x10\x12\x16\n" +
+	"\x15G2C_ENTITY_MENU_STATE\x10\xda\x10\x12\x13\n" +
+	"\x0eG2C_TASK_VALUE\x10\xdc\x10\x12\x14\n" +
+	"\x0fG2C_TASK_VALUES\x10\xdd\x10\x12\x16\n" +
 	"\x11G2C_SCRIPT_ACTION\x10\xdb\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +

@@ -1183,6 +1183,36 @@ func main() {
 		}
 		fmt.Printf("export-chat-cost: chi phi chat %s -> %s\n", file, p)
 
+	case "export-task-def":
+		// \settings\task\player_task_def.txt of the old server, read the way the loader 0x081C6E00 of jx_linux_y reads it
+		// (rows from the third, columns 1 / 2 / 4 / 5: first id, last id, SYNC_FLAG, CLIENT_FLAG) -> <out>/task_def.json for
+		// the zone's KTaskDefTable (docs/LINUX-SERVER.md §21): which task values the client is told about and may set
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/task/player_task_def.txt", "Settings/task/player_task_def.txt", "Settings/Task/player_task_def.txt")
+		if err != nil {
+			fail("no settings/task/player_task_def.txt under %s: %v", sdir, err)
+		}
+		table := player.ParseTaskDef(data)
+		table.Source = file
+		p := filepath.Join(out, "task_def.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-task-def: dinh nghia gia tri nhiem vu %s (%d dong, %d id dong bo) -> %s\n", file, len(table.Rows), table.SyncCount(), p)
+
 	case "export-faction":
 		// \settings\faction\门派设定.ini of the old server: the eleven factions the way
 		// KFactionSet::Init 0x08060C70 of jx_linux_y reads them (Name / ShowName / Series / Camp per

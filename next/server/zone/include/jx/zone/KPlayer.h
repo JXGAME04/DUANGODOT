@@ -14,6 +14,7 @@
 #include "jx/zone/KFaction.h"
 #include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KPlayerTrade.h"
 
 namespace jx::pb {
@@ -61,6 +62,7 @@ struct KPlayer {
     KPlayerMenuState menu;       // m_cMenuState +0x5700 (KPlayerMenuState.h 2002; docs/LINUX-SERVER.md §18)
     KTrade trade;                // m_cTrade +0x5910 (KPlayerTrade.h 2003)
     KPlayerDialog dialog;        // the Say / Talk of a npc script: +0x5f9c script, +0x5fa0 m_szTaskAnswerFun[50], +0x78e4 / +0x78e8 (KPlayerDialog.h)
+    KPlayerTask task;            // m_cTask +0x809c (KPlayerTask.h): the saved and the temp task values of the scripts (docs/LINUX-SERVER.md §21)
     std::int64_t lead_exp = 0;   // m_dwLeadExp +0x596c
     int lead_level = 1;          // m_dwLeadLevel +0x5970: KTeam::CalcCaptainPower reads level_lead_exp.txt by it
     // the three PK attributes of states / equipment (KNpcAttribModify 254 / 257 / 256 -> Player+0x86f8 / +0x86fc / +0x8700,

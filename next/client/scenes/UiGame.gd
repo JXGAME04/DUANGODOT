@@ -661,6 +661,7 @@ func _auto_run() -> void:
 	await _auto_team()
 	await _auto_trade()
 	await _auto_dialog()
+	await _auto_task()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1235,6 +1236,29 @@ func _auto_ride() -> void:
 		"down": down, "action_down": action_down})
 	print("AUTO_RIDE mounted=%s horse_row=%d action=%d parts=%d down=%s action_down=%d parts_down=%d" % [mounted, rows.get(3, -1),
 		action, parts, down, action_down, parts_down])
+
+
+# The task values (docs/LINUX-SERVER.md §21): the SYNC_FLAG values came with the spawn (G2C_TASK_VALUE each, the
+# 1000..1070 batch); a CLIENT_FLAG id set by us (1276 - the 0xaa packet) comes back through a script SyncTaskValue, and a
+# script SetTask on a SYNC_FLAG id (100) reaches us at once.  Prints AUTO_TASK so tools/dev.py screenshot can check it.
+func _auto_task() -> void:
+	var synced: int = Game.task_values.size()
+	var v: int = int(Time.get_unix_time_from_system()) % 1000 + 1
+	var got := {}
+	var on_value := func(id: int, value: int) -> void:
+		got[id] = value
+	Game.task_value_changed.connect(on_value)
+	Game.set_task_value(1276, v + 1)
+	await get_tree().create_timer(0.3).timeout
+	Game.chat("?gm ds SyncTaskValue(1276)")
+	Game.chat("?gm ds SetTask(100, %d)" % v)
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if got.has(1276) and got.has(100):
+			break
+	Game.task_value_changed.disconnect(on_value)
+	await _save_screenshot("user://logs/auto_task.png")
+	print("AUTO_TASK packets=%d synced=%d client_set=%s script_set=%s expected=%d stored=%d" % [Game.task_packets, synced, str(got.get(1276, "-")), str(got.get(100, "-")), v, Game.task_value(100)])
 
 
 func _auto_death() -> void:

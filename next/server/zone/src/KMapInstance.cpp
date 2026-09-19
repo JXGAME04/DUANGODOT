@@ -198,6 +198,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.dialog_answer(cmd.sid, req.index(), req.kind());
         break;
     }
+    case pb::C2G_TASK_VALUE: {
+        pb::TaskValueReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.task_value_request(cmd.sid, req.id(), req.value());
+        break;
+    }
     case pb::C2G_TEAM: {
         pb::TeamReq req;
         if (!req.ParseFromString(cmd.payload)) break;

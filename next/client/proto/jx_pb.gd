@@ -3101,6 +3101,180 @@ class ScriptAction:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class TaskValue:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__id = PBField.new("id", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __id
+		data[__id.tag] = service
+		
+		__value = PBField.new("value", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __value
+		data[__value.tag] = service
+		
+	var data = {}
+	
+	var __id: PBField
+	func has_id() -> bool:
+		if __id.value != null:
+			return true
+		return false
+	func get_id() -> int:
+		return __id.value
+	func clear_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_id(value : int) -> void:
+		__id.value = value
+	
+	var __value: PBField
+	func has_value() -> bool:
+		if __value.value != null:
+			return true
+		return false
+	func get_value() -> int:
+		return __value.value
+	func clear_value() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__value.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_value(value : int) -> void:
+		__value.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class TaskValues:
+	extends RefCounted
+	func _init():
+		var service
+		
+		var __values_default: Array[TaskValue] = []
+		__values = PBField.new("values", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 1, true, __values_default)
+		service = PBServiceField.new()
+		service.field = __values
+		service.func_ref = Callable(self, "add_values")
+		data[__values.tag] = service
+		
+	var data = {}
+	
+	var __values: PBField
+	func get_values() -> Array[TaskValue]:
+		return __values.value
+	func clear_values() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__values.value.clear()
+	func add_values() -> TaskValue:
+		var element = TaskValue.new()
+		__values.value.append(element)
+		return element
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class TaskValueReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__id = PBField.new("id", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __id
+		data[__id.tag] = service
+		
+		__value = PBField.new("value", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __value
+		data[__value.tag] = service
+		
+	var data = {}
+	
+	var __id: PBField
+	func has_id() -> bool:
+		if __id.value != null:
+			return true
+		return false
+	func get_id() -> int:
+		return __id.value
+	func clear_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_id(value : int) -> void:
+		__id.value = value
+	
+	var __value: PBField
+	func has_value() -> bool:
+		if __value.value != null:
+			return true
+		return false
+	func get_value() -> int:
+		return __value.value
+	func clear_value() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__value.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_value(value : int) -> void:
+		__value.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class PKStateReq:
 	extends RefCounted
 	func _init():
@@ -11293,6 +11467,7 @@ enum MsgId {
 	C2G_TEAM = 1119,
 	C2G_TRADE = 1120,
 	C2G_NPC_DIALOG = 1121,
+	C2G_TASK_VALUE = 1123,
 	C2G_DIALOG_ANSWER = 1122,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
@@ -11339,6 +11514,8 @@ enum MsgId {
 	G2C_TRADE_END = 2136,
 	G2C_SYS_MSG = 2137,
 	G2C_ENTITY_MENU_STATE = 2138,
+	G2C_TASK_VALUE = 2140,
+	G2C_TASK_VALUES = 2141,
 	G2C_SCRIPT_ACTION = 2139,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
@@ -12300,6 +12477,70 @@ class RoleSkill:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class RoleTaskValue:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__id = PBField.new("id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __id
+		data[__id.tag] = service
+		
+		__value = PBField.new("value", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __value
+		data[__value.tag] = service
+		
+	var data = {}
+	
+	var __id: PBField
+	func has_id() -> bool:
+		if __id.value != null:
+			return true
+		return false
+	func get_id() -> int:
+		return __id.value
+	func clear_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_id(value : int) -> void:
+		__id.value = value
+	
+	var __value: PBField
+	func has_value() -> bool:
+		if __value.value != null:
+			return true
+		return false
+	func get_value() -> int:
+		return __value.value
+	func clear_value() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__value.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_value(value : int) -> void:
+		__value.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class RoleData:
 	extends RefCounted
 	func _init():
@@ -12466,6 +12707,13 @@ class RoleData:
 		service = PBServiceField.new()
 		service.field = __lead_level
 		data[__lead_level.tag] = service
+		
+		var __task_values_default: Array[RoleTaskValue] = []
+		__task_values = PBField.new("task_values", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 32, true, __task_values_default)
+		service = PBServiceField.new()
+		service.field = __task_values
+		service.func_ref = Callable(self, "add_task_values")
+		data[__task_values.tag] = service
 		
 	var data = {}
 	
@@ -12870,6 +13118,17 @@ class RoleData:
 		__lead_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_lead_level(value : int) -> void:
 		__lead_level.value = value
+	
+	var __task_values: PBField
+	func get_task_values() -> Array[RoleTaskValue]:
+		return __task_values.value
+	func clear_task_values() -> void:
+		data[32].state = PB_SERVICE_STATE.UNFILLED
+		__task_values.value.clear()
+	func add_task_values() -> RoleTaskValue:
+		var element = RoleTaskValue.new()
+		__task_values.value.append(element)
+		return element
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

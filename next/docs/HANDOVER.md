@@ -357,6 +357,21 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   window=true answered=true` + `auto_dialog.png` (câu Việt đã giải mã). **Chưa**: `text_id` (`g_GetStringRes`), `OnEventTalkNpc` cần API nhiệm vụ
   (`FirstTask`…, M13 D2), `+0x158c` tham số npc, `Wnd_SetExclusive`, cuộn tự động, đi tới npc khi xa, các ui id khác. **Chạy lại `python tools/dev.py
   assets`** (`export-ui`).
+- **M13 lát D2 (xong 2026-09-19)**: **giá trị nhiệm vụ** (`LINUX-SERVER.md` §21, `CLIENT-2.0.md` §25): `KPlayerTask` `Player+0x809c` (256 ô tạm
+  `0x080CB5A0/0x080CB5C0` + `std::map` giá trị lưu `+0x54c` id ≤ 0x176f `0x080CB540/0x080CB720`, **giá trị 0 → xoá nút**, bit `0x080CB5E0/0x080CB910`,
+  `ClearRange 0x080CBC40`, `Serialize 0x080CB6A0`), `KPlayer::SetTaskValue 0x080A9190` (không đổi → thôi; id có SYNC_FLAG và bSync → gói 0xa7 `0x080A8CC0`
+  `{id, giá trị}`), `SyncTaskValueMore 0x080A9550` (gói 0xb5 lô 80, trả 1 kể cả rỗng), bảng `settings/task/player_task_def.txt` (`0x081C6E00`: từ dòng 3, cột
+  1/2/4/5 theo vị trí, map khoảng insert-unique + map cờ ghi đè; tệp máy chủ 650 dòng, 68 SYNC = 179 id, CLIENT 1276/2881/2882), vào game `0x080B9CF0` (gói 0xa4
+  id 0x87, mọi id SYNC mỗi gói 0xa7 rồi `SyncTaskValueMore(1000, 1070, 1)`), gói client 0xaa `0x080DB070` (chỉ CLIENT_FLAG, bSync 0; 0xb41 → `+0x7cfc`), lưu/nạp
+  `0x080BF1C0/0x080C0050` (`TRoleData+0x17f..+0x18b`, trạm 0xd2/điểm đường 0xc9/chống nghiện/`+0x10c`/`+0x120` cũng ghi vào đây); Lua `GetTask/SetTask`
+  (id 1 → `TraceTaskValue`), `GetTaskTemp/SetTaskTemp` (đối số cuối), `SyncTaskValue/SyncTaskValueMore`, `GetBitTask/SetBitTask` (không đồng bộ); client 2.0
+  `0x006512F0` (0xa7, 0x92c đặc biệt, thông điệp UI 0x54) / `0x00651350` (0xb5, 79 cặp) / `KPlayer::SetTaskValue 0x00601ED0` (`+0xa1a0`, bảng client
+  `0x006CF940`, gửi 0xa9 khi CLIENT_FLAG). Zone: `KPlayerTask.h/.cpp`, `KSubWorldTask.cpp`, proto `C2G_TASK_VALUE 1123`, `G2C_TASK_VALUE 2140`,
+  `G2C_TASK_VALUES 2141`, `RoleData.task_values`; Go `player.ParseTaskDef` + `jxassets export-task-def` → `task_def.json` (`dev.py assets`); client
+  `scenes/KPlayerTask.gd`, `Game.task_values/task_value/set_task_value/task_value_changed/task_packets`. Test `[task]` 9 ca 240 khẳng định (271 tổng), Go
+  `TestParseTaskDef`, Godot +9 (`test_task_values`, 494); e2e `AUTO_TASK packets=181 synced=2 client_set=665 script_set=664 expected=664 stored=664` + `auto_task.png`; zone log
+  `task def table loaded ids=179 ranges=68`. **Chưa**: gói 0xa4, `0xb41 → +0x7cfc`, các hệ ghi giá trị (trạm/điểm đường/chống nghiện), `AddNote`, trạng thái
+  nhiệm vụ (D3). **Chạy lại `python tools/dev.py assets`** (`export-task-def`).
 - **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
   `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
   `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
@@ -474,7 +489,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
-| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) | còn **M13 D2**: API nhiệm vụ (`GetTask/SetTask` giá trị `Player+0x809c`, `FirstTask`, `TalkWithNpc`…) để `OnEventTalkNpc` chạy, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
+| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) | còn **M13 D3**: trạng thái nhiệm vụ (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/GetEventTaskCount/GetTaskEventID` `0x08174230..0x08175090`, bit theo bảng `0x081E92B0/0x081E93C0`, `task_id.txt/task_type.txt/task_event.txt`, `TalkWithNpc`) để `OnEventTalkNpc` chạy, `AddNote 0x08124DC0` (gói 0x63 ui 3), gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
@@ -797,6 +812,33 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 53) — M13 lát D2: giá trị nhiệm vụ (KPlayerTask Player+0x809c, SetTaskValue 0x080A9190, gói 0xa7/0xb5, player_task_def.txt 0x081C6E00, Lua GetTask/SetTask/GetTaskTemp/SetTaskTemp/SyncTaskValue(More)/GetBitTask/SetBitTask)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §21): `KPlayerTask` `Player+0x809c` = `m_nTaskTemp[256]` (`0x080CB5A0/0x080CB5C0`) + `std::map<int,int>` tại `+0x54c`
+  (`0x080CB540` lấy, `0x080CB720` đặt — **0 xoá nút**, `GetBits/SetBits 0x080CB5E0/0x080CB910`, `ClearRange 0x080CBC40`, `Serialize 0x080CB6A0`); `KPlayer::SetTaskValue
+  0x080A9190` (bằng → về; map cờ `0x978bf7c` bit0 + bSync → `0x080A8CC0` gói 0xa7 9 byte); `SyncTaskValueMore 0x080A9550` (gói 0xb5 0x281 byte, 80 cặp, chỉ khác 0);
+  bảng `player_task_def.txt` (`0x081C70E0` 4 bảng, `0x081C6E00`: dòng 3+, cột 1/2/4/5, map khoảng `+0x4` insert-unique, map cờ `+0x1c` ghi đè, cờ bit0 SYNC bit1 CLIENT);
+  vào game `0x080B9CF0` (gói 0xa4 `0x080A8C80`, mọi id khoảng SYNC gói 0xa7, `SyncTaskValueMore(1000, 1070, 1)`); ô 0xaa `0x080DB070` (bảng ô `[edx + 0x18 + ô·8]`;
+  CLIENT_FLAG → `SetTaskValue(…, 0)`; 0xb41 → `0x080A9240`); ô 0xa9 `0x080DAFF0` bộ đăng ký `0x978bf20`; lưu `0x080BF1C0` (trạm 0xd2/điểm đường 0xc9 + `0x080F8BB0`,
+  `0x08176690` `player_limittime.ini`, `0x080F8E70` id 0x64b; `Serialize` vào `TRoleData+[0x17f]`, cuối `[0x18b]`), nạp `0x080C0050` (id ≤ 0x176f); Lua 8 hàm (`GetTask
+  0x08116890`, `SetTask 0x08116780` id 1 `TraceTaskValue`, `GetTaskTemp 0x08123A20`/`SetTaskTemp 0x08123950` đối số cuối, `SyncTaskValue 0x0810E350`, `SyncTaskValueMore
+  0x0810E240`, `GetBitTask 0x081090A0`, `SetBitTask 0x08108F10`); `AddNote 0x08124DC0` đọc xong (gói 0x63 ui 3, chưa port). Sửa hai dòng cũ: `+0x809c` là ô tạm
+  `KPlayerTask`, không phải "bảng bảo hộ".
+- **gamecl.exe** (`CLIENT-2.0.md` §25): bảng ô s2c `0x0065DD00..` (`[esi+4+id·4]`), 0xa7 `0x006512F0` (0x92c → `0x00602920`; thông điệp UI 0x54 `0x005B8150`), 0xb5
+  `0x00651350` (79 cặp, dừng id 0), `KPlayer::SetTaskValue 0x00601ED0` (map `+0xa1a0`, `0x005FFF00(0x24ec6e8)` cờ, gửi 0xa9), bảng client `0x006CF940` (690 dòng,
+  khác bản máy chủ 650).
+- **Zone**: `KPlayerTask.h/.cpp` (`KPlayerTask`, `KTaskDefTable`), `KSubWorldTask.cpp` (`task_set_value/task_send_value/task_sync_more/task_login_sync/task_value_request`,
+  `load_task_values/save_task_values`), `KPlayer::task`, `KSubWorldConfig.task_def`, `main.cpp` `zone.task_def_file`, 8 hàm Lua, proto `C2G_TASK_VALUE 1123` /
+  `G2C_TASK_VALUE 2140` / `G2C_TASK_VALUES 2141` / `TaskValue(s)/TaskValueReq` / `RoleTaskValue` / `RoleData.task_values = 32`, gateway whitelist, `log.vi.json` (+7 câu, +2 trường).
+  **Go**: `player.ParseTaskDef` (`KPlayerTask.go` + test), `jxassets export-task-def` → `client/assets/task_def.json` (650 dòng, 179 id), `dev.py assets`.
+  **Client**: `scenes/KPlayerTask.gd` (thuần, test được), `Game.task_values/task_packets/task_value()/set_task_value()/task_value_changed`, xử lý 2140/2141,
+  `UiGame._auto_task`. Test: `[task]` 9 ca 240 khẳng định (ctest 271/271 Release + Debug), Go `TestParseTaskDef`, Godot 494 (+9), `check_log_catalog` /
+  `check_includes` / `gofmt` / `go vet` sạch.
+- **Đo được**: e2e `AUTO_TASK packets=181 synced=2 client_set=665 script_set=664 expected=664 stored=664` (179 gói 0xa7 lúc vào game + 2; `client_set` = giá trị client gửi
+  qua 0xaa quay lại nhờ `SyncTaskValue`, `script_set` = `SetTask` trên id SYNC; `synced=2` = hai giá trị lần chạy trước nạp từ role data); zone log `task def table
+  loaded ids=179 ranges=68`; `auto_task.png`.
+- commit: `JX NEXT: M13 lat D2 - gia tri nhiem vu …` (xem git log).
 
 ### 2026-09-19 (phiên tiếp theo, phần 52) — M13 lát D1: hộp thoại npc (DialogNpc 0x080B1300, Say/Talk gói 0x63, trả lời 0x5f, KUiMsgSel/KUiInformation2) + giải mã TCVN3 + luật 14 neo UI
 

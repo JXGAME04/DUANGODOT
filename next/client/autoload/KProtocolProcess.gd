@@ -4,6 +4,7 @@ extends Node
 
 const Proto := preload("res://proto/jx_pb.gd")
 const KLogin := preload("res://net/KLogin.gd")
+const KPlayerTask := preload("res://scenes/KPlayerTask.gd")
 const CLIENT_VERSION := "0.2.0"
 const PING_INTERVAL := 5.0
 # no Pong for this long while in the world = the server is gone (it drops us after
@@ -60,6 +61,7 @@ signal trade_end(ok: bool)                  # G2C_TRADE_END: the 0x78 packet
 signal sys_msg(id: int, entity_id: int, name: String)   # G2C_SYS_MSG: the 0x86 packet - a stringtable_core.txt sentence by id (CLIENT-2.0.md §21)
 signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id].menu_state / menu_sentence changed (the sign over the head)
 signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, text, text_id, interactive, param, options} of a npc script's Say / Talk
+signal task_value_changed(id: int, value: int)   # G2C_TASK_VALUE / G2C_TASK_VALUES: task_values[id] changed (the 0xa7 / 0xb5 packets -> KPlayer::SetTaskValue 0x00601ED0)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -108,6 +110,8 @@ var skills := {}
 # KPlayerFaction of the character (PlayerData+0x12078 current, +0x12080 last added, +0x12084 times joined of the 2.0
 # client): -1 = none; camp = m_Camp of the player's npc (C_FREE 4 after leaving)
 var faction := -1
+var task_values := {}    # id -> value: the saved task values the zone mirrors here (SYNC_FLAG rows of settings/task/player_task_def.txt; KPlayer+0xa1a0 of the 2.0 client)
+var task_packets := 0    # G2C_TASK_VALUE + G2C_TASK_VALUES received (the login sends every SYNC_FLAG id, zeros included)
 var pk_state := 0        # KPlayerPK state of one's own character: 0 exercise, 1 fight, 2 kill (the 0x90 packet)
 var pk_value := 0        # the PK value 0..10 (the 0x93 packet)
 # the client's KPlayerTeam (core+0xa878+0x7258 of the 2.0 client) + the s2c_teamselfinfo table (0x1f17608..): in_team, team_id,
@@ -213,6 +217,7 @@ func leave_world() -> void:
 		entities = {}
 		items = {}
 		skills = {}
+		task_values = {}
 		Log.ctx["zone"] = 0
 
 
@@ -439,6 +444,29 @@ func dialog_answer(index: int, kind: int = 0) -> void:
 	req.set_kind(kind)
 	Net.send_msg(Proto.MsgId.C2G_DIALOG_ANSWER, req)
 	Log.debug("world", "dialog answer", {"index": index, "kind": kind})
+
+
+# ---- the task values (docs/LINUX-SERVER.md §21) ----
+
+# the saved task value the zone last told us, 0 when it never did (GetTaskValue of the client's KPlayer)
+func task_value(id: int) -> int:
+	return KPlayerTask.value_of(task_values, id)
+
+
+# the 0xaa packet {0xaa, int id, int value}: the zone keeps it for an id with CLIENT_FLAG in player_task_def.txt only
+func set_task_value(id: int, value: int) -> void:
+	if state != "world":
+		return
+	var req := Proto.TaskValueReq.new()
+	req.set_id(id)
+	req.set_value(value)
+	Net.send_msg(Proto.MsgId.C2G_TASK_VALUE, req)
+	Log.debug("world", "task value request", {"id": id, "value": value})
+
+
+func _set_task_value(id: int, value: int) -> void:
+	if KPlayerTask.set_value(task_values, id, value):
+		task_value_changed.emit(id, value)
 
 
 # ---- items: the requests share the move sequence so a G2C_ITEM_RESULT can be matched ----
@@ -1078,6 +1106,23 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options}
 			Log.debug("world", "script action", {"ui": a.ui, "options": options.size(), "param": a.param})
 			script_action.emit(a)
+
+		Proto.MsgId.G2C_TASK_VALUE:
+			# the 0xa7 packet {id, value}: the client's 0x006512F0 -> KPlayer::SetTaskValue 0x00601ED0 (+ the ui message 0x54)
+			var m := Proto.TaskValue.new()
+			if not _decode(m, payload):
+				return
+			task_packets += 1
+			_set_task_value(int(m.get_id()), int(m.get_value()))
+
+		Proto.MsgId.G2C_TASK_VALUES:
+			# the 0xb5 packet: up to eighty {id, value} (the client's 0x00651350 applies each without a ui message)
+			var m := Proto.TaskValues.new()
+			if not _decode(m, payload):
+				return
+			task_packets += 1
+			for v in m.get_values():
+				_set_task_value(int(v.get_id()), int(v.get_value()))
 
 		Proto.MsgId.G2C_ENTITY_MENU_STATE:
 			# s2c_npcsetmenustate (the client's 0x006522F0 -> KNpc 0x005EB2A0): the sign over a player's head, its sentence
