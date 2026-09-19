@@ -458,24 +458,6 @@ bool KSubWorld::move_request(std::uint64_t sid, Pos target, std::uint32_t seq)
     return true;
 }
 
-bool KSubWorld::chat(std::uint64_t sid, std::string_view text)
-{
-    const auto pit = players_.find(sid);
-    if (pit == players_.end()) return false;
-    if (cfg_.gm_chat && gm_command(sid, text)) return true;   // TextGMFilter runs before the text is spoken
-    const KNpc& e = entities_.at(pit->second);
-    pb::ChatMsg msg;
-    msg.set_entity_id(e.id.value);
-    msg.set_name(e.name);
-    msg.set_text(std::string(text));
-    // Nearby chat is heard by whoever SEES the speaker: the clients that know the character,
-    // which includes the speaker's own.
-    emit(e.watchers, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
-    log::ScopedContext ctx(log::Context{sid, e.player_id, cfg_.zone_id, tick_});
-    log::debug("zone.chat", "chat", {log::kv("entity", e.id), log::kv("len", text.size()), log::kv("receivers", e.watchers.size())});
-    return true;
-}
-
 // KGMCommand.cpp: "?gm <command> <text>" - `ds` (DoSct) runs the text as the player's script
 // action, `dw` runs it as a world script (no player).  Anything else is not a command.
 bool KSubWorld::gm_command(std::uint64_t sid, std::string_view text)

@@ -1037,6 +1037,18 @@ TEST_CASE("AddItem / AddGoldItem give the player what the tables describe; ?gm d
     CHECK(script.call_number("Pay", {static_cast<double>(cash0 + 21)}) == 0.0);   // more than the bag: refused, nothing taken
     CHECK(script.call_number("GetCash", {}) == static_cast<double>(cash0 + 20));
     CHECK(!script.call_number("Pay", {0.0}).has_value());   // n <= 0 returns nothing
+    // GetLife / GetMana (0x081124D0 / 0x08112270): 0 the current value, 1 / 2 the base maximum; RestoreLife /
+    // RestoreMana (0x08112480 / 0x08112430) fill them to the maximum in use
+    ctx.player->cur.mana = 3;
+    ctx.player->cur.life = 5;
+    CHECK(script.call_number("GetMana", {0.0}) == 3.0);
+    CHECK(script.call_number("GetLife", {0.0}) == 5.0);
+    CHECK(script.call_number("GetMana", {1.0}) == static_cast<double>(ctx.player->base.mana_max));
+    CHECK(script.call_number("GetLife", {2.0}) == static_cast<double>(ctx.player->base.life_max));
+    script.call_number("RestoreMana", {});
+    script.call_number("RestoreLife", {});
+    CHECK(ctx.player->cur.mana == ctx.player->mana_max());
+    CHECK(ctx.player->cur.life == ctx.player->life_max());
     out = iw.w->take_outbox();
     CHECK(packets(out, 1, jx::pb::G2C_MONEY).size() == 2);
     ctx = jx::zone::KScriptContext{};

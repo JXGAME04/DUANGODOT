@@ -401,11 +401,16 @@ func ride(on: bool) -> int:
 	return _move_seq
 
 
-func chat(text: String) -> void:
+# a line on a channel (Proto.ChatChannel: CH_NEARBY 0, CH_TEAM 1, CH_WORLD 2, CH_FACTION 3, CH_CITY 5, CH_WHISPER 7
+# with the name in `target`); the zone applies the rules of 0x081E3710 / 0x080502A0 (docs/LINUX-SERVER.md §19)
+func chat(text: String, channel: int = 0, target: String = "") -> void:
 	if state != "world" or text.strip_edges() == "":
 		return
 	var req := Proto.ChatReq.new()
 	req.set_text(text)
+	req.set_channel(channel)
+	if target != "":
+		req.set_target(target)
 	Net.send_msg(Proto.MsgId.C2G_CHAT, req)
 
 
@@ -1127,7 +1132,7 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			var m := Proto.ChatMsg.new()
 			if not _decode(m, payload):
 				return
-			chat_msg.emit({"id": m.get_entity_id(), "name": m.get_name(), "text": m.get_text()})
+			chat_msg.emit({"id": m.get_entity_id(), "name": m.get_name(), "text": m.get_text(), "channel": int(m.get_channel())})
 
 		Proto.MsgId.G2C_ITEM_LIST:
 			var m := Proto.InventorySync.new()

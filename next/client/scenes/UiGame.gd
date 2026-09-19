@@ -951,6 +951,23 @@ func _auto_team() -> void:
 		await _save_screenshot("user://logs/auto_team.png")
 		_windows.team_window.close_window()
 	print("AUTO_TEAM_PARTNER partner=%d invited=%s members=%d mate_color=%s" % [partner_id, invited, Game.team.members.size(), mate_color])
+	# the channels (docs/LINUX-SERVER.md §19): a team line comes back on CH_TEAM (the team hears it), a world line
+	# through the zone's fan-out on CH_WORLD (level 100: the level 30 / 80 % mana of chatcost.ini type 4 are met)
+	var heard := {}
+	var on_chat := func(m: Dictionary) -> void:
+		heard[int(m.get("channel", 0))] = str(m.get("text", ""))
+	Game.chat_msg.connect(on_chat)
+	if invited:
+		Game.chat("doi oi", Proto.ChatChannel.CH_TEAM)
+	Game.chat("?gm ds RestoreMana()")   # the casts above drank the mana: the world line needs 80 % of it
+	await get_tree().create_timer(0.3).timeout
+	Game.chat("ca the gioi", Proto.ChatChannel.CH_WORLD)
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if heard.has(int(Proto.ChatChannel.CH_WORLD)) and (not invited or heard.has(int(Proto.ChatChannel.CH_TEAM))):
+			break
+	Game.chat_msg.disconnect(on_chat)
+	print("AUTO_CHAT team=%s world=%s" % [heard.get(int(Proto.ChatChannel.CH_TEAM), "-"), heard.get(int(Proto.ChatChannel.CH_WORLD), "-")])
 	Game.team_request(Proto.TeamCmd.TEAM_OPEN_CLOSE, 0, 0)
 	for i in 20:
 		await get_tree().create_timer(0.1).timeout

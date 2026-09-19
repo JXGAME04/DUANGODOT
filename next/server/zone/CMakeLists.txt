@@ -15,6 +15,8 @@ add_library(jx_zone_core STATIC
     src/KPlayerTeam.cpp
     src/KSubWorldTeam.cpp
     src/KSubWorldTrade.cpp
+    src/KPlayerChat.cpp
+    src/KSubWorldChat.cpp
     src/KSubWorld.cpp
     src/KInterest.cpp
     src/KItem.cpp

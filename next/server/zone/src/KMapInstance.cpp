@@ -41,6 +41,14 @@ void KMapInstance::tick()
         world_.remove_player(change.sid);
         events_.push(std::move(ev));
     }
+    // 4. lines for people beyond this map (WORLD / CITY / FACTION): the server spreads them over the zone
+    for (KChatBroadcast& b : world_.take_chat_broadcasts()) {
+        KEvChat ev;
+        ev.channel = b.channel;
+        ev.faction = b.faction;
+        ev.payload = std::move(b.payload);
+        events_.push(std::move(ev));
+    }
 
     const double ms = static_cast<double>((steady_now() - t0).count()) / 1e6;
     note_tick_cost(ms);
@@ -95,7 +103,7 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
     case pb::C2G_CHAT: {
         pb::ChatReq req;
         if (!req.ParseFromString(cmd.payload)) break;
-        world_.chat(cmd.sid, req.text());
+        world_.chat(cmd.sid, req.text(), req.channel(), req.target());
         break;
     }
     case pb::C2G_ITEM_MOVE: {

@@ -89,6 +89,73 @@ func (Action) EnumDescriptor() ([]byte, []int) {
 	return file_jx_client_proto_rawDescGZIP(), []int{0}
 }
 
+// The chat channels of the 2.0 client (\ui\ui3_1024\消息集合面板_左.ini [Channels] Channel0..14, the FormatName of each
+// = the relay's channel name of relay_channcfg.ini / relay_channel.ini: NEARBY 'S', TEAM 'T', WORLD, \F<Faction#> 'F',
+// CITY 'B', TONG 'O', TONGUNION 'U', CHATROOM \C<ChatRoom#>).  The zone carries the ones a player can speak in.
+type ChatChannel int32
+
+const (
+	ChatChannel_CH_NEARBY  ChatChannel = 0 // Channel0: whoever sees the speaker (the relay's 'S' class 3 target = the player)
+	ChatChannel_CH_TEAM    ChatChannel = 1 // Channel1: the team (the relay's 'T' class 0 target = Player+0x5998)
+	ChatChannel_CH_WORLD   ChatChannel = 2 // Channel2: everybody (relay_channel.ini [WORLD] cost 4)
+	ChatChannel_CH_FACTION ChatChannel = 3 // Channel3: the faction (\F<Faction#>, cost 3)
+	ChatChannel_CH_SYSTEM  ChatChannel = 4 // Channel4: the server's lines (never sent by a client)
+	ChatChannel_CH_CITY    ChatChannel = 5 // Channel5: the relay's [broadcast] name=CITY 'B' (class 4, cost 2)
+	ChatChannel_CH_TONG    ChatChannel = 6 // Channel6: the tong (\O, cost 0) - no tongs in the zone yet
+	ChatChannel_CH_WHISPER ChatChannel = 7 // the 2003 chat_someonechat: one player by name (the "/name text" of the input line)
+)
+
+// Enum value maps for ChatChannel.
+var (
+	ChatChannel_name = map[int32]string{
+		0: "CH_NEARBY",
+		1: "CH_TEAM",
+		2: "CH_WORLD",
+		3: "CH_FACTION",
+		4: "CH_SYSTEM",
+		5: "CH_CITY",
+		6: "CH_TONG",
+		7: "CH_WHISPER",
+	}
+	ChatChannel_value = map[string]int32{
+		"CH_NEARBY":  0,
+		"CH_TEAM":    1,
+		"CH_WORLD":   2,
+		"CH_FACTION": 3,
+		"CH_SYSTEM":  4,
+		"CH_CITY":    5,
+		"CH_TONG":    6,
+		"CH_WHISPER": 7,
+	}
+)
+
+func (x ChatChannel) Enum() *ChatChannel {
+	p := new(ChatChannel)
+	*p = x
+	return p
+}
+
+func (x ChatChannel) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChatChannel) Descriptor() protoreflect.EnumDescriptor {
+	return file_jx_client_proto_enumTypes[1].Descriptor()
+}
+
+func (ChatChannel) Type() protoreflect.EnumType {
+	return &file_jx_client_proto_enumTypes[1]
+}
+
+func (x ChatChannel) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChatChannel.Descriptor instead.
+func (ChatChannel) EnumDescriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{1}
+}
+
 // The five attributes a point can go to (m_btAttribute of PLAYER_ATTRIBUTE_SYNC: 0 strength,
 // 1 dexterity, 2 vitality, 3 energy)
 type PlayerAttribute int32
@@ -127,11 +194,11 @@ func (x PlayerAttribute) String() string {
 }
 
 func (PlayerAttribute) Descriptor() protoreflect.EnumDescriptor {
-	return file_jx_client_proto_enumTypes[1].Descriptor()
+	return file_jx_client_proto_enumTypes[2].Descriptor()
 }
 
 func (PlayerAttribute) Type() protoreflect.EnumType {
-	return &file_jx_client_proto_enumTypes[1]
+	return &file_jx_client_proto_enumTypes[2]
 }
 
 func (x PlayerAttribute) Number() protoreflect.EnumNumber {
@@ -140,7 +207,7 @@ func (x PlayerAttribute) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PlayerAttribute.Descriptor instead.
 func (PlayerAttribute) EnumDescriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{1}
+	return file_jx_client_proto_rawDescGZIP(), []int{2}
 }
 
 type TeamCmd int32
@@ -203,11 +270,11 @@ func (x TeamCmd) String() string {
 }
 
 func (TeamCmd) Descriptor() protoreflect.EnumDescriptor {
-	return file_jx_client_proto_enumTypes[2].Descriptor()
+	return file_jx_client_proto_enumTypes[3].Descriptor()
 }
 
 func (TeamCmd) Type() protoreflect.EnumType {
-	return &file_jx_client_proto_enumTypes[2]
+	return &file_jx_client_proto_enumTypes[3]
 }
 
 func (x TeamCmd) Number() protoreflect.EnumNumber {
@@ -216,7 +283,7 @@ func (x TeamCmd) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TeamCmd.Descriptor instead.
 func (TeamCmd) EnumDescriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{2}
+	return file_jx_client_proto_rawDescGZIP(), []int{3}
 }
 
 type TeamEventKind int32
@@ -292,11 +359,11 @@ func (x TeamEventKind) String() string {
 }
 
 func (TeamEventKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_jx_client_proto_enumTypes[3].Descriptor()
+	return file_jx_client_proto_enumTypes[4].Descriptor()
 }
 
 func (TeamEventKind) Type() protoreflect.EnumType {
-	return &file_jx_client_proto_enumTypes[3]
+	return &file_jx_client_proto_enumTypes[4]
 }
 
 func (x TeamEventKind) Number() protoreflect.EnumNumber {
@@ -305,7 +372,7 @@ func (x TeamEventKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TeamEventKind.Descriptor instead.
 func (TeamEventKind) EnumDescriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{3}
+	return file_jx_client_proto_rawDescGZIP(), []int{4}
 }
 
 type TradeCmd int32
@@ -353,11 +420,11 @@ func (x TradeCmd) String() string {
 }
 
 func (TradeCmd) Descriptor() protoreflect.EnumDescriptor {
-	return file_jx_client_proto_enumTypes[4].Descriptor()
+	return file_jx_client_proto_enumTypes[5].Descriptor()
 }
 
 func (TradeCmd) Type() protoreflect.EnumType {
-	return &file_jx_client_proto_enumTypes[4]
+	return &file_jx_client_proto_enumTypes[5]
 }
 
 func (x TradeCmd) Number() protoreflect.EnumNumber {
@@ -366,7 +433,7 @@ func (x TradeCmd) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TradeCmd.Descriptor instead.
 func (TradeCmd) EnumDescriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{4}
+	return file_jx_client_proto_rawDescGZIP(), []int{5}
 }
 
 type Hello struct {
@@ -2358,6 +2425,8 @@ func (x *EntityMoves) GetMoves() []*EntityMove {
 type ChatReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Channel       ChatChannel            `protobuf:"varint,2,opt,name=channel,proto3,enum=jx.pb.ChatChannel" json:"channel,omitempty"`
+	Target        string                 `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"` // CH_WHISPER: the name spoken to
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2395,6 +2464,20 @@ func (*ChatReq) Descriptor() ([]byte, []int) {
 func (x *ChatReq) GetText() string {
 	if x != nil {
 		return x.Text
+	}
+	return ""
+}
+
+func (x *ChatReq) GetChannel() ChatChannel {
+	if x != nil {
+		return x.Channel
+	}
+	return ChatChannel_CH_NEARBY
+}
+
+func (x *ChatReq) GetTarget() string {
+	if x != nil {
+		return x.Target
 	}
 	return ""
 }
@@ -6135,6 +6218,7 @@ type ChatMsg struct {
 	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Channel       ChatChannel            `protobuf:"varint,4,opt,name=channel,proto3,enum=jx.pb.ChatChannel" json:"channel,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6188,6 +6272,13 @@ func (x *ChatMsg) GetText() string {
 		return x.Text
 	}
 	return ""
+}
+
+func (x *ChatMsg) GetChannel() ChatChannel {
+	if x != nil {
+		return x.Channel
+	}
+	return ChatChannel_CH_NEARBY
 }
 
 type Ping struct {
@@ -6518,9 +6609,11 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x03seq\x18\x06 \x01(\rR\x03seq\x12\x1f\n" +
 	"\x04path\x18\a \x03(\v2\v.jx.pb.Vec2R\x04path\"6\n" +
 	"\vEntityMoves\x12'\n" +
-	"\x05moves\x18\x01 \x03(\v2\x11.jx.pb.EntityMoveR\x05moves\"\x1d\n" +
+	"\x05moves\x18\x01 \x03(\v2\x11.jx.pb.EntityMoveR\x05moves\"c\n" +
 	"\aChatReq\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"\xf1\x04\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12,\n" +
+	"\achannel\x18\x02 \x01(\x0e2\x12.jx.pb.ChatChannelR\achannel\x12\x16\n" +
+	"\x06target\x18\x03 \x01(\tR\x06target\"\xf1\x04\n" +
 	"\bItemView\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05genre\x18\x02 \x01(\rR\x05genre\x12\x16\n" +
@@ -6855,11 +6948,12 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x03pos\x18\x02 \x01(\v2\v.jx.pb.Vec2R\x03pos\x12\x17\n" +
 	"\ascene_w\x18\x03 \x01(\rR\x06sceneW\x12\x17\n" +
 	"\ascene_h\x18\x04 \x01(\rR\x06sceneH\x12\x1b\n" +
-	"\tentity_id\x18\x05 \x01(\x04R\bentityId\"N\n" +
+	"\tentity_id\x18\x05 \x01(\x04R\bentityId\"|\n" +
 	"\aChatMsg\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\"#\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12,\n" +
+	"\achannel\x18\x04 \x01(\x0e2\x12.jx.pb.ChatChannelR\achannel\"#\n" +
 	"\x04Ping\x12\x1b\n" +
 	"\tclient_ms\x18\x01 \x01(\x04R\bclientMs\"T\n" +
 	"\x04Pong\x12\x1b\n" +
@@ -6878,7 +6972,18 @@ const file_jx_client_proto_rawDesc = "" +
 	"\vACTION_JUMP\x10\x05\x12\x15\n" +
 	"\x11ACTION_KNOCK_BACK\x10\x06\x12\x0e\n" +
 	"\n" +
-	"ACTION_SIT\x10\a*d\n" +
+	"ACTION_SIT\x10\a*\x80\x01\n" +
+	"\vChatChannel\x12\r\n" +
+	"\tCH_NEARBY\x10\x00\x12\v\n" +
+	"\aCH_TEAM\x10\x01\x12\f\n" +
+	"\bCH_WORLD\x10\x02\x12\x0e\n" +
+	"\n" +
+	"CH_FACTION\x10\x03\x12\r\n" +
+	"\tCH_SYSTEM\x10\x04\x12\v\n" +
+	"\aCH_CITY\x10\x05\x12\v\n" +
+	"\aCH_TONG\x10\x06\x12\x0e\n" +
+	"\n" +
+	"CH_WHISPER\x10\a*d\n" +
 	"\x0fPlayerAttribute\x12\x13\n" +
 	"\x0fATTRIB_STRENGTH\x10\x00\x12\x14\n" +
 	"\x10ATTRIB_DEXTERITY\x10\x01\x12\x13\n" +
@@ -6938,153 +7043,156 @@ func file_jx_client_proto_rawDescGZIP() []byte {
 	return file_jx_client_proto_rawDescData
 }
 
-var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
 var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 81)
 var file_jx_client_proto_goTypes = []any{
 	(Action)(0),              // 0: jx.pb.Action
-	(PlayerAttribute)(0),     // 1: jx.pb.PlayerAttribute
-	(TeamCmd)(0),             // 2: jx.pb.TeamCmd
-	(TeamEventKind)(0),       // 3: jx.pb.TeamEventKind
-	(TradeCmd)(0),            // 4: jx.pb.TradeCmd
-	(*Hello)(nil),            // 5: jx.pb.Hello
-	(*HelloAck)(nil),         // 6: jx.pb.HelloAck
-	(*LoginReq)(nil),         // 7: jx.pb.LoginReq
-	(*LoginRes)(nil),         // 8: jx.pb.LoginRes
-	(*CharSummary)(nil),      // 9: jx.pb.CharSummary
-	(*CharListReq)(nil),      // 10: jx.pb.CharListReq
-	(*CharListRes)(nil),      // 11: jx.pb.CharListRes
-	(*CharCreateReq)(nil),    // 12: jx.pb.CharCreateReq
-	(*CharCreateRes)(nil),    // 13: jx.pb.CharCreateRes
-	(*EnterWorldReq)(nil),    // 14: jx.pb.EnterWorldReq
-	(*EnterWorldRes)(nil),    // 15: jx.pb.EnterWorldRes
-	(*LeaveWorldReq)(nil),    // 16: jx.pb.LeaveWorldReq
-	(*MoveReq)(nil),          // 17: jx.pb.MoveReq
-	(*AttackReq)(nil),        // 18: jx.pb.AttackReq
-	(*EntityAction)(nil),     // 19: jx.pb.EntityAction
-	(*EntityLife)(nil),       // 20: jx.pb.EntityLife
-	(*EntityInfo)(nil),       // 21: jx.pb.EntityInfo
-	(*PKStateReq)(nil),       // 22: jx.pb.PKStateReq
-	(*PKState)(nil),          // 23: jx.pb.PKState
-	(*EntityPK)(nil),         // 24: jx.pb.EntityPK
-	(*EntityRes)(nil),        // 25: jx.pb.EntityRes
-	(*NpcGold)(nil),          // 26: jx.pb.NpcGold
-	(*EntityRide)(nil),       // 27: jx.pb.EntityRide
-	(*PickUpReq)(nil),        // 28: jx.pb.PickUpReq
-	(*EntitySpawn)(nil),      // 29: jx.pb.EntitySpawn
-	(*EntityDespawn)(nil),    // 30: jx.pb.EntityDespawn
-	(*EntityMove)(nil),       // 31: jx.pb.EntityMove
-	(*EntityMoves)(nil),      // 32: jx.pb.EntityMoves
-	(*ChatReq)(nil),          // 33: jx.pb.ChatReq
-	(*ItemView)(nil),         // 34: jx.pb.ItemView
-	(*InventorySync)(nil),    // 35: jx.pb.InventorySync
-	(*ItemAdd)(nil),          // 36: jx.pb.ItemAdd
-	(*ItemRemove)(nil),       // 37: jx.pb.ItemRemove
-	(*ItemMove)(nil),         // 38: jx.pb.ItemMove
-	(*ItemEquipReq)(nil),     // 39: jx.pb.ItemEquipReq
-	(*ItemUnequipReq)(nil),   // 40: jx.pb.ItemUnequipReq
-	(*ItemUseReq)(nil),       // 41: jx.pb.ItemUseReq
-	(*ItemDropReq)(nil),      // 42: jx.pb.ItemDropReq
-	(*ItemResult)(nil),       // 43: jx.pb.ItemResult
-	(*MoneySync)(nil),        // 44: jx.pb.MoneySync
-	(*AddPointReq)(nil),      // 45: jx.pb.AddPointReq
-	(*AddSkillPointReq)(nil), // 46: jx.pb.AddSkillPointReq
-	(*CastSkillReq)(nil),     // 47: jx.pb.CastSkillReq
-	(*SetAuraReq)(nil),       // 48: jx.pb.SetAuraReq
-	(*SkillDescReq)(nil),     // 49: jx.pb.SkillDescReq
-	(*ReviveReq)(nil),        // 50: jx.pb.ReviveReq
-	(*RideReq)(nil),          // 51: jx.pb.RideReq
-	(*SitReq)(nil),           // 52: jx.pb.SitReq
-	(*SkillLevelSync)(nil),   // 53: jx.pb.SkillLevelSync
-	(*SkillEntry)(nil),       // 54: jx.pb.SkillEntry
-	(*SkillListSync)(nil),    // 55: jx.pb.SkillListSync
-	(*SkillForbidSync)(nil),  // 56: jx.pb.SkillForbidSync
-	(*PlayerAttribSync)(nil), // 57: jx.pb.PlayerAttribSync
-	(*TeamReq)(nil),          // 58: jx.pb.TeamReq
-	(*TeamMember)(nil),       // 59: jx.pb.TeamMember
-	(*TeamSelf)(nil),         // 60: jx.pb.TeamSelf
-	(*TradeReq)(nil),         // 61: jx.pb.TradeReq
-	(*TradeState)(nil),       // 62: jx.pb.TradeState
-	(*TradeSync)(nil),        // 63: jx.pb.TradeSync
-	(*TradeItem)(nil),        // 64: jx.pb.TradeItem
-	(*TradeApply)(nil),       // 65: jx.pb.TradeApply
-	(*TradeEnd)(nil),         // 66: jx.pb.TradeEnd
-	(*SysMsg)(nil),           // 67: jx.pb.SysMsg
-	(*EntityMenuState)(nil),  // 68: jx.pb.EntityMenuState
-	(*TeamEvent)(nil),        // 69: jx.pb.TeamEvent
-	(*EntityCamp)(nil),       // 70: jx.pb.EntityCamp
-	(*PlayerFaction)(nil),    // 71: jx.pb.PlayerFaction
-	(*StateAttrib)(nil),      // 72: jx.pb.StateAttrib
-	(*EntityState)(nil),      // 73: jx.pb.EntityState
-	(*SkillDescAttrib)(nil),  // 74: jx.pb.SkillDescAttrib
-	(*SkillDescAppend)(nil),  // 75: jx.pb.SkillDescAppend
-	(*SkillDescRelated)(nil), // 76: jx.pb.SkillDescRelated
-	(*SkillDescLevel)(nil),   // 77: jx.pb.SkillDescLevel
-	(*EntityStateIcons)(nil), // 78: jx.pb.EntityStateIcons
-	(*MissleSync)(nil),       // 79: jx.pb.MissleSync
-	(*SkillDesc)(nil),        // 80: jx.pb.SkillDesc
-	(*ChangeMap)(nil),        // 81: jx.pb.ChangeMap
-	(*ChatMsg)(nil),          // 82: jx.pb.ChatMsg
-	(*Ping)(nil),             // 83: jx.pb.Ping
-	(*Pong)(nil),             // 84: jx.pb.Pong
-	(*Kick)(nil),             // 85: jx.pb.Kick
-	(Result)(0),              // 86: jx.pb.Result
-	(*Vec2)(nil),             // 87: jx.pb.Vec2
-	(EntityType)(0),          // 88: jx.pb.EntityType
-	(*ItemMagic)(nil),        // 89: jx.pb.ItemMagic
+	(ChatChannel)(0),         // 1: jx.pb.ChatChannel
+	(PlayerAttribute)(0),     // 2: jx.pb.PlayerAttribute
+	(TeamCmd)(0),             // 3: jx.pb.TeamCmd
+	(TeamEventKind)(0),       // 4: jx.pb.TeamEventKind
+	(TradeCmd)(0),            // 5: jx.pb.TradeCmd
+	(*Hello)(nil),            // 6: jx.pb.Hello
+	(*HelloAck)(nil),         // 7: jx.pb.HelloAck
+	(*LoginReq)(nil),         // 8: jx.pb.LoginReq
+	(*LoginRes)(nil),         // 9: jx.pb.LoginRes
+	(*CharSummary)(nil),      // 10: jx.pb.CharSummary
+	(*CharListReq)(nil),      // 11: jx.pb.CharListReq
+	(*CharListRes)(nil),      // 12: jx.pb.CharListRes
+	(*CharCreateReq)(nil),    // 13: jx.pb.CharCreateReq
+	(*CharCreateRes)(nil),    // 14: jx.pb.CharCreateRes
+	(*EnterWorldReq)(nil),    // 15: jx.pb.EnterWorldReq
+	(*EnterWorldRes)(nil),    // 16: jx.pb.EnterWorldRes
+	(*LeaveWorldReq)(nil),    // 17: jx.pb.LeaveWorldReq
+	(*MoveReq)(nil),          // 18: jx.pb.MoveReq
+	(*AttackReq)(nil),        // 19: jx.pb.AttackReq
+	(*EntityAction)(nil),     // 20: jx.pb.EntityAction
+	(*EntityLife)(nil),       // 21: jx.pb.EntityLife
+	(*EntityInfo)(nil),       // 22: jx.pb.EntityInfo
+	(*PKStateReq)(nil),       // 23: jx.pb.PKStateReq
+	(*PKState)(nil),          // 24: jx.pb.PKState
+	(*EntityPK)(nil),         // 25: jx.pb.EntityPK
+	(*EntityRes)(nil),        // 26: jx.pb.EntityRes
+	(*NpcGold)(nil),          // 27: jx.pb.NpcGold
+	(*EntityRide)(nil),       // 28: jx.pb.EntityRide
+	(*PickUpReq)(nil),        // 29: jx.pb.PickUpReq
+	(*EntitySpawn)(nil),      // 30: jx.pb.EntitySpawn
+	(*EntityDespawn)(nil),    // 31: jx.pb.EntityDespawn
+	(*EntityMove)(nil),       // 32: jx.pb.EntityMove
+	(*EntityMoves)(nil),      // 33: jx.pb.EntityMoves
+	(*ChatReq)(nil),          // 34: jx.pb.ChatReq
+	(*ItemView)(nil),         // 35: jx.pb.ItemView
+	(*InventorySync)(nil),    // 36: jx.pb.InventorySync
+	(*ItemAdd)(nil),          // 37: jx.pb.ItemAdd
+	(*ItemRemove)(nil),       // 38: jx.pb.ItemRemove
+	(*ItemMove)(nil),         // 39: jx.pb.ItemMove
+	(*ItemEquipReq)(nil),     // 40: jx.pb.ItemEquipReq
+	(*ItemUnequipReq)(nil),   // 41: jx.pb.ItemUnequipReq
+	(*ItemUseReq)(nil),       // 42: jx.pb.ItemUseReq
+	(*ItemDropReq)(nil),      // 43: jx.pb.ItemDropReq
+	(*ItemResult)(nil),       // 44: jx.pb.ItemResult
+	(*MoneySync)(nil),        // 45: jx.pb.MoneySync
+	(*AddPointReq)(nil),      // 46: jx.pb.AddPointReq
+	(*AddSkillPointReq)(nil), // 47: jx.pb.AddSkillPointReq
+	(*CastSkillReq)(nil),     // 48: jx.pb.CastSkillReq
+	(*SetAuraReq)(nil),       // 49: jx.pb.SetAuraReq
+	(*SkillDescReq)(nil),     // 50: jx.pb.SkillDescReq
+	(*ReviveReq)(nil),        // 51: jx.pb.ReviveReq
+	(*RideReq)(nil),          // 52: jx.pb.RideReq
+	(*SitReq)(nil),           // 53: jx.pb.SitReq
+	(*SkillLevelSync)(nil),   // 54: jx.pb.SkillLevelSync
+	(*SkillEntry)(nil),       // 55: jx.pb.SkillEntry
+	(*SkillListSync)(nil),    // 56: jx.pb.SkillListSync
+	(*SkillForbidSync)(nil),  // 57: jx.pb.SkillForbidSync
+	(*PlayerAttribSync)(nil), // 58: jx.pb.PlayerAttribSync
+	(*TeamReq)(nil),          // 59: jx.pb.TeamReq
+	(*TeamMember)(nil),       // 60: jx.pb.TeamMember
+	(*TeamSelf)(nil),         // 61: jx.pb.TeamSelf
+	(*TradeReq)(nil),         // 62: jx.pb.TradeReq
+	(*TradeState)(nil),       // 63: jx.pb.TradeState
+	(*TradeSync)(nil),        // 64: jx.pb.TradeSync
+	(*TradeItem)(nil),        // 65: jx.pb.TradeItem
+	(*TradeApply)(nil),       // 66: jx.pb.TradeApply
+	(*TradeEnd)(nil),         // 67: jx.pb.TradeEnd
+	(*SysMsg)(nil),           // 68: jx.pb.SysMsg
+	(*EntityMenuState)(nil),  // 69: jx.pb.EntityMenuState
+	(*TeamEvent)(nil),        // 70: jx.pb.TeamEvent
+	(*EntityCamp)(nil),       // 71: jx.pb.EntityCamp
+	(*PlayerFaction)(nil),    // 72: jx.pb.PlayerFaction
+	(*StateAttrib)(nil),      // 73: jx.pb.StateAttrib
+	(*EntityState)(nil),      // 74: jx.pb.EntityState
+	(*SkillDescAttrib)(nil),  // 75: jx.pb.SkillDescAttrib
+	(*SkillDescAppend)(nil),  // 76: jx.pb.SkillDescAppend
+	(*SkillDescRelated)(nil), // 77: jx.pb.SkillDescRelated
+	(*SkillDescLevel)(nil),   // 78: jx.pb.SkillDescLevel
+	(*EntityStateIcons)(nil), // 79: jx.pb.EntityStateIcons
+	(*MissleSync)(nil),       // 80: jx.pb.MissleSync
+	(*SkillDesc)(nil),        // 81: jx.pb.SkillDesc
+	(*ChangeMap)(nil),        // 82: jx.pb.ChangeMap
+	(*ChatMsg)(nil),          // 83: jx.pb.ChatMsg
+	(*Ping)(nil),             // 84: jx.pb.Ping
+	(*Pong)(nil),             // 85: jx.pb.Pong
+	(*Kick)(nil),             // 86: jx.pb.Kick
+	(Result)(0),              // 87: jx.pb.Result
+	(*Vec2)(nil),             // 88: jx.pb.Vec2
+	(EntityType)(0),          // 89: jx.pb.EntityType
+	(*ItemMagic)(nil),        // 90: jx.pb.ItemMagic
 }
 var file_jx_client_proto_depIdxs = []int32{
-	86, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
-	86, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
-	9,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
-	86, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
-	9,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
-	86, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
-	87, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
-	87, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
+	87, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
+	87, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
+	10, // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
+	87, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
+	10, // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
+	87, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
+	88, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
+	88, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
 	0,  // 8: jx.pb.EntityAction.action:type_name -> jx.pb.Action
-	87, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
-	87, // 10: jx.pb.EntityAction.aim:type_name -> jx.pb.Vec2
-	88, // 11: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
-	87, // 12: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
-	87, // 13: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	87, // 14: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	88, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
+	88, // 10: jx.pb.EntityAction.aim:type_name -> jx.pb.Vec2
+	89, // 11: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
+	88, // 12: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
+	88, // 13: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
+	88, // 14: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
 	0,  // 15: jx.pb.EntityInfo.doing:type_name -> jx.pb.Action
-	21, // 16: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	87, // 17: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	87, // 18: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	87, // 19: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
-	31, // 20: jx.pb.EntityMoves.moves:type_name -> jx.pb.EntityMove
-	89, // 21: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
-	89, // 22: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
-	89, // 23: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
-	34, // 24: jx.pb.InventorySync.items:type_name -> jx.pb.ItemView
-	34, // 25: jx.pb.ItemAdd.item:type_name -> jx.pb.ItemView
-	86, // 26: jx.pb.ItemResult.result:type_name -> jx.pb.Result
-	1,  // 27: jx.pb.AddPointReq.attribute:type_name -> jx.pb.PlayerAttribute
-	54, // 28: jx.pb.SkillListSync.skills:type_name -> jx.pb.SkillEntry
-	2,  // 29: jx.pb.TeamReq.cmd:type_name -> jx.pb.TeamCmd
-	59, // 30: jx.pb.TeamSelf.leader:type_name -> jx.pb.TeamMember
-	59, // 31: jx.pb.TeamSelf.members:type_name -> jx.pb.TeamMember
-	4,  // 32: jx.pb.TradeReq.cmd:type_name -> jx.pb.TradeCmd
-	34, // 33: jx.pb.TradeItem.item:type_name -> jx.pb.ItemView
-	3,  // 34: jx.pb.TeamEvent.event:type_name -> jx.pb.TeamEventKind
-	59, // 35: jx.pb.TeamEvent.leader:type_name -> jx.pb.TeamMember
-	59, // 36: jx.pb.TeamEvent.members:type_name -> jx.pb.TeamMember
-	72, // 37: jx.pb.EntityState.states:type_name -> jx.pb.StateAttrib
-	74, // 38: jx.pb.SkillDescRelated.attribs:type_name -> jx.pb.SkillDescAttrib
-	74, // 39: jx.pb.SkillDescLevel.attribs:type_name -> jx.pb.SkillDescAttrib
-	75, // 40: jx.pb.SkillDescLevel.appends:type_name -> jx.pb.SkillDescAppend
-	76, // 41: jx.pb.SkillDescLevel.related:type_name -> jx.pb.SkillDescRelated
-	77, // 42: jx.pb.SkillDesc.cur:type_name -> jx.pb.SkillDescLevel
-	77, // 43: jx.pb.SkillDesc.next:type_name -> jx.pb.SkillDescLevel
-	74, // 44: jx.pb.SkillDesc.modifier:type_name -> jx.pb.SkillDescAttrib
-	87, // 45: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
-	86, // 46: jx.pb.Kick.reason:type_name -> jx.pb.Result
-	47, // [47:47] is the sub-list for method output_type
-	47, // [47:47] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	22, // 16: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
+	88, // 17: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	88, // 18: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	88, // 19: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	32, // 20: jx.pb.EntityMoves.moves:type_name -> jx.pb.EntityMove
+	1,  // 21: jx.pb.ChatReq.channel:type_name -> jx.pb.ChatChannel
+	90, // 22: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
+	90, // 23: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
+	90, // 24: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
+	35, // 25: jx.pb.InventorySync.items:type_name -> jx.pb.ItemView
+	35, // 26: jx.pb.ItemAdd.item:type_name -> jx.pb.ItemView
+	87, // 27: jx.pb.ItemResult.result:type_name -> jx.pb.Result
+	2,  // 28: jx.pb.AddPointReq.attribute:type_name -> jx.pb.PlayerAttribute
+	55, // 29: jx.pb.SkillListSync.skills:type_name -> jx.pb.SkillEntry
+	3,  // 30: jx.pb.TeamReq.cmd:type_name -> jx.pb.TeamCmd
+	60, // 31: jx.pb.TeamSelf.leader:type_name -> jx.pb.TeamMember
+	60, // 32: jx.pb.TeamSelf.members:type_name -> jx.pb.TeamMember
+	5,  // 33: jx.pb.TradeReq.cmd:type_name -> jx.pb.TradeCmd
+	35, // 34: jx.pb.TradeItem.item:type_name -> jx.pb.ItemView
+	4,  // 35: jx.pb.TeamEvent.event:type_name -> jx.pb.TeamEventKind
+	60, // 36: jx.pb.TeamEvent.leader:type_name -> jx.pb.TeamMember
+	60, // 37: jx.pb.TeamEvent.members:type_name -> jx.pb.TeamMember
+	73, // 38: jx.pb.EntityState.states:type_name -> jx.pb.StateAttrib
+	75, // 39: jx.pb.SkillDescRelated.attribs:type_name -> jx.pb.SkillDescAttrib
+	75, // 40: jx.pb.SkillDescLevel.attribs:type_name -> jx.pb.SkillDescAttrib
+	76, // 41: jx.pb.SkillDescLevel.appends:type_name -> jx.pb.SkillDescAppend
+	77, // 42: jx.pb.SkillDescLevel.related:type_name -> jx.pb.SkillDescRelated
+	78, // 43: jx.pb.SkillDesc.cur:type_name -> jx.pb.SkillDescLevel
+	78, // 44: jx.pb.SkillDesc.next:type_name -> jx.pb.SkillDescLevel
+	75, // 45: jx.pb.SkillDesc.modifier:type_name -> jx.pb.SkillDescAttrib
+	88, // 46: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
+	1,  // 47: jx.pb.ChatMsg.channel:type_name -> jx.pb.ChatChannel
+	87, // 48: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	49, // [49:49] is the sub-list for method output_type
+	49, // [49:49] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_jx_client_proto_init() }
@@ -7099,7 +7207,7 @@ func file_jx_client_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_client_proto_rawDesc), len(file_jx_client_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      6,
 			NumMessages:   81,
 			NumExtensions: 0,
 			NumServices:   0,

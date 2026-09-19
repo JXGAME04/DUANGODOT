@@ -646,6 +646,24 @@ int l_ForbitAura(lua_State* L)
     return 0;
 }
 
+// ForbitTalk(n) (0x0810CB70): Player+0x38c = (n ~= 0) - a channel line of the player is dropped (0x081E387A)
+int l_ForbitTalk(lua_State* L)
+{
+    KNpc* p = player_of(L, "ForbitTalk");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.forbid_talk = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    return 0;
+}
+
+// SetChatFlag(n) (0x08111460): bit 0 of Player+0x394 - set, the cost check refuses every channel (0x080502DD)
+int l_SetChatFlag(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetChatFlag");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.chat_flag = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    return 0;
+}
+
 // ForbitStamina(n): Player+0x86b4 = (n ~= 0) (0x0810CCC0) - no stamina gain while set (ProcessState 0x0808BD53)
 int l_ForbitStamina(lua_State* L)
 {
@@ -654,6 +672,46 @@ int l_ForbitStamina(lua_State* L)
     p->player.forbid_stamina = static_cast<int>(lua_tonumber(L, 1)) != 0 ? 1 : 0;
     return 0;
 }
+
+// RestoreLife() (0x08112480): the life back to max(+0x1a14, +0x1a18); RestoreMana() (0x08112430): the mana back to
+// max(+0x1a1c, +0x1a20).  The numbers reach the client with the next attribute sync.
+int l_RestoreLife(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "RestoreLife")) {
+        p->cur.life = p->life_max();
+        g_ScriptContext().world->send_player_attrib(g_ScriptContext().sid);
+    }
+    return 0;
+}
+
+int l_RestoreMana(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "RestoreMana")) {
+        p->cur.mana = p->mana_max();
+        g_ScriptContext().world->send_player_attrib(g_ScriptContext().sid);
+    }
+    return 0;
+}
+
+// GetLife(kind) (0x081124D0) / GetMana(kind) (0x08112270): kind 0 -> the current value (+0x118c / +0x11a0), 1 or 2 ->
+// the base maximum (m_LifeMax +0x15ac / m_ManaMax +0x15b4); anything else raises a Lua error (0x08232E70)
+int life_or_mana(lua_State* L, const char* fn, bool mana)
+{
+    const KNpc* p = player_of(L, fn);
+    if (p == nullptr) return 0;
+    const int kind = static_cast<int>(luaL_checknumber(L, 1));
+    if (kind == 1 || kind == 2) {
+        lua_pushnumber(L, mana ? p->base.mana_max : p->base.life_max);
+    } else if (kind == 0) {
+        lua_pushnumber(L, mana ? p->mana() : p->life());
+    } else {
+        return luaL_error(L, "%s: bad kind %d", fn, kind);
+    }
+    return 1;
+}
+
+int l_GetLife(lua_State* L) { return life_or_mana(L, "GetLife", false); }
+int l_GetMana(lua_State* L) { return life_or_mana(L, "GetMana", true); }
 
 // GetPK() -> the PK value (0x081103C0: KPlayerPK::GetPKValue +0x2c)
 int l_GetPK(lua_State* L)
@@ -1203,6 +1261,9 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
     {"ForbitAura", l_ForbitAura},         {"ForbitSyncAura", l_ForbitSyncAura},   {"ForbitStamina", l_ForbitStamina},
+    {"ForbitTalk", l_ForbitTalk},         {"SetChatFlag", l_SetChatFlag},
+    {"RestoreLife", l_RestoreLife},       {"RestoreMana", l_RestoreMana},         {"GetLife", l_GetLife},
+    {"GetMana", l_GetMana},
     {"GetPK", l_GetPK},                   {"SetPK", l_SetPK},                     {"SetPKFlag", l_SetPKFlag},
     {"ForbidChangePK", l_ForbidChangePK}, {"IsForbidChangePK", l_IsForbidChangePK},
     {"SetPkReduceState", l_SetPkReduceState}, {"GetPkReduceState", l_GetPkReduceState}, {"SetDeathPunish_PK10", l_SetDeathPunish_PK10},

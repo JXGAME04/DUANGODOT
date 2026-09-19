@@ -75,6 +75,8 @@ struct KPlayer {
     int skill_max_level_addons = 0;   // +0x8600 (SetSkillMaxLevelAddons, <= 99): what a reborn character may add to every skill's MaxLevel
     bool loaded = false;       // LoadFrom ran (a player's npc; false for every other npc)
     bool forbid_aura = false;  // +0x375 (Lua ForbitAura(n)): the aura request of the client clears the aura instead
+    bool forbid_talk = false;  // +0x38c (Lua ForbitTalk(n) 0x0810CB70): a channel line of this player is dropped (0x081E387A)
+    bool chat_flag = false;    // +0x394 bit 0 (Lua SetChatFlag(n) 0x08111460): the cost check refuses every channel (0x080502DD)
     bool sync_aura = true;     // +0x388 (Lua ForbitSyncAura(n); 1 at KPlayer::Init 0x080BC1F0): the 0x85 packet of an aura tick goes to the players around
     // the revive point: KPlayer+0x20 (map), +0x28 / +0x2c (x, y) - SetTempRevPos 0x08110790 writes them, SetRevPos
     // 0x080B1E50 keeps the map and its reference point at +0x10 / +0x14 and copies the point's spot here; 0 = the

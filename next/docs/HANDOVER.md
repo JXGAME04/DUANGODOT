@@ -340,6 +340,20 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   → `entities[id].menu_state`. Zone: `kTradeRoomWidth` 10 → **8** (Init `0x081FF129`: 15 phòng của bản Linux ghi ở `KItem.h`). Kiểm: Godot 460/460, e2e
   `AUTO_TRADE opened=true sign=2 drawn=true closed=true`, `auto_trade.png` (đã gửi). **Chưa**: sprite menu 2.0
   (`0x00475690`), các mục menu còn lại, kéo–thả vào ô, phòng 4 kim đĩnh. **Chạy lại `python tools/dev.py assets`** (`export-menu-state`, `giao-dich`).
+- **M14 lát C1 (xong 2026-09-19)**: **kênh chat phía zone** (`LINUX-SERVER.md` §19): JX2 để relay (`s3relay_y`, `relay_channcfg.ini`: TEAM T/0, faction F/3,
+  tong O/0, NEARBY S/0, CITY B/2, union U/0; `relay_channel.ini` WORLD 4) giữ kênh và phát; game server chỉ kiểm (`0x081E3710`: `ForbitTalk` `Player+0x38c`,
+  câu ≤ 0x95 byte, kênh + loại chi phí khớp bảng relay, `0x080502A0` chi phí theo `chatcost.ini` — `SetChatFlag` bit 0 `+0x394` cấm hết, loại 2 thành cấp 20 +
+  20 % nội, 3 bang/môn phái 10 % nội, 4 thế giới cấp 30 + 80 % nội, script `chat_timecount_limit.lua` không có trong cây) rồi trả relay lớp đích (T đội theo
+  `+0x5998`, S người xem, B phát). Zone: proto `ChatChannel` (thứ tự `[Channels]` của `消息集合面板_左.ini`: 0 NEARBY, 1 TEAM, 2 WORLD, 3 FACTION, 4 SYSTEM,
+  5 CITY, 6 TONG, 7 WHISPER), `ChatReq.channel/target`, `ChatMsg.channel`; `KPlayerChat.h/.cpp` (`KChatCostTable`, `chat_cost_type`), `KSubWorldChat.cpp`
+  (`chat`, `chat_pay`: đội = `KTeam::people()`, gần = watchers, thì thầm = tên trong bản đồ, thế giới/thành/môn phái → `KChatBroadcast` → `KEvChat` →
+  `KGameServer::send_chat` mọi phiên của zone, môn phái so `faction.current`), Lua `ForbitTalk/SetChatFlag/RestoreMana/RestoreLife/GetMana/GetLife`
+  (`0x0810CB70/0x08111460/0x08112430/0x08112480/0x08112270/0x081124D0`); Go `export-chat-cost` → `chat_cost.json` (`dev.py assets`); client `Game.chat(text,
+  channel, target)` + `chat_msg.channel`. Test `[chat]` 5 ca (84 khẳng định) + dòng thế giới trong e2e `KGameServer`; e2e `AUTO_CHAT team=doi oi world=ca the gioi`.
+  ctest 257/257 Release + Debug, Godot 460/460. **Chưa** (C2, client): nút kênh `ChannelBtn` (`0x00472620` menu kênh, `0x004B6530` màu/tên), tiền tố
+  `/tên` thì thầm (`Say`) / `&tên kênh` (`Chat`) / `%` của `KUiPlayerBar::SendChat 0x00475A10`, lịch sử 8 dòng `+0x7c46`, bộ lọc `chatsent.flt`, `SendMsgInterval`,
+  màu `TextColor` từng kênh trong khung chat, `消息集合面板` tab; zone: `NW_ForbidChat` (relay), `OnChannelChat` (eventsys), `IsDisabledChatWorld/City`
+  (giá trị nhiệm vụ), đội vượt bản đồ (`KTeamSet` theo `KSubWorld`). **Chạy lại `python tools/dev.py assets`** (`export-chat-cost`).
 - **M14 lát G3 (xong 2026-09-19)**: **giao dịch + mời đội giữa hai client** — `jxbot -partner` (`-meet-map`, `-assets`: vào thế giới rồi `?gm ds NewWorld(map, ô Mps
   tuyệt đối)`, treo bảng `"bot ban do"`, đồng ý mời đội / xin giao dịch, khoá sau client, OK khi cả hai khoá, treo lại sau `G2C_TRADE_END`); `dev.py screenshot`
   chạy bot cạnh client; `UiGame._auto_team` mời bot, `_auto_trade` giao dịch thật (`Earn(50)`, kiếm vào bàn, 5 lượng qua `UiTrade.put_money`, khoá/OK) →
@@ -433,7 +447,8 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
-| M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat, bạn bè, thư, bang hội, giao dịch), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
+| ~~M14 C1 — kênh chat phía zone~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`) | còn **C2 client**: `ChannelBtn` menu kênh `0x00472620` (`0x004B6530` tên/màu/cờ từ `消息集合面板_左.ini [CH_*]`), `KUiPlayerBar::SendChat 0x00475A10` (tiền tố `/tên` → Lua `Say(tên, câu)`, `&tên kênh` → `Chat(kênh, câu)`, `%`; lịch sử 8×0x200 `+0x7c46`; bộ lọc `0x0058DF90`/`0x00617B90`; ≥ 0x200 → `[0x82241c]`), `0x00475900` đặt kênh hiện tại `+0x8c48` → chữ nút `0x004730D0`, khung chat màu `TextColor` + `ShortName`, tab `ChatTab*`; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
+| M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat client, bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
 
@@ -755,6 +770,23 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 50) — M14 lát C1: kênh chat phía zone (relay JX2, 0x081E3710, chi phí 0x080502A0 / chatcost.ini, ForbitTalk, SetChatFlag)
+
+- **jx_linux_y + s3relay** (đọc từng dòng, `LINUX-SERVER.md` §19): bảng kênh của relay (`relay_channcfg.ini`/`relay_channel.ini`) → game server (`0x081E1F50`, ≤ 3 mục
+  10 byte tại `0x97ac2d4`); kiểm dòng `0x081E3710` (`Player+0x38c` ForbitTalk, ≤ 0x95 byte, id > 500 000 → phòng chat `0x0804F6F0`, loại chi phí khớp,
+  `0x081E3250` → `0x080502A0`, gói 0x21 về relay với lớp T/S/B); chi phí `0x080502A0` (`+0x394 & 1`, loại 0/1 miễn, 2..4 theo `chatcost.ini` `0x8BACAC0+0x1440+loại·16`
+  nạp `0x080A0C40`, `CheckTimeCount/ConsumeTimeCount` của `chat_timecount_limit.lua`, log `C_Chat`); `ForbitTalk 0x0810CB70`, `SetChatFlag 0x08111460`,
+  `NW_ForbidChat 0x08128550` (gói relay), `IsDisabledChatWorld/City` (giá trị nhiệm vụ 0x87 bit 1/0x10), `RestoreMana/RestoreLife/GetMana/GetLife`.
+- **gamecl.exe** (`CLIENT-2.0.md` §23 sẽ viết ở C2): `消息集合面板_左.ini` `[Channels]` 15 kênh + `[CH_*]` màu/tên/khoảng gửi; `KUiPlayerBar::SendChat
+  0x00475A10` tiền tố `/` `&` `%` → Lua `Say`/`Chat`; menu kênh `0x00472620` (`0x004B6530`), `0x004B1D30` số kênh, `0x004B3D20(i, cờ)`.
+- **Zone**: proto `ChatChannel`, `ChatReq.channel/target`, `ChatMsg.channel`; `KPlayerChat.h/.cpp`, `KSubWorldChat.cpp`, `KEvChat` + `KGameServer::send_chat`,
+  `KPlayer::forbid_talk/chat_flag`, `zone.chat_cost_file`; Lua 6 hàm; test `[chat]` (`test_KPlayerChat.cpp`), e2e `KGameServer` dòng thế giới, `test_KItem`
+  GetLife/GetMana/Restore*. **Go**: `player.ParseChatCost` + test, `jxassets export-chat-cost`, `dev.py assets`. **Client**: `Game.chat(text, channel, target)`,
+  `chat_msg.channel`, `--auto` `AUTO_CHAT` (đội + thế giới sau `RestoreMana()`).
+- **Kiểm**: ctest 257/257 (Release + Debug), Godot 460/460, `go vet`/`go test` xanh, catalog/includes sạch; e2e `AUTO_CHAT team=doi oi world=ca the gioi`,
+  `AUTO_TRADE … end=1`, zone log `chat cost table loaded`.
+- commit: `JX NEXT: M14 lat C1 - kenh chat phia zone (relay_channcfg.ini T/S/B/F/O/U + WORLD, kiem 0x081E3710, chi phi 0x080502A0 chatcost.ini, ForbitTalk 0x0810CB70, SetChatFlag 0x08111460, KEvChat phat ca zone; Lua RestoreMana/RestoreLife/GetMana/GetLife)`.
 
 ### 2026-09-19 (phiên tiếp theo, phần 49) — M14 lát G3: hai client mời đội + giao dịch thật qua `jxbot -partner`; bảng rao trong gói spawn; Lua Earn/Pay/GetCash
 

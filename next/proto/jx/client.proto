@@ -245,8 +245,24 @@ message EntityMoves {
   repeated EntityMove moves = 1;
 }
 
+// The chat channels of the 2.0 client (\ui\ui3_1024\消息集合面板_左.ini [Channels] Channel0..14, the FormatName of each
+// = the relay's channel name of relay_channcfg.ini / relay_channel.ini: NEARBY 'S', TEAM 'T', WORLD, \F<Faction#> 'F',
+// CITY 'B', TONG 'O', TONGUNION 'U', CHATROOM \C<ChatRoom#>).  The zone carries the ones a player can speak in.
+enum ChatChannel {
+  CH_NEARBY = 0;                 // Channel0: whoever sees the speaker (the relay's 'S' class 3 target = the player)
+  CH_TEAM = 1;                   // Channel1: the team (the relay's 'T' class 0 target = Player+0x5998)
+  CH_WORLD = 2;                  // Channel2: everybody (relay_channel.ini [WORLD] cost 4)
+  CH_FACTION = 3;                // Channel3: the faction (\F<Faction#>, cost 3)
+  CH_SYSTEM = 4;                 // Channel4: the server's lines (never sent by a client)
+  CH_CITY = 5;                   // Channel5: the relay's [broadcast] name=CITY 'B' (class 4, cost 2)
+  CH_TONG = 6;                   // Channel6: the tong (\O, cost 0) - no tongs in the zone yet
+  CH_WHISPER = 7;                // the 2003 chat_someonechat: one player by name (the "/name text" of the input line)
+}
+
 message ChatReq {
   string text = 1;
+  ChatChannel channel = 2;
+  string target = 3;             // CH_WHISPER: the name spoken to
 }
 
 // ---- items (M11) ----
@@ -724,6 +740,7 @@ message ChatMsg {
   uint64 entity_id = 1;
   string name = 2;
   string text = 3;
+  ChatChannel channel = 4;
 }
 
 message Ping {

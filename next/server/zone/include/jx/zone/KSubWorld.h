@@ -36,6 +36,7 @@
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
+#include "jx/zone/KPlayerChat.h"
 #include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
@@ -126,6 +127,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMissleTable> missles;
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
+    std::shared_ptr<const KChatCostTable> chat_cost;          // chatcost.ini (KPlayerChat.h; jxassets export-chat-cost); null = every channel free
     std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
@@ -183,7 +185,10 @@ public:
     bool remove_player(std::uint64_t sid);
     bool move_request(std::uint64_t sid, Pos target, std::uint32_t seq);
     bool attack_request(std::uint64_t sid, EntityId target, std::uint32_t seq);
-    bool chat(std::uint64_t sid, std::string_view text);
+    // a line spoken on a channel (docs §19): the GM filter first, then the rules of 0x081E3710 / 0x080502A0 and the
+    // receivers of the channel; WORLD / CITY / FACTION lines wait in take_chat_broadcasts() for the server
+    bool chat(std::uint64_t sid, std::string_view text, pb::ChatChannel channel = pb::CH_NEARBY, std::string_view target = {});
+    std::vector<KChatBroadcast> take_chat_broadcasts();
     // Items (M11).  Each answers the client: G2C_ITEM_MOVE / ADD / REMOVE when something changed,
     // G2C_ITEM_RESULT with the reason when nothing did.
     bool item_move_request(std::uint64_t sid, std::uint32_t id, int room, int x, int y, std::uint32_t seq);
@@ -860,6 +865,9 @@ private:
     std::vector<std::uint64_t> scratch_sids_;
     mutable std::unordered_map<std::uint64_t, KNpcLevelData> level_cache_;   // (template id, level, series) -> level data
     std::vector<KWorldChange> world_changes_;
+    std::vector<KChatBroadcast> chat_broadcasts_;
+    // 0x080502A0: the cost of a line by chatcost.ini type - false when it cannot be paid (nothing is taken then)
+    bool chat_pay(KNpc& e, int type);
     std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about
     struct Near {                                          // a candidate of a look around
         std::int64_t dist2;

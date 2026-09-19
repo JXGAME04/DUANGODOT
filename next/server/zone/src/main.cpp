@@ -16,6 +16,7 @@
 #include "jx/log.hpp"
 #include "jx/net/asio.hpp"
 #include "jx/zone/KGameServer.h"
+#include "jx/zone/KPlayerChat.h"
 
 namespace {
 
@@ -224,6 +225,18 @@ int main(int argc, char** argv)
             jx::log::info("boot", "abrade rate table loaded", {jx::log::kv("file", abrade_file)});
         } else {
             jx::log::warn("boot", "no abrade rate table", {jx::log::kv("file", abrade_file), jx::log::kv("error", error)});
+        }
+    }
+    // the chat cost table (jxassets export-chat-cost, \settings\npc\player\chatcost.ini): what a line on the city / faction /
+    // world channels asks of the speaker; without it every channel is free
+    const std::string chat_cost_file = cfg.get_string("zone.chat_cost_file", "client/assets/chat_cost.json");
+    if (!chat_cost_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KChatCostTable::load(chat_cost_file, &error)) {
+            w.chat_cost = std::make_shared<const jx::zone::KChatCostTable>(std::move(*t));
+            jx::log::info("boot", "chat cost table loaded", {jx::log::kv("file", chat_cost_file)});
+        } else {
+            jx::log::warn("boot", "no chat cost table", {jx::log::kv("file", chat_cost_file), jx::log::kv("error", error)});
         }
     }
     // the revive / reference points of every map (jxassets export-revive-pos): where a fresh character is born in its

@@ -1152,6 +1152,37 @@ func main() {
 		}
 		fmt.Printf("export-revive-pos: diem hoi sinh %s (%d map) -> %s\n", file, len(table.Maps), p)
 
+	case "export-chat-cost":
+		// \settings\npc\player\chatcost.ini of the old server, read the way 0x080A0C40 of jx_linux_y reads it
+		// (sections "0".."4": Level / Money / ManaPercent / StaminaPercent) -> <out>/chat_cost.json for the
+		// zone's KChatCostTable (docs/LINUX-SERVER.md §19): what a line on the city / faction / world channels costs
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		data, file, err := readServerFile(sdir, "settings/npc/player/chatcost.ini", "Settings/npc/player/chatcost.ini", "settings/npc/player/ChatCost.ini",
+			"Settings/Npc/Player/ChatCost.ini")
+		if err != nil {
+			fail("no settings/npc/player/chatcost.ini under %s: %v", sdir, err)
+		}
+		table := player.ParseChatCost(data)
+		table.Source = file
+		p := filepath.Join(out, "chat_cost.json")
+		if err := table.Write(p); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-chat-cost: chi phi chat %s -> %s\n", file, p)
+
 	case "export-faction":
 		// \settings\faction\门派设定.ini of the old server: the eleven factions the way
 		// KFactionSet::Init 0x08060C70 of jx_linux_y reads them (Name / ShowName / Series / Camp per

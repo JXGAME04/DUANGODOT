@@ -3653,6 +3653,17 @@ class EntityMoves:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+enum ChatChannel {
+	CH_NEARBY = 0,
+	CH_TEAM = 1,
+	CH_WORLD = 2,
+	CH_FACTION = 3,
+	CH_SYSTEM = 4,
+	CH_CITY = 5,
+	CH_TONG = 6,
+	CH_WHISPER = 7
+}
+
 class ChatReq:
 	extends RefCounted
 	func _init():
@@ -3662,6 +3673,16 @@ class ChatReq:
 		service = PBServiceField.new()
 		service.field = __text
 		data[__text.tag] = service
+		
+		__channel = PBField.new("channel", PB_DATA_TYPE.ENUM, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM])
+		service = PBServiceField.new()
+		service.field = __channel
+		data[__channel.tag] = service
+		
+		__target = PBField.new("target", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __target
+		data[__target.tag] = service
 		
 	var data = {}
 	
@@ -3677,6 +3698,32 @@ class ChatReq:
 		__text.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
 	func set_text(value : String) -> void:
 		__text.value = value
+	
+	var __channel: PBField
+	func has_channel() -> bool:
+		if __channel.value != null:
+			return true
+		return false
+	func get_channel():
+		return __channel.value
+	func clear_channel() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__channel.value = DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM]
+	func set_channel(value) -> void:
+		__channel.value = value
+	
+	var __target: PBField
+	func has_target() -> bool:
+		if __target.value != null:
+			return true
+		return false
+	func get_target() -> String:
+		return __target.value
+	func clear_target() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__target.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_target(value : String) -> void:
+		__target.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -9591,6 +9638,11 @@ class ChatMsg:
 		service.field = __text
 		data[__text.tag] = service
 		
+		__channel = PBField.new("channel", PB_DATA_TYPE.ENUM, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM])
+		service = PBServiceField.new()
+		service.field = __channel
+		data[__channel.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -9631,6 +9683,19 @@ class ChatMsg:
 		__text.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
 	func set_text(value : String) -> void:
 		__text.value = value
+	
+	var __channel: PBField
+	func has_channel() -> bool:
+		if __channel.value != null:
+			return true
+		return false
+	func get_channel():
+		return __channel.value
+	func clear_channel() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__channel.value = DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM]
+	func set_channel(value) -> void:
+		__channel.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

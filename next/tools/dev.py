@@ -502,6 +502,9 @@ def cmd_assets(map_ids: list[str]) -> None:
     # the wear table (settings/item/AbradeRate.ini): how fast a worn piece loses durability
     if subprocess.call([*jxassets_args(), "export-abrade-rate", "-out", out], cwd=ROOT) != 0:
         print("export-abrade-rate: no settings/item/AbradeRate.ini in the reference server folder - nothing wears")
+    # the chat cost table (settings/npc/player/chatcost.ini): what a line on the city / faction / world channels costs
+    if subprocess.call([*jxassets_args(), "export-chat-cost", "-out", out], cwd=ROOT) != 0:
+        print("export-chat-cost: no settings/npc/player/chatcost.ini in the reference server folder - every channel is free")
     # the revive / reference points of every map (settings/revivepos.ini): where a new character is
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:
