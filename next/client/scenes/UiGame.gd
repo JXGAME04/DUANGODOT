@@ -695,8 +695,15 @@ func _auto3d_factions() -> void:
 			var before: int = _world.fx.spawned
 			var pos: Vector3 = view.global_position
 			var aim: Vector3 = pos + Vector3(0, 0, -4.0)
-			_world.fx.cast(_world.get("_views_root"), sid, 18, pos, float(view.rotation.y), aim)
+			_world.fx.cast(_world.get("_views_root"), sid, 18, pos, float(view.rotation.y), aim, view)
 			var f: Dictionary = _world.fx.flying(sid)
+			if e.has("ghost"):
+				await get_tree().create_timer(0.3).timeout
+				var ghosts := 0
+				for gn in get_tree().current_scene.get_children():
+					if str(gn.name).begins_with("Ghost"):
+						ghosts += 1
+				print("AUTO3D_GHOST skill=%d ghosts=%d" % [sid, ghosts])
 			if not f.is_empty():
 				_world.fx.hit(_world.get("_views_root"), sid, aim + Vector3(0, 0.9, 0))
 			var a: Node3D = _world.fx.aura(view, sid)

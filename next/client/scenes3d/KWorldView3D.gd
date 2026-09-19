@@ -550,7 +550,7 @@ func action(node: Node, a: Dictionary) -> void:
 	Log.debug("map3d", "cast effect", {"entity": a.get("id"), "skill": a.skill, "frames": a.get("frames", 0), "mapped": fx.load_map() and not fx.entry(int(a.skill)).is_empty(), "element": fx.element_of(int(a.skill))})
 	var aim: Vector3 = place.to_world(Vector2(float(a.get("ax", a.get("x", 0))), float(a.get("ay", a.get("y", 0)))))
 	aim.y = place.ground_height(aim.x, aim.z)
-	fx.cast(_views_root, int(a.skill), int(a.get("frames", 1)), view.global_position, float(view.rotation.y), aim)
+	fx.cast(_views_root, int(a.skill), int(a.get("frames", 1)), view.global_position, float(view.rotation.y), aim, view)
 
 
 # ---- camera and cursor ---------------------------------------------------------------------------

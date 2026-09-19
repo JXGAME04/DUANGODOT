@@ -174,6 +174,12 @@ func _place(snap: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	if _ghost_left > 0.0:
+		_ghost_left -= delta
+		_ghost_timer -= delta
+		if _ghost_timer <= 0.0:
+			_ghost_timer = _ghost_interval
+			_spawn_ghost()
 	if npc == null or not is_instance_valid(npc):
 		queue_free()
 		return
@@ -189,6 +195,59 @@ func _process(delta: float) -> void:
 	if _ring != null:
 		_ring.visible = target and not (npc.has_method("is_dead") and bool(npc.call("is_dead")))
 		_ring.global_position = global_position + Vector3(0, 0.03, 0)
+
+
+# Ghost [TK skill_event 111]: afterimages of the model - its skinned meshes baked at the pose of the moment (a static
+# copy left behind), unshaded white at `alpha`, fading out over GHOST_FADE s [tự chọn]; one every `interval` s for
+# `duration` s (the reference: 16 or 30 a second, cap 999)
+const GHOST_FADE := 0.45
+var _ghost_left := 0.0
+var _ghost_interval := 0.06
+var _ghost_alpha := 0.38
+var _ghost_timer := 0.0
+
+
+func start_ghost(interval: float, alpha: float, duration: float) -> void:
+	_ghost_interval = maxf(0.02, interval)
+	_ghost_alpha = alpha
+	_ghost_left = maxf(duration, _ghost_interval)
+	_ghost_timer = 0.0
+
+
+func _spawn_ghost() -> void:
+	if model == null or model.model == null:
+		return
+	var holder := Node3D.new()
+	holder.name = "Ghost"
+	holder.top_level = true
+	get_tree().current_scene.add_child(holder)
+	holder.global_transform = Transform3D.IDENTITY
+	var any := false
+	for mi in model.model.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null or mi.get_skeleton_path() == NodePath(""):
+			continue
+		var baked: ArrayMesh = mi.bake_mesh_from_current_skeleton_pose()
+		if baked == null:
+			continue
+		var g := MeshInstance3D.new()
+		g.mesh = baked
+		var sk: Node = mi.get_node_or_null(mi.get_skeleton_path())
+		g.global_transform = sk.global_transform if sk is Node3D else mi.global_transform
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.albedo_color = Color(1, 1, 1, _ghost_alpha)
+		g.material_override = mat
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(g)
+		any = true
+		var tw := g.create_tween()
+		tw.tween_property(mat, "albedo_color:a", 0.0, GHOST_FADE)
+	if not any:
+		holder.queue_free()
+		return
+	get_tree().create_timer(GHOST_FADE + 0.05).timeout.connect(holder.queue_free)
 
 
 # Mounted / dismounted: the horse model under the rider, the rider on the horse's ma_qi1 hang point with its riding

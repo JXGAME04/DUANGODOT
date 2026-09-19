@@ -150,9 +150,9 @@ def main():
                 out.append({"res": e["res"], "hang": e.get("hang", ""), "height": 0.0, "loop": True})
         return out
 
-    def section_effects(sec_id, kinds, states_added, depth=0):
+    def section_effects(sec_id, kinds, states_added, ghosts, depth=0):
         """-> (cast[], child[]); kinds[loai su kien] += 1 (thong ke cho MO-NHI-PHAN-3D); states_added += hao quang cua
-        trang thai ma su kien 201 (AddState) them vao"""
+        trang thai ma su kien 201 (AddState) them vao; ghosts += bong mo (su kien 111 Ghost bat)"""
         casts, childs = [], []
         r = sections.get(str(sec_id))
         if r is None:
@@ -178,6 +178,9 @@ def main():
                     s["at"] = at
                     s["on_hit"] = trig == "2"
                     casts.append(s)
+            elif kind == "111" and ev[11].strip() == "1":
+                # Ghost: afterimages of the caster every d7 seconds at alpha d8 until the section ends (TriggerEnd row)
+                ghosts.append({"at": at, "interval": fnum(ev[16], 0.06), "alpha": fnum(ev[17], 0.38)})
             elif kind == "201" and ev[10].strip().isdigit():
                 # AddState after the hit: a buff's picture is the state's own halo (state_list) while it holds
                 for st in state_effects(ev[10].strip()):
@@ -212,7 +215,7 @@ def main():
                 break
         manual = MANUAL.get(int(rid), [])
         kinds = {}
-        casts, childs, states_added = [], [], []
+        casts, childs, states_added, ghosts = [], [], [], []
         # skill_main col 4 may list several sections ("815*830", "106*107*108" = the moves of a combo); each section
         # chains on through col 11 (next section, col 5 = how the events mix)
         seen = set()
@@ -220,7 +223,7 @@ def main():
             nxt, hops = sec0, 0
             while nxt and nxt not in seen and nxt in sections and hops < 6:
                 seen.add(nxt)
-                c2, k2 = section_effects(nxt, kinds, states_added)
+                c2, k2 = section_effects(nxt, kinds, states_added, ghosts)
                 casts += c2
                 childs += k2
                 nxt = sections[nxt][11].strip() if len(sections[nxt]) > 11 else ""
@@ -244,6 +247,8 @@ def main():
                 aura.append(st)
         entry = {"ref": int(rid), "cn": name, "vi": hit or (rs[0] if rs else ""), "element": r[2].strip(), "type": r[3].strip(),
                  "cast": casts, "child": childs, "aura": aura, "events": kinds}
+        if ghosts:
+            entry["ghost"] = ghosts[0]
         by_ref[rid] = entry
         if hit is None and not manual:
             unmatched.append({"ref": int(rid), "cn": name, "hanviet": rs[0] if rs else "?"})

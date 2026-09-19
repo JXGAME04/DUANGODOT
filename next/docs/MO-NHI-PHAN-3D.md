@@ -100,7 +100,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | C7 | `SFXMeshModify` (màu đỉnh = color × adjust + emissive [disasm 0x6fdb70], ô atlas, mask/uvGrow), shader `blend_dst_*` (GLSL APK: rgb = tex × vcol × (1+uv.z)·_Enhance, alpha × mask theo vcol.a) | IL2CPP + shader APK | đã đọc | `Scn3DSfx` | **một phần**: màu/atlas/enhance xong; mask-dissolve (`useMask`, `uvGrow`) **chưa** |
 | C8 | 28 tên `skill_main` chưa ghép JX1 | bảng A6 + `skills.json` | `map_skills.MANUAL` (tên JX1 lệch âm Hán-Việt) | `skill_map.json` | **xong** (3D-47) |
 | C9 | Kiểm mọi phái: 10 phái × kỹ năng có hình | `--auto3d --factions[=<phái>]` | thi triển tại chỗ (chỉ ảnh), đếm `fx.spawned` | `auto3d_fx_<phái>.png`, `AUTO3D_FACTIONS` | **xong** (3D-47): 170 kỹ năng phái, 133 có hình, 133/133 hiện |
-| C10 | Sự kiện `skill_event` loại khác | `eSkillEventType` (metadata, `enum_values.py`) | đã liệt kê (`event_kinds`) | `skill_map.json` | **xong** liệt kê (3D-47); làm hình cho 111 Ghost (112 lần), 103 CameraShake, 26 tia nối: **chưa** |
+| C10 | Sự kiện `skill_event` loại khác | `eSkillEventType` (metadata, `enum_values.py`) | đã liệt kê (`event_kinds`) | `skill_map.json` | **xong** liệt kê (3D-47); 111 Ghost **xong** (3D-51); 103 CameraShake không có dòng nào trong bảng; 26 tia nối (1 kỹ năng) **chưa** |
 
 ### D. Đánh quái trong 3D
 

@@ -525,8 +525,9 @@ func _start_tween(n: Node3D, tw: Dictionary) -> void:
 			b = Vector3(tw["to"][0], tw["to"][1], tw["to"][2])
 		"scale":
 			prop = "scale"
-			a = Vector3(tw["from"][0], tw["from"][1], tw["from"][2])
-			b = Vector3(tw["to"][0], tw["to"][1], tw["to"][2])
+			# a zero scale makes the basis singular (rotation tweens on the same node then fail): keep it tiny
+			a = Vector3(maxf(0.001, absf(tw["from"][0])), maxf(0.001, absf(tw["from"][1])), maxf(0.001, absf(tw["from"][2])))
+			b = Vector3(maxf(0.001, absf(tw["to"][0])), maxf(0.001, absf(tw["to"][1])), maxf(0.001, absf(tw["to"][2])))
 		"position":
 			prop = "position"
 			a = Vector3(tw["from"][0], tw["from"][1], tw["from"][2])

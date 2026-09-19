@@ -702,6 +702,13 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-51) — bóng mờ (Ghost, sự kiện 111) cho 36 kỹ năng lướt/đa đòn
+
+- `skill_event` loại 111 Ghost [TK]: 9 dòng (d2 = 1 bật, d3 = 999 tối đa, d7 = chu kỳ 0,014/0,033/0,06 s, d8 = alpha 0,25/0,38/1,0; dòng `TriggerEnd` tắt) dùng 112 lần → `map_skills` ghi `ghost {at, interval, alpha}` cho kỹ năng (36 kỹ năng JX1: Nhân Kiếm Hợp Nhất, Đoạn Hồn Thích, Kinh Lôi Trảm, Bát Phong Trảm…).
+- Client: `KSkillFx3D.cast(..., view)` → `KNpc3DView.start_ghost(interval, alpha, duration)`: mỗi chu kỳ **bake mesh xương ở tư thế hiện tại** (`bake_mesh_from_current_skeleton_pose`) thành bản sao tĩnh, trắng cộng sáng alpha theo bảng, mờ dần 0,45 s [tự chọn]. Quét `--factions`: 15 kỹ năng phái sinh bóng (`AUTO3D_GHOST`), 133/133 hình.
+- Sửa: tween scale về 0 làm basis suy biến (lỗi `get_quaternion` khi tween xoay cùng node) → kẹp 0,001; còn 2 lỗi từ node prefab có scale 0 sẵn trong glTF (bỏ qua).
+- commit: `JX NEXT 3D: 3D-51 - Ghost (skill_event 111): bake mesh tu the hien tai lam bong mo, 36 ky nang; kep scale tween`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-50) — đợt 3 (UI): minimap 2.0 (`KUiMiniMap`) cho cả map 2D và map 3D
 
 - **Mổ 2.0**: `KUiMiniMap::Initialize` 0x004C4BB0 đọc `[MiniMap] [NameShadow] [SceneName]×2 [ScenePos] [SwitchBtn] [WorldMapBtn] [CaveMapBtn] [BtnFlag] (FlagImage/2/3) [CityInfo1/2] [WayFinding] [Line] Color [MapRect] Left/Top/Width/Height`; ba tệp ini (GBK, 0x794684..): `小地图_小.ini` (nhỏ), `小地图_浏览版.ini` (duyệt), `小地图之虚无缥缈.ini` → `jxassets export-ui` thêm `ban-do-nho`, `ban-do-lon`, `ban-do-hu-vo` (32 màn, 0 thiếu). Ảnh map = chuỗi `%s24.jpg` 0x7b580c = `<thư mục map>24.jpg` trong `data/minimap.pak` (`KScenePlaceMapC::Load`, mã nguồn SwordOnline cùng gốc: 1 region = 32×32 px (`MAP_A_REGION_NUM_MAP_PIXEL`), px x = đơn vị/16, px y = đơn vị/32, góc ảnh = `[MAIN] MapLTRegionIndex` hoặc `rect` của `.wor`; `MapRect` 128×128 quanh nhân vật, kẹp trong ảnh; chấm 3×3 `RU_T_SHADOW`; màu `\Ui\Setting.ini [Map]`: mình 255,255,0, đồng đội 0,255,0, người chơi khác 255,72,0, quái 165,48,255, NPC thường 255,255,255; đường xanh tới cờ). `jxassets export-minimap all` → `maps/<id>/minimap.jpg` (828 map có ảnh, 226 không).

@@ -85,12 +85,17 @@ func _find_hit(list: Array) -> String:
 
 # A cast (EntityAction ACTION_ATTACK with a skill): the cast effects at the caster and the standing child objects at
 # the aim, each at its fraction of the `frames` logic frames.  `at_caster` / `at_aim` are world positions of the feet.
-func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: float, at_aim: Vector3) -> void:
+func cast(parent: Node, skill_id: int, frames: int, at_caster: Vector3, yaw: float, at_aim: Vector3, view: Node = null) -> void:
 	if not load_map():
 		return
 	var e := entry(skill_id)
 	var duration := float(maxi(frames, 1)) * TICK
 	var any := false
+	# Ghost (skill_event 111 [TK]): afterimages of the caster every `interval` s at `alpha` until the section ends
+	if e.has("ghost") and view != null and view.has_method("start_ghost"):
+		var g: Dictionary = e["ghost"]
+		view.start_ghost(float(g.get("interval", 0.06)), float(g.get("alpha", 0.38)), duration * (1.0 - float(g.get("at", 0.0))))
+		any = true
 	for c in e.get("cast", []):
 		if bool(c.get("on_hit", false)):
 			continue
