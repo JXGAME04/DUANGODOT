@@ -23,6 +23,50 @@ from export_scene import Raw, h12, bundle_file, quat_to_mat, FLIP  # noqa: E402
 from export_npc import Tables, euler_to_quat  # noqa: E402
 
 
+# NGUI UITweener (ban sua cua bo tham khao) - bo cuc byte doc theo thu tu khai bao truong trong global-metadata [TK]:
+# method (Linear 0, EaseIn 1, EaseOut 2, EaseInOut 3, BounceIn 4, BounceOut 5), style (Once 0, Loop 1, PingPong 2),
+# ignoreTimeScale, delay, duration, steeperCurves, tweenGroup, onFinished (List<EventDelegate>), eventReceiver (PPtr),
+# callWhenFinished (string), animationCurve (Keyframe[] {time, value, in, out, weightedMode, inW, outW} + pre/post + order);
+# roi lop con: TweenRotation from/to Vector3 + quaternionLerp; TweenScale from/to + updateTable; TweenPosition from/to +
+# sourceFrom/targetTo PPtr + worldSpace; TweenAlpha from/to float; TweenColor from/to Color + bEmissive; TweenEnhance from/to.
+# Kiem: TweenScale 180 byte, TweenRotation 180, TweenPosition 204, TweenColor 188 - dung bang tong cac truong.
+TWEEN_KIND = {"TweenRotation": "rotation", "TweenScale": "scale", "TweenPosition": "position", "TweenAlpha": "alpha",
+              "TweenColor": "color", "TweenEnhance": "enhance"}
+
+
+def read_tween(cls, raw):
+    r = Raw(raw); r.header()
+    method = r.i32(); style = r.i32(); r.u8(); r.align(); delay = r.f32(); duration = r.f32(); r.u8(); r.align(); r.i32()
+    n_fin = r.i32()
+    if n_fin != 0:
+        return None   # EventDelegate list: bo cuc dai, khong can cho hieu ung
+    r.pptr(); r.string()
+    nk = r.i32()
+    keys = []
+    for _ in range(nk):
+        t = r.f32(); v = r.f32(); r.f32(); r.f32(); r.i32(); r.f32(); r.f32()
+        keys.append([round(t, 4), round(v, 4)])
+    r.i32(); r.i32(); r.i32()
+    kind = TWEEN_KIND[cls]
+    if kind in ("rotation", "scale", "position"):
+        a = [r.f32(), r.f32(), r.f32()]; b = [r.f32(), r.f32(), r.f32()]
+        if kind == "rotation":
+            a = [a[0], -a[1], -a[2]]; b = [b[0], -b[1], -b[2]]   # doi truc X: goc quay Y/Z dao dau
+        elif kind == "position":
+            a = [-a[0], a[1], a[2]]; b = [-b[0], b[1], b[2]]
+    elif kind == "color":
+        a = [r.f32(), r.f32(), r.f32(), r.f32()]; b = [r.f32(), r.f32(), r.f32(), r.f32()]
+    else:
+        a = r.f32(); b = r.f32()
+    out = {"type": kind, "method": method, "style": style, "delay": delay, "duration": duration, "from": a, "to": b}
+    if kind == "color":
+        out["emissive"] = bool(r.u8())
+    linear = len(keys) == 2 and keys[0] == [0.0, 0.0] and keys[1] == [1.0, 1.0]
+    if keys and not linear:
+        out["curve"] = keys
+    return out
+
+
 def mmc(v, default=0.0):
     """MinMaxCurve -> {'min', 'max', 'curve': [[t, v]...] hoac None}
     minMaxState: 0 hang so (scalar), 1 duong cong (maxCurve * scalar), 2 hai hang so ngau nhien (minScalar..scalar), 3 hai duong cong"""
@@ -100,6 +144,34 @@ class SfxExporter:
         self.texcache = {}
         self.log = []
 
+    # ten goc cua container da bam md5: prefab goc (Transform khong cha) + thu muc doan theo hash [TK]: Skill 210, Cmn 49,
+    # State 33, Daoguang 29, Halo 12, UI 9 (343 prefab goc trong 558 container - con lai la texture/material)
+    FOLDERS = ("Skill", "Cmn", "State", "Daoguang", "Halo", "UI", "Npc", "Boss", "Scene", "Other")
+
+    def all_prefabs(self):
+        inv = {pid: k for k, pid in self.cont.items()}
+        out = []
+        for o in self.env.objects:
+            if o.type.name != "Transform":
+                continue
+            t = o.read_typetree()
+            if t["m_Father"]["m_PathID"] != 0:
+                continue
+            gid = t["m_GameObject"]["m_PathID"]
+            if gid not in self.objs or self.objs[gid].type.name != "GameObject":
+                continue
+            name = self.objs[gid].read().m_Name
+            key_ = inv.get(gid)
+            rel = None
+            for f in self.FOLDERS:
+                for ext in (".prefab", ""):
+                    if h12("assets/particles/%s/%s%s" % (f, name, ext)) == key_:
+                        rel = "%s/%s" % (f, name); break
+                if rel:
+                    break
+            out.append(rel or ("Other/" + name))
+        return sorted(set(out))
+
     def texture(self, pid):
         if pid in self.texcache:
             return self.texcache[pid]
@@ -145,6 +217,11 @@ class SfxExporter:
             pid = self.cont.get(h12(cnd))
             if pid is not None:
                 break
+        if pid is None and rel.startswith("Other/"):
+            # thu muc khong doan duoc: tim prefab goc theo ten
+            for o in self.env.objects:
+                if o.type.name == "GameObject" and o.read().m_Name == rel[6:]:
+                    pid = o.path_id; break
         if pid is None or self.objs[pid].type.name != "GameObject":
             self.log.append("khong co prefab: " + rel); return None
         name = rel.replace("/", "_").replace("\\", "_")
@@ -234,6 +311,13 @@ class SfxExporter:
             for co in comps.get("MonoBehaviour", []):
                 raw = co.get_raw_data(); sc = self.objs.get(struct.unpack_from("<q", raw, 20)[0])
                 cls = sc.read().m_ClassName if sc is not None and sc.type.name == "MonoScript" else "?"
+                if cls in TWEEN_KIND:
+                    try:
+                        tw = read_tween(cls, raw)
+                    except (struct.error, IndexError, KeyError):
+                        tw = None
+                    if tw is not None:
+                        jn.setdefault("tweens", []).append(tw)
                 if cls == "SFXMeshModify":
                     r = Raw(raw); r.header(); r.pptr()
                     color = [r.f32(), r.f32(), r.f32(), r.f32()]; emissive = [r.f32(), r.f32(), r.f32(), r.f32()]
@@ -422,10 +506,8 @@ def main():
         if sid in index["sfx"] and index["sfx"][sid]["path"]:
             paths.append(index["sfx"][sid]["path"])
     if a.all:
-        for k in ex.cont:
-            pass
-        # duong dan goc khong co (container da bam) -> lay tu hai bang
-        paths = sorted(set([v["path"] for v in index["childobj"].values() if v["path"]] + [v["path"] for v in index["sfx"].values() if v["path"]]))
+        # moi prefab goc cua particles.bdd (ten thu muc doan lai tu hash) + moi duong dan hai bang goi
+        paths = sorted(set(ex.all_prefabs() + [v["path"] for v in index["childobj"].values() if v["path"]] + [v["path"] for v in index["sfx"].values() if v["path"]]))
     done = {}
     for p in dict.fromkeys(paths):
         d = ex.export(p)

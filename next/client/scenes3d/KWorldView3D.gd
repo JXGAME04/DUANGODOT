@@ -479,8 +479,8 @@ func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int,
 		return
 	var w: Vector3 = place.to_world(scene_pos)
 	w.y = place.ground_height(w.x, w.z) + 0.9 + KScene3DMath.px_height_to_m(float(z))
-	if skill_id > 0 and fx.load_map() and fx.hit_res(skill_id) != "":
-		fx.hit(_views_root, skill_id, w)   # the skill's own hit effect [TK]
+	if skill_id > 0 and fx.load_map() and (fx.hit_res(skill_id) != "" or not fx.flying(skill_id).get("children", []).is_empty()):
+		fx.hit(_views_root, skill_id, w)   # the skill's own hit effect + what the flying child leaves [TK]
 		return
 	var burst: CPUParticles3D = MissleViewScript._make_burst(Color(1.0, 0.85, 0.4))
 	_views_root.add_child(burst)

@@ -631,6 +631,96 @@ func _auto_run() -> void:
 
 # --auto3d (with --gm=NewWorld(9053,232,194) or a 3D map): waits for the 3D view, takes the world from three camera
 # angles, walks, fights the nearest monster, and prints AUTO3D_OK - the proof of M3D-1 (docs/LO-TRINH-3D.md).
+# --auto3d --factions: every faction's skills with a mapped 3D effect (skill_map.json, the reference's skill_main ids
+# 100 Wudang, 200 Kunlun, 300 Gaibang, 400 Tianren, 500 Emei, 600 Cuiyan, 700 Wudu, 800 Tangmen, 900 Tianwang, 1000 Shaolin)
+# are spawned client-side at our feet, one after another - the pictures only, no zone rules (weapon / level limits) -
+# with one screenshot per faction; then one real cast per faction through the zone (SetFaction + add_xx(30) of
+# skills_table.lua, a skill any weapon may use).  AUTO3D_FX lines per skill, AUTO3D_FACTIONS at the end.
+const FACTION_REF := {"wudang": 100, "kunlun": 200, "gaibang": 300, "tianren": 400, "emei": 500, "cuiyan": 600, "wudu": 700,
+	"tangmen": 800, "tianwang": 900, "shaolin": 1000}
+const FACTION_ADD := {"shaolin": "add_sl", "tianwang": "add_tw", "tangmen": "add_tm", "wudu": "add_wu", "emei": "add_em",
+	"cuiyan": "add_cy", "tianren": "add_tr", "gaibang": "add_gb", "wudang": "add_wd", "kunlun": "add_kl"}
+
+
+func _auto3d_factions() -> void:
+	var me := _own()
+	var view = _world.get("_views").get(me) if me != null else null
+	if me == null or view == null:
+		return
+	var by_jx: Dictionary = _world.fx.map.get("by_jx", {})
+	var total := 0
+	var with_fx := 0
+	var shown := 0
+	var n := 0
+	var only := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--factions="):
+			only = arg.substr(11)
+	for fac in FACTION_REF.keys():
+		if only != "" and fac != only:
+			continue
+		var lo: int = FACTION_REF[fac]
+		var ids: Array = []
+		var seen_ref := {}
+		for jid in by_jx.keys():
+			var e: Dictionary = by_jx[jid]
+			var ref := int(e.get("ref", 0))
+			if ref >= lo and ref < lo + 100 and not seen_ref.has(ref):
+				seen_ref[ref] = true
+				ids.append(int(jid))
+		ids.sort()
+		var fac_fx := 0
+		var best_id := 0
+		var best_n := 0
+		for sid in ids:
+			total += 1
+			var e: Dictionary = by_jx[str(sid)]
+			if e.get("cast", []).is_empty() and e.get("child", []).is_empty() and e.get("aura", []).is_empty():
+				print("AUTO3D_FX faction=%s skill=%d ref=%d name=%s spawned=0 (no picture: %s)" % [fac, sid, int(e.get("ref", 0)), str(e.get("cn", "")), str(e.get("events", {}))])
+				continue
+			with_fx += 1
+			var before: int = _world.fx.spawned
+			var pos: Vector3 = view.global_position
+			var aim: Vector3 = pos + Vector3(0, 0, -4.0)
+			_world.fx.cast(_world.get("_views_root"), sid, 18, pos, float(view.rotation.y), aim)
+			var f: Dictionary = _world.fx.flying(sid)
+			if not f.is_empty():
+				_world.fx.hit(_world.get("_views_root"), sid, aim + Vector3(0, 0.9, 0))
+			var a: Node3D = _world.fx.aura(view, sid)
+			await get_tree().create_timer(1.2).timeout   # the cast is 18 frames = 1 s: every child object's frame has passed
+			var got: int = _world.fx.spawned - before
+			if got > 0:
+				shown += 1
+				fac_fx += 1
+			if got > best_n:
+				best_n = got
+				best_id = sid
+			print("AUTO3D_FX faction=%s skill=%d ref=%d name=%s spawned=%d fly=%s" % [fac, sid, int(e.get("ref", 0)), str(e.get("cn", "")), got, not f.is_empty()])
+			if a != null and is_instance_valid(a):
+				a.queue_free()
+		# the faction's fullest skill once more for the picture
+		if best_id > 0:
+			await get_tree().create_timer(0.8).timeout
+			var pos2: Vector3 = view.global_position
+			_world.fx.cast(_world.get("_views_root"), best_id, 18, pos2, float(view.rotation.y), pos2 + Vector3(0, 0, -4.0))
+			if not _world.fx.flying(best_id).is_empty():
+				_world.fx.hit(_world.get("_views_root"), best_id, pos2 + Vector3(0, 0.9, -4.0))
+			await get_tree().create_timer(0.35).timeout
+			await _save_screenshot("user://logs/auto3d_fx_%s.png" % fac)
+			await get_tree().create_timer(0.55).timeout
+			await _save_screenshot("user://logs/auto3d_fx_%s_b.png" % fac)   # the later child objects (at 0.9 of the cast)
+			if only != "":
+				# --factions=<one>: what is on screen now (the effect nodes alive, their meshes and materials)
+				for fxn in _world.get("_views_root").get_children():
+					if str(fxn.name).begins_with("sfx_"):
+						for mi in fxn.find_children("*", "MeshInstance3D", true, false):
+							var mat = mi.get_surface_override_material(0) if mi.mesh != null and mi.mesh.get_surface_count() > 0 else null
+							print("AUTO3D_FXNODE %s/%s scale=%s albedo=%s blend=%s tex=%s aabb=%s" % [fxn.name, mi.name, str(mi.global_transform.basis.get_scale()), str(mat.albedo_color) if mat is StandardMaterial3D else "-", str(mat.blend_mode) if mat is StandardMaterial3D else "-", str(mat.albedo_texture != null) if mat is StandardMaterial3D else "-", str(mi.get_aabb().size)])
+		print("AUTO3D_FACTION faction=%s skills=%d shown=%d best=%d" % [fac, ids.size(), fac_fx, best_id])
+		n += 1
+	print("AUTO3D_FACTIONS factions=%d skills=%d with_fx=%d shown=%d" % [n, total, with_fx, shown])
+
+
 func _auto3d_run() -> void:
 	await get_tree().create_timer(1.0).timeout
 	var waited := 0.0
@@ -829,6 +919,8 @@ func _auto3d_run() -> void:
 			var auras = _world._auras.get(_own(), {})
 			print("AUTO3D_AURA states=%s halos=%d" % [str(Game.states.keys()), auras.size() if auras is Dictionary else 0])
 			Game.set_aura(0)
+		if "--factions" in OS.get_cmdline_user_args() or Array(OS.get_cmdline_user_args()).any(func(x: String) -> bool: return x.begins_with("--factions=")):
+			await _auto3d_factions()
 	# a trap (the reference map's EnterPoint_wld became one, make_map3d.py): stand next to it, walk in, the zone's NewWorld
 	# takes us to Phuong Tuong - a 2D map - and the view swaps back to 2D (KNpc::ChangeWorld -> G2C_CHANGE_MAP)
 	var map_before := Game.map_id

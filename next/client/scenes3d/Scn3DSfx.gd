@@ -9,6 +9,7 @@ static var _tex_cache := {}
 var life := 0.0          # giay; <= 0: tu tinh
 var looping := false
 var _t := 0.0
+var _tweens: Array = []
 var _players: Array = []
 var _particles: Array = []
 
@@ -162,9 +163,12 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 				var extra := Color.WHITE
 				var sfx = jn.get("mesh_sfx", null)
 				if sfx is Dictionary:
+					# SFXMeshModify.Update [TK 0x6fdb70]: vertex colour = color * adjustColor (1) + emissive, per channel; the
+					# reference renders in linear space, so a gain v > 1 there is the same gain v in our sRGB pipeline (v^2.2 in,
+					# ^(1/2.2) out) - the sum is used as it is
 					var c = sfx.get("color", [1, 1, 1, 1])
-					var e = sfx.get("emissive", [1, 1, 1, 1])
-					extra = Color(c[0] * maxf(1.0, e[0]), c[1] * maxf(1.0, e[1]), c[2] * maxf(1.0, e[2]), c[3])
+					var e = sfx.get("emissive", [0, 0, 0, 0])
+					extra = Color(c[0] + e[0], c[1] + e[1], c[2] + e[2], clampf(c[3] + e[3], 0.0, 1.0))
 				var mat := _material(dir, jn["mesh_material"], extra, false, Vector2i(1, 1), true)
 				for s in mi.mesh.get_surface_count():
 					mi.set_surface_override_material(s, mat)
@@ -176,6 +180,9 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 				_particles.append(t)
 				var ps: Dictionary = jn["ps"]
 				longest = maxf(longest, float(ps.get("duration", 1.0)) + float(ps["lifetime"].get("max", 1.0)) + float(ps.get("start_delay", 0.0)))
+		if jn.has("tweens") and n is Node3D:
+			for tw in jn["tweens"]:
+				_start_tween(n as Node3D, tw)
 		if jn.has("light"):
 			var l: Dictionary = jn["light"]
 			var ol := OmniLight3D.new()
@@ -351,6 +358,72 @@ func _make_particles(dir: String, ps: Dictionary, st: GLTFState) -> CPUParticles
 	p.mesh.surface_set_material(0, mat)
 	p.emitting = true
 	return p
+
+
+# The NGUI tweens the reference puts on effect nodes (TweenRotation / Scale / Position / Alpha / Color / Enhance [TK],
+# export_sfx.py read_tween): from -> to over `duration` after `delay`, method = ease (Linear, EaseIn/Out/InOut, Bounce),
+# style Once / Loop / PingPong.  Alpha / colour / enhance go to the mesh material of the node (unshaded albedo: enhance
+# = brightness x (1 + e) [tự chọn, the reference shader's _Enhance]).
+func _start_tween(n: Node3D, tw: Dictionary) -> void:
+	var kind := str(tw.get("type", ""))
+	var dur := maxf(float(tw.get("duration", 1.0)), 0.01)
+	var delay := float(tw.get("delay", 0.0))
+	var style := int(tw.get("style", 0))
+	var method := int(tw.get("method", 0))
+	var t := n.create_tween()
+	match method:
+		1: t.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		2: t.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		3: t.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+		4: t.set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_IN)
+		5: t.set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		_: t.set_trans(Tween.TRANS_LINEAR)
+	if style == 1 or style == 2:
+		t.set_loops()
+	var target: Object = n
+	var prop := ""
+	var a: Variant = null
+	var b: Variant = null
+	match kind:
+		"rotation":
+			prop = "rotation_degrees"
+			a = Vector3(tw["from"][0], tw["from"][1], tw["from"][2])
+			b = Vector3(tw["to"][0], tw["to"][1], tw["to"][2])
+		"scale":
+			prop = "scale"
+			a = Vector3(tw["from"][0], tw["from"][1], tw["from"][2])
+			b = Vector3(tw["to"][0], tw["to"][1], tw["to"][2])
+		"position":
+			prop = "position"
+			a = Vector3(tw["from"][0], tw["from"][1], tw["from"][2])
+			b = Vector3(tw["to"][0], tw["to"][1], tw["to"][2])
+		"alpha", "color", "enhance":
+			var mi := (n as MeshInstance3D) if n is MeshInstance3D else (_find(n, "MeshInstance3D") as MeshInstance3D)
+			var mat: Material = mi.get_surface_override_material(0) if mi != null and mi.mesh != null and mi.mesh.get_surface_count() > 0 else null
+			if not (mat is StandardMaterial3D):
+				t.kill()
+				return
+			target = mat
+			var base: Color = (mat as StandardMaterial3D).albedo_color
+			prop = "albedo_color"
+			if kind == "alpha":
+				a = Color(base.r, base.g, base.b, float(tw["from"]))
+				b = Color(base.r, base.g, base.b, float(tw["to"]))
+			elif kind == "color":
+				a = Color(tw["from"][0], tw["from"][1], tw["from"][2], base.a if bool(tw.get("emissive", false)) else tw["from"][3])
+				b = Color(tw["to"][0], tw["to"][1], tw["to"][2], base.a if bool(tw.get("emissive", false)) else tw["to"][3])
+			else:
+				a = Color(base.r * (1.0 + float(tw["from"])), base.g * (1.0 + float(tw["from"])), base.b * (1.0 + float(tw["from"])), base.a)
+				b = Color(base.r * (1.0 + float(tw["to"])), base.g * (1.0 + float(tw["to"])), base.b * (1.0 + float(tw["to"])), base.a)
+		_:
+			t.kill()
+			return
+	if delay > 0.0:
+		t.tween_interval(delay)
+	t.tween_property(target, prop, b, dur).from(a)
+	if style == 2:
+		t.tween_property(target, prop, a, dur)
+	_tweens.append(t)
 
 
 func _process(delta: float) -> void:
