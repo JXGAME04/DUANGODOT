@@ -1355,8 +1355,9 @@ void KSubWorld::on_death_player(KNpc& e, EntityId killer, int mode)
     }
     // 0x08088D7C: an experience of 0 loses nothing.  The loss is 2 % of the level's experience up to level 10
     // and 3 % above it (KLevelAdd::GetLevelExp 0x080C3FF0: / 50 or x 3 / 100 below 100 000, / 100 x 2 or x 3
-    // above - the binary's two roundings), at most 130 000 (0x1fbd0), x (7 - the faction rank) / 7 for a member
-    // of a faction (Player+0x5994, 0x080CC620 - no factions in the zone), and never more than what is held
+    // above - the binary's two roundings), at most 130 000 (0x1fbd0), x (7 - n) / 7 with n = the team mates near by
+    // (KPlayerTeam Player+0x5994 / +0x5998, 0x080CC620 counts the captain and members within reach - no teams in the zone),
+    // and never more than what is held
     if (p.exp > 0) {
         const std::int64_t level_exp = tables().level_exp(static_cast<int>(e.level), p.reborn);
         std::int64_t loss;
