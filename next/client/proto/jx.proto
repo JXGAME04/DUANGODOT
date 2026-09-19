@@ -517,6 +517,67 @@ enum TeamEventKind {
   TEAM_EV_SELF_ADD = 15;         // enumMSG_ID_TEAM_SELF_ADD: the receiver joined
 }
 
+// ---- trade (docs/LINUX-SERVER.md §18): KTrade Player+0x5910 and KPlayerMenuState Player+0x5700 of jx_linux_y ----
+
+enum TradeCmd {
+  TRADE_CMD_NONE = 0;
+  TRADE_APPLY_OPEN = 1;          // KPlayer::TradeApplyOpen 0x080AE590 {sentence}: the menu state TRADEOPEN (2) - others may ask
+  TRADE_APPLY_CLOSE = 2;         // the 0x6a packet 0x080AE320: back to NORMAL
+  TRADE_APPLY_START = 3;         // the 0x6b packet 0x080B4DE0 {npc}: ask a player whose state is TRADEOPEN
+  TRADE_REPLY = 4;               // c2sTradeReplyStart 0x080BAFD0: target = the applicant, flag 1 accept / 0 refuse
+  TRADE_MONEY = 5;               // the 0x6c packet 0x080AE510 {money}: the money put on the table
+  TRADE_DECISION = 6;            // the 0x6d packet 0x080B2C70 {decision}: 0 cancel, 1 ok, 2 lock, 3 / 4 sync only
+}
+
+message TradeReq {               // C2G_TRADE
+  TradeCmd cmd = 1;
+  uint64 target = 2;             // the npc (entity id) the command is about
+  int32 arg = 3;                 // the flag / money / decision
+  string text = 4;               // TRADE_APPLY_OPEN: the sentence over the head (up to 255 bytes)
+  uint32 seq = 5;
+}
+
+message TradeState {             // G2C_TRADE_STATE (the 0x76 sync to oneself)
+  uint32 state = 1;              // 0 normal, 1 open for trade, 2 trading
+  uint64 partner = 2;            // state 2: the partner's entity id
+  string partner_name = 3;
+}
+
+message TradeSync {              // G2C_TRADE_SYNC: the four flags of the 0x81 packet, the partner's money of the 0x77 packet
+  bool self_lock = 1;
+  bool dest_lock = 2;
+  bool self_ok = 3;
+  bool dest_ok = 4;
+  uint32 dest_money = 5;
+  uint32 self_money = 6;
+}
+
+message TradeItem {              // G2C_TRADE_ITEM: the partner put an item on the table (removed = false) or took it back
+  ItemView item = 1;             // the item as it lies in the partner's trade box (room 2, its x / y)
+  bool removed = 2;
+}
+
+message TradeApply {             // G2C_TRADE_APPLY: the 0x8b packet {player, npc}
+  uint64 entity_id = 1;
+  string name = 2;
+}
+
+message TradeEnd {               // G2C_TRADE_END: the 0x78 packet {byte ok}
+  bool ok = 1;
+}
+
+message SysMsg {                 // G2C_SYS_MSG: the 0x86 packet - id keys stringtable_core.txt (0xb / 0xc room full, 0xd refused, 0x2c cannot trade, ...)
+  uint32 id = 1;
+  uint64 entity_id = 2;
+  string name = 3;
+}
+
+message EntityMenuState {        // G2C_ENTITY_MENU_STATE: s2c_npcsetmenustate around a player
+  uint64 entity_id = 1;
+  uint32 state = 2;              // PLAYER_MENU_STATE_*: 0 normal, 1 team open, 2 trade open, 3 trading, 4 idle
+  string sentence = 3;           // state 2: what the player wrote
+}
+
 message TeamEvent {              // G2C_TEAM_EVENT
   TeamEventKind event = 1;
   uint64 entity_id = 2;
@@ -836,6 +897,7 @@ enum MsgId {
   C2G_SIT = 1117;              // (zone) sit down / stand up: the 0x71 packet -> handler cell 113 0x080DC300 -> 0x08078AA0(npc, 8 / 1)
   C2G_PK_STATE = 1118;         // (zone) the PK switch: the 0x76 packet {byte state} -> 0x080DBE00 -> KPlayerPK::SetPKState 0x080C3740
   C2G_TEAM = 1119;             // (zone) a team command: the 0x53 packet {0x53, word len, byte sub 1..11, dword npc} of jx_linux_y (docs/LINUX-SERVER.md §17)
+  C2G_TRADE = 1120;            // (zone) a trade command: the trade packets of jx_linux_y (apply open / close / start, reply, money 0x6c, decision 0x6d; docs/LINUX-SERVER.md §18)
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -876,6 +938,13 @@ enum MsgId {
   G2C_ENTITY_PK = 2129;        // a player's PK state for the others (the flag & 3 of the 0x4b sync)
   G2C_TEAM_SELF = 2130;        // one's own team as it stands (s2c_teamselfinfo: the 0x69 packet of KPlayer::SendSelfTeamInfo 0x080AA7F0)
   G2C_TEAM_EVENT = 2131;       // a team happening (the other 0x69 sub-commands and the 0x86 team messages)
+  G2C_TRADE_STATE = 2132;      // s2c_tradechangestate (KPlayerMenuState::SetState 0x080C29D0): 0 normal, 1 open for trade, 2 trading {partner}
+  G2C_TRADE_SYNC = 2133;       // the 0x81 packet of SyncTradeState 0x080A85B0 {self lock, dest lock, self ok, dest ok} + the 0x77 money of the partner
+  G2C_TRADE_ITEM = 2134;       // the partner's trade box: an item put there (the 0xcc-byte sync of ExchangeItem 0x08206110) or taken back
+  G2C_TRADE_APPLY = 2135;      // the 0x8b packet (0x080B4DE0): somebody asks to trade with the receiver
+  G2C_TRADE_END = 2136;        // the 0x78 packet: the trade is over {ok = the exchange happened, 0 = cancelled}
+  G2C_SYS_MSG = 2137;          // the 0x86 packet {word 8, word id, dword npc}: a sentence of stringtable_core.txt by id (docs/CLIENT-2.0.md §21)
+  G2C_ENTITY_MENU_STATE = 2138;   // s2c_npcsetmenustate: the sign over a player's head (1 looking for team mates, 2 trading wanted + sentence, 3 trading)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

@@ -13,6 +13,7 @@
 #include "jx/ids.hpp"
 #include "jx/zone/KFaction.h"
 #include "jx/zone/KPlayerTeam.h"
+#include "jx/zone/KPlayerTrade.h"
 
 namespace jx::pb {
 class RoleData;
@@ -56,6 +57,8 @@ struct KPlayer {
     } pk;
     int pk10_death_punish = 0;   // Player+0x384: Lua SetDeathPunish_PK10 (the arena death of 0x08089750; cleared when the PK value drops to 9)
     KPlayerTeam team;            // m_cTeam +0x5994 (docs/LINUX-SERVER.md §17)
+    KPlayerMenuState menu;       // m_cMenuState +0x5700 (KPlayerMenuState.h 2002; docs/LINUX-SERVER.md §18)
+    KTrade trade;                // m_cTrade +0x5910 (KPlayerTrade.h 2003)
     std::int64_t lead_exp = 0;   // m_dwLeadExp +0x596c
     int lead_level = 1;          // m_dwLeadLevel +0x5970: KTeam::CalcCaptainPower reads level_lead_exp.txt by it
     // the three PK attributes of states / equipment (KNpcAttribModify 254 / 257 / 256 -> Player+0x86f8 / +0x86fc / +0x8700,

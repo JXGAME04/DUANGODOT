@@ -172,6 +172,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.pk_state_request(cmd.sid, req.state());
         break;
     }
+    case pb::C2G_TRADE: {
+        pb::TradeReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.trade_request(cmd.sid, static_cast<int>(req.cmd()), EntityId{req.target()}, req.arg(), req.text());
+        break;
+    }
     case pb::C2G_TEAM: {
         pb::TeamReq req;
         if (!req.ParseFromString(cmd.payload)) break;

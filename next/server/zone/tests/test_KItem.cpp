@@ -19,6 +19,7 @@
 #include "jx/msg.pb.h"
 #include "jx/zone/KItem.h"
 #include "jx/zone/KLuaScript.h"
+#include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KObj.h"
 #include "jx/zone/KRandom.h"
@@ -727,7 +728,7 @@ TEST_CASE("a move request: free cells, an item under the target trades places, r
     CHECK(decode_packet<jx::pb::ItemResult>(results[1]).seq() == 24);
     CHECK(packets(out, 1, jx::pb::G2C_ITEM_MOVE).empty());
 
-    // an unknown item, the trade box, the quick slots for a sword
+    // an unknown item, the trade box out of a trade (WRONG_STATE: the box opens with the trade, [trade]), the quick slots for a sword
     REQUIRE_FALSE(iw.w->item_move_request(1, 999, jx::zone::room_equipment, 0, 0, 25));
     REQUIRE_FALSE(iw.w->item_move_request(1, ring, jx::zone::room_trade, 0, 0, 26));
     REQUIRE_FALSE(iw.w->item_move_request(1, sword, jx::zone::room_immediacy, 0, 0, 27));
@@ -735,7 +736,7 @@ TEST_CASE("a move request: free cells, an item under the target trades places, r
     results = packets(out, 1, jx::pb::G2C_ITEM_RESULT);
     REQUIRE(results.size() == 3);
     CHECK(decode_packet<jx::pb::ItemResult>(results[0]).result() == jx::pb::RESULT_NOT_FOUND);
-    CHECK(decode_packet<jx::pb::ItemResult>(results[1]).result() == jx::pb::RESULT_BAD_REQUEST);
+    CHECK(decode_packet<jx::pb::ItemResult>(results[1]).result() == jx::pb::RESULT_WRONG_STATE);
     CHECK(decode_packet<jx::pb::ItemResult>(results[2]).result() == jx::pb::RESULT_BAD_REQUEST);
 
     // the repository is reachable; the quick slots take one medicine of a kind
@@ -1546,4 +1547,293 @@ TEST_CASE("the look of a player: the bare rows at spawn, a horse and a gold armo
     REQUIRE(iw.w->item_equip_request(1, plain, -1, 66));
     CHECK(iw.w->mutable_entity(iw.id)->weapon_res == 5);
     CHECK(iw.w->mutable_entity(iw.id)->res_version == 6);
+}
+
+
+// ---- the trade (M14 lát G1; docs/LINUX-SERVER.md §18) -------------------------------------------------------------
+
+namespace {
+
+// a second player next to the first: B (sid 2, player 12) at the same spot
+jx::EntityId spawn_b(ItemWorld& iw)
+{
+    jx::pb::RoleData role;
+    role.set_player_id(12);
+    role.set_name("B");
+    role.set_level(9);
+    role.mutable_stats()->set_strength(25);
+    role.mutable_stats()->set_dexterity(25);
+    role.mutable_stats()->set_hp_max(204);
+    role.set_money(50);
+    jx::EntityId id;
+    jx::zone::Pos p;
+    REQUIRE(iw.w->spawn_player(2, role, id, p) == jx::pb::RESULT_OK);
+    iw.w->tick();
+    iw.w->take_outbox();
+    return id;
+}
+
+std::vector<jx::pb::SysMsg> sys_msgs(const std::vector<jx::zone::Packet>& all, std::uint64_t sid)
+{
+    std::vector<jx::pb::SysMsg> out;
+    for (const auto& p : packets(all, sid, jx::pb::G2C_SYS_MSG)) out.push_back(decode_packet<jx::pb::SysMsg>(p));
+    return out;
+}
+
+// the two players into a trade: A opens, B applies, A accepts
+void start_trade(ItemWorld& iw, jx::EntityId b)
+{
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_APPLY_OPEN, jx::EntityId{}, 0, "ban gi cung mua"));
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_APPLY_START, iw.id, 0, ""));
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_REPLY, b, 1, ""));
+}
+
+} // namespace
+
+TEST_CASE("the sign over the head and the trade application (SetState 0x080C29D0, TradeApplyStart 0x080B4DE0, ReplyStart 0x080BAFD0)", "[item][world][trade]")
+{
+    ItemWorld iw;
+    const jx::EntityId b = spawn_b(iw);
+    jx::zone::KNpc& A = *iw.w->mutable_entity(iw.id);
+    jx::zone::KNpc& B = *iw.w->mutable_entity(b);
+    // nobody may apply to a player who is not open (0x080B4E60)
+    CHECK_FALSE(iw.w->trade_request(2, jx::pb::TRADE_APPLY_START, iw.id, 0, ""));
+    // A opens with a sentence: the state 1 to A, the sign to everybody around (B included)
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_APPLY_OPEN, jx::EntityId{}, 0, "ban gi cung mua"));
+    CHECK(A.player.menu.state == jx::zone::menu_state_trade_open);
+    CHECK(A.player.menu.sentence == "ban gi cung mua");
+    {
+        auto out = iw.w->take_outbox();
+        auto st = packets(out, 1, jx::pb::G2C_TRADE_STATE);
+        REQUIRE(st.size() == 1);
+        CHECK(decode_packet<jx::pb::TradeState>(st[0]).state() == 1);
+        auto ms = packets(out, 2, jx::pb::G2C_ENTITY_MENU_STATE);
+        REQUIRE(!ms.empty());
+        const auto m = decode_packet<jx::pb::EntityMenuState>(ms.back());
+        CHECK(m.entity_id() == iw.id.value);
+        CHECK(m.state() == 2);
+        CHECK(m.sentence() == "ban gi cung mua");
+    }
+    // a sentence longer than 255 bytes is cut (0x080AE605)
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_APPLY_OPEN, jx::EntityId{}, 0, std::string(300, 'x')));
+    CHECK(A.player.menu.sentence.size() == 255);
+    // B applies: A hears the 0x8b {B}; B remembers whom it asked (m_nApplyIdx)
+    iw.w->take_outbox();
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_APPLY_START, iw.id, 0, ""));
+    CHECK(B.player.trade.apply == 1);
+    {
+        auto ap = packets(iw.w->take_outbox(), 1, jx::pb::G2C_TRADE_APPLY);
+        REQUIRE(ap.size() == 1);
+        const auto a = decode_packet<jx::pb::TradeApply>(ap[0]);
+        CHECK(a.entity_id() == b.value);
+        CHECK(a.name() == "B");
+    }
+    // a refusal: the 0x86 {8, 0xd} to the applicant, nothing else
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_REPLY, b, 0, ""));
+    {
+        auto msgs = sys_msgs(iw.w->take_outbox(), 2);
+        REQUIRE(msgs.size() == 1);
+        CHECK(msgs[0].id() == 0xd);
+        CHECK(msgs[0].entity_id() == iw.id.value);
+    }
+    CHECK_FALSE(iw.w->trading(A));
+    CHECK(B.player.trade.apply == 0);
+    // a reply to someone who never asked: nothing
+    CHECK_FALSE(iw.w->trade_request(1, jx::pb::TRADE_REPLY, b, 1, ""));
+    // B asks again, A accepts: both TRADING, both told the partner, the sync flags all off
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_APPLY_START, iw.id, 0, ""));
+    iw.w->take_outbox();
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_REPLY, b, 1, ""));
+    CHECK(iw.w->trading(A));
+    CHECK(iw.w->trading(B));
+    CHECK(A.player.trade.dest == 2);
+    CHECK(B.player.trade.dest == 1);
+    CHECK(A.player.menu.state == jx::zone::menu_state_trading);
+    CHECK(B.player.menu.state == jx::zone::menu_state_trading);
+    CHECK(A.player.menu.back_state == jx::zone::menu_state_trade_open);   // restored by a cancel (0x080C2ED0)
+    {
+        auto out = iw.w->take_outbox();
+        auto st = packets(out, 2, jx::pb::G2C_TRADE_STATE);
+        REQUIRE(st.size() == 1);
+        const auto s = decode_packet<jx::pb::TradeState>(st[0]);
+        CHECK(s.state() == 2);
+        CHECK(s.partner() == iw.id.value);
+        CHECK(s.partner_name() == "A");
+        auto sy = packets(out, 1, jx::pb::G2C_TRADE_SYNC);
+        REQUIRE(sy.size() == 1);
+        const auto y = decode_packet<jx::pb::TradeSync>(sy[0]);
+        CHECK_FALSE(y.self_lock());
+        CHECK_FALSE(y.dest_lock());
+        CHECK(y.dest_money() == 0);
+    }
+    // while trading nobody else may apply, and the team cannot open (CheckTrading 0x080A7E90)
+    CHECK_FALSE(iw.w->trade_request(1, jx::pb::TRADE_APPLY_OPEN, jx::EntityId{}, 0, ""));
+    // the cancel (decision 0): both out, the state before restored (A open again, B normal), the 0x78 {0} to both
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_DECISION, jx::EntityId{}, 0, ""));
+    CHECK_FALSE(iw.w->trading(A));
+    CHECK_FALSE(iw.w->trading(B));
+    CHECK(A.player.menu.state == jx::zone::menu_state_trade_open);
+    CHECK(B.player.menu.state == jx::zone::menu_state_normal);
+    {
+        auto out = iw.w->take_outbox();
+        auto e1 = packets(out, 1, jx::pb::G2C_TRADE_END);
+        auto e2 = packets(out, 2, jx::pb::G2C_TRADE_END);
+        REQUIRE((e1.size() == 1 && e2.size() == 1));
+        CHECK_FALSE(decode_packet<jx::pb::TradeEnd>(e1[0]).ok());
+    }
+    // the close of the sign (the 0x6a packet)
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_APPLY_CLOSE, jx::EntityId{}, 0, ""));
+    CHECK(A.player.menu.state == jx::zone::menu_state_normal);
+}
+
+TEST_CASE("the trade box, the money, the lock, the ok and the exchange (0x6c 0x080AE510, 0x6d 0x080B2C70, SyncTradeState 0x080A85B0)", "[item][world][trade]")
+{
+    ItemWorld iw;
+    const jx::EntityId b = spawn_b(iw);
+    auto g = iw.gen();
+    const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));
+    const auto ring = iw.w->give_item(2, *g.equipment(jx::zone::equip_ring, 0, 0, 1));
+    REQUIRE((sword != 0 && ring != 0));
+    // out of a trade the box is closed (KItemList::ExchangeItem pos_trade)
+    CHECK_FALSE(iw.w->item_move_request(1, sword, jx::zone::room_trade, 0, 0, 1));
+    start_trade(iw, b);
+    iw.w->take_outbox();
+    jx::zone::KNpc& A = *iw.w->mutable_entity(iw.id);
+    jx::zone::KNpc& B = *iw.w->mutable_entity(b);
+    // A puts the sword on the table: B sees it (G2C_TRADE_ITEM), A's own move is told as usual
+    REQUIRE(iw.w->item_move_request(1, sword, jx::zone::room_trade, 0, 0, 2));
+    {
+        auto out = iw.w->take_outbox();
+        auto ti = packets(out, 2, jx::pb::G2C_TRADE_ITEM);
+        REQUIRE(ti.size() == 1);
+        const auto t = decode_packet<jx::pb::TradeItem>(ti[0]);
+        CHECK_FALSE(t.removed());
+        CHECK(t.item().id() == sword);
+        CHECK(t.item().room() == jx::zone::room_trade);
+        CHECK(!packets(out, 1, jx::pb::G2C_ITEM_MOVE).empty());
+    }
+    // and takes it back: B sees it go
+    REQUIRE(iw.w->item_move_request(1, sword, jx::zone::room_equipment, 0, 0, 3));
+    {
+        auto ti = packets(iw.w->take_outbox(), 2, jx::pb::G2C_TRADE_ITEM);
+        REQUIRE(ti.size() == 1);
+        CHECK(decode_packet<jx::pb::TradeItem>(ti[0]).removed());
+    }
+    REQUIRE(iw.w->item_move_request(1, sword, jx::zone::room_trade, 0, 0, 4));
+    REQUIRE(iw.w->item_move_request(2, ring, jx::zone::room_trade, 0, 0, 5));
+    // the money: at most the bag's (A has 500, B 50); B hears A's through the sync
+    CHECK_FALSE(iw.w->trade_request(1, jx::pb::TRADE_MONEY, jx::EntityId{}, 501, ""));
+    CHECK_FALSE(iw.w->trade_request(1, jx::pb::TRADE_MONEY, jx::EntityId{}, -1, ""));
+    iw.w->take_outbox();
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_MONEY, jx::EntityId{}, 120, ""));
+    CHECK(iw.list().money(jx::zone::room_trade) == 120);
+    {
+        auto sy = packets(iw.w->take_outbox(), 2, jx::pb::G2C_TRADE_SYNC);
+        REQUIRE(sy.size() == 1);
+        CHECK(decode_packet<jx::pb::TradeSync>(sy[0]).dest_money() == 120);
+    }
+    // the ok before both locks is only a sync (0x080B2E49)
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_DECISION, jx::EntityId{}, 1, ""));
+    CHECK_FALSE(A.player.trade.ok);
+    // A locks: no more moves or money on A's side; the partner's ok is cleared with it
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_DECISION, jx::EntityId{}, 2, ""));
+    CHECK(A.player.trade.locked);
+    CHECK_FALSE(iw.w->trade_request(1, jx::pb::TRADE_MONEY, jx::EntityId{}, 10, ""));
+    CHECK_FALSE(iw.w->item_move_request(1, sword, jx::zone::room_equipment, 0, 0, 6));
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_DECISION, jx::EntityId{}, 2, ""));
+    iw.w->take_outbox();
+    // both locked: A's ok is kept and synced; B's ok makes the exchange
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_DECISION, jx::EntityId{}, 1, ""));
+    CHECK(A.player.trade.ok);
+    {
+        auto sy = packets(iw.w->take_outbox(), 2, jx::pb::G2C_TRADE_SYNC);
+        REQUIRE(sy.size() == 1);
+        const auto y = decode_packet<jx::pb::TradeSync>(sy[0]);
+        CHECK(y.dest_ok());
+        CHECK(y.dest_lock());
+        CHECK(y.self_lock());
+        CHECK_FALSE(y.self_ok());
+    }
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_DECISION, jx::EntityId{}, 1, ""));
+    // the sword is B's, the ring A's (new ids in the taker's list), the money crossed: A 500 - 120 = 380, B 50 + 120 = 170
+    CHECK(iw.list().find(sword) == nullptr);
+    CHECK(iw.w->items_of(2)->find(ring) == nullptr);
+    int a_rings = 0, b_swords = 0;
+    iw.list().each([&](const jx::zone::KItem& it, const jx::zone::KItemPlace& pl) { if (it.detail == jx::zone::equip_ring && pl.room == jx::zone::room_equipment) ++a_rings; });
+    iw.w->items_of(2)->each([&](const jx::zone::KItem& it, const jx::zone::KItemPlace& pl) { if (it.detail == jx::zone::equip_meleeweapon && pl.room == jx::zone::room_equipment) ++b_swords; });
+    CHECK(a_rings == 1);
+    CHECK(b_swords == 1);
+    CHECK(iw.list().money(jx::zone::room_equipment) == 380);
+    CHECK(iw.w->items_of(2)->money(jx::zone::room_equipment) == 170);
+    CHECK(iw.list().money(jx::zone::room_trade) == 0);
+    CHECK_FALSE(iw.w->trading(A));
+    CHECK_FALSE(iw.w->trading(B));
+    CHECK(A.player.menu.state == jx::zone::menu_state_normal);   // 0x080B4448: NORMAL after a trade, not the state before
+    {
+        auto out = iw.w->take_outbox();
+        auto e1 = packets(out, 1, jx::pb::G2C_TRADE_END);
+        REQUIRE(e1.size() == 1);
+        CHECK(decode_packet<jx::pb::TradeEnd>(e1[0]).ok());
+        CHECK(!packets(out, 1, jx::pb::G2C_ITEM_REMOVE).empty());
+        CHECK(!packets(out, 1, jx::pb::G2C_ITEM_ADD).empty());
+        CHECK(!packets(out, 2, jx::pb::G2C_MONEY).empty());
+    }
+}
+
+TEST_CASE("a full bag, a death and a leave end a trade the safe way (0x080B2FF2, 0x080AE4B0, KPlayer::Clear)", "[item][world][trade]")
+{
+    ItemWorld iw;
+    const jx::EntityId b = spawn_b(iw);
+    auto g = iw.gen();
+    // B's bag full of rings (6 x 10 cells)
+    std::vector<std::uint32_t> rings;
+    for (int i = 0; i < 60; ++i) {
+        const auto r = iw.w->give_item(2, *g.equipment(jx::zone::equip_ring, 0, 0, 1));
+        if (r == 0) break;
+        rings.push_back(r);
+    }
+    REQUIRE(rings.size() == 60);
+    const auto sword = iw.w->give_item(1, *g.equipment(jx::zone::equip_meleeweapon, 0, 2, 1));
+    REQUIRE(sword != 0);
+    start_trade(iw, b);
+    jx::zone::KNpc& A = *iw.w->mutable_entity(iw.id);
+    jx::zone::KNpc& B = *iw.w->mutable_entity(b);
+    REQUIRE(iw.w->item_move_request(1, sword, jx::zone::room_trade, 0, 0, 1));
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_DECISION, jx::EntityId{}, 2, ""));
+    REQUIRE(iw.w->trade_request(2, jx::pb::TRADE_DECISION, jx::EntityId{}, 2, ""));
+    REQUIRE(iw.w->trade_request(1, jx::pb::TRADE_DECISION, jx::EntityId{}, 1, ""));
+    iw.w->take_outbox();
+    // B's ok: the sword does not fit B's bag (0x081FA250 on the presser's list): B, whose bag is full, hears "self room
+    // full" (0xb) and loses its ok, A hears "dest room full" (0xc) and keeps its ok; the trade goes on
+    CHECK_FALSE(iw.w->trade_request(2, jx::pb::TRADE_DECISION, jx::EntityId{}, 1, ""));
+    CHECK(iw.w->trading(A));
+    CHECK(A.player.trade.ok);
+    CHECK_FALSE(B.player.trade.ok);
+    {
+        auto out = iw.w->take_outbox();
+        auto ma = sys_msgs(out, 1), mb = sys_msgs(out, 2);
+        REQUIRE((ma.size() == 1 && mb.size() == 1));
+        CHECK(ma[0].id() == 0xc);
+        CHECK(mb[0].id() == 0xb);
+    }
+    CHECK(iw.list().find(sword) != nullptr);
+    // A dies: the trade is cancelled for both, the sword back in A's bag
+    std::array<jx::zone::KMagicAttrib, jx::zone::kSkillAttribs> hit{};
+    hit[0] = jx::zone::KMagicAttrib{jx::zone::magic_seriesdamage_p, {100, 0, 0}};
+    hit[1] = jx::zone::KMagicAttrib{jx::zone::magic_attackrating_v, {50000, 0, 0}};
+    hit[2] = jx::zone::KMagicAttrib{jx::zone::magic_ignoredefense_p, {1, 0, 0}};
+    hit[3] = jx::zone::KMagicAttrib{0, {200000000, 0, 200000000}};
+    iw.w->receive_damage(A, A, 0, false, hit.data(), false, 1, 0x1f, 0);
+    REQUIRE(A.doing == jx::zone::KDoing::death);
+    CHECK_FALSE(iw.w->trading(A));
+    CHECK_FALSE(iw.w->trading(B));
+    CHECK(iw.list().place_of(sword)->room == jx::zone::room_equipment);
+    // a leave while trading: the partner is let go
+    A.doing = jx::zone::KDoing::stand;
+    A.cur.life = 100;
+    start_trade(iw, b);
+    CHECK(iw.w->trading(B));
+    REQUIRE(iw.w->remove_player(1));
+    CHECK_FALSE(iw.w->trading(B));
+    CHECK(B.player.menu.state == jx::zone::menu_state_normal);
 }

@@ -330,6 +330,18 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `C2G_TEAM` 1119 (gateway chuyển tiếp), `G2C_TEAM_SELF` 2130, `G2C_TEAM_EVENT` 2131, `RoleData.lead_exp/lead_level`; Go `player.LeadExp` → `player.json`.
   Client 2.0: handler 0x86 `0x00657AD0` + bảng nhảy `0x658674` → khoá `stringtable_core.txt` (`MSG_TEAM_ERROR01..05` = "Nhóm trưởng do hệ thống chỉ định…").
   Kiểm: ctest 249/249 (`[team]` 10 ca 341 khẳng định), Godot 452/452, `go vet` xanh, catalog/includes sạch.
+- **M14 lát G1 (xong 2026-09-19)**: **giao dịch phía zone** (`LINUX-SERVER.md` §18): `KPlayerMenuState` `Player+0x5700` (bảng rao trên đầu: 0 thường / 1 mở đội /
+  2 mở giao dịch + câu ≤ 255 / 3 đang giao dịch; `SetState 0x080C29D0` giữ bản cũ, `RestoreBackupState 0x080C2ED0` khi huỷ), `KTrade` `Player+0x5910` (đối tác,
+  OK, khoá, **người xin nhớ mình xin ai** `+0x591c`, đang giao dịch), `TradeApplyOpen 0x080AE590`, gói 0x6a đóng bảng, 0x6b xin (`0x080B4DE0`: đích phải ở trạng
+  thái 2, gói 0x8b), `c2sTradeReplyStart 0x080BAFD0` (từ chối → 0x86 `{8, 0xd}`; đồng ý → đội mở đóng lại, người ngồi đứng dậy, ô giao dịch dọn, `StartTrade` +
+  trạng thái 3 cả hai), 0x6c tiền (`0 ≤ tiền ≤ túi`, chưa khoá), `SyncTradeState 0x080A85B0` (0x77 tiền cho đối tác, 0x81 bốn cờ cho cả hai), 0x6d quyết định
+  (0 huỷ / 2 khoá xoá OK cả hai / 1 OK → đối tác đã OK → **trao đổi** `0x080B2EC7..`: kiểm tiền, mô phỏng chỗ trống túi 6×10 `0x081FA250` — bên không vừa mất OK
+  và nghe 0xb, bên kia 0xc; vừa → đồ đổi chủ (nhật ký), tiền, 0x78 `{1}`, trạng thái 0), huỷ `0x080AE380` (ô về túi, 0x78 `{0}`, trạng thái khôi phục) từ
+  quyết định 0 / chết `0x080AE4B0` / rời game; ô giao dịch của `ExchangeItem` (vật vào ô 2 → gói 0xcc byte cho đối tác). Zone: `KPlayerTrade.h`,
+  `KSubWorldTrade.cpp`, `item_move_request` mở `room_trade` khi giao dịch & chưa khoá, proto `C2G_TRADE` 1120 + `G2C_TRADE_STATE/SYNC/ITEM/APPLY/END`
+  2132..2136, `G2C_SYS_MSG` 2137 (gói 0x86 chung), `G2C_ENTITY_MENU_STATE` 2138; `team_set_open/close` đặt bảng rao 1/0. Kiểm: ctest 252/252 (Release + Debug;
+  `[trade]` 3 ca 154 khẳng định), Godot 460/460, catalog/includes sạch. **Chưa**: `trade.lua CheckPlayerTrade`, `Player+0x374`, mã gói chống bot `0x080A79B0`,
+  ô 4 (bind gold), client (G2: `玩家间交易.ini` + hộp `G_SysMsgCentre_3` + bảng rao trên đầu).
 - **M14 lát T2 (xong 2026-09-19)**: **tổ đội trên client** (`CLIENT-2.0.md` §21.1): cửa sổ `KUiTeamManage` (`队伍管理.ini` theme `ui3_1024`: Main 404×253, hai danh sách
   Đội mình / Lân cận, nút Mời vào / Rời đội (Kick) / Chuyển / Tạo mới (Refresh) / Rời đội / Giải tán đội, ô "Đóng tổ đội", "Tài lãnh đạo %d") → `UiTeam.gd` (lệnh
   thanh công cụ `team`); `OperationRequest 0x005B9560` 5..0xc = **cùng số lệnh con 0x53 với `jx_linux_y`** (`{0x53, word 7, byte sub, dword npc}` — khác PK) →
@@ -401,6 +413,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~Chạy trừ thể lực~~ (xong 2026-09-18: `ProcessState 0x0808BD3D` gain/`RunSub` theo `Player+0x5a50`, `ForbitStamina`; bước chạy `0x08080C50` → kiệt sức đi bộ `0x0807B430`; tốc độ người chơi = `m_CurrentRunSpeed`/khung = 180/giây, bỏ `move_speed` 200 của persist) | ~~ngồi~~ (xong B6a 2026-09-18: `0x080DC300` → `DoSit 0x0807B550`, `SitAddLife/Mana` `0x0808BBE6`, `SitAdd` ‰; §16.14, `CLIENT-2.0.md` §18). Còn: cưỡi ngựa chặn ngồi đã có (`horse ≠ 0`); áo 45 của `GetNpcPate`; chạy đánh `0x12`. |
 | ~~`m_nLucky` vào rơi đồ~~ (xong 2026-09-18) | `GenRandomItem 0x08083D52..0x08083DB5`: `luck = (Player+0x5994 ≠ 0 && +0x5998 ≥ 0 ? 0x080CC620(g_Team + 0x30·+0x5998, player) = số đồng đội gần : 0) + Player+0x5958` (cờ tham số 4 ≠ 0 hay không có người → 0) → `lose_treasure` truyền `k->player.cur_lucky` (phần tông chờ M14). |
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
+| **M14 G2 — giao dịch trên client** | cửa sổ `玩家间交易.ini` (`KUiTrade`, `0x004C02D2`: `TakewithItemsBox`/`SelfItemsBox`/`OtherItemsBox`, `SelfMoney`/`OtherMoney` + `AddMoney`/`ReduceMoney`, `OkBtn`/`TradeBtn`/`CancelBtn`, `InfoText`, `OtherName`, phần `*BindGold` = ô 4), hộp xin giao dịch `G_SysMsgCentre_3` "%s mong muốn giao dịch với bạn" (`UiSysMsgCentre`), bảng rao trên đầu (`s2c_npcsetmenustate` → `KPlayerMenuStateGraph`), lệnh `T`/`O` của `autoexec.lua` (`Switch([[trade]])`?), `_auto_trade` cần hai client (jxbot). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat, bạn bè, thư, bang hội, giao dịch), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
@@ -724,6 +737,27 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 47) — M14 lát G1: giao dịch phía zone (KPlayerMenuState, KTrade, gói 0x6a..0x6d, ReplyStart, SyncTradeState, trao đổi, huỷ)
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §18): `KPlayerMenuState` `Player+0x5700` + `SetState 0x080C29D0` (bản sao trạng thái; 0 từ 1 → `SetTeamClose`;
+  gói `s2c_tradechangestate` cho mình, `s2c_npcsetmenustate` quanh vùng), `RestoreBackupState 0x080C2ED0`; `KTrade` `Player+0x5910` (`Release 0x080D82D0`,
+  `StartTrade 0x080D8300`; `+0x591c` = người xin nhớ đích, `+0x5920` = đang giao dịch; `CheckTrading 0x080A7E90`); ô bảng handler: 0x6a `0x080AE320` (đóng bảng),
+  0x6b `0x080B4DE0` (xin: đích trạng thái 2, `FindAroundPlayer`, khoá bảo mật, mã gói `0x080A79B0` = `(Player+0x3b8 ^ +0x3bc ^ dword) % 0x8baef00[loại]`, gói 0x8b),
+  0x6c `0x080AE510` (tiền), 0x6d `0x080B2C70` (quyết định + trao đổi 0x858 byte stack), gọi thẳng từ `0x080DBA90`: `TradeApplyOpen 0x080AE590` (câu ≤ 255),
+  `c2sTradeReplyStart 0x080BAFD0` (`[0x830ca40]`, `Player+0x374` → 0x86 0x2c, từ chối → 0x86 0xd, `\script\global\trade.lua CheckPlayerTrade`, đội mở đóng,
+  ngồi đứng, `0x081FC900` dọn ô 2/4, `StartTrade` cả hai, trạng thái 3), `SyncTradeState 0x080A85B0` (0x77 tiền `list+0x4cc8` cho đối tác, 0x81 bốn cờ),
+  `ExchangeItem 0x08207172` (ô 2 → gói 0xcc byte cho `Player[+0x5910]`), trao đổi: `0x081FF5D0` kiểm ô, tiền không tràn, `0x081FC410` gom + `0x081FA250` mô phỏng
+  lưới túi 6×10 (`[0x830d7e8]`; ≠ 0 = vừa; bên không vừa mất OK, 0x86 0xb / bên kia 0xc), nhật ký `"%s\t%s\t…NewWorld(%d,%d,%d)\tItemName[%s]…"`, `0x080BDC70/0x080BDCF0`
+  chuyển, tiền `0x081F9EF0/0x081F9F30`, 0x78 `{1}`, `SetState(0)`; huỷ `0x080AE380` (`0x08207DE0` kiểm trùng trang bị, `0x081FC8D0(list, 2/4)` ô về túi, 0x78 `{0}`,
+  `RestoreBackupState`), `0x080AE4B0` từ `DoDeath 0x08089701`, `KPlayer::Clear 0x080B60A0`. Bản Linux có **15 phòng** (`list+0x4c8c + phòng·0x1c`, 0..0xe).
+- **Zone**: `KPlayerTrade.h` (`KMenuState`, `KPlayerMenuState`, `KTrade`), `KSubWorldTrade.cpp` (mọi `trade_*`, `set_menu_state/restore_menu_state/emit_menu_state`,
+  `sys_msg`), `KPlayer::menu/trade`, `item_move_request` (ô giao dịch vào/ra khi giao dịch & chưa khoá, không vật nhiệm vụ, `trade_item_sync`), `do_death`/`remove_player`
+  huỷ, `team_set_open/close` bảng rao 1/0 + `CheckTrading`; proto `TradeCmd/TradeReq/TradeState/TradeSync/TradeItem/TradeApply/TradeEnd/SysMsg/EntityMenuState`,
+  ids 1120 / 2132..2138; gateway chuyển tiếp `C2G_TRADE`; catalog +8 câu +4 trường; test `[trade]` 3 ca 154 khẳng định (đổi 1 kỳ vọng cũ: ô giao dịch ngoài giao dịch
+  = `WRONG_STATE`).
+- **Kiểm**: ctest 252/252 Release **và Debug**, Godot 460/460 (proto sinh lại), `go vet`/`gofmt` xanh, catalog/includes sạch.
+- commit: `JX NEXT: M14 lat G1 - giao dich phia zone (KPlayerMenuState Player+0x5700 SetState 0x080C29D0, KTrade Player+0x5910, TradeApplyOpen 0x080AE590, goi 0x6a/0x6b/0x6c/0x6d, ReplyStart 0x080BAFD0, SyncTradeState 0x080A85B0, trao doi 0x080B2EC7, huy 0x080AE380)`.
 
 ### 2026-09-19 (phiên tiếp theo, phần 46) — CI đỏ ở bản Debug (ff6c73e / 943d59a / d5ae57f): test PK đưa MỘT KMagicAttrib vào ReceiveDamage
 

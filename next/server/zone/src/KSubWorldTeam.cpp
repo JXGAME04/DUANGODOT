@@ -193,8 +193,10 @@ bool KSubWorld::team_set_open(KTeam& t)
         return false;
     }
     if (team_full(t)) return false;
+    if (trading(*c)) return false;   // CheckTrading 0x080A7E90
     t.state = 1;
     team_event(c->sid, pb::TEAM_EV_OPEN_CLOSE, EntityId{}, 1);
+    if (c->player.menu.state != menu_state_team_open) set_menu_state(*c, menu_state_team_open, {}, EntityId{});   // 0x080CD9F0..
     return true;
 }
 
@@ -205,6 +207,7 @@ bool KSubWorld::team_set_close(KTeam& t)
     if (c == nullptr) return false;
     t.state = 0;
     team_event(c->sid, pb::TEAM_EV_OPEN_CLOSE, EntityId{}, 0);
+    if (c->player.menu.state == menu_state_team_open) set_menu_state(*c, menu_state_normal, {}, EntityId{});   // 0x080CCAB0..
     return true;
 }
 

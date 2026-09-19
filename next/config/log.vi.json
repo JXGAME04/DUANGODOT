@@ -309,7 +309,11 @@
     "camp": "phe",
     "team": "đội",
     "captain": "đội trưởng",
-    "owner": "chủ"
+    "owner": "chủ",
+    "partner": "đối tác",
+    "new_id": "id mới",
+    "partner_items": "vật phẩm đối tác",
+    "partner_money": "tiền đối tác"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -627,6 +631,14 @@
     "team dismissed": "Đội giải tán (KPlayer::TeamDismiss 0x080B7DE0 hay đội trưởng rời đi)",
     "team apply": "Xin vào đội của một đội trưởng gần đó (KPlayer::S2CSendAddTeamInfo 0x080B8000, gói 0x69 {7})",
     "team invite": "Đội trưởng mời một người vào đội (KPlayerTeam::InviteAdd 0x080CE150, gói 0x69 {0xc})",
-    "treasure shared": "Đồ rơi chia cho tổ đội theo sát thương (bảng rơi IsTeamShare = 1, 0x080843A0: vào thẳng túi người trúng)"
+    "treasure shared": "Đồ rơi chia cho tổ đội theo sát thương (bảng rơi IsTeamShare = 1, 0x080843A0: vào thẳng túi người trúng)",
+    "trade open": "Người chơi treo bảng muốn giao dịch (KPlayer::TradeApplyOpen 0x080AE590: trạng thái menu 2 + câu rao)",
+    "trade apply": "Xin giao dịch với một người đang treo bảng (gói 0x6b 0x080B4DE0, gói 0x8b cho người kia)",
+    "trade started": "Hai bên bắt đầu giao dịch (c2sTradeReplyStart 0x080BAFD0: KTrade::StartTrade, trạng thái menu 3)",
+    "trade cancelled": "Giao dịch bị huỷ (0x080AE380: đồ trong ô giao dịch về túi, gói 0x78 {0}, trạng thái menu khôi phục)",
+    "trade money error": "Tiền giao dịch không hợp lệ (túi < tiền đặt hay tràn số) - huỷ giao dịch (0x080B2F43)",
+    "item traded": "Một vật phẩm đổi chủ trong giao dịch (dòng nhật ký giao dịch của 0x080B3759)",
+    "trade done": "Giao dịch xong: đồ và tiền đã đổi, gói 0x78 {1} cho cả hai (0x080B43F5)",
+    "trade box item dropped": "Đồ trong ô giao dịch không về túi được (túi đầy) - rơi xuống đất cho chủ"
   }
 }

@@ -104,45 +104,53 @@ const (
 	MsgId_C2G_SIT             MsgId = 1117 // (zone) sit down / stand up: the 0x71 packet -> handler cell 113 0x080DC300 -> 0x08078AA0(npc, 8 / 1)
 	MsgId_C2G_PK_STATE        MsgId = 1118 // (zone) the PK switch: the 0x76 packet {byte state} -> 0x080DBE00 -> KPlayerPK::SetPKState 0x080C3740
 	MsgId_C2G_TEAM            MsgId = 1119 // (zone) a team command: the 0x53 packet {0x53, word len, byte sub 1..11, dword npc} of jx_linux_y (docs/LINUX-SERVER.md §17)
+	MsgId_C2G_TRADE           MsgId = 1120 // (zone) a trade command: the trade packets of jx_linux_y (apply open / close / start, reply, money 0x6c, decision 0x6d; docs/LINUX-SERVER.md §18)
 	// gateway -> client
-	MsgId_G2C_HELLO_ACK       MsgId = 2001
-	MsgId_G2C_LOGIN_RES       MsgId = 2002
-	MsgId_G2C_CHAR_LIST_RES   MsgId = 2003
-	MsgId_G2C_CHAR_CREATE_RES MsgId = 2004
-	MsgId_G2C_ENTER_WORLD_RES MsgId = 2005
-	MsgId_G2C_PONG            MsgId = 2007
-	MsgId_G2C_KICK            MsgId = 2008
-	MsgId_G2C_ENTITY_SPAWN    MsgId = 2101
-	MsgId_G2C_ENTITY_DESPAWN  MsgId = 2102
-	MsgId_G2C_ENTITY_MOVE     MsgId = 2103
-	MsgId_G2C_CHAT_MSG        MsgId = 2104
-	MsgId_G2C_ENTITY_ACTION   MsgId = 2105 // attack / hurt / death / revive (old NPC_HURT_SYNC, NPC_DEATH_SYNC, skill sync)
-	MsgId_G2C_ENTITY_LIFE     MsgId = 2106
-	MsgId_G2C_CHANGE_MAP      MsgId = 2107 // the zone moved the player to another map (NewWorld of a trap script)
-	MsgId_G2C_ENTITY_MOVES    MsgId = 2108 // several EntityMove in one frame: what moved far from the receiver, every few ticks (N3)
-	MsgId_G2C_ITEM_LIST       MsgId = 2109 // everything the character carries, on entering the world
-	MsgId_G2C_ITEM_ADD        MsgId = 2110 // a new item, or a stack that changed (same id, new count)
-	MsgId_G2C_ITEM_REMOVE     MsgId = 2111 // an item is gone (used up, dropped)
-	MsgId_G2C_ITEM_MOVE       MsgId = 2112 // an item lies somewhere else now (also the answer to C2G_ITEM_MOVE / EQUIP / UNEQUIP)
-	MsgId_G2C_ITEM_RESULT     MsgId = 2113 // a request that changed nothing, with why
-	MsgId_G2C_MONEY           MsgId = 2114 // money in the bag and the repository
-	MsgId_G2C_PLAYER_ATTRIB   MsgId = 2115 // the character's own numbers (CURPLAYER_SYNC + PLAYER_ATTRIBUTE_SYNC + PLAYER_LEVEL_UP_SYNC of the old game)
-	MsgId_G2C_SKILL_LIST      MsgId = 2116 // every skill the character holds (s2c_synccurplayerskill)
-	MsgId_G2C_SKILL_LEVEL     MsgId = 2117 // one skill's level / experience / the skill points left (the 0x5e packet)
-	MsgId_G2C_SKILL_FORBID    MsgId = 2118 // a skill (or all) locked or freed (the 0x63 packet)
-	MsgId_G2C_ENTITY_RIDE     MsgId = 2119 // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
-	MsgId_G2C_ENTITY_CAMP     MsgId = 2120 // a npc's camp changed (the 0x59 packet)
-	MsgId_G2C_PLAYER_FACTION  MsgId = 2121 // the character's faction record (the 0x7b packet; 0x7c = cleared)
-	MsgId_G2C_ENTITY_STATE    MsgId = 2122 // a skill's timed state on the character (the 0x87 packet; empty = removed)
-	MsgId_G2C_SKILL_DESC      MsgId = 2123 // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
-	MsgId_G2C_MISSLE          MsgId = 2124 // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
-	MsgId_G2C_STATE_ICONS     MsgId = 2125 // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
-	MsgId_G2C_NPC_GOLD        MsgId = 2126 // the 0x9a packet (0x0809DF66): a monster turned gold - its kind (NpcGoldTemplate row + 1)
-	MsgId_G2C_ENTITY_RES      MsgId = 2127 // the 0xad packet (0x0807A9D0): a player's equipment look (helm / armour / weapon / horse / mantle rows)
-	MsgId_G2C_PK_STATE        MsgId = 2128 // the 0x90 / 0x93 packets: the character's own PK state and value
-	MsgId_G2C_ENTITY_PK       MsgId = 2129 // a player's PK state for the others (the flag & 3 of the 0x4b sync)
-	MsgId_G2C_TEAM_SELF       MsgId = 2130 // one's own team as it stands (s2c_teamselfinfo: the 0x69 packet of KPlayer::SendSelfTeamInfo 0x080AA7F0)
-	MsgId_G2C_TEAM_EVENT      MsgId = 2131 // a team happening (the other 0x69 sub-commands and the 0x86 team messages)
+	MsgId_G2C_HELLO_ACK         MsgId = 2001
+	MsgId_G2C_LOGIN_RES         MsgId = 2002
+	MsgId_G2C_CHAR_LIST_RES     MsgId = 2003
+	MsgId_G2C_CHAR_CREATE_RES   MsgId = 2004
+	MsgId_G2C_ENTER_WORLD_RES   MsgId = 2005
+	MsgId_G2C_PONG              MsgId = 2007
+	MsgId_G2C_KICK              MsgId = 2008
+	MsgId_G2C_ENTITY_SPAWN      MsgId = 2101
+	MsgId_G2C_ENTITY_DESPAWN    MsgId = 2102
+	MsgId_G2C_ENTITY_MOVE       MsgId = 2103
+	MsgId_G2C_CHAT_MSG          MsgId = 2104
+	MsgId_G2C_ENTITY_ACTION     MsgId = 2105 // attack / hurt / death / revive (old NPC_HURT_SYNC, NPC_DEATH_SYNC, skill sync)
+	MsgId_G2C_ENTITY_LIFE       MsgId = 2106
+	MsgId_G2C_CHANGE_MAP        MsgId = 2107 // the zone moved the player to another map (NewWorld of a trap script)
+	MsgId_G2C_ENTITY_MOVES      MsgId = 2108 // several EntityMove in one frame: what moved far from the receiver, every few ticks (N3)
+	MsgId_G2C_ITEM_LIST         MsgId = 2109 // everything the character carries, on entering the world
+	MsgId_G2C_ITEM_ADD          MsgId = 2110 // a new item, or a stack that changed (same id, new count)
+	MsgId_G2C_ITEM_REMOVE       MsgId = 2111 // an item is gone (used up, dropped)
+	MsgId_G2C_ITEM_MOVE         MsgId = 2112 // an item lies somewhere else now (also the answer to C2G_ITEM_MOVE / EQUIP / UNEQUIP)
+	MsgId_G2C_ITEM_RESULT       MsgId = 2113 // a request that changed nothing, with why
+	MsgId_G2C_MONEY             MsgId = 2114 // money in the bag and the repository
+	MsgId_G2C_PLAYER_ATTRIB     MsgId = 2115 // the character's own numbers (CURPLAYER_SYNC + PLAYER_ATTRIBUTE_SYNC + PLAYER_LEVEL_UP_SYNC of the old game)
+	MsgId_G2C_SKILL_LIST        MsgId = 2116 // every skill the character holds (s2c_synccurplayerskill)
+	MsgId_G2C_SKILL_LEVEL       MsgId = 2117 // one skill's level / experience / the skill points left (the 0x5e packet)
+	MsgId_G2C_SKILL_FORBID      MsgId = 2118 // a skill (or all) locked or freed (the 0x63 packet)
+	MsgId_G2C_ENTITY_RIDE       MsgId = 2119 // a npc mounted or dismounted (the 0x20 flag of the old 0x4c / 0x4d sync)
+	MsgId_G2C_ENTITY_CAMP       MsgId = 2120 // a npc's camp changed (the 0x59 packet)
+	MsgId_G2C_PLAYER_FACTION    MsgId = 2121 // the character's faction record (the 0x7b packet; 0x7c = cleared)
+	MsgId_G2C_ENTITY_STATE      MsgId = 2122 // a skill's timed state on the character (the 0x87 packet; empty = removed)
+	MsgId_G2C_SKILL_DESC        MsgId = 2123 // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
+	MsgId_G2C_MISSLE            MsgId = 2124 // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
+	MsgId_G2C_STATE_ICONS       MsgId = 2125 // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
+	MsgId_G2C_NPC_GOLD          MsgId = 2126 // the 0x9a packet (0x0809DF66): a monster turned gold - its kind (NpcGoldTemplate row + 1)
+	MsgId_G2C_ENTITY_RES        MsgId = 2127 // the 0xad packet (0x0807A9D0): a player's equipment look (helm / armour / weapon / horse / mantle rows)
+	MsgId_G2C_PK_STATE          MsgId = 2128 // the 0x90 / 0x93 packets: the character's own PK state and value
+	MsgId_G2C_ENTITY_PK         MsgId = 2129 // a player's PK state for the others (the flag & 3 of the 0x4b sync)
+	MsgId_G2C_TEAM_SELF         MsgId = 2130 // one's own team as it stands (s2c_teamselfinfo: the 0x69 packet of KPlayer::SendSelfTeamInfo 0x080AA7F0)
+	MsgId_G2C_TEAM_EVENT        MsgId = 2131 // a team happening (the other 0x69 sub-commands and the 0x86 team messages)
+	MsgId_G2C_TRADE_STATE       MsgId = 2132 // s2c_tradechangestate (KPlayerMenuState::SetState 0x080C29D0): 0 normal, 1 open for trade, 2 trading {partner}
+	MsgId_G2C_TRADE_SYNC        MsgId = 2133 // the 0x81 packet of SyncTradeState 0x080A85B0 {self lock, dest lock, self ok, dest ok} + the 0x77 money of the partner
+	MsgId_G2C_TRADE_ITEM        MsgId = 2134 // the partner's trade box: an item put there (the 0xcc-byte sync of ExchangeItem 0x08206110) or taken back
+	MsgId_G2C_TRADE_APPLY       MsgId = 2135 // the 0x8b packet (0x080B4DE0): somebody asks to trade with the receiver
+	MsgId_G2C_TRADE_END         MsgId = 2136 // the 0x78 packet: the trade is over {ok = the exchange happened, 0 = cancelled}
+	MsgId_G2C_SYS_MSG           MsgId = 2137 // the 0x86 packet {word 8, word id, dword npc}: a sentence of stringtable_core.txt by id (docs/CLIENT-2.0.md §21)
+	MsgId_G2C_ENTITY_MENU_STATE MsgId = 2138 // s2c_npcsetmenustate: the sign over a player's head (1 looking for team mates, 2 trading wanted + sentence, 3 trading)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -185,6 +193,7 @@ var (
 		1117: "C2G_SIT",
 		1118: "C2G_PK_STATE",
 		1119: "C2G_TEAM",
+		1120: "C2G_TRADE",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -223,6 +232,13 @@ var (
 		2129: "G2C_ENTITY_PK",
 		2130: "G2C_TEAM_SELF",
 		2131: "G2C_TEAM_EVENT",
+		2132: "G2C_TRADE_STATE",
+		2133: "G2C_TRADE_SYNC",
+		2134: "G2C_TRADE_ITEM",
+		2135: "G2C_TRADE_APPLY",
+		2136: "G2C_TRADE_END",
+		2137: "G2C_SYS_MSG",
+		2138: "G2C_ENTITY_MENU_STATE",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -234,80 +250,88 @@ var (
 		9009: "ZG_ZONE_STATS",
 	}
 	MsgId_value = map[string]int32{
-		"MSG_NONE":            0,
-		"C2G_HELLO":           1001,
-		"C2G_LOGIN":           1002,
-		"C2G_CHAR_LIST":       1003,
-		"C2G_CHAR_CREATE":     1004,
-		"C2G_ENTER_WORLD":     1005,
-		"C2G_LEAVE_WORLD":     1006,
-		"C2G_PING":            1007,
-		"C2G_MOVE":            1101,
-		"C2G_CHAT":            1102,
-		"C2G_ATTACK":          1103,
-		"C2G_ITEM_MOVE":       1104,
-		"C2G_ITEM_EQUIP":      1105,
-		"C2G_ITEM_UNEQUIP":    1106,
-		"C2G_ITEM_USE":        1107,
-		"C2G_ITEM_DROP":       1108,
-		"C2G_PICK_UP":         1109,
-		"C2G_ADD_POINT":       1110,
-		"C2G_ADD_SKILL_POINT": 1111,
-		"C2G_CAST_SKILL":      1112,
-		"C2G_REVIVE":          1113,
-		"C2G_RIDE":            1114,
-		"C2G_SKILL_DESC":      1115,
-		"C2G_SET_AURA":        1116,
-		"C2G_SIT":             1117,
-		"C2G_PK_STATE":        1118,
-		"C2G_TEAM":            1119,
-		"G2C_HELLO_ACK":       2001,
-		"G2C_LOGIN_RES":       2002,
-		"G2C_CHAR_LIST_RES":   2003,
-		"G2C_CHAR_CREATE_RES": 2004,
-		"G2C_ENTER_WORLD_RES": 2005,
-		"G2C_PONG":            2007,
-		"G2C_KICK":            2008,
-		"G2C_ENTITY_SPAWN":    2101,
-		"G2C_ENTITY_DESPAWN":  2102,
-		"G2C_ENTITY_MOVE":     2103,
-		"G2C_CHAT_MSG":        2104,
-		"G2C_ENTITY_ACTION":   2105,
-		"G2C_ENTITY_LIFE":     2106,
-		"G2C_CHANGE_MAP":      2107,
-		"G2C_ENTITY_MOVES":    2108,
-		"G2C_ITEM_LIST":       2109,
-		"G2C_ITEM_ADD":        2110,
-		"G2C_ITEM_REMOVE":     2111,
-		"G2C_ITEM_MOVE":       2112,
-		"G2C_ITEM_RESULT":     2113,
-		"G2C_MONEY":           2114,
-		"G2C_PLAYER_ATTRIB":   2115,
-		"G2C_SKILL_LIST":      2116,
-		"G2C_SKILL_LEVEL":     2117,
-		"G2C_SKILL_FORBID":    2118,
-		"G2C_ENTITY_RIDE":     2119,
-		"G2C_ENTITY_CAMP":     2120,
-		"G2C_PLAYER_FACTION":  2121,
-		"G2C_ENTITY_STATE":    2122,
-		"G2C_SKILL_DESC":      2123,
-		"G2C_MISSLE":          2124,
-		"G2C_STATE_ICONS":     2125,
-		"G2C_NPC_GOLD":        2126,
-		"G2C_ENTITY_RES":      2127,
-		"G2C_PK_STATE":        2128,
-		"G2C_ENTITY_PK":       2129,
-		"G2C_TEAM_SELF":       2130,
-		"G2C_TEAM_EVENT":      2131,
-		"GZ_ZONE_HELLO":       9001,
-		"ZG_ZONE_HELLO_ACK":   9002,
-		"GZ_SESSION_OPEN":     9003,
-		"ZG_SESSION_OPEN_ACK": 9004,
-		"GZ_SESSION_CLOSE":    9005,
-		"GZ_CLIENT_PACKET":    9006,
-		"ZG_ZONE_PACKET":      9007,
-		"ZG_PLAYER_SAVE":      9008,
-		"ZG_ZONE_STATS":       9009,
+		"MSG_NONE":              0,
+		"C2G_HELLO":             1001,
+		"C2G_LOGIN":             1002,
+		"C2G_CHAR_LIST":         1003,
+		"C2G_CHAR_CREATE":       1004,
+		"C2G_ENTER_WORLD":       1005,
+		"C2G_LEAVE_WORLD":       1006,
+		"C2G_PING":              1007,
+		"C2G_MOVE":              1101,
+		"C2G_CHAT":              1102,
+		"C2G_ATTACK":            1103,
+		"C2G_ITEM_MOVE":         1104,
+		"C2G_ITEM_EQUIP":        1105,
+		"C2G_ITEM_UNEQUIP":      1106,
+		"C2G_ITEM_USE":          1107,
+		"C2G_ITEM_DROP":         1108,
+		"C2G_PICK_UP":           1109,
+		"C2G_ADD_POINT":         1110,
+		"C2G_ADD_SKILL_POINT":   1111,
+		"C2G_CAST_SKILL":        1112,
+		"C2G_REVIVE":            1113,
+		"C2G_RIDE":              1114,
+		"C2G_SKILL_DESC":        1115,
+		"C2G_SET_AURA":          1116,
+		"C2G_SIT":               1117,
+		"C2G_PK_STATE":          1118,
+		"C2G_TEAM":              1119,
+		"C2G_TRADE":             1120,
+		"G2C_HELLO_ACK":         2001,
+		"G2C_LOGIN_RES":         2002,
+		"G2C_CHAR_LIST_RES":     2003,
+		"G2C_CHAR_CREATE_RES":   2004,
+		"G2C_ENTER_WORLD_RES":   2005,
+		"G2C_PONG":              2007,
+		"G2C_KICK":              2008,
+		"G2C_ENTITY_SPAWN":      2101,
+		"G2C_ENTITY_DESPAWN":    2102,
+		"G2C_ENTITY_MOVE":       2103,
+		"G2C_CHAT_MSG":          2104,
+		"G2C_ENTITY_ACTION":     2105,
+		"G2C_ENTITY_LIFE":       2106,
+		"G2C_CHANGE_MAP":        2107,
+		"G2C_ENTITY_MOVES":      2108,
+		"G2C_ITEM_LIST":         2109,
+		"G2C_ITEM_ADD":          2110,
+		"G2C_ITEM_REMOVE":       2111,
+		"G2C_ITEM_MOVE":         2112,
+		"G2C_ITEM_RESULT":       2113,
+		"G2C_MONEY":             2114,
+		"G2C_PLAYER_ATTRIB":     2115,
+		"G2C_SKILL_LIST":        2116,
+		"G2C_SKILL_LEVEL":       2117,
+		"G2C_SKILL_FORBID":      2118,
+		"G2C_ENTITY_RIDE":       2119,
+		"G2C_ENTITY_CAMP":       2120,
+		"G2C_PLAYER_FACTION":    2121,
+		"G2C_ENTITY_STATE":      2122,
+		"G2C_SKILL_DESC":        2123,
+		"G2C_MISSLE":            2124,
+		"G2C_STATE_ICONS":       2125,
+		"G2C_NPC_GOLD":          2126,
+		"G2C_ENTITY_RES":        2127,
+		"G2C_PK_STATE":          2128,
+		"G2C_ENTITY_PK":         2129,
+		"G2C_TEAM_SELF":         2130,
+		"G2C_TEAM_EVENT":        2131,
+		"G2C_TRADE_STATE":       2132,
+		"G2C_TRADE_SYNC":        2133,
+		"G2C_TRADE_ITEM":        2134,
+		"G2C_TRADE_APPLY":       2135,
+		"G2C_TRADE_END":         2136,
+		"G2C_SYS_MSG":           2137,
+		"G2C_ENTITY_MENU_STATE": 2138,
+		"GZ_ZONE_HELLO":         9001,
+		"ZG_ZONE_HELLO_ACK":     9002,
+		"GZ_SESSION_OPEN":       9003,
+		"ZG_SESSION_OPEN_ACK":   9004,
+		"GZ_SESSION_CLOSE":      9005,
+		"GZ_CLIENT_PACKET":      9006,
+		"ZG_ZONE_PACKET":        9007,
+		"ZG_PLAYER_SAVE":        9008,
+		"ZG_ZONE_STATS":         9009,
 	}
 )
 
@@ -345,7 +369,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xeb\v\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\x93\r\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -375,7 +399,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fC2G_SET_AURA\x10\xdc\b\x12\f\n" +
 	"\aC2G_SIT\x10\xdd\b\x12\x11\n" +
 	"\fC2G_PK_STATE\x10\xde\b\x12\r\n" +
-	"\bC2G_TEAM\x10\xdf\b\x12\x12\n" +
+	"\bC2G_TEAM\x10\xdf\b\x12\x0e\n" +
+	"\tC2G_TRADE\x10\xe0\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +
@@ -414,7 +439,14 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fG2C_PK_STATE\x10\xd0\x10\x12\x12\n" +
 	"\rG2C_ENTITY_PK\x10\xd1\x10\x12\x12\n" +
 	"\rG2C_TEAM_SELF\x10\xd2\x10\x12\x13\n" +
-	"\x0eG2C_TEAM_EVENT\x10\xd3\x10\x12\x12\n" +
+	"\x0eG2C_TEAM_EVENT\x10\xd3\x10\x12\x14\n" +
+	"\x0fG2C_TRADE_STATE\x10\xd4\x10\x12\x13\n" +
+	"\x0eG2C_TRADE_SYNC\x10\xd5\x10\x12\x13\n" +
+	"\x0eG2C_TRADE_ITEM\x10\xd6\x10\x12\x14\n" +
+	"\x0fG2C_TRADE_APPLY\x10\xd7\x10\x12\x12\n" +
+	"\rG2C_TRADE_END\x10\xd8\x10\x12\x10\n" +
+	"\vG2C_SYS_MSG\x10\xd9\x10\x12\x1a\n" +
+	"\x15G2C_ENTITY_MENU_STATE\x10\xda\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +

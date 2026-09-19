@@ -554,6 +554,13 @@ public:
     void team_send_self(const KNpc& e);       // KPlayer::SendSelfTeamInfo 0x080AA7F0
     // KPlayer::AddExpTeam 0x080B03E0: a kill's experience shared with the team mates within 1024 units on the same map
     void add_exp_team(KNpc& anchor, int exp, int npc_level, EntityId killer);
+    // the trade and the sign over the head (docs/LINUX-SERVER.md §18): the client's C2G_TRADE (KSubWorldTrade.cpp)
+    bool trade_request(std::uint64_t sid, int cmd, EntityId target, int arg, std::string_view text);
+    [[nodiscard]] bool trading(const KNpc& e) const noexcept;   // KPlayer::CheckTrading 0x080A7E90
+    void trade_cancel(KNpc& e);                                 // 0x080AE380: both sides, the boxes back, the menu states restored
+    void set_menu_state(KNpc& e, int state, std::string_view sentence, EntityId dest);   // KPlayerMenuState::SetState 0x080C29D0
+    void restore_menu_state(KNpc& e);                                                    // 0x080C2ED0
+    void sys_msg(std::uint64_t sid, int id, EntityId who = EntityId{});                  // the 0x86 packet {8, id, npc}
     // KPlayerPK (Player+0x5a50): SetPKState 0x080C3740, SetPKValue 0x080C38C0, AddPKValue 0x080C3930, the packet 0x76 handler 0x080DBE00
     bool pk_set_state(KNpc& e, int state, bool force);
     void pk_set_value(KNpc& e, int value);
@@ -622,6 +629,19 @@ private:
     void team_event_all(const KTeam& t, pb::TeamEventKind kind, EntityId who = EntityId{}, int arg = 0);
     void team_send_self_all(const KTeam& t);
     void team_sync_captain(KTeam& t);   // every member's KPlayerTeam::captain_npc = the captain's npc
+    // the trade (KSubWorldTrade.cpp)
+    bool trade_apply_open(KNpc& e, std::string_view sentence);   // KPlayer::TradeApplyOpen 0x080AE590
+    bool trade_apply_close(KNpc& e);                             // the 0x6a packet 0x080AE320
+    bool trade_apply_start(KNpc& e, EntityId target);           // the 0x6b packet 0x080B4DE0
+    bool trade_reply(KNpc& e, EntityId applicant, bool accept); // c2sTradeReplyStart 0x080BAFD0
+    bool trade_money(KNpc& e, int money);                        // the 0x6c packet 0x080AE510
+    bool trade_decision(KNpc& e, int decision);                  // the 0x6d packet 0x080B2C70
+    bool trade_exchange(KNpc& e, KNpc& p);                       // 0x080B2EC7..: the second ok
+    void trade_sync(KNpc& e);                                    // KPlayer::SyncTradeState 0x080A85B0
+    void trade_item_sync(const KNpc& e, std::uint32_t id, bool removed);   // ExchangeItem 0x08207172: the partner sees my box
+    void trade_clear_box(KNpc& e);                               // 0x081FC8D0(list, 2): the box back into the bag
+    [[nodiscard]] KNpc* trade_partner(const KNpc& e);
+    void emit_menu_state(const KNpc& e, EntityId dest);
     [[nodiscard]] KNpc* team_player(std::uint64_t sid);
     [[nodiscard]] KNpc* find_around_player(const KNpc& e, EntityId npc);   // KPlayer::FindAroundPlayer 0x080B1610: a player in the regions around
 

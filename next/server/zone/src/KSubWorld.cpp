@@ -334,7 +334,10 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     if (pit == players_.end()) return false;
     const EntityId id = pit->second;
     drop_viewer(sid);   // first: a client that is leaving is not told about its own departure
-    if (KNpc* leaving = entities_.find(id); leaving != nullptr && leaving->player.team.flag) team_leave(*leaving);   // 0x080C55D7: KPlayer::LeaveTeam
+    if (KNpc* leaving = entities_.find(id); leaving != nullptr) {
+        if (leaving->player.trade.trading) trade_cancel(*leaving);   // KPlayer::Clear 0x080B60A0 (0x080B6197)
+        if (leaving->player.team.flag) team_leave(*leaving);         // 0x080C55D7: KPlayer::LeaveTeam
+    }
     release_summons(id);   // KPlayer::Clear 0x080B60A0: its summons go with it
     if (KNpc* gone_e = entities_.find(id)) {
         const std::size_t told = gone_e->watchers.size();
@@ -1187,6 +1190,7 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
         // frame, +0x290 = 0, the packet 0x94), the command ring cleared (0x0809BBC0); 0x080893AA..: a captain of a team under
         // its leadership limit hands the lead over (0x080B1DE0 -> 0x080CD480)
         e.commands.clear();
+        if (e.player.trade.trading) trade_cancel(e);   // 0x08089701 -> 0x080AE4B0
         if (KTeam* t = team_of(e); t != nullptr && t->captain == e.sid && t->lead_limit) team_hand_over(*t);
     }
     end_run(e);
@@ -2561,9 +2565,24 @@ bool KSubWorld::item_move_request(std::uint64_t sid, std::uint32_t id, int room,
         item_result(sid, seq, pb::RESULT_NOT_FOUND);
         return false;
     }
-    if (room < 0 || room >= room_num || room == room_trade) {   // the trade box waits for the trade (KItemList::ExchangeItem: only while trading)
+    if (room < 0 || room >= room_num) {
         item_result(sid, seq, pb::RESULT_BAD_REQUEST);
         return false;
+    }
+    // the trade box (KItemList::ExchangeItem pos_trade, 0x08206110): only while trading and before the lock, in and out; a
+    // task item or a bound one stays (KItem+0x350 / genre 4 - the tooltip's "cannot trade")
+    const auto place = list->place_of(id);
+    const bool box_move = room == room_trade || (place && place->room == room_trade);
+    if (box_move) {
+        const KNpc* me = find_player(sid);
+        if (me == nullptr || !trading(*me) || me->player.trade.locked) {
+            item_result(sid, seq, pb::RESULT_WRONG_STATE);
+            return false;
+        }
+        if (room == room_trade && item->genre == KItemGenre::task) {
+            item_result(sid, seq, pb::RESULT_BAD_REQUEST);
+            return false;
+        }
     }
     // the quick slots take medicine and town portals only, one of each detail type
     // (ExchangeItem pos_immediacy: CheckSameDetailType)
@@ -2584,6 +2603,12 @@ bool KSubWorld::item_move_request(std::uint64_t sid, std::uint32_t id, int room,
     }
     item_moved(sid, id, seq);
     if (displaced != 0) item_moved(sid, displaced, 0);
+    if (box_move) {
+        if (const KNpc* me = find_player(sid)) {
+            trade_item_sync(*me, id, room != room_trade);
+            if (displaced != 0) trade_item_sync(*me, displaced, room == room_trade);
+        }
+    }
     return true;
 }
 
