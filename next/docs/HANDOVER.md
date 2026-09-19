@@ -634,6 +634,17 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (phiên tiếp theo, phần 33) — thử nghiệm 3D trên nhánh riêng `exp/3d-baling`: map Ba Lăng Huyện 3D + camera xoay (không đụng main)
+
+- **Mục đích** (chủ dự án yêu cầu): dựng thử 1 map 3D + camera quay chuẩn game 3D trước, hình nhân vật/NPC làm sau. Nhánh `exp/3d-baling` tách từ `origin/main` d83ab5a; **không** sửa zone/services/giao thức/UI 2D.
+- **Nguồn map**: bộ tham khảo 剑网江湖 (`D:\game3gTQ`, Unity 2022.3 IL2CPP; mổ ở `D:\game3gTQ_mo\BAO-CAO-MAP-3D.md`: 46 map 3D / 65 scene id, khóa bundle, cách gắn mesh–vật liệu–lightmap qua `Scene_Ref`/`MaterialRef`). Tài sản là **bản quyền game gốc** → chỉ dùng thử nội bộ: tệp xuất nằm `client/assets3d/` (đã `.gitignore` + `.gdignore`), khóa đọc từ `D:\game3gTQ_mo\khoa_bundle.txt` (không đưa vào repo).
+- **Tool** `tools/scn3d/export_scene.py <scene>` (Python + UnityPy): đọc `index.json` (cây node world/euler/lossyScale) + `Scene_Ref` (byte thô: mType 2/3 = mesh, 0 = vật liệu, 1 = lightmap + scale/offset) + `MaterialRef` (texture theo đường dẫn) → `assets3d/<scene>/<scene>.gltf` + `.bin` + `tex/*.png` + `scene.json` (đèn, sương, ambient từ `SceneRenderSetting`, `cameraInit` của `scn_list`, điểm spawn/vùng từ mark JSON, navmesh AIS). Unity → glTF: đảo trục X, đảo chiều tam giác, lật V của UV0; UV1 giữ nguyên, shader lightmap tự lật.
+- **Client** `client/scenes3d/`: `Scn3D.tscn/.gd` (nạp glTF lúc chạy bằng `GLTFDocument`, gắn `ShaderMaterial` lightmap/địa hình splat 4 lớp theo `scene.json`, `WorldEnvironment` + `DirectionalLight3D` có bóng, va chạm trimesh cho địa hình), `Scn3DCamera.gd` (quỹ đạo: chuột phải xoay yaw/pitch, con lăn/chuột giữa zoom, kẹp theo `cameraInit` 19*10*21*0*40*40*80), `Scn3DPlayer.gd` (hình trụ tạm, chuột trái đi tới điểm bấm, WASD theo camera, cao độ raycast). `--auto` chụp 5 góc vào `user://logs/scn3d_<map>_auto*.png` rồi đo FPS 2 giây.
+- **Đo** (RTX 3080, GL Compatibility, 1280×720): `world_baling` 1714 node / 300 mesh / 51 vật liệu / 62 texture (32 MB buffer), nạp **0,8 s**, **145 FPS**, 591 draw call, 465 k tam giác/khung, VRAM 156 MB; xoay 0/90/180/270 và nghiêng 75° đều đúng, bóng đổ + lightmap đúng chỗ.
+- **Chạy**: `python tools/scn3d/export_scene.py world_baling` rồi `godot --path client scenes3d/Scn3D.tscn -- --map=world_baling` (thêm `--auto` để chụp và thoát).
+- **Chưa làm / bước sau**: hình nhân vật & NPC (dự kiến sprite 8 hướng JX1 làm billboard, chọn hướng theo góc camera, khóa pitch ≈ 30°), nước/lá cây đung đưa (đang là vật liệu tĩnh), che mờ nhà chắn camera, nối với zone (toạ độ `X = x, Z = y`).
+- commit: `JX NEXT: thu nghiem 3D (nhanh exp/3d-baling) - map world_baling glTF + camera quy dao`.
+
 ### 2026-09-18 (phiên tiếp theo, phần 32) — M12 lát B4f-1: tiếng thi triển (KSkill::PlayCastSound 0x006F6D90) và tiếng đạn (KMissleRes::PlaySound 0x00717ED0)
 
 - **Mã 2004** đặt tên: `KWavSound` (3 buffer, `Play(pan, vol, loop)`), `KSoundCache`, `KMissleRes::PlaySound/GetSndVolume/StopSound`, `KSkills.cpp:2971` chọn tệp theo giới.

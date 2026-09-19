@@ -14,3 +14,6 @@ data/
 __pycache__/
 # machine-specific pointers to the reference game trees (docs/REFERENCES.md)
 config/*.local.json
+
+# thu nghiem 3D: tai san xuat tu bo tham khao (ban quyen game goc), sinh lai bang tools/scn3d/export_scene.py
+client/assets3d/
