@@ -7,6 +7,10 @@ var speed := 6.0
 var move_target: Vector3
 var moving := false
 var cam_rig: Node3D  # Scn3DCamera
+var world: Node       # Scn3D: nav_clamp / nav_path
+var path: PackedVector3Array = PackedVector3Array()
+var path_i := 0
+var test_dir := Vector3.ZERO   # huong di ep (kiem thu tu dong)
 var yaw := 0.0
 
 var _body: MeshInstance3D
@@ -59,6 +63,14 @@ func snap_to_ground() -> void:
 
 
 func go_to(p: Vector3) -> void:
+	if world and world.has_method("nav_path"):
+		var dest: Vector3 = world.nav_clamp(p)
+		path = world.nav_path(global_position, dest)
+		path_i = 0
+		if path.size() > 0:
+			move_target = path[path.size() - 1]
+			moving = true
+		return
 	move_target = p
 	moving = true
 
@@ -78,18 +90,31 @@ func _process(delta: float) -> void:
 			dir -= cam_rig.right_flat()
 		if Input.is_key_pressed(KEY_D):
 			dir += cam_rig.right_flat()
+	dir += test_dir
 	if dir.length() > 0.01:
 		moving = false
 		dir = dir.normalized()
-		global_position += dir * speed * delta
+		var want := global_position + dir * speed * delta
+		if world and world.has_method("nav_clamp"):
+			var c: Vector3 = world.nav_clamp(want)
+			# ngoai vung di duoc (tuong/nha/nuoc): truot doc mep, khong xuyen
+			if c.distance_to(want) > 0.05:
+				want = c
+		global_position = want
 		yaw = atan2(-dir.x, -dir.z)
 	elif moving:
-		var to := move_target - global_position
+		var goal := move_target
+		if path.size() > 0 and path_i < path.size():
+			goal = path[path_i]
+		var to := goal - global_position
 		to.y = 0.0
 		var step := speed * delta
 		if to.length() <= step:
-			global_position = Vector3(move_target.x, global_position.y, move_target.z)
-			moving = false
+			global_position = Vector3(goal.x, global_position.y, goal.z)
+			if path.size() > 0 and path_i < path.size() - 1:
+				path_i += 1
+			else:
+				moving = false
 		else:
 			var d := to.normalized()
 			global_position += d * step

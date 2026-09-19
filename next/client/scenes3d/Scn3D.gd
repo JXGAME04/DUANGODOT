@@ -46,6 +46,9 @@ var name_layer: Control
 var name_labels := {}      # npc -> Label 2D
 var _lod_timer := 0.0
 var spawn_mark := ""     # --at=<diem danh dau>: dung tai diem do (so anh voi game goc)
+var nav_region: NavigationRegion3D
+var nav_map: RID
+var show_nav := false
 const NAME_DIST := 60.0
 const ANIM_DIST := 45.0
 var cam_rig: Node3D   # Scn3DCamera (preload, khong phu thuoc cache class_name)
@@ -82,6 +85,7 @@ func _ready() -> void:
 	root.name = "Map"
 	add_child(root)
 	_post_process(root)
+	_setup_navmesh()
 	_setup_player_camera()
 	_setup_npcs()
 	_setup_hud()
@@ -269,6 +273,49 @@ func _set_lm(on: bool) -> void:
 		sm.set_shader_parameter("lm_gain", lm_gain)
 
 
+# ---------- navmesh (AIS cua game goc: vung di duoc; ngoai vung = tuong, nha, nuoc) ----------
+func _setup_navmesh() -> void:
+	var nav: Dictionary = info.get("marks", {}).get("nav", {})
+	var verts: Array = nav.get("verts", [])
+	var tris: Array = nav.get("tris", [])
+	if verts.is_empty() or tris.is_empty():
+		print("SCN3D nav: khong co navmesh trong scene.json")
+		return
+	var nm := NavigationMesh.new()
+	var pv := PackedVector3Array()
+	pv.resize(verts.size())
+	for i in verts.size():
+		var v: Array = verts[i]
+		pv[i] = Vector3(v[0], v[1], v[2])
+	nm.vertices = pv
+	for t in tris:
+		# da dao truc X luc xuat -> dao chieu de da giac nhin tu tren xuong nguoc chieu kim dong ho
+		nm.add_polygon(PackedInt32Array([int(t[0]), int(t[2]), int(t[1])]))
+	nav_region = NavigationRegion3D.new()
+	nav_region.name = "Nav"
+	nav_region.navigation_mesh = nm
+	add_child(nav_region)
+	nav_map = get_world_3d().navigation_map
+	NavigationServer3D.map_set_cell_size(nav_map, 0.1)
+	NavigationServer3D.map_set_edge_connection_margin(nav_map, 0.5)
+	stats["nav_tris"] = tris.size()
+	print("SCN3D nav: %d dinh, %d tam giac" % [verts.size(), tris.size()])
+
+
+# diem gan nhat tren navmesh (mat ngang); tra ve pos neu chua co navmesh
+func nav_clamp(pos: Vector3) -> Vector3:
+	if nav_region == null:
+		return pos
+	var c := NavigationServer3D.map_get_closest_point(nav_map, pos)
+	return c
+
+
+func nav_path(from: Vector3, to: Vector3) -> PackedVector3Array:
+	if nav_region == null:
+		return PackedVector3Array([to])
+	return NavigationServer3D.map_get_path(nav_map, from, to, true)
+
+
 # ---------- nhan vat + camera ----------
 func _setup_player_camera() -> void:
 	player = PLAYER_SCRIPT.new()
@@ -312,6 +359,7 @@ func _setup_player_camera() -> void:
 	cam_rig.setup(table.get("camera", {}), fov)
 	cam_rig.yaw = yaw
 	player.cam_rig = cam_rig
+	player.world = self
 	player.snap_to_ground()
 
 
@@ -522,12 +570,12 @@ func _process(delta: float) -> void:
 		var w: Dictionary = weapons[cur_weapon]
 		wname = "%s (%s)" % [w.get("name_vi", "") if w.get("name_vi", "") != "" else w.get("name", ""), w.get("type_vi", "")]
 	var mgroup := str(player.model.group) if player.model else ""
-	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  |  nap %d ms
+	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  nav %d tam giác |  nap %d ms
 vũ khí: %s   nhóm anim %s   đòn: %s   [1-7 vũ khí, 0 tay không, Tab đổi mẫu, Space đánh, F nội công, Z/X/C kỹ năng Võ Đang thử, G bị đánh, H chết]
 camera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)
 nhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f
 chuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
-		map_name, (str(t.get("name_vi", "")) if str(t.get("name_vi", "")) != "" else str(t.get("name", ""))), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats["load_ms"], wname, mgroup, last_action,
+		map_name, (str(t.get("name_vi", "")) if str(t.get("name_vi", "")) != "" else str(t.get("name", ""))), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats.get("nav_tris", 0), stats["load_ms"], wname, mgroup, last_action,
 		cam_rig.yaw, cam_rig.pitch, cam_rig.dist, "bat" if use_lm else "tat", lm_gain, p.x, p.y, p.z, -p.x, p.y, p.z]
 
 
@@ -649,6 +697,26 @@ func _auto() -> void:
 			await get_tree().process_frame
 		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
 		n += 1
+	# kiem thu navmesh: di thang ve phia NPC dau tien (lo ren) 3 giay, do lech khoi navmesh va khoang cach con lai
+	if nav_region and not npcs.is_empty():
+		var target: Node3D = npcs[0]
+		var start: Vector3 = player.global_position
+		var d0 := start.distance_to(target.global_position)
+		var worst := 0.0
+		player.test_dir = (target.global_position - start).normalized()
+		player.test_dir.y = 0.0
+		for i in 180:
+			await get_tree().process_frame
+			var off: float = nav_clamp(player.global_position).distance_to(player.global_position)
+			worst = maxf(worst, off)
+		player.test_dir = Vector3.ZERO
+		var d1: float = player.global_position.distance_to(target.global_position)
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+		# diem trong nha (vi tri NPC lo ren) co bi day ra khong
+		var inside: Vector3 = target.global_position
+		var clamped: Vector3 = nav_clamp(inside)
+		print("SCN3D_NAVTEST start_dist=%.1f end_dist=%.1f max_off_mesh=%.3f npc_point_clamp=%.2f" % [d0, d1, worst, clamped.distance_to(inside)])
 	print("SCN3D_OK map=%s nodes=%d fps=%.1f draw_calls=%d primitives=%d vram_mb=%.0f" % [
 		map_name, stats["nodes"], fps, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])

@@ -87,6 +87,14 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
   `SFXMeshModify`, stretched billboard, trail module); ghép kỹ năng JX1 ↔ hiệu ứng bộ tham khảo theo phái chưa làm (cần bảng ánh xạ);
   `--all` để xuất toàn bộ 558 prefab khi cần.
 
+## Đi lại theo navmesh (2026-09-19, bước 5)
+
+- Không đi xuyên nhà/tường/nước: dựng `NavigationRegion3D` từ navmesh AIS của game gốc (`scene.json marks.nav`, 2 967 đỉnh / 4 404 tam giác
+  ở Ba Lăng; đảo chiều tam giác vì đã đảo trục X). WASD: vị trí mong muốn được kẹp về điểm gần nhất trên navmesh (trượt dọc mép, không xuyên);
+  chuột trái: `NavigationServer3D.map_get_path` → đi theo waypoint. Kiểm thử tự động (`--auto`, `SCN3D_NAVTEST`): đi 3 s về phía lò rèn bị chặn ở
+  tường, lệch khỏi navmesh ≤ 0,006 m.
+- Đây cũng là cách nối với zone sau này: navmesh → rasterize thành lưới vật cản 32×32 đơn vị scene (`obstacle.bin`) cho A* của `KMapData`.
+
 ## Cổng riêng của bản 3D (không trùng bản 2D)
 
 | | bản 2D (`swrod3`) | bản 3D (`swrod3-3d`) |
