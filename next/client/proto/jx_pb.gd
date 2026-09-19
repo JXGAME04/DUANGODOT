@@ -8892,6 +8892,11 @@ class EntityCamp:
 		service.field = __current_camp
 		data[__current_camp.tag] = service
 		
+		__tmp_camp = PBField.new("tmp_camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __tmp_camp
+		data[__tmp_camp.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -8932,6 +8937,19 @@ class EntityCamp:
 		__current_camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_current_camp(value : int) -> void:
 		__current_camp.value = value
+	
+	var __tmp_camp: PBField
+	func has_tmp_camp() -> bool:
+		if __tmp_camp.value != null:
+			return true
+		return false
+	func get_tmp_camp() -> int:
+		return __tmp_camp.value
+	func clear_tmp_camp() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__tmp_camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_tmp_camp(value : int) -> void:
+		__tmp_camp.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -12671,6 +12689,16 @@ class ItemData:
 		service.field = __luck
 		data[__luck.tag] = service
 		
+		__bind_state = PBField.new("bind_state", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 25, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __bind_state
+		data[__bind_state.tag] = service
+		
+		__expire_time = PBField.new("expire_time", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 26, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __expire_time
+		data[__expire_time.tag] = service
+		
 	var data = {}
 	
 	var __id: PBField
@@ -12972,6 +13000,32 @@ class ItemData:
 		__luck.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_luck(value : int) -> void:
 		__luck.value = value
+	
+	var __bind_state: PBField
+	func has_bind_state() -> bool:
+		if __bind_state.value != null:
+			return true
+		return false
+	func get_bind_state() -> int:
+		return __bind_state.value
+	func clear_bind_state() -> void:
+		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__bind_state.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_bind_state(value : int) -> void:
+		__bind_state.value = value
+	
+	var __expire_time: PBField
+	func has_expire_time() -> bool:
+		if __expire_time.value != null:
+			return true
+		return false
+	func get_expire_time() -> int:
+		return __expire_time.value
+	func clear_expire_time() -> void:
+		data[26].state = PB_SERVICE_STATE.UNFILLED
+		__expire_time.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_expire_time(value : int) -> void:
+		__expire_time.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

@@ -75,6 +75,8 @@ message ItemData {
   uint32 rand_seed = 22;      // KItem+0x1e0: the seed of the roll (ITEM_GetItemRandSeed; AddItemEx with a seed rolls the same piece again)
   repeated int32 magic_level = 23;   // KItem+0x1e4..: the six levels of the roll (SetItemMagicLevel writes one)
   uint32 luck = 24;           // KItem+0x200: the luck of the roll (GetItemProp)
+  int32 bind_state = 25;      // KItem+0x350: SetItemBindState / GetItemBindState (0 = free; the bag scans skip a bound piece)
+  uint32 expire_time = 26;    // KItem+0x34c: ITEM_SetExpiredTime (unix seconds, 0 = never)
 }
 
 // One skill of the character's KSkillList (jx_linux_y 0x080E48D0 writes {int16 id, int16 level,

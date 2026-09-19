@@ -112,6 +112,9 @@ struct KPlayer {
     bool logout_revive = false;     // Player+0x40 (Lua SetLogoutRV 0x08110500); what reads it at logout is not traced yet
     std::string death_script;       // Player+0x5f98 (Lua SetDeathScript 0x08110700): OnDeath(the last attacker) of this script runs at
                                     // the end of the death frames (0x080839A8) instead of \script\global\player_default_death.lua
+    bool forbid_enmity = false;     // Player+0x5a5c (Lua ForbidEnmity 0x0810B0F0: flag == 1); what reads it is not traced yet
+    bool forbid_trade = false;      // Player+0x374 (Lua ForbitTrade 0x08111600: flag != 0); what reads it is not traced yet
+    int protect_time = 0;           // Player+0x86dc (Lua SetProtectTime 0x0810E3E0); what reads it is not traced yet
     // KPlayerFaction at +0x59cc: the current faction, the first and last joined, how many times (docs §16.7); LoadFrom
     // 0x080C1A62 reads current / last / count from the record, the first stays -1
     KPlayerFaction faction;

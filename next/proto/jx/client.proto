@@ -711,6 +711,8 @@ message EntityCamp {             // G2C_ENTITY_CAMP
   uint64 entity_id = 1;
   int32 camp = 2;               // m_Camp (+0x21c; the 0x59 packet)
   int32 current_camp = 3;       // m_CurrentCamp (+0x220; SetCurrentCamp 0x0807B850, the 0x58 packet)
+  int32 tmp_camp = 4;           // +0x1900 (Lua SetTmpCamp -> KNpc 0x0807B2D0, the 0xd1 packet {npc, camp}: to the player itself, else
+                                // to the watchers); the client does not read it yet
 }
 
 // KPlayer::SetFaction 0x080AEEC0 (the 0x7b packet: camp, current faction, last added, times joined) and KPlayer::ClearFaction

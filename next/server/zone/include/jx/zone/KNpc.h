@@ -304,6 +304,8 @@ struct KNpc {
     // frame (0x080F29A8) instead of reviving it - and the skill writes the launcher's index to +0x1828 (nothing reads
     // it back; docs/LINUX-SERVER.md §16.5)
     bool remove_on_death = false;     // +0x1824
+    int tmp_camp = 0;                 // +0x1900 (Lua SetTmpCamp 0x0810BA50 -> KNpc 0x0807B2D0: the 0xd1 packet); the value KNpc::Init gives it
+                                      // is not traced yet (0 here)
     std::array<int, 10> script_param{};   // +0x19b0..+0x19d4 of jx_linux_y: the ten numbers GetNpcParam / SetNpcParam (n 1..10) keep on a npc
     int script_main_param = 0;            // +0x158c: SetNpcScript's third argument, what KPlayer::DialogNpc / NpcDialog hand to main()
     int rank = 0;                         // +0x30 (a byte): Lua SetRank 0x081109E0; 0x08079500 tells the player's own client with the 0xa5

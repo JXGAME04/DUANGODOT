@@ -403,6 +403,17 @@ public:
     void mission_message(const KMission& m, int group, std::string_view text);   // Msg2All (group 0) / Msg2Group: a system line each
     // a function of a script with no player (KMission::ExecuteScript 2003: only the SubWorld global set)
     bool execute_script_world(const std::string& game_path, const char* fn, const std::vector<KLuaScript::Arg>& args);
+    // the script timers of AddTimer 0x08100D40 (docs §34): fn(param, id) of the script that armed it runs after `frames`;
+    // one number back = the next period (0 = done), two = the period and the new param, none = done (0x081CC300).  0 = not made
+    std::uint32_t add_script_timer(std::uint64_t frames, const std::string& script, const std::string& fn, int param);
+    bool del_script_timer(std::uint32_t id);   // DelTimer 0x08100CA0: true when it was there
+    [[nodiscard]] std::size_t script_timer_count() const noexcept { return script_timers_.size(); }
+    // AddStatData 0x080FF550 -> 0x081D0420(0x978c0a0, name, n, 0): the server's statistics counters (a map here)
+    void add_stat_data(const std::string& name, int n);
+    [[nodiscard]] long long stat_data(const std::string& name) const;
+    // KNpc 0x0807B2D0 (Lua SetTmpCamp): +0x1900 = camp, then the 0xd1 packet {npc, camp} - to the player itself when the npc is
+    // one (0x0807B294), else to the watchers (0x0807B2C2); EntityCamp.tmp_camp here
+    void set_tmp_camp(KNpc& e, int camp);
     // the maps this zone hosts (KSubWorldSet of the old server): SubWorldID2Idx / SubWorldIdx2ID answer from it; empty =
     // only this map
     void set_hosted_maps(std::vector<std::uint32_t> maps) { hosted_maps_ = std::move(maps); }
@@ -927,6 +938,18 @@ private:
     void flush_pending_removes();
     std::vector<KMission> missions_;                            // KMissionArray: the missions open on this map
     void mission_tick();                                        // KMission::Activate: the timers due
+    struct KScriptTimer {   // one 0x114-byte timer object of jx_linux_y (0x081CDA80): +4 the function, +0x108 the script, +0x10c
+        std::uint32_t id = 0;   // the param, +0x110 the id the manager 0x82e8cac gave it
+        std::uint64_t fire_tick = 0;
+        std::uint64_t frames = 0;
+        std::string script;
+        std::string fn;
+        int param = 0;
+    };
+    std::vector<KScriptTimer> script_timers_;
+    std::uint32_t next_script_timer_ = 0;
+    std::unordered_map<std::string, long long> stat_data_;
+    void script_timer_tick();                                   // the AddTimer timers due (0x081CC300)
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)

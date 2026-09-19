@@ -5900,6 +5900,7 @@ type EntityCamp struct {
 	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	Camp          int32                  `protobuf:"varint,2,opt,name=camp,proto3" json:"camp,omitempty"`                                  // m_Camp (+0x21c; the 0x59 packet)
 	CurrentCamp   int32                  `protobuf:"varint,3,opt,name=current_camp,json=currentCamp,proto3" json:"current_camp,omitempty"` // m_CurrentCamp (+0x220; SetCurrentCamp 0x0807B850, the 0x58 packet)
+	TmpCamp       int32                  `protobuf:"varint,4,opt,name=tmp_camp,json=tmpCamp,proto3" json:"tmp_camp,omitempty"`             // +0x1900 (Lua SetTmpCamp -> KNpc 0x0807B2D0, the 0xd1 packet {npc, camp}: to the player itself, else
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5951,6 +5952,13 @@ func (x *EntityCamp) GetCamp() int32 {
 func (x *EntityCamp) GetCurrentCamp() int32 {
 	if x != nil {
 		return x.CurrentCamp
+	}
+	return 0
+}
+
+func (x *EntityCamp) GetTmpCamp() int32 {
+	if x != nil {
+		return x.TmpCamp
 	}
 	return 0
 }
@@ -7644,12 +7652,13 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x05level\x18\x04 \x01(\rR\x05level\x12\x10\n" +
 	"\x03arg\x18\x05 \x01(\x05R\x03arg\x12)\n" +
 	"\x06leader\x18\x06 \x01(\v2\x11.jx.pb.TeamMemberR\x06leader\x12+\n" +
-	"\amembers\x18\a \x03(\v2\x11.jx.pb.TeamMemberR\amembers\"`\n" +
+	"\amembers\x18\a \x03(\v2\x11.jx.pb.TeamMemberR\amembers\"{\n" +
 	"\n" +
 	"EntityCamp\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x12\n" +
 	"\x04camp\x18\x02 \x01(\x05R\x04camp\x12!\n" +
-	"\fcurrent_camp\x18\x03 \x01(\x05R\vcurrentCamp\"\x85\x01\n" +
+	"\fcurrent_camp\x18\x03 \x01(\x05R\vcurrentCamp\x12\x19\n" +
+	"\btmp_camp\x18\x04 \x01(\x05R\atmpCamp\"\x85\x01\n" +
 	"\rPlayerFaction\x12\x12\n" +
 	"\x04camp\x18\x01 \x01(\x05R\x04camp\x12\x18\n" +
 	"\afaction\x18\x02 \x01(\x05R\afaction\x12!\n" +

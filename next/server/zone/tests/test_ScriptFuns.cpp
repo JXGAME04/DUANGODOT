@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -261,6 +262,83 @@ function Num(name) return _G[name] end
 function Str(v)
     if v == nil then return "nil" end
     return tostring(v)
+end
+function s5_flags_off()
+    ForbidEnmity(2)
+    ForbitTrade(0)
+end
+function s5_flags()
+    ForbidEnmity(1)
+    ForbitTrade(1)
+    SetProtectTime(300)
+    g_ds1 = DisabledStall(1)
+    g_bit1 = GetTask(135)
+    g_ds2 = DisabledStall(0)
+    g_bit2 = GetTask(135)
+    g_ds3 = DisabledStall()
+    g_tc1 = SetTmpCamp(3)
+    g_tc2 = SetTmpCamp(-1)
+    g_tc3 = SetTmpCamp()
+    g_tc4 = SetTmpCamp(2, 999999)
+    AddMagicPoint(5)
+    AddMagicPoint(-100)
+    AddStatData("boss_kill")
+    AddStatData("boss_kill", 4)
+    AddStatData("x", 1, 2)
+    g_ct = GetCurrentTime()
+    g_tm1 = Tm2Time(2026, 9, 19, 12, 30, 15)
+    g_tm2 = Tm2Time(2026, 9, 19)
+    g_tm3 = Tm2Time(2026)
+    g_tm4 = Tm2Time()
+    g_fs1 = FormatTime2String("%Y-%m-%d %H:%M:%S", g_tm1)
+    g_fs2 = FormatTime2String("%Y", g_tm3)
+    g_fs3 = FormatTime2String()
+end
+function s5_npc(map)
+    g_ne1 = AddNpcEx(900, 7, 2, map, 2300, 2100, 1, "Heo Ex", 1)
+    g_ne2 = AddNpcEx("boar", -3, 4, map, 2350, 2100)
+    g_ne3 = AddNpcEx(900, 1, 0, map, 2300)
+    g_ne4 = AddNpcEx(900, 1, 0, map + 1, 2300, 2100)
+    g_ne5 = AddNpcEx(901, 1, 0, map, 2300, 2100)
+    g_ne6 = AddNpcEx(900, 2, 1, map, 2400, 2100, 0, "", 2)
+    g_ne7 = AddNpcEx(900, 2, 1, map, 2400, 2100, 1)
+    SetTmpCamp(5, g_ne1)
+    SetNpcCurCamp(g_ne1, 6)
+    SetNpcCurCamp(g_ne2, 7)
+    g_np1 = NpcIdx2PIdx(g_ne1)
+    g_np2 = NpcIdx2PIdx(SearchPlayer("A"))
+    g_np3 = NpcIdx2PIdx(999999)
+    g_ns1 = AddNpcSkillState(g_ne1, 1, 1, 0, 100)
+    g_ns2 = AddNpcSkillState(g_ne1, 1, 1, 0)
+    g_ns3 = AddNpcSkillState(0, 1, 1, 0, 100)
+    SetNpcDeathScript(g_ne1, "\\script\\test\\misc.lua", 3)
+end
+function s5_timers()
+    g_t1 = AddTimer(2, "s5_OnTime", 11)
+    g_t2 = AddTimer(3, "s5_OnTimeRepeat", 22)
+    g_t3 = AddTimer(1, "s5_OnTimeTwo", 33)
+    g_t4 = AddTimer(1, "", 1)
+    g_t5 = AddTimer(1, "x")
+    g_dt1 = DelTimer(g_t3)
+    g_dt2 = DelTimer(g_t3)
+    g_dt3 = DelTimer()
+end
+function s5_OnTime(param, id)
+    g_ot = (g_ot or 0) + 1
+    g_ot_param = param
+    g_ot_id = id
+end
+function s5_OnTimeRepeat(param, id)
+    g_rep = (g_rep or 0) + 1
+    if g_rep == 1 then return 2, param + 1 end
+    if g_rep == 2 then
+        g_rep_param = param
+        return 1
+    end
+    return 0
+end
+function s5_OnTimeTwo(param, id)
+    g_two = 1
 end
 function Is(name, expected)
     if Str(_G[name]) == expected then return 1 end
@@ -722,4 +800,163 @@ TEST_CASE("S3 script api: getters, global values, mission strings, DynamicExecut
     CHECK(mw.A().doing == jx::zone::KDoing::death);
     for (int i = 0; i < 40 && mw.is("g_death", "nil"); ++i) mw.w.tick();
     CHECK(num("g_death") == static_cast<double>(mw.a.value));
+}
+
+TEST_CASE("S5 script api: player flags, tmp / current camps, skill points, stat counters, the clock helpers, AddNpcEx, AddNpcSkillState, NpcIdx2PIdx and the AddTimer timers", "[scriptfuns][s5]")
+{
+    MiscWorld mw;
+    jx::zone::KLuaScript* s = mw.w.config().scripts->get(R"(\script\test\misc.lua)");
+    REQUIRE(s != nullptr);
+    auto num = [&](const char* name) { return s->call_number("Num", {std::string(name)}); };
+    auto entity = [&](const char* name) -> const KNpc* {
+        const std::optional<double> v = num(name);
+        return v.has_value() && *v > 0.0 ? mw.w.find_entity(jx::EntityId{static_cast<std::uint64_t>(*v)}) : nullptr;
+    };
+    // the flags: ForbidEnmity wants exactly 1, ForbitTrade anything but 0
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s5_flags_off", mw.A(), 0));
+    CHECK_FALSE(mw.A().player.forbid_enmity);
+    CHECK_FALSE(mw.A().player.forbid_trade);
+    mw.w.take_outbox();
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s5_flags", mw.A(), 0));
+    CHECK(mw.A().player.forbid_enmity);
+    CHECK(mw.A().player.forbid_trade);
+    CHECK(mw.A().player.protect_time == 300);
+    CHECK(mw.is("g_ds1", "1"));
+    CHECK(mw.is("g_ds2", "1"));
+    CHECK(mw.is("g_ds3", "0"));   // no argument
+    CHECK((static_cast<std::uint32_t>(*num("g_bit1")) & 0x800u) != 0);   // the stall bit of task value 135
+    CHECK((static_cast<std::uint32_t>(*num("g_bit2")) & 0x800u) == 0);
+    CHECK(mw.is("g_tc1", "1"));
+    CHECK(mw.is("g_tc2", "0"));   // a negative camp
+    CHECK(mw.is("g_tc3", "0"));   // no argument
+    CHECK(mw.is("g_tc4", "0"));   // no such npc
+    CHECK(mw.A().tmp_camp == 3);
+    CHECK(mw.A().player.skill_point == 0);   // 0 + 5 - 100 -> 0
+    const auto out = mw.w.take_outbox();
+    int camps = 0, skill_lines = 0;
+    for (const auto& p : out) {
+        if (std::find(p.sids.begin(), p.sids.end(), 7) == p.sids.end()) continue;
+        if (p.msg_id == jx::pb::G2C_ENTITY_CAMP) {
+            jx::pb::EntityCamp m;
+            REQUIRE(m.ParseFromString(p.payload));
+            if (m.tmp_camp() == 3) ++camps;
+        } else if (p.msg_id == jx::pb::G2C_SKILL_LEVEL) {
+            jx::pb::SkillLevelSync m;
+            REQUIRE(m.ParseFromString(p.payload));
+            CHECK(m.skill_id() == 0);   // the 0x5e packet {0, -1, points}
+            CHECK(m.level() == -1);
+            ++skill_lines;
+        }
+    }
+    CHECK(camps == 1);         // SetTmpCamp on a player: the line to itself only
+    CHECK(skill_lines == 2);   // one per AddMagicPoint
+    CHECK(mw.w.stat_data("boss_kill") == 5);
+    CHECK(mw.w.stat_data("x") == 0);   // three arguments: nothing
+    // the clock
+    CHECK(std::fabs(*num("g_ct") - static_cast<double>(std::time(nullptr))) <= 5.0);
+    std::tm tm{};
+    tm.tm_year = 126;
+    tm.tm_mon = 8;
+    tm.tm_mday = 19;
+    tm.tm_hour = 12;
+    tm.tm_min = 30;
+    tm.tm_sec = 15;
+    CHECK(num("g_tm1") == static_cast<double>(std::mktime(&tm)));
+    tm = std::tm{};
+    tm.tm_year = 126;
+    tm.tm_mon = 8;
+    tm.tm_mday = 19;
+    CHECK(num("g_tm2") == static_cast<double>(std::mktime(&tm)));
+    tm = std::tm{};
+    tm.tm_year = 126;
+    tm.tm_mday = 1;   // a missing month is 0, a missing day 1
+    CHECK(num("g_tm3") == static_cast<double>(std::mktime(&tm)));
+    CHECK(mw.is("g_tm4", "nil"));
+    {
+        // strftime of localtime(t): the machine's zone and daylight rule decide the hour, so the expectation is computed the same way
+        auto t1 = static_cast<std::time_t>(*num("g_tm1"));
+        std::tm local{};
+#ifdef _WIN32
+        localtime_s(&local, &t1);
+#else
+        localtime_r(&t1, &local);
+#endif
+        char expected[64];
+        REQUIRE(std::strftime(expected, sizeof expected, "%Y-%m-%d %H:%M:%S", &local) > 0);
+        CHECK(mw.is("g_fs1", expected));
+    }
+    CHECK(mw.is("g_fs2", "2026"));
+    CHECK(mw.is("g_fs3", ""));
+    // AddNpcEx: series and subworld explicit, the extras from the seventh argument
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s5_npc", mw.A(), static_cast<int>(mw.w.map_id())));
+    const KNpc* n1 = entity("g_ne1");
+    REQUIRE(n1 != nullptr);
+    CHECK(n1->template_id == 900);
+    CHECK(n1->level == 7);
+    CHECK(n1->series == 2);
+    CHECK(n1->name == "Heo Ex");
+    CHECK(n1->remove_on_death);
+    CHECK(n1->boss_flag == 3);
+    CHECK(mw.w.to_absolute(n1->pos()).x == 2300);
+    CHECK(n1->tmp_camp == 5);
+    CHECK(n1->current_camp == 6);
+    CHECK(n1->script == R"(\script\test\misc.lua)");   // SetNpcDeathScript is SetNpcScript (0x08101500 twice in the table)
+    CHECK(n1->script_main_param == 3);
+    const KNpc* n2 = entity("g_ne2");
+    REQUIRE(n2 != nullptr);
+    CHECK(n2->level == 1);     // a negative level
+    CHECK(n2->series == 4);
+    CHECK(n2->name == "boar");
+    CHECK_FALSE(n2->remove_on_death);
+    CHECK(n2->boss_flag == 0);
+    CHECK(n2->current_camp != 7);   // above 6: refused
+    CHECK(mw.is("g_ne3", "nil"));   // five arguments
+    CHECK(mw.is("g_ne4", "0"));     // another subworld
+    CHECK(mw.is("g_ne5", "0"));     // no such template
+    const KNpc* n6 = entity("g_ne6");
+    REQUIRE(n6 != nullptr);
+    CHECK(n6->gold.is_gold);
+    CHECK_FALSE(n6->remove_on_death);
+    const KNpc* n7 = entity("g_ne7");
+    REQUIRE(n7 != nullptr);
+    CHECK(n7->remove_on_death);
+    CHECK(n7->boss_flag == 0);
+    CHECK(mw.is("g_np1", "0"));   // a monster is no player
+    CHECK(num("g_np2") == static_cast<double>(mw.a.value));
+    CHECK(mw.is("g_np3", "0"));
+    CHECK(mw.is("g_ns1", "-1"));   // no skill table
+    CHECK(mw.is("g_ns2", "-1"));   // four arguments
+    CHECK(mw.is("g_ns3", "-1"));   // npc 0
+    // AddTimer: fn(param, id) of this script when due; the results re-arm it
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s5_timers", mw.A(), 0));
+    CHECK(num("g_t1") > 0.0);
+    CHECK(num("g_t2") > 0.0);
+    CHECK(num("g_t3") > 0.0);
+    CHECK(mw.is("g_t4", "0"));    // an empty function name
+    CHECK(mw.is("g_t5", "0"));    // two arguments
+    CHECK(mw.is("g_dt1", "1"));
+    CHECK(mw.is("g_dt2", "0"));   // gone already
+    CHECK(mw.is("g_dt3", "0"));   // no argument
+    CHECK(mw.w.script_timer_count() == 2);
+    mw.w.tick();   // frame 1: the one-frame timer was deleted
+    CHECK(mw.is("g_two", "nil"));
+    CHECK(mw.is("g_ot", "nil"));
+    mw.w.tick();   // frame 2: s5_OnTime(11, id) - nothing back: done
+    CHECK(mw.is("g_ot", "1"));
+    CHECK(mw.is("g_ot_param", "11"));
+    CHECK(num("g_ot_id") == num("g_t1"));
+    CHECK(mw.w.script_timer_count() == 1);
+    mw.w.tick();   // frame 3: s5_OnTimeRepeat(22) -> 2, 23: again in two frames with 23
+    CHECK(mw.is("g_rep", "1"));
+    mw.w.tick();   // 4
+    CHECK(mw.is("g_rep", "1"));
+    mw.w.tick();   // 5: (23) -> 1: once more next frame
+    CHECK(mw.is("g_rep", "2"));
+    CHECK(mw.is("g_rep_param", "23"));
+    mw.w.tick();   // 6: -> 0: done
+    CHECK(mw.is("g_rep", "3"));
+    CHECK(mw.w.script_timer_count() == 0);
+    for (int i = 0; i < 4; ++i) mw.w.tick();
+    CHECK(mw.is("g_rep", "3"));
+    CHECK(mw.is("g_ot", "1"));
 }

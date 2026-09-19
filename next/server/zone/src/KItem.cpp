@@ -402,6 +402,8 @@ void KItem::to_proto(pb::ItemData& out) const
     out.set_rand_seed(rand_seed);
     for (const int v : magic_level) out.add_magic_level(v);
     out.set_luck(static_cast<std::uint32_t>(luck));
+    out.set_bind_state(bind_state);
+    out.set_expire_time(expire_time);
     out.set_group(static_cast<std::uint32_t>(group));
     out.set_ex_group(static_cast<std::uint32_t>(ex_group));
     out.set_group_serial(static_cast<std::uint32_t>(group_serial));
@@ -444,6 +446,8 @@ bool KItem::from_proto(const pb::ItemData& in, const KItemLibrary& lib, KItem& o
     out.rand_seed = in.rand_seed();
     for (int i = 0; i < in.magic_level_size() && i < 6; ++i) out.magic_level[static_cast<std::size_t>(i)] = in.magic_level(i);
     out.luck = static_cast<int>(in.luck());
+    out.bind_state = in.bind_state();
+    out.expire_time = in.expire_time();
     out.group = static_cast<int>(in.group());
     out.ex_group = static_cast<int>(in.ex_group());
     out.group_serial = static_cast<int>(in.group_serial());
@@ -562,6 +566,34 @@ int KInventory::free_cells() const noexcept
 {
     int n = 0;
     for (const std::uint32_t c : cells_) n += c == 0 ? 1 : 0;   // 0x081F8ADA: `<= 0` on the cell's item index
+    return n;
+}
+
+int KInventory::count_free_rects(int w, int h, int need) const
+{
+    if (cells_.empty() || w <= 0 || h <= 0 || need < 0 || width_ < w || height_ < h) return 0;   // 0x081F8FEC..0x081F9025
+    std::vector<std::uint32_t> grid = cells_;   // 0x081F9030 / 0x081F9051: a copy gets the marks
+    const auto cell = [&](int i, int j) -> std::uint32_t& { return grid[static_cast<std::size_t>(j) * static_cast<std::size_t>(width_) + static_cast<std::size_t>(i)]; };
+    int n = 0;
+    for (int x = 0; x <= width_ - w; ++x) {         // 0x081F906A: the columns
+        for (int y = 0; y <= height_ - h; ++y) {    // 0x081F9157: the rows of one column
+            bool free = true;
+            for (int i = x; i < x + w && free; ++i) {
+                for (int j = y; j < y + h; ++j) {
+                    if (cell(i, j) > 0) {   // 0x081F90DA: a cell holding an item
+                        free = false;
+                        break;
+                    }
+                }
+            }
+            if (!free) continue;
+            for (int i = x; i < x + w; ++i) {
+                for (int j = y; j < y + h; ++j) cell(i, j) = 1;   // 0x081F912D: the rectangle is taken now
+            }
+            ++n;                                     // 0x081F913E
+            if (need != 0 && n >= need) return n;   // 0x081F914B / 0x081F9178: enough
+        }
+    }
     return n;
 }
 

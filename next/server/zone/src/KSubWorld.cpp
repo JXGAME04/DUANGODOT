@@ -772,6 +772,7 @@ void KSubWorld::tick()
     flush_pending_summons();
     flush_pending_removes(); // the 0x3e9 nodes of DelNpc
     mission_tick();          // KMission::Activate: the timers due (KTimerTaskFun 0x080F9480)
+    script_timer_tick();     // the AddTimer timers due (0x081CC300)
     flush_doomed();          // the 0x3e9 nodes: the summons whose corpse settled
 
     {
@@ -2153,6 +2154,86 @@ void KSubWorld::mission_tick()
     }
 }
 
+std::uint32_t KSubWorld::add_script_timer(std::uint64_t frames, const std::string& script, const std::string& fn, int param)
+{
+    if (script.empty() || fn.empty()) return 0;
+    if (++next_script_timer_ == 0) ++next_script_timer_;   // never 0: 0 says "not made" (0x08100DE8)
+    script_timers_.push_back({next_script_timer_, tick_ + frames, frames, script, fn, param});
+    log::debug("lua", "script timer", {log::kv("timer", next_script_timer_), log::kv("frames", frames), log::kv("function", fn), log::kv("param", param)});
+    return next_script_timer_;
+}
+
+bool KSubWorld::del_script_timer(std::uint32_t id)
+{
+    for (auto it = script_timers_.begin(); it != script_timers_.end(); ++it) {
+        if (it->id == id) {
+            script_timers_.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+void KSubWorld::script_timer_tick()
+{
+    if (script_timers_.empty()) return;
+    std::vector<KScriptTimer> due;   // taken out first: the function may add or delete timers
+    for (auto it = script_timers_.begin(); it != script_timers_.end();) {
+        if (it->fire_tick <= tick_) {
+            due.push_back(*it);
+            it = script_timers_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (KScriptTimer& t : due) {
+        KLuaScript* script = cfg_.scripts ? cfg_.scripts->get(t.script) : nullptr;
+        if (script == nullptr) continue;
+        KScriptContext& ctx = g_ScriptContext();
+        const KScriptContext saved = ctx;
+        ctx.world = this;
+        ctx.player = nullptr;
+        ctx.sid = 0;
+        ctx.script_path = t.script;
+        const std::vector<std::optional<double>> r = script->call_numbers(t.fn.c_str(), {static_cast<double>(t.param), static_cast<double>(t.id)});
+        ctx = saved;
+        // 0x081CC3E8..: one number = the next period (0x081CC4DC: 0 = done), two = the period (0x081CC428) and the new param
+        // (0x081CC45E); nothing = done.  A period below 0 is treated as 0 (what the manager does with one is not traced)
+        if (r.empty()) continue;
+        const std::optional<double> next = r.size() == 1 ? r[0] : r[r.size() - 2];
+        const auto frames = next.has_value() ? static_cast<std::int64_t>(*next) : 0;
+        if (frames <= 0) continue;
+        if (r.size() >= 2 && r.back().has_value()) t.param = static_cast<int>(static_cast<std::int64_t>(*r.back()));
+        t.frames = static_cast<std::uint64_t>(frames);
+        t.fire_tick = tick_ + t.frames;
+        script_timers_.push_back(t);
+    }
+}
+
+void KSubWorld::add_stat_data(const std::string& name, int n)
+{
+    stat_data_[name] += n;
+    log::debug("lua", "stat data", {log::kv("name", name), log::kv("count", n)});
+}
+
+long long KSubWorld::stat_data(const std::string& name) const
+{
+    const auto it = stat_data_.find(name);
+    return it == stat_data_.end() ? 0 : it->second;
+}
+
+void KSubWorld::set_tmp_camp(KNpc& e, int camp)
+{
+    e.tmp_camp = camp;   // 0x0807B2E1
+    pb::EntityCamp c;
+    c.set_entity_id(e.id.value);
+    c.set_camp(e.camp);
+    c.set_current_camp(e.current_camp);
+    c.set_tmp_camp(e.tmp_camp);
+    if (e.kind == KNpcKind::player) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_CAMP), c);   // 0x0807B294: itself only
+    else broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_CAMP), c);                               // 0x0807B2C2: the watchers
+}
+
 bool KSubWorld::set_pos(EntityId id, Pos p)
 {
     if (!teleport(id, p)) return false;
@@ -2266,6 +2347,7 @@ void KSubWorld::emit_camp(const KNpc& e)
     c.set_entity_id(e.id.value);
     c.set_camp(e.camp);
     c.set_current_camp(e.current_camp);
+    c.set_tmp_camp(e.tmp_camp);
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_CAMP), c);
 }
 

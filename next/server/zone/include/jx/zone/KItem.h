@@ -242,6 +242,10 @@ struct KItem {
     std::array<int, 6> magic_level{};   // +0x1e4..+0x1f8: the six levels of the roll; SetItemMagicLevel 0x080FD020 writes one (the
                                         // scripts tag a quest item with a task id there)
     int luck = 0;                // +0x200: the luck of the roll (GetItemProp's sixth value, 0x080FF33B)
+    int bind_state = 0;          // +0x350: SetItemBindState 0x08127630 / GetItemBindState 0x080FE790; the bag-wide scans of
+                                 // 0x08203BE0 skip a piece with it set; > 0 -> the 0xca packet {id, state + hours since 2000 + 168}
+                                 // (0x081FB8F0) - here sync_item
+    std::uint32_t expire_time = 0;   // +0x34c: ITEM_SetExpiredTime 0x08154A30 (unix seconds, 0 = never; ITEM_GetExpiredTime 0x08154540)
     int group = 0, ex_group = 0, group_serial = 0;
     std::array<KMagicAttrib, 7> base{};     // m_aryBaseAttrib
     std::array<KMagicAttrib, 6> require{};  // m_aryRequireAttrib
@@ -285,6 +289,10 @@ public:
     bool place(int x, int y, std::uint32_t id, int w, int h);                   // KInventory::PlaceItem
     bool pick_up(std::uint32_t id, int x, int y, int w, int h);                 // KInventory::PickUpItem
     [[nodiscard]] bool find_room(int w, int h, int& x, int& y) const;           // KInventory::FindRoom: column by column, like the old one
+    // KItemList 0x081F8FE0 (Lua CountFreeRoomByWH): on a copy of the grid, column by column then row by row, every free w x h
+    // rectangle is marked used and counted; the scan stops once `need` (when not 0) is reached; a grid narrower or shorter
+    // than the rectangle counts 0
+    [[nodiscard]] int count_free_rects(int w, int h, int need) const;
     [[nodiscard]] int money() const noexcept { return money_; }
     void set_money(int m) noexcept { money_ = m < 0 ? 0 : m; }
 

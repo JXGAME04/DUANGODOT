@@ -347,6 +347,8 @@ type ItemData struct {
 	RandSeed      uint32                 `protobuf:"varint,22,opt,name=rand_seed,json=randSeed,proto3" json:"rand_seed,omitempty"`              // KItem+0x1e0: the seed of the roll (ITEM_GetItemRandSeed; AddItemEx with a seed rolls the same piece again)
 	MagicLevel    []int32                `protobuf:"varint,23,rep,packed,name=magic_level,json=magicLevel,proto3" json:"magic_level,omitempty"` // KItem+0x1e4..: the six levels of the roll (SetItemMagicLevel writes one)
 	Luck          uint32                 `protobuf:"varint,24,opt,name=luck,proto3" json:"luck,omitempty"`                                      // KItem+0x200: the luck of the roll (GetItemProp)
+	BindState     int32                  `protobuf:"varint,25,opt,name=bind_state,json=bindState,proto3" json:"bind_state,omitempty"`           // KItem+0x350: SetItemBindState / GetItemBindState (0 = free; the bag scans skip a bound piece)
+	ExpireTime    uint32                 `protobuf:"varint,26,opt,name=expire_time,json=expireTime,proto3" json:"expire_time,omitempty"`        // KItem+0x34c: ITEM_SetExpiredTime (unix seconds, 0 = never)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -545,6 +547,20 @@ func (x *ItemData) GetMagicLevel() []int32 {
 func (x *ItemData) GetLuck() uint32 {
 	if x != nil {
 		return x.Luck
+	}
+	return 0
+}
+
+func (x *ItemData) GetBindState() int32 {
+	if x != nil {
+		return x.BindState
+	}
+	return 0
+}
+
+func (x *ItemData) GetExpireTime() uint32 {
+	if x != nil {
+		return x.ExpireTime
 	}
 	return 0
 }
@@ -1070,7 +1086,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\text_point\x18\x11 \x03(\x05R\bextPoint\"5\n" +
 	"\tItemMagic\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12\x14\n" +
-	"\x05value\x18\x02 \x03(\x05R\x05value\"\x99\x05\n" +
+	"\x05value\x18\x02 \x03(\x05R\x05value\"\xd9\x05\n" +
 	"\bItemData\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\rR\aversion\x12\x14\n" +
@@ -1101,7 +1117,11 @@ const file_jx_role_proto_rawDesc = "" +
 	"\trand_seed\x18\x16 \x01(\rR\brandSeed\x12\x1f\n" +
 	"\vmagic_level\x18\x17 \x03(\x05R\n" +
 	"magicLevel\x12\x12\n" +
-	"\x04luck\x18\x18 \x01(\rR\x04luck\"C\n" +
+	"\x04luck\x18\x18 \x01(\rR\x04luck\x12\x1d\n" +
+	"\n" +
+	"bind_state\x18\x19 \x01(\x05R\tbindState\x12\x1f\n" +
+	"\vexpire_time\x18\x1a \x01(\rR\n" +
+	"expireTime\"C\n" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +

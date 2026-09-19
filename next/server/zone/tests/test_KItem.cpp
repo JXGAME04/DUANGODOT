@@ -1,6 +1,7 @@
 // Items: the tables, the grid, a player's list and the generator - the rules of KItemList.cpp /
 // KInventory.cpp / KItemGenerator.cpp of the old core, on a small table of our own and, when the
 // exported tables are there, on the real ones.
+#include <ctime>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -2243,6 +2244,105 @@ TEST_CASE("S1 GetItemName / GetItemParam read a live item: its name, the six num
     CHECK(script.call_number("GetItemParam", {999.0, 1.0}) == 0.0);  // no such item
     CHECK(script.call_number("S1ParamNoArg", {1.0}) == 0.0);         // one argument only
     ctx = jx::zone::KScriptContext{};
+}
+
+// ---- S5 of the script api: SetItemBindState 0x08127630, GetItemBindState 0x080FE790, SetSpecItemParam 0x080FF360, GetItemQuality
+// 0x080FEFB0, ITEM_GetExpiredTime 0x08154540, ITEM_SetExpiredTime 0x08154A30, CountFreeRoomByWH 0x0810C790 --------------------
+
+TEST_CASE("S5 bind state, roll levels, quality, expiry and the free rectangles of the bag on a live item", "[item][world][lua][s5]")
+{
+    ItemWorld iw;
+    iw.w->take_outbox();
+    jx::zone::KLuaScript script;
+    REQUIRE(script.init(""));
+    jx::zone::KScriptContext& ctx = jx::zone::g_ScriptContext();
+    ctx.world = iw.w.get();
+    ctx.player = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
+    ctx.sid = 1;
+    REQUIRE(ctx.player != nullptr);
+    REQUIRE(script.call_number("AddItem", {0.0, 0.0, 0.0, 2.0, 2.0, 0.0}) == 1.0);   // "Kiem 2", id 1
+    REQUIRE(script.do_string(
+        "function S5Bind(i, v) local r = SetItemBindState(i, v) if r == nil then return -1 end return r end\n"
+        "function S5GetBind(i) local r = GetItemBindState(i) if r == nil then return -1 end return r end\n"
+        "function S5Spec2(i, n) return SetSpecItemParam(i, n) end\n"
+        "function S5Exp1(i) return ITEM_SetExpiredTime(i) end\n"
+        "function S5Get2(i) return ITEM_GetExpiredTime(i, 1) end\n"
+        "function S5Free1(w) return CountFreeRoomByWH(w) end\n", "s5"));
+    const jx::zone::KItem* sword = iw.list().find(1);
+    REQUIRE(sword != nullptr);
+    // the bind state: set, read, synced when set
+    CHECK(script.call_number("S5GetBind", {1.0}) == 0.0);
+    iw.w->take_outbox();
+    CHECK(script.call_number("S5Bind", {1.0, 2.0}) == 1.0);
+    CHECK(script.call_number("S5GetBind", {1.0}) == 2.0);
+    CHECK(sword->bind_state == 2);
+    CHECK_FALSE(iw.w->take_outbox().empty());
+    CHECK(script.call_number("S5Bind", {1.0, 0.0}) == 1.0);
+    CHECK(iw.w->take_outbox().empty());   // 0x081FB92B: a cleared state sends nothing
+    CHECK(script.call_number("S5Bind", {999.0, 1.0}) == -1.0);   // no such item: nothing
+    CHECK(script.call_number("S5GetBind", {999.0}) == -1.0);
+    // the roll levels
+    CHECK(script.call_number("SetSpecItemParam", {1.0, 3.0, 77.0}) == 1.0);
+    CHECK(script.call_number("GetItemParam", {1.0, 3.0}) == 77.0);
+    CHECK(sword->magic_level[2] == 77);
+    CHECK(script.call_number("SetSpecItemParam", {1.0, 7.0, 1.0}) == 0.0);    // n outside 1..6
+    CHECK(script.call_number("SetSpecItemParam", {1.0, 0.0, 1.0}) == 0.0);
+    CHECK(script.call_number("S5Spec2", {1.0, 1.0}) == 0.0);                   // two arguments
+    CHECK(script.call_number("SetSpecItemParam", {999.0, 1.0, 1.0}) == 0.0);
+    // the quality is the extend type
+    CHECK(script.call_number("GetItemQuality", {1.0}) == 0.0);
+    iw.list().find_mutable(1)->ex_type = 1;
+    CHECK(script.call_number("GetItemQuality", {1.0}) == 1.0);
+    CHECK(script.call_number("GetItemQuality", {999.0}) == 0.0);
+    // the expiry: minutes from now, a date (past -> -1), 0 = never, one / two arguments refused
+    CHECK(script.call_number("ITEM_GetExpiredTime", {1.0}) == 0.0);
+    CHECK(script.call_number("S5Get2", {1.0}) == -2.0);
+    CHECK(script.call_number("ITEM_GetExpiredTime", {999.0}) == -2.0);
+    CHECK(script.call_number("S5Exp1", {1.0}) == -1.0);
+    const double now = static_cast<double>(std::time(nullptr));
+    CHECK(script.call_number("ITEM_SetExpiredTime", {1.0, 30.0}) == 1.0);
+    const double e1 = *script.call_number("ITEM_GetExpiredTime", {1.0});
+    CHECK(e1 >= now + 30 * 60 - 5);
+    CHECK(e1 <= now + 30 * 60 + 5);
+    CHECK(script.call_number("ITEM_SetExpiredTime", {1.0, 20200101.0}) == -1.0);   // a past date
+    CHECK(script.call_number("ITEM_GetExpiredTime", {1.0}) == e1);
+    CHECK(script.call_number("ITEM_SetExpiredTime", {1.0, 20991231.0, 235959.0}) == 1.0);
+    std::tm tm{};
+    tm.tm_year = 199;
+    tm.tm_mon = 11;
+    tm.tm_mday = 31;
+    tm.tm_hour = 23;
+    tm.tm_min = 59;
+    tm.tm_sec = 59;
+    CHECK(script.call_number("ITEM_GetExpiredTime", {1.0}) == static_cast<double>(std::mktime(&tm)));
+    CHECK(script.call_number("ITEM_SetExpiredTime", {1.0, 0.0}) == 1.0);
+    CHECK(script.call_number("ITEM_GetExpiredTime", {1.0}) == 0.0);
+    CHECK(script.call_number("ITEM_SetExpiredTime", {1.0, -5.0}) == -1.0);
+    CHECK(script.call_number("ITEM_SetExpiredTime", {999.0, 30.0}) == -1.0);
+    // the bag by rectangles: the sword covers column 0, rows 0..2
+    const jx::zone::KInventory& bag = iw.list().room(jx::zone::room_equipment);
+    const auto W = static_cast<double>(bag.width());
+    const auto H = static_cast<double>(bag.height());
+    CHECK(script.call_number("CountFreeRoomByWH", {1.0, 1.0}) == static_cast<double>(bag.free_cells()));
+    CHECK(script.call_number("CountFreeRoomByWH", {1.0, H}) == W - 1);   // the full columns without the sword
+    CHECK(script.call_number("CountFreeRoomByWH", {W, H}) == 0.0);
+    CHECK(script.call_number("CountFreeRoomByWH", {2.0, 2.0, 3.0}) == 3.0);   // enough: stops at need
+    CHECK(script.call_number("CountFreeRoomByWH", {W + 1, 1.0}) == 0.0);
+    CHECK(script.call_number("CountFreeRoomByWH", {0.0, 1.0}) == 0.0);
+    CHECK(script.call_number("CountFreeRoomByWH", {1.0, 1.0, -1.0}) == 0.0);
+    CHECK(script.call_number("S5Free1", {1.0}) == 0.0);   // one argument
+    ctx = jx::zone::KScriptContext{};
+    // KInventory::count_free_rects by hand: 3 x 3 with (1,1) taken, column by column
+    jx::zone::KInventory inv(3, 3);
+    REQUIRE(inv.place(1, 1, 5, 1, 1));
+    CHECK(inv.count_free_rects(1, 1, 0) == 8);
+    CHECK(inv.count_free_rects(1, 1, 3) == 3);
+    CHECK(inv.count_free_rects(2, 2, 0) == 0);
+    CHECK(inv.count_free_rects(1, 2, 0) == 2);   // (0,0..1) and (2,0..1)
+    CHECK(inv.count_free_rects(2, 1, 0) == 2);   // (0..1,0) and (0..1,2)
+    CHECK(inv.count_free_rects(3, 1, 0) == 2);   // rows 0 and 2
+    CHECK(inv.count_free_rects(1, 3, 0) == 2);
+    CHECK(inv.count_free_rects(4, 1, 0) == 0);
 }
 
 // ---- S2 of the script api: AddEventItem 0x0811DF90, AddQualityItem 0x081206A0, CalcEquiproomItemCount 0x0810D580,

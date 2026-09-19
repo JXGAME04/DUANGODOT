@@ -39,6 +39,9 @@ public:
     // 0x080EE4B0): a number when Lua_IsNumber says so (a string of digits counts), else the
     // string when Lua_IsString says so, else nullopt (also when the function is missing or fails).
     std::optional<Arg> call_value(const char* name, const std::vector<Arg>& args);
+    // CallFunction with every result back (LUA_MULTRET): each one a number when Lua_ValueToNumber says so, else nullopt;
+    // empty when the function is missing or fails (the AddTimer callback 0x081CC300 reads one or two results)
+    std::vector<std::optional<double>> call_numbers(const char* name, const std::vector<Arg>& args);
     // Lua 4 printed every whole number without a fraction ("%.14g"); Lua 5.4 writes an integral float as "2.0".
     // Strings the scripts build from numbers get the Lua 4 form back ("16.0,12,0" -> "16,12,0").
     [[nodiscard]] static std::string lua4_number_format(std::string s);

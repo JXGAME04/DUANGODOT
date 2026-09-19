@@ -3033,6 +3033,47 @@ int l_DelNpc(lua_State* L)
     return 0;
 }
 
+// AddNpc / AddNpcEx: arg 1 names the template - a number is its id (0x0811C120), a string its row in npcs.txt
+// (KTabFile::FindRow 0x08227B50 - 2, 0x0811BFC8); anything else -> `bad` (0x0811BB73 / 0x0811BFA3: nothing returned)
+const KNpcTemplate* npc_template_arg(lua_State* L, const KSubWorld& w, bool& bad)
+{
+    bad = false;
+    const KNpcTemplateSet* templates = w.config().templates.get();
+    if (lua_type(L, 1) == LUA_TNUMBER) {
+        return templates != nullptr ? templates->find(static_cast<std::uint32_t>(static_cast<std::int64_t>(lua_tonumber(L, 1)))) : nullptr;
+    }
+    if (lua_isstring(L, 1)) {
+        const char* name = lua_tostring(L, 1);
+        return templates != nullptr && name != nullptr ? templates->find_by_name(name) : nullptr;
+    }
+    bad = true;
+    return nullptr;
+}
+
+// the optional arguments after the position of AddNpc (from arg 6) and AddNpcEx (from arg 7, 0x0811C192..): `first` =
+// removed on death (byte +0x1824), then a name (0x081395C0 when not ""), then boss: 1 -> 0x08085250 (the template's skills)
+// and +0x181c = 3 when removed on death else 2 (0x0811C2F2 / 0x0811C30A), 2 -> a gold npc (BackData 0x0809D560 + rate 1e6
+// 0x0809D8D0)
+void npc_extras(lua_State* L, KSubWorld& w, KNpc& e, int first)
+{
+    const int top = lua_gettop(L);
+    if (top < first) return;
+    e.remove_on_death = static_cast<std::int64_t>(lua_tonumber(L, first)) != 0;
+    if (top >= first + 1) {
+        const char* name = lua_tostring(L, first + 1);
+        if (name != nullptr && *name != '\0') e.name = std::string(name).substr(0, 0x20);
+    }
+    if (top >= first + 2) {
+        const auto boss = static_cast<std::int64_t>(lua_tonumber(L, first + 2));
+        if (boss == 1) {
+            w.init_template_skills(e);
+            e.boss_flag = e.remove_on_death ? 3 : 2;
+        } else if (boss == 2) {
+            w.make_gold_npc(e);
+        }
+    }
+}
+
 // AddNpc(template | name, level, subworld, x, y[, remove_on_death[, name[, boss[, p9]]]]) (0x0811BB10): fewer than five
 // arguments -> nothing.  The template by number, or by its name in npcs.txt (KTabFile::FindRow - 2, 0x0811BB98); the level a
 // word, below 0 -> 1 (0x0811BBD5); the series rand() % 5 (0x0811BC89); a ninth number is KNpcSet::Add's last argument (-1
@@ -3048,16 +3089,9 @@ int l_AddNpc(lua_State* L)
     if (top <= 4) return 0;
     KSubWorld* w = g_ScriptContext().world;
     if (w == nullptr) return 0;
-    const KNpcTemplateSet* templates = w->config().templates.get();
-    const KNpcTemplate* tpl = nullptr;
-    if (lua_type(L, 1) == LUA_TNUMBER) {
-        if (templates != nullptr) tpl = templates->find(static_cast<std::uint32_t>(static_cast<std::int64_t>(lua_tonumber(L, 1))));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        if (templates != nullptr && name != nullptr) tpl = templates->find_by_name(name);
-    } else {
-        return 0;   // 0x0811BB73: neither a number nor a string
-    }
+    bool bad = false;
+    const KNpcTemplate* tpl = npc_template_arg(L, *w, bad);
+    if (bad) return 0;   // 0x0811BB73: neither a number nor a string
     const auto level_arg = static_cast<std::int64_t>(lua_tonumber(L, 2));
     const int level = level_arg < 0 ? 1 : static_cast<int>(static_cast<std::uint16_t>(level_arg));
     const auto map = static_cast<std::int64_t>(lua_tonumber(L, 3));
@@ -3069,7 +3103,6 @@ int l_AddNpc(lua_State* L)
         return 1;
     }
     const int series = std::rand() % 5;
-    const bool remove_on_death = top >= 6 && static_cast<std::int64_t>(lua_tonumber(L, 6)) != 0;
     const KNpcKind kind = tpl->kind == 0 ? KNpcKind::monster : KNpcKind::npc;
     KScriptContext& ctx = g_ScriptContext();
     const EntityId self = ctx.player != nullptr ? ctx.player->id : EntityId{};
@@ -3082,26 +3115,34 @@ int l_AddNpc(lua_State* L)
         lua_pushinteger(L, 0);
         return 1;
     }
-    if (top >= 6) {
-        e->remove_on_death = remove_on_death;
-        if (top >= 7) {
-            const char* name = lua_tostring(L, 7);
-            if (name != nullptr && *name != '\0') e->name = std::string(name).substr(0, 0x20);
-        }
-        if (top >= 8) {
-            const auto boss = static_cast<std::int64_t>(lua_tonumber(L, 8));
-            if (boss == 1) {
-                w->init_template_skills(*e);
-                e->boss_flag = remove_on_death ? 3 : 2;
-            } else if (boss == 2) {
-                w->make_gold_npc(*e);
-            }
-        }
-    }
+    if (top >= 6) npc_extras(L, *w, *e, 6);
     log::info("lua", "npc added", {log::kv("npc", e->id), log::kv("template", tpl->id), log::kv("level", level), log::kv("series", series),
                                    log::kv("name", e->name)});
     lua_pushinteger(L, static_cast<lua_Integer>(id.value));
     return 1;
+}
+
+// 0x08125D70(npc, skill, level, mode, time, extra) - what AddSkillState (the player's npc) and AddNpcSkillState (any npc) share
+lua_Integer add_skill_state(KSubWorld& w, KNpc& target, int skill_id, int level, std::int64_t mode, std::int64_t time, int extra)
+{
+    lua_Integer result = -1;
+    const KSkill* skill = w.skills() != nullptr && mode >= 0 && mode <= 2 && time >= 0 ? w.skills()->get(skill_id, level) : nullptr;
+    if (skill != nullptr && (skill->row.style == skill_style_initiative_npc_state || skill->row.style == skill_style_passivity_npc_state)) {
+        if (mode == 2) {
+            log::warn("lua", "AddSkillState: date mode not built", {log::kv("skill", skill_id), log::kv("time", time)});
+        } else if (mode == 1) {
+            std::array<KMagicAttrib, kSkillAttribs> states = skill->state_attribs;
+            for (int i = 0; i < skill->state_attrib_count && i < static_cast<int>(states.size()); ++i) {
+                states[static_cast<std::size_t>(i)].value[1] = static_cast<int>(time);
+            }
+            result = w.set_state_skill_effect(target, target.id, skill_id, level, states.data(), skill->state_attrib_count, static_cast<int>(time), 0, false,
+                                              0, false, extra);
+        } else {
+            result = w.set_state_skill_effect(target, target.id, skill_id, level, skill->state_attribs.data(), skill->state_attrib_count,
+                                              static_cast<int>(time), 0, false, 0, false, extra);
+        }
+    }
+    return result;
 }
 
 // AddSkillState(skill, level, mode, time[, extra]) (0x08126240): at least four arguments and a player; 0x08125D70(npc, skill,
@@ -3116,28 +3157,9 @@ int l_AddSkillState(lua_State* L)
     lua_Integer result = -1;
     if (lua_gettop(L) > 3) {
         if (KNpc* p = player_of(L, "AddSkillState")) {
-            KSubWorld* w = g_ScriptContext().world;
-            const auto skill_id = static_cast<int>(lua_tonumber(L, 1));
-            const auto level = static_cast<int>(lua_tonumber(L, 2));
-            const auto mode = static_cast<std::int64_t>(lua_tonumber(L, 3));
-            const auto time = static_cast<std::int64_t>(lua_tonumber(L, 4));
-            const auto extra = static_cast<int>(luaL_optnumber(L, 5, 0));
-            const KSkill* skill = w->skills() != nullptr && mode >= 0 && mode <= 2 && time >= 0 ? w->skills()->get(skill_id, level) : nullptr;
-            if (skill != nullptr && (skill->row.style == skill_style_initiative_npc_state || skill->row.style == skill_style_passivity_npc_state)) {
-                if (mode == 2) {
-                    log::warn("lua", "AddSkillState: date mode not built", {log::kv("skill", skill_id), log::kv("time", time)});
-                } else if (mode == 1) {
-                    std::array<KMagicAttrib, kSkillAttribs> states = skill->state_attribs;
-                    for (int i = 0; i < skill->state_attrib_count && i < static_cast<int>(states.size()); ++i) {
-                        states[static_cast<std::size_t>(i)].value[1] = static_cast<int>(time);
-                    }
-                    result = w->set_state_skill_effect(*p, p->id, skill_id, level, states.data(), skill->state_attrib_count, static_cast<int>(time), 0, false, 0,
-                                                       false, extra);
-                } else {
-                    result = w->set_state_skill_effect(*p, p->id, skill_id, level, skill->state_attribs.data(), skill->state_attrib_count, static_cast<int>(time),
-                                                       0, false, 0, false, extra);
-                }
-            }
+            result = add_skill_state(*g_ScriptContext().world, *p, static_cast<int>(lua_tonumber(L, 1)), static_cast<int>(lua_tonumber(L, 2)),
+                                     static_cast<std::int64_t>(lua_tonumber(L, 3)), static_cast<std::int64_t>(lua_tonumber(L, 4)),
+                                     static_cast<int>(luaL_optnumber(L, 5, 0)));
         }
     }
     lua_pushinteger(L, result);
@@ -3753,6 +3775,395 @@ int l_GetMSRestTime(lua_State* L)
     return 1;
 }
 
+// ---- S5 (docs/LINUX-SERVER.md §34): the items' bind state / expiry / roll levels, the bag by rectangles, AddNpcEx, the
+// player flags, the camps, the stat counters, skill points, the script timers of AddTimer and the clock helpers
+
+// SetItemBindState(item, state) (0x08127630): top > 1; the item 1..count -> Item+0x350 = state (0x081276DF); a player behind the
+// script and state > 0 -> the 0xca packet {Item+0x304, state + hours since 2000 + 168} to it (0x081FB8F0, 0x08127701) - the
+// client has no such packet, the item is synced whole -> 1; a bad index -> nothing
+int l_SetItemBindState(lua_State* L)
+{
+    if (lua_gettop(L) <= 1) return 0;
+    KItem* it = script_item(L, "SetItemBindState");
+    if (it == nullptr) return 0;
+    it->bind_state = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+    if (it->bind_state > 0) g_ScriptContext().world->sync_item(g_ScriptContext().sid, it->id);   // 0x081FB92B: only a set state goes out
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+// GetItemBindState(item) (0x080FE790): top > 0 and the item -> Item+0x350; else nothing
+int l_GetItemBindState(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) return 0;
+    const KItem* it = script_item(L, "GetItemBindState");
+    if (it == nullptr) return 0;
+    lua_pushinteger(L, it->bind_state);
+    return 1;
+}
+
+// SetSpecItemParam(item, n, v) (0x080FF360): top > 2 (else 0); the item (in range and in use, 0x080FF411) and n 1..6 (0x080FF434)
+// -> Item+0x1e0 + n*4 = v (0x080FF44B: the roll levels GetItemParam / SetItemMagicLevel read and write) -> 1; else 0
+int l_SetSpecItemParam(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 2) {
+        KItem* it = script_item(L, "SetSpecItemParam");
+        const auto n = static_cast<std::int64_t>(lua_tonumber(L, 2));
+        if (it != nullptr && n >= 1 && n <= 6) {
+            it->magic_level[static_cast<std::size_t>(n - 1)] = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 3)));
+            done = 1;
+        }
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// GetItemQuality(item) (0x080FEFB0): top > 0 and the item -> Item+4 (ITEMEXTENDTYPE: 0 plain, 1 gold, 2 platina, 3 purple); else 0
+int l_GetItemQuality(lua_State* L)
+{
+    const KItem* it = lua_gettop(L) > 0 ? script_item(L, "GetItemQuality") : nullptr;
+    lua_pushinteger(L, it != nullptr ? it->ex_type : 0);
+    return 1;
+}
+
+// ITEM_GetExpiredTime(item) (0x08154540): exactly one argument and the item -> Item+0x34c (unsigned seconds, 0 = never); else -2
+// (the constant at 0x0825EED4)
+int l_ITEM_GetExpiredTime(lua_State* L)
+{
+    const KItem* it = lua_gettop(L) == 1 ? script_item(L, "ITEM_GetExpiredTime") : nullptr;
+    if (it == nullptr) lua_pushinteger(L, -2);
+    else lua_pushinteger(L, static_cast<lua_Integer>(it->expire_time));
+    return 1;
+}
+
+// the time an expiry argument means (0x081F2760(value, hhmmss)): 0 -> 0 (never); 1..20 000 000 -> now + value minutes (0x081F27C8:
+// now = time(0) + the clock offset when the clock is set, else 0 - script_now() here); above -> a YYYYMMDD date (0x0820BA80:
+// year - 1900, month - 1, day; hhmmss > 0 -> its hour % 24, minute % 60, second % 60; mktime) that has to lie after now, else -1
+// (0x081F27AE); a negative value takes the unsigned compare of 0x081F2775 into the date branch and comes back -1
+std::int64_t expiry_time(std::int64_t value, std::int64_t hhmmss)
+{
+    if (value == 0) return 0;
+    if (value < 0) return -1;
+    if (value <= 20000000) return script_now() + value * 60;
+    std::tm tm{};
+    tm.tm_year = static_cast<int>(value / 10000) - 1900;
+    tm.tm_mon = static_cast<int>(value / 100 % 100) - 1;
+    tm.tm_mday = static_cast<int>(value % 100);
+    if (hhmmss > 0) {
+        tm.tm_hour = static_cast<int>(hhmmss / 10000 % 24);
+        tm.tm_min = static_cast<int>(hhmmss / 100 % 100 % 60);
+        tm.tm_sec = static_cast<int>(hhmmss % 100 % 60);
+    }
+    const std::time_t t = std::mktime(&tm);
+    if (t == static_cast<std::time_t>(-1) || static_cast<std::int64_t>(t) <= script_now()) return -1;
+    return static_cast<std::int64_t>(t);
+}
+
+// ITEM_SetExpiredTime(item, value[, hhmmss]) (0x08154A30): top > 1 and the item, else -1 (0x08154B18 / 0x08154A8C); expiry_time
+// (0x081F2760 with hhmmss, 0 without a third argument) = -1 -> -1 (0x08154B68); else Item+0x34c = it (0x08154B03) -> 1
+int l_ITEM_SetExpiredTime(lua_State* L)
+{
+    lua_Integer result = -1;
+    if (lua_gettop(L) > 1) {
+        if (KItem* it = script_item(L, "ITEM_SetExpiredTime")) {
+            const auto value = static_cast<std::int64_t>(lua_tonumber(L, 2));
+            const auto hhmmss = lua_gettop(L) > 2 ? static_cast<std::int64_t>(lua_tonumber(L, 3)) : 0;
+            const std::int64_t t = expiry_time(value, hhmmss);
+            if (t >= 0) {
+                it->expire_time = static_cast<std::uint32_t>(t);
+                result = 1;
+            }
+        }
+    }
+    lua_pushinteger(L, result);
+    return 1;
+}
+
+// CountFreeRoomByWH(w, h[, need]) (0x0810C790): two or three arguments (else 0) and the player 1..0x4af; w > 0, h > 0 and need >= 0
+// (0 without a third argument), else 0 -> KItemList 0x081F8FE0(Player+0x5088 = the bag grid, w, h, need): the free w x h rectangles
+// of the bag, see KInventory::count_free_rects
+int l_CountFreeRoomByWH(lua_State* L)
+{
+    lua_Integer n = 0;
+    const int top = lua_gettop(L);
+    if (top == 2 || top == 3) {
+        if (const KNpc* p = player_of(L, "CountFreeRoomByWH"); p != nullptr) {
+            const auto w = static_cast<std::int64_t>(lua_tonumber(L, 1));
+            const auto h = static_cast<std::int64_t>(lua_tonumber(L, 2));
+            const auto need = top == 3 ? static_cast<std::int64_t>(lua_tonumber(L, 3)) : 0;
+            const KItemList* list = g_ScriptContext().world->items_of(g_ScriptContext().sid);
+            if (list != nullptr && w > 0 && h > 0 && need >= 0) {
+                n = list->room(room_equipment).count_free_rects(static_cast<int>(std::min<std::int64_t>(w, INT_MAX)), static_cast<int>(std::min<std::int64_t>(h, INT_MAX)),
+                                                                 static_cast<int>(std::min<std::int64_t>(need, INT_MAX)));
+            }
+        }
+    }
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+// AddNpcEx(template | name, level, series, subworld, x, y[, removeOnDeath[, name[, boss]]]) (0x0811BF40): top <= 5 -> nothing; the
+// template as AddNpc; level a word, negative -> 1 (0x0811C011); series = arg 3 as it is (0x0811C0AB), the subworld index arg 4
+// (0x0811C0A1), x, y args 5, 6 in world units (0x0811C094 / 0x0811C07B); KNpcSet::Add 0x0809FB10(g_NpcSet, series, template << 16 |
+// level, subworld, x, y, -1) -> 0 -> 0; exactly six arguments: a monster's +0x18e4 = a row of the table 0x830c7a0 by its name
+// (0x08062B50; what reads +0x18e4 is not traced - not built), any other npc's +0x18e4 = 0; seven or more: npc_extras from arg 7
+// (0x0811C192 / 0x0811C2C8 / 0x0811C1D0).  Returns the index
+int l_AddNpcEx(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 5) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    bool bad = false;
+    const KNpcTemplate* tpl = npc_template_arg(L, *w, bad);
+    if (bad) return 0;
+    const auto level_arg = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    const int level = level_arg < 0 ? 1 : static_cast<int>(static_cast<std::uint16_t>(level_arg));
+    const auto series = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 3)));
+    const auto map = static_cast<std::int64_t>(lua_tonumber(L, 4));
+    const Pos at{static_cast<std::int32_t>(lua_tonumber(L, 5)), static_cast<std::int32_t>(lua_tonumber(L, 6))};
+    if (tpl == nullptr || map != static_cast<std::int64_t>(w->map_id())) {
+        log::warn("lua", "AddNpc failed", {log::kv("template", tpl != nullptr ? static_cast<int>(tpl->id) : -1), log::kv("map", map),
+                                           log::kv("this_map", w->map_id())});
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const KNpcKind kind = tpl->kind == 0 ? KNpcKind::monster : KNpcKind::npc;
+    KScriptContext& ctx = g_ScriptContext();
+    const EntityId self = ctx.player != nullptr ? ctx.player->id : EntityId{};
+    const EntityId id = w->spawn_npc(tpl->name, w->to_local(at), tpl->id, 0, kind, static_cast<std::uint32_t>(level), series, 0);
+    if (self.value != 0) ctx.player = w->mutable_entity(self);   // the entity table may have moved (see AddNpc)
+    KNpc* e = w->mutable_entity(id);
+    if (e == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    if (top == 6 && e->kind == KNpcKind::monster) {
+        log::debug("lua", "npc name table skipped", {log::kv("npc", e->id), log::kv("name", e->name)});   // +0x18e4 of 0x08062B50
+    } else if (top >= 7) {
+        npc_extras(L, *w, *e, 7);
+    }
+    log::info("lua", "npc added", {log::kv("npc", e->id), log::kv("template", tpl->id), log::kv("level", level), log::kv("series", series),
+                                   log::kv("name", e->name)});
+    lua_pushinteger(L, static_cast<lua_Integer>(id.value));
+    return 1;
+}
+
+// ForbidEnmity(flag) (0x0810B0F0): top > 0 and a player -> Player+0x5a5c = (flag == 1) (0x0810B152); nothing returned
+int l_ForbidEnmity(lua_State* L)
+{
+    if (lua_gettop(L) > 0) {
+        if (KNpc* p = player_of(L, "ForbidEnmity")) p->player.forbid_enmity = static_cast<std::int64_t>(lua_tonumber(L, 1)) == 1;
+    }
+    return 0;
+}
+
+// ForbitTrade(flag) (0x08111600): a player -> byte Player+0x374 = (flag != 0) (0x08111653; no argument counts as 0); nothing returned
+int l_ForbitTrade(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "ForbitTrade")) p->player.forbid_trade = static_cast<std::int64_t>(lua_tonumber(L, 1)) != 0;
+    return 0;
+}
+
+// DisabledStall(flag) (0x08130980): top > 0 (else 0); the player 1..0x4af (else 0); bit 0x800 of task value 0x87 (GetSaveVal
+// 0x080A8C80) set when flag != 0 (0x081309F1) or cleared (0x08130A55), SetTask(0x87, v, sync) + the 0xa4 packet (0x080A9370) -> 1
+int l_DisabledStall(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 0) {
+        if (KNpc* p = player_of(L, "DisabledStall")) {
+            const auto v = static_cast<std::uint32_t>(p->player.task.get_save_val(0x87));
+            const bool on = static_cast<std::int64_t>(lua_tonumber(L, 1)) != 0;
+            g_ScriptContext().world->task_set_value(*p, 0x87, static_cast<int>(on ? (v | 0x800u) : (v & ~0x800u)), true);
+            done = 1;
+        }
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// SetProtectTime(t) (0x0810E3E0): top > 0 and the player 1..0x4af -> Player+0x86dc = t (0x0810E443); nothing returned
+int l_SetProtectTime(lua_State* L)
+{
+    if (lua_gettop(L) > 0) {
+        if (KNpc* p = player_of(L, "SetProtectTime")) p->player.protect_time = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 1)));
+    }
+    return 0;
+}
+
+// SetTmpCamp(camp[, npc]) (0x0810BA50): no argument -> 0; camp < 0 -> 0 (0x0810BAA1); two arguments -> the npc 1..count (else 0,
+// 0x0810BB30); one -> the player's npc (0x0810BB40; none -> 0); KNpc 0x0807B2D0(npc, camp) -> 1
+int l_SetTmpCamp(lua_State* L)
+{
+    lua_Integer done = 0;
+    const int top = lua_gettop(L);
+    KSubWorld* w = g_ScriptContext().world;
+    if (top > 0 && w != nullptr) {
+        const auto camp = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        KNpc* e = nullptr;
+        if (camp >= 0) e = top > 1 ? w->mutable_entity(entity_arg(L, 2)) : player_of(L, "SetTmpCamp");
+        if (e != nullptr) {
+            w->set_tmp_camp(*e, static_cast<int>(camp));
+            done = 1;
+        }
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// SetNpcCurCamp(npc, camp) (0x0811B120): the npc 1..count and camp <= 6 (0x0811B18B) -> KNpc::SetCurrentCamp 0x0807B850 (+0x220, the
+// 0x58 packet to the watchers; a player's partners follow through KPartnerSet 0x081621B0 - partners are not built); nothing returned
+int l_SetNpcCurCamp(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    KNpc* e = w->mutable_entity(entity_arg(L, 1));
+    const auto camp = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    if (e != nullptr && camp <= 6) w->set_current_camp(*e, static_cast<int>(camp));
+    return 0;
+}
+
+// NpcIdx2PIdx(npc) (0x081058B0): the npc 1..count, alive (Npc+4 > 0) and a player (Npc+0x24 == 1) -> its player index (0x08078A80:
+// Npc+0x1908); else 0 - both indices are the entity id here
+int l_NpcIdx2PIdx(lua_State* L)
+{
+    lua_Integer idx = 0;
+    if (KSubWorld* w = g_ScriptContext().world) {
+        const KNpc* e = w->find_entity(entity_arg(L, 1));
+        if (e != nullptr && e->kind == KNpcKind::player) idx = static_cast<lua_Integer>(e->id.value);
+    }
+    lua_pushinteger(L, idx);
+    return 1;
+}
+
+// AddStatData(name[, n]) (0x080FF550): one or two arguments (else nothing, 0x080FF56F); a string (else a log line, 0x080FF5FB);
+// n = arg 2 (0x080FF5D6), 1 without it -> 0x081D0420(0x978c0a0, name, n, 0): the statistics counters; nothing returned
+int l_AddStatData(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top != 1 && top != 2) return 0;
+    const char* name = lua_tostring(L, 1);
+    KSubWorld* w = g_ScriptContext().world;
+    if (name == nullptr || w == nullptr) return 0;
+    w->add_stat_data(name, top == 2 ? static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 2))) : 1);
+    return 0;
+}
+
+// AddMagicPoint(n) (0x0810FE50): top > 0 and a player -> Player+0x5928 (m_nSkillPoint) += n, below 0 -> 0 (0x0810FEF0); the 0x5e
+// packet {skill 0, level -1, the points} to the client (0x0810FEE1: G2C_SKILL_LEVEL, which the client reads as "no skill, the points");
+// nothing returned
+int l_AddMagicPoint(lua_State* L)
+{
+    if (lua_gettop(L) > 0) {
+        if (KNpc* p = player_of(L, "AddMagicPoint")) {
+            const std::int64_t v = static_cast<std::int64_t>(p->player.skill_point) + static_cast<std::int64_t>(lua_tonumber(L, 1));
+            p->player.skill_point = v < 0 ? 0 : static_cast<int>(std::min<std::int64_t>(v, INT_MAX));
+            g_ScriptContext().world->send_skill_level(p->sid, 0, -1, 0);
+        }
+    }
+    return 0;
+}
+
+// AddTimer(frames, fn, param) (0x08100D40): top > 2 (else 0); the script that calls (0x08220780; none -> 0, 0x08100DE8); fn a
+// non-empty string (0x08100DA2); a timer object (0x081CDA80 / 0x081CC520: fn, that script, param) added to the timer manager
+// 0x82e8cac for `frames` (0x0804E470) -> its id.  When due (0x081CC300) fn(param, id) runs in that script: one number back = the
+// next period (0 = done), two = the period and the new param, none = done.  A negative count of frames is taken as 0 here
+int l_AddTimer(lua_State* L)
+{
+    lua_Integer id = 0;
+    if (lua_gettop(L) > 2) {
+        KSubWorld* w = g_ScriptContext().world;
+        const std::string script = g_ScriptContext().script_path;
+        const auto frames = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        const char* fn = lua_tostring(L, 2);
+        const auto param = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 3)));
+        if (w != nullptr && !script.empty() && fn != nullptr && *fn != '\0') {
+            id = w->add_script_timer(static_cast<std::uint64_t>(frames < 0 ? 0 : frames), script, fn, param);
+        }
+    }
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+// DelTimer(id) (0x08100CA0): top > 0 (else 0) -> the manager's remove (0x0804E4B0) -> 1 when it was there, else 0
+int l_DelTimer(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 0) {
+        KSubWorld* w = g_ScriptContext().world;
+        const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (w != nullptr && id > 0 && id <= 0xffffffffLL && w->del_script_timer(static_cast<std::uint32_t>(id))) done = 1;
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// AddNpcSkillState(npc, skill, level, mode, time) (0x081260E0): top > 4 (else -1, 0x08126208) and npc > 0 (else -1, 0x08126220) ->
+// 0x08125D70(npc, skill, level, mode, time, 0) - the extra is always 0 here (0x0812617D); the npc must exist (0x08125D70 checks it)
+int l_AddNpcSkillState(lua_State* L)
+{
+    lua_Integer result = -1;
+    if (lua_gettop(L) > 4) {
+        KSubWorld* w = g_ScriptContext().world;
+        KNpc* e = w != nullptr ? w->mutable_entity(entity_arg(L, 1)) : nullptr;
+        if (e != nullptr) {
+            result = add_skill_state(*w, *e, static_cast<int>(lua_tonumber(L, 2)), static_cast<int>(lua_tonumber(L, 3)),
+                                     static_cast<std::int64_t>(lua_tonumber(L, 4)), static_cast<std::int64_t>(lua_tonumber(L, 5)), 0);
+        }
+    }
+    lua_pushinteger(L, result);
+    return 1;
+}
+
+// FormatTime2String(format, t) (0x08106720): no argument -> "" (0x08106818); localtime(t) (0x081067A4) then strftime into 0x100
+// bytes (0x081067D7); nothing written -> the error "invalid `date' format" (0x08106800); the string
+int l_FormatTime2String(lua_State* L)
+{
+    if (lua_gettop(L) <= 0) {
+        lua_pushstring(L, "");
+        return 1;
+    }
+    const char* fmt = lua_tostring(L, 1);
+    auto t = static_cast<std::time_t>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    char buf[0x100];
+    if (fmt == nullptr || !strftime_format_ok(fmt) || std::strftime(buf, sizeof buf, fmt, &tm) == 0) return luaL_error(L, "invalid `date' format");
+    lua_pushstring(L, buf);
+    return 1;
+}
+
+// GetCurrentTime() (0x08103A80): time(0) - the machine clock, without the offset of GetCurServerTime; pushed unsigned
+int l_GetCurrentTime(lua_State* L)
+{
+    lua_pushinteger(L, static_cast<lua_Integer>(static_cast<std::uint32_t>(std::time(nullptr))));
+    return 1;
+}
+
+// Tm2Time(year[, month[, day[, hour[, minute[, second]]]]]) (0x08103AC0): no argument -> nothing; tm = {year - 1900 (0x08103C3B),
+// month - 1 (0x08103BEF), day, hour, minute, second}: a missing month counts 0 (0x08103CBB), a missing day 1 (0x08103C96), the rest
+// 0; mktime, pushed unsigned (0x08103C60)
+int l_Tm2Time(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 0) return 0;
+    const auto arg = [&](int i) { return static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, i))); };
+    std::tm tm{};
+    tm.tm_year = arg(1) - 1900;
+    tm.tm_mon = top >= 2 ? arg(2) - 1 : 0;
+    tm.tm_mday = top >= 3 ? arg(3) : 1;
+    tm.tm_hour = top >= 4 ? arg(4) : 0;
+    tm.tm_min = top >= 5 ? arg(5) : 0;
+    tm.tm_sec = top >= 6 ? arg(6) : 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(static_cast<std::uint32_t>(std::mktime(&tm))));
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -3839,6 +4250,14 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetMSPlayerCount", l_GetMSPlayerCount}, {"GetNextPlayer", l_GetNextPlayer}, {"PIdx2MSDIdx", l_PIdx2MSDIdx},
     {"MSDIdx2PIdx", l_MSDIdx2PIdx},       {"Msg2MSAll", l_Msg2MSAll},         {"Msg2MSGroup", l_Msg2MSGroup},
     {"StartMissionTimer", l_StartMissionTimer}, {"StopMissionTimer", l_StopMissionTimer}, {"GetMSRestTime", l_GetMSRestTime},
+    {"SetItemBindState", l_SetItemBindState}, {"GetItemBindState", l_GetItemBindState}, {"SetSpecItemParam", l_SetSpecItemParam},
+    {"GetItemQuality", l_GetItemQuality}, {"ITEM_GetExpiredTime", l_ITEM_GetExpiredTime}, {"ITEM_SetExpiredTime", l_ITEM_SetExpiredTime},
+    {"CountFreeRoomByWH", l_CountFreeRoomByWH}, {"AddNpcEx", l_AddNpcEx},      {"SetNpcDeathScript", l_SetNpcScript},
+    {"ForbidEnmity", l_ForbidEnmity},     {"ForbitTrade", l_ForbitTrade},     {"DisabledStall", l_DisabledStall},
+    {"SetProtectTime", l_SetProtectTime}, {"SetTmpCamp", l_SetTmpCamp},       {"SetNpcCurCamp", l_SetNpcCurCamp},
+    {"NpcIdx2PIdx", l_NpcIdx2PIdx},       {"AddStatData", l_AddStatData},     {"AddMagicPoint", l_AddMagicPoint},
+    {"AddTimer", l_AddTimer},             {"DelTimer", l_DelTimer},           {"AddNpcSkillState", l_AddNpcSkillState},
+    {"FormatTime2String", l_FormatTime2String}, {"GetCurrentTime", l_GetCurrentTime}, {"Tm2Time", l_Tm2Time},
     {nullptr, nullptr},
 };
 

@@ -285,6 +285,32 @@ std::optional<double> KLuaScript::call_number(const char* name, const std::vecto
     return result;
 }
 
+std::vector<std::optional<double>> KLuaScript::call_numbers(const char* name, const std::vector<Arg>& args)
+{
+    std::vector<std::optional<double>> out;
+    if (L_ == nullptr) return out;
+    const int top = lua_gettop(L_);
+    const int self = push_function(name);
+    if (self < 0) {
+        lua_settop(L_, top);
+        return out;
+    }
+    for (const Arg& a : args) push_arg(a);
+    if (lua_pcall(L_, static_cast<int>(args.size()) + self, LUA_MULTRET, 0) != LUA_OK) {
+        log::warn("lua", "call failed", {log::kv("file", file_), log::kv("function", name), log::kv("error", lua_tostring(L_, -1))});
+        lua_settop(L_, top);
+        return out;
+    }
+    const int n = lua_gettop(L_) - top;
+    for (int i = 1; i <= n; ++i) {
+        int isnum = 0;
+        const double v = lua_tonumberx(L_, top + i, &isnum);
+        out.push_back(isnum ? std::optional<double>(v) : std::nullopt);
+    }
+    lua_settop(L_, top);
+    return out;
+}
+
 std::optional<KLuaScript::Arg> KLuaScript::call_value(const char* name, const std::vector<Arg>& args)
 {
     if (L_ == nullptr) return std::nullopt;
