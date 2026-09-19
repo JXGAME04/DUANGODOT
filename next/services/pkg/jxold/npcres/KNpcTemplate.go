@@ -66,6 +66,9 @@ var LevelCells = []string{
 	"MaxDamageParam", "MaxDamageParam1", "MaxDamageParam2", "MaxDamageParam3",
 	"FireResist", "ColdResist", "LightResist", "PoisonResist", "PhysicsResist",
 	"Level1", "Level2", "Level3", "Level4",
+	// the aura and the passive skill of the template (KNpcTemplate::InitNpcLevelData 0x080A37A0 of jx_linux_y:
+	// AuraSkillId by GetInteger, its level cell through the level script and clamped to 64; the same for PasstSkill*)
+	"AuraSkillId", "AuraSkillLevel", "PasstSkillId", "PasstSkillLevel",
 }
 
 // TemplateSkill is one of the Skill1..4 / Level1..4 pairs.  A level cell "a|b" means

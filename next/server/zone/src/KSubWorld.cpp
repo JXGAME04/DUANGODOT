@@ -87,15 +87,24 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
                 // NPCKIND of the old GameDataDef.h: 0 = kind_normal (a monster); everything else
                 // (partner, dialoger, bird, mouse) is a friendly npc
                 const KNpcKind kind = n.kind == 0 ? KNpcKind::monster : KNpcKind::npc;
-                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind);
+                // KRegion::LoadNpc 0x080E28E0: a kind 0 record takes the map's random series (NpcSeriesAuto) and level (NpcAutoLevelFlag)
+                int series = n.series, level = n.level;
+                if (n.kind == 0) {
+                    if (cfg_.map->settings.npc_series_auto != 0) series = random_series();
+                    if (cfg_.map->settings.npc_auto_level_flag != 0) level = random_level();
+                }
+                // KRegion::LoadNpc 0x080E2850 (Region_S.dat) -> KNpcSet::Add 0x0809FBD0 with flag 1: no 0x08085250, +0x181c
+                // stays 0 (the GoldBoss spawner 0x080F0320 is the one that sets 1); a bSpecialNpc or a map with
+                // `<id>_AutoGoldenNpc` -> BackData (0x0809FCFE: a gold candidate), then the map's `<id>_NormalDropRate`
+                // replaces the drop table (0x0809FD30 - after the backup, so the first recover puts the template's back)
+                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind, static_cast<std::uint32_t>(std::max(1, level)), series, 0);
                 if (KNpc* placed = entities_.find(id)) {
                     placed->dir = static_cast<std::uint32_t>(n.dir & 63);
-                    placed->level = static_cast<std::uint32_t>(std::max(1, n.level));
-                    placed->series = static_cast<std::uint32_t>(n.series);
-                    apply_template(*placed);   // skill levels depend on the level (KNpcTemplate::InitNpcLevelData)
                     placed->npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
                     placed->camp = std::clamp(n.camp, 0, camp_num - 1);
                     placed->current_camp = placed->camp;
+                    if (n.special || cfg_.map->settings.auto_golden_npc != 0) gold_back_data(*placed);
+                    if (!cfg_.map->settings.normal_drop_rate.empty()) placed->drop_rate_file = cfg_.map->settings.normal_drop_rate;
                 }
             }
             take_outbox();   // nobody is listening yet
@@ -198,6 +207,13 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_riding(e.horse != 0);   // the 0x20 flag (0x0807C07E / 0x080814ED)
     out.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
     out.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
+    // 0x0807FCA5: the word of KNpcGold::GetGoldKind (the row + 1 while gold); a boss (+0x181c != 0) sends the table's
+    // count + 1 (0x0807FCC7) - the 2.0 client colours a kind above its own table as a boss (0x005F2401)
+    int gold_word = e.gold.gold_kind();
+    if (e.boss_flag != 0 && e.kind != KNpcKind::player) gold_word = (cfg_.gold ? cfg_.gold->count() : 0) + 1;
+    out.set_gold_type(static_cast<std::uint32_t>(gold_word));
+    out.set_camp(e.camp);                   // +0xb of the packet (0x0807FBD2)
+    out.set_current_camp(e.current_camp);   // +3 (0x0807FBDB)
     switch (e.doing) {
     case KDoing::magic:
     case KDoing::attack: out.set_doing(pb::ACTION_ATTACK); break;
@@ -242,7 +258,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.sid = sid;
     e.player_id = role.player_id();
     e.skill_mgr = skills_.get();
-    e.speed = role.stats().move_speed() > 0 ? static_cast<std::uint32_t>(role.stats().move_speed()) : cfg_.default_speed;
+    e.speed = cfg_.default_speed;   // until LoadFrom below fills the run speed (player_move_speed)
     e.fight_mode = role.fight_mode();
     // basevalue.ini of the old server ([Common] AttackFrame 18, HurtFrame 12, CastFrame 18)
     e.attack_frame = static_cast<std::uint32_t>(std::max(1, tables().base_value().attack_frame));
@@ -276,6 +292,9 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     // KPlayer::LoadFrom: the points, the level tables and the equipment make the numbers
     entities_.at(id).player.load_from(entities_.at(id), role, tables(), items_of(sid));
     load_skills(entities_.at(id), role);   // KPlayer::LoadPlayerFightSkillList: the skills, each through KSkillList::Add
+    // the pace: m_CurrentRunSpeed units a frame (0x08080C01; 10 for a player, 0x080A7FF0) = 180 a second at 18 Hz - the role's
+    // move_speed (a 200 the persist layer fills in) is not a rule of the old server and is ignored
+    entities_.at(id).speed = player_move_speed(entities_.at(id));
 
     // The newcomer looks around at once: its client gets its own character first, then what is
     // nearest, up to the budget; the rest follows over the next ticks.  Everybody already there
@@ -471,10 +490,11 @@ bool KSubWorld::gm_command(std::uint64_t sid, std::string_view text)
     return true;
 }
 
-EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind, std::uint32_t level, int series)
+EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind, std::uint32_t level, int series, int boss_flag)
 {
     KNpc e;
     e.kind = kind;
+    e.boss_flag = boss_flag;
     e.name = std::move(name);
     e.template_id = template_id;
     e.speed = cfg_.default_speed / 2;
@@ -492,9 +512,32 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     const EntityId id = entities_.insert(std::move(e));
     entities_.at(id).id = id;
     grid_.insert(id, home);
+    if (boss_flag != 0) init_template_skills(entities_.at(id));   // 0x08085250 follows KNpcSet::Add only for these
     // Nothing is sent here: the clients around notice the newcomer at their next look, which also
     // means a script that spawns a hundred npcs at once does not flood anybody.
     return id;
+}
+
+void KSubWorld::init_template_skills(KNpc& e)
+{
+    // 0x08085250(npc): the level record of (template, level, series); +0x10fc > 0 -> SetNpcSkill(5, id, +0x1100);
+    // +0x1104 in 1..1999 with +0x1108 in 1..63 and the skill instance's style (vtable+0x10) == 3 -> SetNpcSkill(6, id, level)
+    // and KSkill::Cast(skill, npc, -1, npc, 0, 0, 0) - the passive's states on the npc for good
+    const KNpcTemplate* t = cfg_.templates ? cfg_.templates->find(e.template_id) : nullptr;
+    if (t == nullptr) return;
+    const KNpcLevelData& d = level_data_of(*t, static_cast<int>(std::max(1u, e.level)), static_cast<int>(e.series));
+    if (d.aura_skill_id > 0) e.skill_list.set_npc_skill(5, d.aura_skill_id, d.aura_skill_level);
+    if (d.passive_skill_id >= 1 && d.passive_skill_id <= 1999 && d.passive_skill_level >= 1 && d.passive_skill_level <= 63) {
+        const KSkill* sk = skill_instance(d.passive_skill_id, d.passive_skill_level);
+        if (sk != nullptr && sk->row.style == skill_style_passivity_npc_state) {
+            e.skill_list.set_npc_skill(6, d.passive_skill_id, d.passive_skill_level);
+            KCastParams p;
+            p.target = e.id;
+            skill_cast(*sk, e, p);
+            log::debug("zone.fight", "template passive skill", {log::kv("entity", e.id), log::kv("skill", d.passive_skill_id), log::kv("level", d.passive_skill_level)});
+        }
+    }
+    if (d.aura_skill_id > 0) log::debug("zone.fight", "template aura", {log::kv("entity", e.id), log::kv("skill", d.aura_skill_id), log::kv("level", d.aura_skill_level)});
 }
 
 void KSubWorld::wander(KNpc& e)
@@ -582,6 +625,15 @@ void KSubWorld::tick()
         update_action(e);
         if (awake && e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
+        if (e.kind == KNpcKind::player) {
+            // 0x08080C50: a player's run step checks the stamina against the run cost every frame - below it the frame walks
+            // (0x0807B430 / 0x08080B70, the packet 0x50) until the stamina is back
+            const std::uint32_t speed = player_move_speed(e);
+            if (speed != e.speed) {
+                e.speed = speed;
+                emit_move(e);   // the clients pace it at the new speed
+            }
+        }
         std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
         while (budget > 0 && e.moving) {
             const std::int64_t dx = e.tx - e.fx;
@@ -714,6 +766,7 @@ void KSubWorld::apply_template(KNpc& e) const
     e.base.life_replenish = d.life_replenish;
     e.base.experience = static_cast<int>(d.exp);
     e.base.treasure = t->treasure;
+    e.drop_rate_file = t->drop_rate_file;   // +0x174c from the template (0x080830BA)
     e.base.life_max = static_cast<int>(std::max(1u, d.life_max));
     e.base.vision_radius = t->vision_radius;
     e.base.active_radius = t->active_radius;
@@ -1049,12 +1102,25 @@ void KSubWorld::process_state(KNpc& e)
     if (e.cur.mana > e.mana_max()) e.cur.mana = e.mana_max();
     else if (e.cur.mana < 0) e.cur.mana = 0;
     if (e.kind == KNpcKind::player) {
-        // 0x0808BD3D: the stamina gain (running costs it, sitting adds stamina_sit_add - neither state yet)
-        e.cur.stamina += e.cur.stamina_gain;
+        // 0x0808BD3D: gain = m_CurrentStaminaGain, 0 while ForbitStamina (Player+0x86b4); running (m_Doing 3) costs the
+        // ExerciseRunSub / FightRunSub / KillRunSub of the PK state on top (0x0808BE0B ..), sitting (8) adds +0x11b0 (no sit
+        // state yet); clamped to [0, max] (0x0808BD87 .. 0x0808BD9B)
+        const int gain = e.player.forbid_stamina != 0 ? 0 : e.cur.stamina_gain;
+        const int sub = run_stamina_sub(e);
+        // an exhausted character walks (m_Doing 2, 0x08080C86): the walk step 0x08080B70 has no stamina line, only the gain
+        // (the zone keeps a moving character at KDoing::stand: `moving` is its m_Doing 3)
+        if (e.moving && (e.doing == KDoing::stand || e.doing == KDoing::walk) && e.cur.stamina >= sub) e.cur.stamina += gain - sub;
+        else e.cur.stamina += gain;
         if (e.cur.stamina > e.cur.stamina_max) e.cur.stamina = e.cur.stamina_max;
         else if (e.cur.stamina < 0) e.cur.stamina = 0;
     }
-    // (0x0808BAF6: a boss casts its +0x340 / +0x358 skill - B2b)
+    // 0x0808BAF6: a placed / scripted npc (+0x181c, not a player or a partner) casts the template's aura in cell 5
+    // (+0x340 id, +0x358 current level, both > 0) - the level clamped to 64 by InitNpcLevelData never passes 0x080873B0's
+    // bound of 63, exactly like the original
+    if (e.kind != KNpcKind::player && e.npc_kind != kind_partner && e.boss_flag != 0) {
+        const KNpcSkill* c5 = e.skill_list.cell(5);
+        if (c5 != nullptr && c5->id > 0 && c5->current_level > 0) cast_skill_effect(e, c5->id, c5->current_level);
+    }
     // 0x0808BB83: the aura +0x244 - held in a cell of the list (index 1..79) whose ReqLevel the npc's level reaches ->
     // 0x080873B0(npc, aura, its current level)
     if (e.aura_skill_id != 0) {
@@ -1159,7 +1225,9 @@ void KSubWorld::share_experience(KNpc& dead)
 void KSubWorld::recalc_player(KNpc& e)
 {
     if (e.kind != KNpcKind::player || !e.player.loaded) return;
-    e.player.updata_cur_data(e, false, tables(), items_of(e.sid));
+    KSkillListHost host = skill_host(e);
+    const std::function<void(int)> set_hide_hook = [&](int v) { set_hide(e, v); };
+    e.player.updata_cur_data(e, false, tables(), items_of(e.sid), &host, &set_hide_hook);
     send_player_attrib(e.sid);
 }
 
@@ -1363,6 +1431,7 @@ void KSubWorld::do_revive(KNpc& e)
         player_corpse(e);
         return;
     }
+    recover_gold(e);     // 0x08083720 (the end of the death frames): the OnDeath script, then RecoverBackData
     e.doing = KDoing::revive;
     e.life_state = {};   // KNpc::DoRevive -> ClearNormalState
     e.frame_total = std::max(1u, e.revive_frame);
@@ -1394,6 +1463,139 @@ void KSubWorld::revive(KNpc& e)
     e.set_pos(e.home);
     grid_.insert(e.id, e.home);   // back in the world: the clients around find it at their next look
     log::debug("zone.fight", "revived", {log::kv("entity", e.id)});
+    // 0x08085E92: a map with NpcSeriesAuto rolls the series again; a different one re-templates the npc (0x08085DA0 = Init with
+    // the new series: the level record of that series) keeping its name, kind and camps (0x080860AB .. 0x08086152), the map's
+    // NormalDropRate for a +0x181c == 0 npc (0x0808611A), a fresh BackData when it is a gold candidate (0x0808617B), the
+    // template's skills when +0x181c != 0 (0x08086191)
+    if (e.kind != KNpcKind::player && map_settings().npc_series_auto != 0) {
+        const int series = random_series();
+        if (series != static_cast<int>(e.series)) {
+            const std::string name = e.name;
+            const int npc_kind = e.npc_kind, camp = e.camp, current_camp = e.current_camp;
+            e.series = static_cast<std::uint32_t>(series);
+            apply_template(e);
+            e.name = name;
+            e.npc_kind = npc_kind;
+            e.camp = camp;
+            e.current_camp = current_camp;
+            if (e.boss_flag == 0 && !map_settings().normal_drop_rate.empty()) e.drop_rate_file = map_settings().normal_drop_rate;
+            if (e.gold.is_gold) gold_back_data(e);
+            if (e.boss_flag != 0) init_template_skills(e);
+            e.cur.life = e.life_max();
+            log::debug("zone.fight", "series rerolled", {log::kv("entity", e.id), log::kv("series", series)});
+        }
+    }
+    // 0x0808600D: a npc with +0x181c == 0 rolls the map's AutoGoldenNpc chance in a million (a map without one hands
+    // 2 000 000 - always, 0x080861AE); gold and the map has a GoldenDropRate -> the drop table (0x08086073)
+    if (e.boss_flag == 0) {
+        const KMapSettings& s = map_settings();
+        set_gold_type(e, s.auto_golden_npc != 0 ? s.auto_golden_npc : 2000000, 0);
+        if (e.gold.is_golding && !s.golden_drop_rate.empty()) e.drop_rate_file = s.golden_drop_rate;
+    }
+}
+
+const KMapSettings& KSubWorld::map_settings() const noexcept
+{
+    static const KMapSettings none;
+    return cfg_.map ? cfg_.map->settings : none;
+}
+
+int KSubWorld::run_stamina_sub(const KNpc& e) const noexcept
+{
+    const KStaminaRule& s = tables().stamina();
+    switch (e.player.pk_state) {
+    case 0: return s.exercise_run_sub;
+    case 1: return s.fight_run_sub;
+    default: return s.kill_run_sub;
+    }
+}
+
+std::uint32_t KSubWorld::player_move_speed(const KNpc& e) const noexcept
+{
+    const int per_frame = e.cur.stamina < run_stamina_sub(e) ? e.cur.walk_speed : e.cur.run_speed;
+    return static_cast<std::uint32_t>(std::max(1, per_frame)) * cfg_.tick_hz;
+}
+
+int KSubWorld::random_series()
+{
+    const KMapSettings& s = map_settings();
+    if (s.npc_series_auto == 0 || s.series_sums[4] <= 1) return 0;   // 0x080EFBF2 / 0x080EFBFD
+    const int r = static_cast<int>(rng_() % static_cast<std::uint32_t>(s.series_sums[4]));
+    if (r < s.series_sums[0]) return 0;
+    if (r < s.series_sums[1]) return 1;
+    if (r < s.series_sums[2]) return 2;
+    if (r < s.series_sums[3]) return 3;
+    if (r < s.series_sums[4]) return 4;
+    return 0;
+}
+
+int KSubWorld::random_level()
+{
+    const KMapSettings& s = map_settings();
+    if (s.npc_auto_level_flag == 0) return 1;                     // 0x080EFBA2
+    if (s.npc_auto_level_max < s.npc_auto_level_min) return 1;   // 0x080EFBB2 (the loader never leaves it so)
+    if (s.npc_auto_level_max == s.npc_auto_level_min) return s.npc_auto_level_max;
+    const int span = s.npc_auto_level_max + 1 - s.npc_auto_level_min;
+    return static_cast<int>(rng_() % static_cast<std::uint32_t>(span)) + s.npc_auto_level_min;
+}
+
+bool KSubWorld::set_gold_type(KNpc& e, int rate, int type)
+{
+    KNpcGold& g = e.gold;
+    if (!g.is_gold || g.is_golding) return false;                                       // 0x0809D8E2 / 0x0809D8EF
+    if (static_cast<int>(rng_() % 1000000u) >= rate) return false;                       // 0x0809D900: g_Random(1 000 000) >= rate
+    const KNpcGoldTemplateSet* table = cfg_.gold.get();
+    if (table == nullptr || table->count() <= 0) return false;                          // 0x0809D911
+    if (type > 0 && type < table->count()) {                                             // 0x0809D925: 1 .. count-1 (count itself goes random)
+        g.gold_type = type - 1;
+    } else if (map_settings().golden_type != 0) {                                        // 0x0809DF98: the map's GoldenType
+        g.gold_type = map_settings().golden_type - 1;
+    } else {
+        g.gold_type = static_cast<int>(rng_() % static_cast<std::uint32_t>(table->count()));   // 0x0809E060: g_Random(count)
+    }
+    g.is_golding = true;
+    const KNpcGoldTemplate* t = table->row(g.gold_type);
+    if (t == nullptr) {   // a GoldenType above the table: the binary reads past its rows; here the numbers stay
+        log::warn("zone.fight", "gold type outside the table", {log::kv("entity", e.id), log::kv("type", g.gold_type), log::kv("rows", table->count())});
+        emit_gold(e);
+        return true;
+    }
+    // 0x0809DB34: the row's skill with a level cell -> GetNpcLevelData(series, level, "Level5", cell) (0x080A1F90),
+    // SetNpcSkill(5, id, level) (0x080E4310), SetAura(npc, id) (0x08087290)
+    if (t->skill_id != 0 && !t->skill_level.empty()) {
+        const int level = KNpcTemplateSet::level_string(static_cast<int>(e.series), static_cast<int>(e.level), "Level5", t->skill_level, cfg_.scripts.get());
+        e.skill_list.set_npc_skill(5, t->skill_id, level);
+        set_aura(e, t->skill_id);
+    }
+    gold_apply(e, *t);
+    if (e.kind != KNpcKind::player) e.speed = static_cast<std::uint32_t>(std::max(1, e.cur.walk_speed)) * cfg_.tick_hz;   // ServeMove: the walk speed per frame
+    log::debug("zone.fight", "gold monster", {log::kv("entity", e.id), log::kv("type", g.gold_type + 1), log::kv("name", t->name), log::kv("skill", t->skill_id),
+                                              log::kv("life_max", e.life_max()), log::kv("exp", e.base.experience)});
+    emit_gold(e);   // 0x0809DF4B: IsGold && IsGolding -> the 0x9a packet
+    return true;
+}
+
+void KSubWorld::recover_gold(KNpc& e)
+{
+    if (!e.gold.is_gold || !e.gold.is_golding) return;
+    const KNpcGoldTemplate* t = cfg_.gold ? cfg_.gold->row(e.gold.gold_type) : nullptr;
+    // 0x0809E105: the id of cell 5 taken out of the list (0x080E52D0), SetAura(npc, 0)
+    if (const KNpcSkill* c5 = e.skill_list.cell(5); c5 != nullptr && c5->id > 0) {
+        KSkillListHost host = skill_host(e);
+        e.skill_list.remove(c5->id, host);
+    }
+    set_aura(e, 0);
+    gold_recover(e, t);
+    if (e.kind != KNpcKind::player) e.speed = static_cast<std::uint32_t>(std::max(1, e.cur.walk_speed)) * cfg_.tick_hz;
+    log::debug("zone.fight", "gold recovered", {log::kv("entity", e.id), log::kv("type", e.gold.gold_type + 1)});
+}
+
+void KSubWorld::emit_gold(const KNpc& e)
+{
+    pb::NpcGold m;
+    m.set_entity_id(e.id.value);
+    m.set_gold_type(static_cast<std::uint32_t>(e.gold.gold_kind()));
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_NPC_GOLD), m);
 }
 
 // KNpc::CheckTrap: the trap under the player fires once when stepped on (m_TrapScriptID keeps
@@ -1573,6 +1775,19 @@ void KSubWorld::skill_desc_request(std::uint64_t sid, int skill_id, int level)
             d.set_level_inc(held - asker->skill_list.get_level(skill_id));
         }
         if (const auto it = asker->skill_list.enhance.find(skill_id); it != asker->skill_list.enhance.end()) d.set_enhance(it->second);
+        // 0x006FC348: G_Skills_76 sums the 2.0 client's Npc+0x1148 (its attribute 244 magicdamage_p = +0x1284 here) and +0x1278 (its
+        // attribute 299 movedistanc_710_enhance, absent from this jx_linux_y); 0x005EC4F0: the state modifier aimed at this skill
+        d.set_equip_percent(asker->cur.magic_damage_percent);
+        if (asker->state_modifier.skill_id == skill_id && asker->state_modifier.attrib > 0) {
+            d.set_with_modifier(true);
+            pb::SkillDescAttrib* a = d.mutable_modifier();
+            a->set_group(2);
+            a->set_name(magic_attrib_name(asker->state_modifier.attrib));
+            const int k = asker->state_modifier.index;
+            a->set_v0(k == 0 ? asker->state_modifier.delta : 0);
+            a->set_v1(k == 1 ? asker->state_modifier.delta : 0);
+            a->set_v2(k == 2 ? asker->state_modifier.delta : 0);
+        }
     }
     d.set_held_level(static_cast<std::uint32_t>(std::max(0, level)));
     const auto put = [](pb::SkillDescAttrib* a, int group, const KMagicAttrib& m) {
@@ -2443,8 +2658,8 @@ void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
     if (dead.kind == KNpcKind::player || dead.cur.treasure <= 0 || !cfg_.templates) return;
     const KNpc* k = entities_.find(killer);
     if (k == nullptr || k->kind != KNpcKind::player) return;
-    const KNpcTemplate* t = cfg_.templates->find(dead.template_id);
-    const KNpcDropRate* table = t && !t->drop_rate_file.empty() ? cfg_.templates->drop_rate(t->drop_rate_file) : nullptr;
+    // +0x174c: the npc's own table - the template's, the map's NormalDropRate, the GoldenDropRate while gold
+    const KNpcDropRate* table = dead.drop_rate_file.empty() ? nullptr : cfg_.templates->drop_rate(dead.drop_rate_file);
     if (table == nullptr) return;
     int items = 0, money = 0;
     for (int i = 0; i < dead.cur.treasure; ++i) {
@@ -2454,7 +2669,8 @@ void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
                 pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), k->player_id});
                 ++money;
             }
-        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), 0)) {
+        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), k->player.cur_lucky)) {
+            // GenRandomItem 0x08083DA7: the killer's m_nCurLucky (+0x5958), plus a tong rank bonus (0x080CC620 when +0x5994 != 0 - no tong yet)
             pending_drops_.push_back(KPendingDrop{std::move(item), 0, dead.pos(), k->player_id});
             ++items;
         }

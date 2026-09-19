@@ -8,6 +8,7 @@ extends Node2D
 
 const KNpcResScript := preload("res://scenes/KNpcRes.gd")
 const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
+const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const KMath := preload("res://scenes/KMath.gd")
 
 const RADIUS := 14.0
@@ -23,7 +24,6 @@ const ACTION_DEATH := 3
 const ACTION_REVIVE := 4
 const ACTION_JUMP := 5
 const ACTION_KNOCK_BACK := 6
-const LIFE_BAR := Vector2(40, 4)
 # the name block over a character as gamecl.exe 0x005F2DB0 sizes it with names shown: 3 (life bar) + 5, the name
 # line 12 + 2 - the Head state pictures hang from it (0x006DFAC0: z = block height + 9 - 100)
 const INFO_LINES := 22
@@ -54,7 +54,21 @@ var _tick_acc := 0.0
 var _rng := RandomNumberGenerator.new()
 var _knock_dest := Vector2.ZERO    # KNpc+0x13b4/+0x13b8 of the 2.0 client: where a knock back pushes to
 var _knocked := false
+var _knock_from := Vector2.ZERO    # the slide of the current logic frame, drawn interpolated (HANDOVER §0.1 rule 13)
+var _knock_to := Vector2.ZERO
 var state_icons: Array = []        # the six StateSpecialIds of the 0x7a packet (G2C_STATE_ICONS), drawn by KNpcRes
+var sounds = null                  # the world's KWavSound (UiGame), null = silent
+var level := 0                     # m_Level (+0x28 of the 2.0 client): "%s/Lv:%d" of the name line (0x005F242F)
+# KNpcGold at KNpc+0x4c of the 2.0 client (SetGoldType 0x006E3560 from the 0x4c / 0x9a packets): the kind = the
+# NpcGoldTemplate row + 1 while gold, 0 plain; a boss carries the server table's count + 1 (KNpcGold.gd)
+var gold_type := 0
+var hovered := false               # the npc under the mouse (the pate loop 0x0067021A: [core+0xa8c4] == this)
+var camp := 4                      # m_Camp (+0xf4 of the 2.0 client, the byte +0xb of the 0x4c packet)
+var current_camp := 4              # m_CurrentCamp (+0xf8, the byte +3): the colour of a player's name (0x005F2507)
+# the two show switches (KNpcGold.gd): "showplayername" (F7) and "showplayerlife" (F8) of the option word, shared by every npc
+static var name_switch := 3        # this client starts with the names on (2.0 starts at 0: docs/CLIENT-2.0.md §17)
+static var life_switch := 0
+var _life_label: Label             # the "%d/%d" line over the name line of a monster (0x005F2358)
 var no_2d := false                 # a 3D view draws it (KWorldView3D): no sprites, no label, nothing on the canvas
 
 signal doing_changed(doing: int, total_frame: int)   # the doing (and its frame count) was set, for a 3D view
@@ -74,6 +88,10 @@ func setup(d: Dictionary, own: bool) -> void:
 	display_name = str(d.name)
 	template_id = int(d.get("template_id", 0))
 	sex = int(d.get("sex", 0))
+	level = int(d.get("level", 0))
+	gold_type = int(d.get("gold_type", 0))
+	camp = int(d.get("camp", 4))
+	current_camp = int(d.get("current_camp", 4))
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -92,16 +110,11 @@ func setup(d: Dictionary, own: bool) -> void:
 		_res.name = "Res"
 		add_child(_res)
 	if _label == null and not no_2d:
-		_label = Label.new()
-		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_label.size = Vector2(140, 20)
-		_label.add_theme_color_override("font_color", Color.WHITE)
-		_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-		_label.add_theme_constant_override("shadow_offset_x", 1)
-		_label.add_theme_constant_override("shadow_offset_y", 1)
-		add_child(_label)
+		_label = _make_label()
+		_life_label = _make_label()
+		_life_label.visible = false
 	if _label != null:
-		_label.text = display_name
+		_refresh_name()
 		_label.position = Vector2(-70, -RADIUS - 26)
 	# appearance: players are the composed main characters, everything else its npcs.txt template
 	var res_name := ""
@@ -124,6 +137,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
 	if _label != null:
 		_label.position.y = -float(_pate()) - 20.0
+		_life_label.position.y = _label.position.y - 16.0
 	doing = -1
 	_set_doing(KNpcResNode.Doing.STAND)
 	# a late joiner sees corpses and swings already under way
@@ -169,6 +183,8 @@ func apply_action(a: Dictionary) -> void:
 			# the way it came from (0x005E8DB0 of here - spot) and keeps its facing when the spot is here.  docs/CLIENT-2.0.md §12
 			_knock_dest = Vector2(float(a.get("ax", a.x)), float(a.get("ay", a.y)))
 			_knocked = true
+			_knock_from = scene_pos
+			_knock_to = scene_pos
 			var face := KMath.get_dir_index(int(_knock_dest.x), int(_knock_dest.y), int(scene_pos.x), int(scene_pos.y))
 			if face >= 0:
 				dir64 = face
@@ -187,7 +203,88 @@ func apply_action(a: Dictionary) -> void:
 func set_life(l: Dictionary) -> void:
 	life = int(l.get("life", life))
 	life_max = int(l.get("life_max", life_max))
+	if _life_label != null and _life_label.visible:
+		_refresh_name()
 	queue_redraw()
+
+
+func _make_label() -> Label:
+	var l := Label.new()
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.size = Vector2(140, 20)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	l.add_theme_color_override("font_shadow_color", Color.BLACK)
+	l.add_theme_constant_override("shadow_offset_x", 1)
+	l.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(l)
+	return l
+
+
+# The name block as gamecl.exe 0x005F21B0 draws it: a monster (kind 0) gets "%d/%d" (0x005F2358, white) over "%s/Lv:%d"
+# (0x005F242F) in the colour of its gold kind (0x005F23E5: none = white, a kind = 0xFF6365FF, above the client's table =
+# 0xFFEBB200) - only as the show switch and the hover / target allow (KNpcGold.name_block: size 14 with a black outline when
+# hovered or targeted, 12 with the switch's second bit, else nothing); players and the other kinds keep their name.
+# docs/CLIENT-2.0.md §16 / §17
+func _refresh_name() -> void:
+	if _label == null:
+		return
+	var block := KNpcGold.name_block(entity_type, name_switch, hovered or is_target)
+	_label.visible = block != 0
+	_life_label.visible = block != 0 and entity_type == ENTITY_MONSTER
+	if block == 0:
+		return
+	_label.text = KNpcGold.name_text(display_name, entity_type, level)
+	_label.add_theme_color_override("font_color", name_color())
+	_life_label.text = "%d/%d" % [life, life_max]
+	for l in [_label, _life_label]:
+		l.add_theme_font_size_override("font_size", block)
+		# the block is as wide as its text (the 2.0 painter measures each line, 0x005F22A2 / 0x005F2445)
+		var font: Font = l.get_theme_font("font")
+		var w: float = font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_CENTER, -1, block).x + 6.0
+		l.size = Vector2(w, float(block) + 6.0)
+		l.position.x = -w * 0.5
+		# 0x006702ED hands OutputText a BorderColor of 0xff000000 for the hovered / targeted npc (iRepresentShell::OutputText's last
+		# argument is the outline of the letters, not a background): a black outline at 14, none at 12
+		l.add_theme_constant_override("outline_size", 2 if block == 14 else 0)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+
+
+# the pate loop's hover (0x0067021A) and the switches (F7 / F8) changed: the block again
+func refresh_info() -> void:
+	_refresh_name()
+	queue_redraw()
+
+
+func set_hovered(on: bool) -> void:
+	if hovered == on:
+		return
+	hovered = on
+	refresh_info()
+
+
+func name_color() -> Color:
+	if entity_type == ENTITY_PLAYER:
+		return KNpcGold.player_name_color(current_camp)   # 0x005F2507: the table 0x5f2d94 by +0xf8
+	return KNpcGold.name_color(entity_type, gold_type, NpcResList.gold_rows())
+
+
+# the 0x59 / 0x58 packets (G2C_ENTITY_CAMP): the camps, and a player's name colour with them
+func set_camp(c: int, current: int) -> void:
+	camp = c
+	current_camp = current
+	_refresh_name()
+
+
+# KNpcGold::SetGoldType 0x006E3560 (the 0x9a packet): the kind, 0 = plain again
+func set_gold_type(kind: int) -> void:
+	gold_type = kind
+	_refresh_name()
+
+
+# gamecl.exe 0x00642550: the class the hang-up target filter and the cursor (0x0069D25D: 0xf for any gold kind) sort a
+# npc into - 1 plain, 2 gold, 3 above the client's table (a boss)
+func npc_class() -> int:
+	return KNpcGold.npc_class(gold_type, NpcResList.gold_rows())
 
 
 # The 0x7a packet (KNpc::SetNpcState of the old client): the states shown on the body - KNpcRes::SetState picks
@@ -213,7 +310,7 @@ func _head_effect_z() -> int:
 
 func set_target(on: bool) -> void:
 	is_target = on
-	queue_redraw()
+	refresh_info()
 
 
 func is_dead() -> bool:
@@ -278,6 +375,9 @@ func _process(delta: float) -> void:
 	while _tick_acc >= TICK:
 		_tick_acc -= TICK
 		_tick()
+	if _knocked:
+		# the logic slides once per frame (OnKnockBack); the picture goes the frame's way smoothly (rule 13)
+		position = to_screen(_knock_from.lerp(_knock_to, clampf(_tick_acc / TICK, 0.0, 1.0)))
 
 
 # One old logic frame: choose the doing, advance the frame counter, turn, and draw.
@@ -290,8 +390,9 @@ func _tick() -> void:
 	elif doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.HURT:
 		if _knocked:
 			# KNpc::OnKnockBack 0x005EFE00: a frame's share of the way left, then the frame count as for a hurt
+			_knock_from = scene_pos
 			scene_pos += KMath.knock_step(scene_pos, _knock_dest, total_frame - cur_frame)
-			position = to_screen(scene_pos)
+			_knock_to = scene_pos
 		cur_frame += 1
 		if cur_frame >= total_frame:   # KNpc::OnSpecial1 / OnHurt / OnKnockBack -> DoStand
 			_knocked = false
@@ -320,6 +421,16 @@ func _tick() -> void:
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
 		_res.paint(res_dir, total_frame, cur_frame, _head_effect_z())
+	_play_action_sound()
+
+
+# KNpcRes::Draw 0x006E06E5: while the action is under 5 % done (elapsed / (frames / 18 s) < 0.05 - its first frame, or
+# two for long ones) its sound plays at the feet unless the same file is still playing (KNpcRes::PlaySound 0x006DFA20
+# with IsPlaying).  The action's clock restarts with every cycle (KNpc::WaitForFrame 0x005EA700 sets +0x10c when the
+# frame wraps), so a walk's footsteps come back each cycle and an idle's call each time it plays.
+func _play_action_sound() -> void:
+	if sounds != null and has_res and cur_frame * 20 < total_frame and _res.sound_name != "":
+		sounds.play(_res.sound_name, scene_pos, false, true)
 
 
 # KNpc::GetNpcPate (no jump height, sitting or riding yet).
@@ -347,6 +458,7 @@ func _set_doing(d: int) -> void:
 	if has_res:
 		_res.set_action(d)
 		queue_redraw()
+	_play_action_sound()
 	doing_changed.emit(doing, total_frame)
 
 
@@ -358,6 +470,7 @@ func _set_action(d: int, n: int) -> void:
 	if has_res:
 		_res.set_action(d)
 	queue_redraw()
+	_play_action_sound()
 	doing_changed.emit(doing, total_frame)
 
 
@@ -374,11 +487,14 @@ func _draw() -> void:
 			color = Color(0.95, 0.3, 0.3)            # monster
 		draw_circle(Vector2.ZERO, RADIUS, color)
 		draw_arc(Vector2.ZERO, RADIUS, 0, TAU, 24, Color(0, 0, 0, 0.6), 2.0)
-	# KNpc::PaintLife: a life bar under the name for wounded or selected characters
-	if life_max > 0 and (life < life_max or is_target) and not is_dead():
-		var top := Vector2(-LIFE_BAR.x * 0.5, -float(_pate()) + 2.0)
-		draw_rect(Rect2(top, LIFE_BAR), Color(0, 0, 0, 0.7))
-		var w := LIFE_BAR.x * clampf(float(life) / float(life_max), 0.0, 1.0)
-		draw_rect(Rect2(top, Vector2(w, LIFE_BAR.y)), Color(0.85, 0.15, 0.15) if not is_own else Color(0.2, 0.8, 0.3))
+	# KNpc::PaintLife 0x005EACF0 as the pate loop calls it (KNpcGold.life_bar): players with the life switch, monsters hovered /
+	# targeted or with its second bit; a bar needs a maximum (0x005EAD31).  0x005EADA1..0x005EAEF4: pct = round(life x 100 / max),
+	# the filled part pct x 38 / 100 wide from x - 19, 3 tall, coloured by KNpcGold.life_bar_color; the rest to x + 19 in grey 0x808080
+	if life_max > 0 and KNpcGold.life_bar(entity_type, life_switch, hovered or is_target):
+		var pct := int(round(float(life) * 100.0 / float(life_max)))
+		var w := float(pct * 38 / 100)
+		var top := Vector2(-19.0, -float(_pate()) + 2.0)
+		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct))
+		draw_rect(Rect2(top + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
 	if is_target and not is_dead():
 		draw_arc(Vector2(0, 0), 18.0, 0, TAU, 24, Color(1.0, 0.9, 0.2, 0.8), 2.0)

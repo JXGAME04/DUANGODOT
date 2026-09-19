@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 
 #include "jx/ids.hpp"
 #include "jx/zone/KFaction.h"
@@ -17,6 +18,8 @@ class RoleData;
 }
 
 namespace jx::zone {
+
+struct KSkillListHost;
 
 struct KNpc;
 class KItemList;
@@ -35,6 +38,10 @@ struct KPlayer {
     int cur_vitality = 0;      // +0x5950
     int cur_energy = 0;        // +0x5954
     int cur_lucky = 0;         // m_nCurLucky      +0x5958
+    // +0x5a50: the PK state (0 normal, 1 fight, 2 kill; B3c-4 keeps the rest) - the run's stamina cost and threshold pick
+    // ExerciseRunSub / FightRunSub / KillRunSub of stamina.ini by it (0x0808BE0B, 0x08080C5F, 0x0807B620)
+    int pk_state = 0;
+    int forbid_stamina = 0;    // +0x86b4: Lua ForbitStamina 0x0810CCC0 - no stamina gain while set (0x0808BD53)
     int attribute_point = 0;   // m_nAttributePoint +0x5924 (5 per level)
     int skill_point = 0;       // m_nSkillPoint     +0x5928 (1 per level)
     std::int64_t exp = 0;      // m_nExp           +0x595c
@@ -117,8 +124,11 @@ struct KPlayer {
     // m_nCurStrength / 5 for a melee weapon, m_nCurDexterity / 5 for a ranged one; bare hands
     // are m_nCurStrength / 5 + 1
     void set_npc_physics_damage(KNpc& npc, const KItemList* items) const noexcept;
-    // 0x080AF550: KNpc::ClearAttrib, current points = base, ReCalcStateEffect, ReCalcEquip
-    void updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tables, const KItemList* items);
+    // 0x080AF550: KNpc::ClearAttrib, current points = base, ReCalcStateEffect, ReCalcEquip.  `host` / `set_hide` are what
+    // KNpcAttribModify needs of the world for the attributes that reach the skill list (allskill_v) or hide the npc; the
+    // world hands them in (recalc_player), the point / level-up paths inside KPlayer pass none
+    void updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tables, const KItemList* items, KSkillListHost* host = nullptr,
+                         const std::function<void(int)>* set_hide = nullptr);
     // KPlayer::CalcExp (0x080A7C80): what a kill is worth by the level difference.  Within five
     // levels all of it; 6..15 apart x (25 - |d|) / 20; farther x 1/2; a monster 55..69 levels
     // above gives (-19 d - 1030) / 300, farther above all of it; a character of level 100 and up

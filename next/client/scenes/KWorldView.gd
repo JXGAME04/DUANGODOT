@@ -66,8 +66,9 @@ func add_missle_effect(_anim: Dictionary, _dir64: int, _scene_pos: Vector2, _z: 
 
 # ---- the camera and the cursor -------------------------------------------------------------------
 
-# The camera follows the character: snap on entering, ease afterwards (UiGame calls it every frame).
-func follow(_own: Node, _snap: bool) -> void:
+# The camera follows the character: snap on entering, ease afterwards by time (rule 13: the same feel at 60 and 144 fps);
+# UiGame calls it every frame with the frame's delta.
+func follow(_own: Node, _snap: bool, _delta: float = 0.0) -> void:
 	pass
 
 

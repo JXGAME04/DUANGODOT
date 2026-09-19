@@ -17,6 +17,7 @@ const SprControl := preload("res://scenes/KSprControl.gd")
 const StateSpr := preload("res://scenes/KStateSpr.gd")
 const WavSound := preload("res://scenes/KWavSound.gd")
 const Scene3DMath := preload("res://scenes3d/KScene3DMath.gd")
+const NpcGold := preload("res://scenes/KNpcGold.gd")
 
 var _failed := 0
 var _passed := 0
@@ -56,6 +57,7 @@ func _init() -> void:
 	test_knock_back()
 	test_state_pictures()
 	test_wav_sound()
+	test_gold_name()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -523,6 +525,23 @@ func test_skill_desc() -> void:
 		"next": {"level": 2, "cost": 11, "cost_type": 0, "attack_radius": 90, "attribs": [{"group": 1, "name": "physicsdamage_v", "v0": 14, "v1": 0, "v2": 33}], "appends": []}}
 	var name_of := func(id: int) -> String: return "Kim Cang Phục Ma" if id == 10 else ("La Hán Trận" if id == 11 else str(id))
 	var t: String = D.build(row, {"level": 1, "exp_percent": 0}, 20, desc, text, name_of)
+	# G_Skills_76 (0x006FC300): Attrib 202 is [SkillType] 1 -> the equipment's percent; the state modifier's line follows (0x005EC4F0)
+	var text76 := text.duplicate(true)
+	text76.strings["G_Skills_76"] = "Trang bị gồm có:"
+	text76["skill_type"] = {"202": 1, "304": 2}
+	var desc76 := desc.duplicate(true)
+	desc76["equip_percent"] = 12
+	desc76["modifier"] = {"group": 2, "name": "attackrating_p", "v0": 7, "v1": 0, "v2": 0}
+	var t76: String = D.build(row, {"level": 1, "exp_percent": 0}, 20, desc76, text76, name_of)
+	check("Trang bị gồm có:12%
+" in t76, "the equipment's share on a [SkillType] skill")
+	check("Trang bị gồm có:Độ chính xác: 7%
+" in t76, "the modifier's line through [Descript]")
+	var row_other := row.duplicate()
+	row_other["Attrib"] = "999"
+	var t_other: String = D.build(row_other, {"level": 1, "exp_percent": 0}, 20, desc76, text76, name_of)
+	check("Trang bị gồm có:12%" not in t_other and "Trang bị gồm có:Độ chính xác" in t_other, "no percent line outside [SkillType], the modifier line still")
+	check("Trang bị gồm có" not in t, "nothing without equipment or a modifier")
 	var lines := t.split("\n")
 	check(lines[0] == "<color=Yellow>Hàng Long Bất Vũ" and lines[1] == "<bclr=Black><color>", "the title in yellow, the black outline back: %s" % [lines.slice(0, 2)])
 	check(lines[2] == "Võ công nhập môn" and lines[3] == "", "the description after a blank")
@@ -732,3 +751,41 @@ func test_wav_sound() -> void:
 	check(not no_provider.play("a.wav", Vector2.ZERO), "no stream provider: silent")
 	no_provider.free()
 	w.queue_free()
+
+
+# ---- the gold monsters (KNpcGold at KNpc+0x4c; the name painter 0x005F21B0, the filter 0x00642550) -----------------
+
+func test_gold_name() -> void:
+	# 0x005F242F: a monster's line is "%s/Lv:%d"; players and the other kinds keep the name (0x005F2283)
+	check(NpcGold.name_text("Linh Miêu", 3, 19) == "Linh Miêu/Lv:19", "a monster shows its level")
+	check(NpcGold.name_text("Lão Bản", 2, 19) == "Lão Bản", "a townsman does not")
+	check(NpcGold.name_text("Hero", 1, 19) == "Hero", "a player does not")
+	# 0x005F23E5..0x005F2419: kind 0 -> white; a kind within the client's 17 rows -> 0xFF6365FF; above them (the boss word
+	# 16 + 1 of the server's table is NOT above 17: it is drawn like a gold one) -> 0xFFEBB200
+	check(NpcGold.name_color(3, 0, 17) == Color(1, 1, 1), "plain: white")
+	check(NpcGold.name_color(3, 13, 17).to_html(false) == "6365ff", "gold: 0xFF6365FF (%s)" % NpcGold.name_color(3, 13, 17).to_html(false))
+	check(NpcGold.name_color(3, 17, 17).to_html(false) == "6365ff", "the boss word 17 against 17 client rows: still 0xFF6365FF")
+	check(NpcGold.name_color(3, 18, 17).to_html(false) == "ebb200", "above the client's table: 0xFFEBB200")
+	check(NpcGold.name_color(1, 5, 17) == Color(1, 1, 1), "a player's name is never coloured by it")
+	# 0x00642550: the class of the hang-up filter - 1 plain, 2 gold, 3 above the table
+	check(NpcGold.npc_class(0, 17) == 1 and NpcGold.npc_class(16, 17) == 2 and NpcGold.npc_class(18, 17) == 3, "the three classes")
+	# the show switches: F7 / F8 flip a value 0 <-> 3 (0x0066B4A0: 0 or 1 -> 3, else 0)
+	check(NpcGold.toggle_switch(0) == 3 and NpcGold.toggle_switch(1) == 3 and NpcGold.toggle_switch(3) == 0 and NpcGold.toggle_switch(2) == 0, "Switch flips 0 <-> 3")
+	# the name block of a monster (0x006702BD..): nothing without bit 1; hovered / targeted -> 14; bit 2 -> 12; else nothing
+	check(NpcGold.name_block(3, 0, false) == 0 and NpcGold.name_block(3, 0, true) == 0, "names off: nothing, even hovered (0x006702D2)")
+	check(NpcGold.name_block(3, 1, false) == 0 and NpcGold.name_block(3, 1, true) == 14, "bit 1 alone: only the hovered one, size 14")
+	check(NpcGold.name_block(3, 3, false) == 12 and NpcGold.name_block(3, 3, true) == 14, "F7 on (3): everyone at 12, the hovered one at 14")
+	check(NpcGold.name_block(1, 0, false) == 12 and NpcGold.name_block(2, 0, false) == 12, "players and townsfolk keep their name line")
+	# the life bar (0x00670243 .. PaintLife 0x005EACF0): players with bit 1, monsters hovered / targeted or with bit 2, others never
+	check(not NpcGold.life_bar(1, 0, true) and NpcGold.life_bar(1, 1, false), "a player's bar needs the life switch")
+	check(NpcGold.life_bar(3, 0, true) and not NpcGold.life_bar(3, 0, false) and NpcGold.life_bar(3, 2, false), "a monster's bar: hovered or bit 2")
+	check(not NpcGold.life_bar(2, 3, true), "a townsman never (PaintLife refuses kind 3 unless forced)")
+	# the life bar's colour by the percent (PaintLife 0x005EAE2F ..): 50 green, 25 yellow, below red
+	check(NpcGold.life_bar_color(100) == Color(0, 1, 0) and NpcGold.life_bar_color(50) == Color(0, 1, 0), "green from 50")
+	check(NpcGold.life_bar_color(49) == Color(1, 1, 0) and NpcGold.life_bar_color(25) == Color(1, 1, 0), "yellow from 25")
+	check(NpcGold.life_bar_color(24) == Color(1, 0, 0) and NpcGold.life_bar_color(0) == Color(1, 0, 0), "red below")
+	# a player's name by its current camp (0x005F2507, the table 0x5f2d94)
+	check(NpcGold.player_name_color(0) == Color(1, 1, 1), "camp_begin: white")
+	check(NpcGold.player_name_color(1).to_html(false) == "ffa85e", "camp_justice: 0xFFFFA85E (%s)" % NpcGold.player_name_color(1).to_html(false))
+	check(NpcGold.player_name_color(2).to_html(false) == "ff92ff" and NpcGold.player_name_color(3).to_html(false) == "55ff91", "evil / balance")
+	check(NpcGold.player_name_color(4) == Color(1, 0, 0) and NpcGold.player_name_color(6).to_html(false) == "ff69b4", "free red, above 4 pink")

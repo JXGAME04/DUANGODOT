@@ -89,6 +89,13 @@ struct KNpcLevelData {
     int poison_resist = 0;
     int physics_resist = 0;
     int skill_level[5] = {};           // KSkillList::SetNpcSkill levels (0 = slot unusable)
+    // InitNpcLevelData 0x080A37A0 (jx_linux_y): the AuraSkillId / PasstSkillId columns with their level cells run through
+    // the level script ("AuraSkillLevel" / "PasstSkillLevel": a + b * level) and clamped to 64 (0x080A3AB2 / 0x080A3B0A);
+    // a level of 0 drops the id (+0x10fc/+0x1100, +0x1104/+0x1108 of the level record)
+    int aura_skill_id = 0;
+    int aura_skill_level = 0;
+    int passive_skill_id = 0;
+    int passive_skill_level = 0;
 };
 
 class KNpcTemplateSet {
@@ -106,6 +113,9 @@ public:
     // KNpcTemplate::InitNpcLevelData through the template's level script (or the default one);
     // with scripts == nullptr or no script the placeholders of the raw columns are returned.
     [[nodiscard]] static KNpcLevelData level_data(const KNpcTemplate& t, int level, int series, KScriptCache* scripts);
+    // GetNpcLevelDataFromScript 0x080A1F90 on the npc level script (g_pNpcLevelScript [0x830b234]): GetNpcLevelData(series,
+    // level, name, cell) -> a number; without a script "a|b" -> floor(a + b x level).  An empty cell is 0.
+    [[nodiscard]] static int level_string(int series, int level, const char* name, const std::string& cell, KScriptCache* scripts);
 
 private:
     std::unordered_map<std::uint32_t, KNpcTemplate> templates_;

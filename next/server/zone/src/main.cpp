@@ -134,6 +134,9 @@ int main(int argc, char** argv)
     // their level: the real templates are level-200 monsters (200000 life, a blow kills a fresh character); the
     // owner asked for weak ones to try skills on (2026-09-18)
     const auto test_npc_level = static_cast<std::uint32_t>(std::clamp<std::int64_t>(cfg.get_int("zone.test_npc_level", 10), 1, 200));
+    // 0 = plain; n = every test npc is gold of kind n at once, like the script's NPCINFO_AddBlueNpc (BackData +
+    // SetGoldTypeAndBackData(1 000 000, n): n = the table's count or more picks the map's GoldenType / a random row)
+    const auto test_npc_gold = static_cast<int>(std::clamp<std::int64_t>(cfg.get_int("zone.test_npc_gold", 0), 0, 1000));
     // their templates, "id,id,..." taken in turn (the animals of npcs.txt by default; dev.py assets exports their looks)
     std::vector<std::uint32_t> test_npc_templates;
     {
@@ -280,6 +283,14 @@ int main(int argc, char** argv)
         } else {
             jx::log::warn("boot", "npc templates unavailable, default combat numbers", {jx::log::kv("file", npcres_file), jx::log::kv("error", error)});
         }
+        // settings/npc/NpcGoldTemplate.txt next to it (jxassets export-npc-gold): the gold monster kinds
+        const std::filesystem::path gold_file = std::filesystem::path(npcres_file).parent_path() / "npc_gold.json";
+        if (auto g = jx::zone::KNpcGoldTemplateSet::load(gold_file, &error)) {
+            jx::log::info("boot", "gold monster kinds", {jx::log::kv("file", gold_file.string()), jx::log::kv("rows", g->count()), jx::log::kv("client_rows", g->client_rows)});
+            w.gold = std::make_shared<const jx::zone::KNpcGoldTemplateSet>(std::move(*g));
+        } else {
+            jx::log::warn("boot", "no gold monster table, nothing turns gold", {jx::log::kv("file", gold_file.string()), jx::log::kv("error", error)});
+        }
     }
     // the old server folder holding script\ (npc level scripts through Lua 5.4); empty = placeholder numbers
     const std::string script_root = cfg.get_string("zone.script_root", "");
@@ -391,10 +402,17 @@ int main(int argc, char** argv)
         const std::int32_t dy = static_cast<std::int32_t>((i / 4) * 160) - 80;
         const std::uint32_t tpl = test_npc_templates[static_cast<std::size_t>(i) % test_npc_templates.size()];
         const jx::EntityId id = server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
-                                                        tpl, 200, jx::zone::KNpcKind::monster, test_npc_level);   // attackable, wander 200
+                                                        tpl, 200, jx::zone::KNpcKind::monster, test_npc_level, -1, 0);   // attackable, wander 200; placed like a Region_S.dat npc (+0x181c = 0)
         // the templates are active hunters (AIMode 1, vision 1200): passive here (AIMode 4, strike back only)
         // so a fresh character can look around the spawn point; the real monsters keep their data
         server.world().set_ai_mode(id, 4);
+        if (test_npc_gold > 0) {
+            if (jx::zone::KNpc* e = server.world().mutable_entity(id)) {
+                jx::zone::gold_back_data(*e);                          // NPCINFO_AddBlueNpc 0x081C27A2 / AddNpc(.., 2) 0x0811BE3C
+                server.world().set_gold_type(*e, 1000000, test_npc_gold);   // 0x081C27C8: SetGoldTypeAndBackData(1 000 000, 0) - the kind asked here
+                server.world().set_ai_mode(id, 4);
+            }
+        }
     }
 
     asio::signal_set signals(io, SIGINT, SIGTERM);

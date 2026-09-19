@@ -39,6 +39,9 @@ public:
     // 0x080EE4B0): a number when Lua_IsNumber says so (a string of digits counts), else the
     // string when Lua_IsString says so, else nullopt (also when the function is missing or fails).
     std::optional<Arg> call_value(const char* name, const std::vector<Arg>& args);
+    // Lua 4 printed every whole number without a fraction ("%.14g"); Lua 5.4 writes an integral float as "2.0".
+    // Strings the scripts build from numbers get the Lua 4 form back ("16.0,12,0" -> "16,12,0").
+    [[nodiscard]] static std::string lua4_number_format(std::string s);
     // KLuaScript::LoadBuffer + ExecuteCode: runs a piece of code in this state (the GM's
     // `?gm ds Say("abc")`); the error text is returned through `error` when it fails.
     bool do_string(const std::string& code, const char* name, std::string* error = nullptr);
@@ -55,6 +58,8 @@ public:
     static std::filesystem::path os_path(const std::string& resolved_utf8);
 
 private:
+    void push_arg(const Arg& a);   // a whole number goes in as a Lua integer (see lua4_number_format)
+
     bool run_file(const std::string& path, const char* what);
 
     lua_State* L_ = nullptr;

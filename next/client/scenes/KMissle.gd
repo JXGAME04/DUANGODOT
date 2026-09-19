@@ -28,7 +28,10 @@ var missle_id := 0
 var skill_id := 0
 var scene_pos := Vector2.ZERO
 var z := 0                    # m_nCurrentMapZ = height >> 10
-var height := 0               # m_nHeight, 1/1024 units
+var height := 0.0             # m_nHeight, 1/1024 units (a float: integrated per render frame)
+var _z_share := 0.0           # the logic-frame share climbed since height_speed last lost the acceleration
+var frame_moves := 0          # render-frame moves since the last logic tick (the --auto proof of rule 13)
+var max_frame_moves := 0
 var height_speed := 0         # m_nHeightSpeed
 var z_acceleration := 0       # m_nZAcceleration
 var dir64 := 0
@@ -80,7 +83,8 @@ func setup(d: Dictionary, row: Dictionary) -> void:
 func apply(d: Dictionary) -> void:
 	scene_pos = Vector2(float(d.get("x", 0)), float(d.get("y", 0)))
 	z = int(d.get("z", 0))
-	height = int(d.get("height", z << 10))
+	height = float(int(d.get("height", z << 10)))
+	_z_share = 0.0
 	height_speed = int(d.get("height_speed", 0))
 	z_acceleration = int(d.get("z_acceleration", 0))
 	dir64 = clampi(int(d.get("dir", 0)), 0, 63)
@@ -127,26 +131,39 @@ func _begin_vanish() -> void:
 		sounds.play(str(a.get("sound", "")), scene_pos, false, true)
 
 
+# KMissle::OnFlyFPS of the JX1 client (Core/Src/KMissle.cpp 1014, run once per render frame from GOI_PROCFRAME_POSSHIFT
+# with nStep = render frames per logic frame): a logic frame's move spread over the frames drawn in it.  The 2.0 client
+# dropped that and jumps once per logic frame (docs/CLIENT-2.0.md §11); the owner wants the interpolation (HANDOVER
+# §0.1 rule 13), so a frame moves the share `delta * 18` of one logic frame: the vector times the speed (1/1024 units)
+# and, with a Z acceleration, ZAxisMove's climb - the speed loses the acceleration once per whole logic frame.
 func _process(delta: float) -> void:
+	if status == STATUS_FLY:
+		var share := delta * 18.0
+		if z_acceleration != 0:
+			height += float(height_speed) * share
+			if height < 0.0:
+				height = 0.0
+			z = int(height) >> 10
+			_z_share += share
+			while _z_share >= 1.0:
+				_z_share -= 1.0
+				height_speed -= z_acceleration
+		scene_pos += Vector2(float(x_factor * speed), float(y_factor * speed)) / 1024.0 * share
+		_place()
+		frame_moves += 1
 	_tick_acc += delta
 	while _tick_acc >= TICK:
 		_tick_acc -= TICK
 		_tick()
 
 
-# one logic frame between two syncs: KMissle::OnFly moves the vector times the speed (1/1024 units); the wait ends
-# at start_life_time and the life at life_time - the zone's word overrides when it comes
+# one logic frame between two syncs: the life counts on (KMissle::OnFly), the wait ends at start_life_time and the life
+# at life_time - the zone's word overrides when it comes; the movement itself runs in _process
 func _tick() -> void:
 	cur_life += 1
+	max_frame_moves = maxi(max_frame_moves, frame_moves)
+	frame_moves = 0
 	if status == STATUS_FLY:
-		if z_acceleration != 0:
-			# ZAxisMove (KMissle::OnFlyFPS 1018 with one step, the zone's missle_activate): climb, never below the ground,
-			# z = height >> 10, then the speed loses the acceleration
-			var hs: Array = KMissleResMath.z_step(height, height_speed, z_acceleration)
-			height = int(hs[0])
-			height_speed = int(hs[1])
-			z = height >> 10
-		scene_pos += Vector2(float(x_factor * speed) / 1024.0, float(y_factor * speed) / 1024.0)
 		if cur_life >= life_time:
 			_begin_vanish()
 	elif status == STATUS_WAIT and cur_life >= start_life_time:

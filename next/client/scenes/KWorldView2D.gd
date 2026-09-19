@@ -105,6 +105,8 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	if node == null:
 		node = Node2D.new()
 		node.set_script(ObjScript if int(d.get("type", 0)) == ENTITY_DROP else NpcScript)
+		if int(d.get("type", 0)) != ENTITY_DROP:
+			node.sounds = _sounds   # the action sounds (KNpcRes::PlaySound)
 		_entity_layer.add_child(node)
 	node.setup(d, own)
 	if _map.map_id > 0:
@@ -135,11 +137,12 @@ func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int)
 
 # ---- camera and cursor ---------------------------------------------------------------------------
 
-func follow(own: Node, snap: bool) -> void:
+func follow(own: Node, snap: bool, delta: float = 0.0) -> void:
 	if own == null or not (own is Node2D):
 		return
-	# whole pixels only: a fractional camera position makes nearest-filtered tiles shimmer
-	var target: Vector2 = own.position if snap else _camera.position.lerp(own.position, 0.3)
+	# whole pixels only: a fractional camera position makes nearest-filtered tiles shimmer; the follow eases by time,
+	# not by frame (rule 13): the same feel at 60 and 144 fps (0.3 a frame at 60 fps = 21 / s)
+	var target: Vector2 = own.position if snap else _camera.position.lerp(own.position, 1.0 - exp(-21.0 * delta))
 	_camera.position = target.round()
 
 

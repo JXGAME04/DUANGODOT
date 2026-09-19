@@ -46,8 +46,29 @@ type MapInfo struct {
 	Traps      []TrapInfo `json:"traps"`   // KRegion::LoadServerTrap runs, in whole-map cells
 	Npcs       []NpcInfo  `json:"npcs"`
 	Sprites    int        `json:"sprites"`
+	// the map's keys of maplist.ini [List] the JX2 server keeps per KSubWorld (jx_linux_y 0x080F1416..)
+	Settings *MapSettings `json:"settings,omitempty"`
 	// regions the archive could not give us; the bundle is still usable, that ground is blank
 	BadRegions []string `json:"bad_regions,omitempty"`
+}
+
+// MapSettings is what the JX2 server's map loader reads of `<id>_*` in maplist.ini beyond the map path
+// (0x080F1416: `%d_AutoGoldenNpc`, `%d_GoldenType`, `%d_GoldenDropRate`, `%d_NormalDropRate`; docs/LINUX-SERVER.md
+// §16.12).  The drop rate files are lower-cased game paths like the templates' DropRateFile.
+type MapSettings struct {
+	MapType        string `json:"map_type,omitempty"`         // `%d_MapType`: City / Field / Cave (the client's mini map; not read by the loader here)
+	AutoGoldenNpc  int    `json:"auto_golden_npc,omitempty"`  // +0x63e7c: the chance in a million that a placed monster revives gold (0 = every revive - KNpc 0x080861AE hands 2 000 000)
+	GoldenType     int    `json:"golden_type,omitempty"`      // +0x63e84: the kind (1-based row of NpcGoldTemplate.txt) every gold monster of the map takes; 0 = a random one
+	GoldenDropRate string `json:"golden_drop_rate,omitempty"` // +0x63e80: the drop table a gold monster uses instead of its own
+	NormalDropRate string `json:"normal_drop_rate,omitempty"` // +0x63e88: the drop table every placed monster of the map uses instead of its template's
+	// `%d_NpcSeriesAuto` (+0x63f54) with the five weights `%d_NpcSeriesMetal/Wood/Water/Fire/Earth` (+0x63f58.., raw here; the
+	// loader 0x080F1346 sums them up): a placed monster (kind 0) rolls its series at load (KRegion::LoadNpc 0x080E28F6) and at
+	// every revive (0x08085E98); `%d_NpcAutoLevelFlag/Max/Min` (+0x63f6c/+0x63f70/+0x63f74): its level at load (0x080E2904)
+	NpcSeriesAuto    int    `json:"npc_series_auto,omitempty"`
+	NpcSeries        [5]int `json:"npc_series,omitempty"`
+	NpcAutoLevelFlag int    `json:"npc_auto_level_flag,omitempty"`
+	NpcAutoLevelMax  int    `json:"npc_auto_level_max,omitempty"`
+	NpcAutoLevelMin  int    `json:"npc_auto_level_min,omitempty"`
 }
 
 // NpcInfo is a static npc placement.
@@ -73,6 +94,7 @@ type NpcInfo struct {
 	Series     int    `json:"series,omitempty"`
 	Dir        int    `json:"dir,omitempty"`         // facing 0..63
 	ClientOnly bool   `json:"client_only,omitempty"` // Npc_C.dat: ambient npc the old client spawned itself
+	Special    bool   `json:"special,omitempty"`     // KSPNpc.bSpecialNpc: KNpcSet::Add 0x0809FBD0 backs it up as a gold candidate whatever the map says (0x0809FCA2)
 	Script     string `json:"script,omitempty"`
 }
 
@@ -137,6 +159,8 @@ type Exporter struct {
 	// StandFrames returns the frame count of a template's stand sprite (client-only npcs face
 	// the direction their stand frame encodes); nil = face down.
 	StandFrames func(templateID int) int
+	// Settings is the map's `<id>_*` block of maplist.ini for map.json (nil = none written).
+	Settings *MapSettings
 	// uiCache holds the sprites a window named, so one screen decodes each picture once.
 	uiCache map[string]*spr.Sprite
 	// uiPortraits: PlayerImgPrefix -> the thirty character figures, written once for every window
@@ -229,7 +253,7 @@ func (e *Exporter) Map(id int, name string, w *wor.World, spawn [2]int) (*MapInf
 		RegionW: wor.RegionWidth, RegionH: wor.RegionHeight, CellSize: wor.CellSize,
 		CellsX: w.RegionCols() * wor.CellsX, CellsY: w.RegionRows() * wor.CellsY,
 		SceneW: w.RegionCols() * wor.RegionWidth, SceneH: w.RegionRows() * wor.RegionHeight,
-		Spawn: spawn, Indoor: w.IsInDoor,
+		Spawn: spawn, Indoor: w.IsInDoor, Settings: e.Settings,
 	}
 	obstacle := make([]byte, info.CellsX*info.CellsY)
 	e.seen = map[objectKey]bool{}
@@ -407,7 +431,8 @@ func (e *Exporter) npcInfo(w *wor.World, n wor.Npc, clientOnly bool) NpcInfo {
 		TemplateID: int(n.TemplateID), Name: name,
 		X: int(n.X) - w.Left*wor.RegionWidth, Y: int(n.Y) - w.Top*wor.RegionHeight,
 		Frame: n.Frame, Kind: n.Kind, Level: n.Level, Camp: n.Camp, Series: n.Series, Dir: dir, ClientOnly: clientOnly,
-		Script: text.GBKToUTF8([]byte(strings.TrimRight(n.Script, "\x00"))),
+		Special: n.Special && !clientOnly,
+		Script:  text.GBKToUTF8([]byte(strings.TrimRight(n.Script, "\x00"))),
 	}
 }
 

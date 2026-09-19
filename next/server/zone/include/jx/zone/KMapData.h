@@ -3,6 +3,7 @@
 // placements and the trap cells; the client uses the same bundle for drawing.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -26,6 +27,43 @@ struct KNpcPlacement {
     int series = 0;
     int dir = 0;           // facing 0..63
     bool client_only = false;   // Npc_C.dat ambient npc (the old client spawned it locally)
+    bool special = false;       // KSPNpc.bSpecialNpc: KNpcSet::Add 0x0809FBD0 backs it up as a gold candidate whatever the map says (0x0809FCA2)
+};
+
+// the map's `<id>_*` keys of maplist.ini the JX2 server keeps per KSubWorld (0x080F1416 ..; map.json "settings")
+struct KMapSettings {
+    int auto_golden_npc = 0;        // +0x63e7c: the chance in a million that a placed monster revives gold; 0 = every revive (0x080861AE hands 2 000 000)
+    int golden_type = 0;            // +0x63e84: the 1-based row of NpcGoldTemplate.txt every gold monster of the map takes; 0 = a random row
+    std::string golden_drop_rate;   // +0x63e80: the drop table a gold monster uses while gold ("" = keeps its own)
+    std::string normal_drop_rate;   // +0x63e88: the drop table every placed monster uses instead of its template's ("" = the template's)
+    // +0x63f54 `%d_NpcSeriesAuto`: a placed monster (kind 0) rolls its series at load (KRegion::LoadNpc 0x080E28F6) and at every
+    // revive (0x08085E98) by the five weights of `%d_NpcSeriesMetal/Wood/Water/Fire/Earth` (+0x63f58 ..: the loader 0x080F1346
+    // keeps them summed up - `series_sums` here; 0x080EFBE0: g_Random(total) against the sums, the first that is above wins)
+    int npc_series_auto = 0;
+    std::array<int, 5> npc_series{};        // the raw weights (metal, wood, water, fire, earth)
+    std::array<int, 5> series_sums{};       // +0x63f58 .. +0x63f68 as the loader leaves them
+    // +0x63f6c `%d_NpcAutoLevelFlag` with +0x63f70 Max / +0x63f74 Min: a placed monster's level at load (0x080EFB90: g_Random(max
+    // + 1 - min) + min; max == min -> max); a bad pair (either < 1 or max < min) logs "MapList.ini error:npc level error!" and is 1 / 1
+    int npc_auto_level_flag = 0;
+    int npc_auto_level_max = 1;
+    int npc_auto_level_min = 1;
+
+    // 0x080F1346 .. 0x080F1370 (with the flag) / 0x080F1BBF (without: zeros), 0x080F1D5A .. 0x080F1D96
+    void finish() noexcept
+    {
+        series_sums = {};
+        if (npc_series_auto != 0) {
+            series_sums[0] = npc_series[0];
+            series_sums[1] = series_sums[0] + npc_series[1];
+            series_sums[2] = series_sums[1] + npc_series[2];
+            series_sums[3] = series_sums[2] + npc_series[3];
+            series_sums[4] = series_sums[3] + npc_series[4];
+        }
+        if (npc_auto_level_flag == 0 || npc_auto_level_max <= 0 || npc_auto_level_min <= 0 || npc_auto_level_max < npc_auto_level_min) {
+            npc_auto_level_max = 1;
+            npc_auto_level_min = 1;
+        }
+    }
 };
 
 class KMapData {
@@ -46,6 +84,7 @@ public:
     Pos origin;
     std::vector<std::uint8_t> obstacle;   // cells_x * cells_y, row major, 0 = walkable
     std::vector<KNpcPlacement> npcs;
+    KMapSettings settings;
     // KRegion::m_dwTrap: the trap script id of every cell (0 = none), and the script each id names
     std::vector<std::uint32_t> trap;
     std::unordered_map<std::uint32_t, std::string> trap_scripts;   // id -> `\script\...lua` ("" = unknown)

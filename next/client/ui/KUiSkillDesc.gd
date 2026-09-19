@@ -163,6 +163,16 @@ static func build(row: Dictionary, held: Dictionary, player_level: int, desc: Di
 		var enhance := int(desc.get("enhance", 0))
 		if enhance != 0:
 			out += _s(strings, "G_Skills_39", "Tăng từ kỹ năng: %d%%\n") % enhance
+		# 0x006FC300: [SkillType][Attrib] of gamesetting.ini is 1 or 2 -> the equipment's share (Npc+0x1278 + +0x1148: the zone's
+		# equip_percent = magicdamage_p) -> "%s%d%%\n" with G_Skills_76; 0x005EC4F0: the state modifier aimed at this skill -> its line
+		var skill_type := int(text.get("skill_type", {}).get(str(attrib), 0))
+		var equip := int(desc.get("equip_percent", 0))
+		if (skill_type == 1 or skill_type == 2) and equip != 0:
+			out += "%s%d%%\n" % [_s(strings, "G_Skills_76", "Trang bị gồm có:"), equip]
+		if desc.has("modifier"):
+			var mod_line := attrib_lines([desc.modifier], text.get("descript", {}), ctx).strip_edges()
+			if mod_line != "":
+				out += _s(strings, "G_Skills_76", "Trang bị gồm có:") + mod_line + "\n"
 		if _cell_int(row, "IsExpSkill", 0) != 0:
 			out += _s(strings, "G_Skills_40", "Độ tu luyện: %d%%\n") % int(held.get("exp_percent", 0))
 	if not cur.is_empty():

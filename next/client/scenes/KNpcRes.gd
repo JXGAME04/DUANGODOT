@@ -19,6 +19,7 @@ var action := -1
 var parts: Array = []         # [{index, sprite, atlas, frames, dirs}] in part-slot order
 var shadow: Dictionary = {}   # {sprite, atlas, frames, dirs} or empty
 var head_top := -40.0         # y of the top of the drawn body (name label anchor)
+var sound_name := ""          # m_szSoundName (KNpcRes+0x34): the sound of the current action (KNpcRes::GetSoundName 0x006DDD10)
 var state_sprs: Array = []    # m_cStateSpr: MAX_STATE_SPR slots of KStateSpr
 var frame_time := 0           # SubWorld[0].m_dwCurrentTime: the logic frames painted, the clock of the state pictures
 var _order: Array = []
@@ -44,6 +45,7 @@ func set_action(new_doing: int) -> bool:
 		return true
 	doing = new_doing
 	action = KNpcResNode.act_no(res, doing, weapon, false)
+	sound_name = NpcResList.action_sound(str(res.get("name", "")), special, action) if action >= 0 else ""
 	_load_images()
 	return action >= 0
 

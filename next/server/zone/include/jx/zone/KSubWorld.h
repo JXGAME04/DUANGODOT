@@ -31,6 +31,7 @@
 #include "jx/zone/KObj.h"
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/KMapData.h"
+#include "jx/zone/KNpcGold.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
@@ -99,6 +100,9 @@ struct KSubWorldConfig {
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
     std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
+    // settings/npc/NpcGoldTemplate.txt (npc_gold.json of jxassets export-npc-gold): the gold monster kinds; optional -
+    // without it nothing turns gold (SetGoldTypeAndBackData 0x0809D916 returns on an empty table)
+    std::shared_ptr<const KNpcGoldTemplateSet> gold;
     std::shared_ptr<const KItemLibrary> items;          // the item tables (settings\item, every version); optional
     std::shared_ptr<const KObjDataSet> objdata;         // ObjData.txt / MoneyObj.txt (objdata.json): what a drop looks like; optional
     int money_rate_percent = 100;                       // [ServerConfig] MoneyRate of gamesetting.ini: dropped money x this / 100
@@ -255,8 +259,36 @@ public:
     static constexpr std::uint64_t kDormantAfterTicks = 36;
     // level / series above 0 / -1 override the template's (KNpcSet::Add 0x0813A770 packs template << 16 | level and
     // hands the series on: the create-npc skill's npc takes the attribute's level and the skill's Series)
+    // 0x08085250 (after KNpcSet::Add for a placement / the script's AddNpc / a bKind Add): cell 5 = the template's aura
+    // (AuraSkillId at its level), cell 6 = its passive skill when the row is style 3, cast on the npc itself at once
+    void init_template_skills(KNpc& e);
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
-                       KNpcKind kind = KNpcKind::npc, std::uint32_t level = 0, int series = -1);
+                       KNpcKind kind = KNpcKind::npc, std::uint32_t level = 0, int series = -1, int boss_flag = 0);
+    // KNpcGold::SetGoldTypeAndBackData 0x0809D8D0 (KNpcGold.h): a backed-up (is_gold), not yet gold npc turns gold
+    // when g_Random(1 000 000) < rate and the table is not empty - `type` 1..count-1 picks that row, anything else
+    // the map's GoldenType, else a random row; the row's skill (through GetNpcLevelData "Level5") into cell 5 and
+    // set as the aura, the numbers changed (gold_apply), the 0x9a packet {npc, kind} to the players around.
+    // Returns true when it turned gold.
+    bool set_gold_type(KNpc& e, int rate, int type);
+    // KNpcGold::RecoverBackData 0x0809E070: the backup back, cell 5 taken out (0x080E52D0), the aura cleared (SetAura 0)
+    void recover_gold(KNpc& e);
+    // KPlayer::UpdataCurData 0x080AF550 for a player's npc (a piece put on / taken off, a point spent): ClearAttrib, the
+    // points, ReCalcStateEffect 0x0807D270 (every held state applied again), ReCalcEquip 0x080AF3E0, then the sync
+    void recalc_player(KNpc& e);
+    // stamina.ini's run cost / threshold of a player by its PK state (0x0808BE0B .. 0x0808BE76, 0x08080C5F .. 0x08080CCA):
+    // 0 ExerciseRunSub, 1 FightRunSub, 2 and anything else KillRunSub
+    [[nodiscard]] int run_stamina_sub(const KNpc& e) const noexcept;
+    // the units a player covers in a second: m_CurrentRunSpeed a frame (0x08080C01 -> 0x08080900) while the stamina reaches the
+    // run cost, else m_CurrentWalkSpeed a frame (0x08080C86: DoWalk on foot 0x0807B430, the step 0x08080B70)
+    [[nodiscard]] std::uint32_t player_move_speed(const KNpc& e) const noexcept;
+    // the 0x9a packet {0x9a, npc id, word kind} (0x0809DF66, 0x0807A870 within 100): G2C_NPC_GOLD
+    void emit_gold(const KNpc& e);
+    [[nodiscard]] const KMapSettings& map_settings() const noexcept;
+    // 0x080EFBE0: the map's NpcSeriesAuto roll - g_Random(total) against the summed weights (metal 0 .. earth 4); 0 without
+    // the flag, a total of 1 or less, or a roll below the first sum (a zero metal weight and a roll of 0 give metal all the same)
+    [[nodiscard]] int random_series();
+    // 0x080EFB90: the map's NpcAutoLevel roll - g_Random(max + 1 - min) + min; max == min -> max; 1 without the flag
+    [[nodiscard]] int random_level();
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
     bool teleport(EntityId id, Pos p);
     // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.
@@ -654,8 +686,6 @@ private:
     void emit_state(const KNpc& e, const KStateNode& node, bool removed);
     // G2C_MISSLE: a missile born / flying / gone to the launcher's watchers (the 2.0 client runs CastMissles itself; docs/CLIENT-2.0.md §11)
     void emit_missle(const KMissle& m, bool removed, bool collided = false);
-    // KPlayer::UpdataCurData for a player's npc after its equipment changed, then the sync
-    void recalc_player(KNpc& e);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)
     void share_experience(KNpc& dead);
     void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);

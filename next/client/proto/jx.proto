@@ -157,6 +157,15 @@ message EntityInfo {
   uint32 count = 17;             // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
   int32 hide = 18;               // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
   bool riding = 19;              // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
+  uint32 gold_type = 20;         // the gold word of the 0x4c packet (0x0807FCA5): KNpcGold::GetGoldKind = the NpcGoldTemplate row + 1 while gold, 0 plain; a boss
+                                 // (+0x181c != 0) carries the table's count + 1 - the 2.0 client colours the name by it (0x005F23E5: 0xFF6365FF, above its table 0xFFEBB200)
+  int32 camp = 21;               // m_Camp +0x21c (the byte +0xb of the 0x4c packet -> the client's KNpc+0xf4)
+  int32 current_camp = 22;       // m_CurrentCamp +0x220 (the byte +3 -> KNpc+0xf8): the colour of a player's name (0x005F2507, the table 0x5f2d94)
+}
+
+message NpcGold {                // G2C_NPC_GOLD: the 0x9a packet {0x9a, npc id, word kind} of SetGoldTypeAndBackData 0x0809DF66 - a monster turned gold (the 2.0 handler 0x00653110)
+  uint64 entity_id = 1;
+  uint32 gold_type = 2;          // as EntityInfo.gold_type
 }
 
 message EntityRide {             // G2C_ENTITY_RIDE: a npc mounted or dismounted (the flag of the next 0x4c / 0x4d sync in the old game)
@@ -514,6 +523,11 @@ message SkillDesc {              // G2C_SKILL_DESC
   int32 level_inc = 7;           // the increments of the skill list on the level shown (0x006233B0 with - 0x00623380 without): G_Skills_38 "Cap hien tai: %d (%d+%d)" when not 0
   int32 enhance = 8;             // KSkillList::enhance[skill] (+0xf14 of the 2.0 list, the addskilldamage of the skills held): G_Skills_39 when not 0
   uint32 held_level = 9;         // the level the zone described as the current one (the list's current level, increments included)
+  int32 equip_percent = 10;      // the asker's magicdamage_p (244, +0x1284; the 2.0 client's Npc+0x1148): G_Skills_76 "Trang bi gom co: %d%%" when the
+                                 // skill's Attrib is a [SkillType] 1 / 2 (the client's +0x1278 part comes from its attribute 299
+                                 // movedistanc_710_enhance, which this jx_linux_y build does not have)
+  bool with_modifier = 11;       // the asker's state modifier (KNpc+0x19d8, the client's Player+0x12ac8) aims at this skill: G_Skills_76 + its line
+  SkillDescAttrib modifier = 12; // that attribute (index / delta as one KMagicAttrib), described by [Descript] (0x005EC4F0 -> KMagicDesc::GetDesc)
 }
 
 // The player was moved to another map (KNpc::ChangeWorld across subworlds on the old server).
@@ -739,8 +753,9 @@ enum MsgId {
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
   G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
   G2C_SKILL_DESC = 2123;       // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
-  G2C_STATE_ICONS = 2125;      // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
   G2C_MISSLE = 2124;           // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
+  G2C_STATE_ICONS = 2125;      // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
+  G2C_NPC_GOLD = 2126;         // the 0x9a packet (0x0809DF66): a monster turned gold - its kind (NpcGoldTemplate row + 1)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

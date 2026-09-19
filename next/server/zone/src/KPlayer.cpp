@@ -8,6 +8,7 @@
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KNpcAttribModify.h"
 #include "jx/zone/KPlayerSet.h"
+#include "jx/zone/KSkillList.h"
 
 namespace jx::zone {
 
@@ -85,7 +86,9 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     // m_LifeMax straight from the role data (TRoleData+0xeb), the stamina from the tables, the
     // mana from the role data; a player has no natural life / mana replenish of its own
     npc.base.life_max = std::max(1, s.hp_max());
-    npc.base.stamina_max = tables.stamina_base(static_cast<int>(npc.series), static_cast<int>(npc.sex), static_cast<int>(npc.level));
+    // (without the level tables - a test, a zone booted without player.json - the KNpcAttrib default 100 stands, so the
+    // character is not "out of stamina" and walking from the start)
+    if (const int base = tables.stamina_base(static_cast<int>(npc.series), static_cast<int>(npc.sex), static_cast<int>(npc.level)); base > 0) npc.base.stamina_max = base;
     npc.base.life_replenish = 0;
     npc.base.mana_replenish = 0;
     npc.base.mana_max = std::max(0, s.mp_max());
@@ -229,7 +232,8 @@ int KPlayer::add_exp(KNpc& npc, int add, int npc_level, const KPlayerSet& tables
     return 0;
 }
 
-void KPlayer::updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tables, const KItemList* items)
+void KPlayer::updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tables, const KItemList* items, KSkillListHost* host,
+                              const std::function<void(int)>* set_hide)
 {
     // 0x080AF550
     npc.clear_attrib(clear_state, tables.stamina().sit_add);
@@ -239,11 +243,22 @@ void KPlayer::updata_cur_data(KNpc& npc, bool clear_state, const KPlayerSet& tab
     cur_energy = energy;
     cur_lucky = lucky;
     exp_enhance_lo = exp_enhance_hi = exp_enhance_percent = exp_enhance_percent2 = 0;   // Player+0xc8..+0xd4
-    // KNpc::ReCalcStateEffect (0x0807D270): the states are not in the zone yet
+    const KNpcAttribModifyContext ctx{&tables, items, false, 0, host, set_hide};
+    // KNpc::ReCalcStateEffect (0x0807D270, through 0x080AF3B0): +0x19e8 = 1, then every held state's attributes applied again
+    // - the nodes keep the NEGATED values (KStateNode), so each goes through ModifyAttrib(npc, npc, {type, -v0, -v1, -v2}, 0)
+    // (0x0807D2AB .. 0x0807D2E5) - then +0x19e8 = 0.  Without it a buff held while a piece is put on or taken off would be
+    // wiped by ClearAttrib and its removal would subtract it a second time.
+    for (const KStateNode& node : npc.state_skills) {
+        for (const KMagicAttrib& m : node.states) {
+            if (m.type == 0) continue;
+            KMagicAttrib again = m;
+            for (int& v : again.value) v = -v;
+            KNpcAttribModify::modify(npc, again, ctx);
+        }
+    }
     // KPlayer::ReCalcEquip (0x080AF3E0): every worn piece, base attributes then magic with the
     // awake suffixes (KItemList::GetEquipEnhance)
     if (items != nullptr) {
-        const KNpcAttribModifyContext ctx{&tables, items, false};
         for (int part = 0; part < itempart_num; ++part) {
             const KItem* piece = items->find(items->equipped(part));
             if (piece == nullptr) continue;

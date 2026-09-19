@@ -197,7 +197,49 @@ std::uint32_t percent_of(KLuaScript& s, const KNpcTemplate& t, int series, int l
     return to_u32(param * key_data(s, series, level, name, p1, p2, p3) / 100.0);
 }
 
+// GetParam / GetData of the level scripts without a script: "a|b" -> floor(a + b * level) (an empty cell is 0)
+int level_pair(const std::string& cell, int level)
+{
+    if (cell.empty()) return 0;
+    const std::size_t bar = cell.find('|');
+    const double a = std::strtod(cell.c_str(), nullptr);
+    const double b = bar == std::string::npos ? 0.0 : std::strtod(cell.c_str() + bar + 1, nullptr);
+    return static_cast<int>(std::floor(a + b * level));
+}
+
+// InitNpcLevelData 0x080A37A0: the AuraSkillId (0x080A37C5, GetInteger 0) with its AuraSkillLevel cell (0x080A380C) - an
+// empty cell or a level of 0 drops the id, a level above 64 is 64 (0x080A3AB2); PasstSkillId / PasstSkillLevel alike
+// (0x080A3867 / 0x080A38AE / 0x080A3B0A).  With a script the cell goes through GetNpcLevelData like Level1..4.
+void skill_pair(const KNpcTemplate& t, int series, int level, KLuaScript* s, const char* id_col, const char* level_col, int& id, int& lvl)
+{
+    id = std::atoi(t.cell(id_col).c_str());
+    lvl = 0;
+    if (id <= 0) {
+        id = 0;
+        return;
+    }
+    const std::string cell = t.cell(level_col);
+    if (cell.empty()) {
+        id = 0;
+        return;
+    }
+    lvl = s != nullptr ? level_data_str(*s, series, level, level_col, cell) : level_pair(cell, level);
+    if (lvl <= 0) {
+        id = 0;
+        lvl = 0;
+        return;
+    }
+    if (lvl > 64) lvl = 64;
+}
+
 } // namespace
+
+int KNpcTemplateSet::level_string(int series, int level, const char* name, const std::string& cell, KScriptCache* scripts)
+{
+    if (cell.empty()) return 0;
+    KLuaScript* s = scripts != nullptr ? scripts->get(KScriptCache::kNpcLevelScript) : nullptr;
+    return s != nullptr ? level_data_str(*s, series, level, name, cell) : level_pair(cell, level);
+}
 
 KNpcLevelData KNpcTemplateSet::level_data(const KNpcTemplate& t, int level, int series, KScriptCache* scripts)
 {
@@ -214,10 +256,18 @@ KNpcLevelData KNpcTemplateSet::level_data(const KNpcTemplate& t, int level, int 
             d.skill_level[slot] = static_cast<int>(std::floor(t.skills[slot].level_a + t.skills[slot].level_b * level));
         }
     }
-    if (scripts == nullptr) return d;
+    if (scripts == nullptr) {
+        skill_pair(t, series, level, nullptr, "AuraSkillId", "AuraSkillLevel", d.aura_skill_id, d.aura_skill_level);
+        skill_pair(t, series, level, nullptr, "PasstSkillId", "PasstSkillLevel", d.passive_skill_id, d.passive_skill_level);
+        return d;
+    }
     KLuaScript* s = t.level_script.empty() ? nullptr : scripts->get(t.level_script);
     if (s == nullptr) s = scripts->get(KScriptCache::kNpcLevelScript);   // g_pNpcLevelScript
-    if (s == nullptr) return d;
+    if (s == nullptr) {
+        skill_pair(t, series, level, nullptr, "AuraSkillId", "AuraSkillLevel", d.aura_skill_id, d.aura_skill_level);
+        skill_pair(t, series, level, nullptr, "PasstSkillId", "PasstSkillLevel", d.passive_skill_id, d.passive_skill_level);
+        return d;
+    }
 
     // KNpcTemplate::InitNpcLevelData, in its order
     for (int slot = 1; slot < 5; ++slot) {
@@ -243,6 +293,8 @@ KNpcLevelData KNpcTemplateSet::level_data(const KNpcTemplate& t, int level, int 
     d.light_resist = level_data_str(*s, series, level, "LightResist", t.cell("LightResist"));
     d.poison_resist = level_data_str(*s, series, level, "PoisonResist", t.cell("PoisonResist"));
     d.physics_resist = level_data_str(*s, series, level, "PhysicsResist", t.cell("PhysicsResist"));
+    skill_pair(t, series, level, s, "AuraSkillId", "AuraSkillLevel", d.aura_skill_id, d.aura_skill_level);
+    skill_pair(t, series, level, s, "PasstSkillId", "PasstSkillLevel", d.passive_skill_id, d.passive_skill_level);
     d.from_script = true;
     return d;
 }

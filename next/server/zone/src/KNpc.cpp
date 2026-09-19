@@ -753,7 +753,7 @@ int KSubWorld::receive_damage(KNpc& t, KNpc& a, int series, bool melee, const KM
     if (dmg == nullptr) return 0;
     if (t.cur.invincibility) return 0;       // +0x147b
     int add_damage = a.cur.add_damage_percent;
-    if (t.boss_flag && t.kind != KNpcKind::player) add_damage += a.cur.add_boss_damage;   // 0x08079750 == 3
+    if (t.boss_flag != 0 && t.kind != KNpcKind::player) add_damage += a.cur.add_boss_damage;   // 0x08079750 == 3
     int mul = 100;
     if ((relation & 0xc) == relation_enemy) {   // 0x0808B2B8: a block, then an enhanced hit
         const int block = t.crowd_block_rate + t.cur.block_rate - a.cur.anti_block_rate[1];

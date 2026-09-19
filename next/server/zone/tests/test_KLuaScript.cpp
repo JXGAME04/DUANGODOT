@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <variant>
 
 #include "jx/log.hpp"
 #include "jx/zone/KLuaScript.h"
@@ -87,6 +88,26 @@ function Quadratic(x,a,b,c)
 end;
 )lua";
 
+// A level script that builds its answer as a string the way zhengjiakangxing.lua and hundreds of others do
+// (Param2String): Lua 4 printed 15 + level as "16", Lua 5.4 prints 15 + 1.0 as "16.0" and 10 / 5 as "2.0"
+constexpr const char* kStrings = R"lua(
+function Param2String(Param1, Param2, Param3)
+return Param1..","..Param2..","..Param3
+end;
+function GetSkillLevelData(levelname, data, level)
+if (levelname == "allres_p") then
+return Param2String(15+level, 12, 0)
+end;
+if (levelname == "half") then
+return Param2String(level/2, level*10/5, 1.5*level)
+end;
+if (levelname == "name") then
+return "1108.0,"..level..",skill_v1.0"
+end;
+return ""
+end;
+)lua";
+
 // Untouched Lua 4: %upvalue does not parse, and getn is not a global of Lua 5.4.
 constexpr const char* kLua4 = R"lua(
 local tb = {1,2}
@@ -102,6 +123,7 @@ std::string make_scripts()
     std::ofstream(root / "script" / "npclevelscript" / "lib.lua") << kLib;
     std::ofstream(root / "script" / "npclevelscript" / "broken.lua") << "function ( oops";
     std::ofstream(root / "script" / "npclevelscript" / "lua4.lua") << kLua4;
+    std::ofstream(root / "script" / "npclevelscript" / "strings.lua") << kStrings;
     return root.generic_string();
 }
 
@@ -246,4 +268,25 @@ TEST_CASE("the converted level scripts of the reference server run when present"
     CHECK(d.max_damage >= d.min_damage);
     CHECK(d.skill_level[1] == 1);
     CHECK(cache.get(KScriptCache::kNpcLevelScript) != nullptr);
+}
+
+
+TEST_CASE("whole numbers reach the scripts as integers and come back printed the Lua 4 way", "[lua]")
+{
+    Quiet q;
+    const std::string root = make_scripts();
+    KLuaScript s;
+    REQUIRE(s.init(root));
+    REQUIRE(s.load(R"(\script\npclevelscript\strings.lua)"));
+    auto str = [&](const char* setting, double level) {
+        const auto r = s.call_value("GetSkillLevelData", {std::string(setting), std::string(), level});
+        REQUIRE(r);
+        REQUIRE(std::holds_alternative<std::string>(*r));
+        return std::get<std::string>(*r);
+    };
+    CHECK(str("allres_p", 1.0) == "16,12,0");          // 15 + level with an integer level, not "16.0,12,0"
+    CHECK(str("half", 4.0) == "2,8,6");               // 4 / 2 and 4 * 10 / 5 are floats in 5.4: "2.0" / "8.0" -> "2" / "8"
+    CHECK(str("half", 3.0) == "1.5,6,4.5");           // a fraction stays
+    CHECK(str("name", 2.0) == "1108,2,skill_v1.0");   // a ".0" inside a word is left alone
+    CHECK(KLuaScript::lua4_number_format("0.0 -7.0 10.05 3.0x 3.00") == "0 -7 10.05 3x 3.00");   // 3.0 .. "x" was "3x" in Lua 4 too
 }

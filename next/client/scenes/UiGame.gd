@@ -5,6 +5,7 @@ extends Node2D
 
 const NpcScript := preload("res://scenes/KNpc.gd")
 const WorldView2D := preload("res://scenes/KWorldView2D.gd")
+const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const ACTION_ATTACK := 1
 const ENTITY_DROP := 4
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
@@ -16,6 +17,7 @@ const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 var _entities := {}          # entity_id -> Node (KNpc / KObj)
 var _target: Node = null     # the entity the player attacks / selected
 var _world: Node             # the KWorldView drawing the map, the entities, the missiles
+var _hovered: Node = null    # the npc under the mouse ([core+0xa8c4] of the 2.0 client)
 var _hud: Label
 var _chat_log: RichTextLabel
 var _chat_input: LineEdit
@@ -48,6 +50,8 @@ func _ready() -> void:
 	Game.missle_sync.connect(_on_missle)
 	Game.entity_life.connect(_on_life)
 	Game.state_icons_changed.connect(_on_state_icons)
+	Game.gold_changed.connect(_on_gold)
+	Game.entity_camp.connect(_on_entity_camp)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -155,14 +159,14 @@ func _own() -> Node:
 	return _entities.get(Game.entity_id)
 
 
-func _update_camera(snap: bool) -> void:
+func _update_camera(snap: bool, delta: float = 0.0) -> void:
 	var own := _own()
 	if own:
-		_world.follow(own, snap)
+		_world.follow(own, snap, delta)
 
 
 func _process(delta: float) -> void:
-	_update_camera(false)
+	_update_camera(false, delta)
 	_walk_to_pickup()
 	_world.update(delta)
 	var own := _own()
@@ -213,6 +217,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_world.zoom_step(1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_world.zoom_step(-1)
+	elif event is InputEventMouseMotion:
+		_set_hovered(_entity_at(_mouse()))
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE:
 			if _windows == null or not _windows.any_open():
@@ -220,6 +226,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 			if not _chat_input.has_focus():
 				_chat_input.grab_focus()
+		elif event.keycode == KEY_F7 and not event.echo:
+			# autoexec.lua: AddCommand("F7", "", "Switch([[showplayername]])") -> 0x0042FBF7
+			set_show_switches(KNpcGold.toggle_switch(NpcScript.name_switch), NpcScript.life_switch)
+		elif event.keycode == KEY_F8 and not event.echo:
+			# AddCommand("F8", "", "Switch([[showplayerlife]])") -> 0x0042FC2D
+			set_show_switches(NpcScript.name_switch, KNpcGold.toggle_switch(NpcScript.life_switch))
+
+
+# the npc under the mouse (the pate loop 0x0067021A compares [core+0xa8c4], the hovered npc, with each one)
+func _set_hovered(node: Node) -> void:
+	if node == _hovered:
+		return
+	if _hovered != null and is_instance_valid(_hovered) and _hovered.has_method("set_hovered"):
+		_hovered.set_hovered(false)
+	_hovered = node if node != null and node.has_method("set_hovered") else null
+	if _hovered != null:
+		_hovered.set_hovered(true)
+
+
+# the two show switches of the option word (KNpcGold.gd): every npc draws its block again
+func set_show_switches(name_switch: int, life_switch: int) -> void:
+	NpcScript.name_switch = name_switch
+	NpcScript.life_switch = life_switch
+	for node in _entities.values():
+		if node != null and is_instance_valid(node) and node.has_method("refresh_info"):
+			node.refresh_info()
+	Log.info("ui", "show switches", {"names": name_switch, "life": life_switch})
 
 
 # A skill on the entity under the cursor, else on the spot (the right mouse skill; ShortcutUseItem of a quick cell
@@ -288,6 +321,7 @@ func _leave() -> void:
 var _missles := {}
 var _missle_spawns := 0
 var _missle_effects := 0
+var _missle_smooth_max := 0      # the most render-frame moves a missile made inside one logic frame (rule 13)
 
 
 func _on_missle(d: Dictionary) -> void:
@@ -308,6 +342,8 @@ func _on_missle(d: Dictionary) -> void:
 		if node != null:
 			node.apply(d)
 		return
+	if node != null and is_instance_valid(node):
+		_missle_smooth_max = maxi(_missle_smooth_max, node.max_frame_moves)
 	if node == null:
 		if bool(d.get("removed", false)):
 			return   # a missile this client never saw fly: nothing to end
@@ -330,6 +366,14 @@ func _missle_shot_info() -> String:
 		var c: Vector2 = r.get_center() - (own.position if own != null else Vector2.ZERO)
 		parts.append("m%d:%s@(%d,%d)%dx%d" % [node.missle_id, node.status, int(c.x), int(c.y), int(r.size.x), int(r.size.y)])
 	return " ".join(parts)
+
+
+# --auto: the most render-frame moves any live missile made within one logic frame (rule 13: > 1 at 144 fps)
+func _missle_smooth() -> int:
+	for node in _missles.values():
+		if node != null and is_instance_valid(node):
+			_missle_smooth_max = maxi(_missle_smooth_max, node.max_frame_moves)
+	return _missle_smooth_max
 
 
 # --auto: is any missile showing a frame right now (its AnimFile2 while it flies, AnimFile3 while it vanishes)?
@@ -419,6 +463,21 @@ func _on_state_icons(entity_id: int) -> void:
 		node.set_state_icons(d.get("state_icons", []))
 
 
+# the 0x59 / 0x58 packets: a npc's camps - a player's name colour follows its current camp (0x005F2507)
+func _on_entity_camp(c: Dictionary) -> void:
+	var node: Node2D = _entities.get(int(c.id))
+	if node != null and node.has_method("set_camp"):
+		node.set_camp(int(c.camp), int(c.current_camp))
+
+
+# the 0x9a packet: a monster turned gold - its name takes the gold colour (0x005F23E5)
+func _on_gold(entity_id: int) -> void:
+	var node: Node2D = _entities.get(entity_id)
+	var d = Game.entities.get(entity_id)
+	if node != null and d != null and node.has_method("set_gold_type"):
+		node.set_gold_type(int(d.get("gold_type", 0)))
+
+
 func _on_chat(msg: Dictionary) -> void:
 	_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
 
@@ -476,9 +535,27 @@ func _auto_run() -> void:
 	await _auto_fight()
 	await _auto_death()
 	var _sounds = _world.sounds()
-	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
-		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0])
+	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
+		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
 	print("AUTO_SOUNDS %s" % str(_sounds.history if _sounds != null else []))
+	# the state pictures every npc around carries (B4d-2: a template's aura in cell 5 casts its child every ten frames)
+	var npc_states: PackedStringArray = []
+	for node in _entities.values():
+		if node != null and is_instance_valid(node) and node.has_method("state_spr_info") and not node.is_own:
+			var icons: Array = node.state_icons
+			if not icons.is_empty() and icons.any(func(v): return int(v) != 0):
+				npc_states.append("%s=%s pics=%s" % [node.display_name, str(icons), _state_pics_text(node.state_spr_info())])
+	print("AUTO_NPC_STATES %s" % ", ".join(npc_states))
+	# the gold monsters around (B5a: the kind of the 0x4c / 0x9a packets, the name colour of 0x005F23E5)
+	var golds: PackedStringArray = []
+	for node in _entities.values():
+		if node != null and is_instance_valid(node) and "gold_type" in node and int(node.gold_type) != 0:
+			var row: Dictionary = NpcResList.gold_row(int(node.gold_type))
+			golds.append("%s kind=%d row=%s class=%d color=%s life=%d/%d" % [node.display_name, int(node.gold_type), str(row.get("name", "?")), node.npc_class(),
+				node.name_color().to_html(false), node.life, node.life_max])
+	if not golds.is_empty():
+		await _save_screenshot("user://logs/auto_gold.png")
+	print("AUTO_GOLD rows=%d %s" % [NpcResList.gold_rows(), ", ".join(golds)])
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout
@@ -967,7 +1044,7 @@ func _auto_skills() -> void:
 				await get_tree().create_timer(0.05).timeout
 				shown += 0.05
 			await _save_screenshot("user://logs/auto_cast.png")
-			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d" % [shown, _missle_drawn(), _missle_shot_info(), _world.sounds().played if _world.sounds() != null else 0])
+			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d smooth=%d" % [shown, _missle_drawn(), _missle_shot_info(), _world.sounds().played if _world.sounds() != null else 0, _missle_smooth()])
 			await get_tree().create_timer(maxf(1.0 - shown, 0.1)).timeout
 			cast_told = _action_count > actions_before
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]

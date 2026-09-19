@@ -2335,6 +2335,21 @@ class EntityInfo:
 		service.field = __riding
 		data[__riding.tag] = service
 		
+		__gold_type = PBField.new("gold_type", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 20, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __gold_type
+		data[__gold_type.tag] = service
+		
+		__camp = PBField.new("camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 21, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __camp
+		data[__camp.tag] = service
+		
+		__current_camp = PBField.new("current_camp", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 22, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __current_camp
+		data[__current_camp.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2583,6 +2598,109 @@ class EntityInfo:
 		__riding.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
 	func set_riding(value : bool) -> void:
 		__riding.value = value
+	
+	var __gold_type: PBField
+	func has_gold_type() -> bool:
+		if __gold_type.value != null:
+			return true
+		return false
+	func get_gold_type() -> int:
+		return __gold_type.value
+	func clear_gold_type() -> void:
+		data[20].state = PB_SERVICE_STATE.UNFILLED
+		__gold_type.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_gold_type(value : int) -> void:
+		__gold_type.value = value
+	
+	var __camp: PBField
+	func has_camp() -> bool:
+		if __camp.value != null:
+			return true
+		return false
+	func get_camp() -> int:
+		return __camp.value
+	func clear_camp() -> void:
+		data[21].state = PB_SERVICE_STATE.UNFILLED
+		__camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_camp(value : int) -> void:
+		__camp.value = value
+	
+	var __current_camp: PBField
+	func has_current_camp() -> bool:
+		if __current_camp.value != null:
+			return true
+		return false
+	func get_current_camp() -> int:
+		return __current_camp.value
+	func clear_current_camp() -> void:
+		data[22].state = PB_SERVICE_STATE.UNFILLED
+		__current_camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_current_camp(value : int) -> void:
+		__current_camp.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class NpcGold:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__gold_type = PBField.new("gold_type", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __gold_type
+		data[__gold_type.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __gold_type: PBField
+	func has_gold_type() -> bool:
+		if __gold_type.value != null:
+			return true
+		return false
+	func get_gold_type() -> int:
+		return __gold_type.value
+	func clear_gold_type() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__gold_type.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_gold_type(value : int) -> void:
+		__gold_type.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -7312,6 +7430,22 @@ class SkillDesc:
 		service.field = __held_level
 		data[__held_level.tag] = service
 		
+		__equip_percent = PBField.new("equip_percent", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 10, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __equip_percent
+		data[__equip_percent.tag] = service
+		
+		__with_modifier = PBField.new("with_modifier", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 11, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __with_modifier
+		data[__with_modifier.tag] = service
+		
+		__modifier = PBField.new("modifier", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 12, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __modifier
+		service.func_ref = Callable(self, "new_modifier")
+		data[__modifier.tag] = service
+		
 	var data = {}
 	
 	var __skill_id: PBField
@@ -7432,6 +7566,46 @@ class SkillDesc:
 		__held_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
 	func set_held_level(value : int) -> void:
 		__held_level.value = value
+	
+	var __equip_percent: PBField
+	func has_equip_percent() -> bool:
+		if __equip_percent.value != null:
+			return true
+		return false
+	func get_equip_percent() -> int:
+		return __equip_percent.value
+	func clear_equip_percent() -> void:
+		data[10].state = PB_SERVICE_STATE.UNFILLED
+		__equip_percent.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_equip_percent(value : int) -> void:
+		__equip_percent.value = value
+	
+	var __with_modifier: PBField
+	func has_with_modifier() -> bool:
+		if __with_modifier.value != null:
+			return true
+		return false
+	func get_with_modifier() -> bool:
+		return __with_modifier.value
+	func clear_with_modifier() -> void:
+		data[11].state = PB_SERVICE_STATE.UNFILLED
+		__with_modifier.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_with_modifier(value : bool) -> void:
+		__with_modifier.value = value
+	
+	var __modifier: PBField
+	func has_modifier() -> bool:
+		if __modifier.value != null:
+			return true
+		return false
+	func get_modifier() -> SkillDescAttrib:
+		return __modifier.value
+	func clear_modifier() -> void:
+		data[12].state = PB_SERVICE_STATE.UNFILLED
+		__modifier.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_modifier() -> SkillDescAttrib:
+		__modifier.value = SkillDescAttrib.new()
+		return __modifier.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -8959,8 +9133,9 @@ enum MsgId {
 	G2C_PLAYER_FACTION = 2121,
 	G2C_ENTITY_STATE = 2122,
 	G2C_SKILL_DESC = 2123,
-	G2C_STATE_ICONS = 2125,
 	G2C_MISSLE = 2124,
+	G2C_STATE_ICONS = 2125,
+	G2C_NPC_GOLD = 2126,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

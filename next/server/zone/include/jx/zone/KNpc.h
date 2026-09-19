@@ -13,6 +13,7 @@
 #include "jx/ids.hpp"
 #include "jx/zone/KMath.h"
 #include "jx/zone/KNpcAttrib.h"
+#include "jx/zone/KNpcGold.h"
 #include "jx/zone/KObj.h"
 #include "jx/zone/KPlayer.h"
 #include "jx/zone/KRegion.h"
@@ -184,7 +185,18 @@ struct KNpc {
     // the skills' timed states (KStateNode) and what the combat code keeps between two blows
     std::vector<KStateNode> state_skills;   // m_StateSkillList +0x234
     int damage_lock = 0;                    // +0x1694: ReceiveDamage refuses while it is not 0
-    bool boss_flag = false;                 // +0x181c: a boss - the attacker's add_boss_damage counts (0x08079750 == 3)
+    // +0x181c: how the npc came to be - 1 the "GoldBoss" record of the server data base (0x0820A460 -> 0x080F0412),
+    // 2 the script's AddNpc with an 8th argument of 1 (0x0811BF2A; 3 with remove-on-death), 0 a placement of
+    // Region_S.dat (0x080E2850 -> KNpcSet::Add 0x0809FBD0 never sets it), one a skill made (0x0813A770 with bKind 0)
+    // or a player.  Non-zero: the attacker's add_boss_damage counts (0x08079750 == 3), every tenth frame casts the
+    // template's aura in cell 5 (0x0808BAF6), and it never turns gold (0x08086088)
+    int boss_flag = 0;
+    // KNpc+0x88 KNpcGold: the gold (elite) monster state and its backup (KNpcGold.h)
+    KNpcGold gold;
+    // +0x174c: the drop table the death rolls on - the template's DropRateFile (SetTemplate 0x080830BA), the map's
+    // `<id>_NormalDropRate` for a placement (0x0809FD30), its `<id>_GoldenDropRate` while gold (0x08086073); a
+    // lower-cased game path here, the table's index in the binary
+    std::string drop_rate_file;
     EntityId last_damage_id;                // m_nLastDamageIdx +0x1598 (CalcDamage)
     EntityId last_poison_id;                // +0x15a0: who poisoned us last (0x0807BD60)
     KStateModifier state_modifier;          // +0x19d8..

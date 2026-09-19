@@ -141,6 +141,8 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 		node = Node2D.new()
 		node.set_script(ObjScript if int(d.get("type", 0)) == ENTITY_DROP else NpcScript)
 		node.no_2d = true
+		if int(d.get("type", 0)) != ENTITY_DROP:
+			node.sounds = _sounds   # the action sounds (KNpcRes::PlaySound) - silent until the 3D view knows the sound table
 		_states.add_child(node)
 	node.setup(d, own)
 	if own:
@@ -265,7 +267,7 @@ func add_missle_effect(_anim: Dictionary, _dir64: int, scene_pos: Vector2, z: in
 
 # ---- camera and cursor ---------------------------------------------------------------------------
 
-func follow(own: Node, snap: bool) -> void:
+func follow(own: Node, snap: bool, _delta: float = 0.0) -> void:
 	var view = _views.get(own)
 	if view == null:
 		return
