@@ -827,6 +827,28 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-66) — bloom của bản 3D là URP Volume (không phải lớp `PostEffectBloom`): glow theo số của profile
+
+- Sửa kết luận 3D-61: `PostEffectBloom.IsEnable` là stub, **nhưng** bản 3D vẫn có bloom qua URP: chuỗi `Assets/Settings/GlobalVolume.prefab`
+  nằm trong `Global..cctor` (`Global.postEffectVolume_path`, statics +0x140), `ScnUnit.Init 0x49cbf7` (gọi từ `GameStartup.Start`) nạp và
+  Instantiate nó (lỗi thì log "后处理体积资源读取失败"); camera `MainCamera` mọi cảnh: `UniversalAdditionalCameraData` byte 44 `m_RenderPostProcessing = 1`
+  (renderer index 1, `layerCull`…); prefab `GlobalVolume` (bundle `c33674c0bad2`): `Volume {isGlobal 1, weight 1, sharedProfile SampleSceneProfile}`;
+  profile = [Tonemapping, Bloom]. Bloom (URP 14, 116 byte thân: `active 1; skipIterations (0, 2); threshold (override 1, 1,0); intensity (1, 1,0);
+  scatter (0, …); clamp (0, …); tint (0, trắng); highQualityFiltering (0); downscale (0, Half); maxIterations (0, 6); dirtTexture (0, null, dim 1);
+  dirtIntensity (0, 0)`) → ngưỡng 1,0 gamma, cường độ 1,0, scatter 0,7 / 6 vòng nửa độ phân giải mặc định. Tonemapping: `active 0`, mode None → không tone map.
+  Pipeline: `UniversalRP-Scene` (4 renderer, `m_SupportsHDR 1`, MSAA 1), `UniversalRP-LowQuality` (HDR 0 → mức thấp không có bloom), `UniversalRP-Editor`.
+- Cách tìm xref chuỗi trong IL2CPP: slot = 8 byte `(5 << 29) | (idx << 1) | 1` trong `.data`, quét disp32 trong section **`il2cpp`** (không phải `.text`)
+  trỏ tới slot → hàm (script trong lịch sử phiên; nên đưa vào `disasm.py --xref` khi cần lại).
+- Godot: `KScenePlace3D._apply_post` — `tonemap LINEAR`, glow ADDITIVE ngưỡng 1,0 (`glow_hdr_scale 2`), cường độ 1,0, 6 mức chuẩn hoá
+  (`glow_normalized`), bật ở medium/high, tắt ở low (theo LowQuality không HDR). **Đo** (probe `build/probe/glow_probe.gd`, quad sáng 4,0 trên nền
+  đen, đọc pixel theo hàng): GL Compatibility (ADR-008) glow chỉ toả ~2 % bề rộng khung (0,22 sát mép, 0 xa hơn) ngay cả với mức mạnh nhất;
+  Forward+/Mobile (Vulkan) toả rộng (0,71 / 0,18 / 0,008 ở 3 mốc). Cảnh Ba Lăng chạy được cả Mobile (486 draw call, 145 FPS) lẫn Forward+ (613 dc).
+  → giữ GL theo ADR-008; `client3d.cmd` đọc `JX_RENDER=mobile|forward_plus` (thêm `--rendering-method … --rendering-driver vulkan`) cho quầng
+  như bản tham khảo. **Chờ chủ dự án quyết** đổi ADR-008 sang Mobile (mất xuất web) — bằng chứng đã đo ở trên.
+- Sự cố: chạy e2e (cổng +1000) làm zone 19001 của chủ dự án dừng ("Nhận tín hiệu dừng · tín hiệu=21" = CTRL_BREAK gửi cả nhóm console) → sau e2e phải
+  `python tools/dev.py start` lại (đã làm; ghi vào bộ nhớ phiên).
+- commit: `JX NEXT 3D: 3D-66 - bloom URP GlobalVolume (ScnUnit.Init 0x49cbf7), glow theo profile, JX_RENDER cho Vulkan`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-65) — `CullDistances`: khoảng cách cắt theo lớp Unity của cảnh (10 cảnh), lớp của từng vật thể trong `scene.json`
 
 - `CullDistances` [TK] chỉ ghi 3 trường (12 byte): `cull_dist_ly14/15/16`; `OnEnable 0x4a91d0`: `distances[Global.layer14/15/16] = …` →

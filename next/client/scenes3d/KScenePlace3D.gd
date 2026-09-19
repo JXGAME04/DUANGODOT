@@ -18,9 +18,9 @@ const SH_WATER := preload("res://scenes3d/scn3d_water.gdshader")
 # the occluders are looked for every DetectInterval seconds along the camera -> target segment shortened by RayPadding.
 # M3D-6: the quality setting (user://settings3d.json {"quality": "low" | "medium" | "high"}, or --quality=): shadows, fog,
 # how far trees / grass / stones are drawn (visibility_range_end) - the numbers are ours [tự chọn]
-const QUALITY := {"low": {"shadows": false, "shadow_dist": 0.0, "tree_range": 60.0, "grass_range": 30.0, "far": 200.0},
-	"medium": {"shadows": true, "shadow_dist": 50.0, "tree_range": 120.0, "grass_range": 50.0, "far": 300.0},
-	"high": {"shadows": true, "shadow_dist": 90.0, "tree_range": 0.0, "grass_range": 0.0, "far": 400.0}}
+const QUALITY := {"low": {"shadows": false, "shadow_dist": 0.0, "tree_range": 60.0, "grass_range": 30.0, "far": 200.0, "glow": false},
+	"medium": {"shadows": true, "shadow_dist": 50.0, "tree_range": 120.0, "grass_range": 50.0, "far": 300.0, "glow": true},
+	"high": {"shadows": true, "shadow_dist": 90.0, "tree_range": 0.0, "grass_range": 0.0, "far": 400.0, "glow": true}}
 static var quality := ""
 const FADE_ALPHA := 0.25
 const FADE_SPEED := 10.0
@@ -382,6 +382,7 @@ func _setup_environment() -> void:
 			env.fog_depth_curve = 1.0
 		else:
 			env.fog_density = float(r.get("fog_density", 0.01))
+	_apply_post(env)
 	_env = WorldEnvironment.new()
 	_env.name = "Env"
 	_env.environment = env
@@ -409,6 +410,32 @@ func _setup_environment() -> void:
 	add_child(_sun)
 
 
+# The post-processing of the reference [TK]: its scene cameras render with post-processing (UniversalAdditionalCameraData
+# m_RenderPostProcessing = 1 on every MainCamera) and ScnUnit.Init 0x49cbf7 instantiates Assets/Settings/GlobalVolume.prefab
+# (Global.postEffectVolume_path, "后处理体积资源读取失败" when missing) whose SampleSceneProfile holds URP Bloom {active,
+# threshold 1.0 (override), intensity 1.0 (override), scatter 0.7 / clamp 65472 / tint white / HQ filtering off / downscale
+# half / maxIterations 6 (defaults), no lens dirt} and Tonemapping {active = false, mode None}: an additive bloom of the HDR
+# colours above 1.0 and no tone mapping (clamp).  UniversalRP-Scene has m_SupportsHDR = 1, UniversalRP-LowQuality 0 -> the
+# low quality level shows no bloom.  Godot: additive glow, threshold 1.0, intensity 1.0, six half-res levels normalised,
+# linear tone map.  ADR-008's GL Compatibility renderer blurs only a few pixels wide (glow probe: 0.22 two edge-widths
+# out, 0 beyond); the Mobile / Forward+ renderers give the reference's wide halo (client3d.cmd --vulkan).
+static func _apply_post(env: Environment) -> void:
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	var q := quality_settings()
+	env.glow_enabled = bool(q.get("glow", false))
+	if not env.glow_enabled:
+		return
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	env.glow_hdr_threshold = 1.0
+	env.glow_hdr_scale = 2.0
+	env.glow_intensity = 1.0
+	env.glow_strength = 1.0
+	env.glow_bloom = 0.0
+	env.glow_normalized = true
+	for lv in range(1, 8):
+		env.set("glow_levels/%d" % lv, 1.0 if lv <= 6 else 0.0)
+
+
 # A map without a 3D bundle: a flat lit ground the size of the zone map, so the 2.5D fallback and tests have a floor.
 func _make_flat_ground() -> void:
 	if _env == null:
@@ -417,6 +444,7 @@ func _make_flat_ground() -> void:
 		env.background_color = Color(0.55, 0.65, 0.8)
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 		env.ambient_light_color = Color(0.6, 0.6, 0.65)
+		_apply_post(env)
 		_env = WorldEnvironment.new()
 		_env.environment = env
 		add_child(_env)

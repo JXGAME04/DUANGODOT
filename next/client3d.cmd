@@ -21,5 +21,7 @@ if not defined GODOT (
   pause
   exit /b 1
 )
-echo Mo client 3D: "%GODOT%" --path "%HERE%client" -- --gm=NewWorld(%MAP%,%X%,%Y%)
-start "JX NEXT client 3D" "%GODOT%" --path "%HERE%client" -- "--gm=NewWorld(%MAP%,%X%,%Y%)"
+set "RENDER="
+if defined JX_RENDER set "RENDER=--rendering-method %JX_RENDER% --rendering-driver vulkan"
+echo Mo client 3D: "%GODOT%" %RENDER% --path "%HERE%client" -- --gm=NewWorld(%MAP%,%X%,%Y%)
+start "JX NEXT client 3D" "%GODOT%" %RENDER% --path "%HERE%client" -- "--gm=NewWorld(%MAP%,%X%,%Y%)"
