@@ -15,6 +15,7 @@
 #include "jx/zone/KFaction.h"
 #include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerEvent.h"
 #include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KPlayerTrade.h"
 
@@ -67,6 +68,7 @@ struct KPlayer {
     // the task ids FirstTask / NextTask of the TASKSYS library walk (the list at 0x9786620 + 0x78 + index * 12 of jx_linux_y; docs §22)
     std::vector<int> task_list;
     std::size_t task_cursor = 0;
+    KPlayerEvent events;         // +0x8064 (KPlayerEvent.h): the kill events a script registered (AddPlayerEvent; docs §23)
     std::int64_t lead_exp = 0;   // m_dwLeadExp +0x596c
     int lead_level = 1;          // m_dwLeadLevel +0x5970: KTeam::CalcCaptainPower reads level_lead_exp.txt by it
     // the three PK attributes of states / equipment (KNpcAttribModify 254 / 257 / 256 -> Player+0x86f8 / +0x86fc / +0x8700,

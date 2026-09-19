@@ -10,6 +10,7 @@ extern "C" {
 #include <algorithm>
 #include <array>
 #include <climits>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -17,12 +18,15 @@ extern "C" {
 #include "jx/log.hpp"
 #include "jx/zone/KItem.h"
 #include "jx/zone/KPlayerDialog.h"
+#include "jx/zone/KPlayerEvent.h"
 #include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KSkillList.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/KTabFile.h"
+#include "jx/zone/KText.h"
 #include "jx/zone/KTaskManager.h"
 
 namespace jx::zone {
@@ -1692,6 +1696,270 @@ int l_SelectTaskStart(lua_State* L) { return task_select(L, "SelectTaskStart", "
 int l_SelectTaskFinish(lua_State* L) { return task_select(L, "SelectTaskFinish", "OnMenuTaskFinish"); }
 int l_SelectTaskAward(lua_State* L) { return task_select(L, "SelectTaskAward", "OnMenuTaskAward"); }
 
+// ---- the player events and the npc helpers of the task scripts (KPlayerEvent.h, docs/LINUX-SERVER.md §23) ----
+
+// the entity behind a "npc index" argument (the old index was a small number; the zone's ids are 64-bit)
+EntityId entity_arg(lua_State* L, int idx)
+{
+    const lua_Number n = lua_tonumber(L, idx);
+    if (!(n >= 0.0 && n < 18446744073709551616.0)) return EntityId{};
+    return EntityId{static_cast<std::uint64_t>(n)};
+}
+
+// AddPlayerEvent(id) (0x0810C510): the event on the player's list (0x081560C0) -> 1; 0 when the list is full or no player
+int l_AddPlayerEvent(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    KNpc* p = player_of(L, "AddPlayerEvent");
+    const bool ok = p != nullptr && g_ScriptContext().world->player_event_add(*p, task_int(L, 1) & 0xffff);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// RemovePlayerEvent(id) (0x0810C440): the event off the list (0x08156050) -> 1; 0 when it was not there or no player
+int l_RemovePlayerEvent(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    KNpc* p = player_of(L, "RemovePlayerEvent");
+    const bool ok = p != nullptr && g_ScriptContext().world->player_event_remove(*p, task_int(L, 1) & 0xffff);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// RemoveAllPlayerEvent() (0x0810C3E0): the list cleared (0x08155F60) -> 1
+int l_RemoveAllPlayerEvent(lua_State* L)
+{
+    KNpc* p = player_of(L, "RemoveAllPlayerEvent");
+    if (p == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    p->player.events.clear();
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+// GetNpcName(index) (0x08100040): the name of the npc (+0x1505), nil when the index names none.  (The zone's names are
+// UTF-8: a script comparing them with the TCVN3 bytes of a table sees no match yet)
+int l_GetNpcName(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    const KNpc* n = c.world == nullptr ? nullptr : c.world->find_entity(entity_arg(L, 1));
+    if (n == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushlstring(L, n->name.data(), n->name.size());
+    return 1;
+}
+
+// GetNpcPos(index) (0x081293F0): x, y of the npc (cells, like GetPos) and its subworld index; one argument; a
+// npc the index does not name gives a single 0
+int l_GetNpcPos(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    const KNpc* n = lua_gettop(L) == 1 && c.world != nullptr ? c.world->find_entity(entity_arg(L, 1)) : nullptr;
+    if (n == nullptr) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    const Pos a = c.world->to_absolute(n->pos());
+    lua_pushinteger(L, a.x / 32);
+    lua_pushinteger(L, a.y / 32);
+    lua_pushinteger(L, 0);
+    return 3;
+}
+
+// NpcName2Replace(name) (0x081006D0): the name through the replacement table 0x080A0420 (the Taiwanese names of the
+// old data); the zone has no such table - the name comes back as it is
+int l_NpcName2Replace(lua_State* L)
+{
+    if (lua_type(L, 1) != LUA_TSTRING) return 0;
+    lua_pushvalue(L, 1);
+    return 1;
+}
+
+// NpcDialog() (0x081744B0): the npc the player talked to last (Player+0xc) runs its script's main for the player again
+int l_NpcDialog(lua_State* L)
+{
+    KNpc* p = player_of(L, "NpcDialog");
+    if (p == nullptr) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    const KNpc* npc = w->find_entity(p->player.dialog.npc);
+    if (npc != nullptr && !npc->script.empty()) w->execute_script(npc->script, "main", *p, 0);
+    return 0;
+}
+
+// GetLastDiagNpc() (0x0810C5E0): the index of the npc the player talked to last (Player+0xc), 0 when none or gone
+int l_GetLastDiagNpc(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetLastDiagNpc");
+    if (p == nullptr) return 0;
+    const KNpc* npc = g_ScriptContext().world->find_entity(p->player.dialog.npc);
+    lua_pushinteger(L, npc == nullptr ? 0 : static_cast<lua_Integer>(p->player.dialog.npc.value));   // an integer: tostring gives "0" like the old Lua
+    return 1;
+}
+
+// GetNpcSettingIdx(index) (0x080FDE50): the template id of the npc (+0x1530); 0 when the index names none
+int l_GetNpcSettingIdx(lua_State* L)
+{
+    KScriptContext& c = g_ScriptContext();
+    const KNpc* n = lua_gettop(L) == 1 && c.world != nullptr ? c.world->find_entity(entity_arg(L, 1)) : nullptr;
+    lua_pushinteger(L, n == nullptr ? 0 : static_cast<lua_Integer>(n->template_id));
+    return 1;
+}
+
+// GetLevel() (0x081111E0): the level of the player's npc (+0x20)
+int l_GetLevel(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetLevel");
+    if (p == nullptr) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->level));
+    return 1;
+}
+
+// GetName() (0x08111E70): the player's name; nil without a player
+int l_GetName(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetName");
+    if (p == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushlstring(L, p->name.data(), p->name.size());
+    return 1;
+}
+
+// GetSex() (0x08112020): the sex of the player's npc (+0x152c)
+int l_GetSex(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetSex");
+    if (p == nullptr) return 0;
+    lua_pushinteger(L, static_cast<lua_Integer>(p->sex));
+    return 1;
+}
+
+// ---- the TabFile_* library (KTabFile.h, docs/LINUX-SERVER.md §24) ----
+
+// the cache of the process: an Include of a script may call TabFile_Load before any world or player is on the context
+KTabFileCache* tab_files(lua_State* L, const char* fn)
+{
+    (void)L;
+    (void)fn;
+    return &g_TabFiles();
+}
+
+// TabFile_Load(file, key [, writable]) (0x0814AEF0): the table of the game path under the key (0x0814D1A0 on the read cache,
+// 0x0814CDE0 on the writable one with a third argument) -> 1 / 0; two arguments at least
+int l_TabFile_Load(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    const char* file = lua_tostring(L, 1);
+    const char* key = lua_tostring(L, 2);
+    KTabFileCache* cache = tab_files(L, "TabFile_Load");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const int ok = cache != nullptr && file != nullptr && key != nullptr ? cache->load(file, key, top >= 3) : 0;
+    if (ok == 0) log::debug("lua", "tab file not loaded", {log::kv("file", text::decode_mixed(file ? file : "")), log::kv("key", text::decode_mixed(key ? key : ""))});
+    lua_pushinteger(L, ok);
+    return 1;
+}
+
+// TabFile_UnLoad(key) (0x0814B040) -> 1 when it was there
+int l_TabFile_UnLoad(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_UnLoad");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    lua_pushinteger(L, cache != nullptr && key != nullptr && cache->unload(key) ? 1 : 0);
+    return 1;
+}
+
+// TabFile_GetRowCount(key) (0x0814A690): GetHeight, 0 without the table; TabFile_GetColCount(key) (0x0814A5E0): GetWidth
+int l_TabFile_GetRowCount(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_GetRowCount");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    lua_pushinteger(L, t == nullptr ? 0 : t->height());
+    return 1;
+}
+
+int l_TabFile_GetColCount(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_GetColCount");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    lua_pushinteger(L, t == nullptr ? 0 : t->width());
+    return 1;
+}
+
+// the column of a TabFile argument: a number, or the header name (FindColumn); -1 when neither names one
+int tab_column(lua_State* L, int idx, const KTabFile& t)
+{
+    if (lua_type(L, idx) == LUA_TSTRING) return t.find_column(lua_tostring(L, idx));
+    return task_int(L, idx);
+}
+
+// TabFile_GetCell(key, row, column) (0x0814A740): GetString(row, column, "", buf, 0x400) - the cell, or "" (a column by its
+// header name too); three arguments at least; "" without the table (0x0814A8A0)
+int l_TabFile_GetCell(lua_State* L)
+{
+    if (lua_gettop(L) <= 2) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_GetCell");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    std::string cell;
+    if (t != nullptr) t->get_string(task_int(L, 2), tab_column(L, 3, *t), cell, 0x400);
+    lua_pushlstring(L, cell.data(), cell.size());
+    return 1;
+}
+
+// TabFile_Search(key, column, value) (0x0814A960): the first row whose cell in the column equals the value (0x08227C90 /
+// 0x08227BE0), -1 when none or no table
+int l_TabFile_Search(lua_State* L)
+{
+    if (lua_gettop(L) <= 2) return 0;
+    const char* key = lua_tostring(L, 1);
+    const char* value = lua_tostring(L, 3);
+    KTabFileCache* cache = tab_files(L, "TabFile_Search");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    lua_pushinteger(L, t == nullptr || value == nullptr ? -1 : t->find_row(tab_column(L, 2, *t), value));
+    return 1;
+}
+
+// TabFile_SetCell(key, row, column, value) (0x0814A420): the cell of the table in memory -> 1 / 0; four arguments at least
+int l_TabFile_SetCell(lua_State* L)
+{
+    if (lua_gettop(L) <= 3) return 0;
+    const char* key = lua_tostring(L, 1);
+    const char* value = lua_tostring(L, 4);
+    KTabFileCache* cache = tab_files(L, "TabFile_SetCell");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    const bool ok = t != nullptr && value != nullptr && t->set_string(task_int(L, 2), tab_column(L, 3, *t), value);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// TabFile_Save(key) (0x0814A3A0): the old server wrote the table back into its file; the zone keeps the old data as it
+// found it -> 0 always
+int l_TabFile_Save(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    log::warn("lua", "tab file save refused", {log::kv("key", text::decode_mixed(key ? key : ""))});
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -1738,6 +2006,13 @@ const luaL_Reg kGameScriptFuns[] = {
     {"TaskEventMatrix", l_TaskEventMatrix}, {"GetTaskEventID", l_GetTaskEventID}, {"GetEventTaskCount", l_GetEventTaskCount},
     {"GetEventTask", l_GetEventTask},     {"SubWorldName", l_SubWorldName},   {"SelectTaskStart", l_SelectTaskStart},
     {"SelectTaskFinish", l_SelectTaskFinish}, {"SelectTaskAward", l_SelectTaskAward},
+    {"AddPlayerEvent", l_AddPlayerEvent}, {"RemovePlayerEvent", l_RemovePlayerEvent}, {"RemoveAllPlayerEvent", l_RemoveAllPlayerEvent},
+    {"GetNpcName", l_GetNpcName},         {"GetNpcPos", l_GetNpcPos},         {"NpcName2Replace", l_NpcName2Replace},
+    {"NpcDialog", l_NpcDialog},           {"GetLastDiagNpc", l_GetLastDiagNpc}, {"GetNpcSettingIdx", l_GetNpcSettingIdx},
+    {"GetLevel", l_GetLevel},             {"GetName", l_GetName},             {"GetSex", l_GetSex},
+    {"TabFile_Load", l_TabFile_Load},     {"TabFile_UnLoad", l_TabFile_UnLoad}, {"TabFile_GetRowCount", l_TabFile_GetRowCount},
+    {"TabFile_GetColCount", l_TabFile_GetColCount}, {"TabFile_GetCell", l_TabFile_GetCell}, {"TabFile_Search", l_TabFile_Search},
+    {"TabFile_SetCell", l_TabFile_SetCell}, {"TabFile_Save", l_TabFile_Save},
     {nullptr, nullptr},
 };
 

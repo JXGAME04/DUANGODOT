@@ -263,3 +263,16 @@ TEST_CASE("text console speaks through the catalogue, the ring stays JSON", "[lo
     jx::log::shutdown();
     std::filesystem::remove_all(dir);
 }
+
+TEST_CASE("a field with raw bytes of the old game (not UTF-8) becomes U+FFFD instead of an exception", "[log]")
+{
+    jx::log::init(quiet());
+    const std::string raw("\xa7\xb8x");   // TCVN3 / GBK bytes a script may hand a field
+    jx::log::info("lua", "raw bytes", {jx::log::kv("name", raw)});
+    const std::string line = jx::log::ring_snapshot().back();
+    CHECK(line.find("\xef\xbf\xbdx") != std::string::npos);
+    CHECK(line.find("\xa7") == std::string::npos);
+    const auto j = last_line();
+    CHECK(j.at("msg") == "raw bytes");
+    jx::log::shutdown();
+}

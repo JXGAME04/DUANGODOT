@@ -12541,6 +12541,70 @@ class RoleTaskValue:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class RolePlayerEvent:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__id = PBField.new("id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __id
+		data[__id.tag] = service
+		
+		__count = PBField.new("count", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __count
+		data[__count.tag] = service
+		
+	var data = {}
+	
+	var __id: PBField
+	func has_id() -> bool:
+		if __id.value != null:
+			return true
+		return false
+	func get_id() -> int:
+		return __id.value
+	func clear_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_id(value : int) -> void:
+		__id.value = value
+	
+	var __count: PBField
+	func has_count() -> bool:
+		if __count.value != null:
+			return true
+		return false
+	func get_count() -> int:
+		return __count.value
+	func clear_count() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__count.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_count(value : int) -> void:
+		__count.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class RoleData:
 	extends RefCounted
 	func _init():
@@ -12714,6 +12778,13 @@ class RoleData:
 		service.field = __task_values
 		service.func_ref = Callable(self, "add_task_values")
 		data[__task_values.tag] = service
+		
+		var __events_default: Array[RolePlayerEvent] = []
+		__events = PBField.new("events", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 33, true, __events_default)
+		service = PBServiceField.new()
+		service.field = __events
+		service.func_ref = Callable(self, "add_events")
+		data[__events.tag] = service
 		
 	var data = {}
 	
@@ -13128,6 +13199,17 @@ class RoleData:
 	func add_task_values() -> RoleTaskValue:
 		var element = RoleTaskValue.new()
 		__task_values.value.append(element)
+		return element
+	
+	var __events: PBField
+	func get_events() -> Array[RolePlayerEvent]:
+		return __events.value
+	func clear_events() -> void:
+		data[33].state = PB_SERVICE_STATE.UNFILLED
+		__events.value.clear()
+	func add_events() -> RolePlayerEvent:
+		var element = RolePlayerEvent.new()
+		__events.value.append(element)
 		return element
 	
 	func _to_string() -> String:

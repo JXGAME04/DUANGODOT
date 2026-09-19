@@ -16,6 +16,7 @@
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSubWorld.h"
 #include "jx/zone/KTaskManager.h"
+#include "jx/zone/KText.h"
 #include "jx/zone/ScriptFuns.h"
 
 namespace jx::zone {
@@ -54,7 +55,7 @@ bool KSubWorld::task_set_status(KNpc& e, std::string_view name, int status)
     const int id = task_status::value_id(*ordinal);
     const int value = task_status::status_value(e.player.task.get_save_val(id), *ordinal, status);
     task_set_value_synced(e, id, value);
-    log::debug("zone.task", "task status changed", {log::kv("entity", e.id), log::kv("task", std::string(name)), log::kv("status", status & 3)});
+    log::debug("zone.task", "task status changed", {log::kv("entity", e.id), log::kv("task", text::decode_mixed(name)), log::kv("status", status & 3)});
     return true;
 }
 
@@ -69,7 +70,7 @@ bool KSubWorld::task_start(KNpc& e, std::string_view name)
     if (temp.slots() > task_status::kTempSlots) return false;           // 0x0820E538: no room for another group
     temp.groups[*id];
     task_write_temp(e, temp);
-    log::debug("zone.task", "task started", {log::kv("entity", e.id), log::kv("task", std::string(name)), log::kv("id", *id)});
+    log::debug("zone.task", "task started", {log::kv("entity", e.id), log::kv("task", text::decode_mixed(name)), log::kv("id", *id)});
     return true;
 }
 
@@ -82,7 +83,7 @@ bool KSubWorld::task_close(KNpc& e, std::string_view name)
     temp.decode(e.player.task);
     if (temp.groups.erase(*id) == 0) return false;   // 0x0820E467: not started
     task_write_temp(e, temp);
-    log::debug("zone.task", "task closed", {log::kv("entity", e.id), log::kv("task", std::string(name)), log::kv("id", *id)});
+    log::debug("zone.task", "task closed", {log::kv("entity", e.id), log::kv("task", text::decode_mixed(name)), log::kv("id", *id)});
     return true;
 }
 

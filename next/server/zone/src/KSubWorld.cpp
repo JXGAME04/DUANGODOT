@@ -319,6 +319,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     update_equip_res(entities_.at(id));   // 0x080C1F50: the look of what came back on (before the spawn goes out)
     load_skills(entities_.at(id), role);   // KPlayer::LoadPlayerFightSkillList: the skills, each through KSkillList::Add
     load_task_values(entities_.at(id), role);   // KPlayer::LoadPlayerTaskList 0x080C0050: the {id, value} pairs of the record
+    load_player_events(entities_.at(id), role);   // the kill events of the extra block (0x080BEB60)
     // the pace: m_CurrentRunSpeed units a frame (0x08080C01; 10 for a player, 0x080A7FF0) = 180 a second at 18 Hz - the role's
     // move_speed (a 200 the persist layer fills in) is not a rule of the old server and is ignored
     entities_.at(id).speed = player_move_speed(entities_.at(id));
@@ -1707,6 +1708,7 @@ void KSubWorld::do_revive(KNpc& e)
         player_corpse(e);
         return;
     }
+    fire_kill_events(e);   // 0x08083720 (the end of the death frames): the kill events of the player behind the last hit
     recover_gold(e);     // 0x08083720 (the end of the death frames): the OnDeath script, then RecoverBackData
     e.doing = KDoing::revive;
     e.life_state = {};   // KNpc::DoRevive -> ClearNormalState
@@ -1908,6 +1910,23 @@ bool KSubWorld::execute_script(const std::string& game_path, const char* fn, KNp
     ctx.sid = player.sid;
     ctx.script_path = game_path;
     const bool ok = script->call_number(fn, {static_cast<double>(param)}).has_value() || script->has_function(fn);
+    ctx = saved;
+    if (!ok) log::warn("zone.trap", "script function missing", {log::kv("script", game_path), log::kv("function", fn)});
+    return ok;
+}
+
+bool KSubWorld::execute_script_args(const std::string& game_path, const char* fn, KNpc& player, const std::vector<KLuaScript::Arg>& args)
+{
+    if (!cfg_.scripts) return false;
+    KLuaScript* script = cfg_.scripts->get(game_path);
+    if (script == nullptr) return false;
+    KScriptContext& ctx = g_ScriptContext();
+    const KScriptContext saved = ctx;
+    ctx.world = this;
+    ctx.player = &player;
+    ctx.sid = player.sid;
+    ctx.script_path = game_path;
+    const bool ok = script->call_number(fn, args).has_value() || script->has_function(fn);
     ctx = saved;
     if (!ok) log::warn("zone.trap", "script function missing", {log::kv("script", game_path), log::kv("function", fn)});
     return ok;
@@ -2383,6 +2402,7 @@ bool KSubWorld::role_snapshot(std::uint64_t sid, pb::RoleData& out) const
         if (e->player.loaded) e->player.save_to(*e, out);   // the points, the base maxima, life / mana / stamina, exp
         save_skills(*e, out);
         save_task_values(*e, out);   // KPlayer::SavePlayerTaskList 0x080BF1C0: the non-zero task values
+        save_player_events(*e, out);
     }
     save_items(sid, out);
     return true;

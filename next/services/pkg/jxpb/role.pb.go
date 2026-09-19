@@ -632,6 +632,60 @@ func (x *RoleTaskValue) GetValue() int32 {
 	return 0
 }
 
+// One event a script registered on the character (KPlayerEvent, Player+0x8064 of jx_linux_y: {word id, word count};
+// the extra block of TRoleData keeps them, 0x080BEB60): AddPlayerEvent, counted by the kills of event_killnpc.txt
+type RolePlayerEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Count         uint32                 `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"` // the kills so far
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RolePlayerEvent) Reset() {
+	*x = RolePlayerEvent{}
+	mi := &file_jx_role_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RolePlayerEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RolePlayerEvent) ProtoMessage() {}
+
+func (x *RolePlayerEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_role_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RolePlayerEvent.ProtoReflect.Descriptor instead.
+func (*RolePlayerEvent) Descriptor() ([]byte, []int) {
+	return file_jx_role_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RolePlayerEvent) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *RolePlayerEvent) GetCount() uint32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 type RoleData struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	PlayerId    uint64                 `protobuf:"varint,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
@@ -679,16 +733,17 @@ type RoleData struct {
 	PkLocked bool   `protobuf:"varint,29,opt,name=pk_locked,json=pkLocked,proto3" json:"pk_locked,omitempty"`
 	// the leadership (m_dwLeadExp +0x596c / m_dwLeadLevel +0x5970 of KPlayer): the level says how many a team led by the
 	// character can hold (level_lead_exp.txt col 3, KTeam::CalcCaptainPower 0x080CC960); 0 = level 1
-	LeadExp       uint64           `protobuf:"varint,30,opt,name=lead_exp,json=leadExp,proto3" json:"lead_exp,omitempty"`
-	LeadLevel     uint32           `protobuf:"varint,31,opt,name=lead_level,json=leadLevel,proto3" json:"lead_level,omitempty"`
-	TaskValues    []*RoleTaskValue `protobuf:"bytes,32,rep,name=task_values,json=taskValues,proto3" json:"task_values,omitempty"` // the task values the scripts keep (GetTask / SetTask; docs/LINUX-SERVER.md §21)
+	LeadExp       uint64             `protobuf:"varint,30,opt,name=lead_exp,json=leadExp,proto3" json:"lead_exp,omitempty"`
+	LeadLevel     uint32             `protobuf:"varint,31,opt,name=lead_level,json=leadLevel,proto3" json:"lead_level,omitempty"`
+	TaskValues    []*RoleTaskValue   `protobuf:"bytes,32,rep,name=task_values,json=taskValues,proto3" json:"task_values,omitempty"` // the task values the scripts keep (GetTask / SetTask; docs/LINUX-SERVER.md §21)
+	Events        []*RolePlayerEvent `protobuf:"bytes,33,rep,name=events,proto3" json:"events,omitempty"`                           // the kill events registered on the character (AddPlayerEvent; docs/LINUX-SERVER.md §23)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RoleData) Reset() {
 	*x = RoleData{}
-	mi := &file_jx_role_proto_msgTypes[6]
+	mi := &file_jx_role_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -700,7 +755,7 @@ func (x *RoleData) String() string {
 func (*RoleData) ProtoMessage() {}
 
 func (x *RoleData) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_role_proto_msgTypes[6]
+	mi := &file_jx_role_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -713,7 +768,7 @@ func (x *RoleData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoleData.ProtoReflect.Descriptor instead.
 func (*RoleData) Descriptor() ([]byte, []int) {
-	return file_jx_role_proto_rawDescGZIP(), []int{6}
+	return file_jx_role_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RoleData) GetPlayerId() uint64 {
@@ -940,6 +995,13 @@ func (x *RoleData) GetTaskValues() []*RoleTaskValue {
 	return nil
 }
 
+func (x *RoleData) GetEvents() []*RolePlayerEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -1006,7 +1068,10 @@ const file_jx_role_proto_rawDesc = "" +
 	"\x03exp\x18\x03 \x01(\rR\x03exp\"5\n" +
 	"\rRoleTaskValue\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value\"\x8a\b\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"7\n" +
+	"\x0fRolePlayerEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\rR\x05count\"\xba\b\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -1049,7 +1114,8 @@ const file_jx_role_proto_rawDesc = "" +
 	"\n" +
 	"lead_level\x18\x1f \x01(\rR\tleadLevel\x125\n" +
 	"\vtask_values\x18  \x03(\v2\x14.jx.pb.RoleTaskValueR\n" +
-	"taskValuesB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"taskValues\x12.\n" +
+	"\x06events\x18! \x03(\v2\x16.jx.pb.RolePlayerEventR\x06eventsB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once
@@ -1063,19 +1129,20 @@ func file_jx_role_proto_rawDescGZIP() []byte {
 	return file_jx_role_proto_rawDescData
 }
 
-var file_jx_role_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_jx_role_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_jx_role_proto_goTypes = []any{
-	(*RolePosition)(nil),  // 0: jx.pb.RolePosition
-	(*RoleStats)(nil),     // 1: jx.pb.RoleStats
-	(*ItemMagic)(nil),     // 2: jx.pb.ItemMagic
-	(*ItemData)(nil),      // 3: jx.pb.ItemData
-	(*RoleSkill)(nil),     // 4: jx.pb.RoleSkill
-	(*RoleTaskValue)(nil), // 5: jx.pb.RoleTaskValue
-	(*RoleData)(nil),      // 6: jx.pb.RoleData
-	(*Vec2)(nil),          // 7: jx.pb.Vec2
+	(*RolePosition)(nil),    // 0: jx.pb.RolePosition
+	(*RoleStats)(nil),       // 1: jx.pb.RoleStats
+	(*ItemMagic)(nil),       // 2: jx.pb.ItemMagic
+	(*ItemData)(nil),        // 3: jx.pb.ItemData
+	(*RoleSkill)(nil),       // 4: jx.pb.RoleSkill
+	(*RoleTaskValue)(nil),   // 5: jx.pb.RoleTaskValue
+	(*RolePlayerEvent)(nil), // 6: jx.pb.RolePlayerEvent
+	(*RoleData)(nil),        // 7: jx.pb.RoleData
+	(*Vec2)(nil),            // 8: jx.pb.Vec2
 }
 var file_jx_role_proto_depIdxs = []int32{
-	7,  // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
+	8,  // 0: jx.pb.RolePosition.pos:type_name -> jx.pb.Vec2
 	2,  // 1: jx.pb.ItemData.base:type_name -> jx.pb.ItemMagic
 	2,  // 2: jx.pb.ItemData.require:type_name -> jx.pb.ItemMagic
 	2,  // 3: jx.pb.ItemData.magic:type_name -> jx.pb.ItemMagic
@@ -1084,13 +1151,14 @@ var file_jx_role_proto_depIdxs = []int32{
 	1,  // 6: jx.pb.RoleData.stats:type_name -> jx.pb.RoleStats
 	3,  // 7: jx.pb.RoleData.items:type_name -> jx.pb.ItemData
 	4,  // 8: jx.pb.RoleData.skills:type_name -> jx.pb.RoleSkill
-	7,  // 9: jx.pb.RoleData.revive_pos:type_name -> jx.pb.Vec2
+	8,  // 9: jx.pb.RoleData.revive_pos:type_name -> jx.pb.Vec2
 	5,  // 10: jx.pb.RoleData.task_values:type_name -> jx.pb.RoleTaskValue
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	6,  // 11: jx.pb.RoleData.events:type_name -> jx.pb.RolePlayerEvent
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_jx_role_proto_init() }
@@ -1105,7 +1173,7 @@ func file_jx_role_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_role_proto_rawDesc), len(file_jx_role_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

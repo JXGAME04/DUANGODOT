@@ -268,6 +268,28 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no task tables", {jx::log::kv("file", task_tables_file), jx::log::kv("error", error)});
         }
     }
+    // the kill events (jxassets export-kill-events, \settings\npc\player\event_killnpc.txt): what a kill counts for the events a
+    // script registered on a character (AddPlayerEvent); without it a kill counts nothing (docs/LINUX-SERVER.md §23)
+    const std::string kill_events_file = cfg.get_string("zone.kill_events_file", "client/assets/kill_events.json");
+    if (!kill_events_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KKillEventTable::load(kill_events_file, &error)) {
+            const std::size_t rows = t->size();
+            w.kill_events = std::make_shared<const jx::zone::KKillEventTable>(std::move(*t));
+            jx::log::info("boot", "kill events loaded", {jx::log::kv("file", kill_events_file), jx::log::kv("rows", rows)});
+        } else {
+            jx::log::warn("boot", "no kill events", {jx::log::kv("file", kill_events_file), jx::log::kv("error", error)});
+        }
+    }
+    // the old server folders (";" apart) the scripts' TabFile_Load reads its tables from (\settings\...); without them the
+    // TabFile_* library loads nothing (docs/LINUX-SERVER.md §24)
+    const std::string settings_root = cfg.get_string("zone.settings_root", "");
+    jx::zone::g_TabFiles().set_roots(settings_root);
+    if (settings_root.empty()) {
+        jx::log::warn("boot", "zone.settings_root not set, the scripts' TabFile_Load finds nothing");
+    } else {
+        jx::log::info("boot", "tab file roots", {jx::log::kv("roots", settings_root)});
+    }
     // the revive / reference points of every map (jxassets export-revive-pos): where a fresh character is born in its
     // village and where the revive / SetRevPos put a character; without it the spawn point of each map stands in
     const std::string revive_file = cfg.get_string("zone.revive_pos_file", "client/assets/revive_pos.json");
