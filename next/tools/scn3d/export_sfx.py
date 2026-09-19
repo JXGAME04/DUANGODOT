@@ -72,6 +72,22 @@ def read_tween(cls, raw):
 # mScaleData, mEnhance, mEnhanceCurve); cac truong meshFilter/mesh/... la runtime. Bo cuc kiem bang tong byte (168 = 1 lop).
 # Mesh dung luc chay: moi lop mot quad (+-0.5, 0, +-0.5) trong mat XZ, lop sau thap hon 0,01 m; shader sfx_mixer_mesh_rs
 # quay/scale (D:\game3gtQ_mo\mixer_mesh.py, disasm .cctor 0x702130, InitMeshData 0x7012d0, FillMeshSquare 0x6ffb30).
+# XftWeapon.XWeaponTrail (ban sua cua bo tham khao) - bo cuc byte [TK, kiem 156 byte]: Version (string), UseWith2D + Enabled
+# (2 byte), PointStart/PointEnd (PPtr), MaxFrame, Granularity, Fps, AdjustColor, MyColor, EmissiveColor, MyMaterial (PPtr),
+# TexTransSplit (int2), TexTransOffset (int2), mTrailWidth (float). Vet keo dai MaxFrame khung o Fps khung/giay.
+def read_xtrail(raw, material_of):
+    r = Raw(raw); r.header()
+    r.string(); r.u8(); r.u8(); r.align()
+    r.pptr(); r.pptr()
+    max_frame = r.i32(); gran = r.i32(); fps = r.f32()
+    adj = [r.f32() for _ in range(4)]; my = [r.f32() for _ in range(4)]; em = [r.f32() for _ in range(4)]
+    mat = r.pptr()
+    split = [r.i32(), r.i32()]; off = [r.i32(), r.i32()]
+    width = r.f32() if r.p + 4 <= len(raw) else 1.0
+    return {"max_frame": max_frame, "granularity": gran, "fps": fps, "adjust": adj, "color": my, "emissive": em,
+            "cell": [split[0], split[1], off[0], off[1]], "width": width, "material": material_of(mat[1])}
+
+
 def read_curve_keys(r):
     n = r.i32()
     keys = []
@@ -356,6 +372,11 @@ class SfxExporter:
                         tw = None
                     if tw is not None:
                         jn.setdefault("tweens", []).append(tw)
+                if cls == "XWeaponTrail":
+                    try:
+                        jn["xtrail"] = read_xtrail(raw, self.material)
+                    except (struct.error, IndexError):
+                        self.log.append("XWeaponTrail khong doc duoc: " + g.m_Name)
                 if cls == "SFXMixerMesh":
                     try:
                         jn["mixer"] = read_mixer(raw)

@@ -702,6 +702,15 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-49) — đợt 2 MO-NHI-PHAN (đánh quái): vệt vũ khí theo `anim_effect` + `XWeaponTrail`, số sát thương = không có ở 2.0
+
+- **C4/D2** `XftWeapon.XWeaponTrail` (16 prefab `Daoguang/dg_xw_*`): bố cục byte đọc theo metadata (kiểm 156 byte: Version, 2 bool, PointStart/End, **MaxFrame 5, Granularity 15, Fps 30**, AdjustColor, MyColor (trắng 0,75/0,75/0,75/0,8; xanh…), EmissiveColor, MyMaterial (`sprite_dg_add_512`, add), TexTransSplit/Offset = ô atlas 4×4, mTrailWidth 1) → `export_sfx.read_xtrail` → JSON `xtrail`. `anim_effect` dòng 1–6 [TK]: mọi clip đánh (gj01/02, gjdj, gjqg, gjss, gjyc, qm_gj) → vệt theo **phẩm chất vũ khí** (290 trắng, 291 xanh, 292 tím, 293 vàng, 294 bạch kim, 295 huyền kim); dòng 10–14 vệt NPC; 100–105 nhân vật đặc biệt.
+- Client: `Scn3DTrail.apply_params` (tuổi vệt = MaxFrame/Fps = 0,167 s, màu = MyColor + Emissive, texture + ô atlas, u = tuổi dọc vệt, v = gốc→mũi); `KWorldView3D._trails` cho **mọi người chơi** có model vũ khí (trước chỉ mình), phẩm chất theo luật màu tên vật phẩm 2.0 (`KItem::GetDesc`/`KUiItemView.name_tag`: vàng = quality 1/4/5, tím = 2, xanh = có magic, còn lại trắng; người khác chỉ có hàng ảnh → trắng).
+- **D2** đòn thường trúng: `skill_hit` 1–3 không có `受击特效` và `skill_childobj` không có vật con cho đòn thường → bản tham khảo không có hạt trúng đòn thường (chỉ hoạt ảnh bị đánh) — giống 2.0, không thêm.
+- **D3** số sát thương bay: `gamecl.exe` (giải nén UPX, `build/re/gamecl.exe.unpacked.img`) **không có** chuỗi/lớp nào cho số sát thương (chỉ `ShowName`/`ShowLife` của `gamesetting.ini`) → theo ADR-008 *bỏ* (2.0 không hiển thị số sát thương). Phát hiện thêm: lớp **`KUiMiniMap`** có trong client 2.0 (RTTI `.?AVKUiMiniMap@@`, khoá ini `ItemShowInMiniMap`, `ChangeMiniMap`, `SceneName`, `NameShadow`) — minimap 3.4/E2 phải mổ từ đây (đợt 3).
+- Kiểm: `--auto3d` `AUTO_FIGHT dead=true` (Heo trắng 80→0 bằng đòn thường có vệt), Godot 589/589, e2e (`JX_CONFIG=Release`) BOT/CLIENT/CLIENT 2D/CLIENT WS OK.
+- commit: `JX NEXT 3D: 3D-49 - dot 2: vet vu khi XWeaponTrail (MaxFrame/Fps/mau/o atlas) theo anim_effect + pham chat 2.0, vet cho moi nguoi choi; D3 bo (2.0 khong co so sat thuong), KUiMiniMap tim thay`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-48) — C3 `SFXMixerMesh` mổ xong: hào quang phái, bẫy Đường Môn, dịch chuyển
 
 - Lớp `SFXMixerMesh` (27 node / 18 prefab): bố cục byte `MixLayer` đọc theo thứ tự trường metadata (`D:\game3gtQ_mo\mixer_mesh.py`, kiểm tổng byte 168 = 1 lớp, 284 = 2, 400 = 3): enable, supportAnim, mtype (chỉ Square), mArtColor, `TexTrans` = ô atlas (nx, ny, ox, oy), mPosOffset, mRotSpeed, mRotCurve, mScaleType 0/1/2, mScaleSpeed/Pos/Dis/Data, mEnhance, mEnhanceCurve.

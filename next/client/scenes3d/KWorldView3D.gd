@@ -56,6 +56,12 @@ var _weapon_of := {}           # state node -> weapons.json id on it now (every 
 var _res_inverse := {}         # items/item_res.json inverted: "melee"/"horse" -> res row -> [particular, level] (the first item of the row)
 var _res_tables := {}          # items/item_res.json as loaded: "melee"/"horse" -> rows (KItemChangeRes: row = particular * 10 + level + 2)
 var _trail: Node = null        # Scn3DTrail of the character's weapon
+var _trails := {}              # state node -> Scn3DTrail (every player with a weapon model)
+# anim_effect rows 1..6 [TK]: the weapon's quality picks the trail prefab (Daoguang/dg_xw_cmn_*: white, blue, purple, gold,
+# wgold, xgold); the 2.0 item colour rule (KItem::GetDesc, KUiItemView.name_tag) gives ours: yellow = gold, violet = purple,
+# a magic weapon = blue, else white. Other players' weapons come as res rows only -> white.
+const TRAIL_BY_COLOUR := {"white": "Daoguang_dg_xw_cmn_white", "blue": "Daoguang_dg_xw_cmn_blue", "purple": "Daoguang_dg_xw_cmn_purple",
+	"gold": "Daoguang_dg_xw_cmn_gold"}
 var _last_dir_offset := -1
 var _auras := {}               # state node -> {skill_id: fx node} the halos it shows now
 var fx = SkillFxScript.new()   # KSkillFx3D: the skill effects of skill_map.json (3D maps)
@@ -237,6 +243,10 @@ func _refresh_auras(node: Node) -> void:
 func remove_entity(node: Node) -> void:
 	_auras.erase(node)
 	_weapon_of.erase(node)
+	var tr = _trails.get(node)
+	if tr != null and is_instance_valid(tr):
+		tr.queue_free()
+	_trails.erase(node)
 	var view = _views.get(node)
 	if view != null and is_instance_valid(view):
 		view.queue_free()
@@ -351,6 +361,34 @@ func _refresh_own_weapon() -> void:
 		_refresh_weapon(_own)
 
 
+# The XWeaponTrail parameters for a player's weapon: its 2.0 colour -> anim_effect row -> the Daoguang prefab's "xtrail"
+func _trail_params(node: Node) -> Dictionary:
+	var colour := "white"
+	if node == _own:
+		var wid := Game.item_worn(ITEMPART_WEAPON)
+		if wid != 0 and Game.items.has(wid):
+			var it: Dictionary = Game.items[wid]
+			var q := int(it.get("ex_type", 0))
+			var magic: Array = it.get("magic", [])
+			if q == 1 or q == 4 or q == 5:
+				colour = "gold"
+			elif q == 2:
+				colour = "purple"
+			elif magic.size() > 0 and int(magic[0].get("type", 0)) != 0:
+				colour = "blue"
+	var file := str(TRAIL_BY_COLOUR.get(colour, "Daoguang_dg_xw_cmn_white"))
+	var p := "%s/sfx/%s.json" % [Assets.assets3d_root(), file]
+	if not FileAccess.file_exists(p):
+		return {}
+	var d = Assets.load_json(p)
+	if not (d is Dictionary):
+		return {}
+	for jn in d.get("nodes", []):
+		if jn.has("xtrail"):
+			return jn["xtrail"]
+	return {}
+
+
 # --auto3d proof: what the 0xad rows of our own character would give another client (the "others" path of
 # _weapon_particular / _horse_for) next to what the bag gives us - the two must name the same weapon / horse
 func debug_equip_rows() -> Dictionary:
@@ -400,8 +438,11 @@ func _refresh_weapon(node: Node) -> void:
 	if node == _own:
 		_own_weapon = id
 	var m: Node3D = view.model
-	if node == _own and _trail != null:
-		_trail.queue_free()
+	var old_trail = _trails.get(node)
+	if old_trail != null and is_instance_valid(old_trail):
+		old_trail.queue_free()
+	_trails.erase(node)
+	if node == _own:
 		_trail = null
 	if id == "":
 		m.clear_weapons()
@@ -411,11 +452,17 @@ func _refresh_weapon(node: Node) -> void:
 	var n: int = m.attach_weapon(_weapon_dir, w)
 	var g := str(int(w.get("animgrp", 0)))
 	m.set_group(g if g != "0" else "1")
-	if node == _own and n > 0 and not m.weapon_nodes.is_empty():
-		_trail = TrailScript.new()
-		_trail.name = "Trail"
-		root.add_child(_trail)
-		_trail.setup(m.weapon_nodes[0], w.get("anchors", {}))
+	if n > 0 and not m.weapon_nodes.is_empty():
+		var tr = TrailScript.new()
+		tr.name = "Trail"
+		root.add_child(tr)
+		tr.setup(m.weapon_nodes[0], w.get("anchors", {}))
+		var xt := _trail_params(node)
+		if not xt.is_empty():
+			tr.apply_params("%s/sfx" % Assets.assets3d_root(), xt)
+		_trails[node] = tr
+		if node == _own:
+			_trail = tr
 	Log.debug("map3d", "weapon in hand", {"entity": node.get("entity_id"), "weapon": id, "name": w.get("name", ""), "hangs": n, "group": g})
 
 
@@ -619,9 +666,13 @@ func update(delta: float) -> void:
 			for node in _views.keys():
 				if is_instance_valid(node) and node.get("view_dir_offset") != null:
 					node.view_dir_offset = off
-	if _trail != null and _own != null and is_instance_valid(_own):
-		var view = _views.get(_own)
-		_trail.active = view != null and view.model != null and view.model.busy and str(view.model.current).begins_with("gj")
+	for tn in _trails.keys():
+		var tr = _trails[tn]
+		if not is_instance_valid(tr) or not is_instance_valid(tn):
+			_trails.erase(tn)
+			continue
+		var view = _views.get(tn)
+		tr.active = view != null and view.model != null and view.model.busy and str(view.model.current).begins_with("gj")
 	_lod_timer -= delta
 	if _lod_timer <= 0.0:
 		_lod_timer = 0.5

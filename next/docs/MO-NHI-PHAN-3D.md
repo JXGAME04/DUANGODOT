@@ -55,7 +55,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 |---|---|---|---|---|---|---|
 | A1 | `cha_pic` (195) | xương, giới, scale, nhóm anim, skins, model | model nhân vật/NPC/ngựa | `assets3d/npc/npc_models.json` | **xong** (41 model đã xuất cho Ba Lăng; xuất thêm theo map) | 1.2 |
 | A2 | `anim_group` (24), `animation_list` (60) | clip xx/zp/gjxx/gjpb/xdz/ss/sw/đánh/nội công theo nhóm | KNpc3DView chọn clip theo `doing` | trong `npc_models.json` (`groups`) | **xong** nhóm 1–11, 20 (cưỡi), 21 (ngựa) | 1.2 |
-| A3 | `anim_effect` (17) | clip đánh → `sfx_object` (vệt vũ khí theo phẩm chất: 290 trắng, 291 xanh…) | vệt kiếm khi đánh thường | `weapons.json anchors` (tạm) | **một phần**: vệt tự vẽ `Scn3DTrail`; chưa đọc bảng | 3.1 |
+| A3 | `anim_effect` (17) | clip đánh → `sfx_object` (vệt vũ khí theo phẩm chất: 290 trắng, 291 xanh…) | vệt kiếm khi đánh thường | `Scn3DTrail.apply_params` + `TRAIL_BY_COLOUR` | **xong** (3D-49): phẩm chất theo màu tên 2.0; vệt NPC (dòng 10–14) **chưa** | 3.1 |
 | A4 | `model_list` (63), `model_hang_list` (96) | điểm treo mặc định, loại vũ khí 1–10, nhóm anim khi cầm, `anim_effect` | vũ khí trên tay + đổi nhóm animation | `assets3d/weapon/weapons.json` | **xong** (71 vũ khí, `animgrp`) | 3.3 |
 | A5 | `cha_model_view` (118) | SizeX/SizeY/OffsetY, điểm treo*hạt | cỡ trụ chọn mục tiêu, cao thanh tên, hạt gắn thân | `sizeY` trong `npc_models.json` | **một phần**: SizeY dùng; SizeX/OffsetY/hạt chưa | 3.1 |
 | A6 | `skill_main` (342), `skill_section` (358), `skill_event` (828), `skill_childobj` (315), `sfx_object` (127) | tên Hán = tên JX1; sự kiện 8 (vật con) / 120 (sfx); vật con: đường dẫn, khung sống, độ cao, điểm treo, kiểu vị trí, đồng bộ (4 bay tới đích), tốc độ, hiệu ứng trúng | hiệu ứng ra chiêu / đạn / trúng / nội công | `assets3d/sfx/skill_map.json` | **xong đợt 1** (3D-47): 234 kỹ năng JX1 ghép (8 còn lại = bản • nâng cấp + 闪避), nhiều đoạn, vật con lồng nhau, AddState → hào quang; loại sự kiện đọc từ `eSkillEventType` | 3.1 |
@@ -81,7 +81,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | B1 | Model nhân vật + xương + skin + hang point | prefab 9e371715490e, mesh d4b79c319044, `ChaResourceRef` | UnityPy → glTF (đã) | `assets3d/npc/*.gltf` (41) | **xong** cho Ba Lăng; các map khác chạy lại `export_npc.py --map` |
 | B2 | Animation 716 clip | 19b6b49a7124 | ghép theo `anim_group` | trong glTF | **xong** nhóm dùng; nhóm 12–19 (NPC đặc biệt/boss) khi cần |
 | B3 | Vũ khí 71 + điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_*` | 8dd679aa97a2 | UnityPy | `assets3d/weapon` | **xong** |
-| B4 | `SFXXWeaponAnim`/`SFXXWeaponAnchor` (vệt vũ khí XWeaponTrail) | lớp IL2CPP `XftWeapon.XWeaponTrail`, `PocketRPGWeaponTrail`, prefab vũ khí | disasm `XWeaponTrail.Update` + `fieldDefaultValues` (độ dài, số đoạn, màu) | `Scn3DTrail` | **một phần**: vệt tự vẽ; hằng số **chưa** đọc |
+| B4 | `XWeaponTrail` (MaxFrame 5 / Fps 30 / Granularity 15 / màu / ô atlas) | bố cục byte 156 của 16 prefab `dg_xw_*` | `export_sfx.read_xtrail` | `Scn3DTrail` | **xong** (3D-49); spline Granularity (làm mượt) [tự chọn] chưa |
 | B5 | `HangItemMgr`, `ModelHangMgr`, `eEquipHangType` (treo mũ/áo/phi phong/vũ khí) | IL2CPP | disasm | `Scn3DNpc.attach_weapon` | **một phần**: vũ khí + ngựa; phi phong **chưa** (JX1 có phi phong) |
 | B6 | `RideUnit`, `eRideType`, `lua_scnobj_ride.lua` | IL2CPP + Lua | đọc Lua (điểm `ma_qi1`, nhóm 20/21) | `KNpc3DView._on_riding_changed` | **xong** (cần soát lại theo Lua vừa trích) |
 | B7 | `ShadowProjMgr` (bóng tròn dưới chân) | IL2CPP | disasm + `fieldDefaultValues` | bóng chân | **chưa** (hiện dùng bóng nắng thật; máy yếu cần bóng tròn) |
@@ -107,8 +107,8 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | # | Việc | Nguồn | Cách mổ | Trạng thái |
 |---|---|---|---|---|
 | D1 | Vòng đánh quái: chọn mục tiêu (tia camera vào trụ SizeX/SizeY), đuổi, đánh, trúng, chết, rơi đồ, nhặt | 2.0 (luật) + A5 (trụ) | có sẵn | **xong** cơ bản (`AUTO_FIGHT` Heo trắng 80→58 trong 3D) |
-| D2 | Hiệu ứng trúng đòn trên quái (`hit` của vật con / `sfx_object` ngũ hành dự phòng) + âm trúng 2.0 | A6/A8 | có sẵn `KSkillFx3D` hit | **một phần**: chỉ khi vật con có `hit`; đòn thường **chưa** có hiệu ứng trúng (bảng `anim_effect` → C2) |
-| D3 | Số sát thương bay lên [2.0]: `KNpc::PaintDamage`/font số | gamecl.exe | mổ 2.0 (vị trí, màu, thời gian) — theo main (chưa làm ở 2D) | **chưa** |
+| D2 | Hiệu ứng trúng đòn trên quái (`hit` của vật con / `sfx_object` ngũ hành dự phòng) + âm trúng 2.0 | A6/A8 | có sẵn `KSkillFx3D` hit | **xong**: đòn thường ở bản tham khảo không có hạt trúng (`skill_hit` 1–3 rỗng) — chỉ vệt + hoạt ảnh bị đánh (3D-49) |
+| D3 | Số sát thương bay lên | gamecl.exe | tìm chuỗi/lớp: **không có** (chỉ `ShowName`/`ShowLife`) | *bỏ* — 2.0 không có (3D-49) |
 | D4 | Thanh máu trên đầu quái, tên theo `KNpcGold` (vàng/xanh) | 2.0 | có sẵn `_draw_names` | **xong** |
 | D5 | Quái đánh trả: clip đánh của nhóm anim quái + đạn quái (`KMissle3DView`) | A2/A6 | có sẵn | **xong** (soát lại từng nhóm quái Ba Lăng: heo, hươu, hổ, kỳ binh) |
 | D6 | Chết: clip `sw` giữ khung cuối + mờ dần theo 2.0; xác biến mất theo zone | A2 + 2.0 | có sẵn `hold_last` | **xong** |
