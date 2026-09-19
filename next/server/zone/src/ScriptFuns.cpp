@@ -659,6 +659,151 @@ int l_IsForbidChangePK(lua_State* L)
     return 1;
 }
 
+// ---- the team (docs/LINUX-SERVER.md §17) ----
+
+// IsCaptain() -> 1 when in a team as its captain (0x08115690: +0x5994 && +0x599c == 0)
+int l_IsCaptain(lua_State* L)
+{
+    const KNpc* p = player_of(L, "IsCaptain");
+    lua_pushinteger(L, p != nullptr && p->player.team.captain() ? 1 : 0);
+    return 1;
+}
+
+// GetTeam() -> the team id, nil out of a team (0x08115630)
+int l_GetTeam(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTeam");
+    if (p == nullptr || !p->player.team.flag) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, p->player.team.id);
+    return 1;
+}
+
+// GetTeamSize([team]) -> the members + the captain of that team, of one's own team without an argument; 0 out of a team
+// (0x08115480: g_Team[id]+0x28 + 1)
+int l_GetTeamSize(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    int id = -1;
+    if (lua_gettop(L) >= 1) {
+        id = static_cast<int>(lua_tonumber(L, 1));
+        if (id < 0) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+    } else {
+        const KNpc* p = player_of(L, "GetTeamSize");
+        if (p == nullptr || !p->player.team.flag) {
+            lua_pushinteger(L, 0);
+            return 1;
+        }
+        id = p->player.team.id;
+    }
+    const KTeam* t = w != nullptr ? w->teams().get(id) : nullptr;
+    lua_pushinteger(L, t != nullptr && !t->empty() ? t->count + 1 : 0);
+    return 1;
+}
+
+// GetTeamMember(n) -> the npc id of the captain (n == 1) or of the (n - 1)-th member of one's team; -1 when none
+// (0x08115530: the player indices of g_Team - the zone hands out entity ids)
+int l_GetTeamMember(lua_State* L)
+{
+    const KNpc* p = player_of(L, "GetTeamMember");
+    KSubWorld* w = g_ScriptContext().world;
+    const int n = lua_gettop(L) >= 1 ? static_cast<int>(lua_tonumber(L, 1)) : 0;
+    const KTeam* t = p != nullptr && w != nullptr ? w->team_of(*p) : nullptr;
+    if (t == nullptr || n <= 0) {
+        lua_pushinteger(L, -1);
+        return 1;
+    }
+    const KNpc* who = nullptr;
+    if (n == 1) {
+        who = w->find_player(t->captain);
+    } else {
+        int seen = 0;
+        for (const std::uint64_t sid : t->members) {
+            if (sid == 0) continue;
+            if (++seen == n - 1) {
+                who = w->find_player(sid);
+                break;
+            }
+        }
+    }
+    lua_pushinteger(L, who != nullptr ? static_cast<lua_Integer>(who->id.value) : -1);
+    return 1;
+}
+
+// LeaveTeam() (0x08121060 -> KPlayer::LeaveTeam 0x080B7C60)
+int l_LeaveTeam(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "LeaveTeam")) g_ScriptContext().world->team_leave(*p);
+    return 0;
+}
+
+// SetCreateTeam(n): KPlayerTeam::SetCanTeamFlag(n ~= 0, leave = 1) (0x08120FC0 -> 0x080CC580): can_team = n; n == 0 also
+// leaves the team
+int l_SetCreateTeam(lua_State* L)
+{
+    KNpc* p = player_of(L, "SetCreateTeam");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const bool can = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    p->player.team.can_team = can;
+    if (!can) g_ScriptContext().world->team_leave(*p);
+    return 0;
+}
+
+// DisabledTeam(n) -> 1: the task value 0x87 bit 0x400 set (n ~= 0) or cleared (0x08126590; the packet 0xa4 of the task
+// value is not in the zone); IsDisabledTeam() -> that bit (0x0812EF50)
+int l_DisabledTeam(lua_State* L)
+{
+    KNpc* p = player_of(L, "DisabledTeam");
+    if (p == nullptr || lua_gettop(L) < 1) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    p->player.team.lua_disabled = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
+int l_IsDisabledTeam(lua_State* L)
+{
+    const KNpc* p = player_of(L, "IsDisabledTeam");
+    lua_pushinteger(L, p != nullptr && p->player.team.lua_disabled ? 1 : 0);
+    return 1;
+}
+
+// ChangeTeamFeature(team, feature, value) (0x08103630): feature 1 = the leadership limit of g_Team[team] (+0x2c: 0 makes
+// CheckFull never full); other features are not in the binary's switch
+int l_ChangeTeamFeature(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr || lua_gettop(L) < 3) return 0;
+    const int id = static_cast<int>(lua_tonumber(L, 1));
+    const int feature = static_cast<int>(lua_tonumber(L, 2));
+    const int value = static_cast<int>(lua_tonumber(L, 3));
+    KTeam* t = w->mutable_team(id);
+    if (t == nullptr || t->empty()) return 0;
+    if (feature == 1) t->lead_limit = value != 0;
+    return 0;
+}
+
+// Msg2Team(text): the text to the captain and every member of one's team as a system message (0x081152C0 -> 0x081C9220(1, ...))
+int l_Msg2Team(lua_State* L)
+{
+    const KNpc* p = player_of(L, "Msg2Team");
+    KSubWorld* w = g_ScriptContext().world;
+    if (p == nullptr || w == nullptr || lua_gettop(L) < 1) return 0;
+    const char* text = lua_tostring(L, 1);
+    if (text == nullptr) return 0;
+    const KTeam* t = w->team_of(*p);
+    if (t == nullptr) return 0;
+    for (const std::uint64_t sid : t->people()) w->msg_to_player(sid, text);
+    return 0;
+}
+
 // SetPkReduceState(seconds, value, weaken, enhance) (0x08109570): Player+0x5a8c / +0x5a84 / +0x5a88 = (weaken << 8) | enhance;
 // GetPkReduceState() -> seconds, value, weaken, enhance (0x081094D0)
 int l_SetPkReduceState(lua_State* L)
@@ -1022,6 +1167,10 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetPK", l_GetPK},                   {"SetPK", l_SetPK},                     {"SetPKFlag", l_SetPKFlag},
     {"ForbidChangePK", l_ForbidChangePK}, {"IsForbidChangePK", l_IsForbidChangePK},
     {"SetPkReduceState", l_SetPkReduceState}, {"GetPkReduceState", l_GetPkReduceState}, {"SetDeathPunish_PK10", l_SetDeathPunish_PK10},
+    {"IsCaptain", l_IsCaptain},           {"GetTeam", l_GetTeam},                 {"GetTeamSize", l_GetTeamSize},
+    {"GetTeamMember", l_GetTeamMember},   {"LeaveTeam", l_LeaveTeam},             {"SetCreateTeam", l_SetCreateTeam},
+    {"DisabledTeam", l_DisabledTeam},     {"IsDisabledTeam", l_IsDisabledTeam},   {"ChangeTeamFeature", l_ChangeTeamFeature},
+    {"Msg2Team", l_Msg2Team},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},

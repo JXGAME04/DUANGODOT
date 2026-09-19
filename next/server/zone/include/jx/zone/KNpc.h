@@ -275,6 +275,14 @@ struct KNpc {
         free->ttl = kDamageRecordTtl;
     }
     void clear_damage_records() noexcept { damage_records.fill(KDamageRecord{}); }
+    // KDamageRecord::Add 0x0809BC70: a player in a team hits under its captain's name (g_Team[Player+0x5998].captain)
+    [[nodiscard]] static EntityId damage_record_key(const KNpc& attacker) noexcept
+    {
+        if (attacker.kind == KNpcKind::player && attacker.player.team.flag && attacker.player.team.captain_npc != 0) {
+            return EntityId{attacker.player.team.captain_npc};
+        }
+        return attacker.id;
+    }
     // KNpcKind::drop - an object on the ground (KObj): what the zone keeps of it; the item itself
     // lives in KSubWorld::ground_items_
     KGroundObject object;

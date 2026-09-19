@@ -619,9 +619,13 @@ type RoleData struct {
 	FactionCount uint32 `protobuf:"varint,26,opt,name=faction_count,json=factionCount,proto3" json:"faction_count,omitempty"`
 	// KPlayerPK (Player+0x5a50): the PK state 0..2 (the save 0x080BFCDD writes the byte), the PK value 0..10 (0x080BFCEF), the
 	// ForbidChangePK lock
-	PkState       uint32 `protobuf:"varint,27,opt,name=pk_state,json=pkState,proto3" json:"pk_state,omitempty"`
-	PkValue       uint32 `protobuf:"varint,28,opt,name=pk_value,json=pkValue,proto3" json:"pk_value,omitempty"`
-	PkLocked      bool   `protobuf:"varint,29,opt,name=pk_locked,json=pkLocked,proto3" json:"pk_locked,omitempty"`
+	PkState  uint32 `protobuf:"varint,27,opt,name=pk_state,json=pkState,proto3" json:"pk_state,omitempty"`
+	PkValue  uint32 `protobuf:"varint,28,opt,name=pk_value,json=pkValue,proto3" json:"pk_value,omitempty"`
+	PkLocked bool   `protobuf:"varint,29,opt,name=pk_locked,json=pkLocked,proto3" json:"pk_locked,omitempty"`
+	// the leadership (m_dwLeadExp +0x596c / m_dwLeadLevel +0x5970 of KPlayer): the level says how many a team led by the
+	// character can hold (level_lead_exp.txt col 3, KTeam::CalcCaptainPower 0x080CC960); 0 = level 1
+	LeadExp       uint64 `protobuf:"varint,30,opt,name=lead_exp,json=leadExp,proto3" json:"lead_exp,omitempty"`
+	LeadLevel     uint32 `protobuf:"varint,31,opt,name=lead_level,json=leadLevel,proto3" json:"lead_level,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -859,6 +863,20 @@ func (x *RoleData) GetPkLocked() bool {
 	return false
 }
 
+func (x *RoleData) GetLeadExp() uint64 {
+	if x != nil {
+		return x.LeadExp
+	}
+	return 0
+}
+
+func (x *RoleData) GetLeadLevel() uint32 {
+	if x != nil {
+		return x.LeadLevel
+	}
+	return 0
+}
+
 var File_jx_role_proto protoreflect.FileDescriptor
 
 const file_jx_role_proto_rawDesc = "" +
@@ -922,7 +940,7 @@ const file_jx_role_proto_rawDesc = "" +
 	"\tRoleSkill\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\x12\x10\n" +
-	"\x03exp\x18\x03 \x01(\rR\x03exp\"\x99\a\n" +
+	"\x03exp\x18\x03 \x01(\rR\x03exp\"\xd3\a\n" +
 	"\bRoleData\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\x04R\bplayerId\x12\x1d\n" +
 	"\n" +
@@ -960,7 +978,10 @@ const file_jx_role_proto_rawDesc = "" +
 	"\rfaction_count\x18\x1a \x01(\rR\ffactionCount\x12\x19\n" +
 	"\bpk_state\x18\x1b \x01(\rR\apkState\x12\x19\n" +
 	"\bpk_value\x18\x1c \x01(\rR\apkValue\x12\x1b\n" +
-	"\tpk_locked\x18\x1d \x01(\bR\bpkLockedB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
+	"\tpk_locked\x18\x1d \x01(\bR\bpkLocked\x12\x19\n" +
+	"\blead_exp\x18\x1e \x01(\x04R\aleadExp\x12\x1d\n" +
+	"\n" +
+	"lead_level\x18\x1f \x01(\rR\tleadLevelB6Z4github.com/JXGAME04/DUANGODOT/next/services/pkg/jxpbb\x06proto3"
 
 var (
 	file_jx_role_proto_rawDescOnce sync.Once

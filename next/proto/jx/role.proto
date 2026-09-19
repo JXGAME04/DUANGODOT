@@ -123,4 +123,8 @@ message RoleData {
   uint32 pk_state = 27;
   uint32 pk_value = 28;
   bool pk_locked = 29;
+  // the leadership (m_dwLeadExp +0x596c / m_dwLeadLevel +0x5970 of KPlayer): the level says how many a team led by the
+  // character can hold (level_lead_exp.txt col 3, KTeam::CalcCaptainPower 0x080CC960); 0 = level 1
+  uint64 lead_exp = 30;
+  uint32 lead_level = 31;
 }

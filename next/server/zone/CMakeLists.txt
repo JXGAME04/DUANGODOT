@@ -12,6 +12,8 @@ add_library(jx_zone_core STATIC
     src/KNpcTemplate.cpp
     src/KNpcGold.cpp
     src/KItemChangeRes.cpp
+    src/KPlayerTeam.cpp
+    src/KSubWorldTeam.cpp
     src/KSubWorld.cpp
     src/KInterest.cpp
     src/KItem.cpp

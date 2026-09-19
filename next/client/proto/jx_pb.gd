@@ -6558,6 +6558,570 @@ class PlayerAttribSync:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+enum TeamCmd {
+	TEAM_CMD_NONE = 0,
+	TEAM_INFO = 1,
+	TEAM_CREATE = 2,
+	TEAM_OPEN_CLOSE = 3,
+	TEAM_APPLY_ADD = 4,
+	TEAM_ACCEPT = 5,
+	TEAM_LEAVE = 6,
+	TEAM_KICK = 7,
+	TEAM_CHANGE_CAPTAIN = 8,
+	TEAM_DISMISS = 9,
+	TEAM_INVITE = 10,
+	TEAM_REPLY_INVITE = 11
+}
+
+class TeamReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__cmd = PBField.new("cmd", PB_DATA_TYPE.ENUM, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM])
+		service = PBServiceField.new()
+		service.field = __cmd
+		data[__cmd.tag] = service
+		
+		__target = PBField.new("target", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __target
+		data[__target.tag] = service
+		
+		__flag = PBField.new("flag", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __flag
+		data[__flag.tag] = service
+		
+		__seq = PBField.new("seq", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __seq
+		data[__seq.tag] = service
+		
+	var data = {}
+	
+	var __cmd: PBField
+	func has_cmd() -> bool:
+		if __cmd.value != null:
+			return true
+		return false
+	func get_cmd():
+		return __cmd.value
+	func clear_cmd() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__cmd.value = DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM]
+	func set_cmd(value) -> void:
+		__cmd.value = value
+	
+	var __target: PBField
+	func has_target() -> bool:
+		if __target.value != null:
+			return true
+		return false
+	func get_target() -> int:
+		return __target.value
+	func clear_target() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__target.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_target(value : int) -> void:
+		__target.value = value
+	
+	var __flag: PBField
+	func has_flag() -> bool:
+		if __flag.value != null:
+			return true
+		return false
+	func get_flag() -> int:
+		return __flag.value
+	func clear_flag() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__flag.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_flag(value : int) -> void:
+		__flag.value = value
+	
+	var __seq: PBField
+	func has_seq() -> bool:
+		if __seq.value != null:
+			return true
+		return false
+	func get_seq() -> int:
+		return __seq.value
+	func clear_seq() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__seq.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_seq(value : int) -> void:
+		__seq.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class TeamMember:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__name = PBField.new("name", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __name
+		data[__name.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __name: PBField
+	func has_name() -> bool:
+		if __name.value != null:
+			return true
+		return false
+	func get_name() -> String:
+		return __name.value
+	func clear_name() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__name.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_name(value : String) -> void:
+		__name.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class TeamSelf:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__in_team = PBField.new("in_team", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __in_team
+		data[__in_team.tag] = service
+		
+		__team_id = PBField.new("team_id", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __team_id
+		data[__team_id.tag] = service
+		
+		__state = PBField.new("state", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __state
+		data[__state.tag] = service
+		
+		__captain = PBField.new("captain", PB_DATA_TYPE.BOOL, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL])
+		service = PBServiceField.new()
+		service.field = __captain
+		data[__captain.tag] = service
+		
+		__leader = PBField.new("leader", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __leader
+		service.func_ref = Callable(self, "new_leader")
+		data[__leader.tag] = service
+		
+		var __members_default: Array[TeamMember] = []
+		__members = PBField.new("members", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 6, true, __members_default)
+		service = PBServiceField.new()
+		service.field = __members
+		service.func_ref = Callable(self, "add_members")
+		data[__members.tag] = service
+		
+		__lead_level = PBField.new("lead_level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __lead_level
+		data[__lead_level.tag] = service
+		
+		__lead_exp = PBField.new("lead_exp", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 8, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __lead_exp
+		data[__lead_exp.tag] = service
+		
+		__members_max = PBField.new("members_max", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 9, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __members_max
+		data[__members_max.tag] = service
+		
+	var data = {}
+	
+	var __in_team: PBField
+	func has_in_team() -> bool:
+		if __in_team.value != null:
+			return true
+		return false
+	func get_in_team() -> bool:
+		return __in_team.value
+	func clear_in_team() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__in_team.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_in_team(value : bool) -> void:
+		__in_team.value = value
+	
+	var __team_id: PBField
+	func has_team_id() -> bool:
+		if __team_id.value != null:
+			return true
+		return false
+	func get_team_id() -> int:
+		return __team_id.value
+	func clear_team_id() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__team_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_team_id(value : int) -> void:
+		__team_id.value = value
+	
+	var __state: PBField
+	func has_state() -> bool:
+		if __state.value != null:
+			return true
+		return false
+	func get_state() -> int:
+		return __state.value
+	func clear_state() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__state.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_state(value : int) -> void:
+		__state.value = value
+	
+	var __captain: PBField
+	func has_captain() -> bool:
+		if __captain.value != null:
+			return true
+		return false
+	func get_captain() -> bool:
+		return __captain.value
+	func clear_captain() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__captain.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
+	func set_captain(value : bool) -> void:
+		__captain.value = value
+	
+	var __leader: PBField
+	func has_leader() -> bool:
+		if __leader.value != null:
+			return true
+		return false
+	func get_leader() -> TeamMember:
+		return __leader.value
+	func clear_leader() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__leader.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_leader() -> TeamMember:
+		__leader.value = TeamMember.new()
+		return __leader.value
+	
+	var __members: PBField
+	func get_members() -> Array[TeamMember]:
+		return __members.value
+	func clear_members() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__members.value.clear()
+	func add_members() -> TeamMember:
+		var element = TeamMember.new()
+		__members.value.append(element)
+		return element
+	
+	var __lead_level: PBField
+	func has_lead_level() -> bool:
+		if __lead_level.value != null:
+			return true
+		return false
+	func get_lead_level() -> int:
+		return __lead_level.value
+	func clear_lead_level() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__lead_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_lead_level(value : int) -> void:
+		__lead_level.value = value
+	
+	var __lead_exp: PBField
+	func has_lead_exp() -> bool:
+		if __lead_exp.value != null:
+			return true
+		return false
+	func get_lead_exp() -> int:
+		return __lead_exp.value
+	func clear_lead_exp() -> void:
+		data[8].state = PB_SERVICE_STATE.UNFILLED
+		__lead_exp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_lead_exp(value : int) -> void:
+		__lead_exp.value = value
+	
+	var __members_max: PBField
+	func has_members_max() -> bool:
+		if __members_max.value != null:
+			return true
+		return false
+	func get_members_max() -> int:
+		return __members_max.value
+	func clear_members_max() -> void:
+		data[9].state = PB_SERVICE_STATE.UNFILLED
+		__members_max.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_members_max(value : int) -> void:
+		__members_max.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+enum TeamEventKind {
+	TEAM_EV_NONE = 0,
+	TEAM_EV_CREATE_OK = 1,
+	TEAM_EV_CREATE_FAIL = 2,
+	TEAM_EV_ADD_MEMBER = 3,
+	TEAM_EV_LEAVE = 4,
+	TEAM_EV_KICK = 5,
+	TEAM_EV_CHANGE_CAPTAIN = 6,
+	TEAM_EV_OPEN_CLOSE = 7,
+	TEAM_EV_INVITE = 8,
+	TEAM_EV_APPLY = 9,
+	TEAM_EV_INFO = 10,
+	TEAM_EV_INFO_FALSE = 11,
+	TEAM_EV_DISMISS = 12,
+	TEAM_EV_REFUSE = 13,
+	TEAM_EV_MSG = 14,
+	TEAM_EV_SELF_ADD = 15
+}
+
+class TeamEvent:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__event = PBField.new("event", PB_DATA_TYPE.ENUM, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM])
+		service = PBServiceField.new()
+		service.field = __event
+		data[__event.tag] = service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__name = PBField.new("name", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __name
+		data[__name.tag] = service
+		
+		__level = PBField.new("level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __level
+		data[__level.tag] = service
+		
+		__arg = PBField.new("arg", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __arg
+		data[__arg.tag] = service
+		
+		__leader = PBField.new("leader", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __leader
+		service.func_ref = Callable(self, "new_leader")
+		data[__leader.tag] = service
+		
+		var __members_default: Array[TeamMember] = []
+		__members = PBField.new("members", PB_DATA_TYPE.MESSAGE, PB_RULE.REPEATED, 7, true, __members_default)
+		service = PBServiceField.new()
+		service.field = __members
+		service.func_ref = Callable(self, "add_members")
+		data[__members.tag] = service
+		
+	var data = {}
+	
+	var __event: PBField
+	func has_event() -> bool:
+		if __event.value != null:
+			return true
+		return false
+	func get_event():
+		return __event.value
+	func clear_event() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__event.value = DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM]
+	func set_event(value) -> void:
+		__event.value = value
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __name: PBField
+	func has_name() -> bool:
+		if __name.value != null:
+			return true
+		return false
+	func get_name() -> String:
+		return __name.value
+	func clear_name() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__name.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_name(value : String) -> void:
+		__name.value = value
+	
+	var __level: PBField
+	func has_level() -> bool:
+		if __level.value != null:
+			return true
+		return false
+	func get_level() -> int:
+		return __level.value
+	func clear_level() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_level(value : int) -> void:
+		__level.value = value
+	
+	var __arg: PBField
+	func has_arg() -> bool:
+		if __arg.value != null:
+			return true
+		return false
+	func get_arg() -> int:
+		return __arg.value
+	func clear_arg() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__arg.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_arg(value : int) -> void:
+		__arg.value = value
+	
+	var __leader: PBField
+	func has_leader() -> bool:
+		if __leader.value != null:
+			return true
+		return false
+	func get_leader() -> TeamMember:
+		return __leader.value
+	func clear_leader() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__leader.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_leader() -> TeamMember:
+		__leader.value = TeamMember.new()
+		return __leader.value
+	
+	var __members: PBField
+	func get_members() -> Array[TeamMember]:
+		return __members.value
+	func clear_members() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__members.value.clear()
+	func add_members() -> TeamMember:
+		var element = TeamMember.new()
+		__members.value.append(element)
+		return element
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class EntityCamp:
 	extends RefCounted
 	func _init():
@@ -9642,6 +10206,7 @@ enum MsgId {
 	C2G_SET_AURA = 1116,
 	C2G_SIT = 1117,
 	C2G_PK_STATE = 1118,
+	C2G_TEAM = 1119,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,
@@ -9678,6 +10243,8 @@ enum MsgId {
 	G2C_ENTITY_RES = 2127,
 	G2C_PK_STATE = 2128,
 	G2C_ENTITY_PK = 2129,
+	G2C_TEAM_SELF = 2130,
+	G2C_TEAM_EVENT = 2131,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,
@@ -10795,6 +11362,16 @@ class RoleData:
 		service.field = __pk_locked
 		data[__pk_locked.tag] = service
 		
+		__lead_exp = PBField.new("lead_exp", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 30, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __lead_exp
+		data[__lead_exp.tag] = service
+		
+		__lead_level = PBField.new("lead_level", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 31, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __lead_level
+		data[__lead_level.tag] = service
+		
 	var data = {}
 	
 	var __player_id: PBField
@@ -11172,6 +11749,32 @@ class RoleData:
 		__pk_locked.value = DEFAULT_VALUES_3[PB_DATA_TYPE.BOOL]
 	func set_pk_locked(value : bool) -> void:
 		__pk_locked.value = value
+	
+	var __lead_exp: PBField
+	func has_lead_exp() -> bool:
+		if __lead_exp.value != null:
+			return true
+		return false
+	func get_lead_exp() -> int:
+		return __lead_exp.value
+	func clear_lead_exp() -> void:
+		data[30].state = PB_SERVICE_STATE.UNFILLED
+		__lead_exp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_lead_exp(value : int) -> void:
+		__lead_exp.value = value
+	
+	var __lead_level: PBField
+	func has_lead_level() -> bool:
+		if __lead_level.value != null:
+			return true
+		return false
+	func get_lead_level() -> int:
+		return __lead_level.value
+	func clear_lead_level() -> void:
+		data[31].state = PB_SERVICE_STATE.UNFILLED
+		__lead_level.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_lead_level(value : int) -> void:
+		__lead_level.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

@@ -12,6 +12,7 @@
 
 #include "jx/ids.hpp"
 #include "jx/zone/KFaction.h"
+#include "jx/zone/KPlayerTeam.h"
 
 namespace jx::pb {
 class RoleData;
@@ -54,6 +55,9 @@ struct KPlayer {
         int punish_weaken = 0;    // Player+0x5a88 high byte (arg 3), capped 100 (read by 0x080B9FA0, unused after the cap)
     } pk;
     int pk10_death_punish = 0;   // Player+0x384: Lua SetDeathPunish_PK10 (the arena death of 0x08089750; cleared when the PK value drops to 9)
+    KPlayerTeam team;            // m_cTeam +0x5994 (docs/LINUX-SERVER.md §17)
+    std::int64_t lead_exp = 0;   // m_dwLeadExp +0x596c
+    int lead_level = 1;          // m_dwLeadLevel +0x5970: KTeam::CalcCaptainPower reads level_lead_exp.txt by it
     // the three PK attributes of states / equipment (KNpcAttribModify 254 / 257 / 256 -> Player+0x86f8 / +0x86fc / +0x8700,
     // cleared by KNpc::ClearAttrib 0x08082C73..): the killer's chance to add no PK value, and the two sides of the butcher points
     int not_add_pkvalue_p = 0;

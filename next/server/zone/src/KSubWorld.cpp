@@ -334,6 +334,7 @@ bool KSubWorld::remove_player(std::uint64_t sid)
     if (pit == players_.end()) return false;
     const EntityId id = pit->second;
     drop_viewer(sid);   // first: a client that is leaving is not told about its own departure
+    if (KNpc* leaving = entities_.find(id); leaving != nullptr && leaving->player.team.flag) team_leave(*leaving);   // 0x080C55D7: KPlayer::LeaveTeam
     release_summons(id);   // KPlayer::Clear 0x080B60A0: its summons go with it
     if (KNpc* gone_e = entities_.find(id)) {
         const std::size_t told = gone_e->watchers.size();
@@ -1182,9 +1183,11 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
         // OnCheckAndReviveOnDeath script of Player+0x5f98 (unless the DeathReliveFlag +0x390 is set): neither is in
         // the zone yet; then +0x118c = 0, the PK bookkeeping (0x0807A350 / 0x08089A30..: B3c-4) and DoDeath
         e.cur.life = 0;
-        // KNpc::DoDeath 0x080896C0: 0x080AEBC0(player, 11), the team (0x080AE4B0; 0x080AB610: +0x28c = the frame,
-        // +0x290 = 0, the packet 0x94), the command ring cleared (0x0809BBC0)
+        // KNpc::DoDeath 0x080896C0: 0x080AEBC0(player, 11), the trade cancelled (0x080AE4B0), the menu (0x080AB610: +0x28c = the
+        // frame, +0x290 = 0, the packet 0x94), the command ring cleared (0x0809BBC0); 0x080893AA..: a captain of a team under
+        // its leadership limit hands the lead over (0x080B1DE0 -> 0x080CD480)
         e.commands.clear();
+        if (KTeam* t = team_of(e); t != nullptr && t->captain == e.sid && t->lead_limit) team_hand_over(*t);
     }
     end_run(e);
     if (e.hide > 0) break_hide(e);   // 0x08089359: after the death list, before m_Doing = death - the hiding breaks
@@ -1215,13 +1218,20 @@ void KSubWorld::do_death(KNpc& e, EntityId killer)
         // G_PLAYER_27 and \script\global\pk10_deathpunish.lua - not in the zone
         return;
     }
-    share_experience(e);
-    lose_treasure(e, killer);
+    // 0x080893D6..: a player killer with a player index -> 0x0809BDD0 (the experience by the damage records, which returns
+    // the record with the most damage) then 0x08088B60(npc, killer, best, killer player); any other killer -> 0x08088B60
+    // with no best record: no drop
+    const KNpc* k = entities_.find(killer);
+    const bool player_killer = k != nullptr && k->kind == KNpcKind::player && k->player.loaded;
+    if (player_killer) {
+        const EntityId best = share_experience(e, killer);
+        lose_treasure(e, killer, best);
+    } else {
+        e.clear_damage_records();
+    }
 }
 
-// 0x0809BDD0 (from KNpc::DoDeath): every damage record's player gets m_Experience x its damage /
-// the life max in use, through KPlayer::AddExp with the npc's level (the team share of
-// 0x080B03E0 comes with the teams); the records are then cleared (0x0809BD80).
+// KPlayer::AddExp 0x080B00C0 on a player: the level-difference rule of a kill, the level up
 void KSubWorld::give_player_exp(KNpc& p, int exp, int npc_level)
 {
     if (p.kind != KNpcKind::player || !p.player.loaded || exp <= 0) return;
@@ -1240,22 +1250,47 @@ void KSubWorld::give_player_exp(KNpc& p, int exp, int npc_level)
     }
 }
 
-void KSubWorld::share_experience(KNpc& dead)
+// 0x0809BDD0 (from KNpc::DoDeath, a player killer): every damage record is a player or a team's captain (0x0809BC70 keys a
+// team's hits by its captain).  A record of a team goes to an anchor: the captain when within 0x100000 of squared distance
+// (1024 units, 0x0809E660 = -1 apart), else the nearest member within that - none near, nothing for that record; a plain
+// player is its own anchor.  The anchor gets m_Experience x damage / the life max in use through AddExpTeam 0x080B03E0 (the
+// team share, or the plain AddExp).  The record with the most damage is returned (the owner of the drop); the records are
+// cleared by the caller (0x0809BD80).
+EntityId KSubWorld::share_experience(KNpc& dead, EntityId killer)
 {
     const int life_max = dead.life_max();
-    if (life_max <= 0 || dead.cur.experience <= 0) {
-        dead.clear_damage_records();
-        return;
-    }
+    EntityId best;
+    int best_damage = 0;
     for (const KDamageRecord& r : dead.damage_records) {
         if (r.player.value == 0 || r.damage <= 0) continue;
-        KNpc* p = entities_.find(r.player);
-        if (p == nullptr || p->kind != KNpcKind::player || !p->player.loaded) continue;
+        KNpc* owner = entities_.find(r.player);
+        if (owner == nullptr || owner->kind != KNpcKind::player || !owner->player.loaded) continue;
+        KNpc* anchor = nullptr;
+        if (const KTeam* t = team_of(*owner); t != nullptr) {
+            std::int64_t nearest = 0x100000;
+            for (const std::uint64_t sid : t->people()) {
+                KNpc* m = team_player(sid);
+                if (m == nullptr) continue;
+                const std::int64_t dx = static_cast<std::int64_t>(dead.pos().x) - m->pos().x;
+                const std::int64_t dy = static_cast<std::int64_t>(dead.pos().y) - m->pos().y;
+                const std::int64_t d = dx * dx + dy * dy;
+                if (sid == t->captain) {
+                    if (d <= 0xfffff) { anchor = m; break; }   // 0x0809BE79 / 0x0809C058: the captain near enough
+                    continue;
+                }
+                if (d < nearest) { nearest = d; anchor = m; }   // 0x0809BEA8..: the nearest member
+            }
+        } else {
+            anchor = owner;
+        }
+        if (anchor == nullptr) continue;   // 0x0809BEF4: nobody near
+        if (r.damage > best_damage) { best_damage = r.damage; best = r.player; }
+        if (life_max <= 0 || dead.cur.experience <= 0) continue;
         const int exp = static_cast<int>(static_cast<double>(dead.cur.experience) * static_cast<double>(r.damage) / static_cast<double>(life_max));
-        if (exp <= 0) continue;
-        give_player_exp(*p, exp, static_cast<int>(dead.level));
+        add_exp_team(*anchor, exp, static_cast<int>(dead.level), killer);
     }
     dead.clear_damage_records();
+    return best;
 }
 
 void KSubWorld::recalc_player(KNpc& e)
@@ -2930,8 +2965,9 @@ bool KSubWorld::pick_up_request(std::uint64_t sid, EntityId object, std::uint32_
         item_result(sid, seq, pb::RESULT_NOT_FOUND);
         return false;
     }
-    // kept for somebody else (the team share of the old server is not here yet)
-    if (o->object.belong != 0 && o->object.belong != me->player_id) {
+    // kept for somebody else - unless that somebody is in my team and it is money or not a task item (0x080B826C..0x080B83BB;
+    // the messages 0x86 {4, 8} / {4, 0x11})
+    if (o->object.belong != 0 && o->object.belong != me->player_id && !team_may_take(*me, *o)) {
         item_result(sid, seq, pb::RESULT_UNAUTHORIZED);
         return false;
     }
@@ -2969,35 +3005,119 @@ bool KSubWorld::pick_up_request(std::uint64_t sid, EntityId object, std::uint32_
     return true;
 }
 
-// KNpc::OnDeath of the JX2 server (jx_linux_y 0x08088B60): a monster a player killed rolls
-// m_CurrentTreasure times - g_Random(100) < MoneyRate is a pile of money (KNpc::LoseMoney:
-// experience * MoneyScale / 100, then x the server's MoneyRate / 100), else one item of the table
-// (KNpc::LoseSingleItem).  Everything lies for the killer first (SetItemBelong).  The team share
-// ([Main] IsTeamShare) waits for the team system.
-void KSubWorld::lose_treasure(KNpc& dead, EntityId killer)
+// KNpc::OnDeath of the JX2 server (jx_linux_y 0x08088B60(npc, killer, best, killer player)): a monster with a best damage
+// record (a player, or the captain of the team that hurt it most) rolls m_CurrentTreasure times - g_Random(100) < MoneyRate
+// is a pile of money for `best` (KNpc::LoseMoney 0x08081950: experience * MoneyScale / 100, then x the server's MoneyRate /
+// 100), else one item of the table (KNpc::LoseSingleItem 0x08088840: the killer's luck when it is a team mate of `best`
+// (KTeamSet::CheckIn 0x080CC320), else best's; SetItemBelong best).  A table with [Main] IsTeamShare = 1 hands the items
+// straight to the bags instead (0x080843A0).  Then the global script OnGlobalNpcDeath (not in the zone).
+void KSubWorld::lose_treasure(KNpc& dead, EntityId killer, EntityId best)
 {
     if (dead.kind == KNpcKind::player || dead.cur.treasure <= 0 || !cfg_.templates) return;
     const KNpc* k = entities_.find(killer);
     if (k == nullptr || k->kind != KNpcKind::player) return;
+    const KNpc* owner = best.value != 0 ? entities_.find(best) : nullptr;
+    if (owner == nullptr || owner->kind != KNpcKind::player || !owner->player.loaded) return;   // 0x08088B7C: no best record, no drop
     // +0x174c: the npc's own table - the template's, the map's NormalDropRate, the GoldenDropRate while gold
     const KNpcDropRate* table = dead.drop_rate_file.empty() ? nullptr : cfg_.templates->drop_rate(dead.drop_rate_file);
     if (table == nullptr) return;
+    if (table->team_share != 0) {
+        lose_treasure_shared(dead, *k, *table);
+        return;
+    }
+    // 0x08088840: the killer's luck when it is in best's team (both in teams, the killer the captain or a member of best's)
+    const KTeam* bt = team_of(*owner);
+    const bool mate = owner != k && bt != nullptr && bt->check_in(k->sid);
+    const KNpc& lucky = mate ? *k : *owner;
+    const int luck = lucky.player.cur_lucky + team_near_count(lucky);   // GenRandomItem 0x08083DA7: m_nCurLucky + the team mates near (0x080CC620)
     int items = 0, money = 0;
     for (int i = 0; i < dead.cur.treasure; ++i) {
         if (random_percent() < static_cast<std::uint32_t>(table->money_rate)) {
             const std::int64_t amount = static_cast<std::int64_t>(dead.cur.experience) * table->money_scale / 100 * cfg_.money_rate_percent / 100;
             if (amount > 0) {
-                pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), k->player_id});
+                pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), owner->player_id});
                 ++money;
             }
-        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), k->player.cur_lucky)) {
-            // GenRandomItem 0x08083DA7: the killer's m_nCurLucky (+0x5958), plus a tong rank bonus (0x080CC620 when +0x5994 != 0 - no tong yet)
-            pending_drops_.push_back(KPendingDrop{std::move(item), 0, dead.pos(), k->player_id});
+        } else if (auto item = gen_random_item(*table, static_cast<int>(dead.level), static_cast<int>(dead.series), luck)) {
+            pending_drops_.push_back(KPendingDrop{std::move(item), 0, dead.pos(), owner->player_id});
             ++items;
         }
     }
-    log::debug("zone.fight", "treasure dropped", {log::kv("entity", dead.id), log::kv("killer", killer), log::kv("rolls", dead.cur.treasure),
-                                                   log::kv("items", items), log::kv("money", money)});
+    log::debug("zone.fight", "treasure dropped", {log::kv("entity", dead.id), log::kv("killer", killer), log::kv("owner", owner->id),
+                                                   log::kv("rolls", dead.cur.treasure), log::kv("items", items), log::kv("money", money)});
+}
+
+// 0x080843A0(npc, killer player, TeamShareRate) - a table with IsTeamShare: the damage records become weights (0x0809C090):
+// a record of a player out of a team weighs its damage; a record of a team is spread over the team mates within 1024 units
+// of the corpse (the captain first): every one near gets (100 - rate) x damage / 100 / n, the captain rate x damage / 100
+// more.  Every roll is a pile of money for the killer (LoseMoney) or an item of the killer's luck that goes straight into the
+// bag of a weighted-random player (KPlayer::AddItem 0x080B5180, room 1); a full bag loses the item (KItemSet::Remove).
+void KSubWorld::lose_treasure_shared(KNpc& dead, const KNpc& killer, const KNpcDropRate& table)
+{
+    struct Weight { KNpc* who; std::int64_t weight; };
+    std::vector<Weight> weights;
+    std::int64_t total = 0;
+    const auto add_weight = [&](KNpc* who, std::int64_t w) {
+        if (w <= 0) return;
+        total += w;
+        for (Weight& x : weights) if (x.who == who) { x.weight += w; return; }
+        weights.push_back(Weight{who, w});
+    };
+    const int rate = table.team_share_rate;
+    for (const KDamageRecord& r : dead.damage_records) {
+        if (r.player.value == 0 || r.damage <= 0) continue;
+        KNpc* owner = entities_.find(r.player);
+        if (owner == nullptr || owner->kind != KNpcKind::player || !owner->player.loaded) continue;
+        const KTeam* t = team_of(*owner);
+        if (t == nullptr) {
+            add_weight(owner, r.damage);   // 0x0809C2A8
+            continue;
+        }
+        std::vector<KNpc*> near;
+        for (const std::uint64_t sid : t->people()) {
+            KNpc* m = team_player(sid);
+            if (m == nullptr) continue;
+            const std::int64_t dx = static_cast<std::int64_t>(dead.pos().x) - m->pos().x;
+            const std::int64_t dy = static_cast<std::int64_t>(dead.pos().y) - m->pos().y;
+            if (dx * dx + dy * dy <= 0xfffff) near.push_back(m);
+        }
+        if (near.empty()) continue;
+        const std::int64_t n = static_cast<std::int64_t>(near.size());
+        const std::int64_t captain_share = static_cast<std::int64_t>(rate) * r.damage / 100;          // 0x0809C1F8
+        const std::int64_t rest = static_cast<std::int64_t>(100 - rate) * r.damage / 100;             // 0x0809C20B
+        for (KNpc* m : near) {
+            std::int64_t w = rest / n;
+            if (m == owner) w = rate == 0 ? r.damage / n : rest / n + captain_share;   // 0x0809C430 / 0x0809C478
+            add_weight(m, w);
+        }
+    }
+    dead.clear_damage_records();
+    int items = 0, money = 0, lost = 0;
+    for (int i = 0; i < dead.cur.treasure; ++i) {
+        if (random_percent() < static_cast<std::uint32_t>(table.money_rate)) {
+            const std::int64_t amount = static_cast<std::int64_t>(dead.cur.experience) * table.money_scale / 100 * cfg_.money_rate_percent / 100;
+            if (amount > 0) {
+                pending_drops_.push_back(KPendingDrop{std::nullopt, static_cast<int>(amount), dead.pos(), killer.player_id});
+                ++money;
+            }
+            continue;
+        }
+        auto item = gen_random_item(table, static_cast<int>(dead.level), static_cast<int>(dead.series), killer.player.cur_lucky);
+        if (!item) continue;
+        if (total <= 0) break;   // 0x08084475
+        const std::int64_t roll = static_cast<std::int64_t>(rng_() % static_cast<std::uint32_t>(std::min<std::int64_t>(total, 0x3fffffff)));
+        KNpc* picked = nullptr;
+        std::int64_t cum = 0;
+        for (const Weight& w : weights) {
+            if (roll >= cum && roll < cum + w.weight) { picked = w.who; break; }
+            cum += w.weight;
+        }
+        if (picked == nullptr) continue;   // 0x080845B0: no one - the item is lost
+        if (give_item(picked->sid, std::move(*item)) != 0) ++items;
+        else ++lost;   // 0x08084577: KItemSet::Remove - a full bag loses the item
+    }
+    log::debug("zone.fight", "treasure shared", {log::kv("entity", dead.id), log::kv("killer", killer.id), log::kv("rolls", dead.cur.treasure),
+                                                  log::kv("items", items), log::kv("money", money), log::kv("lost", lost)});
 }
 
 void KSubWorld::flush_pending_drops()

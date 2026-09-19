@@ -456,6 +456,78 @@ message PlayerAttribSync {       // G2C_PLAYER_ATTRIB
   uint64 level_exp = 38;         // where this level starts (level_exp[level - 1]): the exp bar of the 2.0 top bar (Player_Exp 0x0044AD20) shows the way into the level
 }
 
+// ---- teams (KPlayerTeam / KTeam of the old game, docs/LINUX-SERVER.md §17) ----------------------------------------------------
+
+enum TeamCmd {                   // the sub-command byte of the 0x53 packet (the jump table 0x8257f48 of the handler 0x080DCC90)
+  TEAM_CMD_NONE = 0;
+  TEAM_INFO = 1;                 // the team of a npc around (KPlayer::S2CSendTeamInfo 0x080B1AD0): target = npc id
+  TEAM_CREATE = 2;               // KPlayerTeam::CreateTeam 0x080CE3C0
+  TEAM_OPEN_CLOSE = 3;           // KPlayer::SetTeamState 0x080B1CF0: flag 1 open / 0 close
+  TEAM_APPLY_ADD = 4;            // KPlayer::S2CSendAddTeamInfo 0x080B8000: ask a captain (target) to be taken in
+  TEAM_ACCEPT = 5;               // KPlayer::AddTeamMember 0x080B75B0: the captain takes an applicant (target)
+  TEAM_LEAVE = 6;                // KPlayer::LeaveTeam 0x080B7C60
+  TEAM_KICK = 7;                 // KPlayer::TeamKickOne 0x080B9880: target
+  TEAM_CHANGE_CAPTAIN = 8;       // KPlayer::TeamChangeCaptain 0x080B9400: target
+  TEAM_DISMISS = 9;              // KPlayer::TeamDismiss 0x080B7DE0
+  TEAM_INVITE = 10;              // KPlayerTeam::InviteAdd 0x080CE150: the captain invites target
+  TEAM_REPLY_INVITE = 11;        // KPlayerTeam::GetInviteReply 0x080CCBA0: target = the captain, flag 1 accept / 0 refuse
+}
+
+message TeamReq {                // C2G_TEAM
+  TeamCmd cmd = 1;
+  uint64 target = 2;             // the npc (entity) the command is about
+  int32 flag = 3;
+  uint32 seq = 4;
+}
+
+message TeamMember {
+  uint64 entity_id = 1;
+  string name = 2;
+  uint32 level = 3;
+}
+
+message TeamSelf {               // G2C_TEAM_SELF: PLAYER_SEND_SELF_TEAM_INFO - the whole team of the receiver, or in_team = false (s2c_teamleave)
+  bool in_team = 1;
+  int32 team_id = 2;
+  int32 state = 3;               // 1 open, 0 closed
+  bool captain = 4;              // the receiver leads it
+  TeamMember leader = 5;
+  repeated TeamMember members = 6;
+  uint32 lead_level = 7;         // the receiver's leadership level (Player+0x5970)
+  uint64 lead_exp = 8;
+  int32 members_max = 9;         // KTeam::CalcCaptainPower: what the captain's leadership allows
+}
+
+enum TeamEventKind {
+  TEAM_EV_NONE = 0;
+  TEAM_EV_CREATE_OK = 1;         // 0x69 sub 4 {team id, camp}
+  TEAM_EV_CREATE_FAIL = 2;       // 0x69 sub 5 {error}: arg = the error (0 in a team already, 4 cannot create, 2 no free team)
+  TEAM_EV_ADD_MEMBER = 3;        // s2c_teamaddmember: entity_id / name / level of the newcomer
+  TEAM_EV_LEAVE = 4;             // s2c_teamleave {npc}: entity_id left (the receiver itself when its team is gone)
+  TEAM_EV_KICK = 5;              // enumMSG_ID_TEAM_KICK_One: name
+  TEAM_EV_CHANGE_CAPTAIN = 6;    // s2c_teamchangecaptain {new, old}: entity_id = the new captain, arg = 1 when the receiver is it
+  TEAM_EV_OPEN_CLOSE = 7;        // s2c_teamopenclose: arg = 1 open / 0 closed
+  TEAM_EV_INVITE = 8;            // s2c_teaminviteadd: entity_id / name of the captain inviting the receiver
+  TEAM_EV_APPLY = 9;             // s2c_teamgetapply: entity_id / name / level of the applicant (to the captain)
+  TEAM_EV_INFO = 10;             // s2c_teaminfo: leader + members of the team asked about
+  TEAM_EV_INFO_FALSE = 11;       // s2c_teamapplyinfofalse
+  TEAM_EV_DISMISS = 12;          // enumMSG_ID_TEAM_DISMISS
+  TEAM_EV_REFUSE = 13;           // enumMSG_ID_TEAM_REFUSE_INVITE: name refused the invitation
+  TEAM_EV_MSG = 14;              // a 0x86 message: arg = its id, the client's stringtable_core key (docs/CLIENT-2.0.md §21): 6 / 7 change-captain
+                                 // fails, 0x12 / 0x13 MSG_TEAM_TARGET_CANNOT_ADD_TEAM, 0x24..0x28 MSG_TEAM_ERROR01..05 (a captain the system appointed)
+  TEAM_EV_SELF_ADD = 15;         // enumMSG_ID_TEAM_SELF_ADD: the receiver joined
+}
+
+message TeamEvent {              // G2C_TEAM_EVENT
+  TeamEventKind event = 1;
+  uint64 entity_id = 2;
+  string name = 3;
+  uint32 level = 4;
+  int32 arg = 5;
+  TeamMember leader = 6;
+  repeated TeamMember members = 7;
+}
+
 // KNpc::SetCamp 0x0807B7B0 (the 0x59 packet of the old game): a npc's camp (m_Camp) changed - a player joined or left a faction
 message EntityCamp {             // G2C_ENTITY_CAMP
   uint64 entity_id = 1;

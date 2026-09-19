@@ -36,6 +36,7 @@
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
+#include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KMissle.h"
@@ -239,7 +240,8 @@ public:
     [[nodiscard]] const KItem* ground_item(EntityId object) const;
     [[nodiscard]] std::size_t ground_object_count() const noexcept { return ground_items_.size() + ground_money_; }
     // KNpc::OnDeath (the drops): Treasure rolls of the template's drop table for the killer
-    void lose_treasure(KNpc& dead, EntityId killer);
+    void lose_treasure(KNpc& dead, EntityId killer, EntityId best);
+    void lose_treasure_shared(KNpc& dead, const KNpc& killer, const KNpcDropRate& table);   // 0x080843A0: [Main] IsTeamShare
     // KNpc::LoseSingleItem -> GenRandomItem of jx_linux_y (0x08083BB0): one roll of a drop table
     std::optional<KItem> gen_random_item(const KNpcDropRate& table, int npc_level, int npc_series, int luck);
     // Give an item to a player (a script, a drop picked up, a quest reward): into the bag, onto a
@@ -535,6 +537,23 @@ public:
     // while frozen_action (+0x1479, the mask 0x11e covers 1 and 8); the action runs at 0x08088640: 8 -> KNpc::DoSit 0x0807B550,
     // 1 -> DoStand 0x08080030
     bool sit_request(std::uint64_t sid, bool sit, std::uint32_t seq);
+    // ---- teams (KPlayerTeam.h; docs/LINUX-SERVER.md §17; KSubWorldTeam.cpp) ----
+    // the 0x53 packet (sub-command 1..11, a npc, a flag) -> the KPlayer / KPlayerTeam handlers of jx_linux_y
+    bool team_request(std::uint64_t sid, int cmd, EntityId target, int flag);
+    [[nodiscard]] const KTeam* team_of(const KNpc& e) const noexcept;
+    [[nodiscard]] KTeam* team_of(const KNpc& e) noexcept;
+    [[nodiscard]] const KTeamSet& teams() const noexcept { return teams_; }
+    [[nodiscard]] KTeam* mutable_team(int id) noexcept { return teams_.get(id); }   // the script api (ChangeTeamFeature)
+    // KTeam::CalcCaptainPower 0x080CC960 / CheckFull 0x080CC990
+    [[nodiscard]] int team_members_max(const KTeam& t) const noexcept;
+    [[nodiscard]] bool team_full(const KTeam& t) const noexcept;
+    // 0x080CC620(team, player): the captain and members within reach of a player (the death exp loss, the luck of a drop)
+    [[nodiscard]] int team_near_count(const KNpc& e) const noexcept;
+    [[nodiscard]] bool team_may_take(const KNpc& e, const KNpc& object) const noexcept;   // ServerPickUpItem 0x080B826C: a team mate's drop
+    void team_leave(KNpc& e);                 // KPlayer::LeaveTeam 0x080B7C60 (a player leaving the world too, 0x080C55D7)
+    void team_send_self(const KNpc& e);       // KPlayer::SendSelfTeamInfo 0x080AA7F0
+    // KPlayer::AddExpTeam 0x080B03E0: a kill's experience shared with the team mates within 1024 units on the same map
+    void add_exp_team(KNpc& anchor, int exp, int npc_level, EntityId killer);
     // KPlayerPK (Player+0x5a50): SetPKState 0x080C3740, SetPKValue 0x080C38C0, AddPKValue 0x080C3930, the packet 0x76 handler 0x080DBE00
     bool pk_set_state(KNpc& e, int state, bool force);
     void pk_set_value(KNpc& e, int value);
@@ -581,6 +600,30 @@ public:
 
 private:
     friend class KNpcAI;   // like the old KNpcAI, which is a friend of KNpc
+    // ---- teams (KSubWorldTeam.cpp)
+    KTeamSet teams_;
+    bool team_create(KNpc& e);                                   // KPlayerTeam::CreateTeam 0x080CE3C0
+    bool team_set_state(KNpc& e, bool open);                     // KPlayer::SetTeamState 0x080B1CF0
+    bool team_set_open(KTeam& t);                                // KTeam::SetTeamOpen 0x080CD960
+    bool team_set_close(KTeam& t);                               // KTeam::SetTeamClose 0x080CCA80
+    bool team_add_member(KTeam& t, KNpc& p);                     // KTeam::AddMember 0x080CC9D0
+    void team_delete_member(KTeam& t, KNpc& p);                  // KTeam::DeleteMember 0x080CD5E0
+    void team_hand_over(KTeam& t);                               // 0x080CD480: the captaincy to the first member of the captain's camp
+    void team_apply_add(KNpc& e, EntityId target);               // KPlayer::S2CSendAddTeamInfo 0x080B8000
+    bool team_accept(KNpc& e, EntityId target);                  // KPlayer::AddTeamMember 0x080B75B0
+    void team_kick(KNpc& e, EntityId target);                    // KPlayer::TeamKickOne 0x080B9880
+    void team_change_captain(KNpc& e, EntityId target);          // KPlayer::TeamChangeCaptain 0x080B9400
+    void team_dismiss(KNpc& e);                                  // KPlayer::TeamDismiss 0x080B7DE0
+    void team_invite(KNpc& e, EntityId target);                  // KPlayerTeam::InviteAdd 0x080CE150
+    void team_reply_invite(KNpc& e, EntityId captain, bool ok);  // KPlayerTeam::GetInviteReply 0x080CCBA0
+    void team_info(KNpc& e, EntityId target);                    // KPlayer::S2CSendTeamInfo 0x080B1AD0
+    void team_join(KTeam& t, int id, KNpc& newcomer, KNpc& captain);   // the common tail of AddTeamMember / GetInviteReply
+    void team_event(std::uint64_t sid, pb::TeamEventKind kind, EntityId who = EntityId{}, int arg = 0);
+    void team_event_all(const KTeam& t, pb::TeamEventKind kind, EntityId who = EntityId{}, int arg = 0);
+    void team_send_self_all(const KTeam& t);
+    void team_sync_captain(KTeam& t);   // every member's KPlayerTeam::captain_npc = the captain's npc
+    [[nodiscard]] KNpc* team_player(std::uint64_t sid);
+    [[nodiscard]] KNpc* find_around_player(const KNpc& e, EntityId npc);   // KPlayer::FindAroundPlayer 0x080B1610: a player in the regions around
 
     void emit(std::vector<std::uint64_t> sids, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     // A crowded spot can put hundreds of entities in one EntitySpawn, which would pass the 64 KiB
@@ -712,7 +755,7 @@ private:
     // G2C_MISSLE: a missile born / flying / gone to the launcher's watchers (the 2.0 client runs CastMissles itself; docs/CLIENT-2.0.md §11)
     void emit_missle(const KMissle& m, bool removed, bool collided = false);
     // the experience of a dead npc to the players in its damage records (0x0809BDD0)
-    void share_experience(KNpc& dead);
+    EntityId share_experience(KNpc& dead, EntityId killer);   // 0x0809BDD0: returns the damage record that hurt it most (the owner of the drop)
     void broadcast(const KNpc& e, std::uint16_t msg_id, const google::protobuf::MessageLite& msg);
     // what KNpcAI issues as SendCommand(do_walk / do_stand / do_skill) on the old server
     KNpc* find_mutable(EntityId id);

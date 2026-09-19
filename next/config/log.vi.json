@@ -306,7 +306,10 @@
     "forbid": "khoá",
     "held": "đang giữ",
     "faction": "môn phái",
-    "camp": "phe"
+    "camp": "phe",
+    "team": "đội",
+    "captain": "đội trưởng",
+    "owner": "chủ"
   },
   "messages": {
     "zone starting": "jx_zone bắt đầu khởi động",
@@ -614,6 +617,16 @@
     "faction joined": "Người chơi gia nhập môn phái (KPlayer::SetFaction: phe theo môn phái, gói 0x7b)",
     "faction left": "Người chơi rời môn phái (KPlayer::ClearFaction: phe C_FREE, gói 0x7c)",
     "faction refused": "SetFaction bị từ chối: tên không có trong bảng hoặc ngũ hành nhân vật không hợp môn phái",
-    "skill added": "AddMagic: đã thêm kỹ năng vào sổ (gói 0x5e)"
+    "skill added": "AddMagic: đã thêm kỹ năng vào sổ (gói 0x5e)",
+    "team created": "Đã lập tổ đội (KPlayerTeam::CreateTeam 0x080CE3C0: đội trưởng, đội mở, gói 0x69 {4})",
+    "member joined": "Có người vào đội (KTeam::AddMember 0x080CC9D0 - nhận đơn xin 0x080B75B0 hay nhận lời mời 0x080CCBA0)",
+    "member left": "Có người rời đội (KPlayer::LeaveTeam 0x080B7C60 / KTeam::DeleteMember 0x080CD5E0)",
+    "member kicked": "Đội trưởng đuổi một người khỏi đội (KPlayer::TeamKickOne 0x080B9880)",
+    "captain changed": "Đội trưởng nhường chức (KPlayer::TeamChangeCaptain 0x080B9400)",
+    "captain handed over": "Hệ thống chuyển chức đội trưởng cho người cùng phe đầu tiên (0x080CD480: đội trưởng chết / rời đội)",
+    "team dismissed": "Đội giải tán (KPlayer::TeamDismiss 0x080B7DE0 hay đội trưởng rời đi)",
+    "team apply": "Xin vào đội của một đội trưởng gần đó (KPlayer::S2CSendAddTeamInfo 0x080B8000, gói 0x69 {7})",
+    "team invite": "Đội trưởng mời một người vào đội (KPlayerTeam::InviteAdd 0x080CE150, gói 0x69 {0xc})",
+    "treasure shared": "Đồ rơi chia cho tổ đội theo sát thương (bảng rơi IsTeamShare = 1, 0x080843A0: vào thẳng túi người trúng)"
   }
 }
