@@ -641,6 +641,12 @@ func _auto() -> void:
 				await get_tree().process_frame
 			await _screenshot("user://logs/scn3d_sfx_%s_%d.png" % [test_sfx, shot])
 			shot += 1
+			if is_instance_valid(fx) and fx.get("_pc2s") is Array:
+				# --sfx: the PC2Anim point caches playing (vertex 0 of the rebuilt mesh against sample 0, the frame time)
+				for pc in fx.get("_pc2s"):
+					var pmi: MeshInstance3D = pc["mi"]
+					var v0 := (pmi.mesh as ArrayMesh).surface_get_arrays(0)[Mesh.ARRAY_VERTEX][0] as Vector3 if is_instance_valid(pmi) and pmi.mesh is ArrayMesh else Vector3.INF
+					print("SCN3D_SFX_PC2 %s frames=%d fps=%d t=%.3f play=%s v0=%s base=%s" % [pmi.name if is_instance_valid(pmi) else "-", (pc["frames"] as Array).size(), int(pc["fps"]), float(pc["t"]), str(pc["play"]), str(v0), str((pc["frames"][0] as PackedVector3Array)[0])])
 		print("SCN3D_SFX %s alive=%s children=%d" % [test_sfx, is_instance_valid(fx), fx.get_child_count() if is_instance_valid(fx) else 0])
 		if is_instance_valid(fx):
 			# --sfx: every particle node with what it emits (the check of one export)

@@ -118,6 +118,34 @@ def read_ptrail(raw, material):
             "min_dist": min_dist, "max_pts": max_pts, "material": material(mat[1])}
 
 
+def read_pc2(raw, text_assets):
+    """PC2Anim (hoat anh dinh theo tep POINTCACHE2, 1 prefab tm_zhuixinjian): chi uri_pc2 + fps duoc ghi (88 byte); ParsePCFile
+    [TK 0x68d4c0]: WBase.AssetMgr.LoadBytes(uri) -> chu ky 12 byte, fileVersion, numPoints (= so dinh mesh), startFrame, sampleRate,
+    numSamples, roi numSamples x numPoints x (x, y, z) float -> Unity (-x, y, z) x 0.01; sau khi doc: curFrame 0, m_bLoop 1, m_bPlay 1.
+    Update [TK 0x68cdc0]: fps kep 1..60, khung = increaseTime x fps, noi suy tuyen tinh giua mau khung va khung + 1; toi mau cuoi:
+    dinh = mau cuoi, increaseTime = 0, dung neu khong lap.  Toa do ghi ra da qua guong Godot (x, y, z) x 0.01."""
+    r = Raw(raw); r.header()
+    uri = r.string(); fps = r.i32()
+    if len(raw) - r.p != 0:
+        raise struct.error("PC2Anim: con %d byte" % (len(raw) - r.p))
+    base = uri.replace("\\", "/").split("/")[-1]
+    if base.endswith(".bytes"):
+        base = base[:-6]
+    b = text_assets.get(base)
+    if b is None:
+        raise IndexError("PC2Anim: khong co TextAsset " + base)
+    sig = b[:12]
+    if not sig.startswith(b"POINTCACHE2"):
+        raise struct.error("PC2Anim: chu ky la " + repr(sig))
+    ver, npts = struct.unpack_from("<ii", b, 12); sf, sr = struct.unpack_from("<ff", b, 20); ns = struct.unpack_from("<i", b, 28)[0]
+    if len(b) < 32 + ns * npts * 12:
+        raise struct.error("PC2Anim: tep ngan (%d < %d)" % (len(b), 32 + ns * npts * 12))
+    a = np.array(struct.unpack_from("<%df" % (ns * npts * 3), b, 32), dtype=np.float32).reshape(ns, npts, 3) * 0.01
+    frames = [[round(float(v), 4) for v in a[i].reshape(-1)] for i in range(ns)]
+    return {"uri": base, "fps": max(1, min(60, fps)), "loop": True, "num_points": npts, "num_samples": ns, "start_frame": sf, "sample_rate": sr,
+            "frames": frames}
+
+
 def read_linemesh(raw):
     """SFXLineMesh (duong noi vat con ve diem sinh, su kien 26; 1 prefab 天际迅雷): color, uvNum_X/Y, uvOffset_X/Y, uvGrow, enhance,
     useRandomGrow, uiCurve, _adjustColor, useWorldPos, manualStart, _startPos, _endPos, _startWidth, _normalLength, _textureMode,
@@ -272,6 +300,13 @@ class SfxExporter:
                 for k, v in o.read_typetree()["m_Container"]:
                     self.cont[k] = v["asset"]["m_PathID"]
         self.texcache = {}
+        # the .pc2 point caches (TextAsset <ten>.pc2, bytes) PC2Anim loads by uri
+        self.text_assets = {}
+        for o in self.env.objects:
+            if o.type.name == "TextAsset":
+                ta = o.read()
+                sc = ta.m_Script
+                self.text_assets[ta.m_Name] = sc if isinstance(sc, (bytes, bytearray)) else sc.encode("utf-8", "surrogateescape")
         self.log = []
 
     # ten goc cua container da bam md5: prefab goc (Transform khong cha) + thu muc doan theo hash [TK]: Skill 210, Cmn 49,
@@ -479,6 +514,11 @@ class SfxExporter:
                         tw = None
                     if tw is not None:
                         jn.setdefault("tweens", []).append(tw)
+                if cls == "PC2Anim":
+                    try:
+                        jn["pc2"] = read_pc2(raw, self.text_assets)
+                    except (struct.error, IndexError) as e:
+                        self.log.append("PC2Anim khong doc duoc: %s (%s)" % (g.m_Name, e))
                 if cls == "SFXLineMesh":
                     try:
                         lm = read_linemesh(raw)

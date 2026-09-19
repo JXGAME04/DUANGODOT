@@ -827,6 +827,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-63) — `PC2Anim`: hoạt ảnh đỉnh POINTCACHE2 của 唐门追心箭 (Truy Tâm Tiễn, kỹ năng 50)
+
+- Lớp `PC2Anim` [TK]: chỉ `uri_pc2` + `fps` được ghi (88 byte: `Assets/Particles/PC2/model_zhuixinjian.pc2.bytes`, fps 8);
+  `ParsePCFile 0x68d4c0`: `WBase.AssetMgr.LoadBytes(uri)` → chữ ký `POINTCACHE2 `, fileVersion 1, numPoints 36 (phải bằng số đỉnh mesh),
+  startFrame 0, sampleRate 1, numSamples 5, rồi 5×36×(x,y,z) float → Unity `(−x, y, z) × 0,01`; sau khi đọc `curFrame 0, m_bLoop 1, m_bPlay 1`.
+  `Update 0x68cdc0`: fps kẹp 1..60, khung = `increaseTime × fps`, đỉnh = nội suy tuyến tính mẫu `khung` → `khung + 1`; khi khung kế là mẫu
+  cuối: đỉnh = mẫu cuối, `increaseTime = 0`, dừng nếu không lặp (`Mesh.MarkDynamic` ở `Start 0x68cc40`). TextAsset đọc qua UnityPy trả chuỗi
+  `surrogateescape` → phải `encode("utf-8", "surrogateescape")` mới đủ 2 192 byte.
+- `export_sfx.read_pc2` → `pc2 {fps, loop, num_points, num_samples, frames[5][108]}` (đã qua gương Godot `(x, y, z) × 0,01`);
+  `Scn3DSfx._add_pc2/_process_pc2`: dựng lại mặt `ArrayMesh` mỗi khung với đỉnh nội suy (vật liệu chuyển sang `material_override`
+  như mixer). Kiểm `--sfx=Skill_tm_zhuixinjian`: `SCN3D_SFX_PC2 pc2 frames=5 fps=8 t=0.185 v0=(…, 0.2697)` ≠ mẫu 0 `(…, 0)` — cánh mũi tên
+  vỗ; `--auto3d --skill=50:tangmen --series=1`: `auto3d_skill_50_2/3.png` hai cánh sáng xanh bay tới hươu, tên "Truy Tâm Tiễn".
+- Godot 631/631.
+- commit: `JX NEXT 3D: 3D-63 - PC2Anim hoat anh dinh POINTCACHE2 (tm_zhuixinjian, ky nang 50)`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-62) — gộp `origin/main` (11 commit: M14 T1/T2 tổ đội, G1..G3 giao dịch, C1/C2 kênh chat; M13 D1..D3 hội thoại/giá trị/nhiệm vụ) vào nhánh 3D
 
 - Xung đột và cách chốt: `services/cmd/jxbot/main.go` (cổng 19100 của nhánh 3D + cờ `-partner` của main), `KUiExport.go` (cả hai),

@@ -13,6 +13,7 @@ var _mixers: Array = []   # SFXMixerMesh layers a curve animates on the CPU
 var _tweens: Array = []
 var _uv_anims: Array = []   # [{mat, nx, ny, ua, t, base}]: SFXMeshModify meshes whose atlas cell animates (uiCurve)
 var _billboards: Array = []  # [{bb, mode, euler, offset, pos_node, base}]: SFXBillboardHelper entries (wrapper nodes turned each frame)
+var _pc2s: Array = []        # [{mi, frames, fps, loop, t, play, arrays, fmt}]: PC2Anim point-cache meshes (追心箭)
 var _players: Array = []
 var _particles: Array = []
 
@@ -214,6 +215,10 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 					var ua: Dictionary = sfx["uv_anim"]
 					_uv_anims.append({"mat": mat, "nx": float(sfx.get("nx", 1.0)), "ny": float(sfx.get("ny", 1.0)), "ua": ua, "t": 0.0,
 						"base": (mat as StandardMaterial3D).uv1_offset})
+		if jn.has("pc2"):
+			var pmi := (n as MeshInstance3D) if n is MeshInstance3D else (_find(n, "MeshInstance3D") as MeshInstance3D)
+			if pmi != null:
+				_add_pc2(pmi, jn["pc2"])
 		if jn.has("ps"):
 			var t := _make_particles(dir, jn["ps"], st)
 			if t:
@@ -604,6 +609,74 @@ func _process_mixers(delta: float) -> void:
 			mi.material_override = mat
 
 
+# PC2Anim [TK Start 0x68cc40 / ParsePCFile 0x68d4c0 / Update 0x68cdc0]: the mesh's vertices are replaced every frame by the
+# POINTCACHE2 samples (export_sfx.read_pc2, already in Godot metres): frame = increaseTime x fps (fps clamped 1..60), the
+# positions interpolated linearly between sample `frame` and `frame + 1`; once the next frame would be the last sample the
+# last sample is shown, the time restarts (m_bLoop is set after the parse) - 追心箭: 5 samples at 8 fps = a 0.5 s cycle.
+func _add_pc2(mi: MeshInstance3D, pc: Dictionary) -> void:
+	var am := mi.mesh as ArrayMesh
+	if am == null or am.get_surface_count() < 1:
+		return
+	var arrays := am.surface_get_arrays(0)
+	var base: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var frames: Array = []
+	for f in pc.get("frames", []):
+		var pv := PackedVector3Array()
+		pv.resize(int(f.size() / 3))
+		for i in pv.size():
+			pv[i] = Vector3(float(f[i * 3]), float(f[i * 3 + 1]), float(f[i * 3 + 2]))
+		frames.append(pv)
+	if frames.is_empty() or frames[0].size() != base.size():
+		# ParsePCFile refuses a cache whose numPoints differs from the mesh's vertex count
+		push_warning("Scn3DSfx: pc2 %s co %d diem, mesh %d dinh" % [str(pc.get("uri", "")), frames[0].size() if not frames.is_empty() else 0, base.size()])
+		return
+	# the material moves to the instance override: rebuilding the surface would drop a per-surface override
+	if mi.material_override == null and mi.get_surface_override_material(0) != null:
+		mi.material_override = mi.get_surface_override_material(0)
+		mi.set_surface_override_material(0, null)
+	_pc2s.append({"mi": mi, "frames": frames, "fps": maxi(1, mini(60, int(pc.get("fps", 8)))), "loop": bool(pc.get("loop", true)),
+		"t": 0.0, "play": true, "arrays": arrays, "fmt": am.surface_get_format(0)})
+
+
+func _process_pc2(delta: float) -> void:
+	for p in _pc2s:
+		var mi: MeshInstance3D = p["mi"]
+		if not is_instance_valid(mi) or not bool(p["play"]):
+			continue
+		var frames: Array = p["frames"]
+		var ns := frames.size()
+		var ft := 1.0 / float(p["fps"])
+		var t_old := float(p["t"])
+		var pos: PackedVector3Array
+		if ns == 1:
+			pos = frames[0]
+			p["play"] = false
+		elif int((t_old + delta) / ft) < ns - 1:
+			var cur := maxi(0, int(t_old / ft))
+			var f := clampf(t_old / ft - float(cur), 0.0, 1.0)
+			var a: PackedVector3Array = frames[cur]
+			var b: PackedVector3Array = frames[cur + 1]
+			pos = PackedVector3Array()
+			pos.resize(a.size())
+			for i in a.size():
+				pos[i] = a[i] + (b[i] - a[i]) * f
+			p["t"] = t_old + delta
+		else:
+			pos = frames[ns - 1]
+			p["t"] = 0.0
+			if not bool(p["loop"]):
+				p["play"] = false
+		var am := mi.mesh as ArrayMesh
+		if am == null:
+			continue
+		var arrays: Array = p["arrays"]
+		arrays[Mesh.ARRAY_VERTEX] = pos
+		var mat := mi.material_override
+		am.clear_surfaces()
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, int(p["fmt"]))
+		mi.material_override = mat
+
+
 # The NGUI tweens the reference puts on effect nodes (TweenRotation / Scale / Position / Alpha / Color / Enhance [TK],
 # export_sfx.py read_tween): from -> to over `duration` after `delay`, method = ease (Linear, EaseIn/Out/InOut, Bounce),
 # style Once / Loop / PingPong.  Alpha / colour / enhance go to the mesh material of the node (unshaded albedo: enhance
@@ -742,6 +815,8 @@ func _process(delta: float) -> void:
 		m.uv1_offset = Vector3(base.x + off.x, base.y + off.y, base.z)
 	if not _mixers.is_empty():
 		_process_mixers(delta)
+	if not _pc2s.is_empty():
+		_process_pc2(delta)
 	if life > 0.0 and _t >= life:
 		queue_free()
 
