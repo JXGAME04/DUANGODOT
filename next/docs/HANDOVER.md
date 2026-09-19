@@ -340,6 +340,15 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   → `entities[id].menu_state`. Zone: `kTradeRoomWidth` 10 → **8** (Init `0x081FF129`: 15 phòng của bản Linux ghi ở `KItem.h`). Kiểm: Godot 460/460, e2e
   `AUTO_TRADE opened=true sign=2 drawn=true closed=true`, `auto_trade.png` (đã gửi). **Chưa**: sprite menu 2.0
   (`0x00475690`), các mục menu còn lại, kéo–thả vào ô, phòng 4 kim đĩnh. **Chạy lại `python tools/dev.py assets`** (`export-menu-state`, `giao-dich`).
+- **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
+  `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
+  `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
+  `+0x8c48`; ≥ 0x200 → `G_STR_MSG_VOERFLOW`; lịch sử 8 × 0x200 `+0x7c46`) → `parse_input` + `send_chat` + ↑/↓; nút kênh `0x004730D0` (màu kênh) → `[ChannelBtn]`
+  `KWndLabeledButton` tên ngắn + màu; menu kênh `0x00472620` (`0x004B6530` màu từng dòng) → `KWndPopupMenu` mục có màu; dòng nhận theo
+  `ChannelMessageArrival` 2004 (ảnh kênh + tên `NameTextColor` + câu `TextColor`; thì thầm `TextColorSelf`/`Unknown`); `SendMsgNum`/`SendMsgInterval` →
+  `throttle` (`G_PLAYERBAR_3`). Test Godot +19 (`test_chat_channels`); e2e `AUTO_CHAT team=doi oi world=ca the gioi button=Công menu=true` + `auto_chat.png`.
+  **Chưa**: cửa sổ pad thật (tab/danh sách/SysRoom/MSNRoom), `%`, kênh GM, bộ lọc `chatsent.flt`, `Sound` kênh. **Chạy lại `python tools/dev.py assets`**
+  (`export-ui` thêm `khung-chat`).
 - **M14 lát C1 (xong 2026-09-19)**: **kênh chat phía zone** (`LINUX-SERVER.md` §19): JX2 để relay (`s3relay_y`, `relay_channcfg.ini`: TEAM T/0, faction F/3,
   tong O/0, NEARBY S/0, CITY B/2, union U/0; `relay_channel.ini` WORLD 4) giữ kênh và phát; game server chỉ kiểm (`0x081E3710`: `ForbitTalk` `Player+0x38c`,
   câu ≤ 0x95 byte, kênh + loại chi phí khớp bảng relay, `0x080502A0` chi phí theo `chatcost.ini` — `SetChatFlag` bit 0 `+0x394` cấm hết, loại 2 thành cấp 20 +
@@ -447,7 +456,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
-| ~~M14 C1 — kênh chat phía zone~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`) | còn **C2 client**: `ChannelBtn` menu kênh `0x00472620` (`0x004B6530` tên/màu/cờ từ `消息集合面板_左.ini [CH_*]`), `KUiPlayerBar::SendChat 0x00475A10` (tiền tố `/tên` → Lua `Say(tên, câu)`, `&tên kênh` → `Chat(kênh, câu)`, `%`; lịch sử 8×0x200 `+0x7c46`; bộ lọc `0x0058DF90`/`0x00617B90`; ≥ 0x200 → `[0x82241c]`), `0x00475900` đặt kênh hiện tại `+0x8c48` → chữ nút `0x004730D0`, khung chat màu `TextColor` + `ShortName`, tab `ChatTab*`; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
+| ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat client, bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
@@ -770,6 +779,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 51) — M14 lát C2: kênh chat trên client (消息集合面板_左.ini, SendChat 0x00475A10, nút/menu kênh 0x004730D0 / 0x00472620)
+
+- **gamecl.exe** (đọc từng dòng, `CLIENT-2.0.md` §23): `KUiMsgCentrePad` nạp `消息集合面板_左.ini` (`0x004B5E64`, `[Channels]`, `[CH_*]` `0x004B50D0..`,
+  `[ChatTab]` `0x004B4216..`, `[MSNRoom]` `0x004B4D80..`); `KUiPlayerBar::SendChat 0x00475A10` (lịch sử `+0x7c46`, tiền tố `/` `&` `%`, kênh cờ 3/4, Lua
+  `Say`/`Chat`, `G_STR_MSG_VOERFLOW` `[0x82241c]`, `G_PLAYERBAR_2` `[0x822048]`, `G_GSCHANGEDNOTIFY_6` `[0x821f08]` — con trỏ chuỗi giải theo luật "lưu trễ"
+  của bộ nạp `0x00411xxx`); `0x00475900`/`0x004730D0` (kênh hiện tại `+0x8c48`, chữ nút = mã màu 3 byte); menu `0x00472620` (`0x004B6530` màu/ảnh từng kênh,
+  `0x0044F590` mở). Mã 2004 `UiMsgCentrePad.cpp`: `ChannelMessageArrival` (ảnh kênh + tên `NameTextColor` + câu `TextColor`), `MSNMessageArrival`.
+- **Go**: `export.GameScreens` += `khung-chat` (`消息集合面板_左.ini`, 40 ảnh).
+- **Client**: `UiMsgCentrePad.gd` (bảng kênh, `parse_input`, `throttle`, `line`, `menu_entries`), `UiPlayerBar` (`channel_btn` `KWndLabeledButton`,
+  `set_channel`, lịch sử ↑/↓), `KWndPopupMenu` mục `{text, color}`, `KUiGameWindows` (`msg_pad`, `channel_menu`, `send_chat`, `set_channel`, `chat_line`),
+  `UiGame._on_chat` (`add_image` + bbcode), `_on_chat_submitted` → `send_chat`; `--auto` `AUTO_CHAT` qua `send_chat("&T …")` + kênh thế giới + ảnh menu.
+- **Kiểm**: Godot 479/479 (+19 `test_chat_channels`), e2e `AUTO_CHAT team=doi oi world=ca the gioi button=Công menu=true`, `auto_chat.png` (gửi chủ dự án),
+  `AUTO_TRADE … end=1`.
+- commit: `JX NEXT: M14 lat C2 - kenh chat tren client (KUiMsgCentrePad 消息集合面板_左.ini 0x004B5E64, SendChat 0x00475A10 /ten & ngan, nut kenh 0x004730D0, menu kenh 0x00472620, lich su +0x7c46; dong nhan theo ChannelMessageArrival)`.
 
 ### 2026-09-19 (phiên tiếp theo, phần 50) — M14 lát C1: kênh chat phía zone (relay JX2, 0x081E3710, chi phí 0x080502A0 / chatcost.ini, ForbitTalk, SetChatFlag)
 

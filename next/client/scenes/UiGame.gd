@@ -587,7 +587,14 @@ func _on_gold(entity_id: int) -> void:
 
 
 func _on_chat(msg: Dictionary) -> void:
-	_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
+	if _windows == null:
+		_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
+		return
+	var line: Dictionary = _windows.chat_line(msg)
+	if line.get("texture") != null:
+		_chat_log.add_image(line.texture)
+		_chat_log.add_text(" ")
+	_append_chat(str(line.bbcode))
 
 
 func _append_chat(bbcode: String) -> void:
@@ -598,7 +605,10 @@ func _on_chat_submitted(text: String) -> void:
 	_chat_input.text = ""
 	_chat_input.release_focus()
 	if text.strip_edges() != "":
-		Game.chat(text)
+		if _windows != null:
+			_windows.send_chat(text)
+		else:
+			Game.chat(text)
 
 
 func _on_kicked(reason: int, text: String) -> void:
@@ -957,17 +967,36 @@ func _auto_team() -> void:
 	var on_chat := func(m: Dictionary) -> void:
 		heard[int(m.get("channel", 0))] = str(m.get("text", ""))
 	Game.chat_msg.connect(on_chat)
-	if invited:
-		Game.chat("doi oi", Proto.ChatChannel.CH_TEAM)
+	# through the bar's rules (KUiPlayerBar::SendChat 0x00475A10): "&T ..." picks the team by its short name, the plain
+	# line goes on the current channel = the world one picked from the ChannelBtn menu (0x00475900)
 	Game.chat("?gm ds RestoreMana()")   # the casts above drank the mana: the world line needs 80 % of it
 	await get_tree().create_timer(0.3).timeout
-	Game.chat("ca the gioi", Proto.ChatChannel.CH_WORLD)
+	if _windows != null:
+		_windows.set_channel(Proto.ChatChannel.CH_WORLD)
+		if invited:
+			_windows.send_chat("&T doi oi")
+		_windows.send_chat("ca the gioi")
+	else:
+		if invited:
+			Game.chat("doi oi", Proto.ChatChannel.CH_TEAM)
+		Game.chat("ca the gioi", Proto.ChatChannel.CH_WORLD)
 	for i in 30:
 		await get_tree().create_timer(0.1).timeout
 		if heard.has(int(Proto.ChatChannel.CH_WORLD)) and (not invited or heard.has(int(Proto.ChatChannel.CH_TEAM))):
 			break
 	Game.chat_msg.disconnect(on_chat)
-	print("AUTO_CHAT team=%s world=%s" % [heard.get(int(Proto.ChatChannel.CH_TEAM), "-"), heard.get(int(Proto.ChatChannel.CH_WORLD), "-")])
+	var button_short := ""
+	var menu_open := false
+	if _windows != null and _windows.player_bar != null and _windows.player_bar.channel_btn != null:
+		button_short = str(_windows.player_bar.channel_btn.label)
+		_windows._open_channel_menu(_windows.player_bar.channel_btn.global_position)
+		await get_tree().create_timer(0.2).timeout
+		menu_open = _windows.channel_menu != null and _windows.channel_menu.visible
+		await _save_screenshot("user://logs/auto_chat.png")
+		if _windows.channel_menu != null:
+			_windows.channel_menu.hide_menu()
+		_windows.set_channel(Proto.ChatChannel.CH_NEARBY)
+	print("AUTO_CHAT team=%s world=%s button=%s menu=%s" % [heard.get(int(Proto.ChatChannel.CH_TEAM), "-"), heard.get(int(Proto.ChatChannel.CH_WORLD), "-"), button_short, menu_open])
 	Game.team_request(Proto.TeamCmd.TEAM_OPEN_CLOSE, 0, 0)
 	for i in 20:
 		await get_tree().create_timer(0.1).timeout

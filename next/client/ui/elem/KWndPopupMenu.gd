@@ -14,7 +14,7 @@ const LINE := FONT + 3
 signal picked(index: int)   # the entry's index in `entries` (the caller keeps what each means)
 signal dismissed
 
-var entries: Array = []       # of String
+var entries: Array = []       # of String, or {"text", "color"} (the channel menu 0x00472620 colours each line by 0x004B6530)
 var _hover := -1
 var text_color := Color(218.0 / 255.0, 255.0 / 255.0, 165.0 / 255.0)
 var border_color := Color(23.0 / 255.0, 68.0 / 255.0, 0.0)
@@ -35,7 +35,8 @@ func open_at(items: Array, at: Vector2, screen: Vector2i) -> void:
 	var font = KFont.of(FONT)
 	var w := 60
 	for e in entries:
-		w = maxi(w, (font.width_of(str(e)) if font != null else str(e).length() * FONT / 2) + PAD_X * 2)
+		var t := entry_text(e)
+		w = maxi(w, (font.width_of(t) if font != null else t.length() * FONT / 2) + PAD_X * 2)
 	size = Vector2(w, entries.size() * LINE + PAD_Y * 2)
 	position = Vector2(clampf(at.x, 0.0, screen.x - size.x), clampf(at.y, 0.0, screen.y - size.y))
 	_hover = -1
@@ -81,8 +82,17 @@ func _draw() -> void:
 	var font = KFont.of(FONT)
 	for i in entries.size():
 		var y := PAD_Y + i * LINE
-		var color := hover_color if i == _hover else text_color
+		var color := hover_color if i == _hover else entry_color(entries[i])
+		var t := entry_text(entries[i])
 		if font != null:
-			font.draw(self, Vector2(PAD_X, y), str(entries[i]), color, border_color)
+			font.draw(self, Vector2(PAD_X, y), t, color, border_color)
 		else:
-			draw_string(get_theme_default_font(), Vector2(PAD_X, y + FONT), str(entries[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, color)
+			draw_string(get_theme_default_font(), Vector2(PAD_X, y + FONT), t, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, color)
+
+
+static func entry_text(e) -> String:
+	return str(e.get("text", "")) if e is Dictionary else str(e)
+
+
+func entry_color(e) -> Color:
+	return e.get("color", text_color) if e is Dictionary else text_color

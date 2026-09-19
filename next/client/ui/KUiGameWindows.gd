@@ -19,6 +19,7 @@ const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
 const UiTeam := preload("res://ui/uicase/UiTeam.gd")
 const UiInformation := preload("res://ui/uicase/UiInformation.gd")
 const UiTrade := preload("res://ui/uicase/UiTrade.gd")
+const UiMsgCentrePad := preload("res://ui/uicase/UiMsgCentrePad.gd")
 const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
@@ -42,6 +43,9 @@ var team_window: UiTeam = null          # the team window (队伍管理.ini; the
 var info_box: UiInformation = null      # the two-button message box (提示.ini): the invitations and applications ask through it
 var trade_window: UiTrade = null        # the trade window (玩家间交易.ini), open while Game.trade.state == 2
 var player_menu: KWndPopupMenu = null   # Ctrl+right click on a player (autoexec.lua Mouse_Menu): G_UIGAME_* entries by the target's sign
+var msg_pad: UiMsgCentrePad = null      # the chat channels (消息集合面板_左.ini): colours, short names, the current channel
+var channel_menu: KWndPopupMenu = null  # the ChannelBtn's menu (0x00472620)
+var _channel_entries: Array = []
 var _menu_target := 0                   # the entity the player menu is about
 var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
 signal system_line(text: String)        # a sentence for the chat log (the 0x69 / 0x86 team messages the 2.0 client prints)
@@ -121,6 +125,13 @@ func _ready() -> void:
 	player_menu = KWndPopupMenu.new()
 	_canvas.add_child(player_menu)
 	player_menu.picked.connect(_on_player_menu_picked)
+	msg_pad = UiMsgCentrePad.new()
+	if not msg_pad.load_scheme():
+		Log.warn("ui", "layout missing", {"window": UiMsgCentrePad.SCHEME})
+	channel_menu = KWndPopupMenu.new()
+	_canvas.add_child(channel_menu)
+	channel_menu.picked.connect(_on_channel_picked)
+	_show_channel()
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
 	status_window.open_item.connect(func(): item_window.open_window())
@@ -223,6 +234,67 @@ func toggle_trade_sign(sentence: String = "") -> void:
 # for a player - "Giao Dịch" (G_UIGAME_2) when the target's sign is 2 and I am in no trade, "Nhập đội" (G_UIGAME_3) when it
 # is 1 and I am in no team, "Tổ đội" (G_UIGAME_4: invite) when I lead a team or have none; the other entries (chat, friend,
 # follow, info, guild, ...) wait for their systems
+# ---- the chat channels (docs/CLIENT-2.0.md §23) ----
+
+# the ChannelBtn's menu (0x00472620): the channels the bar can send on, each line in its colour (0x004B6530)
+func _open_channel_menu(at: Vector2) -> void:
+	if channel_menu == null or msg_pad == null:
+		return
+	_channel_entries = msg_pad.menu_entries()
+	if _channel_entries.is_empty():
+		return
+	channel_menu.open_at(_channel_entries, at - Vector2(0, _channel_entries.size() * 17 + 8), screen)
+
+
+# 0x00475900 -> 0x004730D0: the picked channel becomes the current one (+0x8c48), the button takes its colour
+func _on_channel_picked(index: int) -> void:
+	if index < 0 or index >= _channel_entries.size():
+		return
+	set_channel(int(_channel_entries[index].index))
+
+
+func set_channel(channel: int) -> void:
+	if msg_pad == null:
+		return
+	msg_pad.current = channel
+	_show_channel()
+
+
+func _show_channel() -> void:
+	if player_bar != null and msg_pad != null:
+		player_bar.set_channel(msg_pad.short_name(msg_pad.current), msg_pad.color_of(msg_pad.current))
+
+
+# KUiPlayerBar::SendChat 0x00475A10 on a line of the input: "/name text" whispers (Lua Say), "&short text" picks the
+# channel by its short name (Lua Chat), anything else goes on the current channel; a line of 0x200 or more is refused
+# with G_STR_MSG_VOERFLOW (0x00475F15); SendMsgNum / SendMsgInterval of the channel hold the line back with
+# G_PLAYERBAR_3 "%d giây".  The GM channel ('&' on a channel with flag 4, "[gm]" lines) and the word filters
+# (\settings\chatsent.flt, 0x0058DF90 / 0x00617B90 -> G_PLAYERBAR_2) are not here.
+func send_chat(text: String) -> void:
+	if text.strip_edges() == "":
+		return
+	if text.length() >= 0x200:
+		system_line.emit(KUiItemView.client_string("G_STR_MSG_VOERFLOW"))
+		return
+	var req: Dictionary = msg_pad.parse_input(text) if msg_pad != null else {"channel": 0, "target": "", "text": text}
+	if str(req.text).strip_edges() == "":
+		return
+	if msg_pad != null:
+		var wait := msg_pad.throttle(int(req.channel), Time.get_ticks_msec())
+		if wait > 0:
+			system_line.emit(KUiItemView.client_string("G_PLAYERBAR_3") % wait)
+			return
+	Game.chat(str(req.text), int(req.channel), str(req.target))
+
+
+# a received line as the chat log shows it: {"texture", "bbcode"} (KUiMsgCentrePad::ChannelMessageArrival)
+func chat_line(msg: Dictionary) -> Dictionary:
+	if msg_pad == null:
+		return {"texture": null, "bbcode": "[b]%s:[/b] %s" % [str(msg.get("name", "")), str(msg.get("text", "")).replace("[", "[lb]")]}
+	var own = Game.entities.get(Game.entity_id, {})
+	return msg_pad.line(msg, str(own.get("name", "")))
+
+
 func open_player_menu(entity_id: int, at: Vector2) -> void:
 	if player_menu == null:
 		return
@@ -328,6 +400,7 @@ func _build_bars() -> void:
 		player_bar.quick_clicked.connect(_quick_key)
 		player_bar.quick_put.connect(_quick_put)
 		player_bar.quick_right_clicked.connect(_quick_clear)
+		player_bar.channel_clicked.connect(_open_channel_menu)
 		player_bar.quick_hovered.connect(_on_quick_hovered)
 		player_bar.mouse_skill_hovered.connect(func(_right: bool, obj): _show_skill_tip(int(obj.id) if obj != null else 0))
 		Game.items_changed.connect(_refresh_quick)

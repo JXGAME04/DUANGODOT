@@ -57,6 +57,7 @@ func _init() -> void:
 	test_wav_sound()
 	test_gold_name()
 	test_team()
+	test_chat_channels()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -822,3 +823,59 @@ func test_team() -> void:
 	req.set_seq(9)
 	var req2 := Proto.TeamReq.new()
 	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_cmd() == Proto.TeamCmd.TEAM_INVITE and req2.get_target() == 78 and req2.get_seq() == 9, "TeamReq round trip")
+
+
+# ---- the chat channels (UiMsgCentrePad, 消息集合面板_左.ini; KUiPlayerBar::SendChat 0x00475A10) ----------------------
+func test_chat_channels() -> void:
+	check(Proto.ChatChannel.CH_NEARBY == 0 and Proto.ChatChannel.CH_TEAM == 1 and Proto.ChatChannel.CH_WORLD == 2 and Proto.ChatChannel.CH_FACTION == 3
+		and Proto.ChatChannel.CH_SYSTEM == 4 and Proto.ChatChannel.CH_CITY == 5 and Proto.ChatChannel.CH_TONG == 6 and Proto.ChatChannel.CH_WHISPER == 7,
+		"ChatChannel = the [Channels] order")
+	var req := Proto.ChatReq.new()
+	req.set_text("doi oi")
+	req.set_channel(Proto.ChatChannel.CH_TEAM)
+	var req2 := Proto.ChatReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_channel() == Proto.ChatChannel.CH_TEAM and req2.get_text() == "doi oi", "ChatReq round trip")
+	var pad_script: GDScript = load("res://ui/uicase/UiMsgCentrePad.gd")
+	var pad = pad_script.new()
+	# the real file's values (the exported khung-chat may be missing on a bare checkout)
+	pad.from_sections(["CH_NEARBY", "CH_TEAM", "CH_WORLD", "CH_FACTION", "CH_SYSTEM", "CH_CITY"], {
+		"CH_NEARBY": {"ShortName0": "Ngoạn", "TextColor": "255,255,255", "MenuText": "Lân cận", "SendMsgInterval": "2000", "SendMsgNum": "2"},
+		"CH_TEAM": {"ShortName0": "Đội", "ShortName1": "T", "TextColor": "64,190,255", "MenuText": "Đội", "SendMsgInterval": "800", "SendMsgNum": "2"},
+		"CH_WORLD": {"ShortName0": "Công", "ShortName1": "SJ", "TextColor": "146,255,143", "MenuText": "Thế Giới", "SendMsgInterval": "60000", "SendMsgNum": "2"},
+		"CH_FACTION": {"ShortName0": "Phái", "TextColor": "225,210,165", "MenuText": "Môn Phái"},
+		"CH_SYSTEM": {"ShortName0": "GM", "ShortName1": "Hệ thống", "TextColor": "255,0,0", "MenuText": "Hệ Thống"},
+		"CH_CITY": {"ShortName0": "C", "ShortName1": "Thành thị", "ShortName2": "CS", "TextColor": "169,255,224", "MenuText": "Thành Thị"},
+	})
+	check(pad.channels.size() == 6 and pad.index_of("CH_CITY") == 5 and pad.short_name(1) == "Đội", "the channel table")
+	check(pad.color_of(1).is_equal_approx(Color(64.0 / 255.0, 190.0 / 255.0, 1.0)), "TextColor of CH_TEAM")
+	check(pad.index_by_short("T") == 1 and pad.index_by_short("SJ") == 2 and pad.index_by_short("CS") == 5 and pad.index_by_short("x") == -1, "ShortName lookup")
+	# the menu: the speakable channels in order, each with its colour
+	var menu: Array = pad.menu_entries()
+	check(menu.size() == 5 and menu[0].index == 0 and menu[1].text == "Đội" and menu[4].index == 5 and menu[2].color.is_equal_approx(pad.color_of(2)), "menu entries")
+	# the input prefixes of SendChat 0x00475A10
+	pad.current = 0
+	var r: Dictionary = pad.parse_input("xin chao")
+	check(r.channel == 0 and r.text == "xin chao" and r.target == "", "a plain line goes on the current channel")
+	r = pad.parse_input("/Auto2 chao ban")
+	check(r.channel == 7 and r.target == "Auto2" and r.text == "chao ban", "/name text = a whisper")
+	r = pad.parse_input("&T doi oi")
+	check(r.channel == 1 and r.text == "doi oi" and r.target == "", "&short text = the channel by its short name")
+	r = pad.parse_input("&SJ the gioi")
+	check(r.channel == 2 and r.text == "the gioi", "&SJ = CH_WORLD by ShortName1")
+	r = pad.parse_input("&zzz khong co")
+	check(r.channel == 0 and r.text == "&zzz khong co", "an unknown short name: the line as typed on the current channel")
+	r = pad.parse_input("/")
+	check(r.channel == 7 and r.target == "" and r.text == "", "a bare slash")
+	# SendMsgNum lines every SendMsgInterval ms
+	check(pad.throttle(1, 1000) == 0 and pad.throttle(1, 1100) == 0, "two team lines pass")
+	check(pad.throttle(1, 1200) == 1, "the third within 800 ms waits (1 s)")
+	check(pad.throttle(1, 1900) == 0, "after the interval it passes again")
+	check(pad.throttle(3, 0) == 0 and pad.throttle(3, 1) == 0 and pad.throttle(3, 2) == 0, "no interval: never held")
+	# a received line: name in NameTextColor, text in the channel colour; a whisper of my own in TextColorSelf
+	var line: Dictionary = pad.line({"channel": 1, "name": "Auto2", "text": "doi oi [x]"}, "Me")
+	check(str(line.bbcode) == "[color=#dcdcdc]Auto2:[/color] [color=#40beff]doi oi [lb]x][/color]" and line.texture == null, "a team line")
+	line = pad.line({"channel": 7, "name": "Me", "text": "bi mat"}, "Me")
+	check(str(line.bbcode).begins_with("[color=#dcdcdc]Me:[/color] [color=#ffe2a8]"), "my own whisper in TextColorSelf")
+	line = pad.line({"channel": 7, "name": "Someone", "text": "bi mat"}, "Me")
+	check(str(line.bbcode).find("[color=#fc97ff]") > 0, "a stranger's whisper in TextColorUnknown")
+

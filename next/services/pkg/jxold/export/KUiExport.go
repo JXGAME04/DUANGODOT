@@ -98,6 +98,9 @@ var GameScreens = []UiScreenDef{
 	{"hop-thoai", "Hộp thông báo hai nút", "KUiInformation", `提示.ini`},
 	// M14 G2: the trade window (KUiTrade, gamecl.exe 0x004C02D2 loads "%s\玩家间交易.ini")
 	{"giao-dich", "Giao dịch giữa hai người chơi", "KUiTrade", `玩家间交易.ini`},
+	// M14 C2: the chat pad (KUiMsgCentrePad 0x004B5E64 loads "%s\消息集合面板_左.ini" / _右): [Channels] Channel0..14 and one
+	// [CH_*] section per channel (ShortName, FormatName, TextColor, MenuText, SendMsgInterval, images), the [ChatTab] pages
+	{"khung-chat", "Khung chat và các kênh", "KUiMsgCentrePad", `消息集合面板_左.ini`},
 }
 
 // UiImage is one picture of the old client, written out.
