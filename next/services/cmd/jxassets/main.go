@@ -62,7 +62,7 @@ var (
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
-	flagRows   = flag.String("equip-rows", "2:1,2;3:8", "export-npcres: extra equipment rows per part group, \"group:row,row;group:row\" (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); a horse row also exports the on-horse actions")
+	flagRows   = flag.String("equip-rows", "2:1,2;3:8", "export-npcres: extra equipment rows per part group, \"group:row,row;group:row\" (0 head, 1 body, 2 weapon, 3 horse, 4 mantle) or \"all\" (every row the item tables name); a horse row also exports the on-horse actions")
 	flagAll    = flag.Bool("all", false, "export-objdata: every row's picture, not only the ones items and money use")
 	flagTheme  = flag.String("theme", "", "export-ui: a fragment of the theme folder name (1024, 800); default: the largest")
 	flagLang   = flag.String("lang", "vn", "export-skill-desc: the \\lang\\<lang> folder of the client (gamecl.exe 2.0 picks it by its language index at 0x80ec60: vn)")
@@ -2064,7 +2064,7 @@ func main() {
 			Equips:    icr.DefaultEquips(),
 			// the rows of -equip-rows (default: weapon rows 1 / 2 = the level 1..5 melee weapons of MeleeRes.txt, horse row 8 =
 			// every "normal horse" of HorseRes.txt (col 2 = 10))
-			ExtraEquips: parseEquipRows(*flagRows),
+			ExtraEquips: equipRows(*flagRows, icr),
 			Skills:      loadSkills(set, findServer(dir)),
 		}
 		n, err := e.NpcRes(list, templates, player, opt)
@@ -2317,6 +2317,19 @@ func main() {
 	default:
 		fail("unknown command %q", args[0])
 	}
+}
+
+// equipRows resolves "-equip-rows": "all" = every row the five appearance tables can name (a look for whatever a character
+// wears - hundreds of sprites per part; the gold / platina maps are not walked), else the "group:row,row;..." list.
+func equipRows(spec string, icr *npcres.ItemChangeRes) map[int][]int {
+	if strings.TrimSpace(spec) != "all" {
+		return parseEquipRows(spec)
+	}
+	out := map[int][]int{}
+	for g, rows := range icr.AllRows() {
+		out[g] = rows
+	}
+	return out
 }
 
 // parseEquipRows reads "-equip-rows": "group:row,row;group:row" -> group -> rows (bad pieces are skipped).

@@ -313,7 +313,8 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `0x0807A9D0` quanh 1200; gói 0x4a/0x4b mang các byte ấy + cờ cưỡi → zone `KItemChangeRes`, `update_equip_res` (mặc/cởi/nạp), `EntityInfo.*_res`,
   `G2C_ENTITY_RES`; ngựa chỉ cưỡi khi `HorseRes` biết (`0x081FE752`, bỏ sai khác (1) của §16.6). Client 2.0: `SetPlayerRes 0x005ED920` → `0x005EBF90`
   (`+0x13f0..+0x1404`), `KNpcRes::SetRideHorse 0x006DF420` (bảng `on_horse` 38..47), `GetNpcPate +38` → `KNpcRes.set_equips/set_ride`, `KNpc.equip_rows/riding`;
-  `jxassets export-item-res` (`items/item_res.json`) + `export-npcres -equip-rows "2:1,2;3:8"` (ngựa hàng 8 + hành động trên ngựa; hàng thiếu → giữ hàng mặc định).
+  `jxassets export-item-res` (`items/item_res.json`) + `export-npcres -equip-rows "2:1,2;3:8"` (ngựa hàng 8 + hành động trên ngựa; hàng thiếu → giữ hàng mặc định;
+  `-equip-rows all` xuất mọi hàng năm bảng nêu — nặng, chỉ khi cần đủ trang bị lên người).
   **Phát hiện**: `gamecl.exe` của chủ dự án và `jx_linux_y` **khác bố cục** gói 0x4a/0x4b/0xad (client: cờ `+0x15`, 6 word; server: hai byte `+0x14f0/f4` chen, dword)
   → zone theo ý nghĩa trường. Kiểm: ctest 237/237 (`[res]` +2), Godot 448/448, e2e `AUTO_RIDE mounted=true horse_row=8 action=38 parts=10 down=true`, `auto_ride.png`.
 - **M12 lát B4f-2 (xong 2026-09-18)**: **tiếng hành động của nhân vật** (`CLIENT-2.0.md` §15.1): bảng `主角动作声音表.txt` (hàng = action, cột MainMan/MainLady) và
