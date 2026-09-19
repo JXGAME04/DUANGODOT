@@ -714,6 +714,13 @@ message EntityCamp {             // G2C_ENTITY_CAMP
                                 // to the watchers); the client does not read it yet
 }
 
+// NpcChat 0x0812E5A0 -> 0x081C9380: the 0xfb packet {word size, 0x2f, dword npc id, text (0x800 at most)} to the watchers - a npc
+// says a line (at once, or after seconds * 18 frames through a timer object 0x08139430)
+message NpcChat {                // G2C_NPC_CHAT
+  uint64 entity_id = 1;
+  string text = 2;
+}
+
 // KPlayer::SetFaction 0x080AEEC0 (the 0x7b packet: camp, current faction, last added, times joined) and KPlayer::ClearFaction
 // 0x080AEDE0 (the 0x7c packet: the current faction becomes -1, the camp 4 = C_FREE); the client's skill book takes the branch
 // pages of faction_last (GDI 0x413 reads PlayerData+0x12080)
@@ -1073,6 +1080,8 @@ enum MsgId {
   G2C_ENTITY_MENU_STATE = 2138;
   G2C_TASK_VALUE = 2140;       // the 0xa7 packet {0xa7, int id, int value} of KPlayer::SetTaskValue 0x080A9190 / SyncTaskValue (0x080A8CC0) -> the client's 0x006512F0 (docs/LINUX-SERVER.md §21)
   G2C_TASK_VALUES = 2141;      // the 0xb5 packet of SyncTaskValueMore 0x080A9550: up to eighty {id, value} (the client's 0x00651350)
+  G2C_NPC_CHAT = 2145;         // the 0xfb packet {word size, 0x2f, dword npc, text}: NpcChat 0x081C9380 - a npc says a line to the
+                               // players around it (the 2.0 client's bubble is not built on the Godot client yet)
   G2C_SCRIPT_ASK = 2144;       // the 0xa3 packet {0xa3, word 0x4c, 2, kind, title[0x20], int min, int max, default[0x20]} of Lua AskClientForNumber 0x08115CA0 / AskClientForString 0x08115E90 (docs/LINUX-SERVER.md §29)
   G2C_GIVE_ITEM_MSG = 2143;    // the 0xd8 / 0xdf packets of Lua SetUiGiveItemMsg 0x0810B020 / SetUiGiveItemMoreConfirmMsg 0x0810AF50: a sentence for the give-item window (docs/LINUX-SERVER.md §27)
   G2C_TASK_TIP = 2142;         // the 0xb6 packet of Lua TaskTip 0x08122730 {0xb6, 0x10, text[0x3e]} -> the client's 0x00651390 -> ui message 0x5d -> the system message pane (系统消息.ini) (docs/LINUX-SERVER.md §25)

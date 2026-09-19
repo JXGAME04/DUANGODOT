@@ -773,6 +773,8 @@ void KSubWorld::tick()
     flush_pending_removes(); // the 0x3e9 nodes of DelNpc
     mission_tick();          // KMission::Activate: the timers due (KTimerTaskFun 0x080F9480)
     script_timer_tick();     // the AddTimer timers due (0x081CC300)
+    npc_chat_tick();         // NpcChat with a delay (0x08139430)
+    save_request_tick();     // SaveNow / SaveQuickly
     flush_doomed();          // the 0x3e9 nodes: the summons whose corpse settled
 
     {
@@ -1992,11 +1994,13 @@ void KSubWorld::emit_gold(const KNpc& e)
 void KSubWorld::check_trap(KNpc& e)
 {
     if (!cfg_.map) return;
-    const std::uint32_t id = cfg_.map->trap_at(e.pos());
+    std::uint32_t id = cfg_.map->trap_at(e.pos());
+    const KScriptTrap* added = id == 0 ? script_trap_at(e.pos()) : nullptr;   // AddMapTrap's cells sit beside the map's
+    if (added != nullptr) id = added->id;
     if (e.trap_script_id == id) return;
     e.trap_script_id = id;
     if (id == 0) return;
-    const std::string& script = cfg_.map->trap_script(id);
+    const std::string& script = added != nullptr ? added->script : cfg_.map->trap_script(id);
     if (script.empty() || !cfg_.scripts) {
         if (!trap_warned_[id]) {
             trap_warned_[id] = true;
@@ -2232,6 +2236,76 @@ void KSubWorld::set_tmp_camp(KNpc& e, int camp)
     c.set_tmp_camp(e.tmp_camp);
     if (e.kind == KNpcKind::player) emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_ENTITY_CAMP), c);   // 0x0807B294: itself only
     else broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_CAMP), c);                               // 0x0807B2C2: the watchers
+}
+
+bool KSubWorld::add_script_trap(Pos at, const std::string& script)
+{
+    if (!cfg_.map || script.empty()) return false;
+    const Pos local = to_local(at);
+    const int cx = local.x / cfg_.map->cell, cy = local.y / cfg_.map->cell;
+    if (local.x < 0 || local.y < 0 || !cfg_.map->in_bounds(cx, cy)) return false;   // 0x080EF7F0: no cell under (x, y)
+    for (KScriptTrap& t : script_traps_) {
+        if (t.cx == cx && t.cy == cy) {   // KRegion::AddTrap writes the cell: the script replaced
+            t.script = script;
+            return true;
+        }
+    }
+    script_traps_.push_back({0x40000000u + static_cast<std::uint32_t>(script_traps_.size() + 1), cx, cy, script});
+    log::info("zone.trap", "script trap added", {log::kv("map", map_id()), log::kv("cx", cx), log::kv("cy", cy), log::kv("script", script)});
+    return true;
+}
+
+const KSubWorld::KScriptTrap* KSubWorld::script_trap_at(Pos p) const
+{
+    if (script_traps_.empty() || !cfg_.map || p.x < 0 || p.y < 0) return nullptr;
+    const int cx = p.x / cfg_.map->cell, cy = p.y / cfg_.map->cell;
+    for (const KScriptTrap& t : script_traps_) {
+        if (t.cx == cx && t.cy == cy) return &t;
+    }
+    return nullptr;
+}
+
+void KSubWorld::emit_npc_chat(const KNpc& e, std::string_view text)
+{
+    pb::NpcChat m;
+    m.set_entity_id(e.id.value);
+    m.set_text(text::decode_mixed(text));   // the script's bytes as UTF-8
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_NPC_CHAT), m);   // 0x081C9435: the watchers
+}
+
+void KSubWorld::npc_chat_later(const KNpc& e, std::string_view text, std::uint64_t frames)
+{
+    npc_chats_.push_back({tick_ + frames, e.id, std::string(text)});
+}
+
+void KSubWorld::npc_chat_tick()
+{
+    for (auto it = npc_chats_.begin(); it != npc_chats_.end();) {
+        if (it->fire_tick > tick_) {
+            ++it;
+            continue;
+        }
+        if (const KNpc* e = find_entity(it->npc)) emit_npc_chat(*e, it->text);   // 0x08139453: the npc must still be that npc
+        it = npc_chats_.erase(it);
+    }
+}
+
+void KSubWorld::save_request_tick()
+{
+    for (const auto& [sid, id] : players_) {
+        KNpc* e = mutable_entity(id);
+        if (e != nullptr && e->player.save_now) {
+            e->player.save_now = false;
+            save_requests_.push_back(sid);
+        }
+    }
+}
+
+std::vector<std::uint64_t> KSubWorld::take_save_requests()
+{
+    std::vector<std::uint64_t> out;
+    out.swap(save_requests_);
+    return out;
 }
 
 bool KSubWorld::set_pos(EntityId id, Pos p)

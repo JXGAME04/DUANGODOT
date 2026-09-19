@@ -94,6 +94,8 @@ bool KLuaScript::init(const std::string& root)
     lua_setglobal(L_, "print");
     lua_pushcfunction(L_, l_include_lib);
     lua_setglobal(L_, "IncludeLib");
+    lua_pushcfunction(L_, l_include_lib);
+    lua_setglobal(L_, "IL");   // jx_linux_y registers 0x0812E1D0 under both names (IncludeLib and IL)
     RegisterGameScriptFuns(L_);   // KLuaScript::RegisterFunctions(GameScriptFuns)
     return true;
 }

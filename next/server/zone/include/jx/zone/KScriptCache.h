@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -26,10 +27,17 @@ public:
     // the file is missing or fails to run (the failure is remembered, not retried every call).
     KLuaScript* get(const std::string& game_path);
     [[nodiscard]] std::size_t size() const noexcept { return scripts_.size(); }
+    // FileName2Id 0x08100E80 -> 0x0821DE70: the slot of a script file in the script table, a new one for a path not seen -
+    // the order of first use here (1, 2, ...; the file is not loaded by this); "" -> 0
+    std::uint32_t id_of(const std::string& game_path);
+    [[nodiscard]] const std::string& path_of(std::uint32_t id) const;   // "" when unknown
 
 private:
     std::vector<std::string> roots_;
     std::unordered_map<std::string, std::unique_ptr<KLuaScript>> scripts_;   // key: lower-cased path; nullptr = failed
+    static std::string key_of(const std::string& game_path);   // lower-cased, backslashes
+    std::unordered_map<std::string, std::uint32_t> ids_;
+    std::vector<std::string> paths_;   // [id - 1] = the key
 };
 
 } // namespace jx::zone

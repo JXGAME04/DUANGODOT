@@ -715,6 +715,13 @@ message EntityCamp {             // G2C_ENTITY_CAMP
                                 // to the watchers); the client does not read it yet
 }
 
+// NpcChat 0x0812E5A0 -> 0x081C9380: the 0xfb packet {word size, 0x2f, dword npc id, text (0x800 at most)} to the watchers - a npc
+// says a line (at once, or after seconds * 18 frames through a timer object 0x08139430)
+message NpcChat {                // G2C_NPC_CHAT
+  uint64 entity_id = 1;
+  string text = 2;
+}
+
 // KPlayer::SetFaction 0x080AEEC0 (the 0x7b packet: camp, current faction, last added, times joined) and KPlayer::ClearFaction
 // 0x080AEDE0 (the 0x7c packet: the current faction becomes -1, the camp 4 = C_FREE); the client's skill book takes the branch
 // pages of faction_last (GDI 0x413 reads PlayerData+0x12080)

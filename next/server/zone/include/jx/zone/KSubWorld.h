@@ -414,6 +414,17 @@ public:
     // KNpc 0x0807B2D0 (Lua SetTmpCamp): +0x1900 = camp, then the 0xd1 packet {npc, camp} - to the player itself when the npc is
     // one (0x0807B294), else to the watchers (0x0807B2C2); EntityCamp.tmp_camp here
     void set_tmp_camp(KNpc& e, int camp);
+    // AddMapTrap 0x08102700 -> 0x080EFCF0 -> KRegion::AddTrap 0x080E1260: a trap cell a script added (world units in), checked
+    // after the map's own; the same cell again replaces its script
+    bool add_script_trap(Pos at, const std::string& script);
+    [[nodiscard]] std::size_t script_trap_count() const noexcept { return script_traps_.size(); }
+    // NpcChat 0x0812E5A0 -> 0x081C9380: the 0xfb packet {npc, text} to the watchers (NpcChat here), at once or after `frames`
+    // (0x08139430: only while the npc is still there)
+    void emit_npc_chat(const KNpc& e, std::string_view text);
+    void npc_chat_later(const KNpc& e, std::string_view text, std::uint64_t frames);
+    [[nodiscard]] std::size_t pending_npc_chats() const noexcept { return npc_chats_.size(); }
+    // SaveNow / SaveQuickly (Player+0x244 / +0x248): the sessions whose character asked to be saved this frame
+    std::vector<std::uint64_t> take_save_requests();
     // the maps this zone hosts (KSubWorldSet of the old server): SubWorldID2Idx / SubWorldIdx2ID answer from it; empty =
     // only this map
     void set_hosted_maps(std::vector<std::uint32_t> maps) { hosted_maps_ = std::move(maps); }
@@ -950,6 +961,22 @@ private:
     std::uint32_t next_script_timer_ = 0;
     std::unordered_map<std::string, long long> stat_data_;
     void script_timer_tick();                                   // the AddTimer timers due (0x081CC300)
+    struct KScriptTrap {   // KRegion::AddTrap 0x080E1260 from a script: ids from 0x40000000 up, beside the map's trap ids
+        std::uint32_t id = 0;
+        int cx = 0, cy = 0;
+        std::string script;
+    };
+    std::vector<KScriptTrap> script_traps_;
+    [[nodiscard]] const KScriptTrap* script_trap_at(Pos p) const;
+    struct KNpcChatLater {   // the 0x110-byte timer object of NpcChat (0x0812E77B): npc, its id, the text
+        std::uint64_t fire_tick = 0;
+        EntityId npc;
+        std::string text;
+    };
+    std::vector<KNpcChatLater> npc_chats_;
+    void npc_chat_tick();
+    std::vector<std::uint64_t> save_requests_;
+    void save_request_tick();
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)

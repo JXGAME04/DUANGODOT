@@ -115,6 +115,8 @@ struct KPlayer {
     bool forbid_enmity = false;     // Player+0x5a5c (Lua ForbidEnmity 0x0810B0F0: flag == 1); what reads it is not traced yet
     bool forbid_trade = false;      // Player+0x374 (Lua ForbitTrade 0x08111600: flag != 0); what reads it is not traced yet
     int protect_time = 0;           // Player+0x86dc (Lua SetProtectTime 0x0810E3E0); what reads it is not traced yet
+    bool save_now = false;          // Player+0x244 = 1 (Lua SaveNow 0x08111ED0) / +0x248 = 0 (SaveQuickly 0x08111F00): the character is
+                                    // saved at the next frame (KSubWorld::take_save_requests -> KMapInstance::emit_save)
     // KPlayerFaction at +0x59cc: the current faction, the first and last joined, how many times (docs §16.7); LoadFrom
     // 0x080C1A62 reads current / last / count from the record, the first stays -1
     KPlayerFaction faction;

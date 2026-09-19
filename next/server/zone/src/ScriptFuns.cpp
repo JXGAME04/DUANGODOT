@@ -29,6 +29,8 @@ extern "C" {
 #include "jx/zone/KPlayerTask.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KObjectBuffer.h"
+#include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KSkillList.h"
 #include "jx/zone/KSubWorld.h"
@@ -4164,6 +4166,316 @@ int l_Tm2Time(lua_State* L)
     return 1;
 }
 
+// ---- S6 (docs/LINUX-SERVER.md §35): the object buffers OB_* and RemoteExecute, FileName2Id, SaveNow / SaveQuickly, WriteGoldLog,
+// AddMapTrap, NpcChat, CastSkill
+
+// the buffer id of an argument: the tree 0x9780ce4 holds ids > 0 (every OB_ function walks it - 0x08130489..)
+std::uint32_t ob_arg(lua_State* L, int idx)
+{
+    const auto v = static_cast<std::int64_t>(lua_tonumber(L, idx));
+    return v > 0 && v <= 0xffffffffLL ? static_cast<std::uint32_t>(v) : 0;
+}
+
+// OB_Create() (0x08130230): a buffer from the pool (0x08130300: 0x10-byte objects with a 0x1000-byte block), its id = the counter
+// 0x9780cf8 + 1 (0x0813029C), into the tree (0x081303E3) -> the id; no buffer -> 0 (0x08130400)
+int l_OB_Create(lua_State* L)
+{
+    lua_pushinteger(L, g_ObjectBuffers().create());
+    return 1;
+}
+
+// OB_Release(id) (0x08130440): the id in the tree (else 0, 0x081304C4) -> the object reset and back to the pool (0x081304F1..), the
+// node gone -> 1
+int l_OB_Release(lua_State* L)
+{
+    lua_pushinteger(L, g_ObjectBuffers().release(ob_arg(L, 1)) ? 1 : 0);
+    return 1;
+}
+
+// OB_IsEmpty(id) (0x080FC280): 1 unless the id is in the tree, its object there and its length not 0 (0x080FC327 -> 0)
+int l_OB_IsEmpty(lua_State* L)
+{
+    lua_pushinteger(L, g_ObjectBuffers().is_empty(ob_arg(L, 1)) ? 1 : 0);
+    return 1;
+}
+
+// OB_Clear(id) (0x080FC360): the buffer -> read offset and length 0 (0x080FC3E9..); nothing returned either way
+int l_OB_Clear(lua_State* L)
+{
+    g_ObjectBuffers().clear(ob_arg(L, 1));
+    return 0;
+}
+
+// OB_Copy(dst, src) (0x080FF870): top > 1 (else nothing); both ids in the tree with objects (else 0, 0x080FF958) -> dst emptied
+// (0x080FF9A4) and src's unread bytes appended (0x080FF9CB) -> 1.  OB_Append(dst, src) (0x080FF710): the same without emptying
+// (0x080FF85D)
+int l_OB_Copy(lua_State* L)
+{
+    if (lua_gettop(L) <= 1) return 0;
+    lua_pushinteger(L, g_ObjectBuffers().copy(ob_arg(L, 1), ob_arg(L, 2)) ? 1 : 0);
+    return 1;
+}
+
+int l_OB_Append(lua_State* L)
+{
+    if (lua_gettop(L) <= 1) return 0;
+    lua_pushinteger(L, g_ObjectBuffers().append(ob_arg(L, 1), ob_arg(L, 2)) ? 1 : 0);
+    return 1;
+}
+
+// OB_PushInt(id, v) (0x0812EFC0) / OB_PushDouble (0x0812F150) / OB_PushByte (0x0812F2D0): top > 1 (else 0, 0x0812F0C8) and the buffer
+// (else 0) -> 4 / 8 / 1 bytes appended (0x08057260-like: the block grows by 0x1000, 0x0812F09B) -> 1
+int l_OB_PushInt(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 1) {
+        const auto v = static_cast<std::int32_t>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+        done = g_ObjectBuffers().push(ob_arg(L, 1), &v, sizeof v) ? 1 : 0;
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+int l_OB_PushDouble(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 1) {
+        const double v = lua_tonumber(L, 2);
+        done = g_ObjectBuffers().push(ob_arg(L, 1), &v, sizeof v) ? 1 : 0;
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+int l_OB_PushByte(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 1) {
+        const auto v = static_cast<std::uint8_t>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+        done = g_ObjectBuffers().push(ob_arg(L, 1), &v, sizeof v) ? 1 : 0;
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// OB_PushString(id, s) (0x08130B90): top > 1 and the buffer and a string (else 0) -> a dword (strlen + 1) (0x08130CE8) then the
+// bytes and the NUL -> 1
+int l_OB_PushString(lua_State* L)
+{
+    lua_Integer done = 0;
+    if (lua_gettop(L) > 1) {
+        const char* s = lua_tostring(L, 2);
+        if (s != nullptr) done = g_ObjectBuffers().push_string(ob_arg(L, 1), s) ? 1 : 0;
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// OB_PopInt(id) (0x08128D30) / OB_PopDouble (0x08100220) / OB_PopByte (0x08128E30): top > 0 and the buffer with enough bytes left
+// (0x08128DBA: 4 / 8 / 1) -> the value, the read offset moved (back to 0 once the buffer is read out); else nil (0x08128DC3)
+int l_OB_PopInt(lua_State* L)
+{
+    std::int32_t v = 0;
+    if (lua_gettop(L) > 0 && g_ObjectBuffers().pop(ob_arg(L, 1), &v, sizeof v)) lua_pushinteger(L, v);
+    else lua_pushnil(L);
+    return 1;
+}
+
+int l_OB_PopDouble(lua_State* L)
+{
+    double v = 0;
+    if (lua_gettop(L) > 0 && g_ObjectBuffers().pop(ob_arg(L, 1), &v, sizeof v)) lua_pushnumber(L, v);
+    else lua_pushnil(L);
+    return 1;
+}
+
+int l_OB_PopByte(lua_State* L)
+{
+    std::uint8_t v = 0;
+    if (lua_gettop(L) > 0 && g_ObjectBuffers().pop(ob_arg(L, 1), &v, sizeof v)) lua_pushinteger(L, v);
+    else lua_pushnil(L);
+    return 1;
+}
+
+// OB_PopString(id) (0x08100320): top > 0 and the buffer -> the dword (0 -> nil, 0x081003D6), that many bytes still there (else nil,
+// 0x081003DE), a NUL forced on the last (0x081003E5) -> the string; the read offset moved by 4 + n, back to 0 once nothing is left
+// (0x0810041A)
+int l_OB_PopString(lua_State* L)
+{
+    const std::optional<std::string> s = lua_gettop(L) > 0 ? g_ObjectBuffers().pop_string(ob_arg(L, 1)) : std::nullopt;
+    if (s.has_value()) lua_pushstring(L, s->c_str());
+    else lua_pushnil(L);
+    return 1;
+}
+
+// RemoteExecute(script, fn, buffer[, callback[, param]]) (0x08100740): top > 2 (else 0); script and fn non-empty strings and buffer
+// >= 0 (else 0, 0x08100A20); the buffer's unread bytes (0x08100897; none when 0); a packet {1, 0x3d, len script, len fn, dword len
+// bytes, dword the caller's script id, dword param, byte len callback, script, fn, bytes, callback} of at most 0x8000 bytes
+// (0x081008E9) goes to every other server through the relay (0x081009E1) -> 1.  The receiver (0x08052800) makes a buffer of the
+// bytes (in) and an empty one (out), runs fn(in, out) in the script (0x0804F5B0 -> 0x08221ED0) and releases both (0x08057D10);
+// with a callback (top >= 4, 0x08100A58; param = arg 5 (0x08100AB6) or 0) the out buffer's bytes come back in a 0x3e packet
+// (0x08052B00) as callback(param, buffer) in the caller's script.  There is one server here: fn runs on this map at once (no
+// player, like every received call), then the callback with the out bytes
+int l_RemoteExecute(lua_State* L)
+{
+    lua_Integer done = 0;
+    const int top = lua_gettop(L);
+    KSubWorld* w = g_ScriptContext().world;
+    if (top > 2 && w != nullptr) {
+        const char* script = lua_tostring(L, 1);
+        const char* fn = lua_tostring(L, 2);
+        const auto ob = static_cast<std::int64_t>(lua_tonumber(L, 3));
+        const char* callback = top >= 4 ? lua_tostring(L, 4) : nullptr;
+        const auto param = top >= 5 ? static_cast<std::int64_t>(lua_tonumber(L, 5)) : 0;
+        if (script != nullptr && *script != '\0' && fn != nullptr && *fn != '\0' && ob >= 0) {
+            const std::string caller = g_ScriptContext().script_path;
+            const std::vector<std::uint8_t> bytes = ob > 0 ? g_ObjectBuffers().unread(static_cast<std::uint32_t>(ob)) : std::vector<std::uint8_t>{};
+            const std::uint32_t in = g_ObjectBuffers().create_from(bytes.data(), bytes.size());
+            const std::uint32_t out = g_ObjectBuffers().create();
+            log::debug("lua", "remote execute", {log::kv("script", script), log::kv("function", fn), log::kv("count", bytes.size())});
+            w->execute_script_world(script, fn, {static_cast<double>(in), static_cast<double>(out)});
+            const bool with_callback = callback != nullptr && *callback != '\0' && !caller.empty();
+            const std::vector<std::uint8_t> reply = with_callback ? g_ObjectBuffers().unread(out) : std::vector<std::uint8_t>{};
+            g_ObjectBuffers().release(in);
+            g_ObjectBuffers().release(out);
+            if (with_callback) {
+                const std::uint32_t back = g_ObjectBuffers().create_from(reply.data(), reply.size());
+                w->execute_script_world(caller, callback, {static_cast<double>(param), static_cast<double>(back)});
+                g_ObjectBuffers().release(back);
+            }
+            done = 1;
+        }
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// FileName2Id(path) (0x08100E80): exactly one argument and a string (else 0) -> 0x0821DE70: the slot of the file in the script
+// table (a new one when unknown); pushed unsigned.  KScriptCache::id_of: the same order of first use, without loading
+int l_FileName2Id(lua_State* L)
+{
+    lua_Integer id = 0;
+    const char* path = lua_gettop(L) == 1 ? lua_tostring(L, 1) : nullptr;
+    KSubWorld* w = g_ScriptContext().world;
+    if (path != nullptr && w != nullptr && w->config().scripts) id = w->config().scripts->id_of(path);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+// SaveNow() (0x08111ED0): a player -> Player+0x244 = 1; SaveQuickly() (0x08111F00): Player+0x248 = 0 - both have the save loop write
+// the character at once; nothing returned
+int l_SaveNow(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "SaveNow")) p->player.save_now = true;
+    return 0;
+}
+
+int l_SaveQuickly(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "SaveQuickly")) p->player.save_now = true;
+    return 0;
+}
+
+// WriteGoldLog(name[, a[, b[, c[, d]]]]) (0x081234A0): top > 0 (else nothing); the name and up to four numbers (missing ones 0,
+// 0x08123608..) into a 0x6c-byte record for the gold-log writer 0x08142F10(0x9781740, name, &record); nothing returned - a log line
+int l_WriteGoldLog(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 0) return 0;
+    const char* name = lua_tostring(L, 1);
+    const auto arg = [&](int i) { return top >= i ? static_cast<std::int64_t>(lua_tonumber(L, i)) : 0; };
+    log::info("lua", "gold log", {log::kv("name", name != nullptr ? name : ""), log::kv("arg1", arg(2)), log::kv("arg2", arg(3)), log::kv("arg3", arg(4)),
+                                  log::kv("arg4", arg(5))});
+    return 0;
+}
+
+// AddMapTrap(subworld, x, y, script[, p5]) (0x08102700): top > 3 (else nothing); x, y numbers in world units; arg 4 a number = a
+// script id (0x08102858) or a string = FileName2Id of it (0x08102795); KSubWorldSet::GetSubWorldIdx 0x080F68A0 (< 0 -> 0); a fifth
+// argument (0x08102888) goes along - not traced; 0x080EFCF0(region, x, y, id, p5): the cell under (x, y) (0x080EF7F0; none -> 0),
+// KRegion::AddTrap 0x080E1260 -> 1.  An id no path was asked for yet -> 0 here
+int l_AddMapTrap(lua_State* L)
+{
+    if (lua_gettop(L) <= 3) return 0;
+    lua_Integer done = 0;
+    KSubWorld* w = g_ScriptContext().world;
+    const auto map = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    if (w != nullptr && map == static_cast<std::int64_t>(w->map_id())) {
+        std::string script;
+        if (lua_type(L, 4) == LUA_TNUMBER) {
+            const auto id = static_cast<std::int64_t>(lua_tonumber(L, 4));
+            if (w->config().scripts && id > 0 && id <= 0xffffffffLL) script = w->config().scripts->path_of(static_cast<std::uint32_t>(id));
+        } else if (const char* s = lua_tostring(L, 4); s != nullptr) {
+            script = s;
+        }
+        const Pos at{static_cast<std::int32_t>(lua_tonumber(L, 2)), static_cast<std::int32_t>(lua_tonumber(L, 3))};
+        if (!script.empty() && w->add_script_trap(at, script)) done = 1;
+    }
+    lua_pushinteger(L, done);
+    return 1;
+}
+
+// NpcChat(npc, text[, seconds]) (0x0812E5A0): top > 1 (else nothing); npc 1..count and text not "" (else nothing, 0x0812E730); two
+// arguments (0x0812E7E2) or seconds <= 0 (0x0812E805) -> 0x081C9380 at once: the 0xfb packet {word size, 0x2f, dword npc id, text
+// (0x800 at most)} to the watchers (0x0807A870); else a 0x110-byte object {npc, its id, text (0xff at most)} on the timer manager
+// for seconds * 18 frames (0x0812E717) that sends the same when due if the npc is still that npc (0x08139430).  One result but
+// nothing pushed (0x0812E6BE / 0x0812E7FB): the last argument comes back
+int l_NpcChat(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    KSubWorld* w = g_ScriptContext().world;
+    if (top <= 1 || w == nullptr) return 0;
+    const KNpc* e = w->find_entity(entity_arg(L, 1));
+    const char* text = lua_tostring(L, 2);
+    if (e == nullptr || text == nullptr || *text == '\0') return 0;
+    const auto seconds = top > 2 ? static_cast<std::int64_t>(lua_tonumber(L, 3)) : 0;
+    if (top == 2 || seconds <= 0) w->emit_npc_chat(*e, std::string_view(text).substr(0, 0x800));
+    else w->npc_chat_later(*e, std::string_view(text).substr(0, 0xff), static_cast<std::uint64_t>(seconds) * 18);
+    return 1;
+}
+
+// CastSkill(skill, level[, p1, p2]) (0x0812B570): top > 1 and the player 1..0x4af (else nothing); two arguments -> p1 = -1, p2 = the
+// player's npc (0x0812B600); four -> p1, p2 = args 3, 4 (0x0812B6BA): a npc when p1 == -1 (0x0812B348), a direction when -2, a spot
+// otherwise; 0x0812B1D0: skill 1..0x7cf and level 1..63 (else "ScriptFun is Error", 0x0812B205), the skill of the manager (loaded
+// when not there, 0x080E6E10), style 14 or below 5 (0x0812B267 / 0x0812B318) -> KSkill::Cast 0x080EA920(npc, p1, p2, 0, 0, 0) and the
+// 0x85 packet 0x19 bytes to the watchers (0x0812B2FA); other styles -> "not a Ordin Skill"; nothing returned.  KSubWorld::skill_cast
+// here (world units in for a spot); the 0x85 packet is not sent - the cast syncs itself
+int l_CastSkill(lua_State* L)
+{
+    if (lua_gettop(L) <= 1) return 0;
+    KNpc* p = player_of(L, "CastSkill");
+    KSubWorld* w = g_ScriptContext().world;
+    if (p == nullptr || w == nullptr || w->skills() == nullptr) return 0;
+    const auto skill_id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    const auto level = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    if (skill_id < 1 || skill_id > 0x7cf || level < 1 || level > 63) {
+        log::warn("lua", "CastSkill refused", {log::kv("skill", skill_id), log::kv("level", level)});
+        return 0;
+    }
+    const KSkill* skill = w->skills()->get(static_cast<int>(skill_id), static_cast<int>(level));
+    if (skill == nullptr) return 0;
+    if (skill->row.style != skill_style_jx2_14 && skill->row.style > 4) {
+        log::warn("lua", "CastSkill refused", {log::kv("skill", skill_id), log::kv("level", level), log::kv("style", skill->row.style)});
+        return 0;
+    }
+    KSubWorld::KCastParams params;
+    if (lua_gettop(L) > 3) {
+        const auto p1 = static_cast<std::int64_t>(lua_tonumber(L, 3));
+        const auto p2 = static_cast<std::int64_t>(lua_tonumber(L, 4));
+        if (p1 == -1) {
+            params.target = EntityId{static_cast<std::uint64_t>(p2 > 0 ? p2 : 0)};
+        } else if (p1 == -2) {
+            params.dir = static_cast<int>(p2);
+        } else {
+            params.at_pos = true;
+            params.pos = w->to_local(Pos{static_cast<std::int32_t>(p1), static_cast<std::int32_t>(p2)});
+        }
+    } else {
+        params.target = p->id;
+    }
+    w->skill_cast(*skill, *p, params);
+    return 0;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -4258,6 +4570,14 @@ const luaL_Reg kGameScriptFuns[] = {
     {"NpcIdx2PIdx", l_NpcIdx2PIdx},       {"AddStatData", l_AddStatData},     {"AddMagicPoint", l_AddMagicPoint},
     {"AddTimer", l_AddTimer},             {"DelTimer", l_DelTimer},           {"AddNpcSkillState", l_AddNpcSkillState},
     {"FormatTime2String", l_FormatTime2String}, {"GetCurrentTime", l_GetCurrentTime}, {"Tm2Time", l_Tm2Time},
+    {"OB_Create", l_OB_Create},           {"OB_Release", l_OB_Release},       {"OB_IsEmpty", l_OB_IsEmpty},
+    {"OB_Clear", l_OB_Clear},             {"OB_Copy", l_OB_Copy},             {"OB_Append", l_OB_Append},
+    {"OB_PushInt", l_OB_PushInt},         {"OB_PushDouble", l_OB_PushDouble}, {"OB_PushByte", l_OB_PushByte},
+    {"OB_PushString", l_OB_PushString},   {"OB_PopInt", l_OB_PopInt},         {"OB_PopDouble", l_OB_PopDouble},
+    {"OB_PopByte", l_OB_PopByte},         {"OB_PopString", l_OB_PopString},   {"RemoteExecute", l_RemoteExecute},
+    {"FileName2Id", l_FileName2Id},       {"SaveNow", l_SaveNow},             {"SaveQuickly", l_SaveQuickly},
+    {"WriteGoldLog", l_WriteGoldLog},     {"AddMapTrap", l_AddMapTrap},       {"NpcChat", l_NpcChat},
+    {"CastSkill", l_CastSkill},
     {nullptr, nullptr},
 };
 

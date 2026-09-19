@@ -18,6 +18,8 @@
 #include "jx/role.pb.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KObjectBuffer.h"
+#include "jx/zone/KMapData.h"
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPlayer.h"
@@ -340,6 +342,88 @@ end
 function s5_OnTimeTwo(param, id)
     g_two = 1
 end
+function s6_ob()
+    g_ob1 = OB_Create()
+    g_ob2 = OB_Create()
+    g_e1 = OB_IsEmpty(g_ob1)
+    g_pi = OB_PushInt(g_ob1, -7)
+    g_pd = OB_PushDouble(g_ob1, 2.5)
+    g_pb = OB_PushByte(g_ob1, 200)
+    g_ps = OB_PushString(g_ob1, "xin chao")
+    g_e2 = OB_IsEmpty(g_ob1)
+    g_cp = OB_Copy(g_ob2, g_ob1)
+    g_ap = OB_Append(g_ob2, g_ob1)
+    g_i1 = OB_PopInt(g_ob1)
+    g_d1 = OB_PopDouble(g_ob1)
+    g_b1 = OB_PopByte(g_ob1)
+    g_s1 = OB_PopString(g_ob1)
+    g_i2 = OB_PopInt(g_ob1)
+    g_e3 = OB_IsEmpty(g_ob1)
+    g_i3 = OB_PopInt(g_ob2)
+    g_d3 = OB_PopDouble(g_ob2)
+    g_b3 = OB_PopByte(g_ob2)
+    g_s3 = OB_PopString(g_ob2)
+    g_i4 = OB_PopInt(g_ob2)
+    g_s4 = OB_PopString(g_ob2)
+    OB_Clear(g_ob2)
+    g_e4 = OB_IsEmpty(g_ob2)
+    g_r1 = OB_Release(g_ob1)
+    g_r2 = OB_Release(g_ob1)
+    g_e5 = OB_IsEmpty(g_ob1)
+    g_pi2 = OB_PushInt(g_ob1, 1)
+    g_pi3 = OB_PushInt(g_ob2)
+    g_cp2 = OB_Copy(g_ob2)
+    g_e6 = OB_IsEmpty()
+end
+function s6_remote()
+    local h = OB_Create()
+    OB_PushInt(h, 41)
+    OB_PushString(h, "tin")
+    g_re1 = RemoteExecute("\\script\\test\\misc.lua", "s6_target", h)
+    g_re2 = RemoteExecute("\\script\\test\\misc.lua", "s6_target", h, "s6_back", 9)
+    g_re3 = RemoteExecute("", "s6_target", h)
+    g_re4 = RemoteExecute("\\script\\test\\misc.lua", "s6_target")
+    g_re5 = RemoteExecute("\\script\\test\\misc.lua", "s6_target", 0)
+    g_re_left = OB_IsEmpty(h)
+    OB_Release(h)
+end
+function s6_target(hin, hout)
+    g_tg = (g_tg or 0) + 1
+    g_tg_int = OB_PopInt(hin)
+    g_tg_str = OB_PopString(hin)
+    OB_PushInt(hout, (g_tg_int or 0) + 1)
+end
+function s6_back(param, hback)
+    g_bk_param = param
+    g_bk_int = OB_PopInt(hback)
+    g_bk_left = OB_IsEmpty(hback)
+end
+function s6_misc()
+    g_f1 = FileName2Id("\\script\\test\\misc.lua")
+    g_f2 = FileName2Id("\\SCRIPT\\TEST\\MISC.LUA")
+    g_f3 = FileName2Id("\\script\\x.lua")
+    g_f4 = FileName2Id()
+    g_f5 = FileName2Id("a", "b")
+    SaveNow()
+    WriteGoldLog("boss", 1, 2, 3, 4)
+    WriteGoldLog()
+    g_cs = CastSkill(1, 1)
+end
+function s6_trap(map, x, y)
+    g_tr1 = AddMapTrap(map, x, y, "\\script\\test\\trap.lua")
+    g_tr2 = AddMapTrap(map + 1, x, y, "\\script\\test\\trap.lua")
+    g_tr3 = AddMapTrap(map, x, y)
+    g_tr4 = AddMapTrap(map, x, y, 999)
+    g_tr5 = AddMapTrap(map, x + 32, y, FileName2Id("\\script\\test\\trap.lua"))
+    g_tr6 = AddMapTrap(map, -100000, y, "\\script\\test\\trap.lua")
+end
+function s6_chat(npc)
+    g_nc1 = NpcChat(npc, "xin chao", 0)
+    g_nc2 = NpcChat(npc, "lat nua", 1)
+    g_nc3 = NpcChat(npc, "")
+    g_nc4 = NpcChat(999999, "x")
+    g_nc5 = NpcChat(npc)
+end
 function Is(name, expected)
     if Str(_G[name]) == expected then return 1 end
     return 0
@@ -351,6 +435,7 @@ std::string make_scripts()
     const std::filesystem::path root = std::filesystem::temp_directory_path() / "jxnext_scriptfuns_test";
     std::filesystem::create_directories(root / "script" / "test");
     std::ofstream(root / "script" / "test" / "misc.lua") << kScript;
+    std::ofstream(root / "script" / "test" / "trap.lua") << "function main() g_trap = (g_trap or 0) + 1 end\nfunction Num(name) return _G[name] end\n";
     return root.string();
 }
 
@@ -959,4 +1044,155 @@ TEST_CASE("S5 script api: player flags, tmp / current camps, skill points, stat 
     for (int i = 0; i < 4; ++i) mw.w.tick();
     CHECK(mw.is("g_rep", "3"));
     CHECK(mw.is("g_ot", "1"));
+}
+
+TEST_CASE("S6 script api: the object buffers, RemoteExecute, FileName2Id, SaveNow, WriteGoldLog, AddMapTrap, NpcChat, CastSkill and IL", "[scriptfuns][s6]")
+{
+    MiscWorld mw;
+    jx::zone::KLuaScript* s = mw.w.config().scripts->get(R"(\script\test\misc.lua)");
+    REQUIRE(s != nullptr);
+    auto num = [&](const char* name) { return s->call_number("Num", {std::string(name)}); };
+    auto entity = [&](const char* name) -> const KNpc* {
+        const std::optional<double> v = num(name);
+        return v.has_value() && *v > 0.0 ? mw.w.find_entity(jx::EntityId{static_cast<std::uint64_t>(*v)}) : nullptr;
+    };
+    // IL is IncludeLib
+    CHECK(s->has_function("IL"));
+    CHECK(s->has_function("IncludeLib"));
+    // the object buffers
+    const std::size_t buffers_before = jx::zone::g_ObjectBuffers().count();
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s6_ob", mw.A(), 0));
+    CHECK(num("g_ob1") > 0.0);
+    CHECK(num("g_ob2") > 0.0);
+    CHECK(num("g_ob2") != num("g_ob1"));
+    CHECK(mw.is("g_e1", "1"));    // fresh: empty
+    CHECK(mw.is("g_pi", "1"));
+    CHECK(mw.is("g_pd", "1"));
+    CHECK(mw.is("g_pb", "1"));
+    CHECK(mw.is("g_ps", "1"));
+    CHECK(mw.is("g_e2", "0"));
+    CHECK(mw.is("g_cp", "1"));
+    CHECK(mw.is("g_ap", "1"));
+    CHECK(mw.is("g_i1", "-7"));
+    CHECK(mw.is("g_d1", "2.5"));
+    CHECK(mw.is("g_b1", "200"));
+    CHECK(mw.is("g_s1", "xin chao"));
+    CHECK(mw.is("g_i2", "nil"));   // read out: nil
+    CHECK(mw.is("g_e3", "1"));
+    CHECK(mw.is("g_i3", "-7"));    // the copy, then the appended copy
+    CHECK(mw.is("g_d3", "2.5"));
+    CHECK(mw.is("g_b3", "200"));
+    CHECK(mw.is("g_s3", "xin chao"));
+    CHECK(mw.is("g_i4", "-7"));
+    CHECK(mw.is("g_s4", "nil"));   // a double's bytes are no string length that fits
+    CHECK(mw.is("g_e4", "1"));     // cleared
+    CHECK(mw.is("g_r1", "1"));
+    CHECK(mw.is("g_r2", "0"));     // gone already
+    CHECK(mw.is("g_e5", "1"));     // unknown: empty
+    CHECK(mw.is("g_pi2", "0"));    // unknown: refused
+    CHECK(mw.is("g_pi3", "0"));    // one argument
+    CHECK(mw.is("g_cp2", "nil"));  // one argument: nothing
+    CHECK(mw.is("g_e6", "1"));
+    CHECK(jx::zone::g_ObjectBuffers().count() == buffers_before + 1);   // g_ob2 still there
+    // RemoteExecute: fn(in, out) at once, the callback with the out bytes
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s6_remote", mw.A(), 0));
+    CHECK(mw.is("g_re1", "1"));
+    CHECK(mw.is("g_re2", "1"));
+    CHECK(mw.is("g_re3", "0"));    // an empty script path
+    CHECK(mw.is("g_re4", "0"));    // two arguments
+    CHECK(mw.is("g_re5", "1"));    // buffer 0: fn(empty, out)
+    CHECK(mw.is("g_tg", "3"));
+    CHECK(mw.is("g_tg_int", "nil"));   // the last call had no bytes
+    CHECK(mw.is("g_tg_str", "nil"));
+    CHECK(mw.is("g_bk_param", "9"));
+    CHECK(mw.is("g_bk_int", "42"));    // 41 + 1 pushed by the target
+    CHECK(mw.is("g_bk_left", "1"));
+    CHECK(mw.is("g_re_left", "0"));    // the caller's buffer keeps its bytes (a copy went out)
+    CHECK(jx::zone::g_ObjectBuffers().count() == buffers_before + 1);   // every in / out / back buffer released
+    // FileName2Id, SaveNow, WriteGoldLog, CastSkill without a skill table
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s6_misc", mw.A(), 0));
+    CHECK(num("g_f1") >= 1.0);
+    CHECK(num("g_f2") == num("g_f1"));            // the same file, another spelling
+    CHECK(num("g_f3") == *num("g_f1") + 1.0);     // the next slot
+    CHECK(mw.is("g_f4", "0"));
+    CHECK(mw.is("g_f5", "0"));
+    CHECK(mw.A().player.save_now);
+    CHECK(mw.w.take_save_requests().empty());     // gathered by the frame
+    mw.w.tick();
+    CHECK_FALSE(mw.A().player.save_now);
+    CHECK(mw.w.take_save_requests() == std::vector<std::uint64_t>{7});
+    CHECK(mw.w.take_save_requests().empty());
+    CHECK(mw.is("g_cs", "nil"));
+    // NpcChat: to the watchers at once, or after seconds * 18 frames while the npc lives
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s2_npc", mw.A(), 0));
+    const KNpc* n1 = entity("g_n1");
+    REQUIRE(n1 != nullptr);
+    mw.w.tick();
+    mw.w.take_outbox();
+    REQUIRE(mw.w.execute_script_args(R"(\script\test\misc.lua)", "s6_chat", mw.A(), {static_cast<double>(n1->id.value)}));
+    CHECK(mw.is("g_nc1", "0"));       // the last argument comes back (nothing pushed)
+    CHECK(mw.is("g_nc2", "1"));
+    CHECK(mw.is("g_nc3", "nil"));     // an empty text: nothing
+    CHECK(mw.is("g_nc4", "nil"));     // no such npc
+    CHECK(mw.is("g_nc5", "nil"));     // one argument
+    auto chats = [&](const std::vector<jx::zone::Packet>& out) {
+        std::vector<std::string> lines;
+        for (const auto& p : out) {
+            if (p.msg_id != jx::pb::G2C_NPC_CHAT || std::find(p.sids.begin(), p.sids.end(), 7) == p.sids.end()) continue;
+            jx::pb::NpcChat m;
+            REQUIRE(m.ParseFromString(p.payload));
+            CHECK(m.entity_id() == n1->id.value);
+            lines.push_back(m.text());
+        }
+        return lines;
+    };
+    CHECK(chats(mw.w.take_outbox()) == std::vector<std::string>{"xin chao"});
+    CHECK(mw.w.pending_npc_chats() == 1);
+    for (int i = 0; i < 17; ++i) mw.w.tick();
+    CHECK(chats(mw.w.take_outbox()).empty());
+    mw.w.tick();
+    CHECK(chats(mw.w.take_outbox()) == std::vector<std::string>{"lat nua"});
+    CHECK(mw.w.pending_npc_chats() == 0);
+}
+
+TEST_CASE("S6 AddMapTrap: a trap cell a script adds runs its main() when a player steps on it", "[scriptfuns][s6][trap]")
+{
+    jx::zone::KSubWorldConfig cfg = misc_world();
+    cfg.map = std::make_shared<jx::zone::KMapData>(jx::zone::KMapData::synthetic(128, 128));   // 32-cell grid: 4096 x 4096
+    jx::zone::KSubWorld w(cfg);
+    jx::log::Options o;
+    o.console = false;
+    o.default_level = jx::log::Level::warn;
+    jx::log::init(o);
+    jx::EntityId a;
+    jx::zone::Pos at;
+    REQUIRE(w.spawn_player(7, role_of(1, "A", 2000, 2000), a, at) == jx::pb::RESULT_OK);
+    w.tick();
+    jx::zone::KLuaScript* trap = w.config().scripts->get(R"(\script\test\trap.lua)");
+    REQUIRE(trap != nullptr);
+    // the cell (70, 62): local (2256, 2000), given in world units
+    const jx::zone::Pos cell = w.to_absolute(jx::zone::Pos{70 * 32 + 16, 62 * 32 + 16});
+    REQUIRE(w.execute_script_args(R"(\script\test\misc.lua)", "s6_trap", *w.mutable_entity(a),
+                                  {static_cast<double>(w.map_id()), static_cast<double>(cell.x), static_cast<double>(cell.y)}));
+    jx::zone::KLuaScript* s = w.config().scripts->get(R"(\script\test\misc.lua)");
+    REQUIRE(s != nullptr);
+    auto is = [&](const char* name, const char* expected) { return s->call_number("Is", {std::string(name), std::string(expected)}) == 1.0; };
+    CHECK(is("g_tr1", "1"));
+    CHECK(is("g_tr2", "0"));     // another subworld
+    CHECK(is("g_tr3", "nil"));   // three arguments
+    CHECK(is("g_tr4", "0"));     // a script id nobody asked for
+    CHECK(is("g_tr5", "1"));     // by the id FileName2Id gave
+    CHECK(is("g_tr6", "0"));     // outside the map
+    CHECK(w.script_trap_count() == 2);
+    CHECK_FALSE(trap->call_number("Num", {std::string("g_trap")}).has_value());
+    REQUIRE(w.set_pos(a, jx::zone::Pos{70 * 32 + 16, 62 * 32 + 16}));
+    w.tick();
+    CHECK(trap->call_number("Num", {std::string("g_trap")}) == 1.0);
+    w.tick();
+    CHECK(trap->call_number("Num", {std::string("g_trap")}) == 1.0);   // standing there: once
+    REQUIRE(w.set_pos(a, jx::zone::Pos{2000, 2000}));
+    w.tick();
+    REQUIRE(w.set_pos(a, jx::zone::Pos{71 * 32 + 16, 62 * 32 + 16}));   // the second cell
+    w.tick();
+    CHECK(trap->call_number("Num", {std::string("g_trap")}) == 2.0);
 }

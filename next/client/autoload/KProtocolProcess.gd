@@ -47,6 +47,7 @@ signal mouse_skill_changed()            # left_skill / right_skill set by the we
 signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: one skill (level -1 = gone)
 signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a skill level for its tip arrived
 var aura_skill := 0                          # KNpc+0x120 of the 2.0 client: the aura asked for (KNpc::SetAura 0x005EA870)
+signal npc_chat(entity_id: int, text: String)   # G2C_NPC_CHAT: a npc said a line (NpcChat of the scripts, the 0xfb packet)
 signal state_icons_changed(entity_id: int)  # G2C_STATE_ICONS: the six icons over an entity changed (entities[id].state_icons)
 signal gold_changed(entity_id: int)         # G2C_NPC_GOLD: a monster turned gold (entities[id].gold_type = its kind, the 0x9a packet)
 signal entity_res(r: Dictionary)            # G2C_ENTITY_RES: a player's look (the 0xad packet -> KNpc::SetPlayerRes 0x005ED920)
@@ -958,6 +959,14 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d.riding = m.get_riding()
 			entity_ride.emit({"id": m.get_entity_id(), "riding": m.get_riding()})
 
+		Proto.MsgId.G2C_NPC_CHAT:
+			# the 0xfb packet of NpcChat 0x081C9380: a npc says a line to the players around it (the 2.0 client's bubble is
+			# not built yet - the line is logged and signalled)
+			var m := Proto.NpcChat.new()
+			if not _decode(m, payload):
+				return
+			Log.debug("player", "npc chat", {"entity": int(m.get_entity_id()), "text": m.get_text()})
+			npc_chat.emit(int(m.get_entity_id()), m.get_text())
 		Proto.MsgId.G2C_ENTITY_CAMP:
 			# the 0x59 handler (slot 0x5a of the 2.0 client): the npc's camp; the player's own npc too
 			var m := Proto.EntityCamp.new()

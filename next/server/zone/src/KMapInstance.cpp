@@ -30,6 +30,8 @@ void KMapInstance::tick()
 
     // 2. simulate (movement, spatial, ai, combat, interest, snapshot - inside KSubWorld)
     world_.tick();
+    // SaveNow / SaveQuickly of the scripts (Player+0x244 / +0x248): the character is saved at once
+    for (const std::uint64_t sid : world_.take_save_requests()) emit_save(sid, false);
 
     // 3. a trap script asked to move somebody to another map: take the player out here and
     //    hand the whole state to the server, which gives it to the target instance (SPEC 63)

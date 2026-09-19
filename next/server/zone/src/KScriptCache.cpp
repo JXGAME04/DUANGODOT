@@ -23,13 +23,37 @@ KScriptCache::KScriptCache(const std::string& roots)
     }
 }
 
-KLuaScript* KScriptCache::get(const std::string& game_path)
+std::string KScriptCache::key_of(const std::string& game_path)
 {
     std::string key = game_path;
     for (char& c : key) {
         if (c == '/') c = '\\';
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
+    return key;
+}
+
+std::uint32_t KScriptCache::id_of(const std::string& game_path)
+{
+    const std::string key = key_of(game_path);
+    if (key.empty()) return 0;
+    const auto it = ids_.find(key);
+    if (it != ids_.end()) return it->second;
+    paths_.push_back(key);
+    const auto id = static_cast<std::uint32_t>(paths_.size());
+    ids_[key] = id;
+    return id;
+}
+
+const std::string& KScriptCache::path_of(std::uint32_t id) const
+{
+    static const std::string none;
+    return id >= 1 && id <= paths_.size() ? paths_[id - 1] : none;
+}
+
+KLuaScript* KScriptCache::get(const std::string& game_path)
+{
+    const std::string key = key_of(game_path);
     if (key.empty()) return nullptr;
     const auto it = scripts_.find(key);
     if (it != scripts_.end()) return it->second.get();

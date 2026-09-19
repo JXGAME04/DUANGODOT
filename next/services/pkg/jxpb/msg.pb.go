@@ -158,10 +158,12 @@ const (
 	MsgId_G2C_ENTITY_MENU_STATE MsgId = 2138
 	MsgId_G2C_TASK_VALUE        MsgId = 2140 // the 0xa7 packet {0xa7, int id, int value} of KPlayer::SetTaskValue 0x080A9190 / SyncTaskValue (0x080A8CC0) -> the client's 0x006512F0 (docs/LINUX-SERVER.md §21)
 	MsgId_G2C_TASK_VALUES       MsgId = 2141 // the 0xb5 packet of SyncTaskValueMore 0x080A9550: up to eighty {id, value} (the client's 0x00651350)
-	MsgId_G2C_SCRIPT_ASK        MsgId = 2144 // the 0xa3 packet {0xa3, word 0x4c, 2, kind, title[0x20], int min, int max, default[0x20]} of Lua AskClientForNumber 0x08115CA0 / AskClientForString 0x08115E90 (docs/LINUX-SERVER.md §29)
-	MsgId_G2C_GIVE_ITEM_MSG     MsgId = 2143 // the 0xd8 / 0xdf packets of Lua SetUiGiveItemMsg 0x0810B020 / SetUiGiveItemMoreConfirmMsg 0x0810AF50: a sentence for the give-item window (docs/LINUX-SERVER.md §27)
-	MsgId_G2C_TASK_TIP          MsgId = 2142 // the 0xb6 packet of Lua TaskTip 0x08122730 {0xb6, 0x10, text[0x3e]} -> the client's 0x00651390 -> ui message 0x5d -> the system message pane (系统消息.ini) (docs/LINUX-SERVER.md §25)
-	MsgId_G2C_SCRIPT_ACTION     MsgId = 2139 // the 0x63 packet PLAYER_SCRIPTACTION_SYNC: Say (a sentence + answers) / Talk (pages) of a npc script (docs/LINUX-SERVER.md §20)   // s2c_npcsetmenustate: the sign over a player's head (1 looking for team mates, 2 trading wanted + sentence, 3 trading)
+	MsgId_G2C_NPC_CHAT          MsgId = 2145 // the 0xfb packet {word size, 0x2f, dword npc, text}: NpcChat 0x081C9380 - a npc says a line to the
+	// players around it (the 2.0 client's bubble is not built on the Godot client yet)
+	MsgId_G2C_SCRIPT_ASK    MsgId = 2144 // the 0xa3 packet {0xa3, word 0x4c, 2, kind, title[0x20], int min, int max, default[0x20]} of Lua AskClientForNumber 0x08115CA0 / AskClientForString 0x08115E90 (docs/LINUX-SERVER.md §29)
+	MsgId_G2C_GIVE_ITEM_MSG MsgId = 2143 // the 0xd8 / 0xdf packets of Lua SetUiGiveItemMsg 0x0810B020 / SetUiGiveItemMoreConfirmMsg 0x0810AF50: a sentence for the give-item window (docs/LINUX-SERVER.md §27)
+	MsgId_G2C_TASK_TIP      MsgId = 2142 // the 0xb6 packet of Lua TaskTip 0x08122730 {0xb6, 0x10, text[0x3e]} -> the client's 0x00651390 -> ui message 0x5d -> the system message pane (系统消息.ini) (docs/LINUX-SERVER.md §25)
+	MsgId_G2C_SCRIPT_ACTION MsgId = 2139 // the 0x63 packet PLAYER_SCRIPTACTION_SYNC: Say (a sentence + answers) / Talk (pages) of a npc script (docs/LINUX-SERVER.md §20)   // s2c_npcsetmenustate: the sign over a player's head (1 looking for team mates, 2 trading wanted + sentence, 3 trading)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -257,6 +259,7 @@ var (
 		2138: "G2C_ENTITY_MENU_STATE",
 		2140: "G2C_TASK_VALUE",
 		2141: "G2C_TASK_VALUES",
+		2145: "G2C_NPC_CHAT",
 		2144: "G2C_SCRIPT_ASK",
 		2143: "G2C_GIVE_ITEM_MSG",
 		2142: "G2C_TASK_TIP",
@@ -352,6 +355,7 @@ var (
 		"G2C_ENTITY_MENU_STATE": 2138,
 		"G2C_TASK_VALUE":        2140,
 		"G2C_TASK_VALUES":       2141,
+		"G2C_NPC_CHAT":          2145,
 		"G2C_SCRIPT_ASK":        2144,
 		"G2C_GIVE_ITEM_MSG":     2143,
 		"G2C_TASK_TIP":          2142,
@@ -402,7 +406,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\x84\x0f\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\x97\x0f\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
 	"\tC2G_HELLO\x10\xe9\a\x12\x0e\n" +
@@ -486,7 +490,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\vG2C_SYS_MSG\x10\xd9\x10\x12\x1a\n" +
 	"\x15G2C_ENTITY_MENU_STATE\x10\xda\x10\x12\x13\n" +
 	"\x0eG2C_TASK_VALUE\x10\xdc\x10\x12\x14\n" +
-	"\x0fG2C_TASK_VALUES\x10\xdd\x10\x12\x13\n" +
+	"\x0fG2C_TASK_VALUES\x10\xdd\x10\x12\x11\n" +
+	"\fG2C_NPC_CHAT\x10\xe1\x10\x12\x13\n" +
 	"\x0eG2C_SCRIPT_ASK\x10\xe0\x10\x12\x16\n" +
 	"\x11G2C_GIVE_ITEM_MSG\x10\xdf\x10\x12\x11\n" +
 	"\fG2C_TASK_TIP\x10\xde\x10\x12\x16\n" +

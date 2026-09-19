@@ -35,6 +35,7 @@ add_library(jx_zone_core STATIC
     src/KPlayerSet.cpp
     src/KRevivePos.cpp
     src/KMission.cpp
+    src/KObjectBuffer.cpp
     src/KFaction.cpp
     src/KSkill.cpp
     src/KSkills.cpp
