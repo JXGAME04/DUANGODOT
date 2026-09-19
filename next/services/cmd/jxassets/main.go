@@ -19,8 +19,10 @@
 //	                                 fire) as missles.json for the zone's KMissleTable
 //	export-state-gfx -out <dir>      settings/npcres/状态图形对照表.txt of the client (the picture a state puts on a
 //	                                 character) as npcres/state_gfx.json + the sprites the skills' StateSpecialId use
-//	export-sounds -out <dir>         the .wav files the skills (ManCastSnd / FMCastSnd of skills.json) and the missiles
-//	                                 (SndFile1..4 of missles/missle_res.json) name -> sounds/<id>.wav + sounds/sounds.json
+//	export-sounds -out <dir>         the .wav files the skills (ManCastSnd / FMCastSnd of skills.json), the missiles
+//	                                 (SndFile1..4 of missles/missle_res.json) and the characters' actions (主角动作声音表.txt,
+//	                                 npc动作声音表.txt for the exported npcres) name -> sounds/<id>.wav + sounds/sounds.json,
+//	                                 npcres/action_sounds.json
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -1398,9 +1400,12 @@ func main() {
 
 	case "export-sounds":
 		// the sounds the fights play (KSoundCache / KWavSound of the old engine): the cast sounds of skills.txt
-		// (ManCastSnd / FMCastSnd, KSkill::PlayCastSound gamecl.exe 0x006F6D90) and the missile sounds of missles.txt
-		// (SndFile1..4 / SndFileB1..4, KMissleRes::PlaySound 0x00717ED0), copied out of the archives as they are
-		// (PCM .wav) -> <out>/sounds/<id>.wav, listed by game path in <out>/sounds/sounds.json.  docs/CLIENT-2.0.md §15
+		// (ManCastSnd / FMCastSnd, KSkill::PlayCastSound gamecl.exe 0x006F6D90), the missile sounds of missles.txt
+		// (SndFile1..4 / SndFileB1..4, KMissleRes::PlaySound 0x00717ED0) and the action sounds of the characters
+		// (主角动作声音表.txt for MainMan / MainLady, npc动作声音表.txt for the npcs whose appearance <out>/npcres/res holds;
+		// KNpcRes::PlaySound 0x006DFA20), copied out of the archives as they are (PCM .wav) -> <out>/sounds/<id>.wav,
+		// listed by game path in <out>/sounds/sounds.json; the action tables -> <out>/npcres/action_sounds.json.
+		// docs/CLIENT-2.0.md §15
 		out := *flagOut
 		if out == "" {
 			out = "client/assets"
@@ -1449,6 +1454,37 @@ func main() {
 					}
 				}
 			}
+		}
+		// the action sounds: the two main characters and every exported npc appearance (npcres/res/<name>.json)
+		actionSounds := map[string]any{}
+		if data, err := set.ReadFile(gamePath(npcres.PlayerSoundFile)); err == nil {
+			player := npcres.ParsePlayerSoundTable(data)
+			for _, m := range player {
+				for _, p := range m {
+					add(p)
+				}
+			}
+			actionSounds["player"] = player
+		} else {
+			log.Warn("asset", "player action sound table missing", log.F("file", npcres.PlayerSoundFile))
+		}
+		if data, err := set.ReadFile(gamePath(npcres.NpcSoundFile)); err == nil {
+			all := npcres.ParseNpcSoundTable(data)
+			kept := map[string]map[string]string{}
+			if entries, err := os.ReadDir(filepath.Join(out, "npcres", "res")); err == nil {
+				for _, e := range entries {
+					name := strings.TrimSuffix(e.Name(), ".json")
+					if m, ok := all[name]; ok {
+						kept[name] = m
+						for _, p := range m {
+							add(p)
+						}
+					}
+				}
+			}
+			actionSounds["npc"] = kept
+		} else {
+			log.Warn("asset", "npc action sound table missing", log.F("file", npcres.NpcSoundFile))
 		}
 		dir := filepath.Join(out, "sounds")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -1505,7 +1541,20 @@ func main() {
 		if err := os.WriteFile(filepath.Join(dir, "sounds.json"), js, 0o644); err != nil {
 			fail("%v", err)
 		}
-		fmt.Printf("export-sounds: %d tieng (%d moi, %d thieu) -> %s\n", len(files), written, missing, filepath.Join(dir, "sounds.json"))
+		if len(actionSounds) > 0 {
+			actionSounds["source"] = "the client's archives: " + npcres.PlayerSoundFile + " (MainMan / MainLady by action name), " + npcres.NpcSoundFile + " (npc resource by action name); paths under \\sound\\ (KNpcResNode::ComposePathAndName)"
+			ajs, err := json.MarshalIndent(actionSounds, "", "  ")
+			if err != nil {
+				fail("%v", err)
+			}
+			if err := os.MkdirAll(filepath.Join(out, "npcres"), 0o755); err != nil {
+				fail("%v", err)
+			}
+			if err := os.WriteFile(filepath.Join(out, "npcres", "action_sounds.json"), ajs, 0o644); err != nil {
+				fail("%v", err)
+			}
+		}
+		fmt.Printf("export-sounds: %d tieng (%d moi, %d thieu) -> %s; hanh dong -> npcres/action_sounds.json\n", len(files), written, missing, filepath.Join(dir, "sounds.json"))
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):

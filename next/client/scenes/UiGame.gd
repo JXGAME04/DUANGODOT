@@ -382,6 +382,8 @@ func _add_entity(d: Dictionary) -> void:
 	if node == null:
 		node = Node2D.new()
 		node.set_script(ObjScript if int(d.get("type", 0)) == ENTITY_DROP else NpcScript)
+		if int(d.get("type", 0)) != ENTITY_DROP:
+			node.sounds = _sounds
 		_entity_layer.add_child(node)
 		_entities[id] = node
 	node.setup(d, id == Game.entity_id)

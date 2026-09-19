@@ -146,5 +146,6 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KSkillList` (kỹ năng của 
 | `KStateSpr` (`Core/Src/KNpcRes.h`), `KNpc::SetNpcState` (gói 0x7a) | `client/scenes/KStateSpr.gd` (`sync`, `step`, `behind`), `KNpc.set_state_icons` | |
 | `Engine/Src/KWavSound.h/.cpp` (`Play(pan, vol, loop)`, `IsPlaying`, `Stop`, 3 buffer), `KMissleRes::PlaySound/GetSndVolume`, `KSkill::PlayCastSound` | `client/scenes/KWavSound.gd` | |
 | `Engine/Src/KSoundCache.h/.cpp` (`g_SoundCache`) | `Assets.sound` (`client/autoload/KPakFile.gd`); `jxassets export-sounds` → `client/assets/sounds/` | |
+| `KNpcResNode::Init` phần `PLAYER_SOUND_FILE`/`NPC_SOUND_FILE` (`主角动作声音表.txt`, `npc动作声音表.txt`), `GetActionSoundName`, `KNpcRes::GetSoundName/PlaySound` | `pkg/jxold/npcres/KActionSound.go` → `npcres/action_sounds.json`; `NpcResList.action_sound`, `KNpcRes.sound_name`, `KNpc._play_action_sound` | |
 | `Core/Src/KNpcResNode.cpp` (`GetActNo`, `CSortTable::GetSort`) | `client/scenes/KNpcResNode.gd` (hàm tĩnh, test được) | |
 | `Core/Src/KNpcResList.cpp` (`g_NpcResList`) | `client/autoload/KNpcResList.gd` | `NpcResList` |

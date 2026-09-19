@@ -8,6 +8,8 @@ var _missing := {}
 var _loaded := false
 var _state_gfx := {}           # npcres/state_gfx.json rows by StateSpecialId (CStateMagicTable), loaded on first use
 var _state_gfx_loaded := false
+var _action_sounds := {}       # npcres/action_sounds.json: the sound of each action of MainMan / MainLady and of every npc resource
+var _action_sounds_loaded := false
 
 
 func _load_bundle() -> void:
@@ -69,3 +71,27 @@ func state_gfx(id: int) -> Dictionary:
 		else:
 			Log.warn("npcres", "state pictures missing", {"file": Assets.assets_root() + "/npcres/state_gfx.json"})
 	return _state_gfx.get(str(id), {})
+
+
+# The name of an action index: the player's list (人物类型.txt, `actions`) for a main character, the npc list
+# (`npc_actions`) for a normal one; "" when out of range.
+func action_name(special: bool, action: int) -> String:
+	_load_bundle()
+	var names: Array = _bundle.get("actions" if special else "npc_actions", [])
+	return str(names[action]) if action >= 0 and action < names.size() else ""
+
+
+# KNpcResNode::GetActionSoundName (KNpcResNode.cpp; 2.0 KNpcRes::GetSoundName 0x006DDD10): the sound a resource's
+# action starts with - 主角动作声音表.txt by column for MainMan / MainLady, npc动作声音表.txt by row for the npcs
+# (jxassets export-sounds -> npcres/action_sounds.json); "" when the tables name none.
+func action_sound(res_name: String, special: bool, action: int) -> String:
+	if not _action_sounds_loaded:
+		_action_sounds_loaded = true
+		var d = Assets.load_json(Assets.assets_root() + "/npcres/action_sounds.json")
+		if d != null:
+			_action_sounds = d
+	var act := action_name(special, action)
+	if act == "":
+		return ""
+	var table: Dictionary = _action_sounds.get("player" if special else "npc", {})
+	return str(table.get(res_name, {}).get(act, ""))

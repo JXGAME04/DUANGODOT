@@ -528,8 +528,8 @@ Client mới (`client/scenes/KWavSound.gd` — `snd_volume`/`snd_pan` tĩnh, `pl
 chạm), 护体寒冰, 补充\投石爆炸)): `UiGame._on_action` (ACTION_ATTACK có `skill`, npc kiểu người chơi → `cast_sound(id, giới)` — không kiểm IsPlaying), `KMissle.gd`
 (`_on_fly_start` khi sang bay: SndFile2; `_begin_vanish`: SndFile3 chỉ khi có AnimFile3), `UiGame._on_missle` va chạm: SndFile4 chỉ khi có AnimFile4 — ba chỗ đạn đều
 `unless_playing`. Âm lượng theo luật cũ (`volume_db = âm lượng / 100`, tuỳ chọn 100); **pan là pan của Godot** (tuyến tính theo x màn hình, Godot không có gain từng
-kênh) — sai khác có chủ ý. Chưa: tiếng hành động của npc (`KNpcRes::PlaySound 0x006DFA00`, bảng npcres — B4f-2), tiếng nền/nhạc (`0x006AC670`), tiếng giao diện
-(`0x0066BC50`), tuỳ chọn âm lượng. `--auto`: `AUTO_SOUNDS ["不动明王咒.wav", "sound_k003.wav", "行龙不雨.wav", "sound_k003.wav", "行龙不雨.wav"]`.
+kênh) — sai khác có chủ ý. Tiếng hành động của nhân vật: §15.1. Chưa: tiếng nền/nhạc (`0x006AC670`), tiếng giao diện
+(`0x0066BC50`), tiếng vật thể cảnh (`0x00669A50`), tuỳ chọn âm lượng. `--auto`: `AUTO_SOUNDS ["不动明王咒.wav", "sound_k003.wav", "行龙不雨.wav", "sound_k003.wav", "行龙不雨.wav"]`.
 
 | Mã cũ / 2.0 | Client mới |
 |---|---|
@@ -538,3 +538,32 @@ kênh) — sai khác có chủ ý. Chưa: tiếng hành động của npc (`KNpc
 | `KMissleRes::GetSndVolume 0x00717CC0`, pan `dx·5` | `KWavSound.snd_volume/snd_pan` |
 | `KSkill::PlayCastSound 0x006F6D90` (từ `0x005EF90F`/`0x005F1E26`) | `UiGame._on_action` + `cast_sound` |
 | `KMissleRes::PlaySound 0x00717ED0` (từ `Activate 0x006B393D`, `CreateSpecialEffect 0x006B2044`) | `KMissle._on_fly_start/_begin_vanish`, `UiGame._on_missle` |
+
+### 15.1 Tiếng hành động của nhân vật — `KNpcRes::PlaySound 0x006DFA20`, bảng `主角动作声音表.txt` / `npc动作声音表.txt` (M12 lát B4f-2, đã đọc từng dòng)
+
+**Bảng** (tên tệp trong bảng tệp npcres của client `0x0081F01B` / `0x0081F017`, nằm trong `reslst.dat`; mã 2004 `KNpcResNode::Init` `PLAYER_SOUND_FILE`/`NPC_SOUND_FILE`):
+`主角动作声音表.txt` 47 dòng × 3 cột (`ActionName`, `MainMan`, `MainLady`) — hàng = tên hành động của `人物类型.txt`, ô = tên tệp (`FreeWalk`/`NormalWalk`… `sound_m39`,
+`*Run` `sound_m40`, `*Wound` `m01`/`m20`, `*Die` `m02`/`m21`, `FreeAttack` `m03`/`m22`, `MeleeWPuncture` `m04`/`m23`, `MeleeWCut` `m05`/`m24`, …, `*Magic` `m11`/`m30`,
+`Ride*` `m13..m19`/`m32..m38`); `npc动作声音表.txt` 448 dòng × 15 cột (`NpcList`, `FightStand`, `NormalStand1`, `NormalStand2`, `FightWalk`, `NormalWalk`, `FightRun`,
+`NormalRun`, `Wound`, `Die`, `Attack1`, `Attack2`, `Magic`, `SitDown`, `JunpFly`) — hàng = tên tài nguyên npc (141/447 có tiếng: thú `sound_aNNN_{pst,bat,die,at}`, quái
+`sound_eNNN_{bat,die,at}`, dân `sound_cNNN_pst`). Đường dẫn = `ComposePathAndName("sound", tên)` = `\sound\<tên>` (`sound.pak`). Trong pak 2.0 thiếu 39 tệp bảng nêu
+(mọi `_bat`/`_pst` của thú `a0xx`, vài `e0xx_bat`, `sound_m11/m17/m30/m36`) — client thật cũng câm ở đó.
+
+**Luật** — `KNpcRes+0x34 m_szSoundName` (`GetSoundName 0x006DDD10` = `KNpcResNode::GetActionSoundName(action)` khi đổi action); `KNpcRes::Draw 0x006E0340`: tỉ lệ tiến
+= `(now_ms − KNpc+0x10c) / (KNpc+0x104 · 1000/18)` (`0x006E038E..0x006E0408`, kẹp 0..1; **1000/18: hằng `0x38e38e39 sar 2` = /18**) → **`< 0.05`** (`[0x7b4788]`, `0x006E06E5`)
+→ `PlaySound 0x006DFA20(x, y)`: tên rỗng → thôi; **`IsPlaying` → thôi**; âm lượng/pan như §15 (`0x006DDD30`), không lặp. `KNpc::WaitForFrame 0x005EA700`: khung vượt
+tổng → `+0x108 = 0`, **`+0x10c = now`** → mỗi vòng lặp của đi/chạy/đứng phát lại (bước chân mỗi chu kỳ, nếu tiếng trước đã dứt). `KNpc+0x104` = khung 18 Hz (cũng là
+gốc của nội suy vẽ). Quái và người chơi đều phát (không điều kiện kind); thi triển kỹ năng của người chơi: action `*Magic` (`sound_m11`, thiếu trong pak) + tiếng
+ManCastSnd (§15).
+
+Client mới: `jxassets export-sounds` đọc thêm hai bảng (`pkg/jxold/npcres/KActionSound.go`: `ParsePlayerSoundTable`, `ParseNpcSoundTable`, `SoundPath`) → `npcres/action_sounds.json`
+(`player.MainMan/MainLady`, `npc.<res>` cho các res đã xuất) + tệp; `NpcResList.action_name/action_sound`; `KNpcRes.set_action` đặt `sound_name`; `KNpc._play_action_sound`
+(`cur_frame·20 < total_frame`, gọi khi bắt đầu action `_set_doing/_set_action` và mỗi tick sau `paint` — khung 0 sau khi vòng lặp về 0) → `KWavSound.play(…, unless_playing)`.
+`--auto`: `AUTO_SOUNDS ["sound_k003.wav", "行龙不雨.wav", "sound_m03.wav", …, "sound_a009_at.wav", "sound_a013_at.wav", …, "sound_a009_die.wav", "sound_m02.wav"]`
+(thi triển, đạn bay, đánh thường `FreeAttack`, thú tấn công, heo chết, nhân vật chết), `sounds=27 dropped=8` (8 lần IsPlaying chặn).
+
+| Mã cũ / 2.0 | Client mới |
+|---|---|
+| `KNpcResNode::Init` đọc `PLAYER_SOUND_FILE`/`NPC_SOUND_FILE`, `GetActionSoundName`, `ComposePathAndName` | `pkg/jxold/npcres/KActionSound.go`, `npcres/action_sounds.json`, `NpcResList.action_sound` |
+| `KNpcRes::GetSoundName 0x006DDD10` (`+0x34`) | `KNpcRes.sound_name` (đặt trong `set_action`) |
+| `KNpcRes::Draw 0x006E06E5` (tỉ lệ < 0.05) → `PlaySound 0x006DFA20`; `WaitForFrame 0x005EA700` | `KNpc._play_action_sound` |

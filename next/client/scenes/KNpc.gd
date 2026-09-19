@@ -55,6 +55,7 @@ var _rng := RandomNumberGenerator.new()
 var _knock_dest := Vector2.ZERO    # KNpc+0x13b4/+0x13b8 of the 2.0 client: where a knock back pushes to
 var _knocked := false
 var state_icons: Array = []        # the six StateSpecialIds of the 0x7a packet (G2C_STATE_ICONS), drawn by KNpcRes
+var sounds = null                  # the world's KWavSound (UiGame), null = silent
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -313,6 +314,16 @@ func _tick() -> void:
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
 		_res.paint(res_dir, total_frame, cur_frame, _head_effect_z())
+	_play_action_sound()
+
+
+# KNpcRes::Draw 0x006E06E5: while the action is under 5 % done (elapsed / (frames / 18 s) < 0.05 - its first frame, or
+# two for long ones) its sound plays at the feet unless the same file is still playing (KNpcRes::PlaySound 0x006DFA20
+# with IsPlaying).  The action's clock restarts with every cycle (KNpc::WaitForFrame 0x005EA700 sets +0x10c when the
+# frame wraps), so a walk's footsteps come back each cycle and an idle's call each time it plays.
+func _play_action_sound() -> void:
+	if sounds != null and has_res and cur_frame * 20 < total_frame and _res.sound_name != "":
+		sounds.play(_res.sound_name, scene_pos, false, true)
 
 
 # KNpc::GetNpcPate (no jump height, sitting or riding yet).
@@ -340,6 +351,7 @@ func _set_doing(d: int) -> void:
 	if has_res:
 		_res.set_action(d)
 		queue_redraw()
+	_play_action_sound()
 
 
 # An action whose length the zone dictates (attack / hurt / death frames).
@@ -350,6 +362,7 @@ func _set_action(d: int, n: int) -> void:
 	if has_res:
 		_res.set_action(d)
 	queue_redraw()
+	_play_action_sound()
 
 
 func _draw() -> void:
