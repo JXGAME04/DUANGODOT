@@ -144,18 +144,23 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 
 1. Bật server: `python tools\dev.py start` (zone 19001, gateway 19100). Mở client: `client3d.cmd` (tự `NewWorld(9053,232,194)` = Ba Lăng 3D;
    `client3d.cmd 9078 171 421` map khác). Tạo nhân vật rồi vào map. **Mở client sau khi kéo mã mới** (client đang mở chạy mã cũ).
-2. Vũ khí: `?gm ds AddItem(0,0,<loại>,<cấp>,0,0)` — loại 0 kiếm, 1 đao, 2 thương, 3 côn, 4 song đao, 5 song chuỳ, 6 quyền; cấp 1..10 đổi hình
+2. Vũ khí: `?gm ds AddItem(0,0,<loại>,<cấp>,0,0)` — loại theo bảng đồ 2.0 (`items/base.json meleeweapon`, = `EqtLimit` của kỹ năng): **0 kiếm** (Thiết Trủy thủ),
+   **1 đao** (Yêu Đao), **2 côn** (Thiêu Hỏa Côn), **3 thương** (Thiết Thương), **4 song chùy** (Toán Đầu chùy), **5 song thích** (Nga Mi Thích); quyền = tay không; cấp 1..10 đổi hình
    (`weapons.json` id = gốc loại + cấp: kiếm 1..10, đao 51.., thương 101.., côn 151.., song đao 201.., song chuỳ 251.., quyền 301..).
    Ám khí (Đường Môn): `AddItem(0,1,<0 phi tiêu | 1 phi đao | 2 nỏ>,1,0,0)`. Mở túi **I** (F4), nhấp đúp món đồ để mặc — mô hình 3D theo món đang mặc.
-3. Ngựa: `?gm ds AddItem(0,10,<số>,1,0,0)` (2 = Liệt Bạch Mã, 0/1 ngựa nâu, 3 ngựa trắng…; ngựa rồng cần cấp cao) → mặc vào ô ngựa trong túi →
+3. Ngựa: `?gm ds AddItem(0,10,<số>,1,0,0)` (0 Liệt Hoàng Mã, 1 Liệt Thanh Mã, 2 Liệt Bạch Mã, 3 Liệt Hắc Mã, 4 Liệt Hồng Mã, 5 Ô Vân Đạp Tuyết, 6 Bôn Tiêu, 7 Phiên Vũ; ngựa
+   cao cấp đòi cấp nhân vật) → mặc vào ô ngựa trong túi →
    phím **M** lên / xuống ngựa (`KUiGameWindows`: `Game.ride`). Đi lại khi cưỡi: nhấp chuột trái.
 4. Cấp: **`?gm ds for i=1,89 do AddExp(100000000,0) end`** → cấp 90 ngay (đã thử: 1 → 90). Mỗi `AddExp` chỉ **một cấp** (`KPlayer::add_exp
    0x080AFEA0` cắt ở mốc cấp kế) nên phải lặp; dùng 100 000 000 chứ không phải 2 000 000 000: `calc_exp 0x080B00C0` nhân `exp × (25 − |d|)` bằng int 32
    bit ở chênh cấp 6..15 → tràn số, chỉ được 1 điểm (đó là lý do lệnh lớn dừng ở cấp 6). Cấp 89→90 cần 21,9 M (`level_exp`).
 5. Phái + kỹ năng: `?gm ds SetFaction("<phái>")` với `shaolin | tianwang | tangmen | wudu | emei | cuiyan | gaibang | tianren | wudang | kunlun`,
    rồi `?gm ds Include("\\script\\global\\skills_table.lua") add_<xx>(90)` (`add_sl / add_tw / add_tm / add_wu / add_em / add_cy / add_gb / add_tr /
-   add_wd / add_kl`; số = cấp nhân vật giả định để cấp kỹ năng). Một kỹ năng lẻ: `?gm ds AddMagic(<id>, 1)`. Mở bảng kỹ năng **K** (F5), kéo ra
-   ô phím tắt, bấm số / nhấp phải quái. Kỹ năng cần đúng vũ khí (`EqtLimit` trong `skills.json`: 0 kiếm… 100+ ám khí).
+   add_wd / add_kl`; số = cấp nhân vật giả định để cấp kỹ năng). Một kỹ năng lẻ: `?gm ds AddMagic(<id>, 1)`; nâng cấp kỹ năng: `?gm ds SetSkillLevel(<id>, 20)`.
+   **Đánh quái**: nhấp ô kỹ năng chuột trái / phải trên thanh nhân vật (dưới màn hình) → cây kỹ năng hiện ra → nhấp kỹ năng muốn dùng (cây đang mở mà bấm
+   Q W E A S D Z X C thì gán kỹ năng đang rê vào phím đó; sau này bấm phím = chọn kỹ năng đó cho chuột). Nhấp **trái** quái = kỹ năng chuột trái (không có
+   thì đánh thường), nhấp **phải** = kỹ năng chuột phải tại chỗ trỏ. Kỹ năng cần đúng vũ khí (`EqtLimit`: −2 bất kỳ, 0 kiếm, 1 đao, 2 côn, 3 thương…,
+   100+ ám khí) và cấp ≥ `ReqLevel` (zone `can_cast 0x080E4540`), ví dụ Cái Bang: 打狗棒 cần côn (`AddItem(0,0,2,1,0,0)`), 降龙十八掌 bất kỳ.
 6. Kiểm tự động thay tay: `--auto --auto3d --skill=<id>:<phái> --series=<0..4>` (tự lên 90, tự đeo vũ khí đúng loại, 4 ảnh `auto3d_skill_<id>_k.png`
    trong `%APPDATA%\Godot\app_userdata\JX NEXT\logs`), `--factions` (mọi kỹ năng có hình), `--horse=<số>` (ngựa khác trong luồng `--auto3d`,
    ảnh `auto3d_ride.png` / `auto3d_ride_move.png`, dòng `AUTO3D_SEAT` = cao độ yên / hông).
