@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include "jx/ids.hpp"
 
@@ -18,6 +19,7 @@ struct KScriptContext {
     KSubWorld* world = nullptr;
     KNpc* player = nullptr;   // the player the script runs for (nullptr = none)
     std::uint64_t sid = 0;
+    std::string script_path;  // the game path of the script being run (Say / Talk remember it: the answers return there)
 };
 
 // The context of the script being executed (one at a time: the zone is single threaded).

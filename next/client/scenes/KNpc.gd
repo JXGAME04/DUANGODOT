@@ -84,6 +84,9 @@ static func to_scene(p: Vector2) -> Vector2:
 	return Vector2(p.x, p.y * 2.0)
 
 
+var npc_kind := 0   # NPCKIND (+0x13 of the 0x4c packet): 3 = a dialoger, a click on it talks (the 0x6e packet) instead of attacking
+
+
 func setup(d: Dictionary, own: bool) -> void:
 	entity_id = int(d.id)
 	entity_type = int(d.type)
@@ -99,6 +102,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	pk_state = int(d.get("pk_state", 0))
 	menu_state = int(d.get("menu_state", 0))
 	menu_sentence = str(d.get("menu_sentence", ""))
+	npc_kind = int(d.get("npc_kind", 0))
 	if menu_state != 0:
 		call_deferred("_refresh_sign")
 	is_own = own
@@ -432,6 +436,11 @@ func is_dead() -> bool:
 # What a click can attack: monsters that are still alive (the zone refuses the rest anyway).
 func is_attackable() -> bool:
 	return entity_type == ENTITY_MONSTER and not is_dead()
+
+
+# a dialoger (NPCKIND 3): the 2004 KPlayer::DialogNpc(int) on a click - the zone answers with its script's Say / Talk
+func is_dialoger() -> bool:
+	return npc_kind == 3 and not is_own and not is_dead()
 
 
 # True when the point (local coordinates, screen px) lies on the drawn body.

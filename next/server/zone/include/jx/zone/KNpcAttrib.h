@@ -55,6 +55,8 @@ struct KNpcAttrib {
     int attack_speed = 0;          // m_AttackSpeed       +0x1628
     int cast_speed = 0;            // m_CastSpeed         +0x162c
     int vision_radius = 0;         // m_VisionRadius      +0x1630
+    int dialog_radius = 124;       // m_DialogRadius      +0x1634: KNpc::Init 0x0807E02D writes 0x7c and nothing else writes it; a talk
+                                   // reaches twice that (DialogNpc 0x080B13C7)
     int active_radius = 0;         // m_ActiveRadius      +0x1638
     int hit_recover = 0;           // m_HitRecover        +0x163c
     int treasure = 0;              // m_Treasure          +0x1640

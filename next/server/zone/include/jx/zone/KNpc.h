@@ -289,6 +289,8 @@ struct KNpc {
     // players: KPlayer / trap state
     bool fight_mode = false;          // m_FightMode (SetFightState of the gate scripts)
     std::uint32_t trap_script_id = 0; // m_TrapScriptID: the trap under the feet, so a trap fires once per entry
+    std::string script;               // the placement's script (Region_S.dat; KNpc+0x1588 holds its id, +0x1538 says there is one): a
+                                      // click on the npc runs its main() for the player (KPlayer::DialogNpc 0x080B1300, docs §20)
     // [hide] (200) of a state: while > 0 only its own client sees the npc (KNpc::IsInvisibleTo
     // 0x08079200 = KSubWorld::invisible_to).  KNpc::SetHide 0x0807FF80 tells the players around;
     // the cast, the death and a mount break it (0x0807D4C0 = KSubWorld::break_hide).

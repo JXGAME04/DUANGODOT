@@ -23,6 +23,7 @@ add_executable(jx_zone_tests
     test_KNpcGold.cpp
     test_KPlayerTeam.cpp
     test_KPlayerChat.cpp
+    test_KPlayerDialog.cpp
 )
 target_link_libraries(jx_zone_tests PRIVATE jx::zone_core Catch2::Catch2WithMain jx_warnings)
 # so a test can look for the converted script tree in data/, wherever the build directory is

@@ -58,6 +58,7 @@ func _init() -> void:
 	test_gold_name()
 	test_team()
 	test_chat_channels()
+	test_dialog()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -878,4 +879,34 @@ func test_chat_channels() -> void:
 	check(str(line.bbcode).begins_with("[color=#dcdcdc]Me:[/color] [color=#ffe2a8]"), "my own whisper in TextColorSelf")
 	line = pad.line({"channel": 7, "name": "Someone", "text": "bi mat"}, "Me")
 	check(str(line.bbcode).find("[color=#fc97ff]") > 0, "a stranger's whisper in TextColorUnknown")
+
+
+# ---- the npc dialog (the 0x63 / 0x5f packets, UiMsgSel, UiInformation2) -----------------------------------------------
+func test_dialog() -> void:
+	check(Proto.MsgId.C2G_NPC_DIALOG == 1121 and Proto.MsgId.C2G_DIALOG_ANSWER == 1122 and Proto.MsgId.G2C_SCRIPT_ACTION == 2139, "dialog message ids")
+	var a := Proto.ScriptAction.new()
+	a.set_operate(0)
+	a.set_ui_id(0)
+	a.set_text("Xin chào")
+	a.set_interactive(true)
+	a.set_param(-1)
+	a.add_options("Một")
+	a.add_options("Hai")
+	var a2 := Proto.ScriptAction.new()
+	check(a2.from_bytes(a.to_bytes()) == Proto.PB_ERR.NO_ERRORS and a2.get_text() == "Xin chào" and a2.get_options().size() == 2
+		and a2.get_options()[1] == "Hai" and a2.get_param() == -1 and a2.get_interactive(), "ScriptAction round trip")
+	var ans := Proto.DialogAnswer.new()
+	ans.set_index(1)
+	var ans2 := Proto.DialogAnswer.new()
+	check(ans2.from_bytes(ans.to_bytes()) == Proto.PB_ERR.NO_ERRORS and ans2.get_index() == 1 and ans2.get_kind() == 0, "DialogAnswer round trip")
+	# the lines of the question window: the answers, or the closing line when there are none
+	var sel_script: GDScript = load("res://ui/KUiDialogMath.gd")
+	var lines: Array = sel_script.lines_for(["Một", "Hai"], "Kết thúc đối thoại")
+	check(lines.size() == 2 and lines[1] == "Hai", "the answers as lines")
+	lines = sel_script.lines_for([], "Kết thúc đối thoại")
+	check(lines.size() == 1 and lines[0] == "Kết thúc đối thoại", "no answer: the closing line (G_UiMsgSel_0)")
+	# the button of a page: "Tiếp tục" until the last page, "Hoàn thành" on it (G_PLAYER_14 / G_PLAYER_15)
+	var info_script: GDScript = sel_script
+	check(info_script.page_label(0, 3, "Tiếp tục", "Hoàn thành") == "Tiếp tục" and info_script.page_label(2, 3, "Tiếp tục", "Hoàn thành") == "Hoàn thành"
+		and info_script.page_label(0, 1, "Tiếp tục", "Hoàn thành") == "Hoàn thành", "page labels (G_PLAYER_14 / G_PLAYER_15)")
 

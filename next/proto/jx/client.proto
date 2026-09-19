@@ -176,6 +176,35 @@ message EntityInfo {
   // 0x0065C070 calls KNpc::SetMenuState with them (0x0065C4ED), so a sign already up is seen by whoever walks in
   uint32 menu_state = 29;
   string menu_sentence = 30;
+  uint32 npc_kind = 31;          // NPCKIND of npcs.txt (byte +0x13 of the 0x4c packet): 0 monster, 2 partner, 3 dialoger (a click talks, 0x6e), 4 bird, 5 mouse
+}
+
+// ---- npc dialog (M13) ----
+
+message NpcDialogReq {           // C2G_NPC_DIALOG: the 0x6e packet - a click on a npc within twice its m_DialogRadius (124)
+  uint64 npc = 1;
+  uint32 seq = 2;
+}
+
+message DialogAnswer {           // C2G_DIALOG_ANSWER: the 0x5f packet {0x5f, int index, int kind, int, int} of KPlayer::OnSelectFromUI (2.0 0x005FC7D0)
+  int32 index = 1;               // the answer picked (0-based); a Talk's last page confirmed = 0
+  int32 kind = 2;                // the dword at +5: 0 = a Say / Talk answer (0x080AC5D0), 1 = the item selection ui (0x081F68C0, not ported)
+}
+
+// The 0x63 packet PLAYER_SCRIPTACTION_SYNC (2003 KProtocol.h) as Lua Say 0x08123C90 / Talk 0x08116930 of jx_linux_y fill it:
+// byte m_nOperateType +3, m_bUIId +4, m_bOptionNum +5, m_bParam1 +6 (1 = the sentence is a string-table id), m_bParam2 +7
+// (1 = the answer goes to the server), int m_nParam +9 (Say -1; Talk 1 = the last page's confirm goes back), int m_nBufferLen
+// +0xd, the content +0x11: the sentence then the answers NUL-separated (Say), or the pages joined with "| |" (Talk).  The
+// 2.0 client's KPlayer::OnScriptAction 0x006004C0 shows ui 0 in KUiMsgSel (滚动选择界面.ini) and ui 2 in KUiInformation2
+// (提示2.ini, "Tiếp tục" G_PLAYER_14 / "Hoàn thành" G_PLAYER_15).
+message ScriptAction {
+  uint32 operate = 1;            // 0 SCRIPTACTION_UISHOW (1 EXESCRIPT "OnCall": the client runs its own script - never sent by the zone)
+  uint32 ui_id = 2;              // UIInfo: 0 UI_SELECTDIALOG (Say), 2 UI_TALKDIALOG (Talk)
+  string text = 3;               // the sentence (Say)
+  int32 text_id = 4;             // m_bParam1 = 1: the sentence is this string-table id instead (g_GetStringRes of the client)
+  bool interactive = 5;          // m_bParam2
+  int32 param = 6;               // m_nParam
+  repeated string options = 7;   // the answers (Say, the text before the '/') or the pages (Talk)
 }
 
 message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)

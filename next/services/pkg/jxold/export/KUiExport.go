@@ -101,6 +101,10 @@ var GameScreens = []UiScreenDef{
 	// M14 C2: the chat pad (KUiMsgCentrePad 0x004B5E64 loads "%s\消息集合面板_左.ini" / _右): [Channels] Channel0..14 and one
 	// [CH_*] section per channel (ShortName, FormatName, TextColor, MenuText, SendMsgInterval, images), the [ChatTab] pages
 	{"khung-chat", "Khung chat và các kênh", "KUiMsgCentrePad", `消息集合面板_左.ini`},
+	// M13: the npc dialog - the question and its answers (KUiMsgSel, gamecl.exe 0x0051CF66 loads "%s\滚动选择界面.ini") and the
+	// one-button pages of a Talk (KUiInformation2, 提示2.ini)
+	{"hop-thoai-chon", "Hộp thoại chọn câu trả lời của npc", "KUiMsgSel", `滚动选择界面.ini`},
+	{"hop-thoai-mot-nut", "Hộp thoại một nút (các trang npc nói)", "KUiInformation2", `提示2.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

@@ -186,6 +186,18 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.trade_request(cmd.sid, static_cast<int>(req.cmd()), EntityId{req.target()}, req.arg(), req.text());
         break;
     }
+    case pb::C2G_NPC_DIALOG: {
+        pb::NpcDialogReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.dialog_npc_request(cmd.sid, EntityId{req.npc()});
+        break;
+    }
+    case pb::C2G_DIALOG_ANSWER: {
+        pb::DialogAnswer req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.dialog_answer(cmd.sid, req.index(), req.kind());
+        break;
+    }
     case pb::C2G_TEAM: {
         pb::TeamReq req;
         if (!req.ParseFromString(cmd.payload)) break;

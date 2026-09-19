@@ -59,6 +59,7 @@ signal trade_apply(ev: Dictionary)          # G2C_TRADE_APPLY: {id, name} asks t
 signal trade_end(ok: bool)                  # G2C_TRADE_END: the 0x78 packet
 signal sys_msg(id: int, entity_id: int, name: String)   # G2C_SYS_MSG: the 0x86 packet - a stringtable_core.txt sentence by id (CLIENT-2.0.md §21)
 signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id].menu_state / menu_sentence changed (the sign over the head)
+signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, text, text_id, interactive, param, options} of a npc script's Say / Talk
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -412,6 +413,32 @@ func chat(text: String, channel: int = 0, target: String = "") -> void:
 	if target != "":
 		req.set_target(target)
 	Net.send_msg(Proto.MsgId.C2G_CHAT, req)
+
+
+# ---- the npc dialog (docs/LINUX-SERVER.md §20) ----
+
+# a click on a dialoger npc: the 0x6e packet (KPlayer::DialogNpc) - the zone runs the npc's script main() for us
+func npc_dialog(npc: int) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.NpcDialogReq.new()
+	req.set_npc(npc)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_NPC_DIALOG, req)
+	Log.debug("world", "npc dialog request", {"npc": npc, "seq": _move_seq})
+	return _move_seq
+
+
+# the answer picked in the dialog: the 0x5f packet {0x5f, int index, int kind, 0, 0} (KPlayer::OnSelectFromUI 0x005FC7D0)
+func dialog_answer(index: int, kind: int = 0) -> void:
+	if state != "world":
+		return
+	var req := Proto.DialogAnswer.new()
+	req.set_index(index)
+	req.set_kind(kind)
+	Net.send_msg(Proto.MsgId.C2G_DIALOG_ANSWER, req)
+	Log.debug("world", "dialog answer", {"index": index, "kind": kind})
 
 
 # ---- items: the requests share the move sequence so a G2C_ITEM_RESULT can be matched ----
@@ -1040,6 +1067,18 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				return
 			sys_msg.emit(int(m.get_id()), int(m.get_entity_id()), str(m.get_name()))
 
+		Proto.MsgId.G2C_SCRIPT_ACTION:
+			var m := Proto.ScriptAction.new()
+			if not _decode(m, payload):
+				return
+			var options: Array = []
+			for o in m.get_options():
+				options.append(str(o))
+			var a := {"operate": int(m.get_operate()), "ui": int(m.get_ui_id()), "text": str(m.get_text()), "text_id": int(m.get_text_id()),
+				"interactive": bool(m.get_interactive()), "param": int(m.get_param()), "options": options}
+			Log.debug("world", "script action", {"ui": a.ui, "options": options.size(), "param": a.param})
+			script_action.emit(a)
+
 		Proto.MsgId.G2C_ENTITY_MENU_STATE:
 			# s2c_npcsetmenustate (the client's 0x006522F0 -> KNpc 0x005EB2A0): the sign over a player's head, its sentence
 			var m := Proto.EntityMenuState.new()
@@ -1360,7 +1399,8 @@ func _entity_dict(e) -> Dictionary:
 		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4,
 		"res": _res_dict(e), "pk_state": int(e.get_pk_state()) if e.has_method("get_pk_state") else 0,
 		"menu_state": int(e.get_menu_state()) if e.has_method("get_menu_state") else 0,
-		"menu_sentence": str(e.get_menu_sentence()) if e.has_method("get_menu_sentence") else ""}
+		"menu_sentence": str(e.get_menu_sentence()) if e.has_method("get_menu_sentence") else "",
+		"npc_kind": int(e.get_npc_kind()) if e.has_method("get_npc_kind") else 0}
 
 
 # the equipment rows of the 0x4a / 0x4b player sync (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse,

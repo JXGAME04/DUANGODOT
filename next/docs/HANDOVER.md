@@ -49,6 +49,10 @@ Mục này gom **toàn bộ** những gì một phiên mới cần để tiếp 
     camera) phải đi mượt theo từng khung vẽ (`_process(delta)`), kể cả chỗ client 2.0 chỉ nhảy theo khung logic 18 Hz. Khung 18 Hz chỉ giữ cho
     luật chơi (đếm khung, tuổi đạn, chỉ số khung ảnh, lúc phát tiếng/trạng thái); gói của zone ghi đè trạng thái. Không được đóng một mục
     "mượt" với lý do "2.0 không làm".
+14. **Neo UI theo màn hình** (chủ dự án, 2026-09-19): mọi cửa sổ / thanh / hộp làm cho client Godot phải neo theo kích cỡ màn hình — dùng
+    `PositionType` của bố cục 2.0 qua `KWndShowAnimate.init_window` → `place_on_screen`, đặt lại khi `viewport.size_changed`
+    (`_on_screen_resized`); control Godot thuần dùng anchor. Không đặt toạ độ cứng chỉ đúng với 1280×720: đổi kích cỡ màn hình sau này UI
+    phải theo.
 
 ### 0.2 Hai nguồn nhị phân — đường dẫn, công cụ, cách mổ
 
@@ -340,6 +344,19 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   → `entities[id].menu_state`. Zone: `kTradeRoomWidth` 10 → **8** (Init `0x081FF129`: 15 phòng của bản Linux ghi ở `KItem.h`). Kiểm: Godot 460/460, e2e
   `AUTO_TRADE opened=true sign=2 drawn=true closed=true`, `auto_trade.png` (đã gửi). **Chưa**: sprite menu 2.0
   (`0x00475690`), các mục menu còn lại, kéo–thả vào ô, phòng 4 kim đĩnh. **Chạy lại `python tools/dev.py assets`** (`export-menu-state`, `giao-dich`).
+- **M13 lát D1 (xong 2026-09-19)**: **hộp thoại npc** (`LINUX-SERVER.md` §20, `CLIENT-2.0.md` §24): `KPlayer::DialogNpc 0x080B1300` (gói 0x6e: không giao
+  dịch, npc theo id, khoảng cách pixel `0x0809F370`, kind 3 hoặc quan hệ 1, `≤ 2·m_DialogRadius` = 248 px (`KNpc::Init` 0x7c), npc có script, chống nghiện
+  không port, `OnEventTalkNpc` rồi `main(npc+0x158c)`), Lua `Say 0x08123C90` (câu/id, số, lựa chọn vararg hay bảng, `text/hàm` → `m_szTaskAnswerFun[50]`
+  `Player+0x5fa0`, "main" khi không `/`, ngân sách 0x384) và `Talk 0x08116930` (trang nối `"| |"`, hàm gọi lại → `+9 = 1`), gói 0x63
+  `PLAYER_SCRIPTACTION_SYNC` (`0x080A8510`), trả lời gói 0x5f 17 byte `0x080AC5D0` (`hàm(idx)` qua `CallFunction(…, 0, "d", idx)`, `#` = mã Lua, âm → 0);
+  client 2.0 `OnScriptAction 0x006004C0` (ui 0 → `KUiMsgSel` `滚动选择界面.ini`, ui 2 → `KUiInformation2` `提示2.ini`, nhãn `G_PLAYER_14/15`),
+  `OnSelectFromUI 0x005FC7D0`. Zone: `KPlayerDialog.h`, `KSubWorldDialog.cpp`, `KText.h/.cpp` (TCVN3/GBK → UTF-8 cho chuỗi script, cả `Msg2Player`),
+  `KNpc::script` từ `Region_S.dat`, `EntityInfo.npc_kind`, proto 1121/1122/2139; client `UiMsgSel.gd`, `UiInformation2.gd`, `KUiDialogMath.gd`, click npc kind 3
+  → `npc_dialog`; `export-ui` `hop-thoai-chon`, `hop-thoai-mot-nut`. **Luật 14 (neo UI)**: `KWndShowAnimate` đặt lại `PositionType` khi `viewport.size_changed`.
+  Test `[dialog]` 5 ca 124 khẳng định, Godot +6 (`test_dialog`); e2e `AUTO_DIALOG npc=… name=Bành Tiểu đệ distance=247 ui=0 text_len=81 options=0
+  window=true answered=true` + `auto_dialog.png` (câu Việt đã giải mã). **Chưa**: `text_id` (`g_GetStringRes`), `OnEventTalkNpc` cần API nhiệm vụ
+  (`FirstTask`…, M13 D2), `+0x158c` tham số npc, `Wnd_SetExclusive`, cuộn tự động, đi tới npc khi xa, các ui id khác. **Chạy lại `python tools/dev.py
+  assets`** (`export-ui`).
 - **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
   `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
   `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
@@ -457,7 +474,8 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
-| M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat client, bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
+| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) | còn **M13 D2**: API nhiệm vụ (`GetTask/SetTask` giá trị `Player+0x809c`, `FirstTask`, `TalkWithNpc`…) để `OnEventTalkNpc` chạy, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
+| M13 nhiệm vụ / hàm script, M14 xã hội (còn: bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
 
@@ -779,6 +797,28 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 52) — M13 lát D1: hộp thoại npc (DialogNpc 0x080B1300, Say/Talk gói 0x63, trả lời 0x5f, KUiMsgSel/KUiInformation2) + giải mã TCVN3 + luật 14 neo UI
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §20): `DialogNpc 0x080B1300` (ô 0x6e), `0x080B12C0`/`0x0807A1F0` tìm npc, `0x0809F370` khoảng cách pixel
+  (`Δô·[subworld+0x24] + Δlẻ>>10`), `0x0809EE50` quan hệ, `m_DialogRadius +0x1634` (`KNpc::Init 0x0807E02D` = 0x7c, không nơi khác ghi), chống nghiện
+  `0x08176160` (0x2a30/0x4650 s, `L_PLAYER_TIRE_MSG11`), `0x080AD300 → 0x080AC1A0` (`CallFunction(tên, n, "d", …)`, `PlayerIndex/PlayerId/SubWorld`);
+  `Say 0x08123C90` (vararg/bảng, `/` tách hàm, 50, 0x384, chia gói `0x08124170`), `Talk 0x08116930` (`"| |"`, hàm → `+9 = 1`), `0x080A8510` (byte 0x63,
+  `+7 == 1`), `0x080AC5D0` trả lời (loại 0/1, `'#'` chạy mã `0x082222E0/0x08222100`, âm → 0), `0x080AC560` gói 0x89 (chọn vật phẩm, chưa).
+- **gamecl.exe** (`CLIENT-2.0.md` §24): `OnScriptAction 0x006004C0` (bảng `0x601e10`: 0 `0x00600AE0`, 2 `0x00600D64`; `"| |"`, `G_PLAYER_14/15` qua
+  `[0x9bf514]/[0x9bf518]`), `KUiMsgSel::LoadScheme 0x0051CF66` (`滚动选择界面.ini`), `Show 0x0051D0F0` (`G_UiMsgSel_0`), `OnClickMsg 0x0051D020` →
+  `OperationRequest(9)` `0x005C2CF5` → `OnSelectFromUI 0x005FC7D0` (0x5f, 17 byte, `[0x9bd898]/[0x9bd89c]`); `提示2.ini` (`KUiInformation2`).
+- **Zone**: `KPlayerDialog.h`, `KSubWorldDialog.cpp`, `KText.h/.cpp` (port `text.DecodeMixed`), `l_Say/l_Talk` thật, `KScriptContext.script_path`,
+  `KNpc::script` (placement), `KNpcAttrib::dialog_radius`, `EntityInfo.npc_kind`, proto `C2G_NPC_DIALOG/C2G_DIALOG_ANSWER/G2C_SCRIPT_ACTION`, gateway
+  whitelist; `msg_to_player` giải mã + `CH_SYSTEM`. **Client**: `Game.npc_dialog/dialog_answer/script_action`, `KNpc.npc_kind/is_dialoger`, click npc kind 3,
+  `UiMsgSel.gd`, `UiInformation2.gd`, `KUiDialogMath.gd`, `KUiGameWindows.msg_sel/info2/_on_script_action`, `--auto _auto_dialog`; `export-ui` +2 màn.
+  **Luật 14** (chủ dự án 2026-09-19): `KWndShowAnimate` nhớ bố cục và đặt lại `PositionType` khi `viewport.size_changed`; `KUiGameWindows.screen` cập nhật.
+- **Dữ liệu**: 65 npc kind 3 của bản đồ 1 có script; 52/56 tệp nằm ở `data/script/binserver` (thư mục GBK); `task_function.lua` thiếu Include + `FirstTask`.
+- **Lỗi đã gặp**: chuỗi script TCVN3 hiện `�` trên client → `KText::decode_mixed` ở zone; `[Select_List]` là KWndMessageListBox (`MsgColor`) chứ không phải
+  `Color` của KWndList; MSVC `"\xf1a"` nuốt chữ `a` vào mã hex → tách chuỗi; `U'…'` ký tự ngoài ASCII trong nguồn → mã điểm `char32_t(0x…)`.
+- **Kiểm**: ctest 262/262 Release (+ Debug), Godot 485/485, `go vet` xanh, catalog/includes sạch; e2e `AUTO_DIALOG … window=true answered=true`,
+  `auto_dialog.png` (gửi chủ dự án), `AUTO_TRADE … end=1`, `AUTO_CHAT` như cũ.
+- commit: `JX NEXT: M13 lat D1 - hop thoai npc (DialogNpc 0x080B1300 goi 0x6e, Say 0x08123C90 / Talk 0x08116930 goi 0x63 PLAYER_SCRIPTACTION_SYNC, tra loi 0x5f 0x080AC5D0 m_szTaskAnswerFun; client OnScriptAction 0x006004C0, KUiMsgSel 滚动选择界面.ini, KUiInformation2 提示2.ini) + KText TCVN3/GBK -> UTF-8 + luat 14 neo UI`.
 
 ### 2026-09-19 (phiên tiếp theo, phần 51) — M14 lát C2: kênh chat trên client (消息集合面板_左.ini, SendChat 0x00475A10, nút/menu kênh 0x004730D0 / 0x00472620)
 

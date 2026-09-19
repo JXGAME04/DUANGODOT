@@ -218,6 +218,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			var hit := _entity_at(p)
 			if hit != null and hit.entity_type == ENTITY_DROP:
 				_pick_up(hit)
+			elif hit != null and hit.entity_id != Game.entity_id and hit.has_method("is_dialoger") and hit.is_dialoger():
+				# KPlayer::DialogNpc: the 0x6e packet to the zone (within twice the npc's dialog radius, 248 px)
+				var dseq := Game.npc_dialog(hit.entity_id)
+				Log.debug("ui", "click npc dialog", {"npc": hit.entity_id, "name": hit.display_name, "seq": dseq})
 			elif hit != null and hit.entity_id != Game.entity_id and hit.is_attackable():
 				_select_target(hit)
 				# the left mouse skill of the old client (KPlayer::m_nLeftSkillID): a skill picked in the book is cast
@@ -656,6 +660,7 @@ func _auto_run() -> void:
 	await _auto_pk()
 	await _auto_team()
 	await _auto_trade()
+	await _auto_dialog()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1135,6 +1140,49 @@ func _auto_trade() -> void:
 	Game.trade_end.disconnect(cb_end)
 	Log.info("auto", "auto trade", {"opened": opened, "sign": sign_state, "drawn": sign_drawn, "closed": closed, "changes": answer.changes})
 	print("AUTO_TRADE opened=%s sign=%d drawn=%s closed=%s changes=%d" % [opened, sign_state, sign_drawn, closed, answer.changes])
+
+
+# the npc dialog: the nearest dialoger within 248 px (the map's placed npcs with scripts; docs §20) is clicked, its
+# script's Say arrives as a script action -> the question window (KUiMsgSel) with the sentence and the answers, a picture,
+# then the first answer (or the closing line) is clicked
+func _auto_dialog() -> void:
+	var own := _own()
+	var best: Node2D = null
+	var best_d := 1.0e9
+	for id in _entities:
+		var node: Node2D = _entities[id]
+		if node == null or not is_instance_valid(node) or not node.has_method("is_dialoger") or not node.is_dialoger():
+			continue
+		var d: float = own.scene_pos.distance_to(node.scene_pos) if own != null else 1.0e9
+		if d < best_d:
+			best_d = d
+			best = node
+	if best == null:
+		print("AUTO_DIALOG npc=0")
+		return
+	var got := {"action": {}}
+	var on_action := func(a: Dictionary) -> void:
+		got.action = a
+	Game.script_action.connect(on_action)
+	Game.npc_dialog(best.entity_id)
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		if not got.action.is_empty():
+			break
+	Game.script_action.disconnect(on_action)
+	var a: Dictionary = got.action
+	var window_open: bool = _windows != null and _windows.msg_sel != null and _windows.msg_sel.visible
+	await get_tree().create_timer(0.2).timeout
+	await _save_screenshot("user://logs/auto_dialog.png")
+	var answered := false
+	if window_open:
+		_windows.msg_sel._on_click(0)   # the first line: an answer, or the closing line when there is none
+		answered = true
+		await get_tree().create_timer(0.3).timeout
+	Log.info("auto", "auto dialog", {"npc": best.entity_id, "name": best.display_name, "distance": int(best_d), "ui": a.get("ui", -1),
+		"text_len": str(a.get("text", "")).length(), "options": a.get("options", []).size(), "window": window_open, "answered": answered})
+	print("AUTO_DIALOG npc=%d name=%s distance=%d ui=%d text_len=%d options=%d window=%s answered=%s" % [best.entity_id, best.display_name,
+		int(best_d), a.get("ui", -1), str(a.get("text", "")).length(), a.get("options", []).size(), window_open, answered])
 
 
 func _auto_ride() -> void:

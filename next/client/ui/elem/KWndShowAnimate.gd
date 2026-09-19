@@ -23,6 +23,8 @@ var _appear_range := Vector2.ZERO    # offset of the starting point from fix_pos
 var _move_value := 0                 # 100 = at the start, 0 = home
 var _last_move_ms := 0
 var _moving := false
+var _anchor_ini = null               # the layout and section the window was placed from: it is placed again on a resize
+var _anchor_section := ""
 
 
 # Reads the window's own section and puts it on a screen of `screen` pixels.
@@ -31,6 +33,9 @@ func init_window(ini: KUiScheme, section: String, screen: Vector2i) -> bool:
 		return false
 	place_on_screen(ini, section, screen)
 	fix_pos = position
+	_anchor_ini = ini
+	_anchor_section = section
+	_watch_screen()
 	var start: Vector2i = ini.get_integer2(section, "StartPos", Vector2i(int(fix_pos.x), int(fix_pos.y)))
 	_appear_range = Vector2(start) - fix_pos
 	if _appear_range.x != 0.0:
@@ -59,6 +64,27 @@ func show_window() -> void:
 func hide_window() -> void:
 	_moving = false
 	visible = false
+
+
+# the anchor rule (HANDOVER §0 rule 14): the window follows the screen - PositionType of its layout is applied again on
+# every viewport resize, so a centred / docked window stays centred / docked whatever the size becomes
+func _watch_screen() -> void:
+	if is_inside_tree():
+		var vp := get_viewport()
+		if vp != null and not vp.size_changed.is_connected(_on_screen_resized):
+			vp.size_changed.connect(_on_screen_resized)
+	elif not tree_entered.is_connected(_watch_screen):
+		tree_entered.connect(_watch_screen, CONNECT_ONE_SHOT)
+
+
+func _on_screen_resized() -> void:
+	if _anchor_ini == null or not is_inside_tree():
+		return
+	var screen := Vector2i(get_viewport().get_visible_rect().size)
+	place_on_screen(_anchor_ini, _anchor_section, screen)
+	fix_pos = position
+	if not _moving:
+		position = fix_pos
 
 
 func _apply_move() -> void:

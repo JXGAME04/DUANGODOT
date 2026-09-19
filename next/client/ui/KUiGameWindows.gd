@@ -20,6 +20,8 @@ const UiTeam := preload("res://ui/uicase/UiTeam.gd")
 const UiInformation := preload("res://ui/uicase/UiInformation.gd")
 const UiTrade := preload("res://ui/uicase/UiTrade.gd")
 const UiMsgCentrePad := preload("res://ui/uicase/UiMsgCentrePad.gd")
+const UiMsgSel := preload("res://ui/uicase/UiMsgSel.gd")
+const UiInformation2 := preload("res://ui/uicase/UiInformation2.gd")
 const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
@@ -45,6 +47,8 @@ var trade_window: UiTrade = null        # the trade window (玩家间交易.ini)
 var player_menu: KWndPopupMenu = null   # Ctrl+right click on a player (autoexec.lua Mouse_Menu): G_UIGAME_* entries by the target's sign
 var msg_pad: UiMsgCentrePad = null      # the chat channels (消息集合面板_左.ini): colours, short names, the current channel
 var channel_menu: KWndPopupMenu = null  # the ChannelBtn's menu (0x00472620)
+var msg_sel: UiMsgSel = null            # a npc script's Say: the sentence and the answers (滚动选择界面.ini)
+var info2: UiInformation2 = null        # a npc script's Talk: the pages (提示2.ini)
 var _channel_entries: Array = []
 var _menu_target := 0                   # the entity the player menu is about
 var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
@@ -68,6 +72,7 @@ func _ready() -> void:
 	_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_canvas)
 	screen = Vector2i(get_viewport().get_visible_rect().size)
+	get_viewport().size_changed.connect(func(): screen = Vector2i(get_viewport().get_visible_rect().size))   # rule 14: the windows re-anchor
 	var probe = KUiScheme.open(UiItem.SCHEME)
 	if probe == null:
 		Log.warn("ui", "item windows missing", {"hint": "python tools/dev.py assets (jxassets export-ui)"})
@@ -132,6 +137,23 @@ func _ready() -> void:
 	_canvas.add_child(channel_menu)
 	channel_menu.picked.connect(_on_channel_picked)
 	_show_channel()
+	msg_sel = UiMsgSel.new()
+	_canvas.add_child(msg_sel)
+	if not msg_sel.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiMsgSel.SCHEME})
+		msg_sel.queue_free()
+		msg_sel = null
+	else:
+		msg_sel.chosen.connect(func(index: int): Game.dialog_answer(index, 0))
+	info2 = UiInformation2.new()
+	_canvas.add_child(info2)
+	if not info2.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiInformation2.SCHEME})
+		info2.queue_free()
+		info2 = null
+	else:
+		info2.confirmed.connect(func(): Game.dialog_answer(0, 0))
+	Game.script_action.connect(_on_script_action)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
 	status_window.open_item.connect(func(): item_window.open_window())
@@ -293,6 +315,29 @@ func chat_line(msg: Dictionary) -> Dictionary:
 		return {"texture": null, "bbcode": "[b]%s:[/b] %s" % [str(msg.get("name", "")), str(msg.get("text", "")).replace("[", "[lb]")]}
 	var own = Game.entities.get(Game.entity_id, {})
 	return msg_pad.line(msg, str(own.get("name", "")))
+
+
+# the 0x63 packet (KPlayer::OnScriptAction 0x006004C0): UI_SELECTDIALOG -> the question window, UI_TALKDIALOG -> the pages;
+# the other ui ids of the 2003 UIInfo (trade, note, msg, news, music, tong) are not sent by the zone
+func _on_script_action(a: Dictionary) -> void:
+	if int(a.get("operate", 0)) != 0:
+		return
+	var text := str(a.get("text", ""))
+	if int(a.get("text_id", 0)) != 0 and text == "":
+		text = "[%d]" % int(a.get("text_id", 0))   # g_GetStringRes(id): no string resource table in the new client yet
+	match int(a.get("ui", 0)):
+		0:
+			if msg_sel != null:
+				if info2 != null and info2.visible:
+					info2.close_pages()
+				msg_sel.open_dialog(text, a.get("options", []))
+		2:
+			if info2 != null:
+				if msg_sel != null and msg_sel.visible:
+					msg_sel.close_dialog()
+				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		_:
+			Log.warn("ui", "script action ui not shown", {"ui": int(a.get("ui", 0))})
 
 
 func open_player_menu(entity_id: int, at: Vector2) -> void:

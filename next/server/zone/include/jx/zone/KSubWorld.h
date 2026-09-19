@@ -568,6 +568,13 @@ public:
     void add_exp_team(KNpc& anchor, int exp, int npc_level, EntityId killer);
     // the trade and the sign over the head (docs/LINUX-SERVER.md §18): the client's C2G_TRADE (KSubWorldTrade.cpp)
     bool trade_request(std::uint64_t sid, int cmd, EntityId target, int arg, std::string_view text);
+    // the npc dialog (docs §20): the 0x6e packet - the npc's script main() for the player when it is a dialoger (or at
+    // peace) within twice its dialog radius; the 0x5f packet - the answer runs the function of that answer in the script
+    bool dialog_npc_request(std::uint64_t sid, EntityId npc);
+    bool dialog_answer(std::uint64_t sid, int index, int kind);
+    // Lua Say / Talk: the 0x63 packet to the player and the answer functions kept on it
+    void dialog_say(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
+    void dialog_talk(KNpc& e, std::string_view callback, const std::vector<std::string>& pages);
     [[nodiscard]] bool trading(const KNpc& e) const noexcept;   // KPlayer::CheckTrading 0x080A7E90
     void trade_cancel(KNpc& e);                                 // 0x080AE380: both sides, the boxes back, the menu states restored
     void set_menu_state(KNpc& e, int state, std::string_view sentence, EntityId dest);   // KPlayerMenuState::SetState 0x080C29D0
@@ -868,6 +875,8 @@ private:
     std::vector<KChatBroadcast> chat_broadcasts_;
     // 0x080502A0: the cost of a line by chatcost.ini type - false when it cannot be paid (nothing is taken then)
     bool chat_pay(KNpc& e, int type);
+    void send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options, int param,
+                            bool interactive);
     std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about
     struct Near {                                          // a candidate of a look around
         std::int64_t dist2;

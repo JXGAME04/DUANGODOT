@@ -11,6 +11,7 @@
 #include "jx/core/Metrics.h"
 
 #include "jx/log.hpp"
+#include "jx/zone/KText.h"
 #include "jx/msg.pb.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpcAI.h"
@@ -101,6 +102,7 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
                 if (KNpc* placed = entities_.find(id)) {
                     placed->dir = static_cast<std::uint32_t>(n.dir & 63);
                     placed->npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
+                    placed->script = n.script;   // KSNpcInfo.ActionScript: what a click on it runs (DialogNpc, docs §20)
                     placed->camp = std::clamp(n.camp, 0, camp_num - 1);
                     placed->current_camp = placed->camp;
                     if (n.special || cfg_.map->settings.auto_golden_npc != 0) gold_back_data(*placed);
@@ -234,6 +236,7 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     if (e.boss_flag != 0 && e.kind != KNpcKind::player) gold_word = (cfg_.gold ? cfg_.gold->count() : 0) + 1;
     out.set_gold_type(static_cast<std::uint32_t>(gold_word));
     out.set_camp(e.camp);                   // +0xb of the packet (0x0807FBD2)
+    out.set_npc_kind(static_cast<std::uint32_t>(e.npc_kind));   // +0x13 (0x0807FBC6): the client's talk cursor / the 0x6e click
     out.set_current_camp(e.current_camp);   // +3 (0x0807FBDB)
     switch (e.doing) {
     case KDoing::magic:
@@ -1901,6 +1904,7 @@ bool KSubWorld::execute_script(const std::string& game_path, const char* fn, KNp
     ctx.world = this;
     ctx.player = &player;
     ctx.sid = player.sid;
+    ctx.script_path = game_path;
     const bool ok = script->call_number(fn, {static_cast<double>(param)}).has_value() || script->has_function(fn);
     ctx = saved;
     if (!ok) log::warn("zone.trap", "script function missing", {log::kv("script", game_path), log::kv("function", fn)});
@@ -1936,7 +1940,8 @@ void KSubWorld::msg_to_player(std::uint64_t sid, std::string_view text)
 {
     if (!players_.contains(sid)) return;
     pb::ChatMsg msg;
-    msg.set_text(std::string(text));
+    msg.set_text(text::decode_mixed(text));   // the script's TCVN3 / GBK bytes as UTF-8
+    msg.set_channel(pb::CH_SYSTEM);
     emit({sid}, static_cast<std::uint16_t>(pb::G2C_CHAT_MSG), msg);
 }
 

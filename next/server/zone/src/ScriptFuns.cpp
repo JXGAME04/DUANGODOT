@@ -14,6 +14,7 @@ extern "C" {
 
 #include "jx/log.hpp"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KPlayerDialog.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KSkill.h"
@@ -174,16 +175,81 @@ int l_AddTermini(lua_State* L)
     return 0;
 }
 
-// Say / Talk: the dialog window (LuaSelectUI / LuaTalkUI); nothing to show yet, logged for later
+// Say(sentence, count, answer1, answer2, ... | {answers}) (LuaSelectUI; jx_linux_y 0x08123C90): the sentence a string or a
+// number (a string-table id, m_bParam1 = 1); the count a number (else 0 answers); the answers as more strings or as a
+// table at 3 (a string at 3 = the vararg form; neither with count > 0 = nothing); the count is clamped to the arguments
+// and to 50; each answer "text/function" - the function runs when the client picks it (KSubWorld::dialog_say)
 int l_Say(lua_State* L)
 {
-    log::info("lua", "Say (dialog not implemented)", {log::kv("text", luaL_optstring(L, 1, ""))});
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "Say");
+    if (p == nullptr || n < 1) return 0;
+    int count = 0;
+    if (n != 1 && lua_type(L, 2) == LUA_TNUMBER) count = static_cast<int>(lua_tonumber(L, 2));   // 0x08123CEA / 0x08123FA6
+    std::string text;
+    int text_id = 0;
+    if (lua_type(L, 1) == LUA_TNUMBER) {   // 0x08124058
+        text_id = static_cast<int>(lua_tonumber(L, 1));
+    } else if (lua_isstring(L, 1)) {   // 0x08123D3D
+        text = lua_tostring(L, 1);
+    } else {
+        return 0;
+    }
+    bool from_table = false;
+    if (lua_isstring(L, 3)) {   // 0x08123D8B: the vararg form
+        from_table = false;
+    } else if (lua_type(L, 3) == LUA_TTABLE) {   // 0x08124133
+        from_table = true;
+    } else if (count > 0) {   // 0x08124146: answers promised, none given
+        return 0;
+    }
+    if (!from_table && n != 1 && count >= n - 1) count = n - 2;   // 0x08123D9D / 0x08124158
+    if (count < 0) count = 0;
+    if (count > kDialogAnswers) count = kDialogAnswers;   // 0x08123DBC
+    std::vector<std::string> answers;
+    answers.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        const char* a = nullptr;
+        if (from_table) {   // 0x08123E38: t[i + 1]
+            lua_rawgeti(L, 3, i + 1);
+            a = lua_tostring(L, -1);
+            answers.emplace_back(a != nullptr ? a : "");   // 0x08123F88: a missing answer is empty (and runs "main")
+            lua_pop(L, 1);
+        } else {
+            a = lua_tostring(L, i + 3);
+            answers.emplace_back(a != nullptr ? a : "");
+        }
+    }
+    g_ScriptContext().world->dialog_say(*p, text, text_id, answers);
     return 0;
 }
 
+// Talk(count, callback, page1, page2, ...) (LuaTalkUI; jx_linux_y 0x08116930): fewer than three arguments = nothing;
+// the count a number (else nothing), clamped to the pages given; the callback a string ("" = none): the function run
+// when the last page is confirmed; a page a string, or a number printed with "%d" (KSubWorld::dialog_talk)
 int l_Talk(lua_State* L)
 {
-    log::info("lua", "Talk (dialog not implemented)", {log::kv("pages", lua_gettop(L))});
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "Talk");
+    if (p == nullptr || n <= 2) return 0;   // 0x0811694D
+    if (lua_type(L, 1) != LUA_TNUMBER) return 0;   // 0x081169AD
+    int count = static_cast<int>(lua_tonumber(L, 1));
+    if (count >= n - 1) count = n - 2;   // 0x08116A01
+    const char* cb = lua_tostring(L, 2);
+    const std::string callback = cb != nullptr ? cb : "";
+    if (lua_type(L, 3) != LUA_TNUMBER && !lua_isstring(L, 3)) return 0;   // 0x08116A46 / 0x08116A5B
+    std::vector<std::string> pages;
+    for (int i = 0; i < count; ++i) {
+        const int at = 3 + i;
+        if (lua_type(L, at) == LUA_TNUMBER) {   // 0x08116B76: "%d"
+            pages.push_back(std::to_string(static_cast<long long>(lua_tonumber(L, at))));
+        } else {
+            const char* s = lua_tostring(L, at);
+            if (s == nullptr) break;   // 0x08116ADE
+            pages.emplace_back(s);
+        }
+    }
+    g_ScriptContext().world->dialog_talk(*p, callback, pages);
     return 0;
 }
 
