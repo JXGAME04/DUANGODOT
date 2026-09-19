@@ -258,7 +258,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     e.sid = sid;
     e.player_id = role.player_id();
     e.skill_mgr = skills_.get();
-    e.speed = role.stats().move_speed() > 0 ? static_cast<std::uint32_t>(role.stats().move_speed()) : cfg_.default_speed;
+    e.speed = cfg_.default_speed;   // until LoadFrom below fills the run speed (player_move_speed)
     e.fight_mode = role.fight_mode();
     // basevalue.ini of the old server ([Common] AttackFrame 18, HurtFrame 12, CastFrame 18)
     e.attack_frame = static_cast<std::uint32_t>(std::max(1, tables().base_value().attack_frame));
@@ -292,6 +292,9 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     // KPlayer::LoadFrom: the points, the level tables and the equipment make the numbers
     entities_.at(id).player.load_from(entities_.at(id), role, tables(), items_of(sid));
     load_skills(entities_.at(id), role);   // KPlayer::LoadPlayerFightSkillList: the skills, each through KSkillList::Add
+    // the pace: m_CurrentRunSpeed units a frame (0x08080C01; 10 for a player, 0x080A7FF0) = 180 a second at 18 Hz - the role's
+    // move_speed (a 200 the persist layer fills in) is not a rule of the old server and is ignored
+    entities_.at(id).speed = player_move_speed(entities_.at(id));
 
     // The newcomer looks around at once: its client gets its own character first, then what is
     // nearest, up to the budget; the rest follows over the next ticks.  Everybody already there
@@ -622,6 +625,15 @@ void KSubWorld::tick()
         update_action(e);
         if (awake && e.kind != KNpcKind::player && e.ai_mode == 0 && e.wander_radius > 0 && !e.moving && e.doing == KDoing::stand && tick_ >= e.next_wander_tick) wander(e);
         if (!e.moving) continue;
+        if (e.kind == KNpcKind::player) {
+            // 0x08080C50: a player's run step checks the stamina against the run cost every frame - below it the frame walks
+            // (0x0807B430 / 0x08080B70, the packet 0x50) until the stamina is back
+            const std::uint32_t speed = player_move_speed(e);
+            if (speed != e.speed) {
+                e.speed = speed;
+                emit_move(e);   // the clients pace it at the new speed
+            }
+        }
         std::int64_t budget = static_cast<std::int64_t>(e.speed) * kSub / cfg_.tick_hz;   // sub-units this tick
         while (budget > 0 && e.moving) {
             const std::int64_t dx = e.tx - e.fx;
@@ -1090,8 +1102,15 @@ void KSubWorld::process_state(KNpc& e)
     if (e.cur.mana > e.mana_max()) e.cur.mana = e.mana_max();
     else if (e.cur.mana < 0) e.cur.mana = 0;
     if (e.kind == KNpcKind::player) {
-        // 0x0808BD3D: the stamina gain (running costs it, sitting adds stamina_sit_add - neither state yet)
-        e.cur.stamina += e.cur.stamina_gain;
+        // 0x0808BD3D: gain = m_CurrentStaminaGain, 0 while ForbitStamina (Player+0x86b4); running (m_Doing 3) costs the
+        // ExerciseRunSub / FightRunSub / KillRunSub of the PK state on top (0x0808BE0B ..), sitting (8) adds +0x11b0 (no sit
+        // state yet); clamped to [0, max] (0x0808BD87 .. 0x0808BD9B)
+        const int gain = e.player.forbid_stamina != 0 ? 0 : e.cur.stamina_gain;
+        const int sub = run_stamina_sub(e);
+        // an exhausted character walks (m_Doing 2, 0x08080C86): the walk step 0x08080B70 has no stamina line, only the gain
+        // (the zone keeps a moving character at KDoing::stand: `moving` is its m_Doing 3)
+        if (e.moving && (e.doing == KDoing::stand || e.doing == KDoing::walk) && e.cur.stamina >= sub) e.cur.stamina += gain - sub;
+        else e.cur.stamina += gain;
         if (e.cur.stamina > e.cur.stamina_max) e.cur.stamina = e.cur.stamina_max;
         else if (e.cur.stamina < 0) e.cur.stamina = 0;
     }
@@ -1479,6 +1498,22 @@ const KMapSettings& KSubWorld::map_settings() const noexcept
 {
     static const KMapSettings none;
     return cfg_.map ? cfg_.map->settings : none;
+}
+
+int KSubWorld::run_stamina_sub(const KNpc& e) const noexcept
+{
+    const KStaminaRule& s = tables().stamina();
+    switch (e.player.pk_state) {
+    case 0: return s.exercise_run_sub;
+    case 1: return s.fight_run_sub;
+    default: return s.kill_run_sub;
+    }
+}
+
+std::uint32_t KSubWorld::player_move_speed(const KNpc& e) const noexcept
+{
+    const int per_frame = e.cur.stamina < run_stamina_sub(e) ? e.cur.walk_speed : e.cur.run_speed;
+    return static_cast<std::uint32_t>(std::max(1, per_frame)) * cfg_.tick_hz;
 }
 
 int KSubWorld::random_series()

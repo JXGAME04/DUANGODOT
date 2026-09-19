@@ -86,7 +86,9 @@ void KPlayer::load_from(KNpc& npc, const pb::RoleData& role, const KPlayerSet& t
     // m_LifeMax straight from the role data (TRoleData+0xeb), the stamina from the tables, the
     // mana from the role data; a player has no natural life / mana replenish of its own
     npc.base.life_max = std::max(1, s.hp_max());
-    npc.base.stamina_max = tables.stamina_base(static_cast<int>(npc.series), static_cast<int>(npc.sex), static_cast<int>(npc.level));
+    // (without the level tables - a test, a zone booted without player.json - the KNpcAttrib default 100 stands, so the
+    // character is not "out of stamina" and walking from the start)
+    if (const int base = tables.stamina_base(static_cast<int>(npc.series), static_cast<int>(npc.sex), static_cast<int>(npc.level)); base > 0) npc.base.stamina_max = base;
     npc.base.life_replenish = 0;
     npc.base.mana_replenish = 0;
     npc.base.mana_max = std::max(0, s.mp_max());

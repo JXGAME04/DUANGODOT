@@ -275,6 +275,12 @@ public:
     // KPlayer::UpdataCurData 0x080AF550 for a player's npc (a piece put on / taken off, a point spent): ClearAttrib, the
     // points, ReCalcStateEffect 0x0807D270 (every held state applied again), ReCalcEquip 0x080AF3E0, then the sync
     void recalc_player(KNpc& e);
+    // stamina.ini's run cost / threshold of a player by its PK state (0x0808BE0B .. 0x0808BE76, 0x08080C5F .. 0x08080CCA):
+    // 0 ExerciseRunSub, 1 FightRunSub, 2 and anything else KillRunSub
+    [[nodiscard]] int run_stamina_sub(const KNpc& e) const noexcept;
+    // the units a player covers in a second: m_CurrentRunSpeed a frame (0x08080C01 -> 0x08080900) while the stamina reaches the
+    // run cost, else m_CurrentWalkSpeed a frame (0x08080C86: DoWalk on foot 0x0807B430, the step 0x08080B70)
+    [[nodiscard]] std::uint32_t player_move_speed(const KNpc& e) const noexcept;
     // the 0x9a packet {0x9a, npc id, word kind} (0x0809DF66, 0x0807A870 within 100): G2C_NPC_GOLD
     void emit_gold(const KNpc& e);
     [[nodiscard]] const KMapSettings& map_settings() const noexcept;

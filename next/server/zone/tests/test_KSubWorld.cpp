@@ -112,7 +112,7 @@ TEST_CASE("spawn sends the visible set to the newcomer and the newcomer to viewe
     CHECK(spawn.entities(0).entity_id() == ea.value);
     CHECK(spawn.entities(0).name() == "A");
     CHECK(spawn.entities(0).entity_type() == jx::pb::ENTITY_PLAYER);
-    CHECK(spawn.entities(0).move_speed() == 200);
+    CHECK(spawn.entities(0).move_speed() == 200);   // m_CurrentRunSpeed 10 a frame (0x080A7FF0) x this world's 20 frames a second (the role's move_speed is not a rule)
 
     REQUIRE(w.spawn_player(2, role(22, "B", Pos{200, 200}), eb, pb) == jx::pb::RESULT_OK);
     out = w.take_outbox();

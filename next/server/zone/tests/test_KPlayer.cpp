@@ -508,3 +508,82 @@ TEST_CASE("CalcExp follows the level difference of 0x080A7C80", "[player]")
     CHECK(KPlayer::calc_exp(1000, 100, 90) == 1000);
     CHECK(KPlayer::calc_exp(0, 20, 20) == 1);            // never below 1
 }
+
+TEST_CASE("stamina: running costs the PK state's RunSub every state tick, standing gains NormalAdd, ForbitStamina stops the gain, an exhausted character walks", "[player][world][stamina]")
+{
+    jx::log::Options o;
+    o.console = false;
+    o.default_level = jx::log::Level::warn;
+    jx::log::init(o);
+    jx::zone::KSubWorldConfig c = hero_world();
+    KPlayerSet tables = linux_tables();
+    jx::zone::KStaminaRule st;
+    st.normal_add = 1;
+    st.exercise_run_sub = 2;
+    st.fight_run_sub = 5;
+    st.kill_run_sub = 18;
+    st.sit_add = 10;
+    tables.set_stamina(st);
+    c.player_set = std::make_shared<KPlayerSet>(tables);
+    jx::zone::KSubWorld w(c);
+    jx::EntityId hero;
+    jx::zone::Pos at;
+    jx::pb::RoleData role = shaolin_role();
+    role.mutable_position()->set_zone_id(1);
+    role.mutable_position()->mutable_pos()->set_x(2000);
+    role.mutable_position()->mutable_pos()->set_y(2000);
+    REQUIRE(w.spawn_player(7, role, hero, at) == jx::pb::RESULT_OK);
+    jx::zone::KNpc* h = w.mutable_entity(hero);
+    REQUIRE(h != nullptr);
+    const int max = h->cur.stamina_max;
+    REQUIRE(max == 180);   // stamina_male_base of the fixture
+    CHECK(h->cur.stamina == max);
+    CHECK(h->speed == 10u * 18u);   // m_CurrentRunSpeed 10 a frame (0x080A7FF0)
+    // standing: + NormalAdd every ten frames (0x0808BD3D), clamped at the maximum
+    h->cur.stamina = max - 5;
+    for (int i = 0; i < 20; ++i) w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->cur.stamina == max - 3);
+    // running (m_Doing 3) in the normal state (Player+0x5a50 == 0): NormalAdd - ExerciseRunSub = 1 - 2 a state tick (0x0808BE1F)
+    REQUIRE(w.move_request(7, jx::zone::Pos{2000, 3800}, 1));
+    for (int i = 0; i < 20; ++i) w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->moving);
+    CHECK(h->cur.stamina == max - 3 - 2);
+    // the kill state (2): - KillRunSub 18 (0x0808BE4D)
+    h->player.pk_state = 2;
+    for (int i = 0; i < 20; ++i) w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->cur.stamina == max - 5 - 34);
+    // ForbitStamina (Player+0x86b4): no gain, the cost stays (0x0808BD53)
+    h->player.forbid_stamina = 1;
+    h->player.pk_state = 1;   // FightRunSub 5
+    for (int i = 0; i < 20; ++i) w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->cur.stamina == max - 39 - 10);
+    h->player.forbid_stamina = 0;
+    // exhausted: below the run cost the frame walks (0x08080C50 -> 0x0807B430): m_CurrentWalkSpeed 5 a frame, told to the clients
+    h->cur.stamina = 3;
+    h->player.pk_state = 0;   // ExerciseRunSub 2: 3 >= 2 still runs
+    w.take_outbox();
+    w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->speed == 10u * 18u);
+    h->cur.stamina = 1;
+    w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->speed == 5u * 18u);
+    bool told = false;
+    for (const auto& p : w.take_outbox()) {
+        if (p.msg_id != static_cast<std::uint16_t>(jx::pb::G2C_ENTITY_MOVE)) continue;
+        jx::pb::EntityMove m;
+        REQUIRE(m.ParseFromString(p.payload));
+        if (m.entity_id() == hero.value && m.move_speed() == 90) told = true;
+    }
+    CHECK(told);
+    // the stamina climbs back (the walk costs nothing: 0x08080B70 has no stamina line) and the run resumes
+    h->cur.stamina = 50;
+    w.tick();
+    h = w.mutable_entity(hero);
+    CHECK(h->speed == 10u * 18u);
+}

@@ -38,6 +38,10 @@ struct KPlayer {
     int cur_vitality = 0;      // +0x5950
     int cur_energy = 0;        // +0x5954
     int cur_lucky = 0;         // m_nCurLucky      +0x5958
+    // +0x5a50: the PK state (0 normal, 1 fight, 2 kill; B3c-4 keeps the rest) - the run's stamina cost and threshold pick
+    // ExerciseRunSub / FightRunSub / KillRunSub of stamina.ini by it (0x0808BE0B, 0x08080C5F, 0x0807B620)
+    int pk_state = 0;
+    int forbid_stamina = 0;    // +0x86b4: Lua ForbitStamina 0x0810CCC0 - no stamina gain while set (0x0808BD53)
     int attribute_point = 0;   // m_nAttributePoint +0x5924 (5 per level)
     int skill_point = 0;       // m_nSkillPoint     +0x5928 (1 per level)
     std::int64_t exp = 0;      // m_nExp           +0x595c

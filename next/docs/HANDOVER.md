@@ -347,7 +347,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~Trạng thái (độc / băng / choáng / thuốc)~~ (xong trong B2a/B3: `ProcessState 0x0808B610` §9, độc/băng/choáng `0x0807BD60`/`ReceiveDamage`, `KStateNode` `+0x234`; `ReCalcStateEffect 0x0807D270` trong `UpdataCurData` xong 2026-09-18) | còn: trạng thái ngồi. |
 | Chia kinh nghiệm theo **đội** | `KPlayer::AddExpTeam 0x080B03E0` (đếm thành viên cùng map trong 1024 đơn vị, `√n × float 0x0825528C`, `100 + n`); `KDamageRecord::Add` ghi theo đội trưởng `0x08BB86E8 + team·0x30`. Cần hệ đội (M14). |
 | Hình phạt chết của người chơi | `KNpc::OnDeath 0x08088B60` phần đầu (mất kinh nghiệm `GetLevelExp/100·2 × (7−PK)/7`, trần 0x1FBD0; `0x080B9FA0` mất tiền/đồ theo PK). |
-| Ngồi hồi thể lực / chạy trừ thể lực | `stamina.ini` đã có trong `KPlayerSet` (`NormalAdd`, `SitAdd` ‰ ở `+0x11b0`, `ExerciseRunSub/FightRunSub/KillRunSub`); tìm nơi dùng `+0x11b0` và `KPlayerSet+0x14c0..` (`re_scan disp 11b0`). |
+| ~~Chạy trừ thể lực~~ (xong 2026-09-18: `ProcessState 0x0808BD3D` gain/`RunSub` theo `Player+0x5a50`, `ForbitStamina`; bước chạy `0x08080C50` → kiệt sức đi bộ `0x0807B430`; tốc độ người chơi = `m_CurrentRunSpeed`/khung = 180/giây, bỏ `move_speed` 200 của persist) | còn: **ngồi** (`m_Doing` 8: `SitAdd` ‰ `+0x11b0`, `SitAddLife/Mana` `0x0808BBE6`, gói ngồi/đứng của client 2.0). |
 | ~~`m_nLucky` vào rơi đồ~~ (xong 2026-09-18) | `GenRandomItem 0x08083D52..0x08083DB5`: `luck = (Player+0x5994 ≠ 0 && +0x5998 ≥ 0 ? 0x080CC620(bảng tông + 0x30·+0x5998, player) : 0) + Player+0x5958` (cờ tham số 4 ≠ 0 hay không có người → 0) → `lose_treasure` truyền `k->player.cur_lucky` (phần tông chờ M14). |
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
 | M13 nhiệm vụ / hàm script, M14 xã hội, M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
@@ -692,6 +692,11 @@ Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo 
   trạng thái đang giữ được áp lại (nút giữ giá trị đổi dấu → `ModifyAttrib` với `{type, −v0, −v1, −v2}`) — trước đây thay trang bị/cộng điểm làm mất buff
   và lúc hết hạn trừ thêm một lần; `recalc_player` truyền `skill_host`/`set_hide` cho `updata_cur_data`. May mắn rơi đồ: `GenRandomItem 0x08083D52..` =
   `cur_lucky` (+ hạng tông `0x080CC620` khi có tông) → `lose_treasure` truyền `k->player.cur_lucky`. Test `[command]` buff 1102 qua `recalc_player`.
+- **Sửa luật thể lực (cùng ngày)**: `ProcessState 0x0808BD3D` (mỗi 10 khung: `gain = ForbitStamina ? 0 : +0x11b4`; chạy → `− ExerciseRunSub/FightRunSub/KillRunSub`
+  theo `Player+0x5a50`, server thật 1/1/18; ngồi `+ SitAdd` — chưa), bước chạy `0x08080C50` (`thể < ngưỡng` → đi bộ `0x0807B430` `m_Doing` 2, gói 0x50) và bước
+  `0x08080900(+0x128c)` = `m_CurrentRunSpeed` đơn vị/khung → tốc độ người chơi 10 × 18 = **180/giây** (trước là `move_speed` 200 của persist — không phải luật),
+  kiệt sức → `walk_speed` 5 × 18 = 90 và `emit_move`; `KPlayer::pk_state (+0x5a50)`, `forbid_stamina (+0x86b4)`, Lua `ForbitStamina`; không có bảng cấp →
+  giữ `stamina_max` 100 mặc định (trước 0 → luôn kiệt sức). Test `[stamina]`; ctest 234/234; e2e `AUTO_RESULT arrived=true`, `AUTO_FIGHT dead=true`.
 - **B5c-3 (cùng ngày)**: hình thanh máu theo `PaintLife 0x005EADA1..0x005EAEF4`: `pct = round(máu·100/max)`, phần đầy `pct·38/100` từ `x−19` cao 3, màu
   xanh lá ≥ 50 / vàng ≥ 25 / đỏ (cùng đội (230,190,0) và trạng thái PK `+0x16e4/+0x16e8` chờ hệ đội/PK), phần còn lại xám (128,128,128) → `KNpc._draw`,
   `KNpcGold.life_bar_color`; Godot 445/445, e2e `auto_fight_b5c3_zoom.png` (46 % vàng + xám).
