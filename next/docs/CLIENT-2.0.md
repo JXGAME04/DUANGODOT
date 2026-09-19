@@ -380,7 +380,11 @@ gói (`KMissleResMath.z_step`, test `test_missle_math`) và, khi `Zacc ≠ 0`, q
 **Bước con trong khung (đã đọc 2026-09-18, không cần port)**: bản 2.0 **không** còn `OnFlyFPS` theo khung vẽ (mã JX1 2004 gọi từ `GOI_PROCFRAME_POSSHIFT`,
 `CoreShell.cpp` 6227 — bốn nơi gọi `0x006B2F00` đều nằm trong `KMissle::Activate` khung logic). Với đạn `MoveKind 1` (thẳng): `n = speed / [0x81f878]` (= **10**
 đơn vị, `0x006B3549`) lần `OnFly(10, kiểm va chạm) 0x006B2F00` rồi `OnFly(speed % 10)` (`0x006B360D`) — chia bước chỉ để **kiểm va chạm phía client** (zone đã kiểm),
-`KMissle::Paint 0x006B24E0` vẽ đúng ô hiện tại, không nội suy → đạn 2.0 cũng đổi chỗ 18 lần/giây. Client mới đi một bước mỗi tick 18 Hz: cùng vị trí, cùng nhịp.
+`KMissle::Paint 0x006B24E0` vẽ đúng ô hiện tại, không nội suy → đạn 2.0 đổi chỗ 18 lần/giây. **Chủ dự án (2026-09-18): bản dự án phải nội suy chuẩn FPS ngay từ đầu**
+(HANDOVER §0.1 luật 13) → client mới làm như `KMissle::OnFlyFPS` của client JX1 2004 (`KMissle.cpp` 1014, gọi mỗi khung vẽ từ `GOI_PROCFRAME_POSSHIFT` với
+`nStep` = số khung vẽ trong một khung logic: `speed/nStep` mỗi bước, phần dư rải; Z: `heightSpeed/nStep` mỗi bước, hết `nStep` bước mới trừ `Zacc`): `KMissle.gd`
+`_process(delta)` đi phần `delta·18` của một khung logic (vector·speed/1024 và độ cao), `_tick` chỉ còn đếm tuổi/khung ảnh; đánh lùi của `KNpc.gd` cũng vẽ nội suy
+giữa hai bước trượt của khung logic. `--auto`: `AUTO_MISSLE … smooth=11 fps=129` (một đạn đổi chỗ 11 khung vẽ trong một khung logic).
 
 ## 12. Đánh lùi trên client — gói `0x56` (`SendSyncAction`) → `KNpc::KnockBack` `0x005EE950` / `OnKnockBack` `0x005EFE00` (M12 lát B4c-4, đã đọc từng dòng)
 

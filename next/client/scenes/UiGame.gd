@@ -310,6 +310,7 @@ func _leave() -> void:
 var _missles := {}
 var _missle_spawns := 0
 var _missle_effects := 0
+var _missle_smooth_max := 0      # the most render-frame moves a missile made inside one logic frame (rule 13)
 
 
 func _on_missle(d: Dictionary) -> void:
@@ -331,6 +332,8 @@ func _on_missle(d: Dictionary) -> void:
 		if node != null:
 			node.apply(d)
 		return
+	if node != null and is_instance_valid(node):
+		_missle_smooth_max = maxi(_missle_smooth_max, node.max_frame_moves)
 	if node == null:
 		if bool(d.get("removed", false)):
 			return   # a missile this client never saw fly: nothing to end
@@ -356,6 +359,14 @@ func _missle_shot_info() -> String:
 		var c := r.get_center() - (own.position if own != null else Vector2.ZERO)
 		parts.append("m%d:%s@(%d,%d)%dx%d" % [node.missle_id, node.status, int(c.x), int(c.y), int(r.size.x), int(r.size.y)])
 	return " ".join(parts)
+
+
+# --auto: the most render-frame moves any live missile made within one logic frame (rule 13: > 1 at 144 fps)
+func _missle_smooth() -> int:
+	for node in _missles.values():
+		if node != null and is_instance_valid(node):
+			_missle_smooth_max = maxi(_missle_smooth_max, node.max_frame_moves)
+	return _missle_smooth_max
 
 
 # --auto: is any missile showing a frame right now (its AnimFile2 while it flies, AnimFile3 while it vanishes)?
@@ -511,8 +522,8 @@ func _auto_run() -> void:
 	await _auto_skills()
 	await _auto_fight()
 	await _auto_death()
-	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
-		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0])
+	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
+		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
 	print("AUTO_SOUNDS %s" % str(_sounds.history if _sounds != null else []))
 	# the state pictures every npc around carries (B4d-2: a template's aura in cell 5 casts its child every ten frames)
 	var npc_states: PackedStringArray = []
@@ -913,7 +924,7 @@ func _auto_skills() -> void:
 				await get_tree().create_timer(0.05).timeout
 				shown += 0.05
 			await _save_screenshot("user://logs/auto_cast.png")
-			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d" % [shown, _missle_drawn(), _missle_shot_info(), _sounds.played if _sounds != null else 0])
+			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d smooth=%d" % [shown, _missle_drawn(), _missle_shot_info(), _sounds.played if _sounds != null else 0, _missle_smooth()])
 			await get_tree().create_timer(maxf(1.0 - shown, 0.1)).timeout
 			cast_told = _action_count > actions_before
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]

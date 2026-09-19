@@ -54,6 +54,8 @@ var _tick_acc := 0.0
 var _rng := RandomNumberGenerator.new()
 var _knock_dest := Vector2.ZERO    # KNpc+0x13b4/+0x13b8 of the 2.0 client: where a knock back pushes to
 var _knocked := false
+var _knock_from := Vector2.ZERO    # the slide of the current logic frame, drawn interpolated (HANDOVER §0.1 rule 13)
+var _knock_to := Vector2.ZERO
 var state_icons: Array = []        # the six StateSpecialIds of the 0x7a packet (G2C_STATE_ICONS), drawn by KNpcRes
 var sounds = null                  # the world's KWavSound (UiGame), null = silent
 
@@ -163,6 +165,8 @@ func apply_action(a: Dictionary) -> void:
 			# the way it came from (0x005E8DB0 of here - spot) and keeps its facing when the spot is here.  docs/CLIENT-2.0.md §12
 			_knock_dest = Vector2(float(a.get("ax", a.x)), float(a.get("ay", a.y)))
 			_knocked = true
+			_knock_from = scene_pos
+			_knock_to = scene_pos
 			var face := KMath.get_dir_index(int(_knock_dest.x), int(_knock_dest.y), int(scene_pos.x), int(scene_pos.y))
 			if face >= 0:
 				dir64 = face
@@ -272,6 +276,9 @@ func _process(delta: float) -> void:
 	while _tick_acc >= TICK:
 		_tick_acc -= TICK
 		_tick()
+	if _knocked:
+		# the logic slides once per frame (OnKnockBack); the picture goes the frame's way smoothly (rule 13)
+		position = to_screen(_knock_from.lerp(_knock_to, clampf(_tick_acc / TICK, 0.0, 1.0)))
 
 
 # One old logic frame: choose the doing, advance the frame counter, turn, and draw.
@@ -284,8 +291,9 @@ func _tick() -> void:
 	elif doing == KNpcResNode.Doing.ATTACK or doing == KNpcResNode.Doing.ATTACK1 or doing == KNpcResNode.Doing.HURT:
 		if _knocked:
 			# KNpc::OnKnockBack 0x005EFE00: a frame's share of the way left, then the frame count as for a hurt
+			_knock_from = scene_pos
 			scene_pos += KMath.knock_step(scene_pos, _knock_dest, total_frame - cur_frame)
-			position = to_screen(scene_pos)
+			_knock_to = scene_pos
 		cur_frame += 1
 		if cur_frame >= total_frame:   # KNpc::OnSpecial1 / OnHurt / OnKnockBack -> DoStand
 			_knocked = false
