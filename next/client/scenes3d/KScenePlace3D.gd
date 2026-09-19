@@ -528,7 +528,14 @@ func _post_process(root: Node) -> void:
 			_fade_meshes.append(mi)
 		var q := quality_settings()
 		var group := str(meta.get("group", ""))
-		if group == "Tree" and float(q["tree_range"]) > 0.0:
+		var ref_cull := _layer_cull(meta)
+		if ref_cull > 0.0:
+			# CullDistances [TK OnEnable 0x4a91d0]: the scene's own cut for layers 14 / 15 / 16 (Camera.layerCullDistances,
+			# layerCullSpherical = true, a hard cut) - the reference's number wins over the quality ranges below
+			mi.visibility_range_end = ref_cull
+			mi.visibility_range_end_margin = 0.0
+			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		elif group == "Tree" and float(q["tree_range"]) > 0.0:
 			mi.visibility_range_end = float(q["tree_range"])
 			mi.visibility_range_end_margin = 8.0
 			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
@@ -536,6 +543,18 @@ func _post_process(root: Node) -> void:
 			mi.visibility_range_end = float(q["grass_range"])
 			mi.visibility_range_end_margin = 5.0
 			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+
+# The cull distance the scene's CullDistances gives the node's Unity layer (scene.json render.cull_layers {"14", "15", "16"}:
+# small props / trees / canopies), 0 when the scene has none or the layer is not cut (Unity: 0 = the far plane)
+func _layer_cull(meta: Dictionary) -> float:
+	var rs = scene.get("render", {})
+	if not (rs is Dictionary) or not rs.has("cull_layers"):
+		return 0.0
+	var layer := int(meta.get("layer", 0))
+	if layer == 0:
+		return 0.0
+	return float((rs["cull_layers"] as Dictionary).get(str(layer), 0.0))
 
 
 # docs/3D-HOA-SI.md: terrain / walk / building / tree / grass / water / stone / prop by the node name's prefix

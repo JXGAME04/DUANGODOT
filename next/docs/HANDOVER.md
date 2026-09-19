@@ -827,6 +827,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-65) — `CullDistances`: khoảng cách cắt theo lớp Unity của cảnh (10 cảnh), lớp của từng vật thể trong `scene.json`
+
+- `CullDistances` [TK] chỉ ghi 3 trường (12 byte): `cull_dist_ly14/15/16`; `OnEnable 0x4a91d0`: `distances[Global.layer14/15/16] = …` →
+  `Camera.layerCullDistances`, `layerCullSpherical = true` (cắt cứng theo khoảng cách cầu; 0 = mặt xa). 10 cảnh có: Ba Lăng / Thành Đô /
+  Đạo Hương / Lâm An / Vĩnh Lạc / Đào Hoa / Xích Vưu 25 / 50 / 0 m, Thanh Thành 40 / 55 / 0, Biện Kinh 25 / 50 / 100. Lớp (đếm 45 cảnh, vật có
+  renderer): 9 = nhà/đất 8 516, 10 = lá cây `dashu*_yz` 3 029, 14 = đèn đá/chậu lửa/cỏ 1 932, 15 = thân cây `dashu*_sg` 8 025, 16 = cành/tán 8 010.
+- `export_scene`: `layer` trên từng node (`m_Layer` ≠ 0) + `render.cull_layers {"14","15","16"}`; `batch_maps.py --scene-only` xuất lại 45 `scene.json`
+  (45 đúng, NPC/map3d giữ nguyên). `KScenePlace3D`/`Scn3D`: `visibility_range_end` = số của cảnh cho lớp có số > 0 (cắt cứng, không mờ dần),
+  còn lại giữ dải theo chất lượng [tự chọn] như cũ. Ba Lăng: 730 node lớp 15 cắt 50 m (`SCN3D_CULL hist={0: 1485, 50: 730}`), draw call
+  857 → 764 cùng góc nhìn.
+- Chốt thêm theo bằng chứng (§H 8): `bonechain`/`ClothStrings`/`GFX`/`TaskStepSound`/`Grass`/`SkyboxCam`/`MirrorReflection`/`Decal`/`ShadowProjMgr`
+  = 0 thể hiện trong 68 bundle (122 lớp MonoBehaviour có mặt, đếm `bundle_all.tsv`) → *bỏ*; `T4MPlantObjSC` (6 427) là lớp đánh dấu không trường.
+- Kiểm: Godot 631/631; e2e (cổng +1000) BOT / CLIENT / CLIENT 2D / CLIENT WS OK.
+- commit: `JX NEXT 3D: 3D-65 - CullDistances theo lop (10 canh), layer tung vat the, scene.json 45 canh xuat lai`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-64) — vật con bay vòng quanh người tạo (`skill_childobj` cột 17 = 7): 五毒百毒穿心 = Bách Độc Xuyên Tâm (JX 384)
 
 - Bảng: 3 dòng moveType 7 (101 五毒百毒穿心 tốc độ `180*280*0.5*50`, 306 tuyệt kỹ Thiên Nhẫn `270*270*-1*2`, 507 boss); JX 384 (Ngũ Độc cấp 30,

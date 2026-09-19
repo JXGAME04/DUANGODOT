@@ -416,7 +416,8 @@ class Exporter:
             if "mesh" in bf:
                 mrd = mr.read()
                 inst.append({"mesh": bf["mesh"], "mats": br.get("mat", []), "lm": br.get("lm"), "world": M,
-                             "group": group, "name": go.m_Name, "active": active and bool(getattr(mrd, "m_Enabled", 1))})
+                             "group": group, "name": go.m_Name, "active": active and bool(getattr(mrd, "m_Enabled", 1)),
+                             "layer": int(getattr(go, "m_Layer", 0))})
         for ch in t.m_Children:
             co = self.objs_scene.get(ch.path_id)
             if co is not None and co.type.name == "Transform":
@@ -451,6 +452,14 @@ class Exporter:
                 r = Raw(o.get_raw_data()); go_pid, sc_pid = r.header()
                 sc = self.objs_scene.get(sc_pid)
                 cls = sc.read().m_ClassName if sc is not None and sc.type.name == "MonoScript" else "?"
+                if cls == "CullDistances":
+                    # CullDistances [TK OnEnable 0x4a91d0]: cull_dist_ly14/15/16 (the only serialized fields, 12 bytes) go to
+                    # Camera.layerCullDistances[layer 14 / 15 / 16] with layerCullSpherical = true; 0 = the far plane.  10 scenes:
+                    # 25 / 50 / 0 (Ba Lang, Thanh Do, ...), 40 / 55 / 0 (Thanh Thanh), 25 / 50 / 100 (Bien Kinh)
+                    b = r.b[r.p:]
+                    if len(b) >= 12:
+                        v = struct.unpack_from("<3f", b, 0)
+                        rs["cull_layers"] = {"14": float(v[0]), "15": float(v[1]), "16": float(v[2])}
                 if cls == "SceneRenderSetting":
                     b = r.b[r.p:]
                     f = lambda off: struct.unpack_from("<f", b, off)[0]
@@ -641,6 +650,9 @@ class Exporter:
             ni = len(nodes)
             nodes.append({"name": "g%d" % ni, "mesh": gm, "matrix": [float(x) for x in W.T.reshape(-1)]})
             meta = {"group": it["group"], "src": it["name"]}
+            if it.get("layer", 0):
+                # the Unity layer: CullDistances of the scene cuts layers 14 (small props) / 15 (trees) / 16 (canopies) by distance
+                meta["layer"] = int(it["layer"])
             if it["lm"] is not None and it["lm"][0] < len(lightmaps) and lightmaps[it["lm"][0]]:
                 meta["lm"] = [int(it["lm"][0])] + [round(float(x), 6) for x in it["lm"][1:]]
             node_meta.append(meta)

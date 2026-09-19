@@ -95,6 +95,12 @@ func _ready() -> void:
 	stats["load_ms"] = Time.get_ticks_msec() - t0
 	print("SCN3D map=%s nodes=%d surfaces=%d lightmapped=%d terrain=%d npcs=%d npc_models=%d load_ms=%d" % [
 		map_name, stats["nodes"], stats["surfaces"], stats["lm_surfaces"], stats["terrain"], stats["npcs"], stats["npc_models"], stats["load_ms"]])
+	# the cull distances in use (CullDistances of the scene per layer, else the quality ranges): count per distance
+	var cull_hist := {}
+	for mi in find_children("*", "MeshInstance3D", true, false):
+		var r := float((mi as MeshInstance3D).visibility_range_end)
+		cull_hist[r] = int(cull_hist.get(r, 0)) + 1
+	print("SCN3D_CULL layers=%s hist=%s" % [str(info.get("render", {}).get("cull_layers", {})) if info.get("render", null) is Dictionary else "-", str(cull_hist)])
 	if auto:
 		_auto()
 
@@ -221,6 +227,13 @@ func _post_process(root: Node) -> void:
 			mi.create_trimesh_collision()
 			stats["collision"] += 1
 			mi.add_to_group("terrain")
+		# CullDistances [TK]: the scene's cut per Unity layer (render.cull_layers, a hard spherical cut) as in KScenePlace3D
+		var rs = info.get("render", {})
+		if rs is Dictionary and rs.has("cull_layers") and int(meta.get("layer", 0)) != 0:
+			var cd := float((rs["cull_layers"] as Dictionary).get(str(int(meta["layer"])), 0.0))
+			if cd > 0.0:
+				mi.visibility_range_end = cd
+				mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
 
 func _make_material(mm: Dictionary, meta: Dictionary) -> Material:
