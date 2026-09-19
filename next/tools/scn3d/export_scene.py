@@ -85,6 +85,23 @@ def trs(p, q, s):
     return M
 
 
+def mat_to_quat(R):
+    """ma tran quay 3x3 (cot da chuan hoa) -> quaternion [x, y, z, w]"""
+    m = R
+    tr = m[0, 0] + m[1, 1] + m[2, 2]
+    if tr > 0:
+        s = math.sqrt(tr + 1.0) * 2
+        return [(m[2, 1] - m[1, 2]) / s, (m[0, 2] - m[2, 0]) / s, (m[1, 0] - m[0, 1]) / s, 0.25 * s]
+    if m[0, 0] > m[1, 1] and m[0, 0] > m[2, 2]:
+        s = math.sqrt(1.0 + m[0, 0] - m[1, 1] - m[2, 2]) * 2
+        return [0.25 * s, (m[0, 1] + m[1, 0]) / s, (m[0, 2] + m[2, 0]) / s, (m[2, 1] - m[1, 2]) / s]
+    if m[1, 1] > m[2, 2]:
+        s = math.sqrt(1.0 + m[1, 1] - m[0, 0] - m[2, 2]) * 2
+        return [(m[0, 1] + m[1, 0]) / s, 0.25 * s, (m[1, 2] + m[2, 1]) / s, (m[0, 2] - m[2, 0]) / s]
+    s = math.sqrt(1.0 + m[2, 2] - m[0, 0] - m[1, 1]) * 2
+    return [(m[0, 2] + m[2, 0]) / s, (m[1, 2] + m[2, 1]) / s, 0.25 * s, (m[1, 0] - m[0, 1]) / s]
+
+
 def euler_unity(rx, ry, rz):
     """Unity Transform.eulerAngles (do) -> ma tran quay (thu tu Z, X, Y nhu Unity: R = Ry * Rx * Rz)."""
     ax, ay, az = math.radians(rx), math.radians(ry), math.radians(rz)
@@ -328,6 +345,7 @@ class Exporter:
         self.roots = roots
         nodes = self.index["nodes"]; parents = self.index["parents"]
         inst = []
+        self.effects = []
         # ma tran the gioi cua node index (px.. la world position/euler/lossyScale)
         for ni, nd in enumerate(nodes):
             url = nd.get("url", "")
@@ -362,6 +380,36 @@ class Exporter:
             if co is not None:
                 comps.setdefault(co.type.name, []).append(co)
         active = bool(getattr(go, "m_IsActive", 1))
+        # PrefabRef [TK Execute 0x87e890 / SetPrefabData 0x87d6a0]: the scene's own effects (torches cmn_huoyan*, stone lamps
+        # cmn_shideng01, fountains, incense smoke cmn_yanwu, waterfall spray cmn_pubu_shuihua*): objData[] {obj, url, type 11 =
+        # Prefab, data ["1" = SetTransform, px, py, pz, rx, ry, rz, sx, sy, sz]} instantiated under this object
+        for co in comps.get("MonoBehaviour", []):
+            try:
+                r = Raw(co.get_raw_data()); go_pid, sc_pid = r.header()
+                sc = self.objs_scene.get(sc_pid)
+                if sc is None or sc.type.name != "MonoScript" or sc.read().m_ClassName != "PrefabRef":
+                    continue
+                cnt = r.i32()
+                for _ in range(cnt):
+                    r.pptr(); url = r.string(); typ = r.i32(); nd = r.i32(); data = [r.string() for _ in range(nd)]
+                    if typ != 11 or not url.startswith("Assets/Particles/") or not url.endswith(".prefab"):
+                        continue
+                    rel = url[len("Assets/Particles/"):-len(".prefab")]
+                    lp = [0.0, 0.0, 0.0]; le = [0.0, 0.0, 0.0]; ls = [1.0, 1.0, 1.0]
+                    if len(data) >= 10 and data[0].strip() == "1":
+                        try:
+                            lp = [float(x) for x in data[1:4]]; le = [float(x) for x in data[4:7]]; ls = [float(x) for x in data[7:10]]
+                        except ValueError:
+                            pass
+                    LM = np.eye(4); LM[:3, :3] = euler_unity(*le) @ np.diag(ls); LM[:3, 3] = lp
+                    W = M @ LM
+                    sc3 = [float(np.linalg.norm(W[:3, i])) for i in range(3)]
+                    R = W[:3, :3] / np.array([max(s_, 1e-6) for s_ in sc3])
+                    q = mat_to_quat(R)
+                    self.effects.append({"prefab": rel, "host": go.m_Name, "pos": [-float(W[0, 3]), float(W[1, 3]), float(W[2, 3])],
+                                         "quat": [q[0], -q[1], -q[2], q[3]], "scale": sc3, "active": active})
+            except (struct.error, IndexError, UnicodeDecodeError):
+                self.log.append("PrefabRef khong doc duoc: " + go.m_Name)
         if "MeshRenderer" in comps and "MeshFilter" in comps:
             mr = comps["MeshRenderer"][0]; mf = comps["MeshFilter"][0]
             bf = self.bind.get(mf.path_id, {}); br = self.bind.get(mr.path_id, {})
@@ -626,7 +674,7 @@ class Exporter:
         marks = self.marks(table.get("sl_markpath", self.scene)) if table else {}
         rs = self.render_setting()
         scene_json = {"scene": self.scene, "table": table, "render": rs, "lightmaps": lightmaps, "materials": materials,
-                      "nodes": node_meta, "marks": marks, "textures": self.texinfo,
+                      "nodes": node_meta, "marks": marks, "textures": self.texinfo, "effects": getattr(self, "effects", []),
                       "stats": {"instances": len(nodes) - 1, "meshes": len(meshes), "materials": len(materials), "buffer_bytes": len(buf)}}
         with io.open(os.path.join(self.out, "scene.json"), "w", encoding="utf-8") as f:
             json.dump(scene_json, f, ensure_ascii=False, indent=1)

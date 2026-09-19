@@ -642,6 +642,21 @@ func _auto() -> void:
 			await _screenshot("user://logs/scn3d_sfx_%s_%d.png" % [test_sfx, shot])
 			shot += 1
 		print("SCN3D_SFX %s alive=%s children=%d" % [test_sfx, is_instance_valid(fx), fx.get_child_count() if is_instance_valid(fx) else 0])
+		if is_instance_valid(fx):
+			# --sfx: every particle node with what it emits (the check of one export)
+			for p in fx.find_children("*", "CPUParticles3D", true, false):
+				var pm = p.mesh
+				var mat = pm.surface_get_material(0) if pm != null and pm.get_surface_count() > 0 else null
+				print("SCN3D_SFX_PS %s emitting=%s amount=%d life=%.2f vel=%.2f..%.2f dir=%s scale=%.3f..%.3f color=%s mesh=%s mat_tex=%s blend=%s bb=%s frames=%dx%d pos=%s vis=%s" % [
+					p.name, p.emitting, p.amount, p.lifetime, p.initial_velocity_min, p.initial_velocity_max, str(p.direction), p.scale_amount_min, p.scale_amount_max,
+					str(p.color), str(pm.get_class()) if pm else "-", str(mat.albedo_texture != null) if mat is StandardMaterial3D else "-",
+					str(mat.blend_mode) if mat is StandardMaterial3D else "-", str(mat.billboard_mode) if mat is StandardMaterial3D else "-",
+					mat.particles_anim_h_frames if mat is StandardMaterial3D else 0, mat.particles_anim_v_frames if mat is StandardMaterial3D else 0,
+					str(p.global_position), str(p.visible)])
+				print("SCN3D_SFX_PS2 %s one_shot=%s expl=%.2f shape=%d spread=%.0f anim_off=%.4f..%.4f anim_speed=%.3f ramp=%s albedo=%s transp=%s alpha_scissor=%s local=%s lifetime_rand=%.2f" % [
+					p.name, p.one_shot, p.explosiveness, p.emission_shape, p.spread, p.anim_offset_min, p.anim_offset_max, p.anim_speed_max,
+					str(p.color_ramp != null), str(mat.albedo_color) if mat is StandardMaterial3D else "-", str(mat.transparency) if mat is StandardMaterial3D else "-",
+					str(mat.alpha_scissor_threshold) if mat is StandardMaterial3D else "-", str(p.local_coords), p.lifetime_randomness])
 		get_tree().quit()
 		return
 	var views := [[0.0, 40.0, 19.0], [90.0, 40.0, 19.0], [180.0, 40.0, 19.0], [270.0, 40.0, 19.0], [45.0, 75.0, 21.0], [20.0, 40.0, 10.0]]

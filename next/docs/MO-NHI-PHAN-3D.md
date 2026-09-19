@@ -140,6 +140,7 @@ chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 
 | F4 | Rung camera `CameraAnim`, `TweenCamera`, `CameraSave` | IL2CPP | **chưa** (C10) |
 | F5 | Sương mù/ambient/đèn đổi theo vùng (`scn_area_list` cột 10–12) | A13 | *bỏ* (4 vùng toàn game); nhạc vùng chờ 3.5 (3D-52) |
 | F6 | Shader: lightmap 2 mặt, nước, cỏ đung đưa (float vật liệu), dissolve, distortion, bloom; mê cung `地形_迷宫_A高度` = Lambert đèn hướng + 4 splat (hang tối là do sương 4..12 m → 3D-55) | bundle shader (GLSL APK `shaders_apk`) | **một phần**: lightmap/nước/cỏ xong (công thức tự chọn); dissolve/bloom **chưa** |
+| F6b | Hiệu ứng động của cảnh: `PrefabRef` (`Execute 0x87e890`, `SetPrefabData 0x87d6a0`) → 2 596 prefab `Cmn/*` (đuốc, đèn đá, đài phun, khói hương, bọt thác) trên 27 cảnh; nước chảy/cỏ lá đung đưa = shader | scene bundle + IL2CPP | `export_scene` → `scene.json.effects` | `KScenePlace3D._update_scene_effects` (60 m) | **xong** (3D-58); `GFX.levelMaxDists` theo prefab chưa |
 | F7 | 45 map 3D: `batch_maps.py --all` (id 9052 + scene), mark → nhân vật (vai trò chung, xương, pinyin), nhân vật → template (`map_npcs.py`) | scenes_* | **xong** (3D-54/55): 44 map dựng, 17 604 vị trí, 6 map trống; hang sáng sau khi bỏ sương ngắn |
 
 ### G. Lua uLua của bản tham khảo (245 tệp, vừa trích)

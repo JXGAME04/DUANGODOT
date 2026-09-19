@@ -51,6 +51,13 @@ var _fade_meshes: Array = []   # MeshInstance3D of the "Buildings" group (the re
 var _fade_state := {}          # MeshInstance3D -> current alpha (< 1 while faded)
 var _occluders := {}           # MeshInstance3D -> true, found at the last detection
 var _next_detect := 0.0
+const SfxScript := preload("res://scenes3d/Scn3DSfx.gd")
+const EFFECT_DIST := 60.0        # metres from the character: the scene's own effects live inside this [tự chọn; the
+                                 # reference's GFX.levelMaxDists are per prefab]
+var _effects: Array = []         # scene.json effects: PrefabRef placements (torches, lamps, fountains, smoke, spray) [TK]
+var _effect_nodes := {}          # index -> Scn3DSfx (or false when the prefab is missing)
+var _effects_root: Node3D = null
+var _next_effects := 0.0
 
 
 # Loads the bundle of a map; false when there is none (the caller falls back to a flat ground).
@@ -98,6 +105,11 @@ func load_map(id: int) -> bool:
 	add_child(_map_root)
 	_post_process(_map_root)
 	mode = "3d"
+	_effects = scene.get("effects", []) if scene.get("effects", []) is Array else []
+	_effects_root = Node3D.new()
+	_effects_root.name = "SceneEffects"
+	add_child(_effects_root)
+	_next_effects = 0.0
 	stats["load_ms"] = Time.get_ticks_msec() - t0
 	Log.info("map3d", "map loaded", {"map": id, "nodes": stats["nodes"], "lightmapped": stats["lm_surfaces"], "terrain": stats["terrain"],
 		"load_ms": stats["load_ms"], "origin": str(origin)})
@@ -120,6 +132,9 @@ func clear() -> void:
 	_tex_cache.clear()
 	info = {}
 	scene = {}
+	_effects = []
+	_effect_nodes.clear()
+	_effects_root = null
 	stats = {"nodes": 0, "surfaces": 0, "lm_surfaces": 0, "terrain": 0, "load_ms": 0}
 
 
@@ -167,6 +182,46 @@ func update(focus_scene: Vector2, delta: float, camera_pos: Vector3 = Vector3.IN
 		ground25.update(focus_scene, delta)
 	if mode == "3d" and camera_pos != Vector3.INF and target_pos != Vector3.INF:
 		_update_building_fade(camera_pos, target_pos, delta)
+		_next_effects -= delta
+		if _next_effects <= 0.0:
+			_next_effects = 0.5
+			_update_scene_effects(target_pos)
+
+
+# The scene's own effects (PrefabRef of the scene objects [TK]: 2 596 placements over 27 scenes, mostly cave torches):
+# looping Scn3DSfx made within EFFECT_DIST of the character, freed again farther away
+func _update_scene_effects(at: Vector3) -> void:
+	if _effects_root == null or not is_instance_valid(_effects_root):
+		return
+	for i in _effects.size():
+		var e: Dictionary = _effects[i]
+		if not bool(e.get("active", true)):
+			continue
+		var pv: Array = e.get("pos", [0, 0, 0])
+		var p := Vector3(float(pv[0]), float(pv[1]), float(pv[2]))
+		var d := p.distance_to(at)
+		var node = _effect_nodes.get(i)
+		if d < EFFECT_DIST and node == null:
+			var fx: Node3D = SfxScript.spawn(_effects_root, "%s/sfx" % Assets.assets3d_root(), str(e.get("prefab", "")).replace("/", "_"), p, 0.0, 0.0, true)
+			if fx != null:
+				var q: Array = e.get("quat", [0, 0, 0, 1])
+				fx.quaternion = Quaternion(float(q[0]), float(q[1]), float(q[2]), float(q[3])).normalized()
+				var sc: Array = e.get("scale", [1, 1, 1])
+				fx.scale = Vector3(maxf(0.01, float(sc[0])), maxf(0.01, float(sc[1])), maxf(0.01, float(sc[2])))
+				_effect_nodes[i] = fx
+			else:
+				_effect_nodes[i] = false
+		elif d > EFFECT_DIST + 15.0 and node is Node:
+			(node as Node).queue_free()
+			_effect_nodes.erase(i)
+
+
+func scene_effects_live() -> int:
+	var n := 0
+	for v in _effect_nodes.values():
+		if v is Node and is_instance_valid(v):
+			n += 1
+	return n
 
 
 func _update_building_fade(camera_pos: Vector3, target_pos: Vector3, delta: float) -> void:

@@ -332,19 +332,28 @@ func _make_particles(dir: String, ps: Dictionary, st: GLTFState) -> CPUParticles
 	p.direction = Vector3(0, 0, 1)
 	p.spread = 180.0
 	match stype:
-		0, 1, 2, 3:
+		0, 1:
+			# Unity Sphere / SphereShell: outward from the centre
 			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			p.emission_sphere_radius = maxf(0.01, radius)
 			p.spread = 180.0
+		2, 3:
+			# Hemisphere: the upper half (local +Z of the shape) outward
+			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+			p.emission_sphere_radius = maxf(0.01, radius)
+			p.spread = 90.0
 		4, 7, 8:
 			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			p.emission_sphere_radius = maxf(0.01, radius)
 			p.direction = Vector3(0, 0, 1)
 			p.spread = clampf(float(sh.get("angle", 25.0)), 0.0, 90.0)
 		5, 15, 16:
+			# Unity Box / BoxShell / BoxEdge: straight along the shape's local +Z (a torch flame rises as a column; the
+			# shape's rotation (-90, 0, 0) turns that Z up) - no spread
 			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 			var sc = sh.get("scale", [1, 1, 1])
 			p.emission_box_extents = Vector3(absf(sc[0]) * 0.5, absf(sc[1]) * 0.5, absf(sc[2]) * 0.5)
+			p.spread = 0.0
 		10, 11:
 			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 			p.emission_sphere_radius = maxf(0.01, radius)
@@ -405,12 +414,23 @@ func _make_particles(dir: String, ps: Dictionary, st: GLTFState) -> CPUParticles
 	if uv is Dictionary:
 		tiles = Vector2i(maxi(1, int(uv.get("tiles_x", 1))), maxi(1, int(uv.get("tiles_y", 1))))
 		var sf: Dictionary = uv.get("start_frame", {"min": 0, "max": 0})
-		p.anim_offset_min = clampf(float(sf.get("min", 0)), 0.0, 1.0)
-		p.anim_offset_max = clampf(float(sf.get("max", 0)), 0.0, 1.0)
+		var off_min := clampf(float(sf.get("min", 0)), 0.0, 1.0)
+		var off_max := clampf(float(sf.get("max", 0)), 0.0, 1.0)
 		var fot: Dictionary = uv.get("frame_over_time", {"min": 0, "max": 0})
 		var cycles: float = float(uv.get("cycles", 1.0))
-		p.anim_speed_min = float(fot.get("max", 0)) * cycles
-		p.anim_speed_max = float(fot.get("max", 0)) * cycles
+		if fot.get("curve", null) == null:
+			# a constant frame over time: one atlas cell for the particle's whole life (the smoke's soft dot, cell 239 of
+			# sprite_cmn_mid_particle: frameOverTime 0.937 x 256) - the cell is the offset, nothing runs
+			off_min = clampf(off_min + float(fot.get("min", 0)), 0.0, 0.9999)
+			off_max = clampf(off_max + float(fot.get("max", 0)), 0.0, 0.9999)
+			p.anim_speed_min = 0.0
+			p.anim_speed_max = 0.0
+		else:
+			p.anim_speed_min = float(fot.get("max", 0)) * cycles
+			p.anim_speed_max = float(fot.get("max", 0)) * cycles
+		# (the max first: the min setter lifts the max to itself, the max setter lowers the min)
+		p.anim_offset_max = maxf(off_min, off_max)
+		p.anim_offset_min = minf(off_min, off_max)
 	var mat := _material(dir, rd.get("material", null), Color.WHITE, mode != 4, tiles, true)
 	if mode == 4 and rd.get("mesh_index", null) != null:
 		var gm: Array = st.get_meshes()

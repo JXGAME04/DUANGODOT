@@ -135,9 +135,15 @@ def mmc(v, default=0.0):
         return {"min": min(mn, s), "max": max(mn, s), "curve": None}
     if state == 1:
         ks = keys(v.get("maxCurve", {}))
+        if not ks:
+            # a curve mode without keys: the particle system takes the scalar as the constant (cmn_yanwu frameOverTime 0.937
+            # = atlas cell 239, the soft dot; an empty AnimationCurve would give 0 = the black cell)
+            return {"min": s, "max": s, "curve": None}
         vals = [k[1] for k in ks] or [s]
         return {"min": min(vals), "max": max(vals), "curve": ks}
     ks = keys(v.get("maxCurve", {})); ks2 = keys(v.get("minCurve", {}))
+    if not ks and not ks2:
+        return {"min": s, "max": s, "curve": None}
     vals = [k[1] for k in ks + ks2] or [s]
     return {"min": min(vals), "max": max(vals), "curve": ks}
 

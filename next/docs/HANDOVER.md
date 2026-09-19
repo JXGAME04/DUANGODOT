@@ -702,6 +702,27 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-58) — hiệu ứng động của cảnh (đuốc, đèn đá, đài phun, khói hương, bọt thác) + hai luật hạt đọc lại
+
+Chủ dự án hỏi "chuyển động ở mỗi map như khói, gió, nước chảy đã làm chưa": nước chảy (`scn3d_water`) và cỏ/lá đung đưa (`scn3d_lm_sway`)
+đã có từ M3D-3; **khói/lửa/nước phun thì chưa** — bundle cảnh không có ParticleSystem, mark cũng không. Mổ tiếp:
+
+- `PrefabRef` (MonoBehaviour trên vật thể cảnh, `Execute 0x87e890` / `SetPrefabData 0x87d6a0`): `objData[] {obj, url, type 11 = Prefab,
+  data ["1" = SetTransform, px,py,pz, rx,ry,rz, sx,sy,sz]}` → prefab `Assets/Particles/Cmn/*` sinh **làm con của vật thể đó** với
+  `localPosition/localRotation(Euler)/localScale` từ chuỗi. **2 596 vị trí / 27 cảnh**: 956 `cmn_huoyan01` + 691 `03` + 663 `02` (đuốc hang),
+  237 `cmn_shideng01` (đèn đá), 42 `cmn_penquan` (đài phun), 3 `cmn_yanwu` (khói lư hương Thành Đô), 1 `cmn_yanwu_hei` (khói lò rèn),
+  3 `cmn_pubu_shuihua01/02` (bọt thác Thanh Thành Sơn). `export_scene.py` ghi `scene.json.effects[] {prefab, pos, quat, scale, host}`
+  (ma trận thế giới = node × local, gương x); `KScenePlace3D._update_scene_effects`: sinh `Scn3DSfx` lặp trong 60 m quanh nhân vật, thả
+  ngoài 75 m [tự chọn; bản tham khảo `GFX.levelMaxDists` theo prefab] — Hưởng Thủy Động 447 vị trí → 51 sống, 144 FPS.
+- Hai luật hạt sai từ trước, thấy khi dựng đuốc: (1) `MinMaxCurve` chế độ đường cong **không có khóa** = hằng số `scalar` (khói:
+  `frameOverTime` 0,937 × 256 = ô 239 = chấm mềm của `sprite_cmn_mid_particle`; trước hiểu là "chạy hết bảng" → hạt nhấp nháy 240 ô
+  khác nhau, gần như trong suốt) → `mmc` trả `curve: null`, Godot `anim_offset = ô`, `anim_speed = 0` (đặt max trước min vì setter
+  Godot kéo nhau); (2) hình phát **Box/BoxShell/BoxEdge** của Unity phát thẳng theo +Z cục bộ (không toả) — trước để `spread 180`
+  nên lửa đuốc bắn tung 4 phía; nay cột lửa dựng đứng, khói bay lên (Hemisphere: toả 90°).
+- Kiểm: `--auto3d --gm=NewWorld(9076,576,338)`: `AUTO3D_SCENEFX placed=447 live=51`, ảnh `auto3d_1.png` đuốc cháy dọc vách hang;
+  `Scn3D.tscn --sfx=Cmn_cmn_huoyan01` (in `SCN3D_SFX_PS*` từng hạt); Thành Đô `NewWorld(9062,207,193)` 4 khói lư hương sống.
+- commit: `JX NEXT 3D: 3D-58 - hieu ung dong cua canh (PrefabRef 2 596 vi tri), MinMaxCurve khong khoa = hang so, Box phat thang +Z`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-57) — kỹ năng đọc lại từ nhị phân: hướng vật con, quad quay theo camera, rồng có xương, ô atlas, vũ khí bỏ transform gốc, số sát thương + hiệu ứng trúng đòn trên mục tiêu, tên kỹ năng
 
 Chủ dự án báo: "skill đánh ra bị sai — hình ảnh bay ra bị nghiêng", "hiệu ứng hỗ trợ dưới chân", "tay cầm một số vũ khí sai",
