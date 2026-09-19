@@ -714,13 +714,14 @@ python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
 
-### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-70
+### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-71
 
 - **Đọc**: `docs/LO-TRINH-3D.md` (lộ trình), `docs/MO-NHI-PHAN-3D.md` (lịch mổ bản 剑网江湖 3D, nhóm A–G + §H danh mục 639 lớp với
   trạng thái có/bỏ/chưa), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
-- **Xong** (nhật ký 3D-1..3D-70): 45 map 3D + hiệu ứng cảnh + cắt theo lớp + mặt xa theo cảnh; 494 NPC/model, vũ khí 71 (bảng tay cầm
+- **Xong** (nhật ký 3D-1..3D-71): 45 map 3D + hiệu ứng cảnh + cắt theo lớp + mặt xa theo cảnh; 494 NPC/model, vũ khí 71 (bảng tay cầm
   `--weapons`), ngựa; 234 kỹ năng JX ghép hiệu ứng 3D (133 có hình, quét `--factions` 133/133) với luật xoay/treo/bay/vòng/vẽ đỉnh/tia nối/
-  vệt dải/billboard/rim/uv; số bay + tên kỹ năng + hiệu ứng trúng (`FloatingText`); vòng chọn; bloom theo profile URP; điểm treo theo model.
+  vệt dải/billboard/rim/uv; số bay + tên kỹ năng + hiệu ứng trúng (`FloatingText`); vòng chọn; bloom theo profile URP; điểm treo theo model; bóng mờ `TaskGhost`;
+  công cụ kiểm: `--factions` (133/133), `--weapons` (bảng 71 vũ khí), `--sfxall` (tầm xa 343 hiệu ứng).
 - **Còn** (§H mục 7–9): nhạc vùng chờ 3.5 của main; 62 NPC tên riêng; 6 map trống (không có bảng sinh quái); UI nhóm E (theo main);
   cài đặt; Android. **Chờ chủ dự án**: đổi ADR-008 sang renderer Mobile (Vulkan) để bloom toả rộng như bản tham khảo (GL chỉ vài pixel,
   đo ở 3D-66) — tạm thời `set JX_RENDER=mobile` trước `client3d.cmd`.
