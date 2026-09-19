@@ -22,6 +22,8 @@ var hangs := {}         # ten diem treo -> {node_godot, pos, quat, scale}
 var weapon_nodes: Array = []
 var busy := false       # dang phat animation mot lan (danh, bi danh, chet)
 var battle_until := 0.0 # sau khi danh: dung tu the chien dau toi luc nay (msec)
+var hold_last := false  # animation mot lan dang phat giu khung cuoi khi het (chet)
+var held := false       # dang giu khung cuoi (xac): khong tu ve idle
 
 signal action_finished(clip: String)
 
@@ -116,6 +118,11 @@ func play(key: String, loop := true, force := false) -> bool:
 		return false
 	if busy and not force:
 		return false
+	if held and not force:
+		return false
+	held = false
+	hold_last = false
+	anim.speed_scale = 1.0
 	var cname := clip_for(key)
 	if cname == current and loop:
 		return true
@@ -148,6 +155,47 @@ func walk() -> void:
 		play("zp")
 
 
+# chay: clip chay chien dau (gjpb) neu co, khong thi clip di phat nhanh hon
+func run() -> void:
+	if busy:
+		return
+	if has_clip("gjpb"):
+		play("gjpb")
+		anim.speed_scale = 1.0
+	else:
+		play("zp")
+		anim.speed_scale = 1.35
+
+
+# Mot clip (key hoac ten) phat dung `seconds` giay (speed_scale = do dai clip / seconds) - so khung cua zone quyet dinh
+# don danh/bi danh/chet dai bao nhieu (npcs.txt, 18 Hz); hold = giu khung cuoi (xac). Tra ve ten clip hoac "".
+func play_once(key: String, seconds: float, hold := false) -> String:
+	if anim == null:
+		return ""
+	var cname := clip_for(key)
+	if not anim.has_animation(cname):
+		return ""
+	var a := anim.get_animation(cname)
+	a.loop_mode = Animation.LOOP_NONE
+	anim.speed_scale = (a.length / seconds) if seconds > 0.0 else 1.0
+	anim.play(cname, 0.08)
+	current = cname
+	busy = true
+	held = false
+	hold_last = hold
+	return cname
+
+
+# giu khung cuoi ngay (xac cua nguoi vao sau khi no da chet)
+func seek_end() -> void:
+	if anim == null or current == "":
+		return
+	anim.seek(anim.get_animation(current).length, true)
+	anim.pause()
+	busy = false
+	held = true
+
+
 # don danh thuong theo nhom vu khi (chon ngau nhien theo xac suat), tra ve ten clip
 func attack() -> String:
 	var cname := ""
@@ -159,6 +207,32 @@ func attack() -> String:
 		return ""
 	battle_until = Time.get_ticks_msec() + 6000
 	play(cname, false, true)
+	return cname
+
+
+# ten clip don danh thuong theo nhom vu khi (ngau nhien theo xac suat), "" khi khong co - khong phat
+func attack_clip() -> String:
+	var cname := ""
+	if group != "" and groups.has(group):
+		cname = _pick(groups[group].get("attacks", []))
+	if cname == "":
+		cname = _pick(info.get("groups", {}).get("1", {}).get("attacks", []))
+	if cname == "" or anim == null or not anim.has_animation(cname):
+		return ""
+	battle_until = Time.get_ticks_msec() + 6000
+	return cname
+
+
+# ten clip cua mot loai (ss bi danh, sw chet, xdz dong tac nho): nhom dang dung, roi bang mac dinh; "" khi khong co
+func pick_clip(kind: String) -> String:
+	var cname := ""
+	if group != "" and groups.has(group):
+		var g: Dictionary = groups[group]
+		cname = str(g.get("magic", "")) if kind == "magic" else _pick(g.get(kind, []))
+	if cname == "" and anims.has(kind):
+		cname = str(anims[kind])
+	if cname == "" or anim == null or not anim.has_animation(cname):
+		return ""
 	return cname
 
 
@@ -183,6 +257,14 @@ func act(kind: String) -> String:
 
 func _on_anim_finished(_name: StringName) -> void:
 	busy = false
+	anim.speed_scale = 1.0
+	if hold_last:
+		held = true
+		hold_last = false
+		anim.seek(anim.get_animation(current).length, true)
+		anim.pause()
+		action_finished.emit(str(_name))
+		return
 	current = ""
 	action_finished.emit(str(_name))
 	idle()

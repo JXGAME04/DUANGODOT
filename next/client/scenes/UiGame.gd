@@ -29,9 +29,6 @@ var _pending_pickup := 0              # the ground object the player walks to (0
 
 
 func _ready() -> void:
-	_world = _make_world_view()
-	_world.name = "WorldView"
-	add_child(_world)
 	var has_map := _setup_map()
 	_build_hud()
 	_windows = KUiGameWindows.new()
@@ -60,18 +57,40 @@ func _ready() -> void:
 	Log.info("ui", "world screen", {"zone": Game.zone_name, "entity": Game.entity_id, "entities": _entities.size(),
 		"map": Game.map_id, "bundle": has_map, "view": _world.get_script().resource_path.get_file()})
 	_append_chat("[color=gray]Vào %s. Click chuột trái để đi, Enter để chat, F4 túi đồ, F3 nhân vật, F5 kỹ năng, Q..C kỹ năng tắt, 1..9 ô nhanh, Esc để thoát.[/color]" % Game.zone_name)
-	if "--auto" in OS.get_cmdline_user_args():
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--gm="):
+			# a development shortcut: one GM script line on entering (zone.gm_chat), e.g. --gm=NewWorld(9053,232,194)
+			Game.chat("?gm ds " + a.substr(5))
+	if "--auto3d" in OS.get_cmdline_user_args():
+		_auto3d_run()
+	elif "--auto" in OS.get_cmdline_user_args():
 		_auto_run()
 
 
-# The world view: 3D when the map has a 3D bundle (client/assets3d/maps/<id>) or --3d asks for it, else the 2D one
+# The world view: 3D when the map has a 3D bundle (client/assets3d/maps/<id>) or --3d asks for it, else the 2D one;
+# made on entering and again when a map change crosses the 2D / 3D line (every entity is dropped before that)
 func _make_world_view() -> Node:
+	var want := Game.want_3d()
+	if _world != null and _world.is_3d() == want:
+		return _world
+	if _world != null:
+		_world.queue_free()
 	var view := Node.new()
-	if Game.want_3d():
-		view.set_script(load("res://scenes3d/KWorldView3D.gd"))
-	else:
-		view.set_script(WorldView2D)
+	view.set_script(load("res://scenes3d/KWorldView3D.gd") if want else WorldView2D)
+	view.name = "WorldView3D" if want else "WorldView2D"
+	add_child(view)
+	move_child(view, 0)
+	if view.get("right_click_handler") != null:
+		# the 3D camera turns on a right drag; a plain right click still casts the right mouse skill
+		view.right_click_handler = _on_right_click
 	return view
+
+
+# The right mouse skill (m_nRightSkillID): on the entity under the cursor, else on the spot
+func _on_right_click(_screen: Vector2) -> void:
+	if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
+		var cseq := cast_skill_at_mouse(Game.right_skill)
+		Log.debug("ui", "right click cast", {"skill": Game.right_skill, "seq": cseq})
 
 
 func _build_hud() -> void:
@@ -107,6 +126,7 @@ func _build_hud() -> void:
 func _setup_map() -> bool:
 	_scene_w = Game.scene_w if Game.scene_w > 0 else 8192
 	_scene_h = Game.scene_h if Game.scene_h > 0 else 8192
+	_world = _make_world_view()
 	var has_map: bool = _world.load_map()
 	var snd = _world.sounds()
 	if snd != null:
@@ -188,10 +208,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var seq := Game.move_to(s.x, s.y)
 				Log.debug("ui", "click move", {"x": s.x, "y": s.y, "seq": seq})
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			# the right mouse skill (m_nRightSkillID): on the entity under the cursor, else on the spot
-			if Game.right_skill > 0 and Game.skills.has(Game.right_skill):
-				var cseq := cast_skill_at_mouse(Game.right_skill)
-				Log.debug("ui", "right click cast", {"skill": Game.right_skill, "seq": cseq})
+			_on_right_click(_mouse())
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_world.zoom_step(1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -484,6 +501,57 @@ func _auto_run() -> void:
 		print("AUTO_IDLE_DIFF diff=%d of %d cam_a=%s cam_b=%s anims=%d" % [diff, total, cam_a, cam_b, _world.anim_count()])
 		img_a.save_png("user://logs/auto_world_a.png")
 		img_b.save_png("user://logs/auto_world_b.png")
+	Game.leave_world()
+	await get_tree().create_timer(0.3).timeout
+	get_tree().quit(0 if arrived else 1)
+
+
+# --auto3d (with --gm=NewWorld(9053,232,194) or a 3D map): waits for the 3D view, takes the world from three camera
+# angles, walks, fights the nearest monster, and prints AUTO3D_OK - the proof of M3D-1 (docs/LO-TRINH-3D.md).
+func _auto3d_run() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var waited := 0.0
+	while waited < 10.0 and not (_world.is_3d() and _own() != null):
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	var own := _own()
+	print("AUTO3D view=%s map=%d entities=%d own=%s" % [_world.name, Game.map_id, _entities.size(), str(own.scene_pos) if own else "-"])
+	if not _world.is_3d():
+		print("AUTO3D_FAIL no 3D view")
+		get_tree().quit(1)
+		return
+	await get_tree().create_timer(1.5).timeout
+	var n := 0
+	for yaw in [0.0, 90.0, 200.0]:
+		_world.cam_rig.yaw = yaw
+		for i in 4:
+			await get_tree().process_frame
+		await _save_screenshot("user://logs/auto3d_%d.png" % n)
+		n += 1
+	_world.cam_rig.yaw = 0.0
+	# a walk of 200 units east (4 m), like --auto
+	var from: Vector2 = own.scene_pos
+	var seq := Game.move_to(int(from.x) + 200, int(from.y))
+	waited = 0.0
+	var arrived := false
+	while waited < 10.0 and not arrived:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+		own = _own()
+		arrived = own != null and _move_count > 0 and not own.is_moving() and own.scene_pos.distance_to(from) > 8.0
+	await _save_screenshot("user://logs/auto3d_%d.png" % n)
+	n += 1
+	print("AUTO3D_MOVE seq=%d arrived=%s from=%s to=%s moves=%d" % [seq, arrived, str(from), str(own.scene_pos) if own else "-", _move_count])
+	await _auto_fight()
+	var models := 0
+	var markers := 0
+	for node in _entities.values():
+		var v = _world._views.get(node)
+		if v != null and v.model != null:
+			models += 1
+		else:
+			markers += 1
+	print("AUTO3D_OK map=%d entities=%d models=%d markers=%d fps=%d camera=%s" % [Game.map_id, _entities.size(), models, markers, Engine.get_frames_per_second(), _world.camera_state()])
 	Game.leave_world()
 	await get_tree().create_timer(0.3).timeout
 	get_tree().quit(0 if arrived else 1)

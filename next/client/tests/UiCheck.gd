@@ -48,7 +48,7 @@ func check(cond: bool, what: String) -> void:
 
 
 func _ready() -> void:
-	for path in ["res://scenes/UiShell.gd", "res://scenes/UiLoginPlain.gd", "res://scenes/UiGame.gd"]:
+	for path in ["res://scenes/UiShell.gd", "res://scenes/UiLoginPlain.gd", "res://scenes/UiGame.gd", "res://scenes/KWorldView2D.gd", "res://scenes3d/KWorldView3D.gd"]:
 		check(ResourceLoader.load(path, "GDScript", ResourceLoader.CACHE_MODE_IGNORE) != null, "%s compiles" % path)
 	_check_text_tags()
 	_check_server_list()

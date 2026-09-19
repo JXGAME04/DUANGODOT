@@ -11,6 +11,11 @@ extends Node
 const ENTITY_DROP := 4
 
 
+# True for the 3D view (UiGame swaps views when a map change crosses the 2D / 3D line).
+func is_3d() -> bool:
+	return false
+
+
 # ---- the map ---------------------------------------------------------------------------------------
 
 # Loads the world of Game.map_id (the bundle, or a plain grid when none exists) and sizes the camera.
