@@ -188,10 +188,13 @@ class SfxExporter:
                 N = nor.copy(); N[:, 0] = -N[:, 0]; attrs["NORMAL"] = add_accessor(N, 5126, "VEC3", 34962)
             if uv0 is not None:
                 uv = uv0.copy()
-                if uvmod:  # SFXMeshModify: chon o atlas
+                if uvmod:
+                    # SFXMeshModify: o atlas (uvNum_X/Y luoi, uvOffset_X/Y o) - o dem tu GOC TREN-TRAI cua anh (kiem tra tren 362 mesh:
+                    # o dem tu duoi cho vung den o 208 mesh, dem tu tren cho hinh), nen v glTF (tu tren xuong) = (oy + (1 - v_unity)) / ny
                     nx, ny, ox, oy = uvmod
-                    uv[:, 0] = (uv[:, 0] + ox) / max(1, nx); uv[:, 1] = (uv[:, 1] + oy) / max(1, ny)
-                uv[:, 1] = 1.0 - uv[:, 1]
+                    uv[:, 0] = (uv[:, 0] + ox) / max(1, nx); uv[:, 1] = (oy + (1.0 - uv[:, 1])) / max(1, ny)
+                else:
+                    uv[:, 1] = 1.0 - uv[:, 1]
                 attrs["TEXCOORD_0"] = add_accessor(uv, 5126, "VEC2", 34962)
             if col is not None:
                 attrs["COLOR_0"] = add_accessor(col, 5126, "VEC4", 34962)

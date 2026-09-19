@@ -18,6 +18,8 @@ const MissleEffectScript := preload("res://scenes/KMissleEffect.gd")
 const MirrorScript := preload("res://scenes3d/KSpriteMirror3D.gd")
 const ModelScript := preload("res://scenes3d/Scn3DNpc.gd")
 const KNpcGold := preload("res://scenes/KNpcGold.gd")
+const SkillFxScript := preload("res://scenes3d/KSkillFx3D.gd")
+const ACTION_ATTACK := 1
 const ENTITY_PLAYER := 1
 const NAME_DIST := 60.0        # metres: names beyond this are not drawn [tự chọn]
 const ANIM_DIST := 45.0        # metres: models beyond this stop animating (494 npcs at 145 FPS) [tự chọn]
@@ -52,6 +54,7 @@ var _weapon_dir := ""
 var _own_weapon := ""          # weapons.json id on the character now ("" = bare hands)
 var _trail: Node = null        # Scn3DTrail of the character's weapon
 var _last_dir_offset := -1
+var fx = SkillFxScript.new()   # KSkillFx3D: the skill effects of skill_map.json (3D maps)
 
 
 func is_3d() -> bool:
@@ -269,11 +272,11 @@ func add_missle(d: Dictionary, row: Dictionary) -> Node:
 	var view := Node3D.new()
 	view.set_script(MissleViewScript)
 	_views_root.add_child(view)
-	view.bind(node, place)
+	view.bind(node, place, fx if place.mode == "3d" else null)
 	return node
 
 
-func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int) -> void:
+func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int, skill_id: int = 0) -> void:
 	if place.mode == "2.5d":
 		# the 2.0 collision movie itself (KMissleEffect on the invisible canvas), mirrored onto a board
 		var fx = MissleEffectScript.new()
@@ -293,11 +296,27 @@ func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int)
 		return
 	var w: Vector3 = place.to_world(scene_pos)
 	w.y = place.ground_height(w.x, w.z) + 0.9 + KScene3DMath.px_height_to_m(float(z))
+	if skill_id > 0 and fx.load_map() and fx.hit_res(skill_id) != "":
+		fx.hit(_views_root, skill_id, w)   # the skill's own hit effect [TK]
+		return
 	var burst: CPUParticles3D = MissleViewScript._make_burst(Color(1.0, 0.85, 0.4))
 	_views_root.add_child(burst)
 	burst.global_position = w
 	burst.emitting = true
 	get_tree().create_timer(1.2).timeout.connect(burst.queue_free)
+
+
+# A cast (ACTION_ATTACK with a skill) on a 3D map: the skill's effects at the caster / the aim, timed on the zone's frames
+func action(node: Node, a: Dictionary) -> void:
+	if place.mode != "3d" or int(a.get("action", -1)) != ACTION_ATTACK or int(a.get("skill", 0)) <= 0:
+		return
+	var view = _views.get(node)
+	if view == null or not is_instance_valid(view):
+		return
+	Log.debug("map3d", "cast effect", {"entity": a.get("id"), "skill": a.skill, "frames": a.get("frames", 0), "mapped": fx.load_map() and not fx.entry(int(a.skill)).is_empty(), "element": fx.element_of(int(a.skill))})
+	var aim: Vector3 = place.to_world(Vector2(float(a.get("ax", a.get("x", 0))), float(a.get("ay", a.get("y", 0)))))
+	aim.y = place.ground_height(aim.x, aim.z)
+	fx.cast(_views_root, int(a.skill), int(a.get("frames", 1)), view.global_position, float(view.rotation.y), aim)
 
 
 # ---- camera and cursor ---------------------------------------------------------------------------

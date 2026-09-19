@@ -143,12 +143,13 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 			ap.play(names[0])
 			longest = maxf(longest, a.length)
 			_players.append(ap)
-	# node theo ten
-	for jn in desc.get("nodes", []):
-		var nname := str(jn.get("name", ""))
-		var n: Node = root if jn.get("depth", 0) == 0 else root.find_child(nname, true, false)
-		if n == null:
-			n = root.find_child(nname.replace("@", "_").replace(".", "_"), true, false)
+	# node theo chi so: export_sfx.py ghi JSON nodes va glTF nodes cung thu tu (duyet truoc), ten co the trung
+	# (prefab shifa_tuxi co "shang" la particle o tang 1 va "shang" la mesh o tang 2) nen khong tim theo ten
+	var jnodes: Array = desc.get("nodes", [])
+	var paths := _child_paths(jnodes)   # per JSON node: the child indices from glTF node 0 (the hierarchy, not the names)
+	for i in jnodes.size():
+		var jn: Dictionary = jnodes[i]
+		var n: Node = _node_at(root, paths[i])
 		if n == null:
 			continue
 		if not bool(jn.get("active", true)):
@@ -187,6 +188,37 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 	if life <= 0.0:
 		life = maxf(0.6, longest) if not looping else 0.0
 	return true
+
+
+# The JSON nodes are the glTF nodes in pre-order with their depth: the child index path of each one from node 0.
+static func _child_paths(jnodes: Array) -> Array:
+	var paths: Array = []
+	var stack: Array = []          # [[depth, path, child_count]] of the open ancestors
+	for jn in jnodes:
+		var depth := int(jn.get("depth", 0))
+		while not stack.is_empty() and int(stack.back()[0]) >= depth:
+			stack.pop_back()
+		var path: Array = []
+		if not stack.is_empty():
+			var parent: Array = stack.back()
+			path = (parent[1] as Array).duplicate()
+			path.append(int(parent[2]))
+			parent[2] = int(parent[2]) + 1
+		paths.append(path)
+		stack.append([depth, path, 0])
+	return paths
+
+
+# glTF node 0 is the first child of the generated root; the others follow the child indices (Godot keeps the order)
+static func _node_at(root: Node, path: Array) -> Node:
+	if root.get_child_count() == 0:
+		return null
+	var n: Node = root.get_child(0)
+	for idx in path:
+		if int(idx) >= n.get_child_count():
+			return null
+		n = n.get_child(int(idx))
+	return n
 
 
 func _make_particles(dir: String, ps: Dictionary, st: GLTFState) -> CPUParticles3D:

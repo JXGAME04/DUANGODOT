@@ -60,7 +60,13 @@ func add_missle(d: Dictionary, row: Dictionary) -> Node:
 	return null
 
 
-func add_missle_effect(_anim: Dictionary, _dir64: int, _scene_pos: Vector2, _z: int) -> void:
+func add_missle_effect(_anim: Dictionary, _dir64: int, _scene_pos: Vector2, _z: int, _skill_id: int = 0) -> void:
+	pass
+
+
+# An EntityAction the entity node already applied (the cast of a skill, a hit, a death): a view may add its own
+# effects (the 3D skill effects of M3D-3).
+func action(_node: Node, _a: Dictionary) -> void:
 	pass
 
 

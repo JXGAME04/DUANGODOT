@@ -332,7 +332,7 @@ func _on_missle(d: Dictionary) -> void:
 		var row := Game.missle_row(int(d.get("missle_id", 0)))
 		var anims: Array = row.get("anims", [])
 		if anims.size() > 3 and anims[3] is Dictionary and str(anims[3].get("sprite", "")) != "":
-			_world.add_missle_effect(anims[3], int(d.get("dir", 0)), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), int(d.get("z", 0)))
+			_world.add_missle_effect(anims[3], int(d.get("dir", 0)), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), int(d.get("z", 0)), int(d.get("skill_id", 0)))
 			_missle_effects += 1
 			# CreateSpecialEffect 0x006B1DC0: the status' sound (SndFile4) after the movie is added, only with a movie,
 			# and not while the same file still plays (KMissleRes::PlaySound 0x00717ED0)
@@ -431,6 +431,7 @@ func _on_action(a: Dictionary) -> void:
 	var node: Node = _entities.get(int(a.id))
 	if node:
 		node.apply_action(a)
+		_world.action(node, a)
 		if node == _target and node.is_dead():
 			_select_target(null)
 		# KNpc::DoSkill of the 2.0 client (0x005EF90F for a synced cast, 0x005F1E26 for the local player's): a player's
@@ -667,6 +668,49 @@ func _auto3d_run() -> void:
 	await _auto_fight()
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
+	# a faction skill with a mapped 3D effect (skill_map.json): Wudang's Nộ Lôi Chỉ (153, any weapon, level 10) - its missile
+	# is the reference client's 怒雷指 child object; handed out the way the faction script does (SetFaction + add_wd + AddMagic)
+	if _world.is_3d() and _world.get("fx") != null:
+		Game.chat("?gm ds SetFaction(\"wudang\")")
+		Game.chat("?gm ds Include(\"\\\\script\\\\global\\\\skills_table.lua\") add_wd(30)")
+		waited = 0.0
+		while waited < 4.0 and Game.faction_last < 0:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+		var fx_skill := 153
+		if true:
+			if int(Game.skills.get(fx_skill, {}).get("level", 0)) <= 0:
+				Game.chat("?gm ds AddMagic(%d, 1)" % fx_skill)   # at level 1 directly (AddMagic of the script api)
+				waited = 0.0
+				while waited < 2.0 and int(Game.skills.get(fx_skill, {}).get("level", 0)) <= 0:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+			var victim: Node = null
+			var best_d := 600.0
+			var me := _own()
+			for node in _entities.values():
+				if me != null and node != me and node.is_attackable() and node.scene_pos.distance_to(me.scene_pos) < best_d:
+					best_d = node.scene_pos.distance_to(me.scene_pos)
+					victim = node
+			Game.chat("?gm ds SetFightState(1)")
+			await get_tree().create_timer(0.3).timeout
+			var before_fx: int = _world.fx.spawned
+			if victim != null:
+				Game.cast_skill(fx_skill, victim.entity_id)
+			elif me != null:
+				Game.cast_skill(fx_skill, 0, int(me.scene_pos.x), int(me.scene_pos.y))
+			# the zone answers with the EntityAction of the cast (the character may first walk into reach): wait for the first effect
+			waited = 0.0
+			while waited < 6.0 and _world.fx.spawned <= before_fx:
+				await get_tree().create_timer(0.05).timeout
+				waited += 0.05
+			await get_tree().create_timer(0.3).timeout
+			await _save_screenshot("user://logs/auto3d_%d.png" % n)
+			n += 1
+			await get_tree().create_timer(0.6).timeout
+			await _save_screenshot("user://logs/auto3d_%d.png" % n)
+			n += 1
+			print("AUTO3D_SKILL skill=%d target=%d fx_spawned=%d map_entries=%d" % [fx_skill, victim.entity_id if victim != null else 0, _world.fx.spawned - before_fx, _world.fx.map.get("by_jx", {}).size()])
 	# a trap (the reference map's EnterPoint_wld became one, make_map3d.py): stand next to it, walk in, the zone's NewWorld
 	# takes us to Phuong Tuong - a 2D map - and the view swaps back to 2D (KNpc::ChangeWorld -> G2C_CHANGE_MAP)
 	var map_before := Game.map_id

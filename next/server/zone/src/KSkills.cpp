@@ -389,22 +389,26 @@ bool KSubWorld::send_command(KNpc& e, int skill_id, int p1, int p2, EntityId tar
 
 int KSubWorld::check_command(KNpc& e, KNpcCommand& c)
 {
-    // 0x0809B840
-    if (c.cmd != kCommandSkill) return 2;
-    if (c.life <= 0) return 2;                                                // p5 > 0
+    // 0x0809B840 - the same checks in the same order; `why` only names the failing one for the trace log
+    auto no = [&](const char* why) {
+        log::trace("zone.fight", "skill command check failed", {log::kv("entity", e.id), log::kv("skill", c.skill_id), log::kv("why", why)});
+        return 2;
+    };
+    if (c.cmd != kCommandSkill) return no("not a skill");
+    if (c.life <= 0) return no("expired");                                    // p5 > 0
     if (e.in_action()) return 1;                                            // +0x194c == 0: an action runs
-    if (c.skill_id < 1 || c.skill_id > 1999) return 2;
+    if (c.skill_id < 1 || c.skill_id > 1999) return no("bad id");
     const KSkill* sk1 = skill_instance(c.skill_id, 1);
-    if (sk1 == nullptr) return 2;
-    if (!e.fight_mode && !sk1->row.peace_can_use) return 2;                 // +0x168c == 0 -> PeaceCanUse
+    if (sk1 == nullptr) return no("no row");
+    if (!e.fight_mode && !sk1->row.peace_can_use) return no("peace mode");   // +0x168c == 0 -> PeaceCanUse
     const int idx = e.skill_list.find_same(c.skill_id);
-    if (idx == 0) return 2;
+    if (idx == 0) return no("not held");
     set_active_skill(e, idx);                                                // 0x08086D90 (not looked at)
     const KSkill* sk = current_skill(e);
-    if (sk == nullptr) return 2;
-    if (!e.skill_list.can_cast(c.skill_id, tick_, 0)) return 2;             // 0x080E4540 without the level
-    if (!can_cast_skill(*sk, e, c.param1, c.param2, c.target)) return 2;    // vtable+0x18 (p2 / p3 in place)
-    if (e.kind == KNpcKind::player && !cost_skill(e, sk->row.cost_type, sk->row.cost, true)) return 2;
+    if (sk == nullptr) return no("no level");
+    if (!e.skill_list.can_cast(c.skill_id, tick_, 0)) return no("cooldown / level");   // 0x080E4540 without the level
+    if (!can_cast_skill(*sk, e, c.param1, c.param2, c.target)) return no("cannot cast");   // vtable+0x18 (p2 / p3 in place)
+    if (e.kind == KNpcKind::player && !cost_skill(e, sk->row.cost_type, sk->row.cost, true)) return no("cost");
     return 0;
 }
 

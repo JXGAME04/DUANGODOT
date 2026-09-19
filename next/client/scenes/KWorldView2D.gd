@@ -129,7 +129,7 @@ func add_missle(d: Dictionary, row: Dictionary) -> Node:
 	return node
 
 
-func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int) -> void:
+func add_missle_effect(anim: Dictionary, dir64: int, scene_pos: Vector2, z: int, _skill_id: int = 0) -> void:
 	var fx = MissleEffectScript.new()
 	_entity_layer.add_child(fx)
 	fx.setup(anim, dir64, scene_pos, z)

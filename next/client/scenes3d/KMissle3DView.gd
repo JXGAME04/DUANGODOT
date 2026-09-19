@@ -17,11 +17,14 @@ var _burst: CPUParticles3D = null
 var _ground := 0.0
 var _last := Vector2(INF, INF)
 var mirror: Node3D = null      # the 2.5D world: the missile's own 2.0 frames (KMissle._sprite) as a board
+var _custom: Node3D = null     # the skill's own flying effect (KSkillFx3D.attach_flying) instead of the ball
 
 
-func bind(state: Node, place3d: Node3D) -> void:
+func bind(state: Node, place3d: Node3D, fx = null) -> void:
 	missle = state
 	place = place3d
+	if fx != null and state.get("skill_id") != null:
+		_custom = fx.attach_flying(self, int(state.skill_id))
 	if state.get("no_2d") != null and not bool(state.no_2d):
 		mirror = Node3D.new()
 		mirror.set_script(MirrorScript)
@@ -89,8 +92,13 @@ func _update() -> void:
 	world.y = _ground + 0.9 + KScene3DMath.px_height_to_m(float(missle.z))
 	global_position = world
 	var flying: bool = int(missle.status) == STATUS_FLY
-	_ball.visible = flying
-	_trail.emitting = flying
+	if _custom != null and is_instance_valid(_custom):
+		_custom.visible = flying
+		_ball.visible = false
+		_trail.emitting = false
+	else:
+		_ball.visible = flying
+		_trail.emitting = flying
 	if int(missle.status) == STATUS_VANISHED and _burst == null:
 		_burst = _make_burst(Color(1.0, 0.6, 0.25))
 		add_child(_burst)

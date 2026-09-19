@@ -46,6 +46,7 @@ var name_layer: Control
 var name_labels := {}      # npc -> Label 2D
 var _lod_timer := 0.0
 var spawn_mark := ""     # --at=<diem danh dau>: dung tai diem do (so anh voi game goc)
+var test_sfx := ""       # --sfx=<ten tep hieu ung> de chup rieng mot hieu ung
 var nav_region: NavigationRegion3D
 var nav_map: RID
 var show_nav := false
@@ -66,6 +67,8 @@ func _ready() -> void:
 			lm_gain = float(a.substr(10))
 		elif a.begins_with("--at="):
 			spawn_mark = a.substr(5)
+		elif a.begins_with("--sfx="):
+			test_sfx = a.substr(6)   # --auto: this effect at the character, a picture every 10 frames (checking one export)
 	dir = ProjectSettings.globalize_path(ASSETS3D) + "/" + map_name
 	sfx_dir = ProjectSettings.globalize_path(ASSETS3D) + "/sfx"
 	var t0 := Time.get_ticks_msec()
@@ -625,6 +628,22 @@ func _screenshot(path: String) -> void:
 func _auto() -> void:
 	for i in 6:
 		await get_tree().process_frame
+	if test_sfx != "":
+		cam_rig.yaw = 20.0
+		cam_rig.pitch = 40.0
+		cam_rig.dist = 8.0
+		for i in 3:
+			await get_tree().process_frame
+		var fx: Node3D = SFX_SCRIPT.spawn(self, sfx_dir, test_sfx, player.global_position + Vector3(0, 0.9, 0), player.yaw, 0.0, false)
+		var shot := 0
+		for k in 5:
+			for i in 8:
+				await get_tree().process_frame
+			await _screenshot("user://logs/scn3d_sfx_%s_%d.png" % [test_sfx, shot])
+			shot += 1
+		print("SCN3D_SFX %s alive=%s children=%d" % [test_sfx, is_instance_valid(fx), fx.get_child_count() if is_instance_valid(fx) else 0])
+		get_tree().quit()
+		return
 	var views := [[0.0, 40.0, 19.0], [90.0, 40.0, 19.0], [180.0, 40.0, 19.0], [270.0, 40.0, 19.0], [45.0, 75.0, 21.0], [20.0, 40.0, 10.0]]
 	var n := 0
 	for v in views:
