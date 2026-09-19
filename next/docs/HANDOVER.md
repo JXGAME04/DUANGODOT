@@ -702,6 +702,13 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-52) — đợt 4: camera (F3), bóng chân (B7), vùng (F5) — mổ xong, làm phần cần
+
+- **F3** `GameCamera.UpdateCameraParam` 0x4ae1d0 / `OnUpdate` 0x4ae9b0 / `get_targetPos` [TK]: **không** có Physics.Raycast/SphereCast — camera tham khảo không va chạm địa hình/nhà (chỉ `CameraBuildingFade`, góc 40–80° do `cameraInit`). JX NEXT đã có `SpringArm3D` lớp địa hình (mask 1) từ M3D-1 [tự chọn] → giữ; không làm thêm.
+- **B7** `ShadowProjMgr` [TK]: bóng nhân vật bản tham khảo = `DynamicShadowProjector` (projector chiếu hình thật của nhân vật theo hướng đèn, `MaxOrthographicSize`, tầm bóng `scn_area_list` cột 23 = 45 m; cảnh dùng lightmap). JX NEXT: mức high/medium bóng nắng thật; mức **low** thêm đĩa mờ dưới chân (`KNpc3DView._add_blob_shadow`: PlaneMesh 1,4 m, texture toả tròn alpha 0,6, 8 cm trên chân [tự chọn]). **Bẫy GL**: texture tạo từ `Image` không `generate_mipmaps()` → renderer Compatibility lấy mẫu rỗng (đĩa vô hình) — đã sửa.
+- **F5** `scn_area_list` (92 vùng, 46 scene): Ba Lăng = `safe` (an toàn, nhạc nhóm 1000), `fight` (nhạc 1001), `ExitArea_wld` (cổng); đổi sương/ambient/đèn chỉ 4 vùng toàn game, camera theo vùng 0 → phần nhạc chờ hệ thống nhạc 2.0 (3.5, main), sương theo vùng bỏ (không đáng).
+- commit: `JX NEXT 3D: 3D-52 - dot 4: camera tham khao khong va cham (giu SpringArm), bong chan muc low (ShadowProjMgr = projector), scn_area_list ghi nhan`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-51) — bóng mờ (Ghost, sự kiện 111) cho 36 kỹ năng lướt/đa đòn
 
 - `skill_event` loại 111 Ghost [TK]: 9 dòng (d2 = 1 bật, d3 = 999 tối đa, d7 = chu kỳ 0,014/0,033/0,06 s, d8 = alpha 0,25/0,38/1,0; dòng `TriggerEnd` tắt) dùng 112 lần → `map_skills` ghi `ghost {at, interval, alpha}` cho kỹ năng (36 kỹ năng JX1: Nhân Kiếm Hợp Nhất, Đoạn Hồn Thích, Kinh Lôi Trảm, Bát Phong Trảm…).

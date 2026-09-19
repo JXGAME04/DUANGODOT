@@ -49,6 +49,8 @@ func bind(state: Node, place3d: Node3D, model_node: Node3D, model_info: Dictiona
 		var cp = model_info.get("cp_radius", null)
 		if cp != null and float(cp) > 0.0:
 			radius = float(cp)
+		if not bool(place.quality_settings().get("shadows", true)):
+			_add_blob_shadow()
 	elif not _flag(state, "no_2d") and _flag(state, "has_res"):
 		# the 2.5D world: the KNpcRes parts of the invisible canvas node, mirrored onto a board facing the camera
 		mirror = Node3D.new()
@@ -195,6 +197,45 @@ func _process(delta: float) -> void:
 	if _ring != null:
 		_ring.visible = target and not (npc.has_method("is_dead") and bool(npc.call("is_dead")))
 		_ring.global_position = global_position + Vector3(0, 0.03, 0)
+
+
+# The reference draws characters' shadows with a projector (ShadowProjMgr / DynamicShadowProjector: the figure's own
+# shape, the scene itself is lightmapped); without sun shadows (quality "low") a soft dark disc at the feet stands in
+# [tự chọn: radius 0.7 m, alpha 0.6, 8 cm over the feet], one shared radial texture
+static var _blob_tex: Texture2D = null
+
+
+static func _blob_texture() -> Texture2D:
+	if _blob_tex != null:
+		return _blob_tex
+	var n := 64
+	var img := Image.create_empty(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var d := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0).length() / (n / 2.0)
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(0, 0, 0, a * a * 0.6))
+	img.generate_mipmaps()   # the GL renderer samples nothing from a mipmap-filtered texture without mipmaps
+	_blob_tex = ImageTexture.create_from_image(img)
+	return _blob_tex
+
+
+func _add_blob_shadow() -> void:
+	var q := PlaneMesh.new()
+	q.size = Vector2(1.4, 1.4)
+	var mi := MeshInstance3D.new()
+	mi.name = "Blob"
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_texture = _blob_texture()
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.render_priority = -1
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0, 0.08, 0)
+	add_child(mi)
 
 
 # Ghost [TK skill_event 111]: afterimages of the model - its skinned meshes baked at the pose of the moment (a static

@@ -84,7 +84,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | B4 | `XWeaponTrail` (MaxFrame 5 / Fps 30 / Granularity 15 / màu / ô atlas) | bố cục byte 156 của 16 prefab `dg_xw_*` | `export_sfx.read_xtrail` | `Scn3DTrail` | **xong** (3D-49); spline Granularity (làm mượt) [tự chọn] chưa |
 | B5 | `HangItemMgr`, `ModelHangMgr`, `eEquipHangType` (treo mũ/áo/phi phong/vũ khí) | IL2CPP | disasm | `Scn3DNpc.attach_weapon` | **một phần**: vũ khí + ngựa; phi phong **chưa** (JX1 có phi phong) |
 | B6 | `RideUnit`, `eRideType`, `lua_scnobj_ride.lua` | IL2CPP + Lua | đọc Lua (điểm `ma_qi1`, nhóm 20/21) | `KNpc3DView._on_riding_changed` | **xong** (cần soát lại theo Lua vừa trích) |
-| B7 | `ShadowProjMgr` (bóng tròn dưới chân) | IL2CPP | disasm + `fieldDefaultValues` | bóng chân | **chưa** (hiện dùng bóng nắng thật; máy yếu cần bóng tròn) |
+| B7 | `ShadowProjMgr` = `DynamicShadowProjector` (bóng hình thật, 45 m) | IL2CPP | đã đọc | mức low: đĩa mờ `_add_blob_shadow` | **xong** (3D-52) [tự chọn đĩa] |
 | B8 | `TaskTweenDissolve` (tan xác khi chết) | IL2CPP + shader dissolve | disasm | shader tan | **chưa** ([2.0] xác nằm rồi mờ dần — làm theo 2.0: mờ) |
 
 ### C. Hiệu ứng kỹ năng (bundle particles + bảng A6/A7)
@@ -136,9 +136,9 @@ chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 
 |---|---|---|---|
 | F1 | `cameraInit` (yaw/pitch/dist/min/max), `GameCamera`, `FreeCamera` | `scn_list` + IL2CPP | **xong** (KCamera3D) |
 | F2 | `CameraBuildingFade` (0,25 / 10 / 0,15 / 0,3) | `fieldDefaultValues` + disasm 0x4a3ee0 | **xong** |
-| F3 | Va chạm camera với đất/nhà (`CameraTargetMotifier`, `CameraModifyNode`) | IL2CPP | **chưa** (hiện camera có thể chui xuống đất ở dốc) |
+| F3 | Va chạm camera | `GameCamera.UpdateCameraParam` 0x4ae1d0 | **xong** (3D-52): tham khảo không va chạm; JX NEXT giữ `SpringArm3D` địa hình [tự chọn] |
 | F4 | Rung camera `CameraAnim`, `TweenCamera`, `CameraSave` | IL2CPP | **chưa** (C10) |
-| F5 | Sương mù/ambient/đèn đổi theo vùng (`scn_area_list` cột 10–12, `TaskTweenFog/DirLight`) | A13 | **chưa** |
+| F5 | Sương mù/ambient/đèn đổi theo vùng (`scn_area_list` cột 10–12) | A13 | *bỏ* (4 vùng toàn game); nhạc vùng chờ 3.5 (3D-52) |
 | F6 | Shader: lightmap 2 mặt, nước, cỏ đung đưa (float vật liệu), dissolve, distortion, bloom | bundle shader | **một phần**: lightmap/nước/cỏ xong (công thức tự chọn); dissolve/bloom **chưa** |
 | F7 | 45 map 3D còn lại: chạy `export_scene.py` + `make_map3d.py` theo lô, ghép NPC template (`CHA_TO_TEMPLATE` mở rộng bằng tên Hán ↔ tên JX1 như kỹ năng) | scenes_* | **chưa** (mỗi map ~2–5 phút xuất; cần bảng ghép NPC tự động) |
 
