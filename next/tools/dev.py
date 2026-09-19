@@ -293,6 +293,9 @@ def cmd_start(new_console: bool = True, gateways: int = 1) -> None:
     # rest of the api) for whoever types it - never on a server players can reach
     if os.environ.get("JX_GM_CHAT", "1") != "0":
         zone_cmd += ["--set", "zone.gm_chat=true"]
+        # the old server folders the scripts' TabFile_Load reads its tables from (settings/...; docs/LINUX-SERVER.md §24)
+        if old_server_dir():
+            zone_cmd += ["--set", f"zone.settings_root={old_server_dir()}"]
     # JX_ZONE_LOG_LEVEL=trace: the zone's decisions frame by frame (a fight that does nothing, a dropped command)
     if os.environ.get("JX_ZONE_LOG_LEVEL"):
         zone_cmd += ["--log-level", os.environ["JX_ZONE_LOG_LEVEL"]]

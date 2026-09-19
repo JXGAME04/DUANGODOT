@@ -281,6 +281,15 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no kill events", {jx::log::kv("file", kill_events_file), jx::log::kv("error", error)});
         }
     }
+    // the old server folders (";" apart) the scripts' TabFile_Load reads its tables from (\settings\...); without them the
+    // TabFile_* library loads nothing (docs/LINUX-SERVER.md §24)
+    const std::string settings_root = cfg.get_string("zone.settings_root", "");
+    jx::zone::g_TabFiles().set_roots(settings_root);
+    if (settings_root.empty()) {
+        jx::log::warn("boot", "zone.settings_root not set, the scripts' TabFile_Load finds nothing");
+    } else {
+        jx::log::info("boot", "tab file roots", {jx::log::kv("roots", settings_root)});
+    }
     // the revive / reference points of every map (jxassets export-revive-pos): where a fresh character is born in its
     // village and where the revive / SetRevPos put a character; without it the spawn point of each map stands in
     const std::string revive_file = cfg.get_string("zone.revive_pos_file", "client/assets/revive_pos.json");

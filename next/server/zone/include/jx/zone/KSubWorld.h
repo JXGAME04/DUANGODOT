@@ -43,6 +43,7 @@
 #include "jx/zone/KPlayerTeam.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
+#include "jx/zone/KTabFile.h"
 #include "jx/zone/KMissle.h"
 
 namespace jx::zone {

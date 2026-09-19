@@ -10,6 +10,7 @@ extern "C" {
 #include <algorithm>
 #include <array>
 #include <climits>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -24,6 +25,8 @@ extern "C" {
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KSkillList.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/KTabFile.h"
+#include "jx/zone/KText.h"
 #include "jx/zone/KTaskManager.h"
 
 namespace jx::zone {
@@ -1836,6 +1839,127 @@ int l_GetSex(lua_State* L)
     return 1;
 }
 
+// ---- the TabFile_* library (KTabFile.h, docs/LINUX-SERVER.md §24) ----
+
+// the cache of the process: an Include of a script may call TabFile_Load before any world or player is on the context
+KTabFileCache* tab_files(lua_State* L, const char* fn)
+{
+    (void)L;
+    (void)fn;
+    return &g_TabFiles();
+}
+
+// TabFile_Load(file, key [, writable]) (0x0814AEF0): the table of the game path under the key (0x0814D1A0 on the read cache,
+// 0x0814CDE0 on the writable one with a third argument) -> 1 / 0; two arguments at least
+int l_TabFile_Load(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    const char* file = lua_tostring(L, 1);
+    const char* key = lua_tostring(L, 2);
+    KTabFileCache* cache = tab_files(L, "TabFile_Load");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const int ok = cache != nullptr && file != nullptr && key != nullptr ? cache->load(file, key, top >= 3) : 0;
+    if (ok == 0) log::debug("lua", "tab file not loaded", {log::kv("file", text::decode_mixed(file ? file : "")), log::kv("key", text::decode_mixed(key ? key : ""))});
+    lua_pushinteger(L, ok);
+    return 1;
+}
+
+// TabFile_UnLoad(key) (0x0814B040) -> 1 when it was there
+int l_TabFile_UnLoad(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_UnLoad");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    lua_pushinteger(L, cache != nullptr && key != nullptr && cache->unload(key) ? 1 : 0);
+    return 1;
+}
+
+// TabFile_GetRowCount(key) (0x0814A690): GetHeight, 0 without the table; TabFile_GetColCount(key) (0x0814A5E0): GetWidth
+int l_TabFile_GetRowCount(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_GetRowCount");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    lua_pushinteger(L, t == nullptr ? 0 : t->height());
+    return 1;
+}
+
+int l_TabFile_GetColCount(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_GetColCount");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    lua_pushinteger(L, t == nullptr ? 0 : t->width());
+    return 1;
+}
+
+// the column of a TabFile argument: a number, or the header name (FindColumn); -1 when neither names one
+int tab_column(lua_State* L, int idx, const KTabFile& t)
+{
+    if (lua_type(L, idx) == LUA_TSTRING) return t.find_column(lua_tostring(L, idx));
+    return task_int(L, idx);
+}
+
+// TabFile_GetCell(key, row, column) (0x0814A740): GetString(row, column, "", buf, 0x400) - the cell, or "" (a column by its
+// header name too); three arguments at least; "" without the table (0x0814A8A0)
+int l_TabFile_GetCell(lua_State* L)
+{
+    if (lua_gettop(L) <= 2) return 0;
+    const char* key = lua_tostring(L, 1);
+    KTabFileCache* cache = tab_files(L, "TabFile_GetCell");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    std::string cell;
+    if (t != nullptr) t->get_string(task_int(L, 2), tab_column(L, 3, *t), cell, 0x400);
+    lua_pushlstring(L, cell.data(), cell.size());
+    return 1;
+}
+
+// TabFile_Search(key, column, value) (0x0814A960): the first row whose cell in the column equals the value (0x08227C90 /
+// 0x08227BE0), -1 when none or no table
+int l_TabFile_Search(lua_State* L)
+{
+    if (lua_gettop(L) <= 2) return 0;
+    const char* key = lua_tostring(L, 1);
+    const char* value = lua_tostring(L, 3);
+    KTabFileCache* cache = tab_files(L, "TabFile_Search");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    const KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    lua_pushinteger(L, t == nullptr || value == nullptr ? -1 : t->find_row(tab_column(L, 2, *t), value));
+    return 1;
+}
+
+// TabFile_SetCell(key, row, column, value) (0x0814A420): the cell of the table in memory -> 1 / 0; four arguments at least
+int l_TabFile_SetCell(lua_State* L)
+{
+    if (lua_gettop(L) <= 3) return 0;
+    const char* key = lua_tostring(L, 1);
+    const char* value = lua_tostring(L, 4);
+    KTabFileCache* cache = tab_files(L, "TabFile_SetCell");
+    const std::lock_guard<std::mutex> guard(g_TabFilesLock());
+    KTabFile* t = cache != nullptr && key != nullptr ? cache->find(key) : nullptr;
+    const bool ok = t != nullptr && value != nullptr && t->set_string(task_int(L, 2), tab_column(L, 3, *t), value);
+    lua_pushinteger(L, ok ? 1 : 0);
+    return 1;
+}
+
+// TabFile_Save(key) (0x0814A3A0): the old server wrote the table back into its file; the zone keeps the old data as it
+// found it -> 0 always
+int l_TabFile_Save(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* key = lua_tostring(L, 1);
+    log::warn("lua", "tab file save refused", {log::kv("key", text::decode_mixed(key ? key : ""))});
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -1886,6 +2010,9 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetNpcName", l_GetNpcName},         {"GetNpcPos", l_GetNpcPos},         {"NpcName2Replace", l_NpcName2Replace},
     {"NpcDialog", l_NpcDialog},           {"GetLastDiagNpc", l_GetLastDiagNpc}, {"GetNpcSettingIdx", l_GetNpcSettingIdx},
     {"GetLevel", l_GetLevel},             {"GetName", l_GetName},             {"GetSex", l_GetSex},
+    {"TabFile_Load", l_TabFile_Load},     {"TabFile_UnLoad", l_TabFile_UnLoad}, {"TabFile_GetRowCount", l_TabFile_GetRowCount},
+    {"TabFile_GetColCount", l_TabFile_GetColCount}, {"TabFile_GetCell", l_TabFile_GetCell}, {"TabFile_Search", l_TabFile_Search},
+    {"TabFile_SetCell", l_TabFile_SetCell}, {"TabFile_Save", l_TabFile_Save},
     {nullptr, nullptr},
 };
 

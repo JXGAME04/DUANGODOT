@@ -422,7 +422,9 @@ void write(Level level, std::string_view category, std::string_view msg, const s
     for (const Field& f : fields) {
         j[f.key] = f.value;
     }
-    const std::string line = j.dump();
+    // a field may carry the raw bytes of the old game's data (GBK / TCVN3 names in a script): they become U+FFFD in the
+    // line instead of an exception that would end the job in the middle of a tick
+    const std::string line = j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 
     push_ring(s, line);
     if (s.logger) {
