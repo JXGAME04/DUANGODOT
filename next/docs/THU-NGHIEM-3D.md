@@ -142,6 +142,8 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
 
 ## Test tay: nhận đồ, nhận ngựa, nhận phái + kỹ năng (lệnh GM gõ vào ô chat, server dev có `gm_chat`)
 
+0. **Nhanh nhất**: `client3d.cmd play [tài khoản]` (mặc định `test3d`, mật khẩu `auto`) — tự đăng nhập, tạo nhân vật Cái Bang (`--series=3`), lên cấp 90,
+   `SetFaction` + `add_gb(90)`, côn + ngựa trong túi, dịch tới Ba Lăng 3D; vào là chơi (cờ `--play` của `UiShell`/`UiGame`: đăng nhập tự động, không chạy kiểm thử).
 1. Bật server: `python tools\dev.py start` (zone 19001, gateway 19100). Mở client: `client3d.cmd` (tự `NewWorld(9053,232,194)` = Ba Lăng 3D;
    `client3d.cmd 9078 171 421` map khác). Tạo nhân vật rồi vào map. **Mở client sau khi kéo mã mới** (client đang mở chạy mã cũ).
 2. Vũ khí: `?gm ds AddItem(0,0,<loại>,<cấp>,0,0)` — loại theo bảng đồ 2.0 (`items/base.json meleeweapon`, = `EqtLimit` của kỹ năng): **0 kiếm** (Thiết Trủy thủ),

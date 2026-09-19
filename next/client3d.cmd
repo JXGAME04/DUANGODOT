@@ -2,8 +2,13 @@
 rem Mo client JX NEXT (Godot 4.7) va dich thang vao map 3D Ba Lang (9053) sau khi dang nhap (--gm=NewWorld...).
 rem Server phai dang chay truoc:  python tools\dev.py start   (zone 19001, gateway 19100)
 rem Map 3D khac: client3d.cmd 9078 171 421   (id = 9052 + id scene, xem: python tools\scn3d\batch_maps.py --list)
+rem Vao thang bang tai khoan test, khong go gi: client3d.cmd play [ten tai khoan]  (tu dang nhap, nhan vat Cai Bang
+rem   cap 90 co du ky nang phai, con trong tui, ngua Liet Bach Ma; mat khau "auto"; mac dinh tai khoan test3d)
+rem set JX_RENDER=mobile  (hoac forward_plus) truoc khi chay: renderer Vulkan cho bloom rong nhu ban tham khao (3D-66);
+rem mac dinh GL Compatibility theo ADR-008 (bloom chi vai pixel).
 setlocal
 set "HERE=%~dp0"
+set "MODE=%~1"
 set "MAP=%~1"
 set "X=%~2"
 set "Y=%~3"
@@ -23,5 +28,14 @@ if not defined GODOT (
 )
 set "RENDER="
 if defined JX_RENDER set "RENDER=--rendering-method %JX_RENDER% --rendering-driver vulkan"
+if /i "%MODE%"=="play" goto play
 echo Mo client 3D: "%GODOT%" %RENDER% --path "%HERE%client" -- --gm=NewWorld(%MAP%,%X%,%Y%)
 start "JX NEXT client 3D" "%GODOT%" %RENDER% --path "%HERE%client" -- "--gm=NewWorld(%MAP%,%X%,%Y%)"
+exit /b 0
+
+:play
+set "ACC=%~2"
+if not defined ACC set "ACC=test3d"
+echo Mo client 3D, tai khoan %ACC% (Cai Bang cap 90, ky nang phai, con, ngua), map Ba Lang 3D
+start "JX NEXT client 3D" "%GODOT%" %RENDER% --path "%HERE%client" -- --play --account=%ACC% --password=auto --series=3 --server=127.0.0.1:19100 "--gm=NewWorld(9053,232,194)" "--gm=for i=1,89 do AddExp(100000000,0) end" "--gm=SetFaction(\"gaibang\")" "--gm=Include(\"\\\\script\\\\global\\\\skills_table.lua\") add_gb(90)" "--gm=AddItem(0,0,2,1,0,0)" "--gm=AddItem(0,10,2,1,0,0)"
+exit /b 0

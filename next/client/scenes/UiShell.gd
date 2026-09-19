@@ -28,6 +28,8 @@
 #                         sample characters, no server needed)
 #   --auto --account=A --password=P [--server=ADDR]
 #                         log in, make or pick a character and enter the world without a person
+#   --play --account=A --password=P [--server=ADDR] [--series=N]
+#                         the same login / character steps, then the person plays (no test flow, no quit)
 #   --server=ADDR         adds that gateway as a region of its own ("Dòng lệnh")
 #   --serverlist=FILE     a server list instead of the player's / the shipped one
 extends Control
@@ -89,7 +91,7 @@ func _ready() -> void:
 	add_child(canvas)
 	resized.connect(_fit)
 	_fit()
-	if _args.has("shot") or _args.has("auto"):
+	if _args.has("shot") or _args.has("auto") or _args.has("play"):
 		KWndShowAnimate.animate = false
 	bg = UiLoginBg.new()
 	canvas.add_child(bg)
@@ -178,7 +180,7 @@ func _start() -> void:
 	if _args.has("shot"):
 		await _show_for_shot(str(_args["shot"]))
 		return
-	if _args.has("auto"):
+	if _args.has("auto") or _args.has("play"):
 		_auto_login()
 		return
 	if Game.last_notice != "":
@@ -313,7 +315,7 @@ func _on_char_list(chars: Array) -> void:
 	_info.close()
 	_show(_sel_player)
 	_sel_player.open(chars, Game.max_chars)
-	if _args.has("auto"):
+	if _args.has("auto") or _args.has("play"):
 		if chars.is_empty():
 			Log.info("auto", "auto create")
 			# --place=<map id>: the starting village (the Id of NativePlaceList.ini; 0 = the default map); --series=<0..4>
