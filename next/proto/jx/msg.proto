@@ -75,6 +75,7 @@ enum MsgId {
   G2C_MISSLE = 2124;           // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
   G2C_STATE_ICONS = 2125;      // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
   G2C_NPC_GOLD = 2126;         // the 0x9a packet (0x0809DF66): a monster turned gold - its kind (NpcGoldTemplate row + 1)
+  G2C_ENTITY_RES = 2127;       // the 0xad packet (0x0807A9D0): a player's equipment look (helm / armour / weapon / horse / mantle rows)
 
   // gateway <-> zone
   GZ_ZONE_HELLO = 9001;

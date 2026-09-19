@@ -11,6 +11,7 @@
 //	objects <mapid | gamepath> <x> <y> [text]  raw cover/buildin records + sprite headers of one region
 //	export-npcres [mapid...] -out <dir>   npc/character appearance tables + sprites used on those maps
 //	export-items -out <dir>          the item tables of the old server (settings/item, every version) as JSON
+//	export-item-res -out <dir>       settings/item/*res.txt + goldequipres.txt (what worn pieces look like) -> items/item_res.json
 //	export-player -out <dir>         settings/npc/player of the old server (level_exp, level_add, stamina.ini,
 //	                                 basevalue.ini, newplayerini%02d) as player.json for the zone and the gateway
 //	export-skills -out <dir>         settings/skills.txt of the old server (every row, every column the JX2
@@ -61,6 +62,7 @@ var (
 	flagOut    = flag.String("out", "", "output file or directory")
 	flagLevel  = flag.String("log-level", "info", "log level")
 	flagTpl    = flag.String("templates", "", "export-npcres: extra npc template ids (comma separated), e.g. the zone's test npcs")
+	flagRows   = flag.String("equip-rows", "2:1,2;3:8", "export-npcres: extra equipment rows per part group, \"group:row,row;group:row\" (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); a horse row also exports the on-horse actions")
 	flagAll    = flag.Bool("all", false, "export-objdata: every row's picture, not only the ones items and money use")
 	flagTheme  = flag.String("theme", "", "export-ui: a fragment of the theme folder name (1024, 800); default: the largest")
 	flagLang   = flag.String("lang", "vn", "export-skill-desc: the \\lang\\<lang> folder of the client (gamecl.exe 2.0 picks it by its language index at 0x80ec60: vn)")
@@ -1937,6 +1939,52 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "export-item-res":
+		// export-item-res: the five appearance tables of KItemSet (0x08068D90: MeleeRes +0, RangeRes +0x20, ArmorRes +0x40,
+		// HelmRes +0x60, HorseRes +0x80) and goldequipres.txt as the zone reads them (KTabFile::GetInteger by row / column,
+		// KItemChangeRes 0x08068AC0) -> <out>/items/item_res.json
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		if *flagOut == "" {
+			fail("export-item-res needs -out <client/assets>")
+		}
+		var server *pak.Set
+		if sdir := findServer(dir); sdir != "" {
+			if s, err := openServerSet(sdir); err == nil {
+				server = s
+				defer server.Close()
+			}
+		}
+		readAny := func(p string) ([]byte, error) {
+			if server != nil {
+				if data, err := server.ReadFile(p); err == nil {
+					return data, nil
+				}
+			}
+			return set.ReadFile(p)
+		}
+		out := map[string]any{}
+		for _, t := range []struct{ key, path string }{
+			{"melee", npcres.MeleeResFile}, {"range", npcres.RangeResFile}, {"armor", npcres.ArmorResFile},
+			{"helm", npcres.HelmResFile}, {"horse", npcres.HorseResFile}, {"gold", npcres.GoldResFile},
+		} {
+			data, err := readAny(t.path)
+			if err != nil {
+				fail("%s: %v", t.path, err)
+			}
+			out[t.key] = npcres.ParseTab(data).IntRows()
+		}
+		if err := os.MkdirAll(filepath.Join(*flagOut, "items"), 0o755); err != nil {
+			fail("%v", err)
+		}
+		data, _ := json.MarshalIndent(out, "", " ")
+		if err := os.WriteFile(filepath.Join(*flagOut, "items", "item_res.json"), data, 0o644); err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("item res: melee %d, range %d, armor %d, helm %d, horse %d, gold %d rows -> %s\n",
+			len(out["melee"].([][]int)), len(out["range"].([][]int)), len(out["armor"].([][]int)), len(out["helm"].([][]int)),
+			len(out["horse"].([][]int)), len(out["gold"].([][]int)), filepath.Join(*flagOut, "items", "item_res.json"))
 	case "export-npcres":
 		// export-npcres [mapid...]: appearance tables (npcs.txt, Settings/npcres) plus the sprites
 		// of the npcs placed on those maps and of the two main characters -> <out>/npcres, <out>/sprites
@@ -2014,7 +2062,10 @@ func main() {
 			Names:     names,
 			Doings:    []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1, npcres.DoSit},
 			Equips:    icr.DefaultEquips(),
-			Skills:    loadSkills(set, findServer(dir)),
+			// the rows of -equip-rows (default: weapon rows 1 / 2 = the level 1..5 melee weapons of MeleeRes.txt, horse row 8 =
+			// every "normal horse" of HorseRes.txt (col 2 = 10))
+			ExtraEquips: parseEquipRows(*flagRows),
+			Skills:      loadSkills(set, findServer(dir)),
 		}
 		n, err := e.NpcRes(list, templates, player, opt)
 		if err != nil {
@@ -2266,4 +2317,25 @@ func main() {
 	default:
 		fail("unknown command %q", args[0])
 	}
+}
+
+// parseEquipRows reads "-equip-rows": "group:row,row;group:row" -> group -> rows (bad pieces are skipped).
+func parseEquipRows(spec string) map[int][]int {
+	out := map[int][]int{}
+	for _, piece := range strings.Split(spec, ";") {
+		g, rows, ok := strings.Cut(strings.TrimSpace(piece), ":")
+		if !ok {
+			continue
+		}
+		group, err := strconv.Atoi(strings.TrimSpace(g))
+		if err != nil {
+			continue
+		}
+		for _, r := range strings.Split(rows, ",") {
+			if row, err := strconv.Atoi(strings.TrimSpace(r)); err == nil {
+				out[group] = append(out[group], row)
+			}
+		}
+	}
+	return out
 }

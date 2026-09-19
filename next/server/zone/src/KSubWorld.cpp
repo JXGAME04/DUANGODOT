@@ -205,6 +205,12 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_dir(e.dir);
     out.set_hide(e.hide);   // the hide bit of the 0x4d status packet (0x08081230); only its own client gets a hidden npc
     out.set_riding(e.horse != 0);   // the 0x20 flag (0x0807C07E / 0x080814ED)
+    // the 0x4a / 0x4b bytes +0x14dc..+0x14ec (0x0807BF86.., 0x080813BD..): what the clients dress the character in
+    out.set_helm_res(e.helm_res);
+    out.set_armor_res(e.armor_res);
+    out.set_weapon_res(e.weapon_res);
+    out.set_horse_res(e.horse_res);
+    out.set_mantle_res(e.mantle_res);
     out.set_life(static_cast<std::uint32_t>(std::max(0, e.life())));
     out.set_life_max(static_cast<std::uint32_t>(std::max(0, e.life_max())));
     // 0x0807FCA5: the word of KNpcGold::GetGoldKind (the row + 1 while gold); a boss (+0x181c != 0) sends the table's
@@ -292,6 +298,7 @@ pb::Result KSubWorld::spawn_player(std::uint64_t sid, const pb::RoleData& role, 
     load_items(sid, role);
     // KPlayer::LoadFrom: the points, the level tables and the equipment make the numbers
     entities_.at(id).player.load_from(entities_.at(id), role, tables(), items_of(sid));
+    update_equip_res(entities_.at(id));   // 0x080C1F50: the look of what came back on (before the spawn goes out)
     load_skills(entities_.at(id), role);   // KPlayer::LoadPlayerFightSkillList: the skills, each through KSkillList::Add
     // the pace: m_CurrentRunSpeed units a frame (0x08080C01; 10 for a player, 0x080A7FF0) = 180 a second at 18 Hz - the role's
     // move_speed (a 200 the persist layer fills in) is not a rule of the old server and is ignored
@@ -1715,6 +1722,43 @@ void KSubWorld::emit_ride(const KNpc& e)
     broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_RIDE), r);
 }
 
+void KSubWorld::update_equip_res(KNpc& e)
+{
+    if (e.kind != KNpcKind::player) return;
+    const KItemList* list = items_of(e.sid);
+    const KItemChangeRes* res = cfg_.item_res.get();
+    const auto row = [&](int part) {
+        if (res == nullptr) return part == itempart_horse || part == itempart_mantle ? -1 : 0;
+        const KItem* item = list ? list->find(list->equipped(part)) : nullptr;
+        return res->equip_res(item, part);   // 0x081FE1E0: the worn piece or nothing
+    };
+    const int helm = row(itempart_head), armor = row(itempart_body), weapon = row(itempart_weapon), horse = row(itempart_horse);
+    const int mantle = -1;   // 0x0807ADE3: Player+0x46c != 1 -> no mantle (nothing sets it in the zone)
+    if (helm == e.helm_res && armor == e.armor_res && weapon == e.weapon_res && horse == e.horse_res && mantle == e.mantle_res) return;
+    e.helm_res = helm;
+    e.armor_res = armor;
+    e.weapon_res = weapon;
+    e.horse_res = horse;
+    e.mantle_res = mantle;
+    ++e.res_version;   // 0x0807ACD8
+    log::debug("zone.player", "look changed", {log::kv("entity", e.id), log::kv("helm", helm), log::kv("armor", armor),
+                                                log::kv("weapon", weapon), log::kv("horse", horse), log::kv("version", e.res_version)});
+    emit_res(e);   // 0x0807AD50: 0x0807A9D0(npc, 0) -> around 1200 units when in a region, else to its own client
+}
+
+void KSubWorld::emit_res(const KNpc& e)
+{
+    pb::EntityRes r;
+    r.set_entity_id(e.id.value);
+    r.set_helm_res(e.helm_res);
+    r.set_armor_res(e.armor_res);
+    r.set_weapon_res(e.weapon_res);
+    r.set_horse_res(e.horse_res);
+    r.set_mantle_res(e.mantle_res);
+    r.set_version(e.res_version);
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_ENTITY_RES), r);
+}
+
 // the 0x59 packet of KNpc::SetCamp 0x0807B7B0 {npc id, camp} / the 0x58 one of SetCurrentCamp 0x0807B850, to the
 // clients around (0x0807A870 with 6 bytes, a radius of 100)
 void KSubWorld::emit_camp(const KNpc& e)
@@ -2003,6 +2047,7 @@ bool KSubWorld::ride_request(std::uint64_t sid, bool on, std::uint32_t seq)
     KNpc* me = pit == players_.end() ? nullptr : entities_.find(pit->second);
     KItemList* list = items_of(sid);
     if (me == nullptr || list == nullptr) return false;
+    if (me->doing == KDoing::sit) return false;       // 0x080AEFA0: m_Doing == 8 (sitting) -> nothing
     if (me->cur.frozen_action) return false;
     if ((me->horse != 0) == on) return false;
     if (list->equipped(itempart_horse) == 0) return false;
@@ -2301,6 +2346,7 @@ bool KSubWorld::item_equip_request(std::uint64_t sid, std::uint32_t id, int part
     }
     if (part < 0) part = KItemList::equip_place(item->detail);   // KItemList::Equip(nIdx, -1): the part its kind goes to
     const std::uint32_t worn = list->equipped(part);
+    const int particular = item->particular, level = item->level;
     if (!list->equip(id, part, attrib_of(*me))) {
         item_result(sid, seq, list->can_equip(*item, part, attrib_of(*me)) ? pb::RESULT_FULL : pb::RESULT_BAD_REQUEST);
         return false;
@@ -2308,10 +2354,15 @@ bool KSubWorld::item_equip_request(std::uint64_t sid, std::uint32_t id, int part
     item_moved(sid, id, seq);
     if (worn != 0) item_moved(sid, worn, 0);
     if (KNpc* me2 = entities_.find(players_.at(sid))) {
-        // 0x081FE752: the horse part -> SetHorse(1) when the horse table 0x080688B0 knows the piece (row detail +
-        // level x 10 + 2 of KItemSet+0x80; the zone has no such table: every horse rides), then UpdataCurData
-        if (part == itempart_horse) set_horse(*me2, 1);
+        // 0x081FE752: the horse part -> SetHorse(1) when the horse table 0x080688B0 (HorseRes.txt, KItemSet+0x80) knows the
+        // piece (row particular x 10 + level + 2, col 2 - 2 >= 0), SetHorse(0) when it does not (every horse rides without
+        // the table); then UpdataCurData
+        if (part == itempart_horse) {
+            const bool known = cfg_.item_res == nullptr || cfg_.item_res->horse_res(particular, level) >= 0;
+            set_horse(*me2, known ? 1 : 0);
+        }
         recalc_player(*me2);   // KPlayer::UpdataCurData after Equip
+        update_equip_res(*me2);   // 0x081FE230 + 0x0807AF10 -> 0x0807ACB0: the look of the piece
     }
     return true;
 }
@@ -2332,6 +2383,7 @@ bool KSubWorld::item_unequip_request(std::uint64_t sid, int part, std::uint32_t 
     if (KNpc* me = entities_.find(players_.at(sid))) {
         if (part == itempart_horse) set_horse(*me, 0);   // 0x08200311: the horse comes off -> SetHorse(0)
         recalc_player(*me);   // KItemList::UnEquip takes the attributes off
+        update_equip_res(*me);   // 0x0807ACB0 from UnEquip (0x081FFFB0): the bare row again
     }
     return true;
 }

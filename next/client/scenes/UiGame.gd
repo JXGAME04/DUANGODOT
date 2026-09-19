@@ -75,6 +75,8 @@ func _ready() -> void:
 	Game.state_icons_changed.connect(_on_state_icons)
 	Game.gold_changed.connect(_on_gold)
 	Game.entity_camp.connect(_on_entity_camp)
+	Game.entity_res.connect(_on_entity_res)
+	Game.entity_ride.connect(_on_entity_ride)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -507,6 +509,20 @@ func _on_entity_camp(c: Dictionary) -> void:
 		node.set_camp(int(c.camp), int(c.current_camp))
 
 
+# the 0xad packet: a player's equipment look changed (KNpc::SetPlayerRes 0x005ED920)
+func _on_entity_res(r: Dictionary) -> void:
+	var node: Node2D = _entities.get(int(r.id))
+	if node != null and node.has_method("set_equip_rows"):
+		node.set_equip_rows(r.res)
+
+
+# the ride flag of the 0x4a / 0x4b sync (G2C_ENTITY_RIDE): KNpc::SetRideHorse 0x005EC3E0
+func _on_entity_ride(r: Dictionary) -> void:
+	var node: Node2D = _entities.get(int(r.id))
+	if node != null and node.has_method("set_riding"):
+		node.set_riding(bool(r.riding))
+
+
 # the 0x9a packet: a monster turned gold - its name takes the gold colour (0x005F23E5)
 func _on_gold(entity_id: int) -> void:
 	var node: Node2D = _entities.get(entity_id)
@@ -571,6 +587,7 @@ func _auto_run() -> void:
 	await _auto_skills()
 	await _auto_fight()
 	await _auto_sit()
+	await _auto_ride()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -626,6 +643,23 @@ func _auto_run() -> void:
 # afterwards: 0 when the zone has no item tables or gm_chat is off; AUTO_MAGIC how many prefixes /
 # suffixes the level-5 sword rolled (Gen_MagicAttrib of the zone on the real tables).
 func _auto_items() -> void:
+	# the test character keeps its bag between runs: drop the junk of earlier runs (bag items that are not quest ones)
+	# down to a few, so the AddItems below and the horse of _auto_ride find room
+	var junk: Array = []
+	for id in Game.items:
+		var it: Dictionary = Game.items[id]
+		if int(it.get("room", -1)) == Game.ROOM_BAG and int(it.get("genre", -1)) != 4:
+			junk.append(int(id))
+	if junk.size() > 4:
+		var total := Game.items.size()
+		var dropping := junk.size() - 4
+		for i in range(dropping):
+			Game.item_drop(junk[i])
+		var cleaned := 0.0
+		while cleaned < 3.0 and Game.items.size() > total - dropping:
+			await get_tree().create_timer(0.25).timeout
+			cleaned += 0.25
+		Log.info("auto", "bag cleaned", {"dropped": dropping, "left": Game.items.size()})
 	var before := Game.items.size()
 	Game.chat("?gm ds AddItem(0,0,0,1,0,0)")
 	Game.chat("?gm ds AddItem(1,0,0,1,0,0)")
@@ -780,6 +814,57 @@ func _auto_sit() -> void:
 			stood = true
 			break
 	print("AUTO_SIT sat=%s frame=%d life_before=%d life_after=%d stood=%s" % [sat, frame_held, life_before, life_after, stood])
+
+
+# a horse from the gm (AddItem genre 0 detail 10 = equip_horse, particular 0, level 1 -> HorseRes row 3 -> horse row 8), worn
+# (0x081FE752: worn = ridden), the on-horse pictures (KNpcRes::SetRideHorse -> actions 38..) with the name 38 higher, then off
+func _auto_ride() -> void:
+	var own: Node2D = _entities.get(Game.entity_id)
+	if own == null:
+		print("AUTO_RIDE none")
+		return
+	var before := Game.items.size()
+	Game.chat("?gm ds AddItem(0,10,0,1,0,0)")
+	var waited := 0.0
+	while waited < 3.0 and Game.items.size() < before + 1:
+		await get_tree().create_timer(0.1).timeout
+		waited += 0.1
+	var horse_id := 0
+	for id in Game.items:
+		var it: Dictionary = Game.items[id]
+		if int(it.get("genre", -1)) == 0 and int(it.get("detail", -1)) == 10 and int(it.get("room", -1)) == Game.ROOM_BAG:
+			horse_id = int(id)
+	if horse_id == 0:
+		print("AUTO_RIDE horse=false")
+		return
+	Game.item_equip(horse_id)
+	var mounted := false
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and own.riding:
+			mounted = true
+			break
+	await get_tree().create_timer(0.8).timeout
+	own = _entities.get(Game.entity_id)
+	var rows: Dictionary = own.equip_rows if own != null else {}
+	var action: int = own._res.action if own != null and own.has_res else -1
+	var parts: int = own._res.parts.size() if own != null and own.has_res else 0
+	await _save_screenshot("user://logs/auto_ride.png")
+	Game.ride(false)
+	var down := false
+	for i in 30:
+		await get_tree().create_timer(0.1).timeout
+		own = _entities.get(Game.entity_id)
+		if own != null and not own.riding:
+			down = true
+			break
+	var action_down: int = own._res.action if own != null and own.has_res else -1
+	var parts_down: int = own._res.parts.size() if own != null and own.has_res else 0
+	Log.info("auto", "auto ride", {"mounted": mounted, "horse_row": rows.get(3, -1), "action": action, "parts": parts,
+		"down": down, "action_down": action_down})
+	print("AUTO_RIDE mounted=%s horse_row=%d action=%d parts=%d down=%s action_down=%d parts_down=%d" % [mounted, rows.get(3, -1),
+		action, parts, down, action_down, parts_down])
 
 
 func _auto_death() -> void:

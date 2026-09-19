@@ -66,6 +66,8 @@ var level := 0                     # m_Level (+0x28 of the 2.0 client): "%s/Lv:%
 var gold_type := 0
 var hovered := false               # the npc under the mouse (the pate loop 0x0067021A: [core+0xa8c4] == this)
 var camp := 4                      # m_Camp (+0xf4 of the 2.0 client, the byte +0xb of the 0x4c packet)
+var equip_rows: Dictionary = {}    # the equipment rows of the 0x4a / 0x4b sync (KNpc+0x13f0..+0x1400): group -> row, -1 none
+var riding := false                # m_bRideHorse (+0x19c0): the on-horse actions, the pate + 38
 var current_camp := 4              # m_CurrentCamp (+0xf8, the byte +3): the colour of a player's name (0x005F2507)
 # the two show switches (KNpcGold.gd): "showplayername" (F7) and "showplayerlife" (F8) of the option word, shared by every npc
 static var name_switch := 3        # this client starts with the names on (2.0 starts at 0: docs/CLIENT-2.0.md §17)
@@ -91,6 +93,8 @@ func setup(d: Dictionary, own: bool) -> void:
 	gold_type = int(d.get("gold_type", 0))
 	camp = int(d.get("camp", 4))
 	current_camp = int(d.get("current_camp", 4))
+	equip_rows = d.get("res", {})
+	riding = bool(d.get("riding", false))
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -129,6 +133,11 @@ func setup(d: Dictionary, own: bool) -> void:
 	if not has_res:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
+	elif entity_type == ENTITY_PLAYER:
+		# 0x005F1A15..0x005F1A63: SetRideHorse(+0x19c0), SetArmor(+0x13f4), SetHelm(+0x13f0), SetMantle(+0x13f8), SetHorse(+0x13fc), the weapon
+		if not equip_rows.is_empty():
+			_res.set_equips(equip_rows)
+		_res.set_ride(riding)
 	set_state_icons(d.get("state_icons", state_icons))
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
 	_place_labels()
@@ -275,6 +284,26 @@ func set_camp(c: int, current: int) -> void:
 	camp = c
 	current_camp = current
 	_refresh_name()
+
+
+# the 0xad packet (KNpc::SetPlayerRes 0x005ED920 -> 0x005EBF90): the equipment rows of a player - the pictures are picked again
+func set_equip_rows(rows: Dictionary) -> void:
+	equip_rows = rows
+	if has_res and entity_type == ENTITY_PLAYER:
+		_res.set_equips(rows)
+		queue_redraw()
+
+
+# the ride flag of the 0x4a / 0x4b sync -> KNpc::SetRideHorse 0x005EC3E0 -> KNpcRes::SetRideHorse 0x006DF420: the on-horse
+# actions of the same doing, the name 38 higher (GetNpcPate)
+func set_riding(on: bool) -> void:
+	if riding == on:
+		return
+	riding = on
+	if has_res and entity_type == ENTITY_PLAYER:
+		_res.set_ride(on)
+	_place_labels()
+	queue_redraw()
 
 
 # KNpcGold::SetGoldType 0x006E3560 (the 0x9a packet): the kind, 0 = plain again
@@ -448,6 +477,8 @@ func _pate() -> int:
 	var h := stature
 	if entity_type == ENTITY_PLAYER:
 		h += 84 - KNpcGold.sit_pate_drop(doing == KNpcResNode.Doing.SIT, cur_frame, total_frame)
+		if riding:
+			h += 38   # 0x005EBD58: +0x19c0 -> + 0x26
 	return h
 
 

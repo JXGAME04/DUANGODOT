@@ -14,6 +14,8 @@ const KStateSpr := preload("res://scenes/KStateSpr.gd")
 var res: Dictionary = {}
 var special := false
 var weapon := 0               # equipment row of the weapon group (bare hands = 0)
+var equips: Dictionary = {}   # part group (0 head, 1 body, 2 weapon, 3 horse, 4 mantle) -> equipment row; absent / -1 = nothing there
+var ride := false             # KNpcRes+0x2c (SetRideHorse 0x006DF420): the on-horse action table picks the actions
 var doing := -1
 var action := -1
 var parts: Array = []         # [{index, sprite, atlas, frames, dirs}] in part-slot order
@@ -33,8 +35,65 @@ func setup(res_name: String) -> bool:
 	special = bool(res.get("special", false))
 	doing = -1
 	action = -1
-	weapon = int(res.get("equips", {}).get("2", 0)) if special else 0
+	ride = false
+	equips = {}
+	if special:
+		for g in res.get("equips", {}):
+			equips[int(g)] = int(res.equips[g])   # what the export dressed the character in (nothing worn)
+	weapon = int(equips.get(2, 0)) if special else 0
 	return not res.is_empty()
+
+
+# KNpcRes::SetHelm / SetArmor / SetWeapon / SetHorse / SetMantle (0x006DECF0 / 0x006E1070 / 0x006DF080 / 0x006DEFB0 / 0x006DEDB0)
+# at once: the rows of the 0x4a / 0x4b sync; a group with -1 (no horse, no mantle) drops out; the pictures are picked again
+func set_equips(rows: Dictionary) -> void:
+	if not special:
+		return
+	var next: Dictionary = {}
+	var defaults: Dictionary = res.get("equips", {})
+	for g in rows:
+		var row := int(rows[g])
+		if row < 0:
+			continue
+		if not _row_known(int(g), row):
+			# the export (dev.py assets -equip-rows) did not bring that row: the character keeps the row it was exported
+			# with (the 2.0 client would load the sprites from the paks) rather than losing its body on a strange action
+			if not defaults.has(str(int(g))):
+				continue
+			row = int(defaults[str(int(g))])
+		next[int(g)] = row
+	if next == equips:
+		return
+	equips = next
+	weapon = int(equips.get(2, 0))
+	_repick()
+
+
+# KNpcRes::SetRideHorse 0x006DF420: +0x2c = ride, then GetActNo(doing, weapon, ride) picks the action again (0x006DF474)
+func set_ride(on: bool) -> void:
+	if ride == on:
+		return
+	ride = on
+	_repick()
+
+
+# whether any part of the group has sprites exported for that equipment row
+func _row_known(group: int, row: int) -> bool:
+	for part in res.get("parts", []):
+		@warning_ignore("integer_division")
+		if int(part.get("index", 0)) / KNpcResNode.PART_SECTS != group:
+			continue
+		if part.get("equips", {}).has(str(row)):
+			return true
+	return false
+
+
+func _repick() -> void:
+	if res.is_empty() or doing < 0:
+		return
+	action = KNpcResNode.act_no(res, doing, weapon, ride)
+	sound_name = NpcResList.action_sound(str(res.get("name", "")), special, action) if action >= 0 else ""
+	_load_images()
 
 
 # KNpcRes::SetAction: pick the action of a doing and (re)load the part images.
@@ -44,7 +103,7 @@ func set_action(new_doing: int) -> bool:
 	if new_doing == doing:
 		return true
 	doing = new_doing
-	action = KNpcResNode.act_no(res, doing, weapon, false)
+	action = KNpcResNode.act_no(res, doing, weapon, ride)
 	sound_name = NpcResList.action_sound(str(res.get("name", "")), special, action) if action >= 0 else ""
 	_load_images()
 	return action >= 0
@@ -93,17 +152,16 @@ func _load_images() -> void:
 		var sh: Array = res.get("shadow", [])
 		if action < sh.size():
 			shadow = _make(sh[action], -1)
-		var equips: Dictionary = res.get("equips", {})
 		for part in res.get("parts", []):
 			var index := int(part.get("index", 0))
 			@warning_ignore("integer_division")
 			var group := index / KNpcResNode.PART_SECTS
-			if not equips.has(str(group)):
-				continue
+			if not equips.has(group):
+				continue   # no horse / no mantle: the parts of that group draw nothing
 			var rows: Dictionary = part.get("equips", {})
-			var row = rows.get(str(int(equips[str(group)])))
+			var row = rows.get(str(int(equips[group])))
 			if row == null or action >= row.size():
-				continue
+				continue   # a row the export did not bring (dev.py assets -equip-rows) draws nothing for that part
 			var img := _make(row[action], index)
 			if not img.is_empty():
 				parts.append(img)

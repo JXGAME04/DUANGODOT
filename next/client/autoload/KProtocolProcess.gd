@@ -48,6 +48,7 @@ signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a s
 var aura_skill := 0                          # KNpc+0x120 of the 2.0 client: the aura asked for (KNpc::SetAura 0x005EA870)
 signal state_icons_changed(entity_id: int)  # G2C_STATE_ICONS: the six icons over an entity changed (entities[id].state_icons)
 signal gold_changed(entity_id: int)         # G2C_NPC_GOLD: a monster turned gold (entities[id].gold_type = its kind, the 0x9a packet)
+signal entity_res(r: Dictionary)            # G2C_ENTITY_RES: a player's look (the 0xad packet -> KNpc::SetPlayerRes 0x005ED920)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -837,6 +838,18 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d["state_icons"] = icons
 				state_icons_changed.emit(int(m.get_entity_id()))
 
+		Proto.MsgId.G2C_ENTITY_RES:
+			# the 0xad handler of the 2.0 client (0x006515A0): the rows into KNpc::SetPlayerRes 0x005ED920, the version into +0x1408
+			var m := Proto.EntityRes.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			var rows := {0: int(m.get_helm_res()), 1: int(m.get_armor_res()), 2: int(m.get_weapon_res()), 3: int(m.get_horse_res()),
+				4: int(m.get_mantle_res())}
+			if d != null:
+				d["res"] = rows
+			entity_res.emit({"id": int(m.get_entity_id()), "res": rows, "version": int(m.get_version())})
+
 		Proto.MsgId.G2C_NPC_GOLD:
 			# the 0x9a handler of the 2.0 client (0x00653110): a npc (kind 0) -> KNpcGold::SetGoldType(word) 0x006E3560
 			var m := Proto.NpcGold.new()
@@ -1095,4 +1108,14 @@ func _entity_dict(e) -> Dictionary:
 		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames(),
 		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false,
 		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0,
-		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4}
+		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4,
+		"res": _res_dict(e)}
+
+
+# the equipment rows of the 0x4a / 0x4b player sync (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse,
+# +0x13f8 mantle), keyed by the part group of the resource tables (0 head, 1 body, 2 weapon, 3 horse, 4 mantle); -1 = none
+func _res_dict(e) -> Dictionary:
+	if not e.has_method("get_helm_res"):
+		return {}
+	return {0: int(e.get_helm_res()), 1: int(e.get_armor_res()), 2: int(e.get_weapon_res()), 3: int(e.get_horse_res()),
+		4: int(e.get_mantle_res())}

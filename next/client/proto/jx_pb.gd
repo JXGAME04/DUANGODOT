@@ -2351,6 +2351,31 @@ class EntityInfo:
 		service.field = __current_camp
 		data[__current_camp.tag] = service
 		
+		__helm_res = PBField.new("helm_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 23, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __helm_res
+		data[__helm_res.tag] = service
+		
+		__armor_res = PBField.new("armor_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 24, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __armor_res
+		data[__armor_res.tag] = service
+		
+		__weapon_res = PBField.new("weapon_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 25, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __weapon_res
+		data[__weapon_res.tag] = service
+		
+		__horse_res = PBField.new("horse_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 26, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __horse_res
+		data[__horse_res.tag] = service
+		
+		__mantle_res = PBField.new("mantle_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 27, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __mantle_res
+		data[__mantle_res.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2638,6 +2663,225 @@ class EntityInfo:
 		__current_camp.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_current_camp(value : int) -> void:
 		__current_camp.value = value
+	
+	var __helm_res: PBField
+	func has_helm_res() -> bool:
+		if __helm_res.value != null:
+			return true
+		return false
+	func get_helm_res() -> int:
+		return __helm_res.value
+	func clear_helm_res() -> void:
+		data[23].state = PB_SERVICE_STATE.UNFILLED
+		__helm_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_helm_res(value : int) -> void:
+		__helm_res.value = value
+	
+	var __armor_res: PBField
+	func has_armor_res() -> bool:
+		if __armor_res.value != null:
+			return true
+		return false
+	func get_armor_res() -> int:
+		return __armor_res.value
+	func clear_armor_res() -> void:
+		data[24].state = PB_SERVICE_STATE.UNFILLED
+		__armor_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_armor_res(value : int) -> void:
+		__armor_res.value = value
+	
+	var __weapon_res: PBField
+	func has_weapon_res() -> bool:
+		if __weapon_res.value != null:
+			return true
+		return false
+	func get_weapon_res() -> int:
+		return __weapon_res.value
+	func clear_weapon_res() -> void:
+		data[25].state = PB_SERVICE_STATE.UNFILLED
+		__weapon_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_weapon_res(value : int) -> void:
+		__weapon_res.value = value
+	
+	var __horse_res: PBField
+	func has_horse_res() -> bool:
+		if __horse_res.value != null:
+			return true
+		return false
+	func get_horse_res() -> int:
+		return __horse_res.value
+	func clear_horse_res() -> void:
+		data[26].state = PB_SERVICE_STATE.UNFILLED
+		__horse_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_horse_res(value : int) -> void:
+		__horse_res.value = value
+	
+	var __mantle_res: PBField
+	func has_mantle_res() -> bool:
+		if __mantle_res.value != null:
+			return true
+		return false
+	func get_mantle_res() -> int:
+		return __mantle_res.value
+	func clear_mantle_res() -> void:
+		data[27].state = PB_SERVICE_STATE.UNFILLED
+		__mantle_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_mantle_res(value : int) -> void:
+		__mantle_res.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
+class EntityRes:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		__helm_res = PBField.new("helm_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __helm_res
+		data[__helm_res.tag] = service
+		
+		__armor_res = PBField.new("armor_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __armor_res
+		data[__armor_res.tag] = service
+		
+		__weapon_res = PBField.new("weapon_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __weapon_res
+		data[__weapon_res.tag] = service
+		
+		__horse_res = PBField.new("horse_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __horse_res
+		data[__horse_res.tag] = service
+		
+		__mantle_res = PBField.new("mantle_res", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 6, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __mantle_res
+		data[__mantle_res.tag] = service
+		
+		__version = PBField.new("version", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 7, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __version
+		data[__version.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __helm_res: PBField
+	func has_helm_res() -> bool:
+		if __helm_res.value != null:
+			return true
+		return false
+	func get_helm_res() -> int:
+		return __helm_res.value
+	func clear_helm_res() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__helm_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_helm_res(value : int) -> void:
+		__helm_res.value = value
+	
+	var __armor_res: PBField
+	func has_armor_res() -> bool:
+		if __armor_res.value != null:
+			return true
+		return false
+	func get_armor_res() -> int:
+		return __armor_res.value
+	func clear_armor_res() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__armor_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_armor_res(value : int) -> void:
+		__armor_res.value = value
+	
+	var __weapon_res: PBField
+	func has_weapon_res() -> bool:
+		if __weapon_res.value != null:
+			return true
+		return false
+	func get_weapon_res() -> int:
+		return __weapon_res.value
+	func clear_weapon_res() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__weapon_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_weapon_res(value : int) -> void:
+		__weapon_res.value = value
+	
+	var __horse_res: PBField
+	func has_horse_res() -> bool:
+		if __horse_res.value != null:
+			return true
+		return false
+	func get_horse_res() -> int:
+		return __horse_res.value
+	func clear_horse_res() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__horse_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_horse_res(value : int) -> void:
+		__horse_res.value = value
+	
+	var __mantle_res: PBField
+	func has_mantle_res() -> bool:
+		if __mantle_res.value != null:
+			return true
+		return false
+	func get_mantle_res() -> int:
+		return __mantle_res.value
+	func clear_mantle_res() -> void:
+		data[6].state = PB_SERVICE_STATE.UNFILLED
+		__mantle_res.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_mantle_res(value : int) -> void:
+		__mantle_res.value = value
+	
+	var __version: PBField
+	func has_version() -> bool:
+		if __version.value != null:
+			return true
+		return false
+	func get_version() -> int:
+		return __version.value
+	func clear_version() -> void:
+		data[7].state = PB_SERVICE_STATE.UNFILLED
+		__version.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_version(value : int) -> void:
+		__version.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -9202,6 +9446,7 @@ enum MsgId {
 	G2C_MISSLE = 2124,
 	G2C_STATE_ICONS = 2125,
 	G2C_NPC_GOLD = 2126,
+	G2C_ENTITY_RES = 2127,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,
 	GZ_SESSION_OPEN = 9003,

@@ -163,6 +163,23 @@ message EntityInfo {
                                  // (+0x181c != 0) carries the table's count + 1 - the 2.0 client colours the name by it (0x005F23E5: 0xFF6365FF, above its table 0xFFEBB200)
   int32 camp = 21;               // m_Camp +0x21c (the byte +0xb of the 0x4c packet -> the client's KNpc+0xf4)
   int32 current_camp = 22;       // m_CurrentCamp +0x220 (the byte +3 -> KNpc+0xf8): the colour of a player's name (0x005F2507, the table 0x5f2d94)
+  // +0x14dc..+0x14ec of the 0x4a / 0x4b player sync (0x0807BF86, 0x080813BD): the equipment rows of the main characters'
+  // part tables the client dresses a player in (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse, +0x13f8 mantle)
+  int32 helm_res = 23;
+  int32 armor_res = 24;
+  int32 weapon_res = 25;
+  int32 horse_res = 26;          // -1 = no horse (HorseRes level 0)
+  int32 mantle_res = 27;         // -1 = none
+}
+
+message EntityRes {              // G2C_ENTITY_RES: the 0xad packet (0x0807A9D0) - a player's look changed (a piece put on / taken off)
+  uint64 entity_id = 1;
+  int32 helm_res = 2;
+  int32 armor_res = 3;
+  int32 weapon_res = 4;
+  int32 horse_res = 5;
+  int32 mantle_res = 6;
+  uint32 version = 7;            // +0x1504 (the client keeps it in KNpc+0x1408 and asks for a full sync when a 0x4b disagrees)
 }
 
 message NpcGold {                // G2C_NPC_GOLD: the 0x9a packet {0x9a, npc id, word kind} of SetGoldTypeAndBackData 0x0809DF66 - a monster turned gold (the 2.0 handler 0x00653110)

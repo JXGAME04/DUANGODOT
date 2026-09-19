@@ -23,6 +23,7 @@
 #include "jx/entity/EntityTable.h"
 #include "jx/ids.hpp"
 #include "jx/zone/KItem.h"
+#include "jx/zone/KItemChangeRes.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KFaction.h"
@@ -124,6 +125,7 @@ struct KSubWorldConfig {
     std::shared_ptr<const KMissleTable> missles;
     std::shared_ptr<const KWeaponSkillTable> weapon_skills;   // the weapon -> physical skill table (KSkill.h); null = the basic attacks
     std::shared_ptr<const KAbradeRate> abrade_rate;           // AbradeRate.ini (KItem.h; jxassets export-abrade-rate); null = nothing wears
+    std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
 };
@@ -688,6 +690,10 @@ private:
     void emit_action(const KNpc& e, pb::Action action, EntityId target, int skill_id = 0, int skill_level = 0, Pos aim = Pos{});
     void emit_life(const KNpc& e, std::int32_t delta, EntityId source);
     void emit_ride(const KNpc& e);
+    // 0x0807ACB0 for a player: the five equipment rows from the worn pieces (KItemChangeRes::equip_res of parts 0 / 1 / 3 / 10,
+    // the mantle -1), +0x1504 bumped and the look told around (the 0xad packet 0x0807A9D0 -> G2C_ENTITY_RES) when it changed
+    void update_equip_res(KNpc& e);
+    void emit_res(const KNpc& e);
     void emit_camp(const KNpc& e);
     void emit_player_faction(const KNpc& e);
     // the 0x87 packet of SetStateSkillEffect 0x08086892 / RemoveStateSkillEffect 0x0807D40A to the player's client

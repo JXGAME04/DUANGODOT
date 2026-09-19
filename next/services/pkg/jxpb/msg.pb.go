@@ -136,6 +136,7 @@ const (
 	MsgId_G2C_MISSLE          MsgId = 2124 // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
 	MsgId_G2C_STATE_ICONS     MsgId = 2125 // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
 	MsgId_G2C_NPC_GOLD        MsgId = 2126 // the 0x9a packet (0x0809DF66): a monster turned gold - its kind (NpcGoldTemplate row + 1)
+	MsgId_G2C_ENTITY_RES      MsgId = 2127 // the 0xad packet (0x0807A9D0): a player's equipment look (helm / armour / weapon / horse / mantle rows)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
 	MsgId_ZG_ZONE_HELLO_ACK   MsgId = 9002
@@ -209,6 +210,7 @@ var (
 		2124: "G2C_MISSLE",
 		2125: "G2C_STATE_ICONS",
 		2126: "G2C_NPC_GOLD",
+		2127: "G2C_ENTITY_RES",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
 		9003: "GZ_SESSION_OPEN",
@@ -278,6 +280,7 @@ var (
 		"G2C_MISSLE":          2124,
 		"G2C_STATE_ICONS":     2125,
 		"G2C_NPC_GOLD":        2126,
+		"G2C_ENTITY_RES":      2127,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
 		"GZ_SESSION_OPEN":     9003,
@@ -324,7 +327,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\xe4\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xf9\n" +
 	"\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
@@ -387,7 +390,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\n" +
 	"G2C_MISSLE\x10\xcc\x10\x12\x14\n" +
 	"\x0fG2C_STATE_ICONS\x10\xcd\x10\x12\x11\n" +
-	"\fG2C_NPC_GOLD\x10\xce\x10\x12\x12\n" +
+	"\fG2C_NPC_GOLD\x10\xce\x10\x12\x13\n" +
+	"\x0eG2C_ENTITY_RES\x10\xcf\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +
 	"\x11ZG_ZONE_HELLO_ACK\x10\xaaF\x12\x14\n" +
 	"\x0fGZ_SESSION_OPEN\x10\xabF\x12\x18\n" +

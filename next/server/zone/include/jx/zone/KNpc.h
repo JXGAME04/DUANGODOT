@@ -194,6 +194,14 @@ struct KNpc {
     int boss_flag = 0;
     // KNpc+0x88 KNpcGold: the gold (elite) monster state and its backup (KNpcGold.h)
     KNpcGold gold;
+    // +0x14dc .. +0x14ec: the equipment rows the clients draw (KItemChangeRes::equip_res of the worn pieces, 0x0807ACB0):
+    // helm, armour, weapon, horse (-1 none), mantle (-1); +0x1504: bumped with every change so a client can tell a stale look
+    int helm_res = 0;
+    int armor_res = 0;
+    int weapon_res = 0;
+    int horse_res = -1;
+    int mantle_res = -1;
+    std::uint8_t res_version = 0;
     // +0x174c: the drop table the death rolls on - the template's DropRateFile (SetTemplate 0x080830BA), the map's
     // `<id>_NormalDropRate` for a placement (0x0809FD30), its `<id>_GoldenDropRate` while gold (0x08086073); a
     // lower-cased game path here, the table's index in the binary

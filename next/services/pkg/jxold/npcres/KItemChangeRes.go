@@ -129,3 +129,17 @@ func atoi(s string) int {
 	}
 	return n
 }
+
+// IntRows is the table as the zone's KItemChangeRes reads it: every row of the file (the first is the header)
+// as C atoi of each cell, so KTabFile::GetInteger(row, col) is rows[row-1][col-1] with the same 1-based
+// numbering (an absent cell is the caller's default).
+func (t *TabFile) IntRows() [][]int {
+	out := make([][]int, len(t.rows))
+	for i, r := range t.rows {
+		out[i] = make([]int, len(r))
+		for j, c := range r {
+			out[i][j] = atoi(c)
+		}
+	}
+	return out
+}
