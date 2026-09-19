@@ -15,7 +15,9 @@
 #include "jx/zone/KMapData.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
+#include "jx/zone/KLuaScript.h"
 #include "jx/zone/KSubWorld.h"
+#include "jx/zone/ScriptFuns.h"
 
 using namespace jx::zone;   // the MAGIC_ATTRIB ids
 using jx::EntityId;
@@ -340,4 +342,28 @@ TEST_CASE("the knock back walks toward its spot in steps of the step length and 
         a.w.knock_back(*a.p, *a.h, 5, 100);
         CHECK(a.p->doing == KDoing::stand);
     }
+}
+
+// ---- S2 of the script api: AddSkillState 0x08126240 -> 0x08125D70 on a style-2 skill of this arena ----------------------
+
+TEST_CASE("S2 AddSkillState refuses a bad mode, a negative time and a skill that is no state; mode 0 / 1 set the state", "[autoskill][s2]")
+{
+    Arena a;
+    jx::zone::KLuaScript script;
+    REQUIRE(script.init(""));
+    jx::zone::KScriptContext& ctx = jx::zone::g_ScriptContext();
+    ctx.world = &a.w;
+    ctx.player = a.h;
+    ctx.sid = 7;
+    CHECK(script.call_number("AddSkillState", {900.0, 1.0, 3.0, 10.0}) == -1.0);
+    CHECK(script.call_number("AddSkillState", {900.0, 1.0, 0.0, -1.0}) == -1.0);
+    CHECK(script.call_number("AddSkillState", {12345.0, 1.0, 0.0, 10.0}) == -1.0);
+    CHECK(script.call_number("AddSkillState", {900.0, 1.0, 2.0, 2026091912.0}) == -1.0);   // the date mode is not built
+    const std::optional<double> r0 = script.call_number("AddSkillState", {900.0, 1.0, 0.0, 100.0});
+    REQUIRE(r0.has_value());
+    CHECK(*r0 != -1.0);
+    const std::optional<double> r1 = script.call_number("AddSkillState", {903.0, 1.0, 1.0, 50.0});
+    REQUIRE(r1.has_value());
+    CHECK(*r1 != -1.0);
+    ctx = jx::zone::KScriptContext{};
 }

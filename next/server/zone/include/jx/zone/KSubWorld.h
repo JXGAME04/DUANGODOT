@@ -292,6 +292,8 @@ public:
     // set as the aura, the numbers changed (gold_apply), the 0x9a packet {npc, kind} to the players around.
     // Returns true when it turned gold.
     bool set_gold_type(KNpc& e, int rate, int type);
+    // Lua AddNpc(.., 2) 0x0811BE2B: BackData 0x0809D560 then SetGoldTypeAndBackData with rate 1 000 000 - a gold npc for sure
+    void make_gold_npc(KNpc& e);
     // KNpcGold::RecoverBackData 0x0809E070: the backup back, cell 5 taken out (0x080E52D0), the aura cleared (SetAura 0)
     void recover_gold(KNpc& e);
     // KPlayer::UpdataCurData 0x080AF550 for a player's npc (a piece put on / taken off, a point spent): ClearAttrib, the
@@ -368,6 +370,11 @@ public:
     // KPlayerSet::SearchPlayer 0x080C6010: the player on this map whose name is exactly this (the old set keeps a
     // name -> index tree); nullptr for an empty name or nobody
     [[nodiscard]] const KNpc* find_player_by_name(std::string_view name) const;
+    // KSubWorld 0x080EFEE0(name): the first npc of this map (its region lists, players skipped) whose name is exactly this;
+    // nullptr for an empty name or none
+    [[nodiscard]] const KNpc* find_npc_by_name(std::string_view name) const;
+    // the 0x3e9 node of Lua DelNpc 0x08107536: the npc goes at the map's next frame, not inside the script that asked
+    void queue_remove_npc(EntityId id);
     // the mission values of the map (KSubWorld+0x484b8.. of jx_linux_y: 100 ints the scripts share through GetMissionV /
     // SetMissionV; in memory only, like the old server's)
     static constexpr int kMissionValues = 100;
@@ -892,6 +899,8 @@ private:
     std::unordered_map<std::uint64_t, EntityId> players_;      // sid -> entity
     std::array<int, kMissionValues> mission_values_{};          // SubWorld+0x484b8..: GetMissionV / SetMissionV
     std::vector<std::uint32_t> hosted_maps_;                    // the zone's maps (set by KGameServer)
+    std::vector<EntityId> pending_removes_;                     // DelNpc: taken out at the next frame (the 0x3e9 nodes)
+    void flush_pending_removes();
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)

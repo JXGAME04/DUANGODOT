@@ -158,6 +158,38 @@ const KNpc* KSubWorld::find_player_by_name(std::string_view name) const
     return nullptr;
 }
 
+const KNpc* KSubWorld::find_npc_by_name(std::string_view name) const
+{
+    if (name.empty()) return nullptr;   // 0x080EFEF7
+    const KNpc* found = nullptr;
+    entities_.each([&](EntityId, const KNpc& e) {
+        if (found == nullptr && e.kind != KNpcKind::player && e.kind != KNpcKind::drop && e.name == name) found = &e;
+    });
+    return found;
+}
+
+void KSubWorld::queue_remove_npc(EntityId id)
+{
+    if (std::find(pending_removes_.begin(), pending_removes_.end(), id) == pending_removes_.end()) pending_removes_.push_back(id);
+}
+
+void KSubWorld::flush_pending_removes()
+{
+    if (pending_removes_.empty()) return;
+    std::vector<EntityId> gone;
+    gone.swap(pending_removes_);
+    for (const EntityId id : gone) {
+        log::debug("zone.npc", "npc removed by script", {log::kv("npc", id)});
+        remove_npc(id);
+    }
+}
+
+void KSubWorld::make_gold_npc(KNpc& e)
+{
+    gold_back_data(e);
+    set_gold_type(e, 1000000, 0);
+}
+
 int KSubWorld::mission_value(int idx) const noexcept
 {
     return idx >= 0 && idx < kMissionValues ? mission_values_[static_cast<std::size_t>(idx)] : 0;
@@ -707,6 +739,7 @@ void KSubWorld::tick()
     activate_missles();      // KRegion::Activate 0x080E2660: the missiles after the npcs
     flush_pending_drops();   // ai + movement integration end here
     flush_pending_summons();
+    flush_pending_removes(); // the 0x3e9 nodes of DelNpc
     flush_doomed();          // the 0x3e9 nodes: the summons whose corpse settled
 
     {

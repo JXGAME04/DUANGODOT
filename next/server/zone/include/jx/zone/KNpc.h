@@ -304,6 +304,8 @@ struct KNpc {
     // frame (0x080F29A8) instead of reviving it - and the skill writes the launcher's index to +0x1828 (nothing reads
     // it back; docs/LINUX-SERVER.md §16.5)
     bool remove_on_death = false;     // +0x1824
+    std::array<int, 10> script_param{};   // +0x19b0..+0x19d4 of jx_linux_y: the ten numbers GetNpcParam / SetNpcParam (n 1..10) keep on a npc
+    int script_main_param = 0;            // +0x158c: SetNpcScript's third argument, what KPlayer::DialogNpc / NpcDialog hand to main()
     EntityId summon_master;           // +0x1828
     // KNpc::SetHorse 0x0807D520: 1 while the worn horse is ridden (the equip 0x081FE380 / unequip 0x081FFFB0 of part 10,
     // the ride toggle 0x080AEFA0); the 0x20 flag of the 0x4c / 0x4d sync, HorseLimit of CanCastSkill, the horse column of

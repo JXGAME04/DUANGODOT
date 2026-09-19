@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 
@@ -103,6 +104,14 @@ public:
     // Loads npcres/npcs.json; on failure returns nullopt and puts the reason in *error.
     static std::optional<KNpcTemplateSet> load(const std::string& file, std::string* error);
     [[nodiscard]] const KNpcTemplate* find(std::uint32_t id) const;
+    // the row of npcs.txt with that name (KTabFile::FindRow of the script's AddNpc("name", ..) 0x0811BB98); nullptr = none
+    [[nodiscard]] const KNpcTemplate* find_by_name(std::string_view name) const
+    {
+        for (const auto& [id, t] : templates_) {
+            if (t.name == name) return &t;
+        }
+        return nullptr;
+    }
     // the drop table a template names (npcs.json "droprates"), null when it was not exported
     [[nodiscard]] const KNpcDropRate* drop_rate(const std::string& file) const;
     void add_drop_rate(std::string file, KNpcDropRate table) { droprates_[std::move(file)] = std::move(table); }

@@ -89,8 +89,8 @@ bool KSubWorld::dialog_npc_request(std::uint64_t sid, EntityId npc_id)
             call_in_script(*this, *tf, kTaskFunctionScript, "OnEventTalkNpc", e, {static_cast<double>(npc->id.value)});
         }
     }
-    // 0x080B1457: main(npc+0x158c) of the npc's script - the placement carries no parameter here, so 0
-    const bool ok = execute_script(npc->script, "main", e, 0);
+    // 0x080B1457: main(npc+0x158c) of the npc's script - 0 for a placement, what SetNpcScript's third argument set
+    const bool ok = execute_script(npc->script, "main", e, npc->script_main_param);
     if (!ok) log::warn("zone.dialog", "dialog script failed", {log::kv("entity", e.id), log::kv("npc", npc->id), log::kv("script", npc->script)});
     return ok;
 }

@@ -17,6 +17,8 @@
 #include "jx/role.pb.h"
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KNpc.h"
+#include "jx/zone/KNpcAI.h"
+#include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPlayer.h"
 #include "jx/zone/KPlayerSet.h"
 #include "jx/zone/KPlayerTask.h"
@@ -162,6 +164,34 @@ function s1_item(idx)
     SetItemMagicLevel(idx, 6, 77)
     g_ip5 = GetItemParam(idx, 6)
 end
+function s2_npc()
+    local map = SubWorldIdx2ID()
+    g_n1 = AddNpc(900, 5, map, 2300, 2000, 1, "Heo Rung", 1)
+    g_n2 = AddNpc("boar", 3, map, 2400, 2000)
+    g_n3 = AddNpc(900, 1)
+    g_n4 = AddNpc(900, 1, 999, 2300, 2000)
+    g_n5 = AddNpc(12345, 1, map, 2300, 2000)
+    g_n6 = AddNpc(900, -7, map, 2500, 2000, 0, "", 2)
+    g_i1 = GetNpcSettingIdx(g_n1)
+    SetNpcParam(g_n1, 3, 42)
+    SetNpcParam(g_n1, 11, 1)
+    SetNpcParam(g_n1, 0, 1)
+    SetNpcParam(g_n1, 4)
+    g_p1 = GetNpcParam(g_n1, 3)
+    g_p2 = GetNpcParam(g_n1, 11)
+    g_p3 = GetNpcParam(g_n1, 0)
+    g_p4 = GetNpcParam(0, 1)
+    g_p5 = GetNpcParam(g_n1)
+    SetNpcScript(g_n1, "\\script\\test\\misc.lua", 7)
+    SetNpcScript(g_n2)
+    g_ss = AddSkillState(509, 1, 0, 180)
+end
+function s2_del(player)
+    DelNpc(g_n1)
+    DelNpc("boar")
+    DelNpc(player)
+    DelNpc()
+end
 function Twice(n) return n * 2 end
 function NameOf() return GetName() end
 function Pair(a, b) return a + 10, b + 10 end
@@ -202,6 +232,16 @@ jx::zone::KSubWorldConfig misc_world()
     for (int level = 1; level <= 200; ++level) tables->set_level_exp(level, level == 10 ? 100 : level == 11 ? 1000 : 5000);
     c.player_set = tables;
     c.scripts = std::make_shared<KScriptCache>(make_scripts());
+    // one row of npcs.txt for AddNpc: 900 "boar", a plain monster
+    jx::zone::KNpcTemplateSet set;
+    jx::zone::KNpcTemplate t;
+    t.id = 900;
+    t.name = "boar";
+    t.kind = jx::zone::kind_normal;
+    t.camp = jx::zone::camp_animal;
+    t.life_param = 40;
+    set.add(t);
+    c.templates = std::make_shared<const jx::zone::KNpcTemplateSet>(std::move(set));
     return c;
 }
 
@@ -474,4 +514,67 @@ TEST_CASE("S1 script api: bits and bytes, mission values, subworld ids, the cloc
     CHECK(saved.stats().ext_point(1) == 2);
 
     // GetItemName / GetItemParam (0x081005D0 / 0x080FECC0) need an item: test_KItem.cpp ("S1 GetItemName / GetItemParam")
+}
+
+TEST_CASE("S2 script api: AddNpc / DelNpc / SetNpcScript / GetNpcParam / SetNpcParam and AddSkillState without a skill table", "[scriptfuns][s2]")
+{
+    MiscWorld mw;
+    jx::zone::KLuaScript* s = mw.w.config().scripts->get(R"(\script\test\misc.lua)");
+    REQUIRE(s != nullptr);
+    auto num = [&](const char* name) { return s->call_number("Num", {std::string(name)}); };
+    auto entity = [&](const char* name) -> const KNpc* {
+        const std::optional<double> v = num(name);
+        return v.has_value() && *v > 0.0 ? mw.w.find_entity(jx::EntityId{static_cast<std::uint64_t>(*v)}) : nullptr;
+    };
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s2_npc", mw.A(), 0));
+    // AddNpc(900, 5, map, x, y, 1, "Heo Rung", 1): the boar at level 5, remove_on_death, named, a boss of kind 3
+    const KNpc* n1 = entity("g_n1");
+    REQUIRE(n1 != nullptr);
+    CHECK(n1->kind == jx::zone::KNpcKind::monster);
+    CHECK(n1->template_id == 900);
+    CHECK(n1->level == 5);
+    CHECK(n1->name == "Heo Rung");
+    CHECK(n1->remove_on_death);
+    CHECK(n1->boss_flag == 3);
+    CHECK(n1->series <= 4);   // rand() % 5
+    CHECK(mw.w.to_absolute(n1->pos()).x == 2300);
+    // by name, five arguments: the template's name, nothing more set
+    const KNpc* n2 = entity("g_n2");
+    REQUIRE(n2 != nullptr);
+    CHECK(n2->template_id == 900);
+    CHECK(n2->name == "boar");
+    CHECK(n2->level == 3);
+    CHECK_FALSE(n2->remove_on_death);
+    CHECK(n2->boss_flag == 0);
+    CHECK(mw.is("g_n3", "nil"));   // fewer than five arguments: nothing
+    CHECK(mw.is("g_n4", "0"));     // another subworld than this map
+    CHECK(mw.is("g_n5", "0"));     // no such template
+    // a negative level is 1; boss 2 = a gold npc (BackData ran; no gold table here, so not golding)
+    const KNpc* n6 = entity("g_n6");
+    REQUIRE(n6 != nullptr);
+    CHECK(n6->level == 1);
+    CHECK(n6->gold.is_gold);
+    CHECK(mw.is("g_i1", "900"));
+    // the ten script numbers: n 1..10 only
+    CHECK(mw.is("g_p1", "42"));
+    CHECK(mw.is("g_p2", "0"));
+    CHECK(mw.is("g_p3", "0"));
+    CHECK(mw.is("g_p4", "0"));
+    CHECK(mw.is("g_p5", "0"));
+    CHECK(n1->script_param[2] == 42);
+    // SetNpcScript: the path (and the number main() gets); one argument does nothing
+    CHECK(n1->script == R"(\script\test\misc.lua)");
+    CHECK(n1->script_main_param == 7);
+    CHECK(n2->script.empty());
+    // AddSkillState without a skill table: -1
+    CHECK(mw.is("g_ss", "-1"));
+    // DelNpc: by index, by name; a player stays; the npcs leave at the next frame
+    const jx::EntityId id1 = n1->id, id2 = n2->id, id6 = n6->id;
+    REQUIRE(mw.w.execute_script(R"(\script\test\misc.lua)", "s2_del", mw.A(), static_cast<int>(mw.a.value)));
+    CHECK(mw.w.find_entity(id1) != nullptr);   // still there inside the frame
+    mw.w.tick();
+    CHECK(mw.w.find_entity(id1) == nullptr);
+    CHECK(mw.w.find_entity(id2) == nullptr);
+    CHECK(mw.w.find_entity(id6) != nullptr);
+    CHECK(mw.w.find_entity(mw.a) != nullptr);
 }

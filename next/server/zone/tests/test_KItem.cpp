@@ -2244,3 +2244,73 @@ TEST_CASE("S1 GetItemName / GetItemParam read a live item: its name, the six num
     CHECK(script.call_number("S1ParamNoArg", {1.0}) == 0.0);         // one argument only
     ctx = jx::zone::KScriptContext{};
 }
+
+// ---- S2 of the script api: AddEventItem 0x0811DF90, AddQualityItem 0x081206A0, CalcEquiproomItemCount 0x0810D580,
+// ConsumeEquiproomItem 0x0810CEF0 -----------------------------------------------------------------------------------
+
+TEST_CASE("S2 AddEventItem / AddQualityItem give pieces; CalcEquiproomItemCount / ConsumeEquiproomItem count and take the bag's units", "[item][world][lua][s2]")
+{
+    ItemWorld iw;
+    iw.w->take_outbox();
+    jx::zone::KLuaScript script;
+    REQUIRE(script.init(""));
+    jx::zone::KScriptContext& ctx = jx::zone::g_ScriptContext();
+    ctx.world = iw.w.get();
+    ctx.player = const_cast<jx::zone::KNpc*>(iw.w->find_player(1));
+    ctx.sid = 1;
+    REQUIRE(ctx.player != nullptr);
+    REQUIRE(script.do_string(
+        "function S2Q0() return AddQualityItem(0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0) end\n"
+        "function S2Q2() return AddQualityItem('tag', 2, 0, 8, 1, 10, 4, 0, -1, -1, -1, -1, -1, -1) end\n"
+        "function S2QShort() return AddQualityItem(0, 0, 0, 0, 2, 2) end\n"
+        "function S2Ev(a) return AddEventItem(a) end\n"
+        "function S2EvNone() return AddEventItem() end\n"
+        "function S2Count(a, b, c, d) return CalcEquiproomItemCount(a, b, c, d) end\n"
+        "function S2Count3() return CalcEquiproomItemCount(0, 0, 0) end\n"
+        "function S2Use(a, b, c, d, n) return ConsumeEquiproomItem(a, b, c, d, n) end\n"
+        "function S2Use4() return ConsumeEquiproomItem(0, 0, 0, 2) end\n", "s2"));
+    // AddQualityItem: quality 0 rolls like AddItemEx (the last argument dropped) and gives the index; quality 2 waits (0)
+    const std::optional<double> q0 = script.call_number("S2Q0", {});
+    REQUIRE(q0.has_value());
+    REQUIRE(*q0 > 0.0);
+    REQUIRE(iw.list().find(static_cast<std::uint32_t>(*q0)) != nullptr);
+    CHECK(iw.list().find(static_cast<std::uint32_t>(*q0))->name() == "Kiem 2");
+    CHECK(script.call_number("S2Q2", {}) == 0.0);
+    CHECK(script.call_number("S2QShort", {}) == 0.0);
+    // AddEventItem: the quest item by its detail; an unknown name or no argument -> 0
+    const std::optional<double> ev = script.call_number("S2Ev", {1.0});
+    REQUIRE(ev.has_value());
+    REQUIRE(*ev > 0.0);
+    const KItem* quest = iw.list().find(static_cast<std::uint32_t>(*ev));
+    REQUIRE(quest != nullptr);
+    CHECK(quest->genre == jx::zone::KItemGenre::task);
+    CHECK(quest->detail == 1);
+    CHECK(script.call_number("S2Ev", {std::string("khong co")}) == 0.0);
+    CHECK(script.call_number("S2EvNone", {}) == 0.0);
+    // CalcEquiproomItemCount: exactly four arguments; the genre must match, -1 opens detail / particular / level
+    REQUIRE(script.call_number("AddItem", {0.0, 0.0, 0.0, 2.0, 2.0, 0.0}) == 1.0);   // a second sword
+    CHECK(script.call_number("S2Count", {0.0, 0.0, 0.0, 2.0}) == 2.0);
+    CHECK(script.call_number("S2Count", {0.0, -1.0, -1.0, -1.0}) == 2.0);
+    CHECK(script.call_number("S2Count", {0.0, 0.0, 0.0, 3.0}) == 0.0);
+    CHECK(script.call_number("S2Count", {1.0, -1.0, -1.0, -1.0}) == 0.0);
+    CHECK(script.call_number("S2Count", {4.0, 1.0, -1.0, -1.0}) == 1.0);   // the quest item: one unit
+    CHECK(script.call_number("S2Count3", {}) == 0.0);
+    // a stack of five level-2 medicines (stackable, max 10) counts five
+    REQUIRE(script.call_number("AddStackItem", {5.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0}).value_or(0.0) > 0.0);
+    CHECK(script.call_number("S2Count", {1.0, 0.0, 0.0, 2.0}) == 5.0);
+    // ConsumeEquiproomItem: exactly five arguments; whole pieces go while the count covers them, the last stack shrinks
+    CHECK(script.call_number("S2Use4", {}) == -1.0);
+    CHECK(script.call_number("S2Use", {0.0, 0.0, 0.0, 2.0, 1.0}) == 1.0);
+    CHECK(script.call_number("S2Count", {0.0, 0.0, 0.0, 2.0}) == 1.0);
+    CHECK(script.call_number("S2Use", {0.0, 0.0, 0.0, 2.0, 5.0}) == -1.0);   // one left: taken, then nothing more (0 of the core)
+    CHECK(script.call_number("S2Count", {0.0, 0.0, 0.0, 2.0}) == 0.0);
+    CHECK(script.call_number("S2Use", {0.0, 0.0, 0.0, 2.0, 1.0}) == -1.0);
+    CHECK(script.call_number("S2Use", {1.0, 0.0, 0.0, 2.0, 0.0}) == 1.0);    // nothing asked: the stack stays
+    CHECK(script.call_number("S2Count", {1.0, 0.0, 0.0, 2.0}) == 5.0);
+    CHECK(script.call_number("S2Use", {1.0, 0.0, 0.0, 2.0, 3.0}) == 1.0);    // 5 -> 2
+    CHECK(script.call_number("S2Count", {1.0, 0.0, 0.0, 2.0}) == 2.0);
+    CHECK(script.call_number("S2Use", {1.0, 0.0, 0.0, 2.0, 2.0}) == 1.0);    // 2 -> gone
+    CHECK(script.call_number("S2Count", {1.0, 0.0, 0.0, 2.0}) == 0.0);
+    CHECK(script.call_number("S2Use", {1.0, 0.0, 0.0, 2.0, 1.0}) == -1.0);
+    ctx = jx::zone::KScriptContext{};
+}
