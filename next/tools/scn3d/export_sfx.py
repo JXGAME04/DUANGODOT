@@ -75,6 +75,49 @@ def read_tween(cls, raw):
 # XftWeapon.XWeaponTrail (ban sua cua bo tham khao) - bo cuc byte [TK, kiem 156 byte]: Version (string), UseWith2D + Enabled
 # (2 byte), PointStart/PointEnd (PPtr), MaxFrame, Granularity, Fps, AdjustColor, MyColor, EmissiveColor, MyMaterial (PPtr),
 # TexTransSplit (int2), TexTransOffset (int2), mTrailWidth (float). Vet keo dai MaxFrame khung o Fps khung/giay.
+def read_ptrail(raw, material):
+    """PigeonCoopToolkit.Effects.Trails.Trail (vet dai theo dan bay, 5 prefab): TrailRenderer_Base.TrailData {TrailMaterial,
+    Lifetime, UsingSimpleSize, SimpleSizeOverLifeStart/End, SizeOverLife (AnimationCurve), UsingSimpleColor, SimpleColorOverLife
+    Start/End, ColorOverLife (Gradient 8 mau + 8 ctime + 8 atime + 4 byte dem), StretchSizeToFit, StretchColorToFit,
+    MaterialTileLength, UseForwardOverride, ForwardOverride, ForwardOverrideRelative}, Emit, TexTransSplit, TexTransOffset;
+    Trail: MinVertexDistance, MaxNumberOfPoints (392 byte, het byte = dung)"""
+    r = Raw(raw); r.header()
+    mat = r.pptr()
+    life = r.f32()
+    use_simple_size = r.u8(); r.align()
+    ss0 = r.f32(); ss1 = r.f32()
+    n = r.i32(); size_keys = []
+    for _ in range(n):
+        kt = r.f32(); kv = r.f32(); r.f32(); r.f32(); r.i32(); r.f32(); r.f32()
+        size_keys.append([round(kt, 4), round(kv, 4)])
+    r.i32(); r.i32(); r.i32()
+    use_simple_color = r.u8(); r.align()
+    c0 = [r.f32() for _ in range(4)]; c1 = [r.f32() for _ in range(4)]
+    cols = [[r.f32() for _ in range(4)] for _ in range(8)]
+    ct = [r.i16() & 0xffff for _ in range(8)]; at = [r.i16() & 0xffff for _ in range(8)]
+    r.i32()   # 4 byte dem (num keys / mode)
+    stretch_size = r.u8(); r.align(); stretch_color = r.u8(); r.align()
+    tile = r.f32()
+    use_fwd = r.u8(); r.align(); fwd = [r.f32() for _ in range(3)]; fwd_rel = r.u8(); r.align()
+    emit = r.u8(); r.align()
+    split = [r.i32(), r.i32()]; offset = [r.i32(), r.i32()]
+    min_dist = r.f32(); max_pts = r.i32()
+    if len(raw) - r.p != 0:
+        raise struct.error("Trail: con %d byte" % (len(raw) - r.p))
+    # gradient keys: colour keys with a rising time, alpha keys the same; a key after the first with time 0 ends the list
+    ckeys = [[ct[0] / 65535.0] + [round(c, 4) for c in cols[0][:3]]]
+    akeys = [[at[0] / 65535.0, round(cols[0][3], 4)]]
+    for i in range(1, 8):
+        if ct[i] > ct[i - 1] or (i == 1 and ct[i] > 0):
+            ckeys.append([ct[i] / 65535.0] + [round(c, 4) for c in cols[i][:3]])
+        if at[i] > at[i - 1] or (i == 1 and at[i] > 0):
+            akeys.append([at[i] / 65535.0, round(cols[i][3], 4)])
+    return {"life": life, "size": ([[0.0, ss0], [1.0, ss1]] if use_simple_size else size_keys), "color": ([[0.0] + c0[:3], [1.0] + c1[:3]] if use_simple_color else ckeys),
+            "alpha": ([[0.0, c0[3]], [1.0, c1[3]]] if use_simple_color else akeys), "stretch_size": bool(stretch_size), "stretch_color": bool(stretch_color),
+            "tile": tile, "fwd": fwd if use_fwd else None, "fwd_rel": bool(fwd_rel), "emit": bool(emit), "split": split, "offset": offset,
+            "min_dist": min_dist, "max_pts": max_pts, "material": material(mat[1])}
+
+
 def read_xtrail(raw, material_of):
     r = Raw(raw); r.header()
     r.string(); r.u8(); r.u8(); r.align()
@@ -409,6 +452,11 @@ class SfxExporter:
                         tw = None
                     if tw is not None:
                         jn.setdefault("tweens", []).append(tw)
+                if cls == "Trail":
+                    try:
+                        jn["ptrail"] = read_ptrail(raw, self.material)
+                    except (struct.error, IndexError):
+                        self.log.append("Trail khong doc duoc: " + g.m_Name)
                 if cls == "XWeaponTrail":
                     try:
                         jn["xtrail"] = read_xtrail(raw, self.material)

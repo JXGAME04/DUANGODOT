@@ -240,6 +240,13 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 				pn = _node_at(root, paths[pidx])
 			bb_pending.append({"node": n, "mode": int(bbd.get("mode", 0)), "euler": eb, "offset": Vector3(float(ov[0]), float(ov[1]), -float(ov[2])),
 				"pos_node": pn if pn is Node3D and pn != n else null})
+		if jn.has("ptrail") and n is Node3D:
+			# PigeonCoop Trail [TK]: the ribbon the node leaves as it flies (Scn3DPointTrail, top level under this effect)
+			var pt := MeshInstance3D.new()
+			pt.set_script(load("res://scenes3d/Scn3DPointTrail.gd"))
+			pt.name = "ptrail_" + str(n.name)
+			add_child(pt)
+			pt.call("setup", n, dir, jn["ptrail"])
 		if jn.has("light"):
 			var l: Dictionary = jn["light"]
 			var ol := OmniLight3D.new()

@@ -948,6 +948,20 @@ func _auto3d_run() -> void:
 				await get_tree().create_timer(0.25).timeout
 				waited += 0.25
 			print("AUTO3D_LEVEL level=%d skill=%d skill_level=%d" % [int(Game.player_attrib.get("level", 1)), fx_skill, int(Game.skills.get(fx_skill, {}).get("level", 0))])
+			# a skill bound to a ranged weapon (EqtLimit >= 100 = DetailType 1, particular EqtLimit - 100: KSubWorld::weapon_eqt_limit
+			# 0x080E8C05): that weapon in hand first (AddItem genre 0 detail 1)
+			var lim := int(Game.skill_row(fx_skill).get("EqtLimit", -2))
+			if lim >= 100:
+				var nb := Game.items.size()
+				Game.chat("?gm ds AddItem(0,1,%d,1,0,0)" % (lim - 100))
+				waited = 0.0
+				while waited < 3.0 and Game.items.size() < nb + 1:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+				for id in Game.items:
+					if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 1 and int(Game.items[id].room) == Game.ROOM_BAG:
+						Game.item_equip(int(id), 3)
+				await get_tree().create_timer(0.8).timeout
 		if true:
 			if int(Game.skills.get(fx_skill, {}).get("level", 0)) <= 0:
 				Game.chat("?gm ds AddMagic(%d, 1)" % fx_skill)   # at level 1 directly (AddMagic of the script api)

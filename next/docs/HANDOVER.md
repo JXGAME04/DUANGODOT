@@ -702,6 +702,17 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-60) — vệt dải theo đạn bay (`Trail` PigeonCoop: phi tiêu/phi đao/nỏ, 夺魂镖, 天罗地网)
+
+- Lớp `PigeonCoopToolkit.Effects.Trails.Trail` trên 5 prefab (`wq_feibiao/feidao/nujian` = đánh thường tầm xa, `tm_duohunbiao`, `tm_tianluodiwang`):
+  bố cục 392 byte (hết byte): `TrailData {vật liệu, Lifetime 0,5–1 s, cong bề rộng (0,1 → 0 / 1,5 → 0,19), gradient màu 8 khoá + ctime/atime ushort,
+  StretchSizeToFit, MaterialTileLength, ForwardOverride (0,−1,0) tương đối}`, `Emit`, `TexTransSplit 4×4`, `TexTransOffset (2,0)`, `MinVertexDistance 0,1`,
+  `MaxNumberOfPoints 20`. `export_sfx.read_ptrail` → `ptrail` trên node; `Scn3DPointTrail.gd` (ImmediateMesh): thêm điểm mỗi 0,1 m, sống `life`,
+  bề rộng theo chiều dài dải (stretch), màu/alpha theo tuổi, cạnh dải = `dir × forward` (forward = −Y cục bộ của nguồn hoặc hướng camera), ô atlas.
+- Kiểm `--auto3d --skill=47:tangmen --series=1` (tự đeo phi tiêu: `EqtLimit 100` = DetailType 1 particular 0, `weapon_eqt_limit 0x080E8C05`):
+  ảnh `auto3d_skill_47_2.png` phi tiêu xoay bay về hươu, dải xanh kéo sau, tên "Đoạt Hồn Tiêu" nổi.
+- commit: `JX NEXT 3D: 3D-60 - vet dai PigeonCoop Trail theo dan bay (5 prefab), --skill tu deo vu khi tam xa`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-59) — 236/343 prefab hiệu ứng có transform gốc "rác" → bỏ; vòng chọn mục tiêu `cmn_select` thật
 
 - Vòng chọn (`TargetSelectEffect.Update 0x698b70`) hiện lệch 8 m khỏi con heo → tra: node gốc prefab `cmn_select` mang vị trí (−1,96; 0; −7,36)
