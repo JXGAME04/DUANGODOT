@@ -13,6 +13,8 @@ const ASSETS3D := "res://assets3d"
 const SH_LM := preload("res://scenes3d/scn3d_lm.gdshader")
 const SH_LM2 := preload("res://scenes3d/scn3d_lm_2side.gdshader")
 const SH_TER := preload("res://scenes3d/scn3d_terrain.gdshader")
+const CAM_SCRIPT := preload("res://scenes3d/Scn3DCamera.gd")
+const PLAYER_SCRIPT := preload("res://scenes3d/Scn3DPlayer.gd")
 
 var map_name := "world_baling"
 var auto := false
@@ -25,8 +27,8 @@ var use_lm := true
 var lm_gain := 1.0
 var stats := {"nodes": 0, "surfaces": 0, "lm_surfaces": 0, "terrain": 0, "collision": 0, "load_ms": 0}
 var hud: Label
-var cam_rig: Scn3DCamera
-var player: Scn3DPlayer
+var cam_rig: Node3D   # Scn3DCamera (preload, khong phu thuoc cache class_name)
+var player: Node3D    # Scn3DPlayer
 var _shot := 0
 
 
@@ -242,7 +244,7 @@ func _set_lm(on: bool) -> void:
 
 # ---------- nhan vat + camera ----------
 func _setup_player_camera() -> void:
-	player = Scn3DPlayer.new()
+	player = PLAYER_SCRIPT.new()
 	player.name = "Player"
 	add_child(player)
 	var spawn := Vector3.ZERO
@@ -268,7 +270,7 @@ func _setup_player_camera() -> void:
 		spawn = Vector3((bb[0] + bb[2]) * 0.5, 0, (bb[1] + bb[3]) * 0.5)
 	player.global_position = spawn
 	player.yaw = deg_to_rad(yaw)
-	cam_rig = Scn3DCamera.new()
+	cam_rig = CAM_SCRIPT.new()
 	cam_rig.name = "CameraRig"
 	cam_rig.target = player
 	add_child(cam_rig)
@@ -298,7 +300,7 @@ func _setup_hud() -> void:
 func _process(_delta: float) -> void:
 	if hud == null or cam_rig == null or player == null:
 		return
-	var p := player.global_position
+	var p: Vector3 = player.global_position
 	var t: Dictionary = info.get("table", {})
 	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  |  nap %d ms\ncamera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)\nnhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f\nchuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
 		map_name, str(t.get("name", "")), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["load_ms"],

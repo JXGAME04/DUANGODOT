@@ -1,5 +1,7 @@
 # Thử nghiệm 3D — nhánh riêng `exp/3d-baling` (không phải dự án chính)
 
+**Bản sao riêng trên đĩa: `D:\JXWIN-NANGGODOT\JXN\JXN\swrod3-3d`** (nhân bản từ kho, luôn ở nhánh `exp/3d-baling`). Mọi việc 3D làm trong thư mục này; thư mục `swrod3` gốc chỉ dùng cho 2D (`main`). Cùng kho GitHub `JXGAME04/DUANGODOT`, khác nhánh, không merge vào `main`.
+
 Ghi chú riêng để không lẫn với JX NEXT 2D trên `main`. Dự án chính vẫn là client 2D isometric theo bản 2.0
 (ADR-001, ADR-007, MAPS.md). Nhánh này chỉ để trả lời câu hỏi: *"map 3D + camera xoay chuẩn game 3D trong Godot
 trông và chạy thế nào?"* — chưa có quyết định đổi hướng; muốn đổi thì viết ADR mới.
@@ -28,7 +30,7 @@ python tools/scn3d/export_scene.py world_baling
 godot --path client scenes3d/Scn3D.tscn -- --map=world_baling
 ```
 
-Thêm `--auto` để chụp 5 góc vào `user://logs/scn3d_world_baling_auto*.png`, đo FPS 2 giây rồi thoát (in `SCN3D_OK ...`).
+Lần đầu ở máy mới chạy `godot --path client --headless --import` một lần (tạo cache `.godot/`). Thêm `--auto` để chụp 5 góc vào `user://logs/scn3d_world_baling_auto*.png`, đo FPS 2 giây rồi thoát (in `SCN3D_OK ...`).
 
 ## Đo được (2026-09-19, RTX 3080, GL Compatibility, 1280×720)
 

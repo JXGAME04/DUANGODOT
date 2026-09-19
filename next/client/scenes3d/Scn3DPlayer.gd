@@ -6,7 +6,7 @@ class_name Scn3DPlayer
 var speed := 6.0
 var move_target: Vector3
 var moving := false
-var cam_rig: Scn3DCamera
+var cam_rig: Node3D  # Scn3DCamera
 var yaw := 0.0
 
 var _body: MeshInstance3D
@@ -82,7 +82,7 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and cam_rig:
-		var cam := cam_rig.cam
+		var cam: Camera3D = cam_rig.cam
 		var mpos := get_viewport().get_mouse_position()
 		var from := cam.project_ray_origin(mpos)
 		var to := from + cam.project_ray_normal(mpos) * 500.0

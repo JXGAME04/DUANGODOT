@@ -16,4 +16,5 @@ __pycache__/
 config/*.local.json
 
 # thu nghiem 3D: tai san xuat tu bo tham khao (ban quyen game goc), sinh lai bang tools/scn3d/export_scene.py
-client/assets3d/
+client/assets3d/*
+!client/assets3d/.gdignore
