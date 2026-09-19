@@ -9,6 +9,10 @@ làm**. Lộ trình sản phẩm vẫn là [LO-TRINH-3D.md](LO-TRINH-3D.md); quy
 Mọi con số ghi vào mã phải có nguồn `[TK]` (bản tham khảo), `[2.0]` (gamecl.exe), `[Linux]` (jx_linux_y) hoặc ghi rõ
 **[tự chọn]**. Nhật ký từng phần vẫn ở [HANDOVER.md](HANDOVER.md) (phần "3D-nn").
 
+
+> Bản thứ ba để đối chiếu: **VLTK3D** (Võ Lâm Tình Kiếm 3D, GrowX — client JX1 port sang Unity 6, dữ liệu map JX1 làm gốc):
+> `docs/MO-NHI-PHAN-VLTK3D.md` (3D-77).
+
 ## 0. Nguồn và công cụ
 
 | Nguồn | Ở đâu | Cách đọc |

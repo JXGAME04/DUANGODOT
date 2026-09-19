@@ -714,10 +714,10 @@ python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
 
-### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-76
+### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-77
 
 - **Đọc**: `docs/LO-TRINH-3D.md` (lộ trình), `docs/MO-NHI-PHAN-3D.md` (lịch mổ bản 剑网江湖 3D, nhóm A–G + §H danh mục 639 lớp với
-  trạng thái có/bỏ/chưa), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
+  trạng thái có/bỏ/chưa), `docs/MO-NHI-PHAN-VLTK3D.md` (bản VLTK3D của GrowX so với hai bản kia, 3D-77), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
 - **Xong** (nhật ký 3D-1..3D-71): 45 map 3D + hiệu ứng cảnh + cắt theo lớp + mặt xa theo cảnh; 494 NPC/model, vũ khí 71 (bảng tay cầm
   `--weapons`), ngựa; 234 kỹ năng JX ghép hiệu ứng 3D (133 có hình, quét `--factions` 133/133) với luật xoay/treo/bay/vòng/vẽ đỉnh/tia nối/
   vệt dải/billboard/rim/uv; số bay + tên kỹ năng + hiệu ứng trúng (`FloatingText`); vòng chọn; bloom theo profile URP; điểm treo theo model; bóng mờ `TaskGhost`;
@@ -868,6 +868,27 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-77) — mổ nhị phân bản VLTK3D (Võ Lâm Tình Kiếm 3D, GrowX; `D:\game3gTQ\VLTK3D`) theo yêu cầu chủ dự án: map – NPC – kỹ năng – hình chuyển động khác gì
+
+- Chỉ tài liệu + công cụ (không đổi mã client/zone): `docs/MO-NHI-PHAN-VLTK3D.md` (bảng so sánh VLTK3D / 剑网江湖 / JX NEXT, 7 phần, đề
+  xuất điều nên lấy về). Công cụ ngoài git `D:\game3gtQ_moltk3d\`: `il2cpp_meta39.py` + `il2cpp_bin39.py` + `disasm39.py` (metadata
+  IL2CPP **v39** của Unity 6000.3: header 31 bộ ba offset/size/count, TypeDefinition 82 byte, Method 32 byte, Image 36 byte, StringLiteral
+  4 byte — đo từ byte), `meta_vltk3d_res.txt` (21 221 lớp, RVA 141 130 hàm), `classes_vltk3d.txt`, `literals_vltk3d.txt`.
+- **Kết luận**: VLTK3D = **client JX1 port sang C#/Unity** (KRegion/SubWorld, KMissle chạy trên client, KSkill, KNpcResList, KAutoFindPath,
+  giao thức Bishop/GameServer + `KsgCodec`) nói chuyện với server dòng JX1 (script `\script\jx1m\…`); **dữ liệu map JX1 là gốc**
+  (`Settings/maps/*.mpk` = `.wor` + `m_Obstacle[16][32]`/`m_dwTrap[16][32]` từng region, 341 gói; `map_list.ini` 1 041 map;
+  `createnpc/53_npc.txt` template JX1 31/42/43 với toạ độ Mps) và cảnh 3D được **hiệu chỉnh affine 3 cặp điểm** vào lưới JX1
+  (`MapService.Calibrate/Solve3x3`, `Mps2WorldPos` u = x/512; tầm đánh thành ellipse; tốc độ = stat × 18 × tỉ lệ). Hình đạn theo
+  **`MissleResId`** (`MissleResDictSO`), trạng thái → VFX (`StateResDictSO`), tụ khí theo `PreCastEffectFile`; trang bị 3D theo dòng res
+  2.0 (áo/nón/vũ khí/ngựa/phi phong/bội sức, `SkeletonTransplant` ghép theo tên xương như `set_costume` của ta); animation **Mecanim**
+  (2 controller nam/nữ, tham số STATE/GATEWAY/TYPE_HORSE/SWITCH_RIDE/CHECK_PK/SKILL_PARAM/STYLE_PARAM, clip đổi theo giới × lớp
+  Base/Combat/Horse × việc × loại vũ khí `AnimVariantDictSO`, 16 trạng thái gồm đánh khi chạy/xông/khinh công). Bundle bọc `TPLBND1`
+  (AES khoá 16 byte theo phiên từ server, giải mã trong `UnityABPlugin.dll` bị bảo vệ) → không đọc được model/animation/VFX (và không lấy).
+- Điều nên cân nhắc cho ta (MO-NHI-PHAN-VLTK3D §7): affine 3 điểm để dùng thẳng bẫy/NPC/script map JX1 trên cảnh 3D; từ điển hình đạn
+  theo `MissleResId`; mesh nón/phi phong theo res; lớp animation cưỡi ngựa/idle ngẫu nhiên, đánh khi chạy (`SetRunAttackTag`), khinh công;
+  bảo vệ luồng cast (đếm lệnh mất, hồi chiêu cục bộ, hoãn khi đang đánh); ngân sách hiển thị theo thiết bị; stream cảnh theo region.
+- commit: `JX NEXT 3D: 3D-77 - mo nhi phan VLTK3D (GrowX): map/NPC/ky nang/animation so voi ban tham khao va JX NEXT; cong cu il2cpp v39`.
 
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-76) — "thử lấy trang bị mặc vào test xem đúng hình ảnh chưa" (chủ dự án): áo đổi hình theo bản tham khảo, nhân vật nữ có model riêng
 
