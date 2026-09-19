@@ -16,6 +16,12 @@ const SH_WATER := preload("res://scenes3d/scn3d_water.gdshader")
 # CameraBuildingFade of the reference client (GameAssembly.dll, static defaults in global-metadata fieldDefaultValues [TK]):
 # the renderers of the building layer between the camera and the character fade to FadeAlpha at FadeSpeed per second,
 # the occluders are looked for every DetectInterval seconds along the camera -> target segment shortened by RayPadding.
+# M3D-6: the quality setting (user://settings3d.json {"quality": "low" | "medium" | "high"}, or --quality=): shadows, fog,
+# how far trees / grass / stones are drawn (visibility_range_end) - the numbers are ours [tự chọn]
+const QUALITY := {"low": {"shadows": false, "shadow_dist": 0.0, "tree_range": 60.0, "grass_range": 30.0, "far": 200.0},
+	"medium": {"shadows": true, "shadow_dist": 50.0, "tree_range": 120.0, "grass_range": 50.0, "far": 300.0},
+	"high": {"shadows": true, "shadow_dist": 90.0, "tree_range": 0.0, "grass_range": 0.0, "far": 400.0}}
+static var quality := ""
 const FADE_ALPHA := 0.25
 const FADE_SPEED := 10.0
 const RAY_PADDING := 0.15
@@ -118,6 +124,24 @@ func clear() -> void:
 
 func map_name() -> String:
 	return str(info.get("name", ""))
+
+
+# The quality setting: --quality= on the command line, else user://settings3d.json, else "high"
+static func quality_settings() -> Dictionary:
+	if quality == "":
+		quality = "high"
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--quality="):
+				quality = a.substr(10)
+		if not QUALITY.has(quality):
+			var f := FileAccess.open("user://settings3d.json", FileAccess.READ)
+			if f != null:
+				var d = JSON.parse_string(f.get_as_text())
+				if d is Dictionary and QUALITY.has(str(d.get("quality", ""))):
+					quality = str(d["quality"])
+		if not QUALITY.has(quality):
+			quality = "high"
+	return QUALITY[quality]
 
 
 func region_count() -> int:
@@ -304,8 +328,9 @@ func _setup_environment() -> void:
 	_sun.light_energy = 1.0 if bool(scene.get("own", false)) else 1.35
 	if bool(scene.get("own", false)):
 		env.ambient_light_energy = 0.6
-	_sun.shadow_enabled = true
-	_sun.directional_shadow_max_distance = 90.0
+	var q := quality_settings()
+	_sun.shadow_enabled = bool(q["shadows"])
+	_sun.directional_shadow_max_distance = float(q["shadow_dist"])
 	add_child(_sun)
 
 
@@ -426,6 +451,16 @@ func _post_process(root: Node) -> void:
 			mi.add_to_group("terrain")
 		elif str(meta.get("group", "")) == "Buildings":
 			_fade_meshes.append(mi)
+		var q := quality_settings()
+		var group := str(meta.get("group", ""))
+		if group == "Tree" and float(q["tree_range"]) > 0.0:
+			mi.visibility_range_end = float(q["tree_range"])
+			mi.visibility_range_end_margin = 8.0
+			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		elif (group == "Grass" or group == "Stone") and float(q["grass_range"]) > 0.0:
+			mi.visibility_range_end = float(q["grass_range"])
+			mi.visibility_range_end_margin = 5.0
+			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 
 
 # docs/3D-HOA-SI.md: terrain / walk / building / tree / grass / water / stone / prop by the node name's prefix

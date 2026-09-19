@@ -83,7 +83,7 @@ func _ready() -> void:
 	cam.name = "Camera"
 	cam.fov = 40.0
 	cam.near = 0.1
-	cam.far = 400.0
+	cam.far = float(preload("res://scenes3d/KScenePlace3D.gd").quality_settings()["far"])
 	arm.add_child(cam)
 	cam.make_current()
 	_apply(true)

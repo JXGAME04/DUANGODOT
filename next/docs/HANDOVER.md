@@ -673,6 +673,12 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-43) — M3D-6 bước 6.1 (một phần): mức chất lượng, tầm vẽ cây/cỏ, đo FPS thật
+
+- `KScenePlace3D.QUALITY` (`--quality=low|medium|high` hoặc `user://settings3d.json`): bóng nắng bật/tắt + tầm bóng 0/50/90 m, cây `visibility_range_end` 60/120/∞ m, cỏ-đá 30/50/∞ m (mờ dần `FADE_SELF`), camera far 200/300/400 m — con số tự chọn.
+- `--auto3d --nosync` đo 2 s tại quảng trường Ba Lăng (vsync tắt, RTX 3080, GL Compatibility): **high 387 FPS** (857 draw call, 521 k tam giác, VRAM 513 MB), **medium 491** (460 dc), **low 511** (175 dc, 83 k tam giác). Máy văn phòng GPU tích hợp yếu hơn ~10 lần → ước high ≈ 40, low ≈ 60 FPS; cần đo thật (6.1 còn: texture nén, Android, gộp draw call).
+- commit: `JX NEXT 3D: M3D-6 (6.1) - muc chat luong (bong, tam ve cay/co, far), do FPS that --nosync`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-42) — M3D-2 (phần mã) 2.1 + 2.2: hướng dẫn họa sĩ, bộ nhập map tự làm, map mẫu
 
 - `docs/3D-HOA-SI.md`: quy ước cho người dựng (mét, Y lên, −Z bắc, gốc tây-bắc; tiền tố tên node `terrain/walk/building/tree/grass/water/stone/prop`, empty `spawn`, `npc_<template>_<n>`, `exit_<map>_<x>_<y>_<n>` (scale = vùng bẫy), `light_sun`, `cam` extras; nhân vật: xương, tên clip theo `animation_list`, điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_bd/sys_bar/sys_foot/ma_qi1`; bố cục theo map 2D).

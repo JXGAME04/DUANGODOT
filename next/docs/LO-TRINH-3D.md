@@ -9,6 +9,18 @@ Quy tắc chung: mọi việc 3D làm trên `swrod3-3d` (`exp/3d-baling`) cho t�
 HANDOVER; mỗi mốc có kiểm thử tự động (`--auto` chụp ảnh + FPS, e2e). Tài sản của 剑网江湖 chỉ dùng thử nội bộ, không vào
 sản phẩm. Bản 2D trên `main` giữ nguyên và là đường lùi.
 
+## Trạng thái (cập nhật 2026-09-19, sau một phiên "làm từng bước")
+
+| Mốc | Trạng thái | Ghi chú |
+|---|---|---|
+| M3D-0 | **xong** | ADR-008, `3D-QUY-UOC.md`, `KScene3DMath`, `KWorldView`/`KWorldView2D`, `make_map3d.py`, `zone.maps_dir_extra` |
+| M3D-1 | **xong** | `KWorldView3D` + zone thật trên map 9053 (Ba Lăng 3D): đi, đánh, chết, vũ khí theo vật phẩm, khối tên 2.0, bẫy 3D↔2D, `--auto3d` |
+| M3D-2 | **mã xong, nội dung chờ họa sĩ** | 2.1 `3D-HOA-SI.md`, 2.2 `import_map3d.py` + map mẫu (thôn 9001 chạy với zone); 2.3–2.5 cần người dựng |
+| M3D-3 | 3.1 / 3.2 / 3.3 / 3.6 xong đợt 1; 3.4 / 3.5 hoãn | kỹ năng 205/288 ghép theo tên Hán; mờ nhà; nước + lá cỏ; ngựa; minimap & nhạc vùng chờ phần 2.0 tương ứng |
+| M3D-4 | **xong** | 2.5D cho 980 map 2D, bản 3D/2.5D là mặc định, e2e cả hai bản vẽ |
+| M3D-5 | chưa (nội dung) | theo họa sĩ |
+| M3D-6 | 6.1 một phần | mức chất lượng, đo FPS thật; còn texture nén, Android, patcher, CI GPU |
+
 ## Tổng quan
 
 | Mốc | Nội dung | Tuần | Điều kiện đạt |

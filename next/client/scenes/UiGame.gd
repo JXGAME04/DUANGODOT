@@ -613,6 +613,17 @@ func _auto3d_run() -> void:
 			await get_tree().process_frame
 		await _save_screenshot("user://logs/auto3d_%d.png" % n)
 		n += 1
+	# the frame rate of the 3D map itself (M3D-6): two seconds at the default camera, vsync off with --nosync
+	if "--nosync" in OS.get_cmdline_user_args():
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		var t0 := Time.get_ticks_msec()
+		var frames := 0
+		while Time.get_ticks_msec() - t0 < 2000:
+			await get_tree().process_frame
+			frames += 1
+		print("AUTO3D_FPS map=%d quality=%s fps=%.1f draw_calls=%d primitives=%d vram_mb=%.0f" % [Game.map_id, _world.place.quality,
+			frames * 1000.0 / maxf(1.0, float(Time.get_ticks_msec() - t0)), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
 	# the building fade (CameraBuildingFade rules): the camera swung around at its longest arm, the pictures where a
 	# building stands between it and the character show the building at FadeAlpha
 	if "--fade" in OS.get_cmdline_user_args() and _world.place.get("mode") == "3d":
