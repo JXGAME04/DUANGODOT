@@ -548,6 +548,8 @@ public:
     // KPlayer::AddExp 0x080B00C0 on a player (the level-difference rule of a kill; Lua AddExp 0x0811A140): the
     // experience, a level up with its life sync, the attributes, the passives that open at the new level
     void give_player_exp(KNpc& e, int exp, int npc_level);
+    // Lua AddOwnExp 0x081126C0 -> KPlayer 0x080AFEA0: the experience as given, without CalcExp or the bonuses
+    void give_player_exp_direct(KNpc& e, std::int64_t exp);
     // KSkill 0x080E8770 - style 4, the npc a skill makes (docs §16.5); the spawn itself waits for the end of the tick
     bool cast_create_npc(const KSkill& sk, KNpc& launcher, const KCastParams& p);
     // KNpc::SetHorse 0x0807D520 (docs §16.6): nothing while frozen_action; mounting while hidden breaks the hiding
@@ -584,6 +586,10 @@ public:
     // Lua Say / Talk: the 0x63 packet to the player and the answer functions kept on it
     void dialog_say(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
     void dialog_talk(KNpc& e, std::string_view callback, const std::vector<std::string>& pages);
+    // Lua Describe 0x081242A0: Say's shape with the ui id 12 (the client's npc description window), the answers within 0x1f4 bytes
+    void dialog_describe(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers);
+    // Lua TaskTip 0x08122730: the 0xb6 packet {0xb6, 0x10, text} of 0x40 bytes -> G2C_TASK_TIP (the client's system message pane)
+    void task_tip(KNpc& e, std::string_view text);
     // the task values (docs §21, KSubWorldTask.cpp): KPlayer::SetTaskValue 0x080A9190 (a change; a SYNC_FLAG id with `sync` goes to
     // the client as G2C_TASK_VALUE), the 0xa7 packet of one id (0x080A8CC0), SyncTaskValueMore 0x080A9550 (G2C_TASK_VALUES of
     // eighty), the enter-world sync 0x080B9CF0, the client's 0xaa packet 0x080DB070 (a CLIENT_FLAG id only)
@@ -917,6 +923,8 @@ private:
     bool chat_pay(KNpc& e, int type);
     void send_script_action(const KNpc& e, int ui_id, std::string_view text, int text_id, const std::vector<std::string>& options, int param,
                             bool interactive);
+    // after an exp change: the log, a level up (life sync, the passives that open), the attrib sync (the 0xc6 packet)
+    void player_exp_changed(KNpc& e, std::int64_t exp, std::uint32_t level_before);
     std::unordered_map<std::uint64_t, KViewer> viewers_;   // sid -> what that client has been told about
     struct Near {                                          // a candidate of a look around
         std::int64_t dist2;

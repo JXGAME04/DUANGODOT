@@ -193,6 +193,7 @@ type SessionOpen struct {
 	Sid           uint64                 `protobuf:"varint,1,opt,name=sid,proto3" json:"sid,omitempty"`
 	AccountId     uint64                 `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	Role          *RoleData              `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	Account       string                 `protobuf:"bytes,4,opt,name=account,proto3" json:"account,omitempty"` // the account's name: Player+0x264 of jx_linux_y, what Lua GetAccount 0x0810F6A0 answers
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -246,6 +247,13 @@ func (x *SessionOpen) GetRole() *RoleData {
 		return x.Role
 	}
 	return nil
+}
+
+func (x *SessionOpen) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
 }
 
 type SessionOpenAck struct {
@@ -685,12 +693,13 @@ const file_jx_internal_proto_rawDesc = "" +
 	"\x06map_id\x18\x06 \x01(\rR\x05mapId\x12\x17\n" +
 	"\ascene_w\x18\a \x01(\rR\x06sceneW\x12\x17\n" +
 	"\ascene_h\x18\b \x01(\rR\x06sceneH\x12%\n" +
-	"\x0esession_prefix\x18\t \x01(\x04R\rsessionPrefix\"c\n" +
+	"\x0esession_prefix\x18\t \x01(\x04R\rsessionPrefix\"}\n" +
 	"\vSessionOpen\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x02 \x01(\x04R\taccountId\x12#\n" +
-	"\x04role\x18\x03 \x01(\v2\x0f.jx.pb.RoleDataR\x04role\"\xce\x01\n" +
+	"\x04role\x18\x03 \x01(\v2\x0f.jx.pb.RoleDataR\x04role\x12\x18\n" +
+	"\aaccount\x18\x04 \x01(\tR\aaccount\"\xce\x01\n" +
 	"\x0eSessionOpenAck\x12\x10\n" +
 	"\x03sid\x18\x01 \x01(\x04R\x03sid\x12%\n" +
 	"\x06result\x18\x02 \x01(\x0e2\r.jx.pb.ResultR\x06result\x12\x1b\n" +

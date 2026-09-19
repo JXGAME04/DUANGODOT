@@ -32,6 +32,7 @@ message SessionOpen {
   uint64 sid = 1;
   uint64 account_id = 2;
   RoleData role = 3;
+  string account = 4;   // the account's name: Player+0x264 of jx_linux_y, what Lua GetAccount 0x0810F6A0 answers
 }
 
 message SessionOpenAck {

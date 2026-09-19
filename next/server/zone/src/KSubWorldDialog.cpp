@@ -183,6 +183,61 @@ void KSubWorld::dialog_talk(KNpc& e, std::string_view callback, const std::vecto
     send_script_action(e, ui_talk_dialog, {}, 0, shown, param, true);
 }
 
+// Lua Describe (0x081242A0): Say's shape with the ui id 12 (0x08124496): the sentence as given (a string sent whole,
+// 0x081247E0; or a string-table id: +6 = 1 and 4 bytes, 0x08124780), the answers "text/function" (0x0805CF90 with "/":
+// the name into m_szTaskAnswerFun, 0x7f bytes, "main" without a '/', 0x08124593; a missing one is empty, 0x081246F0);
+// an answer's text longer than 0xc8 bytes is cut to 0xc8 (0x081245A3 -> 0x0822A0A0, by whole characters of the code
+// page 0x97b2b68 - bytes here); the answers alone are budgeted, the sentence is not: an answer costs its bytes + 3 for
+// the "| |" written before it (0x081246D4) - the first after a string sentence costs its bytes only (0x08124616 /
+// 0x0812462C) - and the one that would pass 0x1f4 stops the list (0x081245BB -> 0x08124700); m_nAvailableAnswerNum
+// and m_bWaitingPlayerFeedBack as Say (0x08124726 / 0x0812472C); +9 = -1 (0x08124749), +7 = 1 (0x081244C0).
+void KSubWorld::dialog_describe(KNpc& e, std::string_view text, int text_id, const std::vector<std::string>& answers)
+{
+    KPlayerDialog& d = e.player.dialog;
+    d.waiting = false;   // 0x081242E0
+    d.script = g_ScriptContext().script_path;   // 0x081242F5
+    const std::string sentence = text::decode_mixed(std::string(text));
+    std::vector<std::string> shown;
+    d.clear_answers();
+    const int count = std::min<int>(static_cast<int>(answers.size()), kDialogAnswers);   // 0x08124478
+    std::size_t used = 0;
+    int kept = 0;
+    for (int i = 0; i < count; ++i) {
+        std::string display = answers[static_cast<std::size_t>(i)];
+        std::string fun = "main";
+        if (const std::size_t slash = display.find('/'); slash != std::string::npos) {
+            fun = display.substr(slash + 1);
+            display.resize(slash);
+        }
+        if (display.size() > kDescribeAnswerMax) display.resize(kDescribeAnswerMax);   // 0x081245A3
+        if (used + 3 + display.size() > kDescribeContentMax) break;                 // 0x081245BB: this and the rest dropped
+        const bool separated = i > 0 || text_id != 0;                                // 0x08124616 / 0x0812462C
+        used += display.size() + (separated ? 3 : 0);
+        if (fun.size() > kDialogAnswerFunMax) fun.resize(kDialogAnswerFunMax);
+        d.answer_fun[static_cast<std::size_t>(i)] = fun;
+        shown.push_back(text::decode_mixed(display));
+        ++kept;
+    }
+    d.available_answers = kept;   // 0x08124726
+    d.waiting = kept != 0;        // 0x0812472C
+    log::debug("zone.dialog", "dialog describe", {log::kv("entity", e.id), log::kv("len", sentence.size()), log::kv("answers", kept),
+                                                  log::kv("script", d.script)});
+    send_script_action(e, ui_describe_dialog, sentence, text_id, shown, -1, true);
+}
+
+// Lua TaskTip (0x08122730): a 0x40 byte buffer holds a 0x10 byte and the text (strcat, 0x081227A9), the safe copy
+// 0x08227030 takes 0x3f bytes of it and a NUL, and the 0x41 byte packet {0xb6, buffer} goes to the player (0x080A8400):
+// 0x3e bytes of text.  The client (0x00651390) copies the text, and the leading 0x10 picks the ui message 0x5d (else
+// 0x52): the system message pane 0x004C4060 with the type 1, the blink flag 1 and the priority 3 (docs/CLIENT-2.0.md §26).
+void KSubWorld::task_tip(KNpc& e, std::string_view text)
+{
+    const std::string raw(text.substr(0, kTaskTipMax));
+    pb::TaskTip m;
+    m.set_text(text::decode_mixed(raw));
+    emit({e.sid}, static_cast<std::uint16_t>(pb::G2C_TASK_TIP), m);
+    log::debug("zone.dialog", "task tip", {log::kv("entity", e.id), log::kv("len", raw.size())});
+}
+
 // the 0x5f packet (0x080AC5D0): not trading; m_bWaitingPlayerFeedBack = 0; a negative index becomes 0 (0x080AC609);
 // kind 1 is the other selection ui (0x081F68C0, not ported), anything else than 0 is ignored; the index must be below
 // m_nAvailableAnswerNum (0x080AC61A) and the player's npc must be there; the function of that answer: empty -> nothing;

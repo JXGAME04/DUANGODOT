@@ -22,6 +22,8 @@ const UiTrade := preload("res://ui/uicase/UiTrade.gd")
 const UiMsgCentrePad := preload("res://ui/uicase/UiMsgCentrePad.gd")
 const UiMsgSel := preload("res://ui/uicase/UiMsgSel.gd")
 const UiInformation2 := preload("res://ui/uicase/UiInformation2.gd")
+const UiNpcDescribe := preload("res://ui/uicase/UiNpcDescribe.gd")
+const UiSysMsg := preload("res://ui/uicase/UiSysMsg.gd")
 const KWndPopupMenu := preload("res://ui/elem/KWndPopupMenu.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
@@ -49,6 +51,8 @@ var msg_pad: UiMsgCentrePad = null      # the chat channels (消息集合面板_
 var channel_menu: KWndPopupMenu = null  # the ChannelBtn's menu (0x00472620)
 var msg_sel: UiMsgSel = null            # a npc script's Say: the sentence and the answers (滚动选择界面.ini)
 var info2: UiInformation2 = null        # a npc script's Talk: the pages (提示2.ini)
+var describe: UiNpcDescribe = null      # a npc script's Describe: the description and the answers (npc描述界面.ini)
+var sys_msg_pane: UiSysMsg = null       # the system message pane (系统消息.ini): a script's TaskTip lands there
 var _channel_entries: Array = []
 var _menu_target := 0                   # the entity the player menu is about
 var _menu_actions: Array = []           # the G_UIGAME_* index of each entry shown
@@ -153,6 +157,22 @@ func _ready() -> void:
 		info2 = null
 	else:
 		info2.confirmed.connect(func(): Game.dialog_answer(0, 0))
+	describe = UiNpcDescribe.new()
+	_canvas.add_child(describe)
+	if not describe.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiNpcDescribe.SCHEME})
+		describe.queue_free()
+		describe = null
+	else:
+		describe.chosen.connect(func(index: int): Game.dialog_answer(index, 0))
+	sys_msg_pane = UiSysMsg.new()
+	_canvas.add_child(sys_msg_pane)
+	if not sys_msg_pane.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiSysMsg.SCHEME})
+		sys_msg_pane.queue_free()
+		sys_msg_pane = null
+	else:
+		Game.task_tip.connect(func(text: String): sys_msg_pane.add_message(text, 1, true, 3))
 	Game.script_action.connect(_on_script_action)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
@@ -330,12 +350,20 @@ func _on_script_action(a: Dictionary) -> void:
 			if msg_sel != null:
 				if info2 != null and info2.visible:
 					info2.close_pages()
+				if describe != null and describe.visible:
+					describe.close_dialog()
 				msg_sel.open_dialog(text, a.get("options", []))
 		2:
 			if info2 != null:
 				if msg_sel != null and msg_sel.visible:
 					msg_sel.close_dialog()
 				info2.speak_words(a.get("options", []), int(a.get("param", 0)) == 1)
+		12:
+			# 0x006007FD -> the ui message 0x40 -> the npc description window; the name under the portrait is the npc talked to
+			if describe != null:
+				if msg_sel != null and msg_sel.visible:
+					msg_sel.close_dialog()
+				describe.open_dialog(text, a.get("options", []), str(Game.entities.get(Game.dialog_npc, {}).get("name", "")))
 		_:
 			Log.warn("ui", "script action ui not shown", {"ui": int(a.get("ui", 0))})
 

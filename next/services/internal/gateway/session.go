@@ -570,7 +570,7 @@ func (s *session) onEnterWorld(f frame.Frame) bool {
 	s.zoneBound = true
 	s.mu.Unlock()
 	s.setState(stEntering)
-	s.srv.zone.send(jxpb.MsgId_GZ_SESSION_OPEN, &jxpb.SessionOpen{Sid: s.sid, AccountId: acc.ID, Role: role})
+	s.srv.zone.send(jxpb.MsgId_GZ_SESSION_OPEN, &jxpb.SessionOpen{Sid: s.sid, AccountId: acc.ID, Role: role, Account: acc.Name})
 	log.InfoCtx(s.logCtx(), "zone", "session open sent", log.F("name", role.Name))
 	return true
 }

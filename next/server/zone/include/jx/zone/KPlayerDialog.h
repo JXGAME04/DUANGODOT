@@ -25,6 +25,9 @@ inline constexpr int kDialogAnswers = 50;               // MAX_ANSWERNUM (0x0812
 inline constexpr std::size_t kDialogAnswerFunMax = 0x7f; // strncpy of 0x7f into the 0x80 byte slots (0x08123EF1)
 inline constexpr std::size_t kDialogContentMax = 0x384;  // the sentence and the answers together (0x08123EC1)
 inline constexpr std::size_t kDialogSentenceMax = 0x257; // a Say sentence (0x081240E0); Talk pages 0x384 each
+inline constexpr std::size_t kDescribeContentMax = 0x1f4; // Describe 0x081242A0: the answers alone, each + 3 for the "| |" (0x081245BB)
+inline constexpr std::size_t kDescribeAnswerMax = 0xc8;   // an answer of a Describe is cut to 200 bytes (0x081245A3 -> 0x0822A0A0)
+inline constexpr std::size_t kTaskTipMax = 0x3e;          // TaskTip 0x08122730: 0x40 bytes hold a 0x10 byte, the text and the NUL
 inline constexpr int kDialogRadius = 124;               // m_DialogRadius +0x1634: KNpc::Init 0x0807E02D writes 0x7c; the
                                                         // talk reaches twice that (0x080B13C7: dist <= 2 * radius)
 
@@ -38,6 +41,8 @@ enum KDialogUi : int {
     ui_news_info = 5,
     ui_play_music = 6,
     ui_open_tong_ui = 7,
+    ui_describe_dialog = 12,   // Describe: the sentence and the answers in the npc description window (0x006007FD -> ui message
+                               // 0x40 -> KUiNpcDescribe 0x00508410, npc描述界面.ini)
 };
 
 // m_nOperateType of the 0x63 packet

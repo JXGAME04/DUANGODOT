@@ -55,6 +55,28 @@ end
 function OnFour(i)
     g_last = 400 + i
 end
+function describe()
+    Describe("Mo ta", 3, "Mot/OnOne", "Hai", "Ba/#g_last = 500")
+end
+function describe_table()
+    Describe(9, 2, {"Bon/OnFour", "Nam"})
+end
+function describe_nocount()
+    Describe("Mo ta", "x", "Mot")
+end
+function describe_count_only()
+    Describe("Mo ta", 2)
+end
+function describe_none()
+    Describe("Mo ta", 0)
+end
+function describe_long()
+    local a = string.rep("x", 250)
+    Describe("Mo ta", 3, a .. "/OnOne", a, a)
+end
+function describe_short()
+    Describe("Mo ta", 5, "Mot/OnOne", "Hai")
+end
 function GetLast()
     return g_last
 end
@@ -333,3 +355,71 @@ TEST_CASE("the script bytes reach the client as UTF-8: TCVN3 Vietnamese, GBK Chi
     CHECK(tcvn3_rune(0xb0) == 0);
 }
 
+
+TEST_CASE("Describe 0x081242A0: Say's shape with the ui id 12, the answers budgeted at 0x1f4 bytes and cut to 0xc8", "[dialog][world]")
+{
+    DialogWorld dw;
+    // the string form: three answers, the functions kept, the 0x63 packet with ui 12
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe", dw.A(), 0));
+    auto acts = actions(dw.w.take_outbox(), 7);
+    REQUIRE(acts.size() == 1);
+    CHECK(acts[0].ui_id() == jx::zone::ui_describe_dialog);
+    CHECK(acts[0].text() == "Mo ta");
+    CHECK(acts[0].text_id() == 0);
+    CHECK(acts[0].interactive());
+    CHECK(acts[0].param() == -1);
+    REQUIRE(acts[0].options_size() == 3);
+    CHECK(acts[0].options(0) == "Mot");
+    CHECK(acts[0].options(2) == "Ba");
+    CHECK(dw.A().player.dialog.available_answers == 3);
+    CHECK(dw.A().player.dialog.waiting);
+    CHECK(dw.A().player.dialog.answer_fun[0] == "OnOne");
+    CHECK(dw.A().player.dialog.answer_fun[1] == "main");
+    CHECK(dw.A().player.dialog.answer_fun[2] == "#g_last = 500");
+    // the answer comes back the same way as Say's (the 0x5f packet, kind 0)
+    CHECK(dw.w.dialog_answer(7, 2, 0));
+    CHECK(dw.last() == 500.0);
+    CHECK_FALSE(dw.A().player.dialog.waiting);
+    // the table form with a string-table id: +6 = 1, the first answer counts its separator too
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe_table", dw.A(), 0));
+    acts = actions(dw.w.take_outbox(), 7);
+    REQUIRE(acts.size() == 1);
+    CHECK(acts[0].ui_id() == 12);
+    CHECK(acts[0].text_id() == 9);
+    REQUIRE(acts[0].options_size() == 2);
+    CHECK(acts[0].options(0) == "Bon");
+    CHECK(dw.A().player.dialog.answer_fun[0] == "OnFour");
+    CHECK(dw.w.dialog_answer(7, 0, 0));
+    CHECK(dw.last() == 400.0);
+    // a count that is not a number: the binary prints and sends nothing (0x08124315)
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe_nocount", dw.A(), 0));
+    CHECK(actions(dw.w.take_outbox(), 7).empty());
+    // a count above 0 without any answer: nothing (0x08124460)
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe_count_only", dw.A(), 0));
+    CHECK(actions(dw.w.take_outbox(), 7).empty());
+    // no answer wanted: the sentence alone, nothing waits
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe_none", dw.A(), 0));
+    acts = actions(dw.w.take_outbox(), 7);
+    REQUIRE(acts.size() == 1);
+    CHECK(acts[0].options_size() == 0);
+    CHECK_FALSE(dw.A().player.dialog.waiting);
+    CHECK(dw.A().player.dialog.available_answers == 0);
+    // three answers of 250 bytes: each cut to 200 (0x081245A3); 200, then 200 + 3 + 200 = 403 fit in 0x1f4, the third
+    // (403 + 3 + 200) does not (0x081245BB) - two kept
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe_long", dw.A(), 0));
+    acts = actions(dw.w.take_outbox(), 7);
+    REQUIRE(acts.size() == 1);
+    REQUIRE(acts[0].options_size() == 2);
+    CHECK(acts[0].options(0).size() == jx::zone::kDescribeAnswerMax);
+    CHECK(acts[0].options(1).size() == jx::zone::kDescribeAnswerMax);
+    CHECK(dw.A().player.dialog.available_answers == 2);
+    CHECK(dw.A().player.dialog.answer_fun[0] == "OnOne");
+    // a count above the answers given: clamped to them (0x08124828: count >= n - 1 -> n - 2)
+    REQUIRE(dw.w.execute_script(R"(\script\test\npc.lua)", "describe_short", dw.A(), 0));
+    acts = actions(dw.w.take_outbox(), 7);
+    REQUIRE(acts.size() == 1);
+    CHECK(acts[0].options_size() == 2);
+    CHECK(jx::zone::kDescribeContentMax == 0x1f4);
+    CHECK(jx::zone::kDescribeAnswerMax == 0xc8);
+    CHECK(jx::zone::kTaskTipMax == 0x3e);
+}

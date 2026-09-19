@@ -405,6 +405,14 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   3 ca 86 khẳng định + `[log]` byte thô (287 tổng), e2e: zone log không còn `script failed`/`job threw`/`script api called without a player`, `AUTO_DIALOG
   … answered=true`, `AUTO_TASK … task_id=101 status_value=268435456`. **Chưa**: dữ liệu gốc `random/talk/entity.txt` 15 cột → `OnTaskNpcTalk` nối nil (lỗi
   như máy chủ gốc), `Describe/TaskTip/WriteLog/GetAccount`, hàm vật phẩm/chuỗi/PARTNER, `AddNote`, tên subworld/tên npc byte thô.
+- **M13 lát D6 (xong 2026-09-19)**: **các hàm script còn lại của `task_main.lua`** (`LINUX-SERVER.md` §25, `CLIENT-2.0.md` §26): `Describe 0x081242A0` (Say ui 12;
+  `type(2)` phải là số; trả lời cắt 0xc8, ngân sách 0x1f4 chỉ tính trả lời), `TaskTip 0x08122730` (gói 0xb6 `{0x10, chữ}` 0x3e byte → `G2C_TASK_TIP`), `WriteLog 0x081237D0`
+  (→ log `zone.script`), `GetAccount 0x0810F6A0` (`Player+0x264` ← `SessionOpen.account`), `AddOwnExp 0x081126C0` → lõi `0x080AFEA0` (`KPlayer::add_exp_direct`, tách khỏi
+  `add_exp`), `AddRepute 0x08117290`/`GetRepute 0x08117230` (giá trị nhiệm vụ 100), bộ đệm chuỗi `PushString/AppendString/ReplaceString/PopString` (`thread_local`);
+  client: cửa sổ `npc描述界面.ini` (`UiNpcDescribe.gd`, thông điệp UI 0x40 → `0x00508410`) và bảng thông điệp hệ thống `系统消息.ini` (`UiSysMsg.gd`, 0x5d → `0x004C4060`,
+  neo góc dưới phải), bộ nhận thông điệp UI `0x00428970`. Test 291/291, Godot 509, e2e `AUTO_DESCRIBE ui=12 options=2 window=true tip_len=37 pane=true`. **Chưa**: hàm
+  vật phẩm (`GetItemProp/SyncItem/RemoveItemByIndex/GetGiveItemUnit/GiveItemUI/GetItemStackCount/AddItemEx/GetGlodEqIndex/SetItemMagicLevel/ITEM_GetItemRandSeed`),
+  PARTNER_*, `AddNote`, tên subworld/tên npc byte thô, chân dung npc trong `[Image]`, WndProc bảng thông điệp, cắt trả lời Describe theo ký tự (`0x0822AB40`).
 - **M14 lát C2 (xong 2026-09-19)**: **kênh chat trên client** (`CLIENT-2.0.md` §23): bảng kênh `消息集合面板_左.ini` (`[Channels]` 15 kênh, `[CH_*]`
   `ShortName`/`FormatName`/`TextColor`/`MenuText`/`TextImage`/`SendMsgInterval`/`SendMsgNum`, `[Main] NameTextColor`, `[MSNRoom]` màu thì thầm) → `export-ui`
   `khung-chat` → `UiMsgCentrePad.gd`; `KUiPlayerBar::SendChat 0x00475A10` (`/tên câu` thì thầm, `&ngắn câu` kênh theo tên ngắn, khác → kênh hiện tại
@@ -522,7 +530,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | ~~M14 C1 / C2 — kênh chat zone + client~~ (xong 2026-09-19, §19 `LINUX-SERVER.md`, §23 `CLIENT-2.0.md`) | còn: cửa sổ `KUiMsgCentrePad` thật (`ChatRoom_List`, tab `ChatTab*`, `SysRoom`, `MSNRoom`, `_右`), tiền tố `%` (`0x00472A10`), kênh GM (cờ 4, `[gm]`), bộ lọc `chatsent.flt` (`0x0058DF90`/`0x00617B90`), `Sound` kênh; zone: đội vượt bản đồ, `NW_ForbidChat`, `OnChannelChat`, `IsDisabledChatWorld/City`, `chat_timecount_limit.lua`. |
-| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) ~~M13 D3 — hệ nhiệm vụ TASKSYS (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/TaskXxx`)~~ (xong 2026-09-19, §22 `LINUX-SERVER.md`) ~~M13 D4 — sự kiện giết quái + hàm npc/người chơi~~ (xong 2026-09-19, §23 `LINUX-SERVER.md`) ~~M13 D5 — thư viện `TabFile_*`~~ (xong 2026-09-19, §24 `LINUX-SERVER.md`) | còn **M13 D6**: `Describe 0x081242A0`, `TaskTip 0x08122730`, `WriteLog 0x081237D0`, `GetAccount 0x0810F6A0`, hàm vật phẩm/chuỗi/PARTNER mà `task_main.lua` cần, `AddNote 0x08124DC0` (gói 0x63 ui 3 + UI client), tên subworld/tên npc byte thô, gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
+| ~~M13 D1 — hộp thoại npc (Say/Talk/trả lời)~~ (xong 2026-09-19, §20 `LINUX-SERVER.md`, §24 `CLIENT-2.0.md`) ~~M13 D2 — giá trị nhiệm vụ (`GetTask/SetTask`…)~~ (xong 2026-09-19, §21 `LINUX-SERVER.md`, §25 `CLIENT-2.0.md`) ~~M13 D3 — hệ nhiệm vụ TASKSYS (`FirstTask/NextTask/GetTaskStatus/SetTaskStatus/StartTask/CloseTask/GetTmpValue/SetTmpValue/TaskXxx`)~~ (xong 2026-09-19, §22 `LINUX-SERVER.md`) ~~M13 D4 — sự kiện giết quái + hàm npc/người chơi~~ (xong 2026-09-19, §23 `LINUX-SERVER.md`) ~~M13 D5 — thư viện `TabFile_*`~~ (xong 2026-09-19, §24 `LINUX-SERVER.md`) ~~M13 D6 — `Describe/TaskTip/WriteLog/GetAccount/AddOwnExp/AddRepute/GetRepute` + bộ đệm chuỗi~~ (xong 2026-09-19, §25 `LINUX-SERVER.md`, §26 `CLIENT-2.0.md`) | còn **M13 D7**: hàm vật phẩm mà `task_main.lua` cần (`GetItemProp 0x080FF260` 346 chỗ, `SyncItem 0x08114EF0` 285, `RemoveItemByIndex 0x08114F80` 279, `GetGiveItemUnit 0x08114E60` 240, `GiveItemUI 0x0812BBA0` 158, `GetItemStackCount 0x080FD250` 93, `AddItemEx 0x08120470` 58, `GetGlodEqIndex 0x080FEF90` 46, `SetItemMagicLevel 0x080FD020` 35, `ITEM_GetItemRandSeed 0x081548E0` 16) trên `KItemList` M11, PARTNER_*, `AddNote 0x08124DC0` (gói 0x63 ui 3 + UI client), tên subworld/tên npc byte thô, gói 0xa4 (id 0x87), `0xb41 → +0x7cfc`, `Player+0x78ec`; `text_id` của Say (`g_GetStringRes`); `AddNote`, `Describe 0x081242A0`, `AskClientForNumber/String 0x08115CA0/0x08115E90`; gói 0x89 chọn vật phẩm (`0x080AC560`); `+0x158c` tham số npc; sự kiện script 15 (`0x080AEBC0`); chống nghiện `Player+0x7d00`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: bạn bè, thư, bang hội), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
@@ -662,6 +670,10 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   nên không bắt được. Mỗi lát thêm gói: chạy `python tools/dev.py e2e` (hoặc `screenshot`) trước khi commit.
 - **Số lớn nhân hằng phần trăm**: nhị phân `imul` 32-bit tràn (`KillPlayer` 200 000 000 × `rate` 20 hồi máu thay vì giết);
   zone phải nhân `std::int64_t` rồi mới chia — đã sửa ở `calc_damage` (PK), soát các chỗ `× percent / 100` khác khi gặp.
+
+- (M13 D6) Gọi `cmd.exe /c "$(cygpath -w $S)\\next_env.cmd cmake --build …"` từ Bash in "rc=0" với log 3 dòng mà **không build gì** (dấu `\\` và trích dẫn hỏng) — build
+  bằng PowerShell `& cmd.exe /c "$S\next_env.cmd cmake --build --preset …"` (§0.7) và kiểm số dòng log / dòng `Linking … jx_zone_tests.exe` trước khi chạy test. Kỳ vọng
+  test phải đếm byte theo hằng của nhị phân (TaskTip 0x3e = 62 byte), không viết theo cảm giác.
 
 ### 0.6 Cách làm đang tốt — giữ nguyên
 
@@ -845,6 +857,34 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 57) — M13 lát D6: Describe 0x081242A0 / TaskTip 0x08122730 / WriteLog 0x081237D0 / GetAccount 0x0810F6A0 / AddOwnExp 0x081126C0 → 0x080AFEA0 / AddRepute 0x08117290 / GetRepute 0x08117230 + bộ đệm chuỗi PushString/AppendString/ReplaceString/PopString; client npc描述界面.ini + 系统消息.ini
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §25): `Describe` = dạng Say với ui 12, `type(2)` phải là số (không thì chỉ in `"Describe(%s,%s) by %s"` rồi thôi), trả lời
+  cắt 0xc8 (`0x0822A0A0`), ngân sách 0x1f4 chỉ đếm trả lời (+3 cho `"| |"`), `+9 = −1`; `TaskTip` = gói `{0xb6, 0x10, chữ}` 0x41 byte (`0x08227030` chép 0x3f → 0x3e byte chữ;
+  trả 1 không đẩy); `WriteLog` → `Logs/KSG_ScriptLog*.txt` dòng `"%04d-%02d-%02d %02d:%02d:%02d\t" + chữ + "\r\n"`; `GetAccount` = `Player+0x264`; `AddOwnExp` → lõi
+  `0x080AFEA0` (int64; dword cao âm → thôi; cấp 200 không nhận; kẹp `need`/`−need`; `< need` → gói 0xc6, không → `LevelUp`); `AddRepute` = giá trị nhiệm vụ 100 += n khi
+  tổng ≥ 0 (`SetTaskValue(…, 1)`), `GetRepute` đọc nó; bộ đệm chuỗi `0x9780d54/58/5c` (Push đặt dài 0 rồi chép, Append nối, Replace duyệt một lượt không chồng rồi
+  đổi hai bộ đệm, Pop đẩy không xoá).
+- **gamecl.exe** (`CLIENT-2.0.md` §26): bộ nhận thông điệp UI `0x00428970` (bảng `0x42ad94` 188 ô, trùng enum `GDCNI_*` 2003: 0x16 → `KUiMsgSel::OpenWindow 0x0051D5F0`);
+  ui 12 `0x006007FD` → 0x40 → `0x00508410` cửa sổ `npc描述界面.ini` (`0x8c0320`: `[MessageList]` mô tả, `[Select_List]` lựa chọn, `[Image]/[Text]` chân dung + tên;
+  trả lời qua `OperationRequest` ô 9 → gói 0x5f kind 0); gói 0xb6 `0x00651390` → 0x5d (byte đầu 0x10) → `0x0042A10A` `{chữ, 1, 1, 3, 0}` → bảng thông điệp hệ thống
+  `0x004C4060` (`系统消息.ini`, `0x846eac`: trùng → bỏ `0x004C3820`, danh sách theo loại `0x004C39F0` sắp theo ưu tiên, vẽ `0x004C3A90` biểu tượng nháy khi
+  `+0x105 == 1`, `SysMsgDisappearInterval` 30000 ms).
+- **Zone**: `KPlayer::add_exp_direct` (tách từ `add_exp`), `KPlayer::account` ← `KCmdSpawnPlayer.account` ← `SessionOpen.account = 4` (gateway `acc.Name`),
+  `KSubWorld::dialog_describe/task_tip/give_player_exp_direct/player_exp_changed`, `ScriptFuns.cpp` +11 (`script_string_buffer()` `thread_local`), `kTaskRepute = 100`,
+  `ui_describe_dialog = 12`, `kDescribeContentMax/kDescribeAnswerMax/kTaskTipMax`, proto `TaskTip` + `G2C_TASK_TIP = 2142`, `log.vi.json` +6 câu. **Client**:
+  `export-ui` +2 (`mo-ta-npc`, `thong-diep-he-thong`), `UiNpcDescribe.gd`, `UiSysMsg.gd` (neo góc dưới phải — luật 14), `KUiDialogMath` +5 hàm thuần, `KUiGameWindows`
+  ui 12 + `Game.task_tip`, `KProtocolProcess` `G2C_TASK_TIP`/`dialog_npc`, `_auto_describe`.
+- **Test/đo**: ctest 291/291 Release + Debug (`[scriptfuns]` 3 ca 66 khẳng định, `[dialog]` +1 ca Describe), Godot 509, Go vet/test sạch, `check_log_catalog`/
+  `check_includes` sạch; e2e `AUTO_DESCRIBE ui=12 options=2 window=true tip_len=37 pane=true` + `auto_describe.png`; zone log lần chạy: `script api called without a
+  player` 0, `job threw` 0, `script failed` 0 (còn `call failed` 1 của `entity.txt` 15 cột và `dialog answer without a script` 1 do hộp Describe mở từ `?gm ds`).
+- Lỗi đã mắc: kỳ vọng test TaskTip viết 66 byte trong khi lõi cắt 0x3e = 62 (đếm lại chuỗi theo hằng nhị phân); gọi `cmd.exe /c "$(cygpath -w $S)\\next_env.cmd …"` từ
+  Bash cho log 3 dòng và "rc=0" mà không build gì — build bằng PowerShell như §0.7 và kiểm dòng `Linking … jx_zone_tests.exe`.
+- **Chưa** (D7): hàm vật phẩm của `task_main.lua` (`GetItemProp/SyncItem/RemoveItemByIndex/GetGiveItemUnit/GiveItemUI/GetItemStackCount/AddItemEx/GetGlodEqIndex/
+  SetItemMagicLevel/ITEM_GetItemRandSeed`), PARTNER_*, `AddNote`, tên subworld/tên npc byte thô, chân dung npc trong `[Image]`, WndProc bảng thông điệp (trỏ/nhấp), cắt
+  trả lời Describe theo ký tự (`0x0822AB40`).
+- commit: `JX NEXT: M13 lat D6 - …` (xem git log).
 
 ### 2026-09-19 (phiên tiếp theo, phần 56) — M13 lát D5: thư viện TabFile_* của script (KTabFile 2003 + bộ đệm 0x978262c, TabFile_Load 0x0814AEF0 … Save 0x0814A3A0) + log chịu byte thô
 

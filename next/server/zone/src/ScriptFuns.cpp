@@ -10,6 +10,7 @@ extern "C" {
 #include <algorithm>
 #include <array>
 #include <climits>
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -259,6 +260,198 @@ int l_Talk(lua_State* L)
     }
     g_ScriptContext().world->dialog_talk(*p, callback, pages);
     return 0;
+}
+
+// Describe(text | id, count, answer... | {answers}) (jx_linux_y 0x081242A0; no 2003 counterpart): Say's shape, shown
+// by the client in its npc description window (ui 12).  Two arguments at least (0x081242B7); the count must be a number,
+// else the binary prints "Describe(%s,%s) by %s" (0x08124377) and sends nothing; the sentence a string or a string-
+// table id (0x081243B6 / 0x08124780); the answers as a table (0x08124443: t[i + 1]) or as more strings (0x08124828:
+// count >= n - 1 -> n - 2); a count above 0 with no answer at all -> nothing (0x08124460); at most 50 (0x08124478)
+int l_Describe(lua_State* L)
+{
+    const int n = lua_gettop(L);
+    KNpc* p = player_of(L, "Describe");
+    if (p == nullptr || n <= 1) return 0;
+    if (lua_type(L, 2) != LUA_TNUMBER) {   // 0x08124315
+        const char* a = lua_tostring(L, 1);
+        const char* b = lua_tostring(L, 2);
+        log::debug("lua", "describe without count", {log::kv("entity", p->id), log::kv("text", text::decode_mixed(a != nullptr ? a : "")),
+                                                       log::kv("count", text::decode_mixed(b != nullptr ? b : ""))});
+        return 0;
+    }
+    int count = static_cast<int>(lua_tonumber(L, 2));
+    std::string text;
+    int text_id = 0;
+    if (lua_type(L, 1) == LUA_TNUMBER) {   // 0x08124780
+        text_id = static_cast<int>(lua_tonumber(L, 1));
+    } else if (lua_isstring(L, 1)) {   // 0x081243CA
+        text = lua_tostring(L, 1);
+    } else {
+        return 0;
+    }
+    bool from_table = false;
+    if (lua_type(L, 3) == LUA_TTABLE) {   // 0x08124446
+        from_table = true;
+    } else if (lua_isstring(L, 3)) {   // 0x0812445A -> 0x08124828
+        if (count >= n - 1) count = n - 2;
+    } else if (count > 0) {   // 0x08124460
+        return 0;
+    }
+    if (count < 0) count = 0;
+    if (count > kDialogAnswers) count = kDialogAnswers;   // 0x08124478
+    std::vector<std::string> answers;
+    answers.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        const char* a = nullptr;
+        if (from_table) {   // 0x08124518: t[i + 1]
+            lua_rawgeti(L, 3, i + 1);
+            a = lua_tostring(L, -1);
+            answers.emplace_back(a != nullptr ? a : "");   // 0x081246F0: a missing answer is empty (and runs "main")
+            lua_pop(L, 1);
+        } else {
+            a = lua_tostring(L, i + 3);   // 0x08124682
+            answers.emplace_back(a != nullptr ? a : "");
+        }
+    }
+    g_ScriptContext().world->dialog_describe(*p, text, text_id, answers);
+    return 0;
+}
+
+// TaskTip(text) (0x08122730): a player 1..0x4af (0x0812275B), the text a string (0x0812277B), the 0xb6 packet (KSubWorld::
+// task_tip).  The binary answers 1 without pushing anything (0x081227F2: the top value comes back); the one caller
+// (task/random/task_head.lua) ignores it - nothing is returned here.
+int l_TaskTip(lua_State* L)
+{
+    KNpc* p = player_of(L, "TaskTip");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const char* s = lua_tostring(L, 1);
+    if (s == nullptr) return 0;
+    g_ScriptContext().world->task_tip(*p, s);
+    return 0;
+}
+
+// WriteLog(text) (0x081237D0): a string (0x081237F6) -> the script log 0x977ff60 (opened at 0x0805DF29 as
+// Logs/KSG_ScriptLog<date>.txt): "%04d-%02d-%02d %02d:%02d:%02d\t" (0x0821D3A0), the text, "\r\n" (0x0821D6F0).  The
+// zone's log (a line of the zone.script channel) is that file.
+int l_WriteLog(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    const char* s = lua_tostring(L, 1);
+    if (s == nullptr) return 0;
+    const KScriptContext& c = g_ScriptContext();
+    log::info("zone.script", "script log", {log::kv("text", text::decode_mixed(s)), log::kv("script", c.script_path)});
+    return 0;
+}
+
+// GetAccount() -> the account's name (0x0810F6A0: strcpy of Player+0x264 when the player index is above 0, else "")
+int l_GetAccount(lua_State* L)
+{
+    const KScriptContext& c = g_ScriptContext();
+    const KNpc* p = c.world != nullptr ? c.player : nullptr;
+    if (p == nullptr) {
+        lua_pushstring(L, "");
+        return 1;
+    }
+    lua_pushlstring(L, p->player.account.data(), p->player.account.size());
+    return 1;
+}
+
+// AddOwnExp(exp) (0x081126C0, LuaAddOwnExp of the 2003 source): a player above index 0 (0x081126E7), the amount as an
+// int64 (0x08112709) - a negative one never reaches the core (0x08112717) - -> KPlayer 0x080AFEA0 (no CalcExp, no bonus)
+int l_AddOwnExp(lua_State* L)
+{
+    KNpc* p = player_of(L, "AddOwnExp");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const double v = lua_tonumber(L, 1);
+    if (v < 0) return 0;
+    g_ScriptContext().world->give_player_exp_direct(*p, static_cast<std::int64_t>(v));
+    return 0;
+}
+
+// AddRepute(n) (0x08117290, LuaModifyRepute of the 2003 source: TASKVALUE_REPUTE = 100): the task value 100 + n
+// through KPlayer::SetTaskValue(100, v, 1) (0x0811732E) when the sum is not negative (0x08117315); the sprintf'd
+// sentences of the binary (0x978a494 / 0x978a490) go to a local buffer nobody reads
+int l_AddRepute(lua_State* L)
+{
+    KNpc* p = player_of(L, "AddRepute");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const int delta = static_cast<int>(lua_tonumber(L, 1));
+    const int value = p->player.task.get_save_val(kTaskRepute) + delta;
+    if (value < 0) return 0;
+    g_ScriptContext().world->task_set_value(*p, kTaskRepute, value, true);
+    log::debug("zone.task", "repute changed", {log::kv("entity", p->id), log::kv("delta", delta), log::kv("value", value)});
+    return 0;
+}
+
+// GetRepute() -> the task value 100 (0x08117230; 0 without a player, 0x08117242)
+int l_GetRepute(lua_State* L)
+{
+    const KScriptContext& c = g_ScriptContext();
+    const KNpc* p = c.world != nullptr ? c.player : nullptr;
+    lua_pushinteger(L, p != nullptr ? p->player.task.get_save_val(kTaskRepute) : 0);
+    return 1;
+}
+
+// The string buffer of the scripts (0x9780d54 / 0x9780d58 / 0x9780d5c of jx_linux_y: PushString 0x0812FDA0, AppendString
+// 0x0812FCD0, ReplaceString 0x0812EB20, PopString 0x080FFB00; script/lib/basic.lua joins strings through it).  The old
+// server has one; the zone runs scripts on its workers at the same time, so each thread has its own.
+std::string& script_string_buffer() noexcept
+{
+    static thread_local std::string buffer;
+    return buffer;
+}
+
+// PushString(s): the buffer emptied (0x0812FDDB) then s copied in (0x0812FE1F); a missing s empties it (0x0812FE70)
+int l_PushString(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    std::string& b = script_string_buffer();
+    b.clear();
+    if (const char* s = lua_tostring(L, 1); s != nullptr) b = s;
+    return 0;
+}
+
+// AppendString(s): s after what is there (0x0812FD4D; the buffer grows, 0x0812FD84); nothing for a missing or empty s
+int l_AppendString(lua_State* L)
+{
+    if (lua_gettop(L) < 1) return 0;
+    if (const char* s = lua_tostring(L, 1); s != nullptr) script_string_buffer() += s;
+    return 0;
+}
+
+// ReplaceString(pattern, s): two strings (0x0812EB60 / 0x0812EB6E), a buffer with something in it (0x0812EB7B) and a
+// pattern with a length (0x0812EB9B); the buffer is walked once, left to right: a match of the pattern (strncmp,
+// 0x0812EBE4) puts s in the copy and skips the pattern, any other byte is copied (0x0812ECC8), the tail shorter than
+// the pattern is copied whole (0x0812EC67); then the copy becomes the buffer (0x0812EC6C..0x0812ECAC)
+int l_ReplaceString(lua_State* L)
+{
+    if (lua_gettop(L) < 2) return 0;
+    const char* pattern = lua_tostring(L, 1);
+    const char* with = lua_tostring(L, 2);
+    std::string& b = script_string_buffer();
+    if (pattern == nullptr || with == nullptr || b.empty() || pattern[0] == '\0') return 0;
+    const std::string_view pat(pattern);
+    std::string out;
+    out.reserve(b.size());
+    std::size_t at = 0;
+    while (at < b.size()) {
+        if (b.size() - at >= pat.size() && b.compare(at, pat.size(), pat) == 0) {
+            out += with;
+            at += pat.size();
+        } else {
+            out += b[at++];
+        }
+    }
+    b.swap(out);
+    return 0;
+}
+
+// PopString() -> the buffer, "" when empty (0x080FFB0B); the buffer stays as it is
+int l_PopString(lua_State* L)
+{
+    const std::string& b = script_string_buffer();
+    lua_pushlstring(L, b.data(), b.size());
+    return 1;
 }
 
 // AddItem(genre, detail, particular, level, series, luck [, magic1 [, magic2 .. magic6]]) -> 1 / 0
@@ -2013,6 +2206,10 @@ const luaL_Reg kGameScriptFuns[] = {
     {"TabFile_Load", l_TabFile_Load},     {"TabFile_UnLoad", l_TabFile_UnLoad}, {"TabFile_GetRowCount", l_TabFile_GetRowCount},
     {"TabFile_GetColCount", l_TabFile_GetColCount}, {"TabFile_GetCell", l_TabFile_GetCell}, {"TabFile_Search", l_TabFile_Search},
     {"TabFile_SetCell", l_TabFile_SetCell}, {"TabFile_Save", l_TabFile_Save},
+    {"Describe", l_Describe},             {"TaskTip", l_TaskTip},             {"WriteLog", l_WriteLog},
+    {"GetAccount", l_GetAccount},         {"AddOwnExp", l_AddOwnExp},         {"AddRepute", l_AddRepute},
+    {"GetRepute", l_GetRepute},           {"PushString", l_PushString},       {"AppendString", l_AppendString},
+    {"ReplaceString", l_ReplaceString},   {"PopString", l_PopString},
     {nullptr, nullptr},
 };
 

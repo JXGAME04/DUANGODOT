@@ -28,6 +28,7 @@ struct KCmdSpawnPlayer {
     std::uint64_t sid = 0;
     std::uint64_t conn_id = 0;      // the gateway that owns the session
     pb::RoleData role;
+    std::string account;            // the account's name (SessionOpen.account): Player+0x264, Lua GetAccount
     bool has_at = false;            // spawn at `at` instead of the saved / default position
     Pos at;
     KSpawnReason reason = KSpawnReason::enter_world;

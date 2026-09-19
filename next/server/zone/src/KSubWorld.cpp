@@ -1244,6 +1244,20 @@ void KSubWorld::give_player_exp(KNpc& p, int exp, int npc_level)
     const std::uint32_t before = p.level;
     p.player.add_exp(p, exp, npc_level, tables(), items_of(p.sid),
                      [](void* ctx, int n) { return static_cast<KSubWorld*>(ctx)->random(n); }, this);
+    player_exp_changed(p, exp, before);
+}
+
+// Lua AddOwnExp 0x081126C0: the amount as an int64 (a negative one never reaches the core, 0x08112717), no CalcExp, no bonus
+void KSubWorld::give_player_exp_direct(KNpc& p, std::int64_t exp)
+{
+    if (p.kind != KNpcKind::player || !p.player.loaded || exp < 0) return;
+    const std::uint32_t before = p.level;
+    p.player.add_exp_direct(p, exp, tables(), items_of(p.sid));
+    player_exp_changed(p, exp, before);
+}
+
+void KSubWorld::player_exp_changed(KNpc& p, std::int64_t exp, std::uint32_t before)
+{
     log::debug("zone.fight", "experience", {log::kv("entity", p.id), log::kv("exp", exp), log::kv("level", p.level)});
     if (p.level != before) {
         log::info("zone.player", "level up", {log::kv("entity", p.id), log::kv("level", p.level)});

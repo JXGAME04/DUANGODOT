@@ -267,6 +267,7 @@ void KGameServer::handle_session_open(Gateway& gw, const frame::View& view)
     cmd.sid = open.sid();
     cmd.conn_id = gw.conn->id();
     cmd.role = open.role();
+    cmd.account = open.account();
     cmd.reason = KSpawnReason::enter_world;
     target->post(std::move(cmd));
     log::debug("zone", "session open queued", {log::kv("sid", open.sid()), log::kv("map", target->map_id())});

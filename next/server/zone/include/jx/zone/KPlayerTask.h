@@ -27,6 +27,7 @@ namespace jx::zone {
 inline constexpr int kTaskValueCount = 0x1770;    // the saved ids 0..0x176f (`cmp 0x176f / ja` of every accessor)
 inline constexpr int kTaskTempCount = 256;        // m_nTaskTemp (`cmp 0xff / ja`)
 inline constexpr int kTaskSyncMoreBatch = 80;     // the 0xb5 packet: 1 + 80 x 8 = 0x281 bytes (0x080A9550; the 2.0 client reads 79 of them, 0x00651384)
+inline constexpr int kTaskRepute = 100;   // TASKVALUE_REPUTE of the 2003 source: AddRepute 0x08117290 / GetRepute 0x08117230
 inline constexpr int kTaskTraceId = 1;            // SetTask / SetBitTask on id 1 log "TraceTaskValue Set\t%d\t%d\t%s\t%s" (0x08116812 / 0x08109032)
 // ids the engine keeps for itself (KTaskFuns.h of 2003; SavePlayerTaskList 0x080BF1C0 refills the first two)
 inline constexpr int kTaskWayPointBegin = 201;    // TASKVALUE_SAVEWAYPOINT_BEGIN: m_PlayerWayPointList (+0x294), 3 ids

@@ -105,6 +105,11 @@ var GameScreens = []UiScreenDef{
 	// one-button pages of a Talk (KUiInformation2, 提示2.ini)
 	{"hop-thoai-chon", "Hộp thoại chọn câu trả lời của npc", "KUiMsgSel", `滚动选择界面.ini`},
 	{"hop-thoai-mot-nut", "Hộp thoại một nút (các trang npc nói)", "KUiInformation2", `提示2.ini`},
+	// M13 D6: Lua Describe (ui 12 of the 0x63 packet: OnScriptAction 0x006007FD -> ui message 0x40 -> 0x00508410 loads
+	// "%s\npc描述界面.ini" at 0x00507A87) and the system message pane the 0xb6 packet of TaskTip lands in (0x00651390 -> ui
+	// message 0x5d -> 0x004C4060; 0x004C3D1D loads "%s\系统消息.ini", [Main] SysMsgDisappearInterval default 30000 ms)
+	{"mo-ta-npc", "Hộp thoại mô tả của npc (Describe)", "KUiNpcDescribe", `npc描述界面.ini`},
+	{"thong-diep-he-thong", "Thông điệp hệ thống (nhắc nhiệm vụ)", "KUiSysMsg", `系统消息.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

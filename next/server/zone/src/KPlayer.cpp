@@ -237,12 +237,32 @@ int KPlayer::add_exp(KNpc& npc, int add, int npc_level, const KPlayerSet& tables
                                       : static_cast<std::int64_t>(add) * (100 + exp_enhance_percent) / 100;
     if (exp_enhance_hi > exp_enhance_lo && rand) gain += exp_enhance_lo + rand(rand_ctx, exp_enhance_hi - exp_enhance_lo);
     else gain += exp_enhance_lo;
-    // 0x080AFEA0: a character of level 200 gains nothing; otherwise up to the next level's need
     if (gain <= 0) return 0;
-    if (npc.level > static_cast<std::uint32_t>(kMaxLevel - 1)) return 0;
+    return add_exp_direct(npc, gain, tables, items);
+}
+
+int KPlayer::add_exp_direct(KNpc& npc, std::int64_t gain, const KPlayerSet& tables, const KItemList* items)
+{
+    // 0x080AFEA0(player, int64 exp): a gain at level 200 (above 0xc7) is nothing (0x080AFEBE..0x080AFED6); from a
+    // non-negative exp the gain is capped at need - exp (0x080AFF47: more -> exp = need), from a negative one (the
+    // death loss) at -need - exp the other way (0x080B0030: less -> exp = -need); then exp below -need is -need
+    // (0x080AFF6A), a positive exp at level 200 is 0 (0x080AFF81..0x080AFFA9); below the need the 0xc6 sync
+    // (0x080B0008, the attrib sync of the caller here), at or above it LevelUp(1) (0x080AFFBD)
+    if (gain > 0 && npc.level > static_cast<std::uint32_t>(kMaxLevel - 1)) return 0;
     if (next_level_exp <= 0) next_level_exp = tables.level_exp(static_cast<int>(npc.level), reborn);
-    exp = std::min<std::int64_t>(exp + gain, next_level_exp);
-    if (next_level_exp > 0 && exp >= next_level_exp) return level_up(npc, true, tables, items) ? 1 : 0;
+    const std::int64_t need = next_level_exp;
+    std::int64_t cur = exp;
+    if (cur >= 0) {
+        const std::int64_t room = need - cur;
+        cur = gain > room ? need : cur + gain;
+    } else {
+        const std::int64_t room = -need - cur;
+        cur = gain < room ? -need : cur + gain;
+    }
+    if (cur < -need) cur = -need;
+    if (cur > 0 && npc.level > static_cast<std::uint32_t>(kMaxLevel - 1)) cur = 0;
+    exp = cur;
+    if (need > 0 && cur >= need) return level_up(npc, true, tables, items) ? 1 : 0;
     return 0;
 }
 

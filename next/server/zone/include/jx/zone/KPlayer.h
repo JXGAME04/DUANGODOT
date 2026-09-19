@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <string>
 #include <vector>
 
 #include "jx/ids.hpp"
@@ -79,6 +80,7 @@ struct KPlayer {
     int forbid_stamina = 0;    // +0x86b4: Lua ForbitStamina 0x0810CCC0 - no stamina gain while set (0x0808BD53)
     int attribute_point = 0;   // m_nAttributePoint +0x5924 (5 per level)
     int skill_point = 0;       // m_nSkillPoint     +0x5928 (1 per level)
+    std::string account;       // the account's name (Player+0x264 of jx_linux_y; Lua GetAccount 0x0810F6A0 copies it)
     std::int64_t exp = 0;      // m_nExp           +0x595c
     std::int64_t next_level_exp = 0;   // m_nNextLevelExp +0x5964: what the current level needs to become the next
     int reborn = 0;            // +0x86b8 (<= 7): the experience table and the resistance floor
@@ -176,6 +178,10 @@ struct KPlayer {
     // to the next level's need, a level up when reached (the leftover is lost, as in the old
     // game).  Returns the levels gained (0 or 1).
     int add_exp(KNpc& npc, int exp, int npc_level, const KPlayerSet& tables, const KItemList* items, int (*rand)(void*, int), void* rand_ctx);
+    // the core alone, 0x080AFEA0(player, int64): the experience as given (Lua AddOwnExp 0x081126C0 -> DirectAddExp of
+    // the 2003 source) - a gain at level 200 is nothing; the exp moves by it, clamped to the need above and to minus
+    // the need below; below the need the 0xc6 sync, at or above it LevelUp.  Returns the levels gained (0 or 1).
+    int add_exp_direct(KNpc& npc, std::int64_t gain, const KPlayerSet& tables, const KItemList* items);
     // 0x080AF800: one level up (true) or down (false): exp 0, +-5 attribute points, +-1 skill
     // point, the level tables, UpdataCurData, life / mana / stamina filled.  Returns false when
     // the level cannot move (1 or 200).

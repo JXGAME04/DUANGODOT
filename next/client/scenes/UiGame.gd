@@ -662,6 +662,7 @@ func _auto_run() -> void:
 	await _auto_trade()
 	await _auto_dialog()
 	await _auto_task()
+	await _auto_describe()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -1281,6 +1282,38 @@ func _auto_task() -> void:
 	Game.task_value_changed.disconnect(on_value)
 	await _save_screenshot("user://logs/auto_task.png")
 	print("AUTO_TASK packets=%d synced=%d client_set=%s script_set=%s expected=%d stored=%d task_count=%s task_id=%s status_value=%s" % [Game.task_packets, synced, str(got.get(1276, "-")), str(got.get(100, "-")), v, Game.task_value(100), str(got.get(2200, "-")), str(got.get(2201, "-")), str(got.get(2000, "-"))])
+
+
+# Describe (ui 12 -> the npc description window) and TaskTip (the 0xb6 packet -> the system message pane) from the GM
+# console; prints AUTO_DESCRIBE for tools/dev.py screenshot
+func _auto_describe() -> void:
+	var got := {"action": {}, "tip": ""}
+	var on_action := func(a: Dictionary) -> void:
+		if int(a.get("ui", -1)) == 12:
+			got.action = a
+	var on_tip := func(text: String) -> void:
+		got.tip = text
+	Game.script_action.connect(on_action)
+	Game.task_tip.connect(on_tip)
+	Game.chat("?gm ds TaskTip(\"Ban nhan duoc mot nhiem vu ngau nhien\")")
+	Game.chat("?gm ds Describe(\"Day la loi mo ta cua npc: hay chon mot trong hai lua chon ben duoi.\", 2, \"Lua chon mot/OnOne\", \"Lua chon hai\")")
+	for i in 40:
+		await get_tree().create_timer(0.1).timeout
+		if not got.action.is_empty() and got.tip != "":
+			break
+	Game.script_action.disconnect(on_action)
+	Game.task_tip.disconnect(on_tip)
+	var window_open: bool = _windows != null and _windows.describe != null and _windows.describe.visible
+	var pane_open: bool = _windows != null and _windows.sys_msg_pane != null and _windows.sys_msg_pane.visible
+	await get_tree().create_timer(0.3).timeout
+	await _save_screenshot("user://logs/auto_describe.png")
+	if window_open:
+		_windows.describe._on_click(1)   # the second answer: closes the window, the 0x5f packet goes to the zone
+		await get_tree().create_timer(0.3).timeout
+	Log.info("auto", "auto describe", {"ui": got.action.get("ui", -1), "options": got.action.get("options", []).size(), "window": window_open,
+		"tip_len": got.tip.length(), "pane": pane_open})
+	print("AUTO_DESCRIBE ui=%d options=%d window=%s tip_len=%d pane=%s" % [got.action.get("ui", -1), got.action.get("options", []).size(), window_open,
+		got.tip.length(), pane_open])
 
 
 func _auto_death() -> void:

@@ -225,6 +225,12 @@ message TaskValueReq {
   int32 value = 2;
 }
 
+// the 0xb6 packet of Lua TaskTip 0x08122730 (docs/LINUX-SERVER.md §25): 0x3e bytes of text after a 0x10 byte; the client's
+// 0x00651390 hands it to the system message pane (0x004C4060: type 1, blinking icon, priority 3; 系统消息.ini)
+message TaskTip {
+  string text = 1;
+}
+
 message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)
   int32 state = 1;
   uint32 seq = 2;

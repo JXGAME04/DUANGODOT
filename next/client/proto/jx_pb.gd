@@ -3275,6 +3275,52 @@ class TaskValueReq:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class TaskTip:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__text = PBField.new("text", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __text
+		data[__text.tag] = service
+		
+	var data = {}
+	
+	var __text: PBField
+	func has_text() -> bool:
+		if __text.value != null:
+			return true
+		return false
+	func get_text() -> String:
+		return __text.value
+	func clear_text() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__text.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_text(value : String) -> void:
+		__text.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class PKStateReq:
 	extends RefCounted
 	func _init():
@@ -10750,6 +10796,11 @@ class SessionOpen:
 		service.func_ref = Callable(self, "new_role")
 		data[__role.tag] = service
 		
+		__account = PBField.new("account", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __account
+		data[__account.tag] = service
+		
 	var data = {}
 	
 	var __sid: PBField
@@ -10791,6 +10842,19 @@ class SessionOpen:
 	func new_role() -> RoleData:
 		__role.value = RoleData.new()
 		return __role.value
+	
+	var __account: PBField
+	func has_account() -> bool:
+		if __account.value != null:
+			return true
+		return false
+	func get_account() -> String:
+		return __account.value
+	func clear_account() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__account.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_account(value : String) -> void:
+		__account.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -11516,6 +11580,7 @@ enum MsgId {
 	G2C_ENTITY_MENU_STATE = 2138,
 	G2C_TASK_VALUE = 2140,
 	G2C_TASK_VALUES = 2141,
+	G2C_TASK_TIP = 2142,
 	G2C_SCRIPT_ACTION = 2139,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,

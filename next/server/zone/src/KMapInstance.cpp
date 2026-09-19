@@ -67,6 +67,7 @@ void KMapInstance::apply(KWorldCommand& cmd)
                        Pos pos;
                        ev.result = world_.spawn_player(c.sid, c.role, entity, pos, c.has_at ? &c.at : nullptr);
                        if (ev.result == pb::RESULT_OK) {
+                           if (KNpc* pl = world_.mutable_entity(entity); pl != nullptr) pl->player.account = c.account;
                            ev.entity = entity;
                            ev.pos = pos;
                            ev.map_id = world_.map_id();

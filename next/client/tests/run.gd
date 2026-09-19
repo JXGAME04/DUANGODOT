@@ -60,6 +60,7 @@ func _init() -> void:
 	test_chat_channels()
 	test_dialog()
 	test_task_values()
+	test_describe_tip()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -940,3 +941,35 @@ func test_task_values() -> void:
 	var changed: Array = math.apply_batch(values, [{"id": 1000, "value": 1}, {"id": 1001, "value": 0}, {"id": 1002, "value": 2}])
 	check(changed == [1000, 1002] and math.value_of(values, 1002) == 2 and values.size() == 2, "a batch applies in order and names what changed")
 	check(math.bits(0x53, 4, 3) == 5 and math.bits(0x53, 0, 8) == 0x53 and math.bits(0x53, 30, 3) == 0 and math.bits(-1, 31, 1) == 1, "GetBits")
+
+
+# ---- Describe and TaskTip (UiNpcDescribe.gd, UiSysMsg.gd; docs/CLIENT-2.0.md §26) ------------------------------------
+
+func test_describe_tip() -> void:
+	check(Proto.MsgId.G2C_TASK_TIP == 2142, "task tip message id")
+	var t := Proto.TaskTip.new()
+	t.set_text("Bạn nhận được một nhiệm vụ")
+	var t2 := Proto.TaskTip.new()
+	check(t2.from_bytes(t.to_bytes()) == Proto.PB_ERR.NO_ERRORS and t2.get_text() == "Bạn nhận được một nhiệm vụ", "TaskTip round trip")
+	var a := Proto.ScriptAction.new()
+	a.set_ui_id(12)
+	a.set_text("Mô tả")
+	a.add_options("Một")
+	var a2 := Proto.ScriptAction.new()
+	check(a2.from_bytes(a.to_bytes()) == Proto.PB_ERR.NO_ERRORS and a2.get_ui_id() == 12 and a2.get_options().size() == 1, "ScriptAction ui 12 round trip")
+	var math: GDScript = load("res://ui/KUiDialogMath.gd")
+	# the pane keeps its distance to the right and bottom edges: 240x250 at (790,593) on 1024x768 reaches 6 px past the
+	# right edge and 75 px past the bottom one, and does the same on 1280x720
+	check(math.bottom_right_anchor(Vector2(790, 593), Vector2(240, 250), Vector2(1024, 768), Vector2(1280, 720)) == Vector2(1046, 545), "the system message pane anchored bottom right")
+	check(math.bottom_right_anchor(Vector2(790, 593), Vector2(240, 250), Vector2(1024, 768), Vector2(1024, 768)) == Vector2(790, 593), "the theme's own screen keeps the layout's place")
+	var msgs: Array = []
+	check(math.sys_msg_add(msgs, {"type": 1, "text": "A", "blink": true, "priority": 3}, 1000, 8), "a message joins")
+	check(not math.sys_msg_add(msgs, {"type": 1, "text": "A", "blink": true, "priority": 3}, 1500, 8) and msgs.size() == 1, "the same message again is dropped (0x004C3820)")
+	check(math.sys_msg_add(msgs, {"type": 1, "text": "B", "blink": false, "priority": 1}, 2000, 8) and msgs[0].text == "B", "a lower priority goes in front (0x004C3A4D)")
+	check(math.sys_msg_add(msgs, {"type": 5, "text": "C", "blink": true, "priority": 3}, 2500, 8) and msgs.size() == 3, "another type joins")
+	check(not math.sys_msg_add(msgs, {"type": 9, "text": "D"}, 2600, 8) and not math.sys_msg_add(msgs, {"type": 0, "text": "D"}, 2600, 8), "types outside 1..8 are refused")
+	check(math.sys_msg_latest(msgs, 1).text == "B" and math.sys_msg_latest(msgs, 5).text == "C" and math.sys_msg_latest(msgs, 2).is_empty(), "the newest message of a type")
+	check(math.sys_msg_blinks(msgs, 1) and math.sys_msg_blinks(msgs, 5) and not math.sys_msg_blinks(msgs, 2), "a type blinks while one of its messages does")
+	check(not math.sys_msg_prune(msgs, 30000, 30000) and msgs.size() == 3, "nothing older than the interval yet")
+	check(math.sys_msg_prune(msgs, 31000, 30000) and msgs.size() == 2 and math.sys_msg_latest(msgs, 1).text == "B", "a message goes after SysMsgDisappearInterval")
+	check(math.sys_msg_prune(msgs, 40000, 30000) and msgs.is_empty(), "all gone")

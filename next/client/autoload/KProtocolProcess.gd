@@ -62,6 +62,7 @@ signal sys_msg(id: int, entity_id: int, name: String)   # G2C_SYS_MSG: the 0x86 
 signal entity_menu_state(id: int)           # G2C_ENTITY_MENU_STATE: entities[id].menu_state / menu_sentence changed (the sign over the head)
 signal script_action(action: Dictionary)    # G2C_SCRIPT_ACTION: {operate, ui, text, text_id, interactive, param, options} of a npc script's Say / Talk
 signal task_value_changed(id: int, value: int)   # G2C_TASK_VALUE / G2C_TASK_VALUES: task_values[id] changed (the 0xa7 / 0xb5 packets -> KPlayer::SetTaskValue 0x00601ED0)
+signal task_tip(text: String)               # G2C_TASK_TIP: the 0xb6 packet of a script's TaskTip (the system message pane, type 1)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -111,6 +112,8 @@ var skills := {}
 # client): -1 = none; camp = m_Camp of the player's npc (C_FREE 4 after leaving)
 var faction := -1
 var task_values := {}    # id -> value: the saved task values the zone mirrors here (SYNC_FLAG rows of settings/task/player_task_def.txt; KPlayer+0xa1a0 of the 2.0 client)
+var task_tips := 0       # G2C_TASK_TIP received
+var dialog_npc := 0      # the npc of the last dialog request (the Describe window writes its name under the portrait)
 var task_packets := 0    # G2C_TASK_VALUE + G2C_TASK_VALUES received (the login sends every SYNC_FLAG id, zeros included)
 var pk_state := 0        # KPlayerPK state of one's own character: 0 exercise, 1 fight, 2 kill (the 0x90 packet)
 var pk_value := 0        # the PK value 0..10 (the 0x93 packet)
@@ -430,6 +433,7 @@ func npc_dialog(npc: int) -> int:
 	var req := Proto.NpcDialogReq.new()
 	req.set_npc(npc)
 	req.set_seq(_move_seq)
+	dialog_npc = npc
 	Net.send_msg(Proto.MsgId.C2G_NPC_DIALOG, req)
 	Log.debug("world", "npc dialog request", {"npc": npc, "seq": _move_seq})
 	return _move_seq
@@ -1123,6 +1127,15 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			task_packets += 1
 			for v in m.get_values():
 				_set_task_value(int(v.get_id()), int(v.get_value()))
+
+		Proto.MsgId.G2C_TASK_TIP:
+			# the 0xb6 packet (the client's 0x00651390): the text after the 0x10 byte -> the ui message 0x5d -> the system message pane
+			var m := Proto.TaskTip.new()
+			if not _decode(m, payload):
+				return
+			task_tips += 1
+			Log.debug("world", "task tip", {"len": str(m.get_text()).length()})
+			task_tip.emit(str(m.get_text()))
 
 		Proto.MsgId.G2C_ENTITY_MENU_STATE:
 			# s2c_npcsetmenustate (the client's 0x006522F0 -> KNpc 0x005EB2A0): the sign over a player's head, its sentence
