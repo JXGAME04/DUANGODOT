@@ -702,6 +702,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-46) — danh sách lịch trình mổ nhị phân bản 3D
+
+- Chủ dự án: *"chưa đầy đủ; lên danh sách lịch trình mổ nhị phân từ các bản 3D; chưa cập nhật đầy đủ bản 2D; làm tới lúc hoàn thiện; chưa có UI, chưa đủ hình ảnh skill; full skill các phái, đánh quái được; làm đến khi xong hết theo lịch trình"*.
+- `docs/MO-NHI-PHAN-3D.md`: kiểm kê nguồn (68 bundle giải tên theo md5: excel 240 bảng, particles 558 prefab/315 ParticleSystem, nhân vật 4 337 GO, animation 716 clip, vũ khí, UI prefab NGUI 3 085 GO + atlas 117 texture, shader 36, audio 75 + 375 clip, **script uLua 245 tệp Lua văn bản** — mới phát hiện, trích ra `D:\game3gtQ_mo\lua\`, ngoài repo) → 7 nhóm hạng mục A–G (bảng, model, hiệu ứng, đánh quái, UI, camera/scene, Lua) mỗi mục nguồn/cách mổ/đầu ra/trạng thái, và 5 đợt làm theo ưu tiên chủ dự án (skill mọi phái → đánh quái → UI → camera/vùng → các map còn lại).
+- Phát hiện từ Lua tham khảo: 10 script phái (`wudang.lua`… 247 kỹ năng, id = `skill_main`) là **luật** (không dùng, luật theo Linux) nhưng ghi đổi đơn vị của họ: 1 đơn vị JX = 1,5 cm, khung × 1,667, đạn × 2,5 → ghi vào `3D-QUY-UOC.md` §2 (JX NEXT giữ 2 cm theo sprite 2.0, có lý do).
+- Bảng đã có đầu mối để làm tiếp: `anim_effect` (vệt đánh thường theo phẩm chất → sfx 290/291…), `skill_hit` (sfx trúng dự phòng), `still_list` (vật rơi 3D), `scn_area_list` (nhạc/sương/đèn/camera theo vùng), `ui_map_view` (toạ độ minimap), `cha_model_view` (SizeX/OffsetY).
+- commit: `JX NEXT 3D: 3D-46 - docs/MO-NHI-PHAN-3D.md danh sach lich trinh mo nhi phan ban 3D (7 nhom, 5 dot), trich 245 Lua uLua tham khao, don vi 1,5 cm cua ban tham khao`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-45) — gộp main (B6a/B6b/PK), vũ khí + ngựa của người khác từ gói 0xad, ngựa theo hàng ảnh
 
 - Gộp `origin/main` 5 commit (B6a ngồi, B6b hiển thị trang bị + cưỡi ngựa 2D, PK) — commit gộp `20a8046`; xung đột `KNpc.gd` (giữ `riding`/`set_riding` của main + `riding_changed.emit`), `UiGame.gd`, `run.gd`, HANDOVER. Sau gộp: dựng lại zone (`build\build_zone.cmd all`) + Go (`go build -o ../build/go/ ./cmd/...`); **bẫy**: `dev.py` mặc định `JX_CONFIG=Debug` mà bản 3D chỉ dựng Release → e2e chạy zone Debug cũ (không có ngồi/PK, `?gm` không tới) → `dev.py` nay tự chọn Release khi không có `bin/Debug/jx_zone.exe`; exe Debug cũ đã xoá.

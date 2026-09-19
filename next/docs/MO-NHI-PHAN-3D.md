@@ -1,0 +1,164 @@
+# Lịch trình mổ nhị phân bản 3D (剑网江湖) cho client 3D của JX NEXT
+
+Lập 2026-09-19 theo yêu cầu chủ dự án: *"lên danh sách lịch trình mổ nhị phân từ các bản 3D để làm… làm cho tới lúc hoàn
+thiện theo bản 3D mổ nhị phân; chưa có UI, chưa có đầy đủ hình ảnh skill; full skill các phái, đánh quái được"*.
+
+Tài liệu này là **danh sách việc mổ** (mỗi hạng mục: nguồn nhị phân, cách mổ, đầu ra trong repo, trạng thái) và **thứ tự
+làm**. Lộ trình sản phẩm vẫn là [LO-TRINH-3D.md](LO-TRINH-3D.md); quy ước toạ độ [3D-QUY-UOC.md](3D-QUY-UOC.md); quyết định
+[ADR-008](adr/ADR-008-client-3d.md): **hiển thị theo client 2.0, luật theo server Linux, hình 3D lấy từ bản tham khảo**.
+Mọi con số ghi vào mã phải có nguồn `[TK]` (bản tham khảo), `[2.0]` (gamecl.exe), `[Linux]` (jx_linux_y) hoặc ghi rõ
+**[tự chọn]**. Nhật ký từng phần vẫn ở [HANDOVER.md](HANDOVER.md) (phần "3D-nn").
+
+## 0. Nguồn và công cụ
+
+| Nguồn | Ở đâu | Cách đọc |
+|---|---|---|
+| Bản tham khảo PC V24.2 (Unity 2022.3, IL2CPP) | `D:\game3gTQ` (gói), `D:\game3gtQ_mo\pc\剑网江湖_Data` (đã giải nén) | 68 bundle `StreamingAssets\*.bdd` (tên = md5(tên + ".bdd")[:12], khoá giải mã trong `D:\game3gtQ_mo\khoa_bundle.txt` — **không đưa vào repo**); UnityPy qua `tools/scn3d/*.py` |
+| Bản APK V24.2 (arm64) | `D:\game3gtQ_mo\apk`, `meta_apk.txt` | đối chiếu khi PC thiếu; cùng bảng, cùng script |
+| IL2CPP metadata + mã máy | `D:\game3gtQ_mo\meta_pc.txt(.json)`, `meta_pc_res.txt` (134 945 dòng: lớp, hàm, RVA, giá trị tĩnh `fieldDefaultValues`), `cs_types.txt` (1 772 lớp), `strlit_pc.txt` (15 800 chuỗi) | `python D:\game3gtQ_mo\disasm.py "Class.Method"` hoặc `rva:0x…` (Capstone x64) |
+| Script Lua uLua của bản tham khảo | bundle `script` (`fd1fb5b437c8.bdd`): **245 tệp `.lua` văn bản (2,6 MB)** → trích ra `D:\game3gtQ_mo\lua\` (ngoài repo) | đọc trực tiếp; đây là nơi logic UI + kỹ năng + cưỡi ngựa + nhặt đồ… của client tham khảo nằm |
+| Bảng dữ liệu | bundle `excel` (`c96f69a275af.bdd`): **240 bảng** TextAsset UTF-16 (`<tên>_cmn` = dữ liệu, `<tên>` = schema) | `export_npc.Tables` |
+| Client 2.0 | `gamecl.exe` + `reslst.dat` (ini UI, settings) — xem [CLIENT-2.0.md](CLIENT-2.0.md) | `tools/re` |
+| Server Linux | `jx_linux_y` — xem [LINUX-SERVER.md](LINUX-SERVER.md) | `re_elf`, `re_calls` |
+
+### 0.1 Bản đồ bundle của bản tham khảo (tên đã giải, 68 tệp)
+
+| Tên gốc | Tệp | Cỡ | Nội dung | Đã dùng bởi |
+|---|---|---:|---|---|
+| `excel` | c96f69a275af | 2,0 MB | 240 bảng (501 TextAsset) | `export_npc.Tables`, `map_skills.py` |
+| `scenes` | 3055752669ff | 117 MB | 410 texture dùng chung của scene | `export_scene.py` |
+| `scenes_<tên>` ×46 | (theo `scn_list`) | 946 MB | 46 map 3D (mesh, lightmap, mark, navmesh tham chiếu) — xem `D:\game3gtQ_mo\BAO-CAO-MAP-3D.md` | `export_scene.py` (mới xuất `world_baling`) |
+| `scenesnav` | f44380d04cd8 | 1,6 MB | 104 TextAsset: 47 navmesh AIS + 57 mark JSON | `make_map3d.py` |
+| `expscnmesh` / `expscnmat` | 42f7752ddd5a / 6fbf37a4e80c | 102 / 0,1 MB | 1 410 mesh + 516 vật liệu thư viện scene | `export_scene.py` |
+| `models` | 74ffea3407a5 | 49 MB | 236 texture nhân vật/vũ khí | `export_npc.py` |
+| **nhân vật (prefab)** | 9e371715490e | 0,5 MB | 4 337 GameObject, 124 Animation, `HangItemMgr`, `SFXXWeaponAnim` | `export_npc.py` |
+| **nhân vật (mesh / vật liệu / ref)** | d4b79c319044 / c8a4785ccffb / b78d0423da10 | 12 / 0 / 0 MB | 278 mesh, 233 vật liệu, 315 `ChaResourceRef` | `export_npc.py` |
+| **animation** | 19b6b49a7124 | 18,7 MB | 716 AnimationClip | `export_npc.py` (nhóm 1–11, 20, 21) |
+| **vũ khí (prefab)** | 8dd679aa97a2 | 2,3 MB | 519 GameObject, 173 mesh, `SFXMeshModify`, `SFXXWeaponAnchor` | `export_weapon.py` (71 glTF) |
+| **hiệu ứng (particles)** | 1d472c44c423 | 9,3 MB | 1 455 GameObject, **315 ParticleSystem**, 449 MeshRenderer, `SFXBillboardHelper`, `SFXLineMesh`, `SFXMixerMesh`, `SFXMeshTrailDrag`, `PC2Anim` | `export_sfx.py` (273/558 prefab) |
+| **UI prefab (NGUI)** | f799b063c668 | 0,8 MB | 3 085 GameObject, 4 340 MonoBehaviour (UIPanel/UISprite/UILabel…), 614 BoxCollider2D | chưa |
+| **UI atlas + font** | 9431897d8969 | 146 MB | 117 texture, `UIAtlas`, `UIFont`, `ColorDefine`, 8 RenderTexture | chưa (UI theo 2.0) |
+| `shader` + hậu kỳ | ba01262372a0 + c33674c0bad2 | 0,4 + 2,0 MB | 36 shader, `PostEffectBloom/RadialBlur/Distortion`, `GrabPassFeature` | đọc float vật liệu (nước, cỏ) |
+| `audio` (nhạc nền) | 57c14efc7dfa | 181 MB | 75 AudioClip + AudioMixer | không dùng (âm thanh theo 2.0) |
+| tiếng động | b709e92b70fc | 5,7 MB | 375 AudioClip (`sound_list_sound` 224 dòng) | không dùng (âm thanh theo 2.0) |
+| `script` | fd1fb5b437c8 | 0,8 MB | 245 Lua văn bản | **mới trích** (2026-09-19) |
+| `common` | 51516289e994 | 0 | rỗng | — |
+
+## 1. Danh sách hạng mục mổ
+
+Ký hiệu trạng thái: **xong** · **một phần** (ghi rõ còn gì) · **chưa** · *bỏ* (không cần vì hiển thị theo 2.0).
+Cột "LT" = bước trong LO-TRINH-3D.
+
+### A. Bảng dữ liệu hiển thị (bundle `excel`)
+
+| # | Bảng (dòng) | Cột quan trọng | Dùng cho | Đầu ra | Trạng thái | LT |
+|---|---|---|---|---|---|---|
+| A1 | `cha_pic` (195) | xương, giới, scale, nhóm anim, skins, model | model nhân vật/NPC/ngựa | `assets3d/npc/npc_models.json` | **xong** (41 model đã xuất cho Ba Lăng; xuất thêm theo map) | 1.2 |
+| A2 | `anim_group` (24), `animation_list` (60) | clip xx/zp/gjxx/gjpb/xdz/ss/sw/đánh/nội công theo nhóm | KNpc3DView chọn clip theo `doing` | trong `npc_models.json` (`groups`) | **xong** nhóm 1–11, 20 (cưỡi), 21 (ngựa) | 1.2 |
+| A3 | `anim_effect` (17) | clip đánh → `sfx_object` (vệt vũ khí theo phẩm chất: 290 trắng, 291 xanh…) | vệt kiếm khi đánh thường | `weapons.json anchors` (tạm) | **một phần**: vệt tự vẽ `Scn3DTrail`; chưa đọc bảng | 3.1 |
+| A4 | `model_list` (63), `model_hang_list` (96) | điểm treo mặc định, loại vũ khí 1–10, nhóm anim khi cầm, `anim_effect` | vũ khí trên tay + đổi nhóm animation | `assets3d/weapon/weapons.json` | **xong** (71 vũ khí, `animgrp`) | 3.3 |
+| A5 | `cha_model_view` (118) | SizeX/SizeY/OffsetY, điểm treo*hạt | cỡ trụ chọn mục tiêu, cao thanh tên, hạt gắn thân | `sizeY` trong `npc_models.json` | **một phần**: SizeY dùng; SizeX/OffsetY/hạt chưa | 3.1 |
+| A6 | `skill_main` (342), `skill_section` (358), `skill_event` (828), `skill_childobj` (315), `sfx_object` (127) | tên Hán = tên JX1; sự kiện 8 (vật con) / 120 (sfx); vật con: đường dẫn, khung sống, độ cao, điểm treo, kiểu vị trí, đồng bộ (4 bay tới đích), tốc độ, hiệu ứng trúng | hiệu ứng ra chiêu / đạn / trúng / nội công | `assets3d/sfx/skill_map.json` | **một phần**: 205 kỹ năng JX1 ghép; **28 tên chưa ghép**; sự kiện loại khác (âm thanh 130?, rung 140?) chưa liệt kê | 3.1 |
+| A7 | `state_list` (144), `state_effect` (73) | vật con/sfx của trạng thái (hào quang), màu thân (CCCC44 chậm), đổi cỡ, ẩn thân | hào quang, buff | `skill_map.json aura`, `skill_of_special` | **một phần**: hào quang xong; `state_effect` màu/ẩn *bỏ* (2.0 có `state_gfx`) | 3.1 |
+| A8 | `skill_hit` (28) | kiểu cứng đờ (1 bị đánh, 2 đánh lui, 3 hút), sfx trúng, âm | phản ứng khi trúng | — | *bỏ* luật (theo Linux/2.0: `KNpc::OnHit`, đánh lui B4c-4); **chưa**: sfx trúng dự phòng khi vật con không ghi | 3.1 |
+| A9 | `skill_warning` (15) | vòng cảnh báo AOE: trễ, thời gian, nháy, mờ | vòng cảnh báo trên đất | — | **chưa** (2.0 không có; [tự chọn] có làm hay không) | 3.1 |
+| A10 | `still_list` (101) | vật rơi 1–300: model `drop_tongqian01`, anim rơi, âm, cỡ va chạm | vật rơi 3D thay billboard ObjData | — | **chưa** (hiện vật rơi = ảnh ObjData 2.0 billboard) | 1.4 |
+| A11 | `cha_list` (214) | NPC: cha_pic, ngũ hành, cờ (không vào chiến đấu, minimap chấm vàng), loại, bán kính nhìn/hoạt động, AI | ghép template JX1 ↔ NPC tham khảo (`CHA_TO_TEMPLATE`) | `make_map3d.py` | **một phần** (30 template ghép tay cho Ba Lăng) | 1.3 |
+| A12 | `npc_fight_ai` (16), `npc_skill_ai` (54) | AI quái | — | *bỏ* (AI theo Linux) | — |
+| A13 | `scn_list` (65), `scn_area_list` (93) | scene: đường dẫn bundle, camera `scn_list`; vùng: an toàn, nhạc `sound_group`, sương mù/ambient/đèn đổi theo vùng, camera theo vùng, bóng 45 m, tiếng bước chân | camera map, vùng an toàn, nhạc vùng (3.5), sương mù theo vùng | `map3d.json camera` | **một phần**: camera map xong; vùng (nhạc/sương/đèn) **chưa** | 1.1, 3.5 |
+| A14 | `ui_map_view` (63) | ảnh minimap `world_baling_big.png`, tỉ lệ, toạ độ thế giới góc trái-dưới/phải-trên | minimap 3D | — | **chưa** (3.4; ảnh minimap có bản quyền → chỉ toạ độ) | 3.4 |
+| A15 | `mark_list` (103), `trans` (166), `stop_flag` (54) | điểm đánh dấu, cổng dịch chuyển giữa scene | bẫy/cổng | `make_map3d.py traps` | **xong** (ExitPoint → bẫy) | 1.4 |
+| A16 | `sound_group` (16), `sound_list_sound` (224), `sound_list_bgm` (74) | tiếng thi triển theo giới, nhạc nền | — | *bỏ* (âm thanh theo 2.0: `action_sounds.json`) | — |
+| A17 | `pvp_camera_modify` (2) | camera PK: vị trí/góc/thời gian | — | *bỏ* | — |
+| A18 | `define` (73) | hằng gameplay | — | *bỏ* (luật theo Linux) | — |
+| A19 | `item_list` (1 355), `avatar_list` (73) | icon, thời trang/pháp bảo | — | *bỏ* (icon theo 2.0) | — |
+| A20 | `sfx_ui_object` (7) | hiệu ứng UI (nâng cấp trang bị) | — | *bỏ* | — |
+
+### B. Model, animation, điểm treo (bundle nhân vật / animation / vũ khí)
+
+| # | Việc | Nguồn | Cách mổ | Đầu ra | Trạng thái |
+|---|---|---|---|---|---|
+| B1 | Model nhân vật + xương + skin + hang point | prefab 9e371715490e, mesh d4b79c319044, `ChaResourceRef` | UnityPy → glTF (đã) | `assets3d/npc/*.gltf` (41) | **xong** cho Ba Lăng; các map khác chạy lại `export_npc.py --map` |
+| B2 | Animation 716 clip | 19b6b49a7124 | ghép theo `anim_group` | trong glTF | **xong** nhóm dùng; nhóm 12–19 (NPC đặc biệt/boss) khi cần |
+| B3 | Vũ khí 71 + điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_*` | 8dd679aa97a2 | UnityPy | `assets3d/weapon` | **xong** |
+| B4 | `SFXXWeaponAnim`/`SFXXWeaponAnchor` (vệt vũ khí XWeaponTrail) | lớp IL2CPP `XftWeapon.XWeaponTrail`, `PocketRPGWeaponTrail`, prefab vũ khí | disasm `XWeaponTrail.Update` + `fieldDefaultValues` (độ dài, số đoạn, màu) | `Scn3DTrail` | **một phần**: vệt tự vẽ; hằng số **chưa** đọc |
+| B5 | `HangItemMgr`, `ModelHangMgr`, `eEquipHangType` (treo mũ/áo/phi phong/vũ khí) | IL2CPP | disasm | `Scn3DNpc.attach_weapon` | **một phần**: vũ khí + ngựa; phi phong **chưa** (JX1 có phi phong) |
+| B6 | `RideUnit`, `eRideType`, `lua_scnobj_ride.lua` | IL2CPP + Lua | đọc Lua (điểm `ma_qi1`, nhóm 20/21) | `KNpc3DView._on_riding_changed` | **xong** (cần soát lại theo Lua vừa trích) |
+| B7 | `ShadowProjMgr` (bóng tròn dưới chân) | IL2CPP | disasm + `fieldDefaultValues` | bóng chân | **chưa** (hiện dùng bóng nắng thật; máy yếu cần bóng tròn) |
+| B8 | `TaskTweenDissolve` (tan xác khi chết) | IL2CPP + shader dissolve | disasm | shader tan | **chưa** ([2.0] xác nằm rồi mờ dần — làm theo 2.0: mờ) |
+
+### C. Hiệu ứng kỹ năng (bundle particles + bảng A6/A7)
+
+| # | Việc | Nguồn | Cách mổ | Đầu ra | Trạng thái |
+|---|---|---|---|---|---|
+| C1 | Xuất prefab hạt: ParticleSystem (module chính, shape, color/size over lifetime, texture sheet), MeshRenderer, Light, Animation | 1d472c44c423 | UnityPy → JSON + glTF | `assets3d/sfx/*.json/.gltf` | **xong 273/558** prefab (những prefab hai bảng A6/A7 gọi) |
+| C2 | 285 prefab còn lại: prefab do `anim_effect` (vệt đánh thường), `skill_hit`, `state_effect`, vật con lồng nhau (`skill_childobj` cột 4 sự kiện → vật con khác) gọi; prefab không ai gọi | như trên | mở rộng `export_sfx.py --all` thật sự (duyệt container) + liệt kê ai gọi | như trên | **chưa** |
+| C3 | `SFXMixerMesh` (mesh dựng lúc chạy: vòng hào quang 七星阵/罗汉阵/流水/梦蝶/普渡众生/boss_red) | IL2CPP `SFXMixerMesh.Build/Update` + `fieldDefaultValues` | disasm đọc cách chia đoạn/bán kính/UV | `Scn3DSfx` sinh mesh | **chưa** (tạm vòng sáng tự vẽ) |
+| C4 | `SFXMeshTrailDrag`, `SFXLineMesh`, `TronTrailSection` (vệt kéo, tia) | IL2CPP | disasm | `Scn3DSfx` | **chưa** (đếm prefab dùng trước) |
+| C5 | `PC2Anim` (hoạt ảnh đỉnh `.pc2`: 1d472c44c423.bdd__model_zhuixinjian.pc2 …) | bundle + IL2CPP `PC2Anim.Update` | đọc định dạng pc2 (Point Cache 2) → glTF morph | `Scn3DSfx` | **chưa** |
+| C6 | `SFXBillboardHelper`, `MeshCameraFacing`, `ParticleBillboard` (hạt/quad quay theo camera, trục nào) | IL2CPP | disasm | `Scn3DSfx` billboard | **một phần** (billboard Y; kiểu khác chưa) |
+| C7 | `SFXMaterialModify`/`SFXMeshModify` (đổi UV/màu/atlas theo thời gian) | IL2CPP | đã đọc `fieldDefaultValues` (ô atlas từ trên) | `Scn3DSfx` | **xong** phần atlas; các kiểu modify khác **chưa** liệt kê |
+| C8 | 28 tên `skill_main` chưa ghép JX1 (`skill_map.json unmatched`) | bảng A6 + `skills.json` | ghép tay theo nghĩa (bảng `MANUAL` trong `map_skills.py`, ghi nguồn) | `skill_map.json` | **chưa** |
+| C9 | Kiểm mọi phái: 10 phái × kỹ năng có hiệu ứng ra chiêu/đạn/trúng/hào quang; quay ảnh từng phái | `--auto3d` mở rộng (`--faction=`) | tự động thi triển từng kỹ năng của phái, đếm `fx.spawned` | ảnh `auto3d_skill_<phái>_<id>.png` | **chưa** |
+| C10 | Sự kiện `skill_event` loại khác 8/120 (âm thanh, rung camera `CameraAnim`, chớp `TaskTweenDirLight`) | bảng + IL2CPP | liệt kê cột 8 | `skill_map.json` | **chưa** |
+
+### D. Đánh quái trong 3D
+
+| # | Việc | Nguồn | Cách mổ | Trạng thái |
+|---|---|---|---|---|
+| D1 | Vòng đánh quái: chọn mục tiêu (tia camera vào trụ SizeX/SizeY), đuổi, đánh, trúng, chết, rơi đồ, nhặt | 2.0 (luật) + A5 (trụ) | có sẵn | **xong** cơ bản (`AUTO_FIGHT` Heo trắng 80→58 trong 3D) |
+| D2 | Hiệu ứng trúng đòn trên quái (`hit` của vật con / `sfx_object` ngũ hành dự phòng) + âm trúng 2.0 | A6/A8 | có sẵn `KSkillFx3D` hit | **một phần**: chỉ khi vật con có `hit`; đòn thường **chưa** có hiệu ứng trúng (bảng `anim_effect` → C2) |
+| D3 | Số sát thương bay lên [2.0]: `KNpc::PaintDamage`/font số | gamecl.exe | mổ 2.0 (vị trí, màu, thời gian) — theo main (chưa làm ở 2D) | **chưa** |
+| D4 | Thanh máu trên đầu quái, tên theo `KNpcGold` (vàng/xanh) | 2.0 | có sẵn `_draw_names` | **xong** |
+| D5 | Quái đánh trả: clip đánh của nhóm anim quái + đạn quái (`KMissle3DView`) | A2/A6 | có sẵn | **xong** (soát lại từng nhóm quái Ba Lăng: heo, hươu, hổ, kỳ binh) |
+| D6 | Chết: clip `sw` giữ khung cuối + mờ dần theo 2.0; xác biến mất theo zone | A2 + 2.0 | có sẵn `hold_last` | **xong** |
+| D7 | Vật rơi 3D (`still_list`) | A10 | xuất `StaticModels/stills` | **chưa** (giữ billboard ObjData 2.0 — đúng ADR-008; làm sau) |
+| D8 | Kiểm tự động đánh quái trong 3D: `--auto3d` đã có `_auto_fight`; thêm đếm hiệu ứng trúng, số sát thương | UiGame | mở rộng | **một phần** |
+
+### E. UI trong client 3D
+
+Theo ADR-008 **UI = bản 2.0** (32 màn đã xuất từ `reslst.dat`, 162 kiểm tra). UI của bản tham khảo (NGUI + 120 tệp `ui_*.lua`)
+chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 3D, minimap trên map 3D, vòng chọn mục tiêu).
+
+| # | Việc | Nguồn | Trạng thái |
+|---|---|---|---|
+| E1 | Các màn 2.0 còn thiếu trong game (main U6/U7, M15): bàn phím ảo, tuỳ chọn hệ thống, ghi hình, minimap 2.0, hội thoại NPC, cửa hàng, giao dịch… | `reslst.dat` ini + gamecl.exe | **chưa** (làm ở main rồi gộp sang; bản 3D chỉ dùng chung) |
+| E2 | Minimap trên map 3D: [2.0] `UiMiniMap` (ảnh minimap map + chấm) — với map tham khảo dùng `ui_map_view` (A14) toạ độ, ảnh tự dựng từ mesh (render top-down) | gamecl.exe + A14 | **chưa** (3.4) |
+| E3 | Thanh tên/máu 3D: `HeadBarCrt/HeadBarStill/HeadBarGroup` (độ cao `sys_bar`, ẩn theo khoảng cách) + `ui_lifebar.lua` | IL2CPP + Lua | **một phần**: độ cao theo `sys_bar`; ẩn theo khoảng cách [tự chọn] |
+| E4 | Vòng chọn mục tiêu, `ui_enemy.lua`/`ui_target_info.lua` (khung mục tiêu) | Lua | **một phần**: vòng có; khung mục tiêu 2.0 (`thanh-nhan-vat-thu-nho`?) **chưa** |
+| E5 | Cần điều khiển ảo `ui_primary_rocker.lua` (di động) | Lua | **chưa** (M3D-6 Android) |
+| E6 | Tuỳ chọn hiển thị `ui_cfg_display.lua`/`ui_setting.lua` (những mức nào bản tham khảo cho chỉnh) | Lua | **chưa** (6.2: đọc để đặt các nấc `settings3d.json`) |
+| E7 | Màn nạp map `ui_loading.lua` | Lua | **chưa** (2.0 có màn nạp riêng → theo 2.0) |
+
+### F. Camera, môi trường, scene
+
+| # | Việc | Nguồn | Trạng thái |
+|---|---|---|---|
+| F1 | `cameraInit` (yaw/pitch/dist/min/max), `GameCamera`, `FreeCamera` | `scn_list` + IL2CPP | **xong** (KCamera3D) |
+| F2 | `CameraBuildingFade` (0,25 / 10 / 0,15 / 0,3) | `fieldDefaultValues` + disasm 0x4a3ee0 | **xong** |
+| F3 | Va chạm camera với đất/nhà (`CameraTargetMotifier`, `CameraModifyNode`) | IL2CPP | **chưa** (hiện camera có thể chui xuống đất ở dốc) |
+| F4 | Rung camera `CameraAnim`, `TweenCamera`, `CameraSave` | IL2CPP | **chưa** (C10) |
+| F5 | Sương mù/ambient/đèn đổi theo vùng (`scn_area_list` cột 10–12, `TaskTweenFog/DirLight`) | A13 | **chưa** |
+| F6 | Shader: lightmap 2 mặt, nước, cỏ đung đưa (float vật liệu), dissolve, distortion, bloom | bundle shader | **một phần**: lightmap/nước/cỏ xong (công thức tự chọn); dissolve/bloom **chưa** |
+| F7 | 45 map 3D còn lại: chạy `export_scene.py` + `make_map3d.py` theo lô, ghép NPC template (`CHA_TO_TEMPLATE` mở rộng bằng tên Hán ↔ tên JX1 như kỹ năng) | scenes_* | **chưa** (mỗi map ~2–5 phút xuất; cần bảng ghép NPC tự động) |
+
+### G. Lua uLua của bản tham khảo (245 tệp, vừa trích)
+
+| Nhóm | Tệp | Dùng để |
+|---|---|---|
+| Kỹ năng phái | `wudang emei shaolin wudu tangmen kunlun gaibang cuiyan tianwang tianren` (247 kỹ năng, id `skill_main`) + `npc_main` (23 kỹ năng quái/boss), `skill_cmn`, `lua_skill` | *luật* (tầm, nội lực, sát thương) → **không dùng** (luật theo Linux); dùng **đổi đơn vị**: "有效距离 cm = đơn vị JX × 1,5", "khung choáng = JX × 1,667 (18→30 Hz)", "tốc độ đạn dm/s = JX × 2,5" [TK] → ghi vào 3D-QUY-UOC §1 (bản tham khảo chọn 1 đơn vị JX = 1,5 cm; JX NEXT chọn 2 cm theo ảnh 2.0) |
+| Cưỡi/nhặt/triệu hồi | `lua_scnobj_ride`, `item_loot`, `lua_scnobj_summon`, `lua_scnobj_flag`, `lua_setting_pick` | B6, D7 |
+| UI | `ui_primary_*` (HUD chính: rocker, map, task, team, high, common, uilogic), `ui_lifebar`, `ui_enemy`, `ui_target_info`, `ui_deadui`, `ui_map`, `ui_setting`, `ui_cfg_display`, `ui_loading`, `ui_skill`, `ui_bag`, `ui_mainchat`, `ui_msgbox`, `ui_tips`, `ui_trait_fly` … | E2–E7 (chỉ quy tắc 3D) |
+| Hệ thống | `lua_core*`, `lua_mb*` (đọc bảng), `lua_net*`, `lua_def`, `obj_def`, `flag_def`, `Layer.lua` (lớp render: Building, Terrain…) | tra tên cột/enum khi đọc bảng |
+
+## 2. Thứ tự làm (ưu tiên chủ dự án 2026-09-19: đủ skill mọi phái → đánh quái → UI)
+
+| Đợt | Hạng mục | Nghiệm thu |
+|---|---|---|
+| **1** | C8 ghép 28 tên còn lại; C2 xuất 285 prefab còn lại + ai gọi; C10 liệt kê loại sự kiện; C3 `SFXMixerMesh`; C4/C5/C6 theo số prefab dùng | `skill_map.json`: 100 % kỹ năng phái JX1 có hiệu ứng ra chiêu; `export_sfx --all` = 558; `--auto3d --faction=<10 phái>` mỗi kỹ năng `fx_spawned ≥ 1`, ảnh từng phái |
+| **2** | D2 hiệu ứng trúng đòn thường (`anim_effect`), D3 số sát thương [2.0], D8 kiểm tự động | `AUTO_FIGHT` trong 3D: `hits ≥ 1`, `damage_texts ≥ 1`, quái chết, rơi đồ nhặt được |
+| **3** | E2 minimap 3D, E3/E4 thanh tên + khung mục tiêu theo 2.0, E1 gộp các màn 2.0 từ main khi main làm xong | ảnh minimap + khung mục tiêu trong `--auto3d` |
+| **4** | F3 va chạm camera, F5 vùng (sương/đèn/nhạc 3.5), A10/D7 vật rơi 3D, B7 bóng tròn, B8 tan xác | `auto3d` không chui đất; đổi vùng đổi sương |
+| **5** | F7 các map còn lại theo lô (bảng ghép NPC tự động), B5 phi phong, E5/E6 (6.2) | mỗi map: zone nạp, client vào, `AUTO3D_OK` |
+
+Mỗi hạng mục xong: ghi HANDOVER phần "3D-nn", cập nhật cột trạng thái ở đây và bảng trạng thái LO-TRINH-3D.

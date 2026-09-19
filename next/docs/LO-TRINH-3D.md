@@ -11,6 +11,9 @@ sản phẩm. Bản 2D trên `main` giữ nguyên và là đường lùi.
 
 ## Trạng thái (cập nhật 2026-09-19, sau một phiên "làm từng bước")
 
+Danh sách việc **mổ nhị phân** bản tham khảo (nguồn → cách mổ → đầu ra → trạng thái, thứ tự làm theo ưu tiên chủ dự án: đủ skill
+mọi phái → đánh quái → UI): [MO-NHI-PHAN-3D.md](MO-NHI-PHAN-3D.md).
+
 | Mốc | Trạng thái | Ghi chú |
 |---|---|---|
 | M3D-0 | **xong** | ADR-008, `3D-QUY-UOC.md`, `KScene3DMath`, `KWorldView`/`KWorldView2D`, `make_map3d.py`, `zone.maps_dir_extra` |

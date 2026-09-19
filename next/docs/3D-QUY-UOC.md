@@ -23,6 +23,7 @@ Mọi con số dưới đây có nguồn ghi bên cạnh: **[2.0]** = client 2.0
 | Chiều cao nhân vật nam đứng: sprite thân `MA_BD_019_ST01` đáy 198, đầu `MA_HR_019_ST01` đỉnh 123 (REF_SPOT 160,192) → **75 px** màn hình → 75 / cos 30° = **86,6 đơn vị** | 86,6 × 0,02 = **1,73 m** | [2.0] sprite trong `client/assets/sprites` |
 | Tên trên đầu người chơi: `m_nStature` + 84 px (`GetNpcPate`, `0x005EC13D`) → 84 / cos 30° = 97 đơn vị | **1,94 m**; bản tham khảo `sys_bar` người 2,03–2,15 m, chủ tiệm 1,75 m | [2.0], [TK] `cha_pic.sys_bar` |
 | Tốc độ chạy người chơi 200 đơn vị/s | **4,0 m/s** (đi bộ 5 đơn vị/khung = 90/s = 1,8 m/s) | [Linux] |
+| Bản tham khảo đổi đơn vị JX trong script kỹ năng (`wudang.lua` đầu tệp): tầm hiệu lực **cm = đơn vị JX × 1,5** (1 đơn vị = 1,5 cm), khung choáng × 1,667 (18 → 30 Hz), tốc độ đạn dm/s = JX × 2,5 (×1,6 với một số chiêu) | 480 đơn vị (Nộ Lôi Chỉ) = 7,2 m ở bản tham khảo, **9,6 m** ở JX NEXT | [TK] `D:\game3gtQ_mo\lua\wudang.lua`; JX NEXT giữ 2 cm để nhân vật/ô đúng tỉ lệ ảnh 2.0 (ở 1,5 cm nhân vật 1,73 m = 115 đơn vị, không khớp sprite 86,6) |
 | Ba Lăng Huyện JX1 rộng 16 896 đơn vị = **338 m**; Ba Lăng bản tham khảo navmesh rộng **337 m** (sâu 210 m so với 395 m — bố cục khác) | | [2.0] map 53, [TK] `world_baling` |
 
 Toạ độ Godot (Y lên, −Z là "trước" của node):
