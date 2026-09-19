@@ -15,6 +15,7 @@ const KMath := preload("res://scenes/KMath.gd")
 const NpcResNode := preload("res://scenes/KNpcResNode.gd")
 const SprControl := preload("res://scenes/KSprControl.gd")
 const StateSpr := preload("res://scenes/KStateSpr.gd")
+const WavSound := preload("res://scenes/KWavSound.gd")
 
 var _failed := 0
 var _passed := 0
@@ -52,6 +53,7 @@ func _init() -> void:
 	test_missle_math()
 	test_knock_back()
 	test_state_pictures()
+	test_wav_sound()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -668,3 +670,40 @@ func test_state_pictures() -> void:
 	check(eight.ctrl.cur_frame == 105 and eight.ctrl.timer == 59, "a turn to block 3 restarts and skips the step")
 	eight.step(20, 77)
 	check(eight.ctrl.cur_frame == 105 + 17, "then runs on in block 3: %d" % eight.ctrl.cur_frame)
+
+
+# ---- the fight sounds (KWavSound; KMissleRes::PlaySound 0x00717ED0, KSkill::PlayCastSound 0x006F6D90) --------------
+
+func test_wav_sound() -> void:
+	# GetSndVolume 0x00717CC0 with nVol = -(|dx| + |dy|): hundredths of dB; the option scales the 10000 range
+	check(WavSound.snd_volume(0, 0, 100) == 0, "at the focus: 0")
+	check(WavSound.snd_volume(300, -200, 100) == -500, "500 units away: -5 dB (%d)" % WavSound.snd_volume(300, -200, 100))
+	check(WavSound.snd_volume(3000, 0, 100) == -3000, "3000 units: -30 dB")
+	check(WavSound.snd_volume(0, 0, 50) == -5000, "half the option: -50 dB even at the focus (the old law)")
+	check(WavSound.snd_volume(20000, 0, 100) == -10000, "beyond 10000: DSBVOLUME_MIN")
+	check(WavSound.snd_pan(300) == 1500 and WavSound.snd_pan(-300) == -1500, "pan = dx * 5")
+	check(WavSound.snd_pan(5000) == 10000, "pan clamped to DSBPAN_RIGHT")
+	# KWavSound::Play: the buffer's volume and place (playback itself needs a running tree - not in this runner)
+	var w := WavSound.new()
+	get_root().add_child(w)
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 22050
+	var silence := PackedByteArray()
+	silence.resize(22050 * 2)   # half a second
+	stream.data = silence
+	w.stream_provider = func(file: String): return stream if file != "none" else null
+	w.focus_provider = func(): return Vector2(1000, 2000)
+	check(not w.play("", Vector2.ZERO) and not w.play("0", Vector2.ZERO), "no file: nothing")
+	check(not w.play("none", Vector2.ZERO), "a file the archives lack: nothing")
+	check(w.play("a.wav", Vector2(1300, 2000)) and w.played == 1, "the first buffer")
+	check(w.get_child_count() == 1 and w.get_child(0).volume_db == -3.0, "300 units east: -3 dB (%f)" % w.get_child(0).volume_db)
+	check(w.get_child(0).position == Vector2(1300, 1000), "placed at the screen spot (y / 2)")
+	check(w.get_child(0).max_distance >= 1.0e9, "Godot's distance attenuation is out of the way (the old law sets the volume)")
+	w.option_volume = 50
+	check(w.play("a.wav", Vector2(1000, 2000)) and w.get_child_count() == 1, "an idle buffer is reused (KWavSound::GetFreeBuffer)")
+	check(w.get_child(0).volume_db == -50.0, "the option halves the range: -50 dB at the focus (%f)" % w.get_child(0).volume_db)
+	var no_provider := WavSound.new()
+	check(not no_provider.play("a.wav", Vector2.ZERO), "no stream provider: silent")
+	no_provider.free()
+	w.queue_free()

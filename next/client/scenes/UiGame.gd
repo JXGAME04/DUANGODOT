@@ -6,6 +6,8 @@ const NpcScript := preload("res://scenes/KNpc.gd")
 const ObjScript := preload("res://scenes/KObj.gd")
 const MissleScript := preload("res://scenes/KMissle.gd")
 const MissleEffectScript := preload("res://scenes/KMissleEffect.gd")
+const KWavSound := preload("res://scenes/KWavSound.gd")
+const ACTION_ATTACK := 1
 const ENTITY_DROP := 4
 const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER_DISTANCE (200) with a margin
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
@@ -31,6 +33,7 @@ var _action_count := 0
 var _scene_w := 8192
 var _scene_h := 8192
 var _windows: KUiGameWindows = null   # the bag, the character window, the tooltip, the item on the cursor
+var _sounds: KWavSound = null         # the fight sounds (KSoundCache / KWavSound), placed in the entity layer
 var _pending_pickup := 0              # the ground object the player walks to (0 = none)
 
 
@@ -42,6 +45,13 @@ func _ready() -> void:
 	_map.name = "Map"
 	add_child(_map)
 	var has_map := _setup_map()
+	_sounds = KWavSound.new()
+	_sounds.name = "Sounds"
+	_sounds.stream_provider = Assets.sound
+	_sounds.focus_provider = func() -> Vector2:
+		var o := _own()
+		return o.scene_pos if o != null else Vector2.ZERO
+	_entity_layer.add_child(_sounds)
 
 	_build_hud()
 	_windows = KUiGameWindows.new()
@@ -314,6 +324,10 @@ func _on_missle(d: Dictionary) -> void:
 			_entity_layer.add_child(fx)
 			fx.setup(anims[3], int(d.get("dir", 0)), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), int(d.get("z", 0)))
 			_missle_effects += 1
+			# CreateSpecialEffect 0x006B1DC0: the status' sound (SndFile4) after the movie is added, only with a movie,
+			# and not while the same file still plays (KMissleRes::PlaySound 0x00717ED0)
+			if _sounds != null:
+				_sounds.play(str(anims[3].get("sound", "")), Vector2(float(d.get("x", 0)), float(d.get("y", 0))), false, true)
 		if node != null:
 			node.apply(d)
 		return
@@ -321,6 +335,7 @@ func _on_missle(d: Dictionary) -> void:
 		if bool(d.get("removed", false)):
 			return   # a missile this client never saw fly: nothing to end
 		node = MissleScript.new()
+		node.sounds = _sounds
 		_entity_layer.add_child(node)
 		_missles[idx] = node
 		node.gone.connect(func(i: int): _missles.erase(i))
@@ -409,6 +424,19 @@ func _on_action(a: Dictionary) -> void:
 		node.apply_action(a)
 		if node == _target and node.is_dead():
 			_select_target(null)
+		# KNpc::DoSkill of the 2.0 client (0x005EF90F for a synced cast, 0x005F1E26 for the local player's): a player's
+		# cast plays the skill's ManCastSnd / FMCastSnd by sex at the caster (KSkill::PlayCastSound 0x006F6D90); npcs
+		# have their own sounds (KNpcRes::PlaySound, B4f-2)
+		if int(a.action) == ACTION_ATTACK and int(a.get("skill", 0)) > 0 and node.has_method("apply_action") \
+				and node.entity_type == NpcScript.ENTITY_PLAYER and _sounds != null:
+			_sounds.play(cast_sound(int(a.skill), node.sex), node.scene_pos)
+
+
+# the cast sound of a skill for a sex (0 male ManCastSnd, otherwise FMCastSnd), "" when the row has none
+static func cast_sound(skill_id: int, sex: int) -> String:
+	var cells: Dictionary = Game.skill_row(skill_id)   # the cells of skills.json
+	var s := str(cells.get("FMCastSnd" if sex != 0 else "ManCastSnd", "")).strip_edges()
+	return "" if s == "0" else s
 
 
 func _on_life(l: Dictionary) -> void:
@@ -481,7 +509,9 @@ func _auto_run() -> void:
 	await _auto_skills()
 	await _auto_fight()
 	await _auto_death()
-	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size()])
+	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
+		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0])
+	print("AUTO_SOUNDS %s" % str(_sounds.history if _sounds != null else []))
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout
@@ -873,7 +903,7 @@ func _auto_skills() -> void:
 				await get_tree().create_timer(0.05).timeout
 				shown += 0.05
 			await _save_screenshot("user://logs/auto_cast.png")
-			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s" % [shown, _missle_drawn(), _missle_shot_info()])
+			print("AUTO_CAST_SHOT after=%.2f drawn=%s %s sounds=%d" % [shown, _missle_drawn(), _missle_shot_info(), _sounds.played if _sounds != null else 0])
 			await get_tree().create_timer(maxf(1.0 - shown, 0.1)).timeout
 			cast_told = _action_count > actions_before
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]

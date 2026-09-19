@@ -498,3 +498,43 @@ khung − (z·887 >> 10)` và xếp con: bóng, Foot, Body-sau, bộ phận, Bod
 | `KStateSpr` (`KNpcRes.h`), 6 ô `KNpcRes+0x15b0` | `client/scenes/KStateSpr.gd` (`sync`, `step`, `behind`) |
 | `KNpcRes::SetState 0x006DF7E0`, `KNpc::SetNpcState` (gói 0x7a) | `KNpc.set_state_icons` → `KNpcRes.set_state_spr` |
 | `KNpcRes::Draw 0x006E0340` (Foot/Body-sau/thân/Body-trước), `0x006DFAC0` (Head) | `KNpcRes._step_state_sprs` + `_reorder`, `KNpc._head_effect_z` |
+
+## 15. Tiếng của kỹ năng và đạn — `KSkill::PlayCastSound 0x006F6D90`, `KMissleRes::PlaySound 0x00717ED0`, bộ âm thanh `0x1f9cf28` (M12 lát B4f-1, đã đọc từng dòng `gamecl.exe` + mã 2004)
+
+Mã 2004 (`Engine/Src/KWavSound.cpp`, `KSoundCache.cpp`, `Core/Src/KMissleRes.cpp`, `KSkills.cpp:2971`) đặt tên; bản 2.0 giữ cùng luật, thêm một kiểm tra.
+
+**Bộ âm thanh** (`0x1f9cf28`, `g_SoundCache` + `KWavSound` của engine): `Play 0x0064E600(tên, pan, âm lượng, lặp)` → `0x0064E150(tên)` (nút cache) →
+`KWavSound::Play` (`[0x784b04]`): **3 buffer** một tệp (`BUFFER_COUNT`), lấy buffer đầu tiên không đang phát, hết thì **bỏ**; `IsPlaying 0x0064E220(tên)` = có buffer
+đang phát; `Stop 0x0064E1C0(tên)` dừng buffer đang phát đầu tiên. Đơn vị DirectSound: âm lượng −10000..0 (phần trăm dB), pan −10000..10000.
+
+**Luật âm lượng / pan** (cả hai chỗ giống nhau; tâm = `g_ScenePlace.GetFocusPosition 0x00671B00` (x, y Mps của tiêu điểm), `opt = [0x220e53c]` tuỳ chọn âm lượng):
+`âm lượng = (10000 − (|dx| + |dy|)) · opt / 100 − 10000` (`KMissleRes::GetSndVolume 0x00717CC0` với `nVol = −(|dx|+|dy|)`), **`pan = dx · 5`**.
+
+**Tiếng thi triển** — `KSkill+0x420 ManCastSnd[100]`, `+0x484 FMCastSnd[100]` (loader `0x006F699E/0x006F69BB`); **`KSkill::PlayCastSound 0x006F6D90(giới, x, y)`**:
+giới ≠ 0 → FMCastSnd; gọi từ (a) `KNpc::DoSkill` đồng bộ `0x005EF90F` **chỉ khi `KNpc+0x192c > 0`** (`0x005EA901`: ghi 1..2 khi kind == 1 — tức người chơi; quái
+không có tiếng thi triển), (b) `0x005F1E26` khi **npc là nhân vật mình** (`[0x1ab3584]+0xc0cc`) lúc bắt đầu chiêu (cùng chỗ đặt `PreCastSpr +0x3bc`). Không kiểm
+IsPlaying → tiếng chồng được (3 buffer). Bảng `skills.txt` của client 2.0 (`slistcl.pak`) trùng cột `ManCastSnd/FMCastSnd` với bảng server (1629/1629).
+
+**Tiếng đạn** — `KMissleRes` nằm tại `KMissle+0x1d8`, 8 bản ghi bước 0xd4 (`+0x14 AnimFile[0x64]`, `+0x78 khung`, `+0x7c nhịp`, `+0x80 hướng`, **`+0x84 SndFile[0x50]`**;
+`SetRes 0x00717BD0(trạng thái, anim, snd)`; loader `KMissle::Init 0x006B1119` cột `SndFile%d`/`SndFileB%d`). **`KMissleRes::PlaySound 0x00717ED0(trạng thái, x, y, lặp)`**:
+tên rỗng → thôi; **`IsPlaying(tên)` → thôi** (mã 2004 để chú thích; 2.0 bật: cùng tệp đang phát thì không phát lại); rồi Play(pan, âm lượng, lặp), `+0x6b8 = trạng
+thái` (chỉ số tiếng cuối cho `StopSound 0x00717CF0`). Gọi: `KMissle::Activate 0x006B38C8`: `m_nCurrentLife == m_nStartLifeTime` và chưa tan → `PrePareFly 0x006B2A90`
+→ **`PlaySound(1 = MS_DoFly, x, y, 0)`** (`0x006B393D`) → `DoFly`; `CreateSpecialEffect 0x006B1DC0(trạng thái, x, y, z, npc)`: **AnimFile rỗng → về ngay (không
+tiếng)** (mã 2004 phát trước khi kiểm), trùng npc → về, thêm nút rồi **`PlaySound(trạng thái, x, y, 0)`** (`0x006B2044`) — tan (2) tại `0x006B38BA`, va chạm (3) từ
+`DoCollision`. Không nơi nào truyền lặp = 1.
+
+Client mới (`client/scenes/KWavSound.gd` — `snd_volume`/`snd_pan` tĩnh, `play(tệp, vị trí, lặp, unless_playing)`, `is_playing`, `stop`, 3 `AudioStreamPlayer2D` một tệp;
+`Assets.sound(đường dẫn)` = `KSoundCache`; `jxassets export-sounds` → `client/assets/sounds/<id>.wav` + `sounds.json` (69 tệp; 3 thiếu trong pak: 刀剑刺中声 (đánh thường
+chạm), 护体寒冰, 补充\投石爆炸)): `UiGame._on_action` (ACTION_ATTACK có `skill`, npc kiểu người chơi → `cast_sound(id, giới)` — không kiểm IsPlaying), `KMissle.gd`
+(`_on_fly_start` khi sang bay: SndFile2; `_begin_vanish`: SndFile3 chỉ khi có AnimFile3), `UiGame._on_missle` va chạm: SndFile4 chỉ khi có AnimFile4 — ba chỗ đạn đều
+`unless_playing`. Âm lượng theo luật cũ (`volume_db = âm lượng / 100`, tuỳ chọn 100); **pan là pan của Godot** (tuyến tính theo x màn hình, Godot không có gain từng
+kênh) — sai khác có chủ ý. Chưa: tiếng hành động của npc (`KNpcRes::PlaySound 0x006DFA00`, bảng npcres — B4f-2), tiếng nền/nhạc (`0x006AC670`), tiếng giao diện
+(`0x0066BC50`), tuỳ chọn âm lượng. `--auto`: `AUTO_SOUNDS ["不动明王咒.wav", "sound_k003.wav", "行龙不雨.wav", "sound_k003.wav", "行龙不雨.wav"]`.
+
+| Mã cũ / 2.0 | Client mới |
+|---|---|
+| `KSoundCache` (`g_SoundCache`), bộ `0x1f9cf28` `0x0064E150` | `Assets.sound` (`KPakFile.gd`), `jxassets export-sounds` |
+| `KWavSound::Play/IsPlaying/Stop` (`0x0064E600/0x0064E220/0x0064E1C0`) | `KWavSound.gd` `play/is_playing/stop` |
+| `KMissleRes::GetSndVolume 0x00717CC0`, pan `dx·5` | `KWavSound.snd_volume/snd_pan` |
+| `KSkill::PlayCastSound 0x006F6D90` (từ `0x005EF90F`/`0x005F1E26`) | `UiGame._on_action` + `cast_sound` |
+| `KMissleRes::PlaySound 0x00717ED0` (từ `Activate 0x006B393D`, `CreateSpecialEffect 0x006B2044`) | `KMissle._on_fly_start/_begin_vanish`, `UiGame._on_missle` |

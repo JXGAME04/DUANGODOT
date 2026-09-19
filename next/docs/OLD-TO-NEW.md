@@ -144,5 +144,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KSkillList` (kỹ năng của 
 | `Core/Src/KNpcRes.h/.cpp` (`Draw`: ghép bộ phận theo hướng/khung, bóng, thứ tự vẽ; `SetState`: ảnh trạng thái vào 6 ô) | `client/scenes/KNpcRes.gd` (`set_state_spr`, `_step_state_sprs`, `_reorder`) | |
 | `Core/Src/KSprControl.h/.cpp` (`SetSprFile`, `SetCurDir64`, `GetNextFrame`, `CheckEnd`) | `client/scenes/KSprControl.gd` | |
 | `KStateSpr` (`Core/Src/KNpcRes.h`), `KNpc::SetNpcState` (gói 0x7a) | `client/scenes/KStateSpr.gd` (`sync`, `step`, `behind`), `KNpc.set_state_icons` | |
+| `Engine/Src/KWavSound.h/.cpp` (`Play(pan, vol, loop)`, `IsPlaying`, `Stop`, 3 buffer), `KMissleRes::PlaySound/GetSndVolume`, `KSkill::PlayCastSound` | `client/scenes/KWavSound.gd` | |
+| `Engine/Src/KSoundCache.h/.cpp` (`g_SoundCache`) | `Assets.sound` (`client/autoload/KPakFile.gd`); `jxassets export-sounds` → `client/assets/sounds/` | |
 | `Core/Src/KNpcResNode.cpp` (`GetActNo`, `CSortTable::GetSort`) | `client/scenes/KNpcResNode.gd` (hàm tĩnh, test được) | |
 | `Core/Src/KNpcResList.cpp` (`g_NpcResList`) | `client/autoload/KNpcResList.gd` | `NpcResList` |

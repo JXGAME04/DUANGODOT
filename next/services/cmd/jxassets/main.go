@@ -19,6 +19,8 @@
 //	                                 fire) as missles.json for the zone's KMissleTable
 //	export-state-gfx -out <dir>      settings/npcres/状态图形对照表.txt of the client (the picture a state puts on a
 //	                                 character) as npcres/state_gfx.json + the sprites the skills' StateSpecialId use
+//	export-sounds -out <dir>         the .wav files the skills (ManCastSnd / FMCastSnd of skills.json) and the missiles
+//	                                 (SndFile1..4 of missles/missle_res.json) name -> sounds/<id>.wav + sounds/sounds.json
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -1393,6 +1395,117 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-state-gfx: %d trang thai (%d Special, %d ky nang dung), %d sprite (%d moi) -> %s\n", len(rows), special, len(want), sprites, ex.Exported, p)
+
+	case "export-sounds":
+		// the sounds the fights play (KSoundCache / KWavSound of the old engine): the cast sounds of skills.txt
+		// (ManCastSnd / FMCastSnd, KSkill::PlayCastSound gamecl.exe 0x006F6D90) and the missile sounds of missles.txt
+		// (SndFile1..4 / SndFileB1..4, KMissleRes::PlaySound 0x00717ED0), copied out of the archives as they are
+		// (PCM .wav) -> <out>/sounds/<id>.wav, listed by game path in <out>/sounds/sounds.json.  docs/CLIENT-2.0.md §15
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		want := map[string]bool{}
+		add := func(s string) {
+			s = strings.TrimSpace(s)
+			if s == "" || s == "0" {
+				return
+			}
+			want[strings.ToLower(s)] = true
+		}
+		if sk, err := os.ReadFile(filepath.Join(out, "skills.json")); err == nil {
+			var doc struct {
+				Rows []struct {
+					Cells map[string]string `json:"cells"`
+				} `json:"rows"`
+			}
+			if json.Unmarshal(sk, &doc) == nil {
+				for _, r := range doc.Rows {
+					add(r.Cells["ManCastSnd"])
+					add(r.Cells["FMCastSnd"])
+				}
+			}
+		}
+		if mr, err := os.ReadFile(filepath.Join(out, "missles", "missle_res.json")); err == nil {
+			var doc struct {
+				Rows map[string]struct {
+					Anims []struct {
+						Sound string `json:"sound"`
+					} `json:"anims"`
+					AnimsB []struct {
+						Sound string `json:"sound"`
+					} `json:"anims_b"`
+				} `json:"rows"`
+			}
+			if json.Unmarshal(mr, &doc) == nil {
+				for _, r := range doc.Rows {
+					for _, a := range r.Anims {
+						add(a.Sound)
+					}
+					for _, a := range r.AnimsB {
+						add(a.Sound)
+					}
+				}
+			}
+		}
+		dir := filepath.Join(out, "sounds")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			fail("%v", err)
+		}
+		files := map[string]string{}
+		written, missing := 0, 0
+		paths := make([]string, 0, len(want))
+		for p := range want {
+			paths = append(paths, p)
+		}
+		sort.Strings(paths)
+		for _, p := range paths {
+			g, err := text.UTF8ToGBK(p)
+			if err != nil {
+				log.Warn("asset", "sound path not GBK", log.F("path", p))
+				missing++
+				continue
+			}
+			f, e, ok := set.Lookup(string(g))
+			if !ok {
+				log.Warn("asset", "sound missing", log.F("path", p))
+				missing++
+				continue
+			}
+			id := fmt.Sprintf("%08x", e.ID)
+			ext := strings.ToLower(filepath.Ext(p))
+			if ext != ".wav" && ext != ".mp3" && ext != ".ogg" {
+				ext = ".wav"
+			}
+			target := filepath.Join(dir, id+ext)
+			if _, err := os.Stat(target); err != nil {
+				data, err := f.Read(e)
+				if err != nil {
+					log.Warn("asset", "sound read failed", log.F("path", p), log.F("error", err))
+					missing++
+					continue
+				}
+				if err := os.WriteFile(target, data, 0o644); err != nil {
+					fail("%s: %v", target, err)
+				}
+				written++
+			}
+			files[p] = id + ext
+		}
+		doc := map[string]any{
+			"source": "the client's archives (sound.pak): ManCastSnd / FMCastSnd of skills.txt, SndFile1..4 / SndFileB1..4 of missles.txt",
+			"files":  files,
+		}
+		js, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "sounds.json"), js, 0o644); err != nil {
+			fail("%v", err)
+		}
+		fmt.Printf("export-sounds: %d tieng (%d moi, %d thieu) -> %s\n", len(files), written, missing, filepath.Join(dir, "sounds.json"))
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):

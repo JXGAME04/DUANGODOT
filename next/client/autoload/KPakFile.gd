@@ -61,11 +61,15 @@ class SpriteAtlas:
 var _sprites := {}          # id -> SpriteAtlas
 var _missing := {}
 var loaded_bytes := 0
+var _sounds := {}           # game path (lower case) -> AudioStream (KSoundCache of the old engine)
+var _sound_files := {}      # sounds/sounds.json: game path -> file name
+var _sound_index_loaded := false
 
 
 # Drop the texture cache before the renderer goes away (otherwise Godot reports leaked textures).
 func _exit_tree() -> void:
 	_sprites.clear()
+	_sounds.clear()
 	_ui_images.clear()
 	_ui_pixels.clear()
 
@@ -236,3 +240,32 @@ var _objdata = null
 
 var _ui_images := {}
 var _ui_pixels := {}
+
+
+# KSoundCache::GetNode: the .wav a game path names (jxassets export-sounds: sounds/sounds.json + sounds/<id>.wav),
+# loaded once; null when the archives had no such file.
+func sound(game_path: String) -> AudioStream:
+	var key := game_path.strip_edges().to_lower()
+	if key == "" or key == "0":
+		return null
+	if _sounds.has(key):
+		return _sounds[key]
+	if not _sound_index_loaded:
+		_sound_index_loaded = true
+		var d = load_json("%s/sounds/sounds.json" % assets_root())
+		if d != null:
+			_sound_files = d.get("files", {})
+	var file := str(_sound_files.get(key, ""))
+	var stream: AudioStream = null
+	if file != "":
+		var path := "%s/sounds/%s" % [assets_root(), file]
+		if file.ends_with(".mp3"):
+			stream = AudioStreamMP3.load_from_file(path)
+		else:
+			stream = AudioStreamWAV.load_from_file(path)
+		if stream == null:
+			Log.warn("asset", "sound load failed", {"path": path})
+	elif not _sound_files.is_empty():
+		Log.debug("asset", "sound not exported", {"path": game_path})
+	_sounds[key] = stream
+	return stream

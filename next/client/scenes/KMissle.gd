@@ -5,7 +5,10 @@
 #   - status wait: nothing drawn; fly: AnimFile2 of missles.txt (the fly status), the frame from the frames flown;
 #   - the end: the vanish movie AnimFile3 (CreateSpecialEffect(MS_DoVanish)) plays once at the last spot, then the node
 #     frees itself (KMissle::Paint 1537: the missile stays until its effects have all played);
-#   - MultiShow: the B set of anims at random (KMissle::Init 1704).  Sounds are not played yet.
+#   - MultiShow: the B set of anims at random (KMissle::Init 1704);
+#   - sounds (KMissleRes::PlaySound 0x00717ED0 through `sounds`, a KWavSound): SndFile2 once when the flight starts
+#     (KMissle::Activate 0x006B393D, PrePareFly at start_life_time), SndFile3 with the vanish movie
+#     (CreateSpecialEffect 0x006B1DC0: only when AnimFile3 exists), never while the same file still plays.
 extends Node2D
 
 const KMissleResMath := preload("res://scenes/KMissleResMath.gd")
@@ -39,6 +42,8 @@ var status := STATUS_WAIT
 var res := {}                 # the row of missle_res.json
 var anims: Array = []         # the four status anims in use (A or B set)
 var _sprite: Sprite2D = null
+var sounds = null             # the world's KWavSound (UiGame), null = silent
+var _fly_sounded := false     # SndFile2 played once
 var _vanish_started := -1     # cur_life when the vanish movie began
 var _tick_acc := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -91,9 +96,20 @@ func apply(d: Dictionary) -> void:
 		_begin_vanish()
 	else:
 		status = int(d.get("status", 0))
+		if status == STATUS_FLY:
+			_on_fly_start()
 	_tick_acc = 0.0
 	_place()
 	_refresh()
+
+
+# KMissle::Activate 0x006B38C8: at start_life_time PrePareFly -> the fly sound (SndFile2) -> DoFly
+func _on_fly_start() -> void:
+	if _fly_sounded:
+		return
+	_fly_sounded = true
+	if sounds != null:
+		sounds.play(str(_anim(ANIM_FLY).get("sound", "")), scene_pos, false, true)
 
 
 func _begin_vanish() -> void:
@@ -101,6 +117,10 @@ func _begin_vanish() -> void:
 		return
 	status = STATUS_VANISHED
 	_vanish_started = cur_life
+	# CreateSpecialEffect(MS_DoVanish) 0x006B38BA: the vanish movie with its sound (SndFile3), only when the movie exists
+	var a := _anim(ANIM_VANISH)
+	if sounds != null and str(a.get("sprite", "")) != "":
+		sounds.play(str(a.get("sound", "")), scene_pos, false, true)
 
 
 func _process(delta: float) -> void:
@@ -127,6 +147,7 @@ func _tick() -> void:
 			_begin_vanish()
 	elif status == STATUS_WAIT and cur_life >= start_life_time:
 		status = STATUS_FLY
+		_on_fly_start()
 	_place()
 	_refresh()
 
