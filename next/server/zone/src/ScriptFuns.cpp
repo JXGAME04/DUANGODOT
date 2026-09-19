@@ -597,6 +597,26 @@ int l_SetAForbitSkill(lua_State* L)
     return 0;
 }
 
+// ForbitAura(n): Player+0x375 = n ~= 0; forbidding also clears the aura (0x08111560 -> KNpc::SetAura(npc, 0))
+int l_ForbitAura(lua_State* L)
+{
+    KNpc* p = player_of(L, "ForbitAura");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    const bool forbid = static_cast<int>(lua_tonumber(L, 1)) != 0;
+    p->player.forbid_aura = forbid;
+    if (forbid) g_ScriptContext().world->set_aura(*p, 0);
+    return 0;
+}
+
+// ForbitSyncAura(n): Player+0x388 = 0 when n ~= 0, 1 otherwise (0x0810CC10) - whether an aura tick is shown to others
+int l_ForbitSyncAura(lua_State* L)
+{
+    KNpc* p = player_of(L, "ForbitSyncAura");
+    if (p == nullptr || lua_gettop(L) < 1) return 0;
+    p->player.sync_aura = static_cast<int>(lua_tonumber(L, 1)) == 0;
+    return 0;
+}
+
 // SetSkillMaxLevelAddons(n): Player+0x8600, at most 99 (0x08108B70); GetSkillMaxLevelAddons() reads it
 int l_SetSkillMaxLevelAddons(lua_State* L)
 {
@@ -913,6 +933,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetCurrentMagicLevel", l_GetCurrentMagicLevel}, {"GetSkillMaxLevel", l_GetSkillMaxLevel}, {"GetSkillExp", l_GetSkillExp},
     {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},
     {"ForbitSkill", l_ForbitSkill},       {"SetAForbitSkill", l_SetAForbitSkill}, {"SetSkillMaxLevelAddons", l_SetSkillMaxLevelAddons},
+    {"ForbitAura", l_ForbitAura},         {"ForbitSyncAura", l_ForbitSyncAura},
     {"GetSkillMaxLevelAddons", l_GetSkillMaxLevelAddons}, {"GetSkillCount", l_GetSkillCount}, {"GetTotalSkill", l_GetTotalSkill},
     {"IsExpSkill", l_IsExpSkill},         {"UpdateSkill", l_UpdateSkill},       {"SetHide", l_SetHide},
     {"AbradeEquipments", l_AbradeEquipments}, {"SetTempRevPos", l_SetTempRevPos}, {"SetRevPos", l_SetRevPos},

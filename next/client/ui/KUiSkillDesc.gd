@@ -8,8 +8,9 @@
 #   0x006FBF92  "\n" + SkillDesc + "\n\n"
 #   0x006FC022  [SkillAttrib] of the Attrib column + "\n"
 #   0x006FC085  Attrib 1 / 2 (the plain attacks): IsMelee -> G_Skills_35 " (Cong kich gan)" else G_Skills_36
-#   0x006FC114  not an aura: G_Skills_37 % level, or in blue G_Skills_38 % (level, level - inc, inc) when the skill list's increments
-#               (the zone's level_inc) are not 0; an aura skips to the limits
+#   0x006FC114  not a weapon skill (vtable +0x4c of the client's KSkill = IsWeaponSkill [+0x34]; IsAura is +0x48): G_Skills_37 % level,
+#               or in blue G_Skills_38 % (level, level - inc, inc) when the skill list's increments (the zone's level_inc) are not 0;
+#               a weapon skill (a plain attack) skips to the limits
 #   0x006FC27F  the enhance map of the skill list (the zone's enhance, the addskilldamage of the skills held) -> G_Skills_39; the
 #               [SkillType] 1 / 2 equipment bonus (Player+0x1278 + +0x1148 -> G_Skills_76 "%s%d%%") and the one attribute of
 #               Player+0x12ad8 (0x005EC4F0): not here - the zone has no such player fields
@@ -21,7 +22,7 @@
 #               addskilldamage (G_Skills_49) for the skills whose row has ShowAddition
 #   0x006FC527  EqtLimit (+0xac): -2 nothing; F<n> for a negative, the number else -> G_Skills_41 + [WeaponLimit] text
 #   0x006FC617  HorseLimit 1 -> G_Skills_42, 2 -> G_Skills_43
-#   0x006FC697  not an aura, a next level -> G_Skills_44 + GetDescAboutLevel of the next level
+#   0x006FC697  not a weapon skill, a next level -> G_Skills_44 + GetDescAboutLevel of the next level
 extends RefCounted
 
 const KMagicDesc := preload("res://ui/KMagicDesc.gd")
@@ -135,7 +136,7 @@ static func build(row: Dictionary, held: Dictionary, player_level: int, desc: Di
 	var level := int(held.get("level", 0))
 	if int(desc.get("held_level", 0)) > 0:
 		level = int(desc.get("held_level", 0))   # 0x006233B0(list, id, 1): the current level, increments included
-	var aura := _cell_int(row, "IsAura", 0) != 0
+	var weapon := _cell_int(row, "WeaponSkill", 0) != 0   # vtable +0x4c IsWeaponSkill (B4d-1 correction: not IsAura)
 	var cur: Dictionary = desc.get("cur", {}) if desc.get("has_cur", false) else {}
 	var out := "<color=Yellow>" + _cell(row, "SkillName", "")
 	var series := _cell_int(row, "Series", -1)
@@ -152,7 +153,7 @@ static func build(row: Dictionary, held: Dictionary, player_level: int, desc: Di
 		out += attrib_text + "\n"
 	if attrib == 1 or attrib == 2:
 		out += _s(strings, "G_Skills_35", " (Công kích gần) \n") if _cell_int(row, "IsMelee", 0) != 0 else _s(strings, "G_Skills_36", " (Công kích xa) \n")
-	if not aura:
+	if not weapon:
 		var inc := int(desc.get("level_inc", 0))
 		if inc == 0:
 			out += (_s(strings, "G_Skills_37", "Cấp hiện tại: %d") % level) + "\n"
@@ -177,7 +178,7 @@ static func build(row: Dictionary, held: Dictionary, player_level: int, desc: Di
 			out += _s(strings, "G_Skills_42", "Trong lúc cưỡi ngựa không thể thi triển \n")
 		2:
 			out += _s(strings, "G_Skills_43", "Cần phải cưỡi ngựa để thi triển \n")
-	if not aura and desc.get("has_next", false):
+	if not weapon and desc.get("has_next", false):
 		out += _s(strings, "G_Skills_44", "\n<color=Red> Đẳng cấp tiếp theo \n")
 		out += level_lines(desc.get("next", {}), text, ctx)
 	return out

@@ -568,6 +568,12 @@ void KSubWorld::tick()
             frozen = process_frame_state(e, e.loop_frames % state_every == 0);
             if (e.loop_frames % 18 == 0) per_second_attribs(e);   // 0x0808BFD4
         }
+        // 0x0808BF5C: the state icons - a change of the states (2) rebuilds them, anything changed (1) is told around, then 0
+        if (e.state_flag > 1) rebuild_state_icons(e);
+        if (e.state_flag != 0) {
+            emit_state_icons(e);
+            if (e.state_flag <= 1) e.state_flag = 0;
+        }
         if (frozen) continue;   // 0x0808C0D8: stunned, or the odd frame of a freeze - nothing else this frame
         // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
         if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
@@ -1048,7 +1054,16 @@ void KSubWorld::process_state(KNpc& e)
         if (e.cur.stamina > e.cur.stamina_max) e.cur.stamina = e.cur.stamina_max;
         else if (e.cur.stamina < 0) e.cur.stamina = 0;
     }
-    // (0x0808BAF6: a boss casts its +0x340 / +0x358 skill; 0x0808BB83: the passive weapon skill +0x244 - B2b / B3)
+    // (0x0808BAF6: a boss casts its +0x340 / +0x358 skill - B2b)
+    // 0x0808BB83: the aura +0x244 - held in a cell of the list (index 1..79) whose ReqLevel the npc's level reaches ->
+    // 0x080873B0(npc, aura, its current level)
+    if (e.aura_skill_id != 0) {
+        const int idx = e.skill_list.find_same(e.aura_skill_id);
+        const KNpcSkill* c = idx >= 1 && idx <= 79 ? e.skill_list.cell(idx) : nullptr;
+        if (c != nullptr && c->req_level <= static_cast<int>(e.level)) {
+            cast_skill_effect(e, e.aura_skill_id, e.skill_list.get_current_level(e.aura_skill_id, true));
+        }
+    }
     if (e.cur.life != before) emit_life(e, e.cur.life - before, EntityId{});
 }
 

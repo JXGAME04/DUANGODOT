@@ -242,6 +242,10 @@ func _refresh_mouse_skills() -> void:
 func _on_skill_clicked(skill_id: int, right: bool) -> void:
 	if right:
 		Game.right_skill = skill_id
+		# SetRightSkill 0x005FB280 -> KNpc::SetAura 0x005EA870(IsAura ? id : 0): an aura on the right button is switched on
+		# at the zone, anything else switches the aura off
+		var aura := KUiSkillDesc._cell_int(Game.skill_row(skill_id), "IsAura", 0) != 0
+		Game.set_aura(skill_id if aura else 0)
 	else:
 		Game.left_skill = skill_id
 	Log.info("ui", "mouse skill", {"skill": skill_id, "button": "right" if right else "left"})

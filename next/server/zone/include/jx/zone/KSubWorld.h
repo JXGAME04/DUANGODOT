@@ -206,6 +206,18 @@ public:
     // KPlayer::ForbitSkill 0x080B2950 / SetAForbitSkill 0x080AE9E0: every skill / one skill locked
     // or freed, the client told (G2C_SKILL_FORBID, the 0x63 packet)
     void forbit_skill(KNpc& e, bool forbid);
+    // KNpc::SetAura 0x08087290: an IsAura skill held (its current level 1..63) becomes the aura +0x244 and puts its
+    // StateSpecialId icon up; anything else clears the aura (and marks the icons 2).  The client asks through
+    // C2G_SET_AURA (0x080DC460, cell 111: ForbitAura makes it a clear); Lua SetNpcAuraSkill and a template's Skill5 too
+    void set_aura(KNpc& e, int skill_id);
+    void set_aura_request(std::uint64_t sid, int skill_id);
+    // 0x080873B0(npc, skill, level): the 0x85 packet of the child skill to the players around (a player's only when
+    // sync_aura; a hidden npc none), then an IsAura skill casts its child (InstanceSkill(child, level)) at the npc's spot
+    void cast_skill_effect(KNpc& e, int skill_id, int level);
+    // KNpc 0x08087160: the six icons rebuilt (state_flag 2 -> 1): a player's Player+0x7dec icon at priority 100, the
+    // aura's StateSpecialId, then every state's; 0x08079F60: the 0x7a packet of the icons to the players around
+    void rebuild_state_icons(KNpc& e);
+    void emit_state_icons(const KNpc& e);
     void set_a_forbit_skill(KNpc& e, int skill_id, int forbid);
     // what KSkillList needs of the world for this npc: the skill manager, its level, the cast of a
     // passive skill on itself (Cast(sk, idx, -1, idx, 0, 0, 1)) and the removal of a state

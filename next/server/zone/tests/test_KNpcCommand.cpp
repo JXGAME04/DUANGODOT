@@ -81,7 +81,7 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1, {{"WeaponSkill", "1"}});
     add(1101, {{"CostValue", "10"}, {"SkillCostType", "0"}, {"TimePerCast", "30"}});
     add(1102, {{"TargetEnemy", "0"}, {"TargetSelf", "1"}, {"PeaceCanUse", "1"}, {"IsPhysical", "0"}, {"LvlSetting1", "armordefense_v"}, {"LvlData1", "buff"}});
-    add(1103, {{"IsAura", "1"}});
+    add(1103, {{"IsAura", "1"}, {"ChildSkillId", "1102"}, {"StateSpecialId", "45"}, {"StatePriority", "2"}});   // an aura whose child is the buff 1102
     add(1104, {{"WeaponSkill", "1"}});
     add(1105, {{"EqtLimit", "3"}});
     add(1106, {{"AttackRadius", "40"}, {"SkillStyle", "0"}, {"MisslesForm", "3"}, {"Param1", "0"}});   // CanCastSkill checks no reach for it (form 3, Param1 != 1): ProcessCommand walks up
@@ -1157,6 +1157,55 @@ TEST_CASE("the skill tip: the zone answers cost, range and the level's attribute
     descs = faction_packets<jx::pb::SkillDesc>(a.w.take_outbox(), jx::pb::G2C_SKILL_DESC);
     REQUIRE(descs.size() == 1);
     CHECK((!descs[0].with_cur() && !descs[0].with_next() && descs[0].max_level() == 0));
+}
+
+TEST_CASE("an aura: SetAura 0x08087290 keeps an IsAura skill held, ProcessState casts its child every ten frames (0x080873B0)", "[command][aura]")
+{
+    Arena a({1, 1101, 1102, 1103});
+    a.w.take_outbox();
+    // not an aura, not held, out of range: nothing is kept (and the icons are marked 2)
+    a.w.set_aura(*a.h, 1101);
+    CHECK(a.h->aura_skill_id == 0);
+    a.w.set_aura(*a.h, 1108);
+    CHECK(a.h->aura_skill_id == 0);
+    a.w.set_aura(*a.h, 2000);
+    CHECK(a.h->aura_skill_id == 0);
+    // the aura 1103 held at level 1: kept; the refusals above marked the icons 2, so the next frame rebuilds them
+    // (0x08087160) with the aura's StateSpecialId 45 and tells the watchers (the 0x7a packet)
+    a.w.set_aura_request(7, 1103);
+    CHECK(a.h->aura_skill_id == 1103);
+    a.h->watchers = {7};
+    a.w.take_outbox();
+    a.ticks(1);
+    auto icons = faction_packets<jx::pb::EntityStateIcons>(a.w.take_outbox(), jx::pb::G2C_STATE_ICONS);
+    REQUIRE(!icons.empty());
+    bool told = false;
+    for (const auto v : icons.back().icons()) {
+        if (v == 45) told = true;
+    }
+    CHECK(told);
+    CHECK(a.h->state_flag == 0);
+    bool icon = false;
+    for (const auto& ic : a.h->state_icons) {
+        if (ic.id == 45) icon = true;
+    }
+    CHECK(icon);
+    // every GAME_UPDATE_TIME frames the child 1102 is cast at the hero's spot: the buff state 1102 (armordefense_v, 60
+    // frames) lands on the hero
+    CHECK(a.h->state_of(1102) == nullptr);
+    a.ticks(11);
+    CHECK(a.h->state_of(1102) != nullptr);
+    // a hidden npc casts no aura effect (0x080873C9)
+    // ForbitAura: the request clears instead of setting
+    a.h->player.forbid_aura = true;
+    a.w.set_aura_request(7, 1103);
+    CHECK(a.h->aura_skill_id == 0);
+    a.h->player.forbid_aura = false;
+    a.w.set_aura_request(7, 1103);
+    CHECK(a.h->aura_skill_id == 1103);
+    // the client sets a non-aura right skill: SetAura(0) clears (0x005EA8B4)
+    a.w.set_aura_request(7, 0);
+    CHECK(a.h->aura_skill_id == 0);
 }
 
 TEST_CASE("the skill tip names the skills of a level the way 0x006FAA00 / 0x006F7F70 of the 2.0 client do", "[command]")

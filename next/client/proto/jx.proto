@@ -312,6 +312,10 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
   uint32 seq = 5;
 }
 
+message SetAuraReq {             // C2G_SET_AURA: the 0x6f packet {id} of KNpc::SetAura 0x005EA870 - the aura to keep casting (0 = none)
+  uint32 skill_id = 1;
+}
+
 message SkillDescReq {           // C2G_SKILL_DESC: the tip of a skill (KSkill::GetDesc of the 2.0 client needs the level script's numbers)
   uint32 skill_id = 1;
   uint32 level = 2;              // the level shown (0 = not held: the next level only, as KSkill::GetDesc with ulCurLevel 0)
@@ -468,6 +472,11 @@ message SkillDescLevel {         // what the level script left in the KSkill of 
   repeated SkillDescAttrib attribs = 5;
   repeated SkillDescAppend appends = 6;
   repeated SkillDescRelated related = 7;   // in print order: the append skills held (skill_appendskill), then the event skills ShowEvent names
+}
+
+message EntityStateIcons {       // G2C_STATE_ICONS: the 0x7a packet {0x7a, 6 icon bytes, npc id} of KNpc 0x08079F60 - the six StateSpecialId icons
+  uint64 entity_id = 1;          // over an npc (an aura's, the states'; a player's are blank unless its sync_aura), sorted by priority toward the end
+  repeated uint32 icons = 2;     // six cells, 0 = empty
 }
 
 message MissleSync {             // G2C_MISSLE: a KMissle of the zone as KMissle::Paint / KMissleRes::Draw of the old client draw it
@@ -697,6 +706,7 @@ enum MsgId {
   C2G_REVIVE = 1113;           // (zone) a dead character asks to revive at its revive point (the handler slot 118 -> KPlayer::Revive(0))
   C2G_RIDE = 1114;             // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
   C2G_SKILL_DESC = 1115;       // (zone) the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level script; the zone answers)
+  C2G_SET_AURA = 1116;         // (zone) the aura switched on: the 0x6f packet of KNpc::SetAura 0x005EA870 (the right-mouse skill is an aura) -> handler cell 111 0x080DC460 -> KNpc::SetAura 0x08087290
 
   // gateway -> client
   G2C_HELLO_ACK = 2001;
@@ -729,6 +739,7 @@ enum MsgId {
   G2C_PLAYER_FACTION = 2121;   // the character's faction record (the 0x7b packet; 0x7c = cleared)
   G2C_ENTITY_STATE = 2122;     // a skill's timed state on the character (the 0x87 packet; empty = removed)
   G2C_SKILL_DESC = 2123;       // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
+  G2C_STATE_ICONS = 2125;      // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
   G2C_MISSLE = 2124;           // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
 
   // gateway <-> zone

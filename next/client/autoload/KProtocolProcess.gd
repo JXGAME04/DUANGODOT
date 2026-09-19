@@ -45,6 +45,8 @@ signal skills_changed()                 # G2C_SKILL_LIST: the whole book (on ent
 signal mouse_skill_changed()            # left_skill / right_skill set by the weapon rule (0x005FE820)
 signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: one skill (level -1 = gone)
 signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a skill level for its tip arrived
+var aura_skill := 0                          # KNpc+0x120 of the 2.0 client: the aura asked for (KNpc::SetAura 0x005EA870)
+signal state_icons_changed(entity_id: int)  # G2C_STATE_ICONS: the six icons over an entity changed (entities[id].state_icons)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -263,6 +265,18 @@ func revive() -> int:
 
 
 # C2G_RIDE: mount (true) or dismount the worn horse - the ride toggle of the old client (0x080AEFA0)
+# KNpc::SetAura 0x005EA870 of the 2.0 client: the right-mouse skill that is an aura (IsAura, LRSkill 2) is sent as the
+# 0x6f packet {id} - the zone keeps casting its child (KNpc::SetAura 0x08087290 / ProcessState); 0 = no aura
+func set_aura(skill_id: int) -> void:
+	if state != "world":
+		return
+	var req := Proto.SetAuraReq.new()
+	req.set_skill_id(maxi(skill_id, 0))
+	Net.send_msg(Proto.MsgId.C2G_SET_AURA, req)
+	aura_skill = skill_id
+	Log.debug("world", "aura request", {"skill": skill_id})
+
+
 func ride(on: bool) -> int:
 	if state != "world":
 		return 0
@@ -791,6 +805,19 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				skill_descs["%d:%d" % [d.skill_id, int(m.get_held_level())]] = d   # asked at another level: the zone answered for the one it holds
 			Log.debug("player", "skill desc", {"skill": d.skill_id, "level": level, "max": d.max_level})
 			skill_desc_received.emit(int(d.skill_id))
+
+		Proto.MsgId.G2C_STATE_ICONS:
+			# the 0x7a packet: the six state icons over an npc (KNpc 0x08079F60); kept with the entity, drawn later (B4e)
+			var m := Proto.EntityStateIcons.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null:
+				var icons := []
+				for v in m.get_icons():
+					icons.append(int(v))
+				d["state_icons"] = icons
+				state_icons_changed.emit(int(m.get_entity_id()))
 
 		Proto.MsgId.G2C_ENTITY_STATE:
 			# the 0x87 handler of the 2.0 client (0x006526E0 -> KNpc::SetStateSkillEffect 0x005EDFC0): the character's own states

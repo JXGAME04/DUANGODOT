@@ -14,6 +14,7 @@
 #include <functional>
 
 #include "jx/log.hpp"
+#include "jx/msg.pb.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KMath.h"
 #include "jx/zone/KNpcAI.h"
@@ -1005,6 +1006,83 @@ void KSubWorld::do_hurt(KNpc& e, int anti_hit_recover, EntityId source)
     e.attack_target = EntityId{};
     if (e.moving) e.set_pos(e.pos());   // the hit interrupts walking
     emit_action(e, pb::ACTION_HURT, source);
+}
+
+void KSubWorld::set_aura(KNpc& e, int skill_id)
+{
+    // KNpc::SetAura 0x08087290
+    const auto clear = [&]() {
+        if (e.aura_skill_id != 0) log::debug("zone.fight", "aura cleared", {log::kv("entity", e.id), log::kv("skill", e.aura_skill_id), log::kv("asked", skill_id)});
+        e.aura_skill_id = 0;
+        e.state_flag = 2;   // +0x4c = 2
+    };
+    if (skill_id < 1 || skill_id > 1999) return clear();
+    const int level = e.skill_list.get_current_level(skill_id, true);   // 0x080E4440(list, id, 1)
+    if (level < 1 || level > 63) return clear();
+    const KSkill* sk = skill_instance(skill_id, level);   // the instance table, InstanceSkill when missing
+    if (sk == nullptr || !sk->row.is_aura) return clear();   // vtable+0x4c IsAura
+    e.aura_skill_id = skill_id;
+    add_state_icon(e, sk->row.state_special_id, sk->row.state_priority);   // 0x08079240(npc, +0x64, +0x68)
+    log::debug("zone.fight", "aura set", {log::kv("entity", e.id), log::kv("skill", skill_id), log::kv("level", level)});
+}
+
+void KSubWorld::rebuild_state_icons(KNpc& e)
+{
+    // 0x08087160: the six cells cleared, first = 6, flag = 1; a player's Player+0x7dec icon at priority 100 (no such
+    // field yet); the aura +0x244 held at level 1..63 -> its StateSpecialId / StatePriority; then every state's
+    for (auto& c : e.state_icons) c = KNpc::KStateIcon{};
+    e.state_icon_first = 6;
+    e.state_flag = 1;
+    if (e.aura_skill_id != 0) {
+        const int level = e.skill_list.get_current_level(e.aura_skill_id, true);
+        if (level >= 1 && level <= 63 && e.aura_skill_id >= 1 && e.aura_skill_id <= 1999) {
+            if (const KSkill* sk = skill_instance(e.aura_skill_id, level)) add_state_icon(e, sk->row.state_special_id, sk->row.state_priority);
+        }
+    }
+    for (const KStateNode& n : e.state_skills) add_state_icon(e, n.special_id, n.priority);
+}
+
+void KSubWorld::emit_state_icons(const KNpc& e)
+{
+    // 0x08079F60: {0x7a, 6 icon bytes, npc id} to the players within 100 cells; a player's icons go out blank unless
+    // Player+0x388 (sync_aura) is 1
+    if (e.watchers.empty()) return;
+    pb::EntityStateIcons msg;
+    msg.set_entity_id(e.id.value);
+    const bool blank = e.kind == KNpcKind::player && !e.player.sync_aura;
+    for (const auto& c : e.state_icons) msg.add_icons(blank ? 0u : static_cast<std::uint32_t>(std::max(0, c.id)));
+    broadcast(e, static_cast<std::uint16_t>(pb::G2C_STATE_ICONS), msg);
+}
+
+void KSubWorld::set_aura_request(std::uint64_t sid, int skill_id)
+{
+    // the handler at cell 111 (0x080DC460): {byte 0x6f, int id} of KNpc::SetAura 0x005EA870 of the 2.0 client
+    const auto pit = players_.find(sid);
+    KNpc* e = pit == players_.end() ? nullptr : entities_.find(pit->second);
+    if (e == nullptr || !e->player.loaded) return;
+    log::ScopedContext ctx(log::Context{sid, e->player_id, cfg_.zone_id, tick_});
+    set_aura(*e, e->player.forbid_aura ? 0 : skill_id);   // Player+0x375: the request clears instead
+}
+
+void KSubWorld::cast_skill_effect(KNpc& e, int skill_id, int level)
+{
+    // 0x080873B0(npc, skill, level)
+    if (level <= 0 || e.hide > 0) return;
+    if (skill_id < 1 || skill_id > 1999 || level > 63) return;
+    const KSkill* sk = skill_instance(skill_id, level);
+    if (sk == nullptr) return;
+    const int child = sk->row.child_skill_id;
+    // the 0x85 packet {0x85, -1, child, npc id, npc id, level, 0} to the players around (a player's only when +0x388): the
+    // 2.0 client re-runs KSkill::Cast of the child for show - here the zone's cast below reaches the clients as G2C_MISSLE
+    // (docs/CLIENT-2.0.md 11), so no packet is made
+    if (!sk->row.is_aura) return;   // vtable+0x4c
+    const KSkill* child_sk = child > 0 ? skill_instance(child, level) : nullptr;   // InstanceSkill(mgr, +0xb8, level)
+    if (child_sk == nullptr) return;
+    KCastParams p;
+    p.at_pos = true;
+    p.pos = e.pos();   // Map2Mps of the npc: Cast(child, npc, x, y, 0, 0, 0) with +0x118 = 1 around it (no effect on a missile)
+    const bool ok = skill_cast(*child_sk, e, p);
+    log::trace("zone.fight", "aura cast", {log::kv("entity", e.id), log::kv("skill", skill_id), log::kv("child", child), log::kv("level", level), log::kv("ok", ok)});
 }
 
 void KSubWorld::knock_back(KNpc& t, const KNpc& launcher, int frames, int distance)

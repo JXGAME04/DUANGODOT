@@ -505,13 +505,17 @@ func test_skill_desc() -> void:
 	var next_at := t.find("<color=Red> Đẳng cấp tiếp theo")
 	check(next_at >= 0 and t.find("Sát thương vật lý: 14 đến 33 điểm") > next_at, "the next level after its red header")
 	check(t.find("Đẳng cấp yêu cầu") < 0, "no requirement line at level 20")
-	# a low character sees the requirement; an aura shows no level line and no next level; no answer yet -> the static part
+	# a low character sees the requirement; a weapon skill (a plain attack) shows no level line and no next level; no answer yet
+	# -> the static part
 	var low: String = D.build(row, {"level": 1}, 5, desc, text, name_of)
 	check(low.find("Đẳng cấp yêu cầu: 10") >= 0, "the requirement line at level 5")
+	var weapon_row := row.duplicate()
+	weapon_row["WeaponSkill"] = "1"
+	var au: String = D.build(weapon_row, {"level": 1}, 20, desc, text, name_of)
+	check(au.find("Cấp hiện tại") < 0 and au.find("Đẳng cấp tiếp theo") < 0 and au.find("Tiêu hao nội lực: 10") >= 0, "a weapon skill: no level, no next, its cost")
 	var aura_row := row.duplicate()
 	aura_row["IsAura"] = "1"
-	var au: String = D.build(aura_row, {"level": 1}, 20, desc, text, name_of)
-	check(au.find("Cấp hiện tại") < 0 and au.find("Đẳng cấp tiếp theo") < 0 and au.find("Tiêu hao nội lực: 10") >= 0, "an aura: no level, no next, its cost")
+	check(D.build(aura_row, {"level": 1}, 20, desc, text, name_of).find("Cấp hiện tại: 1") >= 0, "an aura keeps its level line (IsAura is vtable +0x48, not the +0x4c GetDesc tests)")
 	var pending: String = D.build(row, {"level": 1}, 20, {}, text, name_of)
 	check(pending.find("Tiêu hao") < 0 and pending.find("Cấp hiện tại: 1") >= 0, "without the zone's answer: the static lines only")
 	check(D.build(row, {"level": 1}, 20, desc, text, name_of).find("(Công kích gần)") < 0 and D.build({"SkillName": "Đấm", "Attrib": "1", "IsMelee": "1"}, {"level": 1}, 20, {}, text, name_of).find("(Công kích gần)") >= 0, "the plain attack words for Attrib 1 / 2 only")

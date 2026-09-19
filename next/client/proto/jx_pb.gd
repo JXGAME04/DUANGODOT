@@ -4517,6 +4517,52 @@ class CastSkillReq:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class SetAuraReq:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__skill_id = PBField.new("skill_id", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __skill_id
+		data[__skill_id.tag] = service
+		
+	var data = {}
+	
+	var __skill_id: PBField
+	func has_skill_id() -> bool:
+		if __skill_id.value != null:
+			return true
+		return false
+	func get_skill_id() -> int:
+		return __skill_id.value
+	func clear_skill_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__skill_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_skill_id(value : int) -> void:
+		__skill_id.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class SkillDescReq:
 	extends RefCounted
 	func _init():
@@ -6729,6 +6775,67 @@ class SkillDescLevel:
 			return PB_ERR.PARSE_INCOMPLETE
 		return result
 	
+class EntityStateIcons:
+	extends RefCounted
+	func _init():
+		var service
+		
+		__entity_id = PBField.new("entity_id", PB_DATA_TYPE.UINT64, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64])
+		service = PBServiceField.new()
+		service.field = __entity_id
+		data[__entity_id.tag] = service
+		
+		var __icons_default: Array[int] = []
+		__icons = PBField.new("icons", PB_DATA_TYPE.UINT32, PB_RULE.REPEATED, 2, true, __icons_default)
+		service = PBServiceField.new()
+		service.field = __icons
+		data[__icons.tag] = service
+		
+	var data = {}
+	
+	var __entity_id: PBField
+	func has_entity_id() -> bool:
+		if __entity_id.value != null:
+			return true
+		return false
+	func get_entity_id() -> int:
+		return __entity_id.value
+	func clear_entity_id() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__entity_id.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT64]
+	func set_entity_id(value : int) -> void:
+		__entity_id.value = value
+	
+	var __icons: PBField
+	func get_icons() -> Array[int]:
+		return __icons.value
+	func clear_icons() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__icons.value.clear()
+	func add_icons(value : int) -> void:
+		__icons.value.append(value)
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class MissleSync:
 	extends RefCounted
 	func _init():
@@ -8821,6 +8928,7 @@ enum MsgId {
 	C2G_REVIVE = 1113,
 	C2G_RIDE = 1114,
 	C2G_SKILL_DESC = 1115,
+	C2G_SET_AURA = 1116,
 	G2C_HELLO_ACK = 2001,
 	G2C_LOGIN_RES = 2002,
 	G2C_CHAR_LIST_RES = 2003,
@@ -8851,6 +8959,7 @@ enum MsgId {
 	G2C_PLAYER_FACTION = 2121,
 	G2C_ENTITY_STATE = 2122,
 	G2C_SKILL_DESC = 2123,
+	G2C_STATE_ICONS = 2125,
 	G2C_MISSLE = 2124,
 	GZ_ZONE_HELLO = 9001,
 	ZG_ZONE_HELLO_ACK = 9002,

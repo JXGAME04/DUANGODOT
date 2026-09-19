@@ -100,6 +100,7 @@ const (
 	MsgId_C2G_REVIVE          MsgId = 1113 // (zone) a dead character asks to revive at its revive point (the handler slot 118 -> KPlayer::Revive(0))
 	MsgId_C2G_RIDE            MsgId = 1114 // (zone) mount / dismount the worn horse (0x080AEFA0 -> KNpc::SetHorse 0x0807D520)
 	MsgId_C2G_SKILL_DESC      MsgId = 1115 // (zone) the numbers of a skill level for its tip (KSkill::GetDesc 0x006FBC90 of the 2.0 client runs the level script; the zone answers)
+	MsgId_C2G_SET_AURA        MsgId = 1116 // (zone) the aura switched on: the 0x6f packet of KNpc::SetAura 0x005EA870 (the right-mouse skill is an aura) -> handler cell 111 0x080DC460 -> KNpc::SetAura 0x08087290
 	// gateway -> client
 	MsgId_G2C_HELLO_ACK       MsgId = 2001
 	MsgId_G2C_LOGIN_RES       MsgId = 2002
@@ -131,6 +132,7 @@ const (
 	MsgId_G2C_PLAYER_FACTION  MsgId = 2121 // the character's faction record (the 0x7b packet; 0x7c = cleared)
 	MsgId_G2C_ENTITY_STATE    MsgId = 2122 // a skill's timed state on the character (the 0x87 packet; empty = removed)
 	MsgId_G2C_SKILL_DESC      MsgId = 2123 // the answer to C2G_SKILL_DESC: cost / range / attributes of the level shown and of the next one
+	MsgId_G2C_STATE_ICONS     MsgId = 2125 // the 0x7a packet (0x08079F60): the six state icons over an npc, sent when they changed (aura, states)
 	MsgId_G2C_MISSLE          MsgId = 2124 // a missile of a cast: born, flying (a position every 6 frames), gone - the client draws it (the 2.0 client re-runs CastMissles from the 0x5a packet instead)
 	// gateway <-> zone
 	MsgId_GZ_ZONE_HELLO       MsgId = 9001
@@ -170,6 +172,7 @@ var (
 		1113: "C2G_REVIVE",
 		1114: "C2G_RIDE",
 		1115: "C2G_SKILL_DESC",
+		1116: "C2G_SET_AURA",
 		2001: "G2C_HELLO_ACK",
 		2002: "G2C_LOGIN_RES",
 		2003: "G2C_CHAR_LIST_RES",
@@ -200,6 +203,7 @@ var (
 		2121: "G2C_PLAYER_FACTION",
 		2122: "G2C_ENTITY_STATE",
 		2123: "G2C_SKILL_DESC",
+		2125: "G2C_STATE_ICONS",
 		2124: "G2C_MISSLE",
 		9001: "GZ_ZONE_HELLO",
 		9002: "ZG_ZONE_HELLO_ACK",
@@ -235,6 +239,7 @@ var (
 		"C2G_REVIVE":          1113,
 		"C2G_RIDE":            1114,
 		"C2G_SKILL_DESC":      1115,
+		"C2G_SET_AURA":        1116,
 		"G2C_HELLO_ACK":       2001,
 		"G2C_LOGIN_RES":       2002,
 		"G2C_CHAR_LIST_RES":   2003,
@@ -265,6 +270,7 @@ var (
 		"G2C_PLAYER_FACTION":  2121,
 		"G2C_ENTITY_STATE":    2122,
 		"G2C_SKILL_DESC":      2123,
+		"G2C_STATE_ICONS":     2125,
 		"G2C_MISSLE":          2124,
 		"GZ_ZONE_HELLO":       9001,
 		"ZG_ZONE_HELLO_ACK":   9002,
@@ -312,7 +318,7 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\fjx/msg.proto\x12\x05jx.pb*:\n" +
 	"\bProtocol\x12\x18\n" +
 	"\x14PROTOCOL_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10PROTOCOL_VERSION\x10\x01*\x9a\n" +
+	"\x10PROTOCOL_VERSION\x10\x01*\xc3\n" +
 	"\n" +
 	"\x05MsgId\x12\f\n" +
 	"\bMSG_NONE\x10\x00\x12\x0e\n" +
@@ -339,7 +345,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\n" +
 	"C2G_REVIVE\x10\xd9\b\x12\r\n" +
 	"\bC2G_RIDE\x10\xda\b\x12\x13\n" +
-	"\x0eC2G_SKILL_DESC\x10\xdb\b\x12\x12\n" +
+	"\x0eC2G_SKILL_DESC\x10\xdb\b\x12\x11\n" +
+	"\fC2G_SET_AURA\x10\xdc\b\x12\x12\n" +
 	"\rG2C_HELLO_ACK\x10\xd1\x0f\x12\x12\n" +
 	"\rG2C_LOGIN_RES\x10\xd2\x0f\x12\x16\n" +
 	"\x11G2C_CHAR_LIST_RES\x10\xd3\x0f\x12\x18\n" +
@@ -369,7 +376,8 @@ const file_jx_msg_proto_rawDesc = "" +
 	"\x0fG2C_ENTITY_CAMP\x10\xc8\x10\x12\x17\n" +
 	"\x12G2C_PLAYER_FACTION\x10\xc9\x10\x12\x15\n" +
 	"\x10G2C_ENTITY_STATE\x10\xca\x10\x12\x13\n" +
-	"\x0eG2C_SKILL_DESC\x10\xcb\x10\x12\x0f\n" +
+	"\x0eG2C_SKILL_DESC\x10\xcb\x10\x12\x14\n" +
+	"\x0fG2C_STATE_ICONS\x10\xcd\x10\x12\x0f\n" +
 	"\n" +
 	"G2C_MISSLE\x10\xcc\x10\x12\x12\n" +
 	"\rGZ_ZONE_HELLO\x10\xa9F\x12\x16\n" +

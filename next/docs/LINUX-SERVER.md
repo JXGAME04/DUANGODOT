@@ -671,7 +671,7 @@ dữ liệu + luật, phần cần thế giới đưa vào qua `KSkillListHost`)
 
 | Địa chỉ | Nội dung |
 |---|---|
-| `0x080DA560` ctor `KProtocolProcess` | ô = (disp − 4)/8: **80 → `0x080DD130` NpcSkillCommand**, 78/79 đi/chạy, 76 xin npc, 81 nhảy, 82 nói, … (theo thứ tự ctor cũ: 73 RemoveRole, 76 NpcRequest, 77 ObjRequest, 169 mới, 78 walk, 79 run, **80 skill**, 81 jump, 82 talk…) |
+| `0x080DA560` ctor `KProtocolProcess` | ô = **(disp − 0x18)/8** (đính chính B4d-1: mảng 8 byte từ `+0x18`; client 2.0 gửi hào quang byte 0x6f = 111 → disp 0x390 `0x080DC460`): **77 → `0x080DD130` NpcSkillCommand** (disp 0x280; sổ cũ ghi 80), 78/79 đi/chạy, 76 xin npc, 81 nhảy, 82 nói, … (theo thứ tự ctor cũ: 73 RemoveRole, 76 NpcRequest, 77 ObjRequest, 169 mới, 78 walk, 79 run, **80 skill**, 81 jump, 82 talk…) |
 | `0x080DD130` | **`NpcSkillCommand(this, playerIdx, pMsg)`**: gói `{byte, int p1, int id, int p2, int sync}`; id 1..1999 (`id−1 ≤ 0x7cf`, ≠ 2000); `0x080A79B0(Player, byte proto, sync) ≠ 0` (kiểm đồng bộ); instance cấp 1; **`vtable+0x4c IsAura == 0`** (khí công không thi triển bằng gói này); `p1 ≥ 0`; `0x080AEBC0(Player, 1)`; npc index 1..max; `p2 ≥ 0` → `SendCommand(npc, 5, id, p2, p1, 0, 0x12)` (p2 = x hoặc −1 theo p1?); `p2 == −1` → `idx = 0x080B12C0(Player, p1)` (id → chỉ số npc) > 0 → `SendCommand(npc, 5, id, −1, idx, 0, 0x12)` |
 | `0x0809B750` | **`KNpc::SendCommand(this, 5, id, p2, p3, p4, p5)`** — chỉ nhận lệnh 5 (do_skill): **`FindSame(+0x248, id) ≠ 0`** (npc phải có kỹ năng trong sổ); `+0x171c` (đầy) == 0; vòng 5 ô 24 byte tại `+0x169c + 24·[+0x1718]`: `{5, id, p2, p3, p4, p5}`; `+0x1718 = (+1) % 5`; bằng `+0x1714` → `+0x171c = 1` |
 | `0x0809B9E0` | **`KNpc::ProcessCommand`**: có lệnh (`+0x171c` hay `+0x1714 ≠ +0x1718`) → `0x0809B840` → 2: bỏ lệnh (`0x0809B4B0`); 0: `p2 == −1` → mục tiêu `p3 > 0`: `Npc[p3]+0x118c ≥ 0`, `m_Doing ≠ 10`, vùng > 0 (không → `0x08080030` dừng, bỏ lệnh); `dist = 0x0809F370(p3, +4)`; `dist ≤ +0x12a8` (bán kính kỹ năng hiện tại) → `0x08088350(this, −1, p3)` + bỏ lệnh; `≤ +0x12a8 + 300` → đi tới (`0x080EF710` bước đường, `0x0807B780`) **giữ lệnh**; xa hơn → bỏ; `p2 ≠ −1` → `0x08088350(this, p2, p3)` + bỏ; 1: giữ lệnh; rồi `0x0809B510` |
@@ -979,3 +979,25 @@ id npc, kỹ năng, cấp 0x3f, thời gian 0, byte 0}` cho người chơi, và 
 `0x006526E0` → `KNpc::SetStateSkillEffect 0x005EDFC0` phía client, sổ trạng thái nuôi `KUiSkillState` (`CLIENT-2.0.md` §9).
 Zone: `KSubWorld::emit_state` (`G2C_ENTITY_STATE 2122`: `entity_id, skill_id, level, time, special_id, removed, states[]`), gọi sau `push_back` nút mới và trong
 `remove_state_skill_effect(notify)`; giá trị gửi là giá trị kỹ năng áp (nút giữ bản âm). Chưa: đồng hành.
+
+### 16.10 Hào quang — `KNpc::SetAura 0x08087290`, gói client 111 (`0x080DC460`), tick `0x080873B0`, biểu tượng `0x08087160` / gói 0x7a `0x08079F60` (M12 lát B4d-1, đã kiểm từng dòng)
+
+Hào quang (`IsAura`, 50 dòng `skills.txt`, tất cả `LRSkill 2`, style 2, dạng 7, có `StateSpecialId`) **không thi triển bằng lệnh kỹ năng** (`NpcSkillCommand 0x080DD130` từ chối
+`IsAura`); nó được **bật** vào `KNpc+0x244` rồi mỗi 10 khung server tự thi triển kỹ năng con lên chính npc.
+
+| Địa chỉ | Làm gì | Zone |
+|---|---|---|
+| `0x08087290` | **`KNpc::SetAura(this, id)`**: `id − 1 > 0x7ce` → **xoá** (`+0x244 = 0`, `+0x4c = 2`); `cấp = GetCurrentLevel(sổ +0x248, id, 1)` phải 1..63; bản `[0x8bc99e0 + ((id<<6) + cấp + 0x22ab0 − 1)·4]` (không có → `InstanceSkill 0x080E6E10`) phải `IsAura` (vtable+0x4c); → `+0x244 = id`, **`0x08079240(this, bản+0x64 StateSpecialId, bản+0x68 StatePriority)`** (thêm biểu tượng); không đạt → xoá như trên | `KSubWorld::set_aura` |
+| `0x080DC460` (ô **111** của ctor `0x080DA560`: **ô = (disp − 0x18)/8**, disp 0x390 — đính chính công thức §16: NpcSkillCommand ở disp 0x280 là ô **77**, không phải 80) | gói client `{byte 0x6f, dword id}`: npc của người chơi hợp lệ; **`Player+0x375 ≠ 0` (Lua `ForbitAura`) → `SetAura(npc, 0)`**; không → `SetAura(npc, id)` | `C2G_SET_AURA` → `set_aura_request` |
+| `0x0808BB83` (trong khối `% 10` của `ProcessState`, sau boss `+0x181c`) | `+0x244 ≠ 0` → `find_same` ô ≤ 79 và **`ô+0x28 ReqLevel ≤ cấp npc +0x20`** → `0x080873B0(npc, +0x244, GetCurrentLevel(+0x244, 1))` | `process_state` |
+| `0x080873B0` | `(npc, id, cấp)`: `cấp ≤ 0` hay `+0x19a0` ẩn → thôi; `con = bản(id, cấp)+0xb8` (ChildSkillId); **gói 0x85** 25 byte `{0x85, −1, con, id npc, id npc, cấp, byte 0}` → `0x0807A870(…, 0x19, 0x64, 0)` khi `con > 0` (người chơi: chỉ khi **`Player+0x388 == 1`**, Lua `ForbitSyncAura`); `IsAura` → `InstanceSkill(con, cấp)` → `+0x118 = 1; Cast(con, npc+4, x, y, 0, 0, 0); +0x118 = 0` (`+0x118` → `KMissleSet::Add` tham số 5 → `+0x168`, bị mẫu đè — không tác dụng) | `cast_skill_effect` (không gói 0x85: đạn con đã đồng bộ qua `G2C_MISSLE`) |
+| `0x08087160` | **dựng lại 6 biểu tượng** (`+0x54`, `+0x50 = 6`, `+0x4c = 1`): người chơi → `0x08079240(Player+0x7dec, 100)`; `+0x244` ở cấp 1..63 → biểu tượng của bản hào quang; rồi mỗi nút trạng thái `+0x234` (`+0x164/+0x168`) | `rebuild_state_icons` (chưa có `Player+0x7dec`) |
+| `0x0808BF5C` (`KNpc::Activate 0x0808BE80`) | mỗi khung: `+0x4c > 1` → `0x08087160`; `+0x4c ≠ 0` → **`0x08079F60`** | vòng tick (`state_flag`) |
+| `0x08079F60` | **gói 0x7a** 11 byte `{0x7a, 6 byte biểu tượng (`+0x54 + i·8`; người chơi: 0 trừ khi `+0x388 == 1`), dword id npc}` → người chơi trong 100 ô (`0x080E1C80`, vtable+0x2c); rồi `+0x4c ≤ 1 → 0` | `emit_state_icons` → `G2C_STATE_ICONS 2125` |
+| `0x0809E054` / `0x08105879` | npc từ mẫu: `SetNpcSkill(sổ, 5, Skill5, Level5)` rồi `SetAura(npc, Skill5)` (ô 5 = hào quang của quái); Lua `SetNpcAuraSkill(idx, id)` `0x081057B0` | chưa (ô 5 của mẫu, chờ quy ước chỉ số npc) |
+| `0x08111560` Lua `ForbitAura(n)` | `Player+0x375 = (n ≠ 0)`; cấm → `SetAura(npc, 0)` | `l_ForbitAura` |
+| `0x0810CC10` Lua `ForbitSyncAura(n)` | `Player+0x388 = 0` khi `n ≠ 0`, 1 khi 0 (`0x08079F60` gửi lại) | `l_ForbitSyncAura` |
+
+Zone: `KNpc::aura_skill_id`, `KPlayer::forbid_aura / sync_aura`, `set_aura` / `set_aura_request` / `cast_skill_effect` / `rebuild_state_icons` /
+`emit_state_icons` (`KNpc.cpp`, `KSubWorld.cpp`), test `[command][aura]`. Sổ đánh lùi cũ ghi `+0x244` là "kỹ năng vũ khí bị động" — **sai**: là hào quang đang bật.
+Client 2.0: `CLIENT-2.0.md` §13.

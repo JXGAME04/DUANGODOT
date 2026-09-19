@@ -2738,6 +2738,50 @@ func (x *CastSkillReq) GetSeq() uint32 {
 	return 0
 }
 
+type SetAuraReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SkillId       uint32                 `protobuf:"varint,1,opt,name=skill_id,json=skillId,proto3" json:"skill_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetAuraReq) Reset() {
+	*x = SetAuraReq{}
+	mi := &file_jx_client_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetAuraReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetAuraReq) ProtoMessage() {}
+
+func (x *SetAuraReq) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetAuraReq.ProtoReflect.Descriptor instead.
+func (*SetAuraReq) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *SetAuraReq) GetSkillId() uint32 {
+	if x != nil {
+		return x.SkillId
+	}
+	return 0
+}
+
 type SkillDescReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SkillId       uint32                 `protobuf:"varint,1,opt,name=skill_id,json=skillId,proto3" json:"skill_id,omitempty"`
@@ -2748,7 +2792,7 @@ type SkillDescReq struct {
 
 func (x *SkillDescReq) Reset() {
 	*x = SkillDescReq{}
-	mi := &file_jx_client_proto_msgTypes[38]
+	mi := &file_jx_client_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2760,7 +2804,7 @@ func (x *SkillDescReq) String() string {
 func (*SkillDescReq) ProtoMessage() {}
 
 func (x *SkillDescReq) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[38]
+	mi := &file_jx_client_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2773,7 +2817,7 @@ func (x *SkillDescReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillDescReq.ProtoReflect.Descriptor instead.
 func (*SkillDescReq) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{38}
+	return file_jx_client_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *SkillDescReq) GetSkillId() uint32 {
@@ -2799,7 +2843,7 @@ type ReviveReq struct {
 
 func (x *ReviveReq) Reset() {
 	*x = ReviveReq{}
-	mi := &file_jx_client_proto_msgTypes[39]
+	mi := &file_jx_client_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2811,7 +2855,7 @@ func (x *ReviveReq) String() string {
 func (*ReviveReq) ProtoMessage() {}
 
 func (x *ReviveReq) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[39]
+	mi := &file_jx_client_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2824,7 +2868,7 @@ func (x *ReviveReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviveReq.ProtoReflect.Descriptor instead.
 func (*ReviveReq) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{39}
+	return file_jx_client_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ReviveReq) GetSeq() uint32 {
@@ -2844,7 +2888,7 @@ type RideReq struct {
 
 func (x *RideReq) Reset() {
 	*x = RideReq{}
-	mi := &file_jx_client_proto_msgTypes[40]
+	mi := &file_jx_client_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2856,7 +2900,7 @@ func (x *RideReq) String() string {
 func (*RideReq) ProtoMessage() {}
 
 func (x *RideReq) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[40]
+	mi := &file_jx_client_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2869,7 +2913,7 @@ func (x *RideReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RideReq.ProtoReflect.Descriptor instead.
 func (*RideReq) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{40}
+	return file_jx_client_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *RideReq) GetOn() bool {
@@ -2900,7 +2944,7 @@ type SkillLevelSync struct {
 
 func (x *SkillLevelSync) Reset() {
 	*x = SkillLevelSync{}
-	mi := &file_jx_client_proto_msgTypes[41]
+	mi := &file_jx_client_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2912,7 +2956,7 @@ func (x *SkillLevelSync) String() string {
 func (*SkillLevelSync) ProtoMessage() {}
 
 func (x *SkillLevelSync) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[41]
+	mi := &file_jx_client_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2925,7 +2969,7 @@ func (x *SkillLevelSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillLevelSync.ProtoReflect.Descriptor instead.
 func (*SkillLevelSync) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{41}
+	return file_jx_client_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SkillLevelSync) GetSkillId() uint32 {
@@ -2987,7 +3031,7 @@ type SkillEntry struct {
 
 func (x *SkillEntry) Reset() {
 	*x = SkillEntry{}
-	mi := &file_jx_client_proto_msgTypes[42]
+	mi := &file_jx_client_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2999,7 +3043,7 @@ func (x *SkillEntry) String() string {
 func (*SkillEntry) ProtoMessage() {}
 
 func (x *SkillEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[42]
+	mi := &file_jx_client_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3012,7 +3056,7 @@ func (x *SkillEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillEntry.ProtoReflect.Descriptor instead.
 func (*SkillEntry) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{42}
+	return file_jx_client_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *SkillEntry) GetSkillId() uint32 {
@@ -3088,7 +3132,7 @@ type SkillListSync struct {
 
 func (x *SkillListSync) Reset() {
 	*x = SkillListSync{}
-	mi := &file_jx_client_proto_msgTypes[43]
+	mi := &file_jx_client_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3100,7 +3144,7 @@ func (x *SkillListSync) String() string {
 func (*SkillListSync) ProtoMessage() {}
 
 func (x *SkillListSync) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[43]
+	mi := &file_jx_client_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3113,7 +3157,7 @@ func (x *SkillListSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillListSync.ProtoReflect.Descriptor instead.
 func (*SkillListSync) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{43}
+	return file_jx_client_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *SkillListSync) GetSkills() []*SkillEntry {
@@ -3140,7 +3184,7 @@ type SkillForbidSync struct {
 
 func (x *SkillForbidSync) Reset() {
 	*x = SkillForbidSync{}
-	mi := &file_jx_client_proto_msgTypes[44]
+	mi := &file_jx_client_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3152,7 +3196,7 @@ func (x *SkillForbidSync) String() string {
 func (*SkillForbidSync) ProtoMessage() {}
 
 func (x *SkillForbidSync) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[44]
+	mi := &file_jx_client_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3165,7 +3209,7 @@ func (x *SkillForbidSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillForbidSync.ProtoReflect.Descriptor instead.
 func (*SkillForbidSync) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{44}
+	return file_jx_client_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *SkillForbidSync) GetSkillId() uint32 {
@@ -3232,7 +3276,7 @@ type PlayerAttribSync struct {
 
 func (x *PlayerAttribSync) Reset() {
 	*x = PlayerAttribSync{}
-	mi := &file_jx_client_proto_msgTypes[45]
+	mi := &file_jx_client_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3244,7 +3288,7 @@ func (x *PlayerAttribSync) String() string {
 func (*PlayerAttribSync) ProtoMessage() {}
 
 func (x *PlayerAttribSync) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[45]
+	mi := &file_jx_client_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3257,7 +3301,7 @@ func (x *PlayerAttribSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerAttribSync.ProtoReflect.Descriptor instead.
 func (*PlayerAttribSync) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{45}
+	return file_jx_client_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *PlayerAttribSync) GetLevel() uint32 {
@@ -3538,7 +3582,7 @@ type EntityCamp struct {
 
 func (x *EntityCamp) Reset() {
 	*x = EntityCamp{}
-	mi := &file_jx_client_proto_msgTypes[46]
+	mi := &file_jx_client_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3550,7 +3594,7 @@ func (x *EntityCamp) String() string {
 func (*EntityCamp) ProtoMessage() {}
 
 func (x *EntityCamp) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[46]
+	mi := &file_jx_client_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3563,7 +3607,7 @@ func (x *EntityCamp) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityCamp.ProtoReflect.Descriptor instead.
 func (*EntityCamp) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{46}
+	return file_jx_client_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *EntityCamp) GetEntityId() uint64 {
@@ -3602,7 +3646,7 @@ type PlayerFaction struct {
 
 func (x *PlayerFaction) Reset() {
 	*x = PlayerFaction{}
-	mi := &file_jx_client_proto_msgTypes[47]
+	mi := &file_jx_client_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3614,7 +3658,7 @@ func (x *PlayerFaction) String() string {
 func (*PlayerFaction) ProtoMessage() {}
 
 func (x *PlayerFaction) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[47]
+	mi := &file_jx_client_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3627,7 +3671,7 @@ func (x *PlayerFaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerFaction.ProtoReflect.Descriptor instead.
 func (*PlayerFaction) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{47}
+	return file_jx_client_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *PlayerFaction) GetCamp() int32 {
@@ -3671,7 +3715,7 @@ type StateAttrib struct {
 
 func (x *StateAttrib) Reset() {
 	*x = StateAttrib{}
-	mi := &file_jx_client_proto_msgTypes[48]
+	mi := &file_jx_client_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3683,7 +3727,7 @@ func (x *StateAttrib) String() string {
 func (*StateAttrib) ProtoMessage() {}
 
 func (x *StateAttrib) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[48]
+	mi := &file_jx_client_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3696,7 +3740,7 @@ func (x *StateAttrib) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StateAttrib.ProtoReflect.Descriptor instead.
 func (*StateAttrib) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{48}
+	return file_jx_client_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *StateAttrib) GetType() int32 {
@@ -3745,7 +3789,7 @@ type EntityState struct {
 
 func (x *EntityState) Reset() {
 	*x = EntityState{}
-	mi := &file_jx_client_proto_msgTypes[49]
+	mi := &file_jx_client_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3757,7 +3801,7 @@ func (x *EntityState) String() string {
 func (*EntityState) ProtoMessage() {}
 
 func (x *EntityState) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[49]
+	mi := &file_jx_client_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3770,7 +3814,7 @@ func (x *EntityState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityState.ProtoReflect.Descriptor instead.
 func (*EntityState) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{49}
+	return file_jx_client_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *EntityState) GetEntityId() uint64 {
@@ -3835,7 +3879,7 @@ type SkillDescAttrib struct {
 
 func (x *SkillDescAttrib) Reset() {
 	*x = SkillDescAttrib{}
-	mi := &file_jx_client_proto_msgTypes[50]
+	mi := &file_jx_client_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3847,7 +3891,7 @@ func (x *SkillDescAttrib) String() string {
 func (*SkillDescAttrib) ProtoMessage() {}
 
 func (x *SkillDescAttrib) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[50]
+	mi := &file_jx_client_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3860,7 +3904,7 @@ func (x *SkillDescAttrib) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillDescAttrib.ProtoReflect.Descriptor instead.
 func (*SkillDescAttrib) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{50}
+	return file_jx_client_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *SkillDescAttrib) GetGroup() int32 {
@@ -3908,7 +3952,7 @@ type SkillDescAppend struct {
 
 func (x *SkillDescAppend) Reset() {
 	*x = SkillDescAppend{}
-	mi := &file_jx_client_proto_msgTypes[51]
+	mi := &file_jx_client_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3920,7 +3964,7 @@ func (x *SkillDescAppend) String() string {
 func (*SkillDescAppend) ProtoMessage() {}
 
 func (x *SkillDescAppend) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[51]
+	mi := &file_jx_client_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3933,7 +3977,7 @@ func (x *SkillDescAppend) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillDescAppend.ProtoReflect.Descriptor instead.
 func (*SkillDescAppend) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{51}
+	return file_jx_client_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SkillDescAppend) GetSkillId() int32 {
@@ -3962,7 +4006,7 @@ type SkillDescRelated struct {
 
 func (x *SkillDescRelated) Reset() {
 	*x = SkillDescRelated{}
-	mi := &file_jx_client_proto_msgTypes[52]
+	mi := &file_jx_client_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3974,7 +4018,7 @@ func (x *SkillDescRelated) String() string {
 func (*SkillDescRelated) ProtoMessage() {}
 
 func (x *SkillDescRelated) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[52]
+	mi := &file_jx_client_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3987,7 +4031,7 @@ func (x *SkillDescRelated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillDescRelated.ProtoReflect.Descriptor instead.
 func (*SkillDescRelated) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{52}
+	return file_jx_client_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *SkillDescRelated) GetSkillId() int32 {
@@ -4033,7 +4077,7 @@ type SkillDescLevel struct {
 
 func (x *SkillDescLevel) Reset() {
 	*x = SkillDescLevel{}
-	mi := &file_jx_client_proto_msgTypes[53]
+	mi := &file_jx_client_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4045,7 +4089,7 @@ func (x *SkillDescLevel) String() string {
 func (*SkillDescLevel) ProtoMessage() {}
 
 func (x *SkillDescLevel) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[53]
+	mi := &file_jx_client_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4058,7 +4102,7 @@ func (x *SkillDescLevel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillDescLevel.ProtoReflect.Descriptor instead.
 func (*SkillDescLevel) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{53}
+	return file_jx_client_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *SkillDescLevel) GetLevel() uint32 {
@@ -4110,6 +4154,58 @@ func (x *SkillDescLevel) GetRelated() []*SkillDescRelated {
 	return nil
 }
 
+type EntityStateIcons struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EntityId      uint64                 `protobuf:"varint,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"` // over an npc (an aura's, the states'; a player's are blank unless its sync_aura), sorted by priority toward the end
+	Icons         []uint32               `protobuf:"varint,2,rep,packed,name=icons,proto3" json:"icons,omitempty"`                // six cells, 0 = empty
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EntityStateIcons) Reset() {
+	*x = EntityStateIcons{}
+	mi := &file_jx_client_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EntityStateIcons) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EntityStateIcons) ProtoMessage() {}
+
+func (x *EntityStateIcons) ProtoReflect() protoreflect.Message {
+	mi := &file_jx_client_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EntityStateIcons.ProtoReflect.Descriptor instead.
+func (*EntityStateIcons) Descriptor() ([]byte, []int) {
+	return file_jx_client_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *EntityStateIcons) GetEntityId() uint64 {
+	if x != nil {
+		return x.EntityId
+	}
+	return 0
+}
+
+func (x *EntityStateIcons) GetIcons() []uint32 {
+	if x != nil {
+		return x.Icons
+	}
+	return nil
+}
+
 type MissleSync struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Index         uint32                 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`                       // the slot of KMissleSet: the key of a missile while it lives
@@ -4140,7 +4236,7 @@ type MissleSync struct {
 
 func (x *MissleSync) Reset() {
 	*x = MissleSync{}
-	mi := &file_jx_client_proto_msgTypes[54]
+	mi := &file_jx_client_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4152,7 +4248,7 @@ func (x *MissleSync) String() string {
 func (*MissleSync) ProtoMessage() {}
 
 func (x *MissleSync) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[54]
+	mi := &file_jx_client_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4165,7 +4261,7 @@ func (x *MissleSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MissleSync.ProtoReflect.Descriptor instead.
 func (*MissleSync) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{54}
+	return file_jx_client_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *MissleSync) GetIndex() uint32 {
@@ -4339,7 +4435,7 @@ type SkillDesc struct {
 
 func (x *SkillDesc) Reset() {
 	*x = SkillDesc{}
-	mi := &file_jx_client_proto_msgTypes[55]
+	mi := &file_jx_client_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4351,7 +4447,7 @@ func (x *SkillDesc) String() string {
 func (*SkillDesc) ProtoMessage() {}
 
 func (x *SkillDesc) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[55]
+	mi := &file_jx_client_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4364,7 +4460,7 @@ func (x *SkillDesc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkillDesc.ProtoReflect.Descriptor instead.
 func (*SkillDesc) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{55}
+	return file_jx_client_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SkillDesc) GetSkillId() uint32 {
@@ -4446,7 +4542,7 @@ type ChangeMap struct {
 
 func (x *ChangeMap) Reset() {
 	*x = ChangeMap{}
-	mi := &file_jx_client_proto_msgTypes[56]
+	mi := &file_jx_client_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4458,7 +4554,7 @@ func (x *ChangeMap) String() string {
 func (*ChangeMap) ProtoMessage() {}
 
 func (x *ChangeMap) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[56]
+	mi := &file_jx_client_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4471,7 +4567,7 @@ func (x *ChangeMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeMap.ProtoReflect.Descriptor instead.
 func (*ChangeMap) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{56}
+	return file_jx_client_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ChangeMap) GetMapId() uint32 {
@@ -4520,7 +4616,7 @@ type ChatMsg struct {
 
 func (x *ChatMsg) Reset() {
 	*x = ChatMsg{}
-	mi := &file_jx_client_proto_msgTypes[57]
+	mi := &file_jx_client_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4532,7 +4628,7 @@ func (x *ChatMsg) String() string {
 func (*ChatMsg) ProtoMessage() {}
 
 func (x *ChatMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[57]
+	mi := &file_jx_client_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4545,7 +4641,7 @@ func (x *ChatMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatMsg.ProtoReflect.Descriptor instead.
 func (*ChatMsg) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{57}
+	return file_jx_client_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ChatMsg) GetEntityId() uint64 {
@@ -4578,7 +4674,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_jx_client_proto_msgTypes[58]
+	mi := &file_jx_client_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4590,7 +4686,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[58]
+	mi := &file_jx_client_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4603,7 +4699,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{58}
+	return file_jx_client_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *Ping) GetClientMs() uint64 {
@@ -4624,7 +4720,7 @@ type Pong struct {
 
 func (x *Pong) Reset() {
 	*x = Pong{}
-	mi := &file_jx_client_proto_msgTypes[59]
+	mi := &file_jx_client_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4636,7 +4732,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[59]
+	mi := &file_jx_client_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4649,7 +4745,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{59}
+	return file_jx_client_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *Pong) GetClientMs() uint64 {
@@ -4683,7 +4779,7 @@ type Kick struct {
 
 func (x *Kick) Reset() {
 	*x = Kick{}
-	mi := &file_jx_client_proto_msgTypes[60]
+	mi := &file_jx_client_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4695,7 +4791,7 @@ func (x *Kick) String() string {
 func (*Kick) ProtoMessage() {}
 
 func (x *Kick) ProtoReflect() protoreflect.Message {
-	mi := &file_jx_client_proto_msgTypes[60]
+	mi := &file_jx_client_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4708,7 +4804,7 @@ func (x *Kick) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kick.ProtoReflect.Descriptor instead.
 func (*Kick) Descriptor() ([]byte, []int) {
-	return file_jx_client_proto_rawDescGZIP(), []int{60}
+	return file_jx_client_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *Kick) GetReason() Result {
@@ -4943,7 +5039,10 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x06target\x18\x02 \x01(\x04R\x06target\x12\f\n" +
 	"\x01x\x18\x03 \x01(\x05R\x01x\x12\f\n" +
 	"\x01y\x18\x04 \x01(\x05R\x01y\x12\x10\n" +
-	"\x03seq\x18\x05 \x01(\rR\x03seq\"?\n" +
+	"\x03seq\x18\x05 \x01(\rR\x03seq\"'\n" +
+	"\n" +
+	"SetAuraReq\x12\x19\n" +
+	"\bskill_id\x18\x01 \x01(\rR\askillId\"?\n" +
 	"\fSkillDescReq\x12\x19\n" +
 	"\bskill_id\x18\x01 \x01(\rR\askillId\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\rR\x05level\"\x1d\n" +
@@ -5074,7 +5173,10 @@ const file_jx_client_proto_rawDesc = "" +
 	"\rattack_radius\x18\x04 \x01(\x05R\fattackRadius\x120\n" +
 	"\aattribs\x18\x05 \x03(\v2\x16.jx.pb.SkillDescAttribR\aattribs\x120\n" +
 	"\aappends\x18\x06 \x03(\v2\x16.jx.pb.SkillDescAppendR\aappends\x121\n" +
-	"\arelated\x18\a \x03(\v2\x17.jx.pb.SkillDescRelatedR\arelated\"\xc9\x04\n" +
+	"\arelated\x18\a \x03(\v2\x17.jx.pb.SkillDescRelatedR\arelated\"E\n" +
+	"\x10EntityStateIcons\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x12\x14\n" +
+	"\x05icons\x18\x02 \x03(\rR\x05icons\"\xc9\x04\n" +
 	"\n" +
 	"MissleSync\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x1b\n" +
@@ -5157,7 +5259,7 @@ func file_jx_client_proto_rawDescGZIP() []byte {
 }
 
 var file_jx_client_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
+var file_jx_client_proto_msgTypes = make([]protoimpl.MessageInfo, 63)
 var file_jx_client_proto_goTypes = []any{
 	(Action)(0),              // 0: jx.pb.Action
 	(PlayerAttribute)(0),     // 1: jx.pb.PlayerAttribute
@@ -5199,73 +5301,75 @@ var file_jx_client_proto_goTypes = []any{
 	(*AddPointReq)(nil),      // 37: jx.pb.AddPointReq
 	(*AddSkillPointReq)(nil), // 38: jx.pb.AddSkillPointReq
 	(*CastSkillReq)(nil),     // 39: jx.pb.CastSkillReq
-	(*SkillDescReq)(nil),     // 40: jx.pb.SkillDescReq
-	(*ReviveReq)(nil),        // 41: jx.pb.ReviveReq
-	(*RideReq)(nil),          // 42: jx.pb.RideReq
-	(*SkillLevelSync)(nil),   // 43: jx.pb.SkillLevelSync
-	(*SkillEntry)(nil),       // 44: jx.pb.SkillEntry
-	(*SkillListSync)(nil),    // 45: jx.pb.SkillListSync
-	(*SkillForbidSync)(nil),  // 46: jx.pb.SkillForbidSync
-	(*PlayerAttribSync)(nil), // 47: jx.pb.PlayerAttribSync
-	(*EntityCamp)(nil),       // 48: jx.pb.EntityCamp
-	(*PlayerFaction)(nil),    // 49: jx.pb.PlayerFaction
-	(*StateAttrib)(nil),      // 50: jx.pb.StateAttrib
-	(*EntityState)(nil),      // 51: jx.pb.EntityState
-	(*SkillDescAttrib)(nil),  // 52: jx.pb.SkillDescAttrib
-	(*SkillDescAppend)(nil),  // 53: jx.pb.SkillDescAppend
-	(*SkillDescRelated)(nil), // 54: jx.pb.SkillDescRelated
-	(*SkillDescLevel)(nil),   // 55: jx.pb.SkillDescLevel
-	(*MissleSync)(nil),       // 56: jx.pb.MissleSync
-	(*SkillDesc)(nil),        // 57: jx.pb.SkillDesc
-	(*ChangeMap)(nil),        // 58: jx.pb.ChangeMap
-	(*ChatMsg)(nil),          // 59: jx.pb.ChatMsg
-	(*Ping)(nil),             // 60: jx.pb.Ping
-	(*Pong)(nil),             // 61: jx.pb.Pong
-	(*Kick)(nil),             // 62: jx.pb.Kick
-	(Result)(0),              // 63: jx.pb.Result
-	(*Vec2)(nil),             // 64: jx.pb.Vec2
-	(EntityType)(0),          // 65: jx.pb.EntityType
-	(*ItemMagic)(nil),        // 66: jx.pb.ItemMagic
+	(*SetAuraReq)(nil),       // 40: jx.pb.SetAuraReq
+	(*SkillDescReq)(nil),     // 41: jx.pb.SkillDescReq
+	(*ReviveReq)(nil),        // 42: jx.pb.ReviveReq
+	(*RideReq)(nil),          // 43: jx.pb.RideReq
+	(*SkillLevelSync)(nil),   // 44: jx.pb.SkillLevelSync
+	(*SkillEntry)(nil),       // 45: jx.pb.SkillEntry
+	(*SkillListSync)(nil),    // 46: jx.pb.SkillListSync
+	(*SkillForbidSync)(nil),  // 47: jx.pb.SkillForbidSync
+	(*PlayerAttribSync)(nil), // 48: jx.pb.PlayerAttribSync
+	(*EntityCamp)(nil),       // 49: jx.pb.EntityCamp
+	(*PlayerFaction)(nil),    // 50: jx.pb.PlayerFaction
+	(*StateAttrib)(nil),      // 51: jx.pb.StateAttrib
+	(*EntityState)(nil),      // 52: jx.pb.EntityState
+	(*SkillDescAttrib)(nil),  // 53: jx.pb.SkillDescAttrib
+	(*SkillDescAppend)(nil),  // 54: jx.pb.SkillDescAppend
+	(*SkillDescRelated)(nil), // 55: jx.pb.SkillDescRelated
+	(*SkillDescLevel)(nil),   // 56: jx.pb.SkillDescLevel
+	(*EntityStateIcons)(nil), // 57: jx.pb.EntityStateIcons
+	(*MissleSync)(nil),       // 58: jx.pb.MissleSync
+	(*SkillDesc)(nil),        // 59: jx.pb.SkillDesc
+	(*ChangeMap)(nil),        // 60: jx.pb.ChangeMap
+	(*ChatMsg)(nil),          // 61: jx.pb.ChatMsg
+	(*Ping)(nil),             // 62: jx.pb.Ping
+	(*Pong)(nil),             // 63: jx.pb.Pong
+	(*Kick)(nil),             // 64: jx.pb.Kick
+	(Result)(0),              // 65: jx.pb.Result
+	(*Vec2)(nil),             // 66: jx.pb.Vec2
+	(EntityType)(0),          // 67: jx.pb.EntityType
+	(*ItemMagic)(nil),        // 68: jx.pb.ItemMagic
 }
 var file_jx_client_proto_depIdxs = []int32{
-	63, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
-	63, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
+	65, // 0: jx.pb.LoginRes.result:type_name -> jx.pb.Result
+	65, // 1: jx.pb.CharListRes.result:type_name -> jx.pb.Result
 	6,  // 2: jx.pb.CharListRes.chars:type_name -> jx.pb.CharSummary
-	63, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
+	65, // 3: jx.pb.CharCreateRes.result:type_name -> jx.pb.Result
 	6,  // 4: jx.pb.CharCreateRes.summary:type_name -> jx.pb.CharSummary
-	63, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
-	64, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
-	64, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
+	65, // 5: jx.pb.EnterWorldRes.result:type_name -> jx.pb.Result
+	66, // 6: jx.pb.EnterWorldRes.pos:type_name -> jx.pb.Vec2
+	66, // 7: jx.pb.MoveReq.target:type_name -> jx.pb.Vec2
 	0,  // 8: jx.pb.EntityAction.action:type_name -> jx.pb.Action
-	64, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
-	64, // 10: jx.pb.EntityAction.aim:type_name -> jx.pb.Vec2
-	65, // 11: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
-	64, // 12: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
-	64, // 13: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
-	64, // 14: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
+	66, // 9: jx.pb.EntityAction.pos:type_name -> jx.pb.Vec2
+	66, // 10: jx.pb.EntityAction.aim:type_name -> jx.pb.Vec2
+	67, // 11: jx.pb.EntityInfo.entity_type:type_name -> jx.pb.EntityType
+	66, // 12: jx.pb.EntityInfo.pos:type_name -> jx.pb.Vec2
+	66, // 13: jx.pb.EntityInfo.target:type_name -> jx.pb.Vec2
+	66, // 14: jx.pb.EntityInfo.path:type_name -> jx.pb.Vec2
 	0,  // 15: jx.pb.EntityInfo.doing:type_name -> jx.pb.Action
 	18, // 16: jx.pb.EntitySpawn.entities:type_name -> jx.pb.EntityInfo
-	64, // 17: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
-	64, // 18: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
-	64, // 19: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
+	66, // 17: jx.pb.EntityMove.pos:type_name -> jx.pb.Vec2
+	66, // 18: jx.pb.EntityMove.target:type_name -> jx.pb.Vec2
+	66, // 19: jx.pb.EntityMove.path:type_name -> jx.pb.Vec2
 	23, // 20: jx.pb.EntityMoves.moves:type_name -> jx.pb.EntityMove
-	66, // 21: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
-	66, // 22: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
-	66, // 23: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
+	68, // 21: jx.pb.ItemView.base:type_name -> jx.pb.ItemMagic
+	68, // 22: jx.pb.ItemView.require:type_name -> jx.pb.ItemMagic
+	68, // 23: jx.pb.ItemView.magic:type_name -> jx.pb.ItemMagic
 	26, // 24: jx.pb.InventorySync.items:type_name -> jx.pb.ItemView
 	26, // 25: jx.pb.ItemAdd.item:type_name -> jx.pb.ItemView
-	63, // 26: jx.pb.ItemResult.result:type_name -> jx.pb.Result
+	65, // 26: jx.pb.ItemResult.result:type_name -> jx.pb.Result
 	1,  // 27: jx.pb.AddPointReq.attribute:type_name -> jx.pb.PlayerAttribute
-	44, // 28: jx.pb.SkillListSync.skills:type_name -> jx.pb.SkillEntry
-	50, // 29: jx.pb.EntityState.states:type_name -> jx.pb.StateAttrib
-	52, // 30: jx.pb.SkillDescRelated.attribs:type_name -> jx.pb.SkillDescAttrib
-	52, // 31: jx.pb.SkillDescLevel.attribs:type_name -> jx.pb.SkillDescAttrib
-	53, // 32: jx.pb.SkillDescLevel.appends:type_name -> jx.pb.SkillDescAppend
-	54, // 33: jx.pb.SkillDescLevel.related:type_name -> jx.pb.SkillDescRelated
-	55, // 34: jx.pb.SkillDesc.cur:type_name -> jx.pb.SkillDescLevel
-	55, // 35: jx.pb.SkillDesc.next:type_name -> jx.pb.SkillDescLevel
-	64, // 36: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
-	63, // 37: jx.pb.Kick.reason:type_name -> jx.pb.Result
+	45, // 28: jx.pb.SkillListSync.skills:type_name -> jx.pb.SkillEntry
+	51, // 29: jx.pb.EntityState.states:type_name -> jx.pb.StateAttrib
+	53, // 30: jx.pb.SkillDescRelated.attribs:type_name -> jx.pb.SkillDescAttrib
+	53, // 31: jx.pb.SkillDescLevel.attribs:type_name -> jx.pb.SkillDescAttrib
+	54, // 32: jx.pb.SkillDescLevel.appends:type_name -> jx.pb.SkillDescAppend
+	55, // 33: jx.pb.SkillDescLevel.related:type_name -> jx.pb.SkillDescRelated
+	56, // 34: jx.pb.SkillDesc.cur:type_name -> jx.pb.SkillDescLevel
+	56, // 35: jx.pb.SkillDesc.next:type_name -> jx.pb.SkillDescLevel
+	66, // 36: jx.pb.ChangeMap.pos:type_name -> jx.pb.Vec2
+	65, // 37: jx.pb.Kick.reason:type_name -> jx.pb.Result
 	38, // [38:38] is the sub-list for method output_type
 	38, // [38:38] is the sub-list for method input_type
 	38, // [38:38] is the sub-list for extension type_name
@@ -5286,7 +5390,7 @@ func file_jx_client_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jx_client_proto_rawDesc), len(file_jx_client_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   61,
+			NumMessages:   63,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

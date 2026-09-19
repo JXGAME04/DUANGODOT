@@ -313,6 +313,10 @@ message CastSkillReq {           // C2G_CAST_SKILL: the NpcSkillCommand packet o
   uint32 seq = 5;
 }
 
+message SetAuraReq {             // C2G_SET_AURA: the 0x6f packet {id} of KNpc::SetAura 0x005EA870 - the aura to keep casting (0 = none)
+  uint32 skill_id = 1;
+}
+
 message SkillDescReq {           // C2G_SKILL_DESC: the tip of a skill (KSkill::GetDesc of the 2.0 client needs the level script's numbers)
   uint32 skill_id = 1;
   uint32 level = 2;              // the level shown (0 = not held: the next level only, as KSkill::GetDesc with ulCurLevel 0)
@@ -469,6 +473,11 @@ message SkillDescLevel {         // what the level script left in the KSkill of 
   repeated SkillDescAttrib attribs = 5;
   repeated SkillDescAppend appends = 6;
   repeated SkillDescRelated related = 7;   // in print order: the append skills held (skill_appendskill), then the event skills ShowEvent names
+}
+
+message EntityStateIcons {       // G2C_STATE_ICONS: the 0x7a packet {0x7a, 6 icon bytes, npc id} of KNpc 0x08079F60 - the six StateSpecialId icons
+  uint64 entity_id = 1;          // over an npc (an aura's, the states'; a player's are blank unless its sync_aura), sorted by priority toward the end
+  repeated uint32 icons = 2;     // six cells, 0 = empty
 }
 
 message MissleSync {             // G2C_MISSLE: a KMissle of the zone as KMissle::Paint / KMissleRes::Draw of the old client draw it

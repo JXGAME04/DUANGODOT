@@ -322,7 +322,8 @@ void KGameServer::handle_client_packet(Gateway& gw, const frame::View& view)
     case pb::C2G_CAST_SKILL:
     case pb::C2G_REVIVE:
     case pb::C2G_RIDE:
-    case pb::C2G_SKILL_DESC: {
+    case pb::C2G_SKILL_DESC:
+    case pb::C2G_SET_AURA: {
         KCmdClientPacket cmd;
         cmd.sid = cp.sid();
         cmd.msg_id = cp.msg_id();

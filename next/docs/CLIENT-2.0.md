@@ -308,13 +308,13 @@ server chạy); client mới hỏi zone (`C2G_SKILL_DESC` → `G2C_SKILL_DESC`, 
 | `0x006FBF83` | `"\n"` + `SkillDesc (+0x114)` + `"\n\n"` (`[0x7afd6c]`) | như vậy |
 | `0x006FC022` | `_itoa(Attrib (+0x4e8))` → `GetString("SkillAttrib", số)` của `gamesetting.ini` + `"\n"` (vd 202 = "Võ công lưu phái: <color=Cyan>Quyền pháp (Ngoại công)<color>") | `skill_attrib[Attrib]` |
 | `0x006FC085` | `Attrib == 1` hoặc `2` (đánh thường): `IsMelee (+0x3c) ≠ 0` → `G_Skills_35 " (Công kích gần) \n"` else `G_Skills_36` | như vậy |
-| `0x006FC114` | `IsAura (vtable +0x4c) ≠ 0` → nhảy tới hạn chế vũ khí (không dòng cấp, không cấp kế). Không aura: lệch cấp (tham số) = 0 → `G_Skills_37 "Cấp hiện tại: %d"` + `"\n"`; ≠ 0 → `"<color=Blue>"` + `G_Skills_38 "Cấp hiện tại: %d (%d+%d)"` **(cấp hiện, cấp hiện − lệch, lệch)** + `"\n<bclr=Black><color>"`. Người gọi `0x00663FDB`: cấp = `0x006233B0(sổ +0x124, id, 1)` (cấp hiện tại **có** cộng thêm), lệch = cấp − `0x00623380(sổ, id)` (cấp đã học `+0xc` của ô) | zone gửi `held_level` (`get_current_level(id, true)`) và `level_inc` (− `get_level`); dòng 38 xanh khi ≠ 0 (B4c-5) |
+| `0x006FC114` | **`IsWeaponSkill (vtable +0x4c của KSkill client = [+0x34]) ≠ 0`** (đính chính B4d-1: bảng ảo client `0x7b50ac` là `+0x44 AttackRadius [+0x48]`, `+0x48 IsAura [+0x38]`, `+0x4c IsWeaponSkill [+0x34]` — thiếu một ô so với server; đánh thường bỏ dòng cấp) → nhảy tới hạn chế vũ khí (không dòng cấp, không cấp kế). Không aura: lệch cấp (tham số) = 0 → `G_Skills_37 "Cấp hiện tại: %d"` + `"\n"`; ≠ 0 → `"<color=Blue>"` + `G_Skills_38 "Cấp hiện tại: %d (%d+%d)"` **(cấp hiện, cấp hiện − lệch, lệch)** + `"\n<bclr=Black><color>"`. Người gọi `0x00663FDB`: cấp = `0x006233B0(sổ +0x124, id, 1)` (cấp hiện tại **có** cộng thêm), lệch = cấp − `0x00623380(sổ, id)` (cấp đã học `+0xc` của ô) | zone gửi `held_level` (`get_current_level(id, true)`) và `level_inc` (− `get_level`); dòng 38 xanh khi ≠ 0 (B4c-5) |
 | `0x006FC27F` | **`0x00602420(sổ +0x124, id)`** = con trỏ vào map `sổ+0xf14` (id → %; `0x006246C2`: khi một kỹ năng đang giữ đổi cấp, 6 ô `addskilldamage` của bản cũ trừ đi, bản mới cộng vào — đúng `KSkillList::update_enhance` của zone) → `*p ≠ 0` → `G_Skills_39 "Tăng từ kỹ năng: %d%%\n"`; `[SkillType][itoa(Attrib +0x4e8)]` (`gamesetting.ini`) = 1 hoặc 2 → `Player+0x1278 + Player+0x1148` ≠ 0 → `sprintf("%s%d%%\n", G_Skills_76 "Trang bị gồm có:", tổng)`; `0x005EC4F0(Player, id)`: id = `Player+0x12ac8` (hay id 715 khi đó là 723) → `&Player+0x12ad8` (một thuộc tính) → `KMagicDesc::GetDesc 0x0060A2B0` → `G_Skills_76` + chữ + `"\n"` | zone gửi `enhance` = `skill_list.enhance[id]` → dòng 39 (B4c-5). **Chưa**: hai trường `Player+0x1278/+0x1148` và `+0x12ac8/+0x12ad8` (gói nào ghi chưa đọc) |
 | `0x006FC473` | `IsExpSkill (+0x44)` → `0x006F7190(sổ, id)` × 100 → `G_Skills_40 "Độ tu luyện: %d%%"` | `exp_percent` của kỹ năng đang giữ |
 | `0x006FC504` → **`0x006FB140` `GetDescAboutLevel(cấp hiện)`** | `"\n"` + `+0xb30` (chuỗi cấp, thường rỗng); `+0x7a4 == 75` → `G_Skills_75 "Ngũ Hành Tương Khắc: %d%%"` với `+0x7a8`; `GetSkillCost (vtable +0x1c)` ≠ 0 → theo `SkillCostType (+0x9c)`: 0 `G_Skills_45` nội lực, 1 `G_Skills_46` thể lực, 2 `G_Skills_47` sinh lực; `GetAttackRadius (vtable +0x44)` ≠ 0 → `G_Skills_48`; **`0x006FAA00` → `0x006F82F0`**: ba nhóm thuộc tính `0x006F6E30(buf, mảng, n)` — tức thời `+0x7d8`/`+0x918`, sát thương `+0x694` 20 ô cố định, trạng thái `+0x91c`/`+0x0a5c` — mỗi mục `KMagicDesc::GetDesc 0x0060A2B0` (`[Descript][tên]`, rỗng → bỏ) + `"\n"`; rồi **`0x006FAA00(this, buf, &đếm, cờ 0)`** với `đếm = 1` (§10.1: các kỹ năng mà cấp này nêu tên), rồi 6 mục `+0x4fc` (addskilldamage `{id, %}`): id ≠ 0, % ≠ 0, có bản (`[0x1e59dc0 + id<<8]` hay `GetSkill(id, 1)`), tên (vtable+8) không rỗng và **`ShowAddition (+0x4f0) ≠ 0` của kỹ năng đích** → `G_Skills_49 "Tăng cho kỹ năng %s: %d%%"` | `level_lines(cur)`: chi phí/phạm vi/thuộc tính (zone gửi `attribs` nhóm 0/1/2 + `related` + `appends`; client lọc `ShowAddition` bằng `skills.json`); chưa: `+0xb30`, `G_Skills_75` |
 | `0x006FC527` | `EqtLimit (+0xac)`: −2 → bỏ; ≥ 0 → khoá `"%d"`; < 0 → `"F%d"` (−1 → `F1` Tay không) → `GetString("WeaponLimit", khoá)` → `G_Skills_41 "Hạn chế vũ khí:"` + chữ + `"\n"` | như vậy (khoá chữ thường) |
 | `0x006FC617` | `HorseLimit (+0xb0)`: 1 → `G_Skills_42`, 2 → `G_Skills_43` | như vậy |
-| `0x006FC697` | không aura, tham số "cấp kế" và có kỹ năng cấp kế → `G_Skills_44 "\n<color=Red> Đẳng cấp tiếp theo \n"` + `0x006FB140(cấp kế)` | `has_next` → `level_lines(next)` |
+| `0x006FC697` | không phải kỹ năng vũ khí (vtable +0x4c, xem trên), tham số "cấp kế" và có kỹ năng cấp kế → `G_Skills_44 "\n<color=Red> Đẳng cấp tiếp theo \n"` + `0x006FB140(cấp kế)` | `has_next` → `level_lines(next)` |
 | `0x0060A2B0` (`KMagicDesc::GetDesc` 2.0) | `GetString("Descript", tên thuộc tính)`; duyệt `#`: dấu `+`/`~` (`0x00608BE0`), chữ số 1..9 → `0x00608C00`: `idx = c − '1'`, giá trị `value[idx % 3]`, `idx/3` = 0 nguyên, 1 `>> 8`, 2 `& 0xff`; chữ cái → `0x0060A110` (d/f/k/s/m/x/l như `KMagicDesc.cpp` cũ; mỗi dấu **luôn 4 ký tự** nên `[#l1]` nuốt `]`) | `KMagicDesc.describe_line` (thuần, test `test_magic_desc`) |
 
 ### 10.1 Các kỹ năng mà một cấp nêu tên — `0x006FAA00` / `0x006F7F70` (M12 lát B4c-5, đã đọc từng dòng)
@@ -424,3 +424,24 @@ của 2.0 cần mốc thời gian trong gói — không có): client bắt đầ
 | `KNpc::KnockBack 0x005EE950` | `KNpc.apply_action` nhánh `ACTION_KNOCK_BACK` |
 | `OnKnockBack 0x005EFE00` + `0x005ECEC0` | `KNpc._tick` (`_knocked`) + `KMath.knock_step` |
 | `0x005E8DB0` | `KMath.get_dir_index` |
+
+## 13. Hào quang trên client — `SetRightSkill 0x005FB280` → `KNpc::SetAura 0x005EA870` → gói 0x6f; gói 0x85 `0x00652600` (M12 lát B4d-1, đã đọc từng dòng)
+
+50 hào quang (`IsAura`) đều `LRSkill 2` — chỉ đặt được vào **chuột phải**. `SetRightSkill(id) 0x005FB280`: cấp đang giữ > 0 → `Player+0x34 = id`; bản `(id, 1)`
+(`[0x1e59dc0 + id<<8]` hay `GetSkill`) → **`vtable+0x48 IsAura`** → `0x005EA870(npc của mình, IsAura ? id : 0)`; rồi `SetGameData(4, {0x40004, id}, −2, 0)`.
+**`KNpc::SetAura 0x005EA870(id)`**: id 1..1999, cấp giữ > 0 (`0x006233B0(sổ +0x124, id, 1)`), `GetSkill(id, cấp)` `IsAura` (+0x48) → `npc+0x120 = id` (không → 0);
+**gửi `{byte 0x6f, dword id}` 5 byte** qua `[0x9bd88c]->vtable+0x10(buf, 5)` (đối tượng mạng). Đặt kỹ năng phải không phải hào quang → gửi `{0x6f, 0}` = tắt.
+Server: ô 111 `0x080DC460` (`LINUX-SERVER.md` §16.10). Gói **0x85** (server `0x080873B0`): handler `0x00652600` (`+0x218` của hàm tạo `0x0065DCB0`, ô 0x86):
+`{+1 launcher (−1), +5 kỹ năng con, +9 id npc, +0xd id npc, +0x11 cấp, +0x15 cờ}` → `GetSkill(con, cấp)` → **`KSkill::Cast` phía client `0x006FACD0`** (tự tạo đạn để
+vẽ) và `cờ == 1` → `0x005ED9F0(npc, con, cấp)` (đặt hồi chiêu `0x00623860`). Đạn của La Hán Trận (con 202 → đạn 92 "友好光环传递子弹") **không có ảnh**: hào quang chỉ
+thấy qua biểu tượng (`StateSpecialId` 45, gói 0x7a) và hiệu ứng trạng thái trên npc (`0x005EDFC0`, chưa port — B4e).
+
+Client mới: `KUiGameWindows._on_skill_clicked(id, phải)` → `Game.set_aura(IsAura ? id : 0)` (`C2G_SET_AURA`); zone thi triển kỹ năng con → `G2C_MISSLE`; biểu tượng
+6 ô → `G2C_STATE_ICONS` → `Game.entities[id].state_icons` (chưa vẽ). `--auto`: `AUTO_AURA skill=16 child=202 packets=18 spawned=3 icons=[0,0,0,45,45,52] icon_ok=true
+child_state=true` (45 hai lần: hào quang + trạng thái con cùng `StateSpecialId`, đúng như `0x08087160`).
+
+| Mã cũ / 2.0 | Client mới |
+|---|---|
+| `SetRightSkill 0x005FB280` → `KNpc::SetAura 0x005EA870` → gói 0x6f | `KUiGameWindows._on_skill_clicked` → `KProtocolProcess.set_aura` |
+| gói 0x85 → `0x00652600` → `KSkill::Cast` client | `G2C_MISSLE` (zone thi triển thật) |
+| gói 0x7a (biểu tượng) | `G2C_STATE_ICONS` → `entities[id].state_icons`, tín hiệu `state_icons_changed` |

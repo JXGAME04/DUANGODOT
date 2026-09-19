@@ -160,6 +160,12 @@ void KMapInstance::apply_client_packet(const KCmdClientPacket& cmd)
         world_.ride_request(cmd.sid, req.on(), req.seq());
         break;
     }
+    case pb::C2G_SET_AURA: {
+        pb::SetAuraReq req;
+        if (!req.ParseFromString(cmd.payload)) break;
+        world_.set_aura_request(cmd.sid, static_cast<int>(std::min<std::uint32_t>(req.skill_id(), 2000u)));
+        break;
+    }
     case pb::C2G_SKILL_DESC: {
         pb::SkillDescReq req;
         if (!req.ParseFromString(cmd.payload)) break;

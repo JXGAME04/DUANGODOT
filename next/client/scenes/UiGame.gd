@@ -12,6 +12,7 @@ const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
 const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
+const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 const GRID_CELL := 512
 
 var _entities := {}          # entity_id -> Node2D
@@ -826,6 +827,7 @@ func _auto_skills() -> void:
 			while walked_open < 4.0 and (own.is_moving() or own.scene_pos.distance_to(open_spot) > 24.0):
 				await get_tree().create_timer(0.25).timeout
 				walked_open += 0.25
+			await _auto_aura()
 			Game.chat("?gm ds SetFightState(1)")
 			await get_tree().create_timer(0.3).timeout
 			Game.cast_skill(pick, 0, int(own.scene_pos.x), int(own.scene_pos.y))
@@ -865,6 +867,62 @@ func _auto_skills() -> void:
 	var titles: Array = _windows.skills_window.branch_titles() if _windows != null and _windows.ready_ok else ["", "", ""]
 	Log.info("auto", "auto skills", {"held": Game.skills.size(), "placed": placed, "pick": pick, "cast": cast_told, "faction": Game.faction_last, "branches": titles})
 	print("AUTO_SKILLS held=%d placed=%d pick=%d cast=%s faction=%d branches=%s" % [Game.skills.size(), placed, pick, cast_told, Game.faction_last, "|".join(titles)])
+
+
+# --auto: the aura, switched on where the character stands (an open spot: the ring of La Hán Trận shows)
+func _auto_aura() -> void:
+	# an aura held (IsAura, LRSkill 2 - La Hán Trận 16 for a Shaolin): put on the right button it is switched on at the zone
+	# (KNpc::SetAura 0x005EA870 -> the 0x6f packet); every ten frames the zone casts its child at the character (0x080873B0)
+	# and its StateSpecialId icon comes back in the 0x7a packet (G2C_STATE_ICONS)
+	var aura_id := _held_aura()
+	if aura_id == 0 and Game.faction_last == 0:
+		# the first stages of add_sl hand out no aura: La Hán Trận (16) from the GM chat, the way the faction script would later
+		Game.chat("?gm ds AddMagic(16)")
+		var given := 0.0
+		while given < 2.0 and not Game.skills.has(16):
+			await get_tree().create_timer(0.25).timeout
+			given += 0.25
+		aura_id = _held_aura()
+	if aura_id > 0 and _windows != null:
+		# La Hán Trận asks for character level 30 (ReqLevel): the levels still missing through AddExp, one a call
+		var need := KUiSkillDesc._cell_int(Game.skill_row(aura_id), "ReqLevel", 0) - int(Game.player_attrib.get("level", 1))
+		for _i in maxi(need, 0):
+			Game.chat("?gm ds AddExp(2000000, 60)")
+		if need > 0:
+			await get_tree().create_timer(0.6).timeout
+		if int(Game.skills[aura_id].get("level", 0)) <= 0:
+			Game.add_skill_point(aura_id)   # handed out at level 0 (AddMagic): a point first, SetAura wants a level 1..63
+			var pointed := 0.0
+			while pointed < 2.0 and int(Game.skills[aura_id].get("level", 0)) <= 0:
+				await get_tree().create_timer(0.25).timeout
+				pointed += 0.25
+		var packets_before: int = Game.missle_packets
+		var spawned_before := _missle_spawns
+		var child := KUiSkillDesc._cell_int(Game.skill_row(aura_id), "ChildSkillId", 0)
+		_windows._on_skill_clicked(aura_id, true)
+		# the shot while the aura's child movie plays (the ring of La Hán Trận): wait for a drawn missile, at most 1.6 s
+		var aura_wait := 0.0
+		while aura_wait < 1.6 and not _missle_drawn():
+			await get_tree().create_timer(0.05).timeout
+			aura_wait += 0.05
+		await _save_screenshot("user://logs/auto_aura.png")
+		await get_tree().create_timer(maxf(1.6 - aura_wait, 0.1)).timeout
+		var own_d = Game.entities.get(Game.entity_id)
+		var icons: Array = own_d.get("state_icons", []) if own_d != null else []
+		var special := KUiSkillDesc._cell_int(Game.skill_row(aura_id), "StateSpecialId", 0)
+		print("AUTO_AURA skill=%d child=%d packets=%d spawned=%d icons=%s icon_ok=%s child_state=%s" % [aura_id, child, Game.missle_packets - packets_before, _missle_spawns - spawned_before, str(icons), icons.has(special), Game.states.has(child)])
+		_windows._on_skill_clicked(0, true)   # off again: SetRightSkill of a non-aura clears it (0x005EA8B4)
+		await get_tree().create_timer(0.2).timeout
+	else:
+		print("AUTO_AURA skill=0 (no aura held) skills=%s" % str(Game.skills.keys()))
+
+
+# --auto: the first aura (IsAura) among the skills held, 0 = none
+func _held_aura() -> int:
+	for sid in Game.skills:
+		if KUiSkillDesc._cell_int(Game.skill_row(int(sid)), "IsAura", 0) != 0:
+			return int(sid)
+	return 0
 
 
 # Saves the rendered frame (no-op in headless mode); used by tools/dev.py screenshot.

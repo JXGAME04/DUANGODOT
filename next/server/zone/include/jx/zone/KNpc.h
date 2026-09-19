@@ -260,6 +260,9 @@ struct KNpc {
     // 0x08079200 = KSubWorld::invisible_to).  KNpc::SetHide 0x0807FF80 tells the players around;
     // the cast, the death and a mount break it (0x0807D4C0 = KSubWorld::break_hide).
     int hide = 0;                     // +0x19a0
+    // +0x244 the aura kept casting (KNpc::SetAura 0x08087290: an IsAura skill held; ProcessState casts its child at
+    // the npc's own spot every GAME_UPDATE_TIME frames through 0x080873B0)
+    int aura_skill_id = 0;
     bool hide_syncing = false;        // +0x19a4: set while the "hidden" packet 0x4f goes out - invisible to itself only then
     // a npc a create-npc skill (style 4, 0x080E8770) made: KNpcSet::Add 0x0813A770 got 1 as its 7th argument, which
     // sets byte +0x1824 - KNpc::Revive 0x080833B0 then posts the 0x3e9 "remove (index, id)" node for the map's next
