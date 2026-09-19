@@ -88,3 +88,14 @@ static func life_bar(entity_type: int, life_switch: int, focus: bool) -> bool:
 	if entity_type == ENTITY_MONSTER:
 		return focus or (life_switch & 2) != 0
 	return false
+
+
+# PaintLife 0x005EADF4 .. 0x005EAE5B: the colour of the filled part by the percent - green (0, 255, 0) from 50, yellow (255, 255, 0)
+# from 25, red (255, 0, 0) below; the team mate (0x0066D070 == 8: 230, 190, 0), the PK states of KNpc+0x16e4 / +0x16e8 (pink
+# 255, 105, 180; red 255, 0, 0 / 255, 0, 64) wait for the team and PK systems
+static func life_bar_color(pct: int) -> Color:
+	if pct >= 50:
+		return Color(0.0, 1.0, 0.0)
+	if pct >= 25:
+		return Color(1.0, 1.0, 0.0)
+	return Color(1.0, 0.0, 0.0)

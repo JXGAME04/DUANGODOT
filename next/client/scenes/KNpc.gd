@@ -24,7 +24,6 @@ const ACTION_DEATH := 3
 const ACTION_REVIVE := 4
 const ACTION_JUMP := 5
 const ACTION_KNOCK_BACK := 6
-const LIFE_BAR := Vector2(40, 4)
 # the name block over a character as gamecl.exe 0x005F2DB0 sizes it with names shown: 3 (life bar) + 5, the name
 # line 12 + 2 - the Head state pictures hang from it (0x006DFAC0: z = block height + 9 - 100)
 const INFO_LINES := 22
@@ -478,11 +477,13 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, RADIUS, color)
 		draw_arc(Vector2.ZERO, RADIUS, 0, TAU, 24, Color(0, 0, 0, 0.6), 2.0)
 	# KNpc::PaintLife 0x005EACF0 as the pate loop calls it (KNpcGold.life_bar): players with the life switch, monsters hovered /
-	# targeted or with its second bit; a bar needs a maximum (0x005EAD31)
+	# targeted or with its second bit; a bar needs a maximum (0x005EAD31).  0x005EADA1..0x005EAEF4: pct = round(life x 100 / max),
+	# the filled part pct x 38 / 100 wide from x - 19, 3 tall, coloured by KNpcGold.life_bar_color; the rest to x + 19 in grey 0x808080
 	if life_max > 0 and KNpcGold.life_bar(entity_type, life_switch, hovered or is_target):
-		var top := Vector2(-LIFE_BAR.x * 0.5, -float(_pate()) + 2.0)
-		draw_rect(Rect2(top, LIFE_BAR), Color(0, 0, 0, 0.7))
-		var w := LIFE_BAR.x * clampf(float(life) / float(life_max), 0.0, 1.0)
-		draw_rect(Rect2(top, Vector2(w, LIFE_BAR.y)), Color(0.85, 0.15, 0.15) if not is_own else Color(0.2, 0.8, 0.3))
+		var pct := int(round(float(life) * 100.0 / float(life_max)))
+		var w := float(pct * 38 / 100)
+		var top := Vector2(-19.0, -float(_pate()) + 2.0)
+		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct))
+		draw_rect(Rect2(top + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
 	if is_target and not is_dead():
 		draw_arc(Vector2(0, 0), 18.0, 0, TAU, 24, Color(1.0, 0.9, 0.2, 0.8), 2.0)
