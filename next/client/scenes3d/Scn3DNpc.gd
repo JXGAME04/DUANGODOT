@@ -25,7 +25,8 @@ func setup(dir: String, file: String, scale: float, name_text: String, size_y: f
 			return false
 		pair = [doc, st]
 		_cache[full] = pair
-	model = pair[0].generate_scene(pair[1])
+	# remove_immutable_tracks = false: Godot bo track xoay hang so (vd node Bip001 cua thu) roi AnimationMixer dua xoay ve 0 -> thu nam
+	model = pair[0].generate_scene(pair[1], 30.0, false, false)
 	if model == null:
 		return false
 	model.name = "Model"

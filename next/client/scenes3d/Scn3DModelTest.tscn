@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes3d/Scn3DModelTest.gd" id="1"]
+
+[node name="ViewTest" type="Node3D"]
+script = ExtResource("1")

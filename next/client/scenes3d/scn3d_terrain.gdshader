@@ -11,7 +11,7 @@ uniform vec4 st0 = vec4(1.0, 1.0, 0.0, 0.0);
 uniform vec4 st1 = vec4(1.0, 1.0, 0.0, 0.0);
 uniform vec4 st2 = vec4(1.0, 1.0, 0.0, 0.0);
 uniform vec4 st3 = vec4(1.0, 1.0, 0.0, 0.0);
-uniform sampler2D lightmap_tex : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D lightmap_tex : filter_linear_mipmap, repeat_disable;
 uniform vec4 lm_st = vec4(1.0, 1.0, 0.0, 0.0);
 uniform float lm_gain = 1.0;
 uniform bool use_lm = true;
@@ -27,8 +27,7 @@ void fragment() {
 	if (w > 0.001) { col /= w; }
 	if (use_lm) {
 		vec2 uv2 = UV2 * lm_st.xy + lm_st.zw;
-		uv2.y = 1.0 - uv2.y;
-		col *= texture(lightmap_tex, uv2).rgb * lm_gain;
+			col *= pow(max(texture(lightmap_tex, uv2).rgb, vec3(0.0)), vec3(1.0 / 2.2)) * lm_gain;
 	}
 	ALBEDO = col;
 }

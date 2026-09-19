@@ -41,6 +41,8 @@ func _ready() -> void:
 			map_name = a.substr(6)
 		elif a == "--auto":
 			auto = true
+		elif a.begins_with("--lm_gain="):
+			lm_gain = float(a.substr(10))
 	dir = ProjectSettings.globalize_path(ASSETS3D) + "/" + map_name
 	var t0 := Time.get_ticks_msec()
 	var txt := FileAccess.get_file_as_string(dir + "/scene.json")
