@@ -6,6 +6,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -381,6 +382,7 @@ TEST_CASE("KPlayerSet reads player.json and follows the level rules", "[player][
 #include "jx/client.pb.h"
 #include "jx/log.hpp"
 #include "jx/msg.pb.h"
+#include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KSubWorld.h"
 
 namespace {
@@ -864,10 +866,14 @@ TEST_CASE("GetPKRelation 0x0807A350: the death modes and the butcher points; the
     v.cur.life = 10;
     pw.A().player.pk.state = 0;
     pw.w.take_outbox();
-    jx::zone::KMagicAttrib hit;
-    hit.type = 0;
-    hit.value[0] = hit.value[1] = 200000000;
-    pw.w.receive_damage(v, pw.A(), 0, true, &hit, false, 0, 0x1f, 0);
+    // the blow of Lua KillPlayer (l_KillPlayer): a whole damage array - ReceiveDamage reads every slot, so a lone struct
+    // left the other slots to the stack (the Debug builds of CI read a fatally strike there and B lived)
+    std::array<jx::zone::KMagicAttrib, jx::zone::kSkillAttribs> hit{};
+    hit[0] = jx::zone::KMagicAttrib{jx::zone::magic_seriesdamage_p, {100, 0, 0}};
+    hit[1] = jx::zone::KMagicAttrib{jx::zone::magic_attackrating_v, {50000, 0, 0}};
+    hit[2] = jx::zone::KMagicAttrib{jx::zone::magic_ignoredefense_p, {1, 0, 0}};
+    hit[3] = jx::zone::KMagicAttrib{0, {200000000, 0, 200000000}};
+    pw.w.receive_damage(v, pw.A(), 0, true, hit.data(), false, 0, 0x1f, 0);
     CHECK(pw.B().doing == jx::zone::KDoing::death);
     // row 0: exp 10 per mille -> 500 x 10 / 1000 = 5 (mode 2), not the plain death's 2 % of 500 = 10
     CHECK(pw.B().player.exp == 1000 - (level_exp > 99999 ? level_exp / 1000 * 10 : level_exp * 10 / 1000));

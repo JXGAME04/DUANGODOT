@@ -725,6 +725,17 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (phiên tiếp theo, phần 46) — CI đỏ ở bản Debug (ff6c73e / 943d59a / d5ae57f): test PK đưa MỘT KMagicAttrib vào ReceiveDamage
+
+- CI (`ci_jobs.py` đọc annotation công khai): `C++ Windows x64 MSVC` + `C++ Linux x64 GCC` bước `Test (Debug)` đỏ ở `GetPKRelation…`: `pw.B().doing == death`
+  (0 == 4). Nguyên nhân: test truyền `&hit` (một `KMagicAttrib`) cho `receive_damage`, hàm đọc đủ `kSkillAttribs` ô → các ô sau nằm trên stack (Release tình cờ
+  là 0, Debug là rác) → B không chết. Với mảng đủ và zero thì đòn `type 0 {2e8, 2e8, 0}` chỉ gây 1 sát thương (ô [2] mới là trần) → dùng đúng đòn của `KillPlayer`
+  (`seriesdamage_p 100`, `attackrating_v 50000`, `ignoredefense_p 1`, `{0, {2e8, 0, 2e8}}`) như `test_KPlayerTeam.cpp`.
+- **Bài học**: `receive_damage` luôn nhận `std::array<KMagicAttrib, kSkillAttribs>` — và **chạy cả `ctest --preset windows-msvc-debug`** trước khi đẩy khi có
+  test mới chạm sát thương (Release che lỗi đọc stack).
+- Kiểm: ctest Debug 249/249, Release 249/249.
+- commit: `JX NEXT: sua test PK cho ban Debug (mang du kSkillAttribs o + don KillPlayer; CI ff6c73e/943d59a do o Test (Debug))`.
+
 ### 2026-09-19 (phiên tiếp theo, phần 45) — M14 lát T2: tổ đội trên client (KUiTeamManage 队伍管理.ini, KUiInformation 提示.ini, gói 0x53/0x69 phía client)
 
 - **gamecl.exe** (đọc từng dòng, `CLIENT-2.0.md` §21.1): `KUiTeamManage::OpenWindow 0x004AE880` → `0x004ADAF0` (`%s\队伍管理.ini`) → `0x004AD930` (20 ô, offset
