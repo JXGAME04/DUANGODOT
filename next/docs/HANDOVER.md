@@ -727,7 +727,7 @@ Godot --headless --path client tests/UiCheck.tscn                              #
 - **Cách chạy**: `client3d.cmd [map x y]`; test: `--auto --auto3d [--skill=<id>:<phái> --series=n | --factions | --fxshots]`, viewer
   `Scn3D.tscn -- --auto --map=<scene> [--sfx=<tệp> | --weapons]`. e2e khi server chủ dự án đang chạy: `JX_PORT_OFFSET=1000` **và sau
   đó `python tools/dev.py start` lại** (e2e gửi CTRL_BREAK cả nhóm console → zone 19001 dừng). Sau khi gộp main: dựng lại zone
-  (`builduild_zone.cmd all`, tắt `jx_zone.exe` trước) + Go, chạy ctest (`ctest` của VS: thêm `…\CMakein` vào PATH) / Godot / UiCheck / e2e.
+  (`build\build_zone.cmd all`, tắt `jx_zone.exe` trước) + Go, chạy ctest (`ctest` của VS: thêm `…\CMake\bin` vào PATH) / Godot / UiCheck / e2e.
 - **Bẫy đã gặp**: MonoBehaviour không type tree → đọc byte thô theo thứ tự trường metadata, bool 4 byte; TextAsset qua UnityPy phải
   `encode("utf-8", "surrogateescape")`; xref chuỗi IL2CPP quét section `il2cpp`; gốc prefab bị bỏ (`UpdateModelLogic`/`TryInstantiateNode`);
   gương x: pos (−x, y, z), quat (x, −y, −z, w), prefab quay mặt +Z, model mình −Z → hiệu ứng `yaw + PI`.
