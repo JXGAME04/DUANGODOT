@@ -248,6 +248,7 @@ nhân vật mới được server phát cả bảy (`newplayerini00.ini [FSKILLS
 
 ### 8.1 Phím tắt kỹ năng — `ShortcutSkill(k)` / `DirectShortcutSkill(k)` (M12 lát B4b-5, đã đọc từng dòng)
 
+**Đã đọc thêm (2026-09-18, chưa port)**: `MouseWheelUp/Down` → `ShortcutEatMedicine(0/1)` (Lua `0x00439DB0` → `0x005AB7B0/0x005AB710`) dùng đối tượng tuỳ chọn `0x8230c0` (`+0x118` ô, `+0x11c/+0x120` và `+0x124/+0x128` bật/số; ctor `0x005E6430` mặc 0 → **tắt** khi chưa có cửa sổ tuỳ chọn treo máy); `DirectShortcutSkill` (`0x0042F930` → `0x00496070`) **không có phím** trong `autoexec.lua`.
 Bản 2.0 **không** dùng F1..F11 cho kỹ năng: `\Ui\autoexec.lua` (trong `\reslst.dat`) gắn `AddCommand("Q", "", "ShortcutSkill(0)")`, `W` 1, `E` 2, `A` 3, `S` 4,
 `D` 5, `Z` 6, `X` 7, `C` 8 (chín ô); `1`..`9` → `ShortcutUseItem(0..8)` (ô thuốc nhanh); `F1` activityguide, `F2` options, `F3` status, `F4` items, `F5` skills,
 `F6` friend, `F7` showplayername, `F8` showplayerlife, `F9`/`Ctrl+H` pk, `F11` tasknote, `F12` NewTask, `Tab` map, `Esc` system, `Enter` commandline, `P` team,
@@ -574,3 +575,18 @@ Client mới: `jxassets export-sounds` đọc thêm hai bảng (`pkg/jxold/npcre
 | `KNpcResNode::Init` đọc `PLAYER_SOUND_FILE`/`NPC_SOUND_FILE`, `GetActionSoundName`, `ComposePathAndName` | `pkg/jxold/npcres/KActionSound.go`, `npcres/action_sounds.json`, `NpcResList.action_sound` |
 | `KNpcRes::GetSoundName 0x006DDD10` (`+0x34`) | `KNpcRes.sound_name` (đặt trong `set_action`) |
 | `KNpcRes::Draw 0x006E06E5` (tỉ lệ < 0.05) → `PlaySound 0x006DFA20`; `WaitForFrame 0x005EA700` | `KNpc._play_action_sound` |
+
+
+## 16. Quái vàng trên client — bộ nạp `0x006E35C0`, `KNpcGold` `KNpc+0x4c` (`SetGoldType 0x006E3560`), màu tên `0x005F23E5`, gói 0x9a `0x00653110`, lọc treo máy `0x00642550`, con trỏ `0x0069D25D` (M12 lát B5a, đã đọc từng dòng `gamecl.exe`)
+
+Luật ở `LINUX-SERVER.md` §16.12. Client 2.0 chỉ nhận **một word** "loại vàng" (dòng `NpcGoldTemplate.txt` + 1; boss = số dòng bảng server + 1) và tô màu tên theo nó.
+
+| Địa chỉ | Đã đọc | Client mới |
+|---|---|---|
+| `0x006E35C0` (gọi từ `0x005CB2F0`) | nạp `\settings\npc\NpcGoldTemplate.txt` của client (trong `reslst.dat`, **17 dòng**: thêm Cổ Thụ với kỹ năng "BUFF tăng ích Kích Cổ Thụ") vào 30 bản ghi 0x7c (`0x21a0438`), số dòng `+0xe88 = [0x21a12c0]`; cùng thứ tự cột như server (col 14 → `0x00702DD0` tên → id), dòng có 类型 rỗng dừng; **không lưu tên** — client không hiện tên loại | `npc_gold.json` `client_rows` (17) — `NpcResList.gold_rows()` |
+| `KNpcGold` `KNpc+0x4c` | `SetGoldType(word) 0x006E3560`: `w > 0 → +0xc = w − 1, +8 = +4 = 1`, không thì `+4 = +8 = 0`; `GetGoldKind 0x006E3540` = `+4 && +8 ? +0xc + 1 : 0`; gọi từ handler gói **0x4c** `0x0065C070` (`movzx word [gói+0x11]`, `0x0065C31A`; bố cục gói: +3 camp, +4 hệ, +5 máu·128/max, +6 x, +0xa doing, +0xb camp gốc, +0xc y, +0x11 word vàng, +0x13 kind, +0x14 id, +0x18 −1, +0x1c word cấp, +0x1e word mẫu, +0x20 tên) và handler gói **0x9a** `0x00653110` (`{0x9a, id npc +1, word +5}`; chỉ khi `+0x2c` (kind) == 0) | `KNpc.gold_type` từ `EntityInfo.gold_type` / `G2C_NPC_GOLD` (`Game.gold_changed` → `UiGame._on_gold` → `set_gold_type`) |
+| Vẽ tên `0x005F21B0(x, y, h, cờ hiện, cỡ chữ 0xe/0xc, màu nền)` | kind 1/2 → nhánh người chơi (màu theo `+0xf8`, danh hiệu `<%s>%s`); kind 3 (`0x005F2283`) → chỉ tên `+0x1409` màu −1; khác (quái): `+0x40 == 0` hay cờ hiện == 0 → **không vẽ gì**; vẽ dòng máu `"%d/%d"` (`+0x105c/+0x12b14`, `0x005F2358`) rồi dòng **`"%s/Lv:%d"`** (`+0x1409`, `+0x28`; `0x005F242F`) với màu: `GetGoldKind == 0 → −1` (trắng); ≠ 0 → `kind > [0x21a12c0] ? 0xFFEBB200 : 0xFF6365FF` (`0x005F23FF..0x005F2419`, `setg/sbb`). Với dữ liệu thật: boss = 16 + 1 = 17, client có 17 dòng → 17 > 17 sai → **boss cũng màu 0xFF6365FF** (tím xanh), chỉ word ≥ 18 mới vàng cam. Cờ hiện: `0x006702BD` tuỳ chọn 1 (`0x0066B600(1)`, F7 hiện tên) → 1 cỡ 14; tuỳ chọn 2 → 1 cỡ 12; không → 0 (quái không tên) | `KNpcGold.gd` `name_text` ("%s/Lv:%d" cho `ENTITY_MONSTER`), `name_color` (trắng / `6365ff` / `ebb200` theo `client_rows`); `KNpc._refresh_name`. Dòng máu `"%d/%d"` và tuỳ chọn F7/F8: **chưa** (client giữ thanh máu) |
+| `0x00642550(npc)` (từ `0x00643281`) | lớp = `GoldKind == 0 ? 1 : (kind > số dòng ? 3 : 2)`; duyệt 8 mục `[core+0x8181 + i·0x24]` (bật) so `[core+0x81ac + i·0x24]` với lớp hoặc `hệ + 4` → bộ lọc mục tiêu treo máy (đánh quái thường/vàng/boss/theo hệ) | `KNpcGold.npc_class`, `KNpc.npc_class()` (bộ lọc treo máy chưa có) |
+| `0x0069D25D` / `0x0069D4D5` / `0x0069D5B3` | con trỏ chuột trên npc: kind 1 → 0x10, 2 → 0x11, khác: `GoldKind ≠ 0 ? 0xf : 0xe` | chưa (client chưa đổi con trỏ) |
+
+`--auto`: `AUTO_GOLD rows=17 npc1 kind=7 row=Kim class=2 color=6365ff life=160/160 …` + `auto_gold.png` (`JX_ZONE__TEST_NPC_GOLD=7`).

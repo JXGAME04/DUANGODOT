@@ -47,6 +47,7 @@ signal skill_changed(skill_id: int)     # G2C_SKILL_LEVEL / G2C_SKILL_FORBID: on
 signal skill_desc_received(skill_id: int)   # G2C_SKILL_DESC: the numbers of a skill level for its tip arrived
 var aura_skill := 0                          # KNpc+0x120 of the 2.0 client: the aura asked for (KNpc::SetAura 0x005EA870)
 signal state_icons_changed(entity_id: int)  # G2C_STATE_ICONS: the six icons over an entity changed (entities[id].state_icons)
+signal gold_changed(entity_id: int)         # G2C_NPC_GOLD: a monster turned gold (entities[id].gold_type = its kind, the 0x9a packet)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -823,6 +824,17 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 				d["state_icons"] = icons
 				state_icons_changed.emit(int(m.get_entity_id()))
 
+		Proto.MsgId.G2C_NPC_GOLD:
+			# the 0x9a handler of the 2.0 client (0x00653110): a npc (kind 0) -> KNpcGold::SetGoldType(word) 0x006E3560
+			var m := Proto.NpcGold.new()
+			if not _decode(m, payload):
+				return
+			var d = entities.get(int(m.get_entity_id()))
+			if d != null and int(d.get("type", 0)) != Proto.EntityType.ENTITY_PLAYER:
+				d["gold_type"] = int(m.get_gold_type())
+				gold_changed.emit(int(m.get_entity_id()))
+				Log.debug("npc", "gold monster", {"entity": int(m.get_entity_id()), "type": int(m.get_gold_type())})
+
 		Proto.MsgId.G2C_ENTITY_STATE:
 			# the 0x87 handler of the 2.0 client (0x006526E0 -> KNpc::SetStateSkillEffect 0x005EDFC0): the character's own states
 			var m := Proto.EntityState.new()
@@ -1068,4 +1080,5 @@ func _entity_dict(e) -> Dictionary:
 		"speed": e.get_move_speed(), "level": e.get_level(), "series": e.get_series(), "sex": e.get_sex(),
 		"template_id": e.get_template_id(), "path": _path_list(e.get_path()), "dir": e.get_dir(),
 		"life": e.get_life(), "life_max": e.get_life_max(), "doing": e.get_doing(), "doing_frames": e.get_doing_frames(),
-		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false}
+		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false,
+		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0}

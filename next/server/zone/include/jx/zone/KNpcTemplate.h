@@ -113,6 +113,9 @@ public:
     // KNpcTemplate::InitNpcLevelData through the template's level script (or the default one);
     // with scripts == nullptr or no script the placeholders of the raw columns are returned.
     [[nodiscard]] static KNpcLevelData level_data(const KNpcTemplate& t, int level, int series, KScriptCache* scripts);
+    // GetNpcLevelDataFromScript 0x080A1F90 on the npc level script (g_pNpcLevelScript [0x830b234]): GetNpcLevelData(series,
+    // level, name, cell) -> a number; without a script "a|b" -> floor(a + b x level).  An empty cell is 0.
+    [[nodiscard]] static int level_string(int series, int level, const char* name, const std::string& cell, KScriptCache* scripts);
 
 private:
     std::unordered_map<std::uint32_t, KNpcTemplate> templates_;

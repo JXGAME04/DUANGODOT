@@ -8,6 +8,7 @@ extends Node2D
 
 const KNpcResScript := preload("res://scenes/KNpcRes.gd")
 const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
+const KNpcGold := preload("res://scenes/KNpcGold.gd")
 const KMath := preload("res://scenes/KMath.gd")
 
 const RADIUS := 14.0
@@ -58,6 +59,10 @@ var _knock_from := Vector2.ZERO    # the slide of the current logic frame, drawn
 var _knock_to := Vector2.ZERO
 var state_icons: Array = []        # the six StateSpecialIds of the 0x7a packet (G2C_STATE_ICONS), drawn by KNpcRes
 var sounds = null                  # the world's KWavSound (UiGame), null = silent
+var level := 0                     # m_Level (+0x28 of the 2.0 client): "%s/Lv:%d" of the name line (0x005F242F)
+# KNpcGold at KNpc+0x4c of the 2.0 client (SetGoldType 0x006E3560 from the 0x4c / 0x9a packets): the kind = the
+# NpcGoldTemplate row + 1 while gold, 0 plain; a boss carries the server table's count + 1 (KNpcGold.gd)
+var gold_type := 0
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -74,6 +79,8 @@ func setup(d: Dictionary, own: bool) -> void:
 	display_name = str(d.name)
 	template_id = int(d.get("template_id", 0))
 	sex = int(d.get("sex", 0))
+	level = int(d.get("level", 0))
+	gold_type = int(d.get("gold_type", 0))
 	is_own = own
 	scene_pos = Vector2(d.x, d.y)
 	speed = float(d.speed)
@@ -98,7 +105,7 @@ func setup(d: Dictionary, own: bool) -> void:
 		_label.add_theme_constant_override("shadow_offset_x", 1)
 		_label.add_theme_constant_override("shadow_offset_y", 1)
 		add_child(_label)
-	_label.text = display_name
+	_refresh_name()
 	_label.position = Vector2(-70, -RADIUS - 26)
 	# appearance: players are the composed main characters, everything else its npcs.txt template
 	var res_name := ""
@@ -186,6 +193,32 @@ func set_life(l: Dictionary) -> void:
 	life = int(l.get("life", life))
 	life_max = int(l.get("life_max", life_max))
 	queue_redraw()
+
+
+# The name line as gamecl.exe 0x005F21B0 draws it: a monster (kind 0) is "%s/Lv:%d" (0x005F242F) in the colour of its gold
+# kind (0x005F23E5: none = white, a kind = 0xFF6365FF, above the client's table = 0xFFEBB200); players and the other
+# kinds keep their name.  docs/CLIENT-2.0.md §16
+func _refresh_name() -> void:
+	if _label == null:
+		return
+	_label.text = KNpcGold.name_text(display_name, entity_type, level)
+	_label.add_theme_color_override("font_color", name_color())
+
+
+func name_color() -> Color:
+	return KNpcGold.name_color(entity_type, gold_type, NpcResList.gold_rows())
+
+
+# KNpcGold::SetGoldType 0x006E3560 (the 0x9a packet): the kind, 0 = plain again
+func set_gold_type(kind: int) -> void:
+	gold_type = kind
+	_refresh_name()
+
+
+# gamecl.exe 0x00642550: the class the hang-up target filter and the cursor (0x0069D25D: 0xf for any gold kind) sort a
+# npc into - 1 plain, 2 gold, 3 above the client's table (a boss)
+func npc_class() -> int:
+	return KNpcGold.npc_class(gold_type, NpcResList.gold_rows())
 
 
 # The 0x7a packet (KNpc::SetNpcState of the old client): the states shown on the body - KNpcRes::SetState picks

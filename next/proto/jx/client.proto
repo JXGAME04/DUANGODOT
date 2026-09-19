@@ -158,6 +158,13 @@ message EntityInfo {
   uint32 count = 17;             // ENTITY_DROP: the stack of the item, or the coins of a money pile (template_id = ObjData row)
   int32 hide = 18;               // > 0: hidden ([hide] 200 of a state) - only its own client is sent it then (the hide bit of the old 0x4d status packet)
   bool riding = 19;              // on its horse (KNpc+0x199c, the 0x20 flag of the 0x4c / 0x4d packets)
+  uint32 gold_type = 20;         // the gold word of the 0x4c packet (0x0807FCA5): KNpcGold::GetGoldKind = the NpcGoldTemplate row + 1 while gold, 0 plain; a boss
+                                 // (+0x181c != 0) carries the table's count + 1 - the 2.0 client colours the name by it (0x005F23E5: 0xFF6365FF, above its table 0xFFEBB200)
+}
+
+message NpcGold {                // G2C_NPC_GOLD: the 0x9a packet {0x9a, npc id, word kind} of SetGoldTypeAndBackData 0x0809DF66 - a monster turned gold (the 2.0 handler 0x00653110)
+  uint64 entity_id = 1;
+  uint32 gold_type = 2;          // as EntityInfo.gold_type
 }
 
 message EntityRide {             // G2C_ENTITY_RIDE: a npc mounted or dismounted (the flag of the next 0x4c / 0x4d sync in the old game)

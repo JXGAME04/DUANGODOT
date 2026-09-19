@@ -71,6 +71,7 @@ func _ready() -> void:
 	Game.missle_sync.connect(_on_missle)
 	Game.entity_life.connect(_on_life)
 	Game.state_icons_changed.connect(_on_state_icons)
+	Game.gold_changed.connect(_on_gold)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -467,6 +468,14 @@ func _on_state_icons(entity_id: int) -> void:
 		node.set_state_icons(d.get("state_icons", []))
 
 
+# the 0x9a packet: a monster turned gold - its name takes the gold colour (0x005F23E5)
+func _on_gold(entity_id: int) -> void:
+	var node: Node2D = _entities.get(entity_id)
+	var d = Game.entities.get(entity_id)
+	if node != null and d != null and node.has_method("set_gold_type"):
+		node.set_gold_type(int(d.get("gold_type", 0)))
+
+
 func _on_chat(msg: Dictionary) -> void:
 	_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
 
@@ -534,6 +543,16 @@ func _auto_run() -> void:
 			if not icons.is_empty() and icons.any(func(v): return int(v) != 0):
 				npc_states.append("%s=%s pics=%s" % [node.display_name, str(icons), _state_pics_text(node.state_spr_info())])
 	print("AUTO_NPC_STATES %s" % ", ".join(npc_states))
+	# the gold monsters around (B5a: the kind of the 0x4c / 0x9a packets, the name colour of 0x005F23E5)
+	var golds: PackedStringArray = []
+	for node in _entities.values():
+		if node != null and is_instance_valid(node) and "gold_type" in node and int(node.gold_type) != 0:
+			var row: Dictionary = NpcResList.gold_row(int(node.gold_type))
+			golds.append("%s kind=%d row=%s class=%d color=%s life=%d/%d" % [node.display_name, int(node.gold_type), str(row.get("name", "?")), node.npc_class(),
+				node.name_color().to_html(false), node.life, node.life_max])
+	if not golds.is_empty():
+		await _save_screenshot("user://logs/auto_gold.png")
+	print("AUTO_GOLD rows=%d %s" % [NpcResList.gold_rows(), ", ".join(golds)])
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout

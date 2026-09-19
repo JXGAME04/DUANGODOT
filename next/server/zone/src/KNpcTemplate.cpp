@@ -234,6 +234,13 @@ void skill_pair(const KNpcTemplate& t, int series, int level, KLuaScript* s, con
 
 } // namespace
 
+int KNpcTemplateSet::level_string(int series, int level, const char* name, const std::string& cell, KScriptCache* scripts)
+{
+    if (cell.empty()) return 0;
+    KLuaScript* s = scripts != nullptr ? scripts->get(KScriptCache::kNpcLevelScript) : nullptr;
+    return s != nullptr ? level_data_str(*s, series, level, name, cell) : level_pair(cell, level);
+}
+
 KNpcLevelData KNpcTemplateSet::level_data(const KNpcTemplate& t, int level, int series, KScriptCache* scripts)
 {
     KNpcLevelData d;

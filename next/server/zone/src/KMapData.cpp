@@ -61,8 +61,16 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
             p.series = n.value("series", 0);
             p.dir = n.value("dir", 0);
             p.client_only = n.value("client_only", false);
+            p.special = n.value("special", false);
             p.script = n.value("script", "");
             m.npcs.push_back(std::move(p));
+        }
+        if (j.contains("settings") && j["settings"].is_object()) {
+            const nlohmann::json& s = j["settings"];
+            m.settings.auto_golden_npc = s.value("auto_golden_npc", 0);
+            m.settings.golden_type = std::max(0, s.value("golden_type", 0));   // 0x080F149C: a negative one is 0
+            m.settings.golden_drop_rate = s.value("golden_drop_rate", "");
+            m.settings.normal_drop_rate = s.value("normal_drop_rate", "");
         }
         // the trap runs (KRegion::LoadServerTrap) go into the per-cell grid once the size is known
         for (const auto& t : j.value("traps", nlohmann::json::array())) {

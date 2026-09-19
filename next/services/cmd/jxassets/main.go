@@ -260,6 +260,46 @@ func mapPath(dir string, set *pak.Set, arg string) (string, string) {
 	return gamePath(arg), ""
 }
 
+// mapSettings reads the per-map keys of [List] in maplist.ini the JX2 server's map loader keeps in its
+// KSubWorld (jx_linux_y 0x080F1416..: `%d_AutoGoldenNpc` GetInteger 0 -> +0x63e7c, `%d_GoldenType` GetInteger 0
+// (negative -> 0) -> +0x63e84, `%d_GoldenDropRate` GetString -> the drop table +0x63e80, `%d_NormalDropRate`
+// GetString -> the drop table +0x63e88).  The rules come from the reference server's file (-server /
+// config/oldgame.local.json); the client's copy serves when there is none.
+func mapSettings(dir string, set *pak.Set, id int) *export.MapSettings {
+	var data []byte
+	if sdir := findServer(dir); sdir != "" {
+		if d, _, err := readServerFile(sdir, `settings\maplist.ini`, `Settings\MapList.ini`); err == nil {
+			data = d
+		}
+	}
+	if data == nil {
+		d, err := mapList(dir, set)
+		if err != nil {
+			return nil
+		}
+		data = d
+	}
+	key := func(name string) string {
+		re := regexp.MustCompile(`(?mi)^` + strconv.Itoa(id) + `_` + name + `\s*=(.*)$`)
+		m := re.FindSubmatch(data)
+		if m == nil {
+			return ""
+		}
+		return strings.TrimSpace(strings.TrimRight(string(m[1]), "\r"))
+	}
+	s := &export.MapSettings{
+		MapType:        key("MapType"),
+		AutoGoldenNpc:  npcres.Atoi(key("AutoGoldenNpc")),
+		GoldenType:     npcres.Atoi(key("GoldenType")),
+		GoldenDropRate: strings.ToLower(key("GoldenDropRate")),
+		NormalDropRate: strings.ToLower(key("NormalDropRate")),
+	}
+	if s.GoldenType < 0 {
+		s.GoldenType = 0 // 0x080F149C
+	}
+	return s
+}
+
 // resolveImage finds the archive path of a sprite referenced by map data (names are stored
 // relative to the sprite root).
 // findServer returns the old server folder (package.ini + pak/maps.pak with the Region_S files):
@@ -381,29 +421,66 @@ func scriptIndex(serverDir string) map[uint32]string {
 	return out
 }
 
-// loadDropRates reads every drop table the templates name (the DropRateFile column) from the
-// server folder; a table that is not there is reported once and the npc drops nothing.
-func loadDropRates(templates []npcres.Template, serverDir string) map[string]*item.DropRate {
+// loadDropRates reads every drop table the templates name (the DropRateFile column) and the ones the
+// maps name (`<id>_NormalDropRate` / `<id>_GoldenDropRate` of maplist.ini: the JX2 server swaps a placed
+// monster's table for the map's, KNpcSet::Add 0x0809FD30, and for the golden one while it is gold,
+// 0x08086073) from the server folder; a table that is not there is reported once and the npc drops nothing.
+func loadDropRates(templates []npcres.Template, serverDir string, mapTables []string) map[string]*item.DropRate {
 	out := map[string]*item.DropRate{}
 	if serverDir == "" {
 		return out
 	}
 	missing := map[string]bool{}
-	for _, t := range templates {
-		p := t.DropRateFile
+	read := func(p string, who string) {
 		if p == "" || out[p] != nil || missing[p] {
-			continue
+			return
 		}
 		rel := strings.TrimPrefix(strings.ReplaceAll(p, `\`, "/"), "/")
 		data, _, err := readServerFile(serverDir, rel)
 		if err != nil {
 			missing[p] = true
-			log.Warn("asset", "drop table missing", log.F("path", p), log.F("template", t.ID))
-			continue
+			log.Warn("asset", "drop table missing", log.F("path", p), log.F("named_by", who))
+			return
 		}
 		out[p] = item.ParseDropRate(p, data)
 	}
+	for _, t := range templates {
+		read(t.DropRateFile, "template "+strconv.Itoa(t.ID))
+	}
+	for _, p := range mapTables {
+		read(p, "maplist.ini")
+	}
 	log.Info("asset", "drop tables read", log.F("tables", len(out)), log.F("missing", len(missing)))
+	return out
+}
+
+// mapListDropRates lists the `<id>_NormalDropRate` / `<id>_GoldenDropRate` files of maplist.ini (the server's
+// copy first), lower-cased like the templates' DropRateFile, each once.
+func mapListDropRates(dir string, set *pak.Set) []string {
+	var data []byte
+	if sdir := findServer(dir); sdir != "" {
+		if d, _, err := readServerFile(sdir, `settings\maplist.ini`, `Settings\MapList.ini`); err == nil {
+			data = d
+		}
+	}
+	if data == nil {
+		d, err := mapList(dir, set)
+		if err != nil {
+			return nil
+		}
+		data = d
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range regexp.MustCompile(`(?mi)^\d+_(?:NormalDropRate|GoldenDropRate)\s*=(.*)$`).FindAllSubmatch(data, -1) {
+		p := strings.ToLower(strings.TrimSpace(strings.TrimRight(string(m[1]), "\r")))
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	sort.Strings(out)
 	return out
 }
 
@@ -615,6 +692,7 @@ func main() {
 		}
 		ex := export.New(set, out)
 		defer prepareExporter(ex, dir, set)()
+		ex.Settings = mapSettings(dir, set, id)
 		info, err := ex.Map(id, name, w, spawn)
 		if err != nil {
 			fail("%v", err)
@@ -657,6 +735,7 @@ func main() {
 				continue
 			}
 			t0 := time.Now()
+			ex.Settings = mapSettings(dir, set, id)
 			info, err := ex.Map(id, name, w, [2]int{})
 			if err != nil {
 				failed++
@@ -1398,6 +1477,68 @@ func main() {
 		}
 		fmt.Printf("export-state-gfx: %d trang thai (%d Special, %d ky nang dung), %d sprite (%d moi) -> %s\n", len(rows), special, len(want), sprites, ex.Exported, p)
 
+	case "export-npc-gold":
+		// \settings\npc\NpcGoldTemplate.txt of the old server (KNpcGoldTemplate::Init jx_linux_y 0x0809CCC0): the kinds of
+		// gold monster a placed monster rolls when it revives (KNpcGold::SetGoldTypeAndBackData 0x0809D8D0) -> <out>/npcres/
+		// npc_gold.json for the zone; the 2.0 client's own copy of the table (gamecl.exe 0x006E35C0) is counted for the
+		// colour of the name (0x005F2401: a kind above its count is drawn as a boss).  docs/LINUX-SERVER.md §16.12
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		sdir := findServer(dir)
+		var lookup npcres.NpcGoldSkillLookup
+		if sdir != "" {
+			if sk, _, err := readServerFile(sdir, `settings\skills.txt`, `Settings\Skills.txt`); err == nil {
+				lookup = npcres.SkillNameLookup(sk)
+			}
+		}
+		if lookup == nil {
+			if sk, err := set.ReadFile(gamePath(npcres.SkillFile)); err == nil {
+				lookup = npcres.SkillNameLookup(sk)
+			}
+		}
+		source := ""
+		var rows []npcres.NpcGoldTemplate
+		if sdir != "" {
+			if data, p, err := readServerFile(sdir, `settings\npc\npcgoldtemplate.txt`, `settings\npc\NpcGoldTemplate.txt`); err == nil {
+				rows = npcres.ParseNpcGoldTemplate(data, lookup)
+				source = p
+			}
+		}
+		clientRows := 0
+		if data, err := set.ReadFile(gamePath(npcres.NpcGoldTemplateFile)); err == nil {
+			client := npcres.ParseNpcGoldTemplate(data, lookup)
+			clientRows = len(client)
+			if rows == nil {
+				rows = client
+				source = "the client's archives: " + npcres.NpcGoldTemplateFile
+			}
+		}
+		if rows == nil {
+			fail("no settings/npc/NpcGoldTemplate.txt under %s nor in the client's archives", sdir)
+		}
+		p := filepath.Join(out, "npcres", "npc_gold.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			fail("%v", err)
+		}
+		doc := map[string]any{
+			"source":      source + " (KNpcGoldTemplate::Init jx_linux_y 0x0809CCC0)",
+			"rows":        rows,
+			"client_rows": clientRows,
+		}
+		js, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(p, js, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-npc-gold: %d loai quai vang (client %d) -> %s\n", len(rows), clientRows, p)
+
 	case "export-sounds":
 		// the sounds the fights play (KSoundCache / KWavSound of the old engine): the cast sounds of skills.txt
 		// (ManCastSnd / FMCastSnd, KSkill::PlayCastSound gamecl.exe 0x006F6D90), the missile sounds of missles.txt
@@ -1853,7 +1994,7 @@ func main() {
 			fail("item appearance tables: %v", err)
 		}
 		opt := export.NpcResOptions{
-			DropRates: loadDropRates(templates, findServer(dir)),
+			DropRates: loadDropRates(templates, findServer(dir), mapListDropRates(dir, set)),
 			Names:     names,
 			Doings:    []int{npcres.DoStand, npcres.DoStand1, npcres.DoWalk, npcres.DoRun, npcres.DoHurt, npcres.DoDeath, npcres.DoAttack, npcres.DoAttack1},
 			Equips:    icr.DefaultEquips(),

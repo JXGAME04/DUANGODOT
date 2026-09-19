@@ -16,6 +16,7 @@ const NpcResNode := preload("res://scenes/KNpcResNode.gd")
 const SprControl := preload("res://scenes/KSprControl.gd")
 const StateSpr := preload("res://scenes/KStateSpr.gd")
 const WavSound := preload("res://scenes/KWavSound.gd")
+const NpcGold := preload("res://scenes/KNpcGold.gd")
 
 var _failed := 0
 var _passed := 0
@@ -54,6 +55,7 @@ func _init() -> void:
 	test_knock_back()
 	test_state_pictures()
 	test_wav_sound()
+	test_gold_name()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -724,3 +726,21 @@ func test_wav_sound() -> void:
 	check(not no_provider.play("a.wav", Vector2.ZERO), "no stream provider: silent")
 	no_provider.free()
 	w.queue_free()
+
+
+# ---- the gold monsters (KNpcGold at KNpc+0x4c; the name painter 0x005F21B0, the filter 0x00642550) -----------------
+
+func test_gold_name() -> void:
+	# 0x005F242F: a monster's line is "%s/Lv:%d"; players and the other kinds keep the name (0x005F2283)
+	check(NpcGold.name_text("Linh Miêu", 3, 19) == "Linh Miêu/Lv:19", "a monster shows its level")
+	check(NpcGold.name_text("Lão Bản", 2, 19) == "Lão Bản", "a townsman does not")
+	check(NpcGold.name_text("Hero", 1, 19) == "Hero", "a player does not")
+	# 0x005F23E5..0x005F2419: kind 0 -> white; a kind within the client's 17 rows -> 0xFF6365FF; above them (the boss word
+	# 16 + 1 of the server's table is NOT above 17: it is drawn like a gold one) -> 0xFFEBB200
+	check(NpcGold.name_color(3, 0, 17) == Color(1, 1, 1), "plain: white")
+	check(NpcGold.name_color(3, 13, 17).to_html(false) == "6365ff", "gold: 0xFF6365FF (%s)" % NpcGold.name_color(3, 13, 17).to_html(false))
+	check(NpcGold.name_color(3, 17, 17).to_html(false) == "6365ff", "the boss word 17 against 17 client rows: still 0xFF6365FF")
+	check(NpcGold.name_color(3, 18, 17).to_html(false) == "ebb200", "above the client's table: 0xFFEBB200")
+	check(NpcGold.name_color(1, 5, 17) == Color(1, 1, 1), "a player's name is never coloured by it")
+	# 0x00642550: the class of the hang-up filter - 1 plain, 2 gold, 3 above the table
+	check(NpcGold.npc_class(0, 17) == 1 and NpcGold.npc_class(16, 17) == 2 and NpcGold.npc_class(18, 17) == 3, "the three classes")

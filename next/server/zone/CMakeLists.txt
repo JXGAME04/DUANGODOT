@@ -10,6 +10,7 @@ add_library(jx_zone_core STATIC
     src/KScriptCache.cpp
     src/ScriptFuns.cpp
     src/KNpcTemplate.cpp
+    src/KNpcGold.cpp
     src/KSubWorld.cpp
     src/KInterest.cpp
     src/KItem.cpp

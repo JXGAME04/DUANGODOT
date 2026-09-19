@@ -8,6 +8,8 @@ var _missing := {}
 var _loaded := false
 var _state_gfx := {}           # npcres/state_gfx.json rows by StateSpecialId (CStateMagicTable), loaded on first use
 var _state_gfx_loaded := false
+var _gold := {}                # npcres/npc_gold.json (NpcGoldTemplate.txt: the gold monster kinds), loaded on first use
+var _gold_loaded := false
 var _action_sounds := {}       # npcres/action_sounds.json: the sound of each action of MainMan / MainLady and of every npc resource
 var _action_sounds_loaded := false
 
@@ -58,6 +60,25 @@ func res(name: String) -> Dictionary:
 		return {}
 	_res[name] = data
 	return data
+
+
+# KNpcGoldTemplate of the 2.0 client (gamecl.exe 0x006E35C0 loads \settings\npc\NpcGoldTemplate.txt into 30 rows of 0x7c
+# bytes, the count at +0xe88 = [0x21a12c0]): the number of rows the CLIENT'S copy has - the name painter 0x005F2401 draws a
+# kind above it as a boss (the zone's table is the server's; jxassets export-npc-gold writes both counts).
+func gold_rows() -> int:
+	if not _gold_loaded:
+		_gold_loaded = true
+		var d = Assets.load_json(Assets.assets_root() + "/npcres/npc_gold.json")
+		if d != null:
+			_gold = d
+	return int(_gold.get("client_rows", 0))
+
+
+# the row of the zone's table a kind (1-based) names - its name, for the --auto proof; {} when unknown
+func gold_row(kind: int) -> Dictionary:
+	gold_rows()
+	var rows: Array = _gold.get("rows", [])
+	return rows[kind - 1] if kind >= 1 and kind <= rows.size() else {}
 
 
 # CStateMagicTable::GetInfo (KNpcResNode.cpp; gamecl.exe 2.0 0x006AE540): the picture of a state, one row of

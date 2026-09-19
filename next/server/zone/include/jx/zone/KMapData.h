@@ -26,6 +26,15 @@ struct KNpcPlacement {
     int series = 0;
     int dir = 0;           // facing 0..63
     bool client_only = false;   // Npc_C.dat ambient npc (the old client spawned it locally)
+    bool special = false;       // KSPNpc.bSpecialNpc: KNpcSet::Add 0x0809FBD0 backs it up as a gold candidate whatever the map says (0x0809FCA2)
+};
+
+// the map's `<id>_*` keys of maplist.ini the JX2 server keeps per KSubWorld (0x080F1416 ..; map.json "settings")
+struct KMapSettings {
+    int auto_golden_npc = 0;        // +0x63e7c: the chance in a million that a placed monster revives gold; 0 = every revive (0x080861AE hands 2 000 000)
+    int golden_type = 0;            // +0x63e84: the 1-based row of NpcGoldTemplate.txt every gold monster of the map takes; 0 = a random row
+    std::string golden_drop_rate;   // +0x63e80: the drop table a gold monster uses while gold ("" = keeps its own)
+    std::string normal_drop_rate;   // +0x63e88: the drop table every placed monster uses instead of its template's ("" = the template's)
 };
 
 class KMapData {
@@ -46,6 +55,7 @@ public:
     Pos origin;
     std::vector<std::uint8_t> obstacle;   // cells_x * cells_y, row major, 0 = walkable
     std::vector<KNpcPlacement> npcs;
+    KMapSettings settings;
     // KRegion::m_dwTrap: the trap script id of every cell (0 = none), and the script each id names
     std::vector<std::uint32_t> trap;
     std::unordered_map<std::uint32_t, std::string> trap_scripts;   // id -> `\script\...lua` ("" = unknown)

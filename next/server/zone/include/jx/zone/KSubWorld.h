@@ -31,6 +31,7 @@
 #include "jx/zone/KObj.h"
 #include "jx/zone/KNpcAI.h"
 #include "jx/zone/KMapData.h"
+#include "jx/zone/KNpcGold.h"
 #include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KPathFinder.h"
 #include "jx/zone/KPlayerSet.h"
@@ -99,6 +100,9 @@ struct KSubWorldConfig {
     bool map_npcs = true;                // place the npcs listed in the map bundle
     bool spawn_from_config = false;      // keep spawn_point even when a map bundle has its own
     std::shared_ptr<const KNpcTemplateSet> templates;   // npcs.txt numbers (frames, life, damage, ai); optional
+    // settings/npc/NpcGoldTemplate.txt (npc_gold.json of jxassets export-npc-gold): the gold monster kinds; optional -
+    // without it nothing turns gold (SetGoldTypeAndBackData 0x0809D916 returns on an empty table)
+    std::shared_ptr<const KNpcGoldTemplateSet> gold;
     std::shared_ptr<const KItemLibrary> items;          // the item tables (settings\item, every version); optional
     std::shared_ptr<const KObjDataSet> objdata;         // ObjData.txt / MoneyObj.txt (objdata.json): what a drop looks like; optional
     int money_rate_percent = 100;                       // [ServerConfig] MoneyRate of gamesetting.ini: dropped money x this / 100
@@ -260,6 +264,17 @@ public:
     void init_template_skills(KNpc& e);
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
                        KNpcKind kind = KNpcKind::npc, std::uint32_t level = 0, int series = -1, int boss_flag = 0);
+    // KNpcGold::SetGoldTypeAndBackData 0x0809D8D0 (KNpcGold.h): a backed-up (is_gold), not yet gold npc turns gold
+    // when g_Random(1 000 000) < rate and the table is not empty - `type` 1..count-1 picks that row, anything else
+    // the map's GoldenType, else a random row; the row's skill (through GetNpcLevelData "Level5") into cell 5 and
+    // set as the aura, the numbers changed (gold_apply), the 0x9a packet {npc, kind} to the players around.
+    // Returns true when it turned gold.
+    bool set_gold_type(KNpc& e, int rate, int type);
+    // KNpcGold::RecoverBackData 0x0809E070: the backup back, cell 5 taken out (0x080E52D0), the aura cleared (SetAura 0)
+    void recover_gold(KNpc& e);
+    // the 0x9a packet {0x9a, npc id, word kind} (0x0809DF66, 0x0807A870 within 100): G2C_NPC_GOLD
+    void emit_gold(const KNpc& e);
+    [[nodiscard]] const KMapSettings& map_settings() const noexcept;
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
     bool teleport(EntityId id, Pos p);
     // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.
