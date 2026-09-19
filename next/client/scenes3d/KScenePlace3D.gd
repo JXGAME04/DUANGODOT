@@ -9,6 +9,15 @@ extends Node3D
 const SH_LM := preload("res://scenes3d/scn3d_lm.gdshader")
 const SH_LM2 := preload("res://scenes3d/scn3d_lm_2side.gdshader")
 const SH_TER := preload("res://scenes3d/scn3d_terrain.gdshader")
+const SH_LM_FADE := preload("res://scenes3d/scn3d_lm_fade.gdshader")
+const SH_LM2_FADE := preload("res://scenes3d/scn3d_lm_2side_fade.gdshader")
+# CameraBuildingFade of the reference client (GameAssembly.dll, static defaults in global-metadata fieldDefaultValues [TK]):
+# the renderers of the building layer between the camera and the character fade to FadeAlpha at FadeSpeed per second,
+# the occluders are looked for every DetectInterval seconds along the camera -> target segment shortened by RayPadding.
+const FADE_ALPHA := 0.25
+const FADE_SPEED := 10.0
+const RAY_PADDING := 0.15
+const DETECT_INTERVAL := 0.3
 const KScene3DMath := preload("res://scenes3d/KScene3DMath.gd")
 const TERRAIN_LAYER := 1
 const Ground25DScript := preload("res://scenes3d/KGround25D.gd")
@@ -29,6 +38,10 @@ var _sun: DirectionalLight3D = null
 var _ground_plane: StaticBody3D = null   # the flat ground of a map without a bundle
 var mode := ""            # "3d" (a map3d bundle), "2.5d" (the 2D bundle as boards and ground pictures), "flat" (nothing)
 var ground25: Node3D = null   # KGround25D in 2.5D mode
+var _fade_meshes: Array = []   # MeshInstance3D of the "Buildings" group (the reference building layer) with their AABBs
+var _fade_state := {}          # MeshInstance3D -> current alpha (< 1 while faded)
+var _occluders := {}           # MeshInstance3D -> true, found at the last detection
+var _next_detect := 0.0
 
 
 # Loads the bundle of a map; false when there is none (the caller falls back to a flat ground).
@@ -91,6 +104,9 @@ func clear() -> void:
 	_ground_plane = null
 	ground25 = null
 	mode = ""
+	_fade_meshes.clear()
+	_fade_state.clear()
+	_occluders.clear()
 	_shader_mats.clear()
 	_tex_cache.clear()
 	info = {}
@@ -110,10 +126,79 @@ func anim_count() -> int:
 	return ground25.anim_count() if ground25 != null else 0
 
 
-# per frame: the 2.5D ground streams around the character
-func update(focus_scene: Vector2, delta: float) -> void:
+# per frame: the 2.5D ground streams around the character; on a 3D map the buildings between the camera and the
+# character fade (CameraBuildingFade.Update of the reference client)
+func update(focus_scene: Vector2, delta: float, camera_pos: Vector3 = Vector3.INF, target_pos: Vector3 = Vector3.INF) -> void:
 	if ground25 != null:
 		ground25.update(focus_scene, delta)
+	if mode == "3d" and camera_pos != Vector3.INF and target_pos != Vector3.INF:
+		_update_building_fade(camera_pos, target_pos, delta)
+
+
+func _update_building_fade(camera_pos: Vector3, target_pos: Vector3, delta: float) -> void:
+	if _fade_meshes.is_empty():
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now >= _next_detect:
+		_next_detect = now + DETECT_INTERVAL
+		var dir := target_pos - camera_pos
+		var dist := dir.length()
+		_occluders.clear()
+		if dist > RAY_PADDING:
+			dir /= dist
+			var test_dist := dist - RAY_PADDING
+			# CollectByBounds: every building whose bounds the camera -> target segment crosses
+			for mi in _fade_meshes:
+				if not is_instance_valid(mi) or not mi.visible:
+					continue
+				var aabb: AABB = mi.global_transform * mi.get_aabb()
+				if aabb.intersects_segment(camera_pos, camera_pos + dir * test_dist) or aabb.has_point(camera_pos):
+					_occluders[mi] = true
+	# UpdateFadeStates: toward FadeAlpha for the occluders, back to 1 for the rest, FadeSpeed a second
+	var step := FADE_SPEED * delta
+	for mi in _occluders.keys():
+		var a: float = float(_fade_state.get(mi, 1.0))
+		_fade_state[mi] = maxf(a - step, FADE_ALPHA)
+	for mi in _fade_state.keys():
+		if not is_instance_valid(mi):
+			_fade_state.erase(mi)
+			continue
+		if not _occluders.has(mi):
+			var a: float = float(_fade_state[mi]) + step
+			if a >= 1.0:
+				_restore(mi)
+				_fade_state.erase(mi)
+				continue
+			_fade_state[mi] = a
+		_apply_alpha(mi, float(_fade_state[mi]))
+
+
+# ApplyAlpha: the surface materials swapped for their fade twin (the same shader writing ALPHA) with the alpha set
+func _apply_alpha(mi: MeshInstance3D, alpha: float) -> void:
+	if mi.mesh == null:
+		return
+	for s in mi.mesh.get_surface_count():
+		var m := mi.get_surface_override_material(s)
+		if m is ShaderMaterial:
+			var sm := m as ShaderMaterial
+			if sm.shader == SH_LM or sm.shader == SH_LM2:
+				var twin := sm.duplicate() as ShaderMaterial
+				twin.shader = SH_LM2_FADE if sm.shader == SH_LM2 else SH_LM_FADE
+				twin.set_meta("solid", sm)
+				mi.set_surface_override_material(s, twin)
+				sm = twin
+			if sm.shader == SH_LM_FADE or sm.shader == SH_LM2_FADE:
+				sm.set_shader_parameter("fade", alpha)
+
+
+# Restore: the solid material again
+func _restore(mi: MeshInstance3D) -> void:
+	if mi.mesh == null:
+		return
+	for s in mi.mesh.get_surface_count():
+		var m := mi.get_surface_override_material(s)
+		if m is ShaderMaterial and m.has_meta("solid"):
+			mi.set_surface_override_material(s, m.get_meta("solid"))
 
 
 # The 2D map bundle in 3D (KGround25D): a flat collision floor for the rays, a sky-lit environment, the regions stream
@@ -328,6 +413,8 @@ func _post_process(root: Node) -> void:
 			stats["terrain"] += 1
 			mi.create_trimesh_collision()
 			mi.add_to_group("terrain")
+		elif str(meta.get("group", "")) == "Buildings":
+			_fade_meshes.append(mi)
 
 
 func _make_material(mm: Dictionary, meta: Dictionary) -> Material:

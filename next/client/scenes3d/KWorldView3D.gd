@@ -426,6 +426,10 @@ func update(delta: float) -> void:
 	if place.mode == "2.5d":
 		var focus: Vector2 = _own.scene_pos if _own != null and is_instance_valid(_own) else place.to_scene(cam_rig.global_position)
 		place.update(focus, delta)
+	elif place.mode == "3d":
+		var own_view = _views.get(_own) if _own != null else null
+		if own_view != null and is_instance_valid(own_view) and cam_rig.cam != null:
+			place.update(Vector2.ZERO, delta, cam_rig.cam.global_position, own_view.global_position + Vector3(0, cam_rig.target_height, 0))
 		var off := _view_dir_offset()
 		if off != _last_dir_offset:
 			_last_dir_offset = off

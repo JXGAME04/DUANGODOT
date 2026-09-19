@@ -606,6 +606,17 @@ func _auto3d_run() -> void:
 			await get_tree().process_frame
 		await _save_screenshot("user://logs/auto3d_%d.png" % n)
 		n += 1
+	# the building fade (CameraBuildingFade rules): the camera swung around at its longest arm, the pictures where a
+	# building stands between it and the character show the building at FadeAlpha
+	if "--fade" in OS.get_cmdline_user_args() and _world.place.get("mode") == "3d":
+		_world.cam_rig.dist = _world.cam_rig.dist_max
+		for yaw in [0.0, 60.0, 120.0, 180.0, 240.0, 300.0]:
+			_world.cam_rig.yaw = yaw
+			for i in 30:
+				await get_tree().process_frame
+			await _save_screenshot("user://logs/auto3d_fade_%d.png" % int(yaw))
+			print("AUTO3D_FADE yaw=%d occluders=%d faded=%d" % [int(yaw), _world.place._occluders.size(), _world.place._fade_state.size()])
+		_world.cam_rig.dist = 19.0
 	_world.cam_rig.yaw = 0.0
 	# a walk of 200 units east (4 m), like --auto
 	var from: Vector2 = own.scene_pos
