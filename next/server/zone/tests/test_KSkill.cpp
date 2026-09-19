@@ -373,3 +373,37 @@ TEST_CASE("the exported skill table and the converted skill scripts give the JX2
         WARN("the level script of skill 1 (\\script\\skill\\special\\...) is not in the converted trees");
     }
 }
+
+
+// The child of the arrow tower's aura (B4d-2): 316 "Vòng tròn tăng kháng tính" (allres_p by zhengjiakangxing.lua, "16,12,0"
+// at level 1) - a buff on allies within 180 that the e2e log showed hitting the animals without a state
+TEST_CASE("the aura child 316 carries its allres_p state (B4d-2 check)", "[skill][aura]")
+{
+    const std::filesystem::path p = std::filesystem::path(JX_NEXT_DIR) / "client" / "assets" / "skills.json";
+    const std::string roots = converted_roots();
+    if (!std::filesystem::exists(p) || roots.empty()) {
+        WARN("no exported skill table or converted scripts");
+        return;
+    }
+    Quiet q;
+    std::string error;
+    auto table = KSkillTable::load(p.string(), &error);
+    REQUIRE(table);
+    const KSkillRow* r = table->info(316);
+    REQUIRE(r != nullptr);
+    CHECK(r->level_setting[0] == "allres_p");
+    CHECK(r->level_set_script == R"(\script\skill\special\zhengjiakangxing.lua)");
+    KScriptCache cache(roots);
+    auto shared = std::make_shared<const KSkillTable>(std::move(*table));
+    KSkillManager m(shared, &cache);
+    const KSkill* s = m.get(316, 1);
+    REQUIRE(s != nullptr);
+    CHECK(s->level_data_loaded);
+    CHECK(s->state_attrib_count == 1);
+    CHECK(s->immediate_attrib_count == 0);
+    if (s->state_attrib_count == 1) {
+        CHECK(s->state_attribs[0].type == 114);
+        CHECK(s->state_attribs[0].value[0] == 16);
+        CHECK(s->state_attribs[0].value[1] == 12);
+    }
+}

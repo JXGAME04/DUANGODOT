@@ -1019,5 +1019,6 @@ không có (client không cần).
 Zone: `KNpc::boss_flag` (int, `+0x181c`), `KSubWorld::init_template_skills`, `spawn_npc(…, boss_flag)`, `process_state` nhánh ô 5; test `[command][aura][template]` (mẫu 950:
 hào quang 1103 "0\|1" → ô 5 cấp 3, con 1102 lên mình sau 10 khung; bị động 1130 "1\|0" → ô 6 + trạng thái ngay; mẫu 951 "0\|30" → ô 5 = 64, không thi triển; npc do kỹ
 năng tạo → không ô 5/6). Go `LevelCells` thêm bốn cột → `npcs.json` (`dev.py assets`). Còn: quái vàng `KNpcGold` (`NpcGoldTemplate.txt` 16 loại, `0x0809D8D0`), Lua
-`SetNpcAuraSkill`. Ghi nhận khi chạy thật (Tiễn Tháp 1375, hào quang 313 → con 316 `allres_p` bán kính 180 lên đồng minh): zone log `hit` lên 4 thú nhưng không `state added` —
-cần soát `create_missle_magic_attribs_data`/dạng 3 ở B2b (ghi §0.4).
+`SetNpcAuraSkill`. Chạy thật (Tiễn Tháp 1375 làm npc thử nghiệm: hào quang 313 cấp 1 → con 316 `allres_p` bán kính 180 lên đồng minh): lúc đầu `hit` 4 thú mà không `state added` —
+nguyên nhân là **lỗi in số của Lua 5.4** (xem HANDOVER §0.5): `15+level` với `level` đẩy vào là số thực → `"16.0,12,0"` → `KSG_StringGetInt` đọc 16 rồi hỏng ở `.0`
+(state count 0). Sửa ở `KLuaScript` (số nguyên đẩy vào là integer, chuỗi trả về in số theo Lua 4 `%.14g`): `state added` 5, client thấy biểu tượng 51 + vòng dưới chân 4 thú.
