@@ -386,11 +386,11 @@ func _spawn_ghost() -> void:
 				(m as BaseMaterial3D).albedo_color = c
 			elif m is ShaderMaterial:
 				(m as ShaderMaterial).set_shader_parameter("adjust_a", a), 1.0, 0.0, dur)
-	var wr := weakref(self)   # the view may be gone (the entity left) before its last afterimage fades
+	var wr: WeakRef = weakref(self)   # the view may be gone (the entity left) before its last afterimage fades
 	tw.tween_callback(func() -> void:
-		var v = wr.get_ref()
+		var v: Object = wr.get_ref()
 		if v != null:
-			v._ghosts_alive = maxi(0, v._ghosts_alive - 1)
+			v.set("_ghosts_alive", maxi(0, int(v.get("_ghosts_alive")) - 1))
 		holder.queue_free())
 
 
