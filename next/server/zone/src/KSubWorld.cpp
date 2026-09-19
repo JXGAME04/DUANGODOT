@@ -87,11 +87,17 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
                 // NPCKIND of the old GameDataDef.h: 0 = kind_normal (a monster); everything else
                 // (partner, dialoger, bird, mouse) is a friendly npc
                 const KNpcKind kind = n.kind == 0 ? KNpcKind::monster : KNpcKind::npc;
+                // KRegion::LoadNpc 0x080E28E0: a kind 0 record takes the map's random series (NpcSeriesAuto) and level (NpcAutoLevelFlag)
+                int series = n.series, level = n.level;
+                if (n.kind == 0) {
+                    if (cfg_.map->settings.npc_series_auto != 0) series = random_series();
+                    if (cfg_.map->settings.npc_auto_level_flag != 0) level = random_level();
+                }
                 // KRegion::LoadNpc 0x080E2850 (Region_S.dat) -> KNpcSet::Add 0x0809FBD0 with flag 1: no 0x08085250, +0x181c
                 // stays 0 (the GoldBoss spawner 0x080F0320 is the one that sets 1); a bSpecialNpc or a map with
                 // `<id>_AutoGoldenNpc` -> BackData (0x0809FCFE: a gold candidate), then the map's `<id>_NormalDropRate`
                 // replaces the drop table (0x0809FD30 - after the backup, so the first recover puts the template's back)
-                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind, static_cast<std::uint32_t>(std::max(1, n.level)), n.series, 0);
+                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind, static_cast<std::uint32_t>(std::max(1, level)), series, 0);
                 if (KNpc* placed = entities_.find(id)) {
                     placed->dir = static_cast<std::uint32_t>(n.dir & 63);
                     placed->npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
@@ -1434,6 +1440,28 @@ void KSubWorld::revive(KNpc& e)
     e.set_pos(e.home);
     grid_.insert(e.id, e.home);   // back in the world: the clients around find it at their next look
     log::debug("zone.fight", "revived", {log::kv("entity", e.id)});
+    // 0x08085E92: a map with NpcSeriesAuto rolls the series again; a different one re-templates the npc (0x08085DA0 = Init with
+    // the new series: the level record of that series) keeping its name, kind and camps (0x080860AB .. 0x08086152), the map's
+    // NormalDropRate for a +0x181c == 0 npc (0x0808611A), a fresh BackData when it is a gold candidate (0x0808617B), the
+    // template's skills when +0x181c != 0 (0x08086191)
+    if (e.kind != KNpcKind::player && map_settings().npc_series_auto != 0) {
+        const int series = random_series();
+        if (series != static_cast<int>(e.series)) {
+            const std::string name = e.name;
+            const int npc_kind = e.npc_kind, camp = e.camp, current_camp = e.current_camp;
+            e.series = static_cast<std::uint32_t>(series);
+            apply_template(e);
+            e.name = name;
+            e.npc_kind = npc_kind;
+            e.camp = camp;
+            e.current_camp = current_camp;
+            if (e.boss_flag == 0 && !map_settings().normal_drop_rate.empty()) e.drop_rate_file = map_settings().normal_drop_rate;
+            if (e.gold.is_gold) gold_back_data(e);
+            if (e.boss_flag != 0) init_template_skills(e);
+            e.cur.life = e.life_max();
+            log::debug("zone.fight", "series rerolled", {log::kv("entity", e.id), log::kv("series", series)});
+        }
+    }
     // 0x0808600D: a npc with +0x181c == 0 rolls the map's AutoGoldenNpc chance in a million (a map without one hands
     // 2 000 000 - always, 0x080861AE); gold and the map has a GoldenDropRate -> the drop table (0x08086073)
     if (e.boss_flag == 0) {
@@ -1447,6 +1475,29 @@ const KMapSettings& KSubWorld::map_settings() const noexcept
 {
     static const KMapSettings none;
     return cfg_.map ? cfg_.map->settings : none;
+}
+
+int KSubWorld::random_series()
+{
+    const KMapSettings& s = map_settings();
+    if (s.npc_series_auto == 0 || s.series_sums[4] <= 1) return 0;   // 0x080EFBF2 / 0x080EFBFD
+    const int r = static_cast<int>(rng_() % static_cast<std::uint32_t>(s.series_sums[4]));
+    if (r < s.series_sums[0]) return 0;
+    if (r < s.series_sums[1]) return 1;
+    if (r < s.series_sums[2]) return 2;
+    if (r < s.series_sums[3]) return 3;
+    if (r < s.series_sums[4]) return 4;
+    return 0;
+}
+
+int KSubWorld::random_level()
+{
+    const KMapSettings& s = map_settings();
+    if (s.npc_auto_level_flag == 0) return 1;                     // 0x080EFBA2
+    if (s.npc_auto_level_max < s.npc_auto_level_min) return 1;   // 0x080EFBB2 (the loader never leaves it so)
+    if (s.npc_auto_level_max == s.npc_auto_level_min) return s.npc_auto_level_max;
+    const int span = s.npc_auto_level_max + 1 - s.npc_auto_level_min;
+    return static_cast<int>(rng_() % static_cast<std::uint32_t>(span)) + s.npc_auto_level_min;
 }
 
 bool KSubWorld::set_gold_type(KNpc& e, int rate, int type)

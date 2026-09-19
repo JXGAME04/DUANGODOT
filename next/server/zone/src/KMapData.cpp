@@ -71,7 +71,23 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
             m.settings.golden_type = std::max(0, s.value("golden_type", 0));   // 0x080F149C: a negative one is 0
             m.settings.golden_drop_rate = s.value("golden_drop_rate", "");
             m.settings.normal_drop_rate = s.value("normal_drop_rate", "");
+            m.settings.npc_series_auto = s.value("npc_series_auto", 0);
+            if (s.contains("npc_series") && s["npc_series"].is_array()) {
+                std::size_t i = 0;
+                for (const auto& v : s["npc_series"]) {
+                    if (i >= m.settings.npc_series.size()) break;
+                    m.settings.npc_series[i++] = v.get<int>();
+                }
+            }
+            m.settings.npc_auto_level_flag = s.value("npc_auto_level_flag", 0);
+            m.settings.npc_auto_level_max = s.value("npc_auto_level_max", 1);
+            m.settings.npc_auto_level_min = s.value("npc_auto_level_min", 1);
+            if (m.settings.npc_auto_level_flag != 0 && (m.settings.npc_auto_level_max <= 0 || m.settings.npc_auto_level_min <= 0 ||
+                                                       m.settings.npc_auto_level_max < m.settings.npc_auto_level_min)) {
+                log::warn("map", "MapList.ini error:npc level error!", {log::kv("map", m.id), log::kv("max", m.settings.npc_auto_level_max), log::kv("min", m.settings.npc_auto_level_min)});
+            }
         }
+        m.settings.finish();
         // the trap runs (KRegion::LoadServerTrap) go into the per-cell grid once the size is known
         for (const auto& t : j.value("traps", nlohmann::json::array())) {
             traps.push_back({t.value("x", 0), t.value("y", 0), t.value("n", 0), t.value("id", 0u), t.value("script", "")});

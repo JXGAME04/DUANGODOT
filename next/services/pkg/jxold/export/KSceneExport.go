@@ -61,6 +61,14 @@ type MapSettings struct {
 	GoldenType     int    `json:"golden_type,omitempty"`      // +0x63e84: the kind (1-based row of NpcGoldTemplate.txt) every gold monster of the map takes; 0 = a random one
 	GoldenDropRate string `json:"golden_drop_rate,omitempty"` // +0x63e80: the drop table a gold monster uses instead of its own
 	NormalDropRate string `json:"normal_drop_rate,omitempty"` // +0x63e88: the drop table every placed monster of the map uses instead of its template's
+	// `%d_NpcSeriesAuto` (+0x63f54) with the five weights `%d_NpcSeriesMetal/Wood/Water/Fire/Earth` (+0x63f58.., raw here; the
+	// loader 0x080F1346 sums them up): a placed monster (kind 0) rolls its series at load (KRegion::LoadNpc 0x080E28F6) and at
+	// every revive (0x08085E98); `%d_NpcAutoLevelFlag/Max/Min` (+0x63f6c/+0x63f70/+0x63f74): its level at load (0x080E2904)
+	NpcSeriesAuto    int    `json:"npc_series_auto,omitempty"`
+	NpcSeries        [5]int `json:"npc_series,omitempty"`
+	NpcAutoLevelFlag int    `json:"npc_auto_level_flag,omitempty"`
+	NpcAutoLevelMax  int    `json:"npc_auto_level_max,omitempty"`
+	NpcAutoLevelMin  int    `json:"npc_auto_level_min,omitempty"`
 }
 
 // NpcInfo is a static npc placement.

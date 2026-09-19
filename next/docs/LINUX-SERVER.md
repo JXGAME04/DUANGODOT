@@ -1036,7 +1036,22 @@ Hung Tàn, Lanh lẹ, Kim, Mộc, Hỏa, Thủy, Thổ, Lãnh tụ, Thông dụn
 Zone: `KNpcGold.h/.cpp`, `KSubWorld::set_gold_type/recover_gold/emit_gold/map_settings`, `KMapSettings`, `KNpcPlacement::special`, `EntityInfo.gold_type` (word của gói 0x4c:
 `GetGoldKind`, boss = số dòng + 1), `G2C_NPC_GOLD`; `zone.test_npc_gold` = n: npc thử nghiệm vàng loại n ngay (đường `AddBlueNpc`); test `[gold]` (7 ca: bảng, sao lưu/nhân/trả
 (kháng âm `max(−20, 0) = 0`), lớp 0x08079750, đặt sẵn + gói 0x9a + word 0x4c, chết → trả → hồi sinh quay số + `GoldenDropRate`, `bSpecialNpc` trên bản đồ không khai
-(2 000 000) + boss không quay, word boss = 3). Chưa: Lua `AddNpc/AddBlueNpc` (chưa có API npc), `NpcSeriesAuto`/`NpcAutoLevel` (`+0x63f54/+0x63f6c`, cũng trong `0x08085E70`).
+(2 000 000) + boss không quay, word boss = 3). Chưa: Lua `AddNpc/AddBlueNpc` (chưa có API npc). `NpcSeriesAuto`/`NpcAutoLevel`: §16.13 (B5b).
+
+### 16.13 Hệ và cấp ngẫu nhiên của npc đặt sẵn — `maplist.ini` `%d_NpcSeriesAuto` + `%d_NpcSeriesMetal/Wood/Water/Fire/Earth`, `%d_NpcAutoLevelFlag/Max/Min` (`0x080F11F0`, `0x080F1CDA`), `KRegion::LoadNpc 0x080E28E0`, `0x080EFBE0`/`0x080EFB90`, hồi sinh `0x08085E92` (M12 lát B5b, đã kiểm từng dòng)
+
+| Hàm | Luật (đã đọc) | Zone |
+|---|---|---|
+| Bộ nạp bản đồ `0x080F11F0..0x080F1370` | `%d_NpcSeriesAuto` `GetInteger` mặc 0 → `+0x63f54`; ≠ 0 → năm trọng số `%d_NpcSeriesMetal/Wood/Water/Fire/Earth` (mặc 0) → `+0x63f58..+0x63f68` rồi **cộng dồn** (`+0x63f5c += +0x63f58`, `+0x63f60 += +0x63f5c'`, `+0x63f64 += +0x63f60'`, `+0x63f68 += +0x63f64'`, `0x080F1346`); = 0 → năm ô về 0 (`0x080F1BBF`) | `KMapSettings::npc_series_auto`, `npc_series` (thô), `series_sums` (`finish()`) |
+| `0x080F1379..`, `0x080F1CDA..0x080F1D96` | `%d_NpcAutoLevelFlag` mặc 0 → `+0x63f6c`; = 0 → `Max = Min = 1`; ≠ 0 → `%d_NpcAutoLevelMax` (`+0x63f70`, mặc 1), `%d_NpcAutoLevelMin` (`+0x63f74`, mặc 1); `Max ≤ 0`, `Min ≤ 0` hay `Max < Min` → in `MapList.ini error:npc level error!` rồi `1/1`. (`+0x63f6c ≠ 0 && [0x9777FF8] ≠ 0` → `0x080F6CF0(0x9777F00, &id)` đăng ký bản đồ — chưa đọc tiếp) | `npc_auto_level_flag/max/min`, `finish()` + cảnh báo cùng chữ |
+| `KRegion::LoadNpc 0x080E2850` (mỗi `KSPNpc`) | **chỉ `shKind == 0`** (`0x080E28E0`): `+0x63f54 ≠ 0` → `cSeries = 0x080EFBE0(subworld)`; `+0x63f6c ≠ 0` → `nLevel = 0x080EFB90(subworld)`; rồi `KNpcSet::Add 0x0809FBD0(…, 1)` | vòng đặt npc trong `KSubWorld()`: `n.kind == 0` → `random_series()` / `random_level()` |
+| `0x080EFBE0(subworld)` hệ ngẫu nhiên | cờ 0 hay tổng `+0x63f68 ≤ 1` → 0; `r = g_Random(tổng)`: `r < +0x63f58 → 0`; `< +0x63f5c → 1`; `< +0x63f60 → 2`; `< +0x63f64 → 3`; `< +0x63f68 → 4`; khác 0 (Kim 0, Mộc 1, Thủy 2, Hỏa 3, Thổ 4) | `KSubWorld::random_series` |
+| `0x080EFB90(subworld)` cấp ngẫu nhiên | cờ 0 → 1; `Max < Min` → 1; `Max == Min` → Max; khác `g_Random(Max + 1 − Min) + Min` | `KSubWorld::random_level` |
+| Hồi sinh `0x08085E70` phần đầu (`0x08085E92..0x08086196`) | `+0x63f54 ≠ 0` → `hệ mới = 0x080EFBE0`; `+0x28 = hệ mới`; **khác hệ cũ** → giữ tên `+0x1505`, `+0x24`, `+0x21c`; `0x08085DA0(this, +0x1530, +0x20, +0x28)` (= `0x0809C4D0(+0x1978, id)` + `0x080854F0(mẫu, max(1, cấp), hệ)` Init lại theo bản ghi cấp của hệ mới, `+0x220 = +0x21c`); `+0x181c == 0 && +0x63e88 ≠ 0` → `+0x174c = NormalDropRate`; trả `+0x21c/+0x220/+0x24`, tên + băm `+0x1528`; kind 3 → `+0x18e4 = 0x08062B50(0x830C7A0, tên, subworld+0xc)` (script đối thoại) không thì 0; `+0x8c (IsGold) ≠ 0 → BackData` lại (số của hệ mới); `+0x181c ≠ 0 → 0x08085250`. Không có bước con cấp: cấp chỉ quay lúc nạp | `KSubWorld::revive` đầu: `random_series()` khác → `apply_template` (giữ tên/kind/camp), `NormalDropRate`, `gold_back_data`, `init_template_skills`; log `series rerolled` |
+
+Zone: test `[series]` (tổng cộng dồn `{20,0,30,0,50} → {20,20,50,50,100}`; cặp cấp sai → 1/1; bản đồ Thổ 100 % cấp 25: kind 0 → hệ 4 cấp 25, kind 3 giữ 0/5;
+boss hệ 0 hồi sinh → hệ 4, giữ tên/camp/`+0x181c`, không vàng; 300 lượt trong [20,30] và không ra Mộc/Hỏa). `map.json` `settings` thêm `npc_series_auto`,
+`npc_series`, `npc_auto_level_flag/max/min` (server: 164 bản đồ khai, ví dụ Phượng Tường 5 × 20, Kim Quang Động Kim 80/Thủy 20 cấp 35).
 
 Zone (§16.11): `KNpc::boss_flag` (int, `+0x181c`), `KSubWorld::init_template_skills`, `spawn_npc(…, boss_flag)`, `process_state` nhánh ô 5; test `[command][aura][template]` (mẫu 950:
 hào quang 1103 "0\|1" → ô 5 cấp 3, con 1102 lên mình sau 10 khung; bị động 1130 "1\|0" → ô 6 + trạng thái ngay; mẫu 951 "0\|30" → ô 5 = 64, không thi triển; npc do kỹ

@@ -675,3 +675,96 @@ TEST_CASE("the gold word of the 0x4c sync: a boss carries the table's count + 1 
     CHECK(plain_word == 0);
     CHECK(hero_word == 0);
 }
+
+TEST_CASE("NpcSeriesAuto / NpcAutoLevel of maplist.ini: the summed weights of 0x080F1346, the rolls 0x080EFBE0 / 0x080EFB90, a kind 0 placement at load, the revive of 0x08085E92", "[series][world]")
+{
+    Quiet quiet;
+    KMapSettings s;
+    s.npc_series_auto = 1;
+    s.npc_series = {20, 0, 30, 0, 50};
+    s.npc_auto_level_flag = 1;
+    s.npc_auto_level_max = 30;
+    s.npc_auto_level_min = 20;
+    s.finish();
+    CHECK(s.series_sums == std::array<int, 5>{20, 20, 50, 50, 100});
+    CHECK(s.npc_auto_level_max == 30);
+    KMapSettings bad = s;
+    bad.npc_auto_level_min = 40;   // max < min: "MapList.ini error:npc level error!" -> 1 / 1
+    bad.finish();
+    CHECK((bad.npc_auto_level_max == 1 && bad.npc_auto_level_min == 1));
+    KMapSettings off = s;
+    off.npc_series_auto = 0;
+    off.finish();
+    CHECK(off.series_sums == std::array<int, 5>{});   // 0x080F1BBF: no weights without the flag
+
+    // a map whose monsters are always earth (4) of level 25, placed as kind 0 and as kind 3
+    KSubWorldConfig c = gold_world({beast_at(Pos{2100, 2000}), beast_at(Pos{2300, 2000})}, 0, 0);
+    KMapData m = *c.map;
+    m.npcs[1].kind = 3;
+    m.settings.npc_series_auto = 1;
+    m.settings.npc_series = {0, 0, 0, 0, 100};
+    m.settings.npc_auto_level_flag = 1;
+    m.settings.npc_auto_level_max = 25;
+    m.settings.npc_auto_level_min = 25;
+    m.settings.finish();
+    c.map = std::make_shared<const KMapData>(std::move(m));
+    KSubWorld w(c);
+    for (int i = 0; i < 50; ++i) CHECK(w.random_series() == 4);
+    for (int i = 0; i < 50; ++i) CHECK(w.random_level() == 25);
+    Pos at;
+    EntityId hero;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{2000, 2000}), hero, at) == jx::pb::RESULT_OK);
+    auto placed = npcs_by_x(w, 7);
+    REQUIRE(placed.count(2100) == 1);
+    REQUIRE(placed.count(2300) == 1);
+    const KNpc* monster = w.find_entity(placed[2100]);
+    const KNpc* townsman = w.find_entity(placed[2300]);
+    REQUIRE(monster != nullptr);
+    REQUIRE(townsman != nullptr);
+    CHECK(monster->series == 4);
+    CHECK(monster->level == 25);
+    CHECK(townsman->series == 0);   // 0x080E28E0: only a kind 0 record rolls
+    CHECK(townsman->level == 5);
+
+    // a boss added with series 0 (metal): its revive rolls earth, re-templates it (0x08085DA0) and keeps its name / camps / +0x181c
+    const EntityId boss = w.spawn_npc("boss", Pos{2500, 2000}, 960, 0, KNpcKind::monster, 5, 0, 2);
+    KNpc* bo = w.mutable_entity(boss);
+    REQUIRE(bo != nullptr);
+    bo->camp = 3;
+    bo->current_camp = 3;
+    CHECK(bo->series == 0);
+    KNpc* h = w.mutable_entity(hero);
+    REQUIRE(h != nullptr);
+    slay(w, *bo, *h);
+    for (int i = 0; i < 10; ++i) w.tick();
+    bo = w.mutable_entity(boss);
+    REQUIRE(bo != nullptr);
+    CHECK(bo->doing == KDoing::stand);
+    CHECK(bo->series == 4);
+    CHECK(bo->name == "boss");
+    CHECK(bo->camp == 3);
+    CHECK(bo->current_camp == 3);
+    CHECK(bo->boss_flag == 2);
+    CHECK(bo->life() == bo->life_max());
+    CHECK_FALSE(bo->gold.is_golding);   // +0x181c != 0: no gold roll
+
+    // a map with a wider range: every roll within [min, max], and a few series over the weights
+    KSubWorldConfig c2 = gold_world({}, 0, 0);
+    KMapData m2 = *c2.map;
+    m2.settings = s;
+    c2.map = std::make_shared<const KMapData>(std::move(m2));
+    KSubWorld w2(c2);
+    std::array<int, 5> seen{};
+    for (int i = 0; i < 300; ++i) {
+        const int lv = w2.random_level();
+        CHECK((lv >= 20 && lv <= 30));
+        const int sr = w2.random_series();
+        REQUIRE((sr >= 0 && sr <= 4));
+        seen[static_cast<std::size_t>(sr)]++;
+    }
+    CHECK(seen[1] == 0);   // wood and fire have no weight
+    CHECK(seen[3] == 0);
+    CHECK(seen[0] > 0);
+    CHECK(seen[2] > 0);
+    CHECK(seen[4] > seen[0]);
+}

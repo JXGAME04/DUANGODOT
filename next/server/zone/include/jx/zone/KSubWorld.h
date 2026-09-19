@@ -275,6 +275,11 @@ public:
     // the 0x9a packet {0x9a, npc id, word kind} (0x0809DF66, 0x0807A870 within 100): G2C_NPC_GOLD
     void emit_gold(const KNpc& e);
     [[nodiscard]] const KMapSettings& map_settings() const noexcept;
+    // 0x080EFBE0: the map's NpcSeriesAuto roll - g_Random(total) against the summed weights (metal 0 .. earth 4); 0 without
+    // the flag, a total of 1 or less, or a roll below the first sum (a zero metal weight and a roll of 0 give metal all the same)
+    [[nodiscard]] int random_series();
+    // 0x080EFB90: the map's NpcAutoLevel roll - g_Random(max + 1 - min) + min; max == min -> max; 1 without the flag
+    [[nodiscard]] int random_level();
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
     bool teleport(EntityId id, Pos p);
     // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.

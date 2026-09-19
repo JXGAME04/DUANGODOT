@@ -287,15 +287,31 @@ func mapSettings(dir string, set *pak.Set, id int) *export.MapSettings {
 		}
 		return strings.TrimSpace(strings.TrimRight(string(m[1]), "\r"))
 	}
+	num := func(name string, def int) int {
+		v := key(name)
+		if v == "" {
+			return def
+		}
+		return npcres.Atoi(v)
+	}
 	s := &export.MapSettings{
-		MapType:        key("MapType"),
-		AutoGoldenNpc:  npcres.Atoi(key("AutoGoldenNpc")),
-		GoldenType:     npcres.Atoi(key("GoldenType")),
-		GoldenDropRate: strings.ToLower(key("GoldenDropRate")),
-		NormalDropRate: strings.ToLower(key("NormalDropRate")),
+		MapType:          key("MapType"),
+		AutoGoldenNpc:    num("AutoGoldenNpc", 0),
+		GoldenType:       num("GoldenType", 0),
+		GoldenDropRate:   strings.ToLower(key("GoldenDropRate")),
+		NormalDropRate:   strings.ToLower(key("NormalDropRate")),
+		NpcSeriesAuto:    num("NpcSeriesAuto", 0),
+		NpcAutoLevelFlag: num("NpcAutoLevelFlag", 0),
+		NpcAutoLevelMax:  num("NpcAutoLevelMax", 1),
+		NpcAutoLevelMin:  num("NpcAutoLevelMin", 1),
 	}
 	if s.GoldenType < 0 {
 		s.GoldenType = 0 // 0x080F149C
+	}
+	if s.NpcSeriesAuto != 0 { // 0x080F1203: the weights are read only with the flag (0x080F1BBF zeroes them otherwise)
+		for i, name := range []string{"NpcSeriesMetal", "NpcSeriesWood", "NpcSeriesWater", "NpcSeriesFire", "NpcSeriesEarth"} {
+			s.NpcSeries[i] = num(name, 0)
+		}
 	}
 	return s
 }

@@ -586,6 +586,8 @@
     "gold recovered": "quái vàng trả lại chỉ số (KNpcGold::RecoverBackData ở cuối khung chết)",
     "gold type outside the table": "loại quái vàng của bản đồ (GoldenType) vượt số dòng bảng - giữ nguyên chỉ số",
     "gold monster kinds": "Đã nạp bảng loại quái vàng (settings/npc/NpcGoldTemplate.txt)",
+    "series rerolled": "npc hồi sinh đổi hệ theo NpcSeriesAuto của bản đồ (nạp lại mẫu theo hệ mới)",
+    "MapList.ini error:npc level error!": "maplist.ini: NpcAutoLevelMax/Min của bản đồ sai (≤ 0 hay max < min) - dùng 1/1 như server gốc",
     "no gold monster table, nothing turns gold": "Không có bảng quái vàng npc_gold.json (jxassets export-npc-gold) - không quái nào hóa vàng",
     "skill desc": "Trả lời số liệu một cấp kỹ năng cho chú thích của client (chi phí, phạm vi, thuộc tính; gói G2C_SKILL_DESC)",
     "missile sync": "Báo client một viên đạn: sinh / đang bay (mỗi 6 khung) / tan (gói G2C_MISSLE)",
