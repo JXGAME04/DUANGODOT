@@ -122,8 +122,21 @@ Sau khi bỏ lớp tương thích, `KLuaScript::init` chỉ đăng ký ba hàm c
 | `IncludeLib(name)` | thư viện C của engine cũ; đã nằm sẵn trong zone, nên không làm gì |
 | `print(...)` | ghi vào log có cấu trúc, category `lua`, kèm tên file |
 
-Cộng thêm các hàm gameplay trong `ScriptFuns.cpp`. **Hệ thống hàm script đầy đủ (kỹ năng, nhiệm
-vụ, vật phẩm) chưa làm** — chờ mổ nhị phân bản Linux, theo quyết định của chủ dự án.
+Cộng thêm các hàm gameplay trong `ScriptFuns.cpp` (mỗi hàm chép từ `jx_linux_y`, đọc tới `ret`;
+địa chỉ ghi trong chú thích và `docs/LINUX-SERVER.md`).
+
+**Bao nhiêu hàm còn thiếu để chạy trọn bộ script Linux** — xem `docs/SCRIPT-API.md`, sinh bởi
+
+```bash
+python tools/script_api_coverage.py --skip PARTNER_ --out docs/SCRIPT-API.md
+```
+
+Công cụ đối chiếu ba danh sách: hàm C mà `jx_linux_y` đăng ký cho Lua (`tools/re/jx_linux_y.luamap.txt`,
+1577 hàm + 174 hàm thư viện Lua 4 tĩnh ở địa chỉ ≥ 0x08230000), hàm zone đăng ký (`ScriptFuns.cpp` +
+`KLuaScript.cpp`), và mọi lời gọi hàm toàn cục `Tên(` trong `data/script`. Kết quả 2026-09-19: zone đã có 161
+tên (63 806 lượt gọi), **còn thiếu 866 tên (29 056 lượt)** — làm từ trên xuống theo số lượt gọi (quyết định
+chủ dự án 2026-09-19: ưu tiên việc này, bỏ qua PARTNER_* — 22 tên, 436 lượt). 155 tên script gọi mà nhị phân
+không có (`OB_SaveShareData`, `GetSysCurrentTime`, `WriteStringToFile`, `GlobalExecute`…: script gốc cũng lỗi ở đó).
 
 ## 7. Kiểm thử
 
