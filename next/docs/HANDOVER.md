@@ -883,7 +883,7 @@ Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo 
   `Player_Task` của thanh công cụ gọi thẳng, đích chưa dò → tạm nối `"task"` → sổ nhật ký.
 - **Zone**: `l_AddNote`, `KSubWorld::dialog_add_note` (`ui_note_info` 3), `log.vi.json` +1 câu +1 trường. **Client**: `export-ui` +5 (`nhat-ky*`), `UiTaskNote.gd` (4 trang,
   bản ghi mới lên đầu, xoá, soạn/lưu, `user://journal_<player id>.json`), `KUiDialogMath.journal_insert/journal_lines`, `KUiGameWindows` ui 3 + lệnh `"task"`, `_auto_note`.
-- **Test/đo**: `[dialog]` +1 ca AddNote (3 gói: chữ + tham số 7, id 1234, chữ không tham số; không đối số / bảng → không gửi), ctest 294/294 Release + Debug; Godot 522; e2e E2E_RESULT.
+- **Test/đo**: `[dialog]` +1 ca AddNote (3 gói: chữ + tham số 7, id 1234, chữ không tham số; không đối số / bảng → không gửi), ctest 294/294 Release + Debug; Godot 522; e2e `AUTO_NOTE ui=3 param=7 records=0->1 window=true`.
 - **Chưa**: đích thật của nút `Player_Task` (2.0), dữ liệu hai trang "Cập nhật sự kiện"/"Mở khóa vật phẩm" (tệp client), PARTNER_*, tên subworld/tên npc byte thô,
   `AskClientForNumber/String 0x08115CA0/0x08115E90`.
 - commit: `JX NEXT: M13 lat D9 - …`.
