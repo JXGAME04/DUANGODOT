@@ -92,6 +92,12 @@ var GameScreens = []UiScreenDef{
 	{"thanh-dieu-khien-tren", "Thanh điều khiển trên", "KUiHeaderControlBar", `顶部控制条.ini`},
 	{"thanh-cong-cu", "Thanh công cụ", "KUiToolsControlBar", `工具控制条.ini`},
 	{"trang-thai-ky-nang", "Danh sách trạng thái kỹ năng", "KUiSkillStateList", `技能状态列表.ini`},
+	// 3D-50: the minimap (KUiMiniMap 0x004C4BB0: [MiniMap] NameShadow SceneName ScenePos SwitchBtn WorldMapBtn CaveMapBtn
+	// BtnFlag CityInfo1/2 WayFinding [Line] Color [MapRect] Left/Top/Width/Height) - the small one, the browse (big) one
+	// and the "void" one the exe names (0x794684..0x794698)
+	{"ban-do-nho", "Bản đồ nhỏ", "KUiMiniMap", `小地图_小.ini`},
+	{"ban-do-lon", "Bản đồ (bản duyệt)", "KUiMiniMap (lớn)", `小地图_浏览版.ini`},
+	{"ban-do-hu-vo", "Bản đồ Hư Vô Phiêu Miểu", "KUiMiniMap (hư vô)", `小地图之虚无缥缈.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

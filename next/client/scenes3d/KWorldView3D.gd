@@ -149,6 +149,10 @@ func map_name() -> String:
 	return place.map_name()
 
 
+func map_info() -> Dictionary:
+	return place.map_info()
+
+
 func region_count() -> int:
 	return place.region_count()
 

@@ -42,6 +42,7 @@ func _ready() -> void:
 		_chat_input.visible = false
 		_chat_input = _windows.player_bar.chat_input
 		_windows.player_bar.chat_submitted.connect(_on_chat_submitted)
+	_bind_minimap()
 	Game.map_changed.connect(_on_map_changed)
 	Game.entity_spawn.connect(_on_spawn)
 	Game.entity_despawn.connect(_on_despawn)
@@ -157,10 +158,20 @@ func _on_map_changed(info: Dictionary) -> void:
 	_world.center_on(Vector2(float(info.get("x", 0)), float(info.get("y", 0))))
 	_append_chat("[color=gray]Sang %s (map %d).[/color]" % [_world.map_name() if has_map else "map", Game.map_id])
 	Log.info("ui", "map changed", {"map": Game.map_id, "bundle": has_map, "x": info.get("x", 0), "y": info.get("y", 0)})
+	_bind_minimap()
 
 
 func _own() -> Node:
 	return _entities.get(Game.entity_id)
+
+
+# The minimap follows the scene: its picture per map, the entity table, our own node once it exists
+func _bind_minimap() -> void:
+	if _windows == null or _windows.minimap == null:
+		return
+	_windows.minimap.bind(_entities)
+	_windows.minimap.set_map(Game.map_id, _world.map_name(), _world.map_info())
+	_windows.minimap.set_own(_own())
 
 
 func _update_camera(snap: bool, delta: float = 0.0) -> void:
@@ -410,6 +421,8 @@ func _add_entity(d: Dictionary) -> void:
 	var id := int(d.id)
 	_entities[id] = _world.add_entity(d, id == Game.entity_id, _entities.get(id))
 	_spawn_count += 1
+	if id == Game.entity_id and _windows != null and _windows.minimap != null:
+		_windows.minimap.set_own(_entities[id])
 
 
 func _on_spawn(list: Array) -> void:

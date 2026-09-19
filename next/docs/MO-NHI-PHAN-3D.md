@@ -66,7 +66,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | A11 | `cha_list` (214) | NPC: cha_pic, ngũ hành, cờ (không vào chiến đấu, minimap chấm vàng), loại, bán kính nhìn/hoạt động, AI | ghép template JX1 ↔ NPC tham khảo (`CHA_TO_TEMPLATE`) | `make_map3d.py` | **một phần** (30 template ghép tay cho Ba Lăng) | 1.3 |
 | A12 | `npc_fight_ai` (16), `npc_skill_ai` (54) | AI quái | — | *bỏ* (AI theo Linux) | — |
 | A13 | `scn_list` (65), `scn_area_list` (93) | scene: đường dẫn bundle, camera `scn_list`; vùng: an toàn, nhạc `sound_group`, sương mù/ambient/đèn đổi theo vùng, camera theo vùng, bóng 45 m, tiếng bước chân | camera map, vùng an toàn, nhạc vùng (3.5), sương mù theo vùng | `map3d.json camera` | **một phần**: camera map xong; vùng (nhạc/sương/đèn) **chưa** | 1.1, 3.5 |
-| A14 | `ui_map_view` (63) | ảnh minimap `world_baling_big.png`, tỉ lệ, toạ độ thế giới góc trái-dưới/phải-trên | minimap 3D | — | **chưa** (3.4; ảnh minimap có bản quyền → chỉ toạ độ) | 3.4 |
+| A14 | `ui_map_view` (63) | ảnh minimap `world_baling_big.png`, tỉ lệ, toạ độ thế giới góc trái-dưới/phải-trên | minimap 3D | `make_map3d.export_minimap` → `map3d.json minimap` | **xong** (3D-50; ảnh chỉ trong assets3d) | 3.4 |
 | A15 | `mark_list` (103), `trans` (166), `stop_flag` (54) | điểm đánh dấu, cổng dịch chuyển giữa scene | bẫy/cổng | `make_map3d.py traps` | **xong** (ExitPoint → bẫy) | 1.4 |
 | A16 | `sound_group` (16), `sound_list_sound` (224), `sound_list_bgm` (74) | tiếng thi triển theo giới, nhạc nền | — | *bỏ* (âm thanh theo 2.0: `action_sounds.json`) | — |
 | A17 | `pvp_camera_modify` (2) | camera PK: vị trí/góc/thời gian | — | *bỏ* | — |
@@ -122,8 +122,8 @@ chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 
 
 | # | Việc | Nguồn | Trạng thái |
 |---|---|---|---|
-| E1 | Các màn 2.0 còn thiếu trong game (main U6/U7, M15): bàn phím ảo, tuỳ chọn hệ thống, ghi hình, minimap 2.0, hội thoại NPC, cửa hàng, giao dịch… | `reslst.dat` ini + gamecl.exe | **chưa** (làm ở main rồi gộp sang; bản 3D chỉ dùng chung) |
-| E2 | Minimap trên map 3D: [2.0] `UiMiniMap` (ảnh minimap map + chấm) — với map tham khảo dùng `ui_map_view` (A14) toạ độ, ảnh tự dựng từ mesh (render top-down) | gamecl.exe + A14 | **chưa** (3.4) |
+| E1 | Các màn 2.0 còn thiếu trong game (main U6/U7, M15): bàn phím ảo, tuỳ chọn hệ thống, ghi hình, hội thoại NPC, cửa hàng, giao dịch… | `reslst.dat` ini + gamecl.exe | **một phần**: minimap xong (3D-50, `export-ui` 32 màn); còn lại làm ở main rồi gộp sang |
+| E2 | Minimap: [2.0] `KUiMiniMap` 0x004C4BB0 + `KScenePlaceMapC` (ảnh `<map>24.jpg`, 32 px/region, chấm theo `Setting.ini [Map]`) cho map 2D; map 3D ảnh `ui_map_view` | gamecl.exe + SwordOnline + A14 | **xong** (3D-50): `UiMiniMap.gd`; còn: cờ/đường tới mục tiêu, bản duyệt lớn `ban-do-lon`, nút chuyển |
 | E3 | Thanh tên/máu 3D: `HeadBarCrt/HeadBarStill/HeadBarGroup` (độ cao `sys_bar`, ẩn theo khoảng cách) + `ui_lifebar.lua` | IL2CPP + Lua | **một phần**: độ cao theo `sys_bar`; ẩn theo khoảng cách [tự chọn] |
 | E4 | Vòng chọn mục tiêu, `ui_enemy.lua`/`ui_target_info.lua` (khung mục tiêu) | Lua | **một phần**: vòng có; khung mục tiêu 2.0 (`thanh-nhan-vat-thu-nho`?) **chưa** |
 | E5 | Cần điều khiển ảo `ui_primary_rocker.lua` (di động) | Lua | **chưa** (M3D-6 Android) |

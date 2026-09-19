@@ -126,6 +126,13 @@ func map_name() -> String:
 	return str(info.get("name", ""))
 
 
+# map3d.json of a 3D map; the 2D map.json (region_left/top for the 2.0 minimap picture) when this is the 2.5D world
+func map_info() -> Dictionary:
+	if mode == "2.5d" and ground25 != null:
+		return ground25.info
+	return info
+
+
 # The quality setting: --quality= on the command line, else user://settings3d.json, else "high"
 static func quality_settings() -> Dictionary:
 	if quality == "":

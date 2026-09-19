@@ -18,9 +18,11 @@ import json
 import math
 import os
 import struct
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 NEXT = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, HERE)
 UNIT = 0.02
 CELL = 32
 REGION_W, REGION_H = 512, 1024
@@ -94,6 +96,61 @@ def point_in_tri(px, pz, a, b, c):
     neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
     pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
     return not (neg and pos)
+
+
+def export_minimap(scene_id, origin, out):
+    """Anh minimap cua bo tham khao [TK]: bang ui_map_view (id scene -> ten anh trong Assets/GUI/res/textures/map/, ti le,
+    toa do the gioi Unity cua goc trai-duoi (x, z) va phai-tren) trong bundle UI 9431897d8969 (container = md5 duong dan).
+    Bo xuat dao truc X (Unity -> Godot) nen anh xoay 180 do de toa do scene cua ta (x = (-x_unity - origin.X)/UNIT,
+    y = (z_unity - origin.Z)/UNIT, y tang ve phia camera) van di theo hang/cot anh: sau khi xoay, goc trai-tren anh =
+    (x_unity max, z_unity max) -> scene (x nho nhat, y ... ) - xem doc/3D-QUY-UOC. Tra ve khoi "minimap" cho map3d.json."""
+    try:
+        import hashlib
+        import UnityPy
+        from PIL import Image
+    except ImportError:
+        return None
+    src = os.environ.get("JX_SCN3D_SRC", r"D:\game3gtQ_mo\pc\剑网江湖_Data\StreamingAssets")
+    keyf = os.environ.get("JX_SCN3D_KEY", r"D:\game3gtQ_mo\khoa_bundle.txt")
+    if not os.path.exists(keyf):
+        return None
+    UnityPy.set_assetbundle_decrypt_key(io.open(keyf, encoding="utf-8").read().strip().split()[0])
+    from export_npc import Tables
+    t = Tables(src)
+    row = None
+    for r in t.t.get("ui_map_view_cmn", [])[1:]:
+        if r and r[0].strip() == str(scene_id):
+            row = r
+            break
+    if row is None or len(row) < 9:
+        return None
+    fname = row[2].strip()
+    x0, z0, x1, z1 = float(row[5]), float(row[6]), float(row[7]), float(row[8])   # trai-duoi, phai-tren (Unity x, z)
+    env = UnityPy.load(os.path.join(src, "9431897d8969.bdd"))
+    cont = {}
+    for o in env.objects:
+        if o.type.name == "AssetBundle":
+            for k, v in o.read_typetree()["m_Container"]:
+                cont[k] = v["asset"]["m_PathID"]
+    pid = cont.get(hashlib.md5(("assets/gui/res/textures/map/" + fname).lower().encode("utf-8")).hexdigest()[:12])
+    if pid is None:
+        return None
+    tex = None
+    for o in env.objects:
+        if o.path_id == pid and o.type.name == "Texture2D":
+            tex = o.read()
+            break
+    if tex is None:
+        return None
+    img = tex.image.convert("RGBA").rotate(180)
+    img.save(os.path.join(out, "minimap.png"))
+    # scene units: x_scene = (-x_unity - origin.X)/UNIT -> the picture's Unity x range [x0, x1] becomes [(-x1 - oX)/U, (-x0 - oX)/U]
+    left = (-x1 - origin[0]) / UNIT
+    right = (-x0 - origin[0]) / UNIT
+    top = (z0 - origin[1]) / UNIT
+    bottom = (z1 - origin[1]) / UNIT
+    return {"file": "minimap.png", "left": left, "top": top, "right": right, "bottom": bottom, "width": img.width, "height": img.height,
+            "source": "ui_map_view %s %s" % (scene_id, fname)}
 
 
 def rasterize(verts, tris, origin, cells_x, cells_y):
@@ -220,6 +277,10 @@ def main():
         "npcs_json": "../../%s/npcs.json" % a.map, "unit": UNIT, "origin": [origin[0], origin[1]], "scale": 1.0,
         "camera": cam, "ground_y": min(ys), "models": "models.json",
     }
+    mm = export_minimap(scene["table"].get("id"), origin, out)
+    if mm:
+        map3d["minimap"] = mm
+        print("minimap: %s %dx%d, scene x %.0f..%.0f y %.0f..%.0f" % (mm["source"], mm["width"], mm["height"], mm["left"], mm["right"], mm["top"], mm["bottom"]))
     with io.open(os.path.join(out, "map3d.json"), "w", encoding="utf-8") as f:
         json.dump(map3d, f, ensure_ascii=False, indent=1)
     with io.open(os.path.join(out, "models.json"), "w", encoding="utf-8") as f:

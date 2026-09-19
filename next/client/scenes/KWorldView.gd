@@ -30,6 +30,11 @@ func map_name() -> String:
 	return ""
 
 
+# The map's descriptor (map.json of a 2D map, map3d.json of a 3D one): the minimap reads region_left/top or "minimap"
+func map_info() -> Dictionary:
+	return {}
+
+
 func region_count() -> int:
 	return 0
 

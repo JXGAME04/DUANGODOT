@@ -16,6 +16,7 @@ const UiControlBar := preload("res://ui/uicase/UiControlBar.gd")
 const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
+const UiMiniMap := preload("res://ui/uicase/UiMiniMap.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
 const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
@@ -33,6 +34,7 @@ var tool_bar: UiControlBar = null
 var player_bar: UiPlayerBar = null
 var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
 var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
+var minimap: UiMiniMap = null           # the minimap in the top-right corner (小地图_小.ini)
 var shortcuts := KUiShortcut.new()      # the nine shortcut skills (Q W E A S D Z X C), kept per character
 var quick := KUiShortcutItem.new()      # the nine quick slots of the bottom bar (keys 1..9), kept per character
 var _tip_skill := 0                     # the skill whose tip the mouse hover shows (0 = none); the zone's numbers may arrive later
@@ -202,6 +204,12 @@ func _build_bars() -> void:
 	else:
 		Game.state_changed.connect(func(_id): state_window.refresh())
 		state_window.state_hovered.connect(_on_state_hovered)
+	minimap = UiMiniMap.new()
+	_canvas.add_child(minimap)
+	if not minimap.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiMiniMap.SCHEME})
+		minimap.queue_free()
+		minimap = null
 
 
 # the Lua Open([[x]]) / Switch([[x]]) a tool bar button runs (0x0044B250..): the windows this client has

@@ -86,6 +86,10 @@ func map_name() -> String:
 	return str(_map.info.get("name", "")) if _map.map_id > 0 else ""
 
 
+func map_info() -> Dictionary:
+	return _map.info if _map.map_id > 0 else {}
+
+
 func region_count() -> int:
 	return _map.region_count()
 

@@ -565,7 +565,7 @@ func main() {
 		}
 	}
 	if len(args) < 1 {
-		fail("usage: jxassets [-client DIR] [-out PATH] list|find|cat|spr|map|region|objects ...")
+		fail("usage: jxassets [-client DIR] [-out PATH] list|find|cat|spr|map|region|objects|export-minimap ...")
 	}
 	switch args[0] {
 	case "list":
@@ -681,6 +681,52 @@ func main() {
 		}
 		fmt.Printf("images missing from archives: %d\n", missing)
 
+	case "export-minimap":
+		// The picture the 2.0 minimap draws: "<map root>24.jpg" (KScenePlaceMapC::Load, PLACE_MAP_FILE_NAME_APPEND;
+		// gamecl.exe 0x7b580c "%s24.jpg"), kept in data/minimap.pak; one region of the map = 32 x 32 of its pixels
+		// (MAP_A_REGION_NUM_MAP_PIXEL_H/V), so a pixel is 16 scene units across and 32 down.
+		if len(args) < 2 {
+			fail("export-minimap <mapid>|all [-out <assets dir>]")
+		}
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		dir := findClient()
+		set := openSet(dir)
+		defer set.Close()
+		ids := []string{args[1]}
+		if args[1] == "all" {
+			data, err := mapList(dir, set)
+			if err != nil {
+				fail("MapList.ini: %v", err)
+			}
+			ids = nil
+			for _, m := range regexp.MustCompile(`(?m)^([0-9]+)=`).FindAllSubmatch(data, -1) {
+				ids = append(ids, string(m[1]))
+			}
+		}
+		done, missing := 0, 0
+		for _, idText := range ids {
+			p, _ := mapPath(dir, set, idText)
+			data, err := set.ReadFile(p + "24.jpg")
+			if err != nil {
+				missing++
+				if args[1] != "all" {
+					fail("%s24.jpg: %v", p, err)
+				}
+				continue
+			}
+			d := filepath.Join(out, "maps", idText)
+			if err := os.MkdirAll(d, 0o755); err != nil {
+				fail("%v", err)
+			}
+			if err := os.WriteFile(filepath.Join(d, "minimap.jpg"), data, 0o644); err != nil {
+				fail("%v", err)
+			}
+			done++
+		}
+		fmt.Println("export-minimap:", done, "anh,", missing, "map khong co anh ->", filepath.Join(out, "maps"))
 	case "export-map":
 		if len(args) < 2 {
 			fail("export-map <mapid> [-out <assets dir>]")
