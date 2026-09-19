@@ -29,7 +29,19 @@ var lm_gain := 1.0
 var stats := {"nodes": 0, "surfaces": 0, "lm_surfaces": 0, "terrain": 0, "collision": 0, "load_ms": 0, "npcs": 0, "npc_models": 0}
 var npcs: Array = []
 var npc_models := {}
+var weapons := {}          # weapons.json: id -> {name, name_vi, type, type_vi, file, hangs, animgrp}
+var weapon_by_type := {}   # type -> [id...]
+var cur_weapon := ""      # id dang cam ("" = tay khong)
+var last_action := ""
+const WEAPON_KEYS := {KEY_1: 1, KEY_2: 2, KEY_3: 3, KEY_4: 4, KEY_5: 5, KEY_6: 6, KEY_7: 7}
+const TYPE_VI := {0: "Tay không", 1: "Kiếm", 2: "Đao", 3: "Thương", 4: "Côn", 5: "Song đao", 6: "Song chùy", 7: "Quyền"}
 var hud: Label
+var name_layer: Control
+var name_labels := {}      # npc -> Label 2D
+var _lod_timer := 0.0
+var spawn_mark := ""     # --at=<diem danh dau>: dung tai diem do (so anh voi game goc)
+const NAME_DIST := 60.0
+const ANIM_DIST := 45.0
 var cam_rig: Node3D   # Scn3DCamera (preload, khong phu thuoc cache class_name)
 var player: Node3D    # Scn3DPlayer
 var _shot := 0
@@ -43,6 +55,8 @@ func _ready() -> void:
 			auto = true
 		elif a.begins_with("--lm_gain="):
 			lm_gain = float(a.substr(10))
+		elif a.begins_with("--at="):
+			spawn_mark = a.substr(5)
 	dir = ProjectSettings.globalize_path(ASSETS3D) + "/" + map_name
 	var t0 := Time.get_ticks_msec()
 	var txt := FileAccess.get_file_as_string(dir + "/scene.json")
@@ -115,7 +129,7 @@ func _setup_environment() -> void:
 	light.position = Vector3(0, 60, 0)
 	light.look_at_from_position(light.position, light.position + d, Vector3.UP)
 	light.light_color = _col(l.get("color", [1, 1, 0.95]))
-	light.light_energy = 1.2
+	light.light_energy = 1.35
 	light.shadow_enabled = true
 	light.directional_shadow_max_distance = 90.0
 	add_child(light)
@@ -258,7 +272,11 @@ func _setup_player_camera() -> void:
 	var marks: Dictionary = info.get("marks", {})
 	var pts: Dictionary = marks.get("points", {})
 	var key := ""
+	if spawn_mark != "" and pts.has(spawn_mark) and pts[spawn_mark].size() > 0:
+		key = spawn_mark
 	for k in ["BeginPoint01", "BeginPoint", "BeginPointJ"]:
+		if key != "":
+			break
 		if pts.has(k) and pts[k].size() > 0:
 			key = k
 			break
@@ -309,7 +327,7 @@ func _setup_npcs() -> void:
 		npc.cha = int(p["cha"])
 		add_child(npc)
 		var shown: String = str(mi.get("name_vi", "")) if str(mi.get("name_vi", "")) != "" else str(mi.get("name", ""))
-		if not npc.setup(npc_dir, mi["file"], float(mi.get("scale", 1.0)), shown, float(mi.get("sizeY", 0.0) if mi.get("sizeY") != null else 0.0)):
+		if not npc.setup(npc_dir, mi["file"], float(mi.get("scale", 1.0)), shown, float(mi.get("sizeY", 0.0) if mi.get("sizeY") != null else 0.0), mi):
 			npc.queue_free()
 			continue
 		npc.global_position = Vector3(p["pos"][0], p["pos"][1], p["pos"][2])
@@ -323,10 +341,60 @@ func _setup_npcs() -> void:
 	if not pc.is_empty() and player:
 		var me := NPC_SCRIPT.new()
 		me.name = "Me"
-		if me.setup(npc_dir, pc["file"], float(pc.get("scale", 1.0)), "", 0.0):
+		if me.setup(npc_dir, pc["file"], float(pc.get("scale", 1.0)), "", 0.0, pc):
 			player.set_model(me)
+			_load_weapons()
+			_equip_type(1)
 		else:
 			me.queue_free()
+
+
+# ---------- vu khi ----------
+func _load_weapons() -> void:
+	var wdir := ProjectSettings.globalize_path(ASSETS3D) + "/weapon"
+	var txt := FileAccess.get_file_as_string(wdir + "/weapons.json")
+	if txt == "":
+		print("SCN3D weapon: chua co weapons.json (chay tools/scn3d/export_weapon.py)")
+		return
+	weapons = JSON.parse_string(txt)
+	for id in weapons.keys():
+		var t := int(weapons[id].get("type", 0))
+		if not weapon_by_type.has(t):
+			weapon_by_type[t] = []
+		weapon_by_type[t].append(id)
+	for t in weapon_by_type.keys():
+		weapon_by_type[t].sort_custom(func(a, b): return int(a) < int(b))
+
+
+# type: 1 kiem 2 dao 3 thuong 4 con 5 song dao 6 song chuy 7 quyen; 0 = tay khong. idx: mau thu idx trong loai
+func _equip_type(t: int, idx := 0) -> void:
+	if player == null or player.model == null:
+		return
+	var m: Node = player.model
+	if t == 0 or not weapon_by_type.has(t) or weapon_by_type[t].is_empty():
+		m.clear_weapons()
+		cur_weapon = ""
+		m.set_group("1")
+		return
+	var ids: Array = weapon_by_type[t]
+	var id: String = str(ids[idx % ids.size()])
+	var w: Dictionary = weapons[id]
+	var n: int = m.attach_weapon(ProjectSettings.globalize_path(ASSETS3D) + "/weapon", w)
+	cur_weapon = id
+	var g := str(int(w.get("animgrp", 0)))
+	if g == "0":
+		g = "1"
+	m.set_group(g)
+	print("SCN3D weapon: %s (%s) treo %d mau, nhom animation %s" % [w.get("name", ""), w.get("type_vi", ""), n, g])
+
+
+func _cycle_weapon() -> void:
+	if cur_weapon == "" or not weapons.has(cur_weapon):
+		return
+	var t := int(weapons[cur_weapon].get("type", 0))
+	var ids: Array = weapon_by_type.get(t, [])
+	var i := ids.find(cur_weapon)
+	_equip_type(t, (i + 1) % max(1, ids.size()))
 
 
 func _snap(n: Node3D) -> void:
@@ -341,6 +409,22 @@ func _setup_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "HUD"
 	add_child(layer)
+	name_layer = Control.new()
+	name_layer.name = "Names"
+	name_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(name_layer)
+	for npc in npcs:
+		var lb := Label.new()
+		lb.text = npc.display_name
+		lb.add_theme_font_size_override("font_size", 15)
+		lb.add_theme_color_override("font_color", Color(1.0, 0.93, 0.55) if npc.cha >= 1000 else Color(1.0, 1.0, 1.0))
+		lb.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		lb.add_theme_constant_override("outline_size", 4)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.visible = false
+		name_layer.add_child(lb)
+		name_labels[npc] = lb
 	hud = Label.new()
 	hud.position = Vector2(8, 8)
 	hud.add_theme_color_override("font_color", Color.WHITE)
@@ -350,13 +434,57 @@ func _setup_hud() -> void:
 	layer.add_child(hud)
 
 
-func _process(_delta: float) -> void:
+func _update_names() -> void:
+	if cam_rig == null or cam_rig.cam == null:
+		return
+	var cam: Camera3D = cam_rig.cam
+	var ppos: Vector3 = player.global_position
+	for npc in name_labels.keys():
+		var lb: Label = name_labels[npc]
+		if not is_instance_valid(npc):
+			lb.visible = false
+			continue
+		var wp: Vector3 = (npc as Node3D).global_position + Vector3(0, float(npc.bar_height), 0)
+		if wp.distance_to(ppos) > NAME_DIST or cam.is_position_behind(wp):
+			lb.visible = false
+			continue
+		var sp := cam.unproject_position(wp)
+		lb.visible = true
+		lb.position = sp - Vector2(lb.size.x * 0.5, lb.size.y)
+
+
+# NPC xa hon ANIM_DIST: dung AnimationPlayer (494 NPC cung phat animation ton CPU)
+func _update_lod() -> void:
+	var ppos: Vector3 = player.global_position
+	for npc in npcs:
+		if not is_instance_valid(npc) or npc.anim == null:
+			continue
+		var near: bool = (npc as Node3D).global_position.distance_to(ppos) < ANIM_DIST
+		if npc.anim.active != near:
+			npc.anim.active = near
+
+
+func _process(delta: float) -> void:
 	if hud == null or cam_rig == null or player == null:
 		return
+	_update_names()
+	_lod_timer -= delta
+	if _lod_timer <= 0.0:
+		_lod_timer = 0.5
+		_update_lod()
 	var p: Vector3 = player.global_position
 	var t: Dictionary = info.get("table", {})
-	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  |  nap %d ms\ncamera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)\nnhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f\nchuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
-		map_name, (str(t.get("name_vi", "")) if str(t.get("name_vi", "")) != "" else str(t.get("name", ""))), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats["load_ms"],
+	var wname := "tay không"
+	if cur_weapon != "" and weapons.has(cur_weapon):
+		var w: Dictionary = weapons[cur_weapon]
+		wname = "%s (%s)" % [w.get("name_vi", "") if w.get("name_vi", "") != "" else w.get("name", ""), w.get("type_vi", "")]
+	var mgroup := str(player.model.group) if player.model else ""
+	hud.text = "%s  %s  |  FPS %d  |  node %d  mat lightmap %d  NPC %d  |  nap %d ms
+vũ khí: %s   nhóm anim %s   đòn: %s   [1-7 loại vũ khí, 0 tay không, Tab đổi mẫu, Space đánh, F nội công, G bị đánh, H chết]
+camera yaw %.0f  pitch %.0f  dist %.1f   lightmap %s (gain %.2f)
+nhan vat (Godot) %.1f %.1f %.1f   (Unity) %.1f %.1f %.1f
+chuot phai: xoay | con lan: zoom | Q/E xoay | PgUp/PgDn nghieng | trai: di | WASD | L lightmap | [ ] gain | F12 chup | ESC" % [
+		map_name, (str(t.get("name_vi", "")) if str(t.get("name_vi", "")) != "" else str(t.get("name", ""))), Engine.get_frames_per_second(), stats["nodes"], stats["lm_surfaces"], stats["npcs"], stats["load_ms"], wname, mgroup, last_action,
 		cam_rig.yaw, cam_rig.pitch, cam_rig.dist, "bat" if use_lm else "tat", lm_gain, p.x, p.y, p.z, -p.x, p.y, p.z]
 
 
@@ -376,6 +504,20 @@ func _unhandled_input(ev: InputEvent) -> void:
 		elif k.keycode == KEY_F12:
 			_screenshot("user://logs/scn3d_%s_%d.png" % [map_name, _shot])
 			_shot += 1
+		elif WEAPON_KEYS.has(k.keycode):
+			_equip_type(WEAPON_KEYS[k.keycode])
+		elif k.keycode == KEY_0:
+			_equip_type(0)
+		elif k.keycode == KEY_TAB:
+			_cycle_weapon()
+		elif k.keycode == KEY_SPACE and player and player.model:
+			last_action = player.model.attack()
+		elif k.keycode == KEY_F and player and player.model:
+			last_action = player.model.act("magic")
+		elif k.keycode == KEY_G and player and player.model:
+			last_action = player.model.act("ss")
+		elif k.keycode == KEY_H and player and player.model:
+			last_action = player.model.act("sw")
 
 
 func _screenshot(path: String) -> void:
@@ -419,6 +561,29 @@ func _auto() -> void:
 		cam_rig.pitch = 40.0
 		cam_rig.dist = 10.0
 		for i in 3:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+	# vu khi + don danh: kiem, cam gan, chup giua don
+	if player and player.model and not weapons.is_empty():
+		_equip_type(1)
+		cam_rig.yaw = 160.0
+		cam_rig.pitch = 40.0
+		cam_rig.dist = 10.0
+		for i in 3:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+		last_action = player.model.attack()
+		for i in 14:
+			await get_tree().process_frame
+		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
+		n += 1
+		_equip_type(3)
+		for i in 3:
+			await get_tree().process_frame
+		last_action = player.model.attack()
+		for i in 14:
 			await get_tree().process_frame
 		await _screenshot("user://logs/scn3d_%s_auto%d.png" % [map_name, n])
 		n += 1

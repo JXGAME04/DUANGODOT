@@ -1,7 +1,8 @@
-// Thu nghiem 3D: vat the tinh da nuong lightmap (albedo * lightmap(UV2 * st.xy + st.zw)).
-// Lightmap (BC6H HDR, tuyen tinh, PNG khong lat) -> sRGB (mu 1/2.2) truoc khi nhan voi albedo sRGB.
+// Thu nghiem 3D: vat the tinh co lightmap. Lightmap cua bo tham khao chi chua anh sang gian tiep/bau troi
+// (Unity Mixed - Baked Indirect), nang mat troi la den thoi gian thuc -> o day: den DirectionalLight3D + bong
+// thoi gian thuc chieu len ALBEDO, lightmap cong them qua EMISSION (albedo * lm * gain), tat ambient cua moi truong.
 shader_type spatial;
-render_mode unshaded, cull_back, depth_draw_opaque;
+render_mode cull_back, depth_draw_opaque, ambient_light_disabled, specular_disabled;
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D lightmap_tex : filter_linear_mipmap, repeat_disable;
@@ -18,6 +19,9 @@ void fragment() {
 		discard;
 	}
 	vec2 uv2 = UV2 * lm_st.xy + lm_st.zw;
-	vec3 lm = use_lm ? pow(max(texture(lightmap_tex, uv2).rgb, vec3(0.0)), vec3(1.0 / 2.2)) * lm_gain : vec3(1.0);
-	ALBEDO = a.rgb * lm;
+	vec3 lm = use_lm ? texture(lightmap_tex, uv2).rgb * lm_gain : vec3(0.35);
+	ALBEDO = a.rgb;
+	EMISSION = a.rgb * lm;
+	ROUGHNESS = 1.0;
+	METALLIC = 0.0;
 }

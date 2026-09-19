@@ -108,6 +108,25 @@ class Tables:
                 except ValueError:
                     pass
 
+    def anim_group_full(self, gid):
+        """-> {'xx': 'xx01', 'zp': ..., 'gjxx', 'gjpb', 'xdz': [...], 'ss': [...], 'sw': [...], 'attacks': [[name, prob]...], 'magic': name}"""
+        g = self.anim_group.get(gid)
+        if not g:
+            return None
+        al = self.animation_list
+        def one(v):
+            return al.get(int(v)) if v.strip().isdigit() and int(v) in al else None
+        def lst(v):
+            out = []
+            parts = [x for x in v.split("*") if x.strip()]
+            for i in range(0, len(parts), 2):
+                nm = one(parts[i])
+                if nm:
+                    out.append([nm, int(parts[i + 1]) if i + 1 < len(parts) and parts[i + 1].isdigit() else 100])
+            return out
+        return {"xx": one(g["xx"]), "zp": one(g["zp"]), "gjxx": one(g["gjxx"]), "gjpb": one(g["gjpb"]),
+                "xdz": lst(g["xdz"]), "ss": lst(g["ss"]), "sw": lst(g["sw"]), "attacks": lst(g["weapon"]), "magic": one(g["magic"])}
+
     def anim_names(self, group):
         """-> {'xx': 'xx01', 'zp': 'zp01', ...} theo anim_group (id -> animation_list)"""
         g = self.anim_group.get(group)
@@ -124,6 +143,39 @@ class Tables:
             if first.isdigit() and int(first) in self.animation_list:
                 out[key] = self.animation_list[int(first)]
         return out
+
+
+def hang_items(bone_env, bone):
+    """HangItemMgr cua xuong -> {name: {path, pos, rot(euler deg), scale, boneIsHang, show}} (toa do Unity)"""
+    env, cont, objs = bone_env
+    pid = cont.get(h12("assets/art/rolesmakeres/bone/%s.prefab" % bone))
+    if pid is None:
+        return {}
+    go = objs[pid].read()
+    out = {}
+    for c in go.m_Components:
+        co = objs.get(c.path_id)
+        if co is None or co.type.name != "MonoBehaviour":
+            continue
+        raw = co.get_raw_data()
+        sc = objs.get(struct.unpack_from("<q", raw, 20)[0])
+        if sc is None or sc.type.name != "MonoScript" or sc.read().m_ClassName != "HangItemMgr":
+            continue
+        r = Raw(raw); r.header(); n = r.i32()
+        for _ in range(n):
+            name = r.string(); path = r.string()
+            pos = (r.f32(), r.f32(), r.f32()); rot = (r.f32(), r.f32(), r.f32()); scl = (r.f32(), r.f32(), r.f32())
+            b1 = r.u8(); r.align(); b2 = r.u8(); r.align()
+            out[name] = {"path": path, "pos": pos, "rot": rot, "scale": scl, "boneIsHang": bool(b1), "show": bool(b2)}
+    return out
+
+
+def hang_godot(item):
+    """lech treo Unity -> Godot: node = ten cuoi duong dan (Godot doi '@' thanh '_'), vi tri (-x,y,z), euler -> quaternion (x,-y,-z,w)"""
+    q = euler_to_quat(*item["rot"])
+    node = item["path"].split("/")[-1] if item["path"] else ""
+    return {"node": node, "node_godot": node.replace("@", "_").replace(".", "_").replace(":", "_"), "pos": [-item["pos"][0], item["pos"][1], item["pos"][2]],
+            "quat": [q[0], -q[1], -q[2], q[3]], "scale": list(item["scale"]), "boneIsHang": item["boneIsHang"]}
 
 
 class NpcExporter:
@@ -304,6 +356,25 @@ class NpcExporter:
             skins_str = self.tables.model_list[int(cp["model"])]["skins"]
         parts = [p for p in skins_str.split("*") if p]
         anim_names = self.tables.anim_names(cp["anim_group"])
+        groups = {}
+        if cp["anim_group"] < 0:
+            gids = [g for g in range(1, 12)]
+        else:
+            gids = [cp["anim_group"]]
+        clip_names = {}
+        for gid in gids:
+            gf = self.tables.anim_group_full(gid)
+            if not gf:
+                continue
+            groups[str(gid)] = gf
+            for k in ("xx", "zp", "gjxx", "gjpb", "magic"):
+                if gf[k]:
+                    clip_names[gf[k]] = True
+            for k in ("xdz", "ss", "sw", "attacks"):
+                for nm, _p in gf[k]:
+                    clip_names[nm] = True
+        for k, nm in anim_names.items():
+            clip_names[nm] = True
 
         buf = bytearray(); views = []; accessors = []
         def add_view(arr, target=None):
@@ -406,9 +477,9 @@ class NpcExporter:
             gnodes[0]["children"].append(len(gnodes) - 1)
             stats["parts"] += 1; stats["verts"] += int(pos.shape[0])
 
-        # animations
+        # animations: dat ten theo ten clip (xx01, gjdj01...); info['anims'] anh xa key -> clip
         animations = []
-        for key, cname in anim_names.items():
+        for cname in clip_names:
             c = self.clip(bone, cname)
             if c is None:
                 self.log.append("clip thieu: %s/%s" % (bone, cname)); continue
@@ -443,7 +514,7 @@ class NpcExporter:
             for path, keys in c["scl"].items():
                 add_channel(path, "scale", keys, lambda v: [v[0], v[1], v[2]])
             if channels:
-                animations.append({"name": key, "samplers": samplers, "channels": channels})
+                animations.append({"name": cname, "samplers": samplers, "channels": channels})
                 stats["anims"] += 1
 
         fname = "cha_%d_%s" % (cha_id, bone)
@@ -457,8 +528,11 @@ class NpcExporter:
         with io.open(os.path.join(self.out, fname + ".gltf"), "w", encoding="utf-8") as f:
             json.dump(gltf, f)
         name_vi = TEN_VIET.get("npc", {}).get(cp["name"], "")
+        hi = hang_items(self.bone, bone)
+        hangs = {k: hang_godot(v) for k, v in hi.items() if v["path"]}
+        bar_y = hi.get("sys_bar", {}).get("pos", (0, 0, 0))[1] if hi else 0.0
         info = {"cha": cha_id, "name": cp["name"], "name_vi": name_vi, "bone": bone, "file": fname + ".gltf", "scale": cp["scale"], "anims": anim_names,
-                "sizeY": self.tables.model_view.get(cha_id), "stats": stats}
+                "groups": groups, "hangs": hangs, "bar_y": bar_y, "sizeY": self.tables.model_view.get(cha_id), "stats": stats}
         print("  cha %d %s (%s) [%s]: %d phan, %d dinh, %d tam giac, %d animation, xuong thieu %d" % (
             cha_id, cp["name"], name_vi or "?", bone, stats["parts"], stats["verts"], stats["tris"], stats["anims"], stats["missing_bones"]))
         return info

@@ -45,8 +45,8 @@ func set_model(npc: Node3D) -> void:
 	add_child(npc)
 	_body.visible = false
 	_nose.visible = false
-	if npc.has_method("play"):
-		npc.play("xx")
+	if npc.has_method("idle"):
+		npc.idle()
 
 
 func snap_to_ground() -> void:
@@ -65,6 +65,10 @@ func go_to(p: Vector3) -> void:
 
 func _process(delta: float) -> void:
 	var dir := Vector3.ZERO
+	if model and model.get("busy"):
+		moving = false
+		snap_to_ground()
+		return
 	if cam_rig:
 		if Input.is_key_pressed(KEY_W):
 			dir += cam_rig.forward_flat()
@@ -93,8 +97,11 @@ func _process(delta: float) -> void:
 	rotation.y = yaw
 	snap_to_ground()
 	var is_moving := moving or dir.length() > 0.01
-	if model and model.has_method("play") and is_moving != _was_moving:
-		model.play("zp" if is_moving else "xx")
+	if model and model.has_method("walk"):
+		if is_moving:
+			model.walk()
+		elif is_moving != _was_moving or not model.busy:
+			model.idle()
 	_was_moving = is_moving
 
 

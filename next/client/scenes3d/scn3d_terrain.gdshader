@@ -1,6 +1,7 @@
-// Thu nghiem 3D: dia hinh mesh 4 lop splat (control.rgba = trong so) + lightmap, giong shader "地形" cua bo tham khao.
+// Thu nghiem 3D: dia hinh mesh 4 lop splat (control.rgba = trong so) giong shader "地形" cua bo tham khao.
+// Nang = DirectionalLight3D thoi gian thuc (co bong); lightmap (gian tiep/bau troi) cong them qua EMISSION.
 shader_type spatial;
-render_mode unshaded, cull_back, depth_draw_opaque;
+render_mode cull_back, depth_draw_opaque, ambient_light_disabled, specular_disabled;
 
 uniform sampler2D control_tex : filter_linear_mipmap, repeat_enable;
 uniform sampler2D splat0 : source_color, filter_linear_mipmap, repeat_enable;
@@ -25,9 +26,10 @@ void fragment() {
 	if (layers > 3) { col += c.a * texture(splat3, UV * st3.xy + st3.zw).rgb; }
 	float w = c.r + (layers > 1 ? c.g : 0.0) + (layers > 2 ? c.b : 0.0) + (layers > 3 ? c.a : 0.0);
 	if (w > 0.001) { col /= w; }
-	if (use_lm) {
-		vec2 uv2 = UV2 * lm_st.xy + lm_st.zw;
-			col *= pow(max(texture(lightmap_tex, uv2).rgb, vec3(0.0)), vec3(1.0 / 2.2)) * lm_gain;
-	}
+	vec2 uv2 = UV2 * lm_st.xy + lm_st.zw;
+	vec3 lm = use_lm ? texture(lightmap_tex, uv2).rgb * lm_gain : vec3(0.35);
 	ALBEDO = col;
+	EMISSION = col * lm;
+	ROUGHNESS = 1.0;
+	METALLIC = 0.0;
 }
