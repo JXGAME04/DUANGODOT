@@ -358,7 +358,9 @@ func _setup_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	var fogc := _col(r.get("fog_color", [0.7, 0.8, 0.9]))
-	env.background_color = fogc
+	# the camera's clear colour of the scene [TK m_BackGroundColor, clear flags 2 = solid, no skybox]; the fog colour before
+	# the scenes are re-exported with it
+	env.background_color = _col(r["camera_bg"]) if r.has("camera_bg") else fogc
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = _col(r.get("ambient_light", [0.5, 0.5, 0.55]))
 	env.ambient_light_energy = 1.0

@@ -702,6 +702,21 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-61) — tia nối `SFXLineMesh` (天际迅雷 Côn Lôn), màu nền camera theo cảnh, chốt các mục "chưa có" bằng chứng cứ
+
+- `SFXLineMesh` (sự kiện kind 26 "子物体连线", prefab `kl_tianjixunlei`: 2 đường (chính rộng 2 m, `second` 1,45 m), atlas 4×8 ô sét, `uiCurve`
+  0→4,89 trong 0,089 s + `useRandomGrow` = ô ngẫu nhiên 0..3 mỗi 0,09 s, `useWorldPos`, `showStart/EndAttachNode` = cầu sáng hai đầu):
+  bố cục 232 byte thân (hết byte); `read_linemesh` → `linemesh` trên node; `Scn3DLineMesh.gd`: dải quay theo camera từ **điểm sinh** (đọc ở
+  khung đầu vì `KMissle3DView.bind` gắn hiệu ứng trước khi đặt vị trí) tới vị trí node (đạn bay), cầu sáng đầu giữ tại điểm sinh (`hold_start`).
+  Ảnh `auto3d_skill_172_3.png`: tia sét vàng từ người tới hươu, tên "Thiên Tế Tấn Lôi" (màu hệ thổ).
+- `--skill` tự `SetPos` cạnh quái gần nhất trong tầm nhìn khi không có con nào trong 600 đơn vị.
+- Màu nền: bản 3D **không có skybox** (`Camera.m_ClearFlags 2`, `SkyBoxCollection` không gắn ở cảnh, cubemap chỉ là `customReflection`) →
+  `export_scene` ghi `render.camera_bg`/`camera_clear`, `KScenePlace3D` dùng làm `background_color` (trước lấy màu sương).
+- Chốt theo chứng cứ (§H): bloom/distortion *bỏ* (`PostEffectBase/Bloom.IsEnable` = stub 0x33e630 → false), `MirrorReflection` *bỏ* (0 bundle),
+  camera rung *bỏ* (không có sự kiện 103 trong `skill_event`), `TaskRimLight` *bỏ* (không nơi gọi), `SFXXWeaponAdapter` *bỏ* (71 vũ khí `sfx` 0),
+  `SFXMeshTrailDrag` *bỏ* (boss 道清真人 riêng), `TouchEffect` *bỏ* (gợn chạm UI), vật rơi cột sáng *bỏ* (gói 2.0 không có phẩm chất).
+- commit: `JX NEXT 3D: 3D-61 - SFXLineMesh tia noi (kl_tianjixunlei), camera_bg theo canh, chot muc bo theo chung cu`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-60) — vệt dải theo đạn bay (`Trail` PigeonCoop: phi tiêu/phi đao/nỏ, 夺魂镖, 天罗地网)
 
 - Lớp `PigeonCoopToolkit.Effects.Trails.Trail` trên 5 prefab (`wq_feibiao/feidao/nujian` = đánh thường tầm xa, `tm_duohunbiao`, `tm_tianluodiwang`):

@@ -441,6 +441,12 @@ class Exporter:
             elif o.type.name == "Camera":
                 c = o.read()
                 rs["camera_unity"] = {"fov": float(c.field_of_view), "near": float(c.near_clip_plane), "far": float(c.far_clip_plane)}
+                # the reference clears to a solid colour per scene (m_ClearFlags 2, no skybox: SkyBoxCollection unused, the one
+                # cubemap is customReflection) - Ba Lang (0.635, 0.96, 1.0), the caves dark
+                bg = getattr(c, "m_BackGroundColor", None)
+                if bg is not None:
+                    rs["camera_bg"] = [float(bg.r), float(bg.g), float(bg.b)]
+                    rs["camera_clear"] = int(getattr(c, "m_ClearFlags", 2))
             elif o.type.name == "MonoBehaviour":
                 r = Raw(o.get_raw_data()); go_pid, sc_pid = r.header()
                 sc = self.objs_scene.get(sc_pid)

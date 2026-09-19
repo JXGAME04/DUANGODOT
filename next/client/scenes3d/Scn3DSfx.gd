@@ -240,6 +240,19 @@ func build(dir: String, name: String, scale_all := 1.0) -> bool:
 				pn = _node_at(root, paths[pidx])
 			bb_pending.append({"node": n, "mode": int(bbd.get("mode", 0)), "euler": eb, "offset": Vector3(float(ov[0]), float(ov[1]), -float(ov[2])),
 				"pos_node": pn if pn is Node3D and pn != n else null})
+		if jn.has("linemesh") and n is Node3D:
+			# SFXLineMesh [TK]: a ribbon from the birth point to this node while it flies (Scn3DLineMesh, top level)
+			var lmd: Dictionary = jn["linemesh"]
+			var lmn := MeshInstance3D.new()
+			lmn.set_script(load("res://scenes3d/Scn3DLineMesh.gd"))
+			lmn.name = "line_" + str(n.name)
+			add_child(lmn)
+			lmn.call("setup", n, dir, lmd, lmd.get("material", null))
+			var sai := int(lmd.get("start_attach", -1))
+			if sai >= 0 and sai < paths.size():
+				var san := _node_at(root, paths[sai])
+				if san is Node3D:
+					lmn.call_deferred("hold_start", san)
 		if jn.has("ptrail") and n is Node3D:
 			# PigeonCoop Trail [TK]: the ribbon the node leaves as it flies (Scn3DPointTrail, top level under this effect)
 			var pt := MeshInstance3D.new()

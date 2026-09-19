@@ -118,6 +118,33 @@ def read_ptrail(raw, material):
             "min_dist": min_dist, "max_pts": max_pts, "material": material(mat[1])}
 
 
+def read_linemesh(raw):
+    """SFXLineMesh (duong noi vat con ve diem sinh, su kien 26; 1 prefab 天际迅雷): color, uvNum_X/Y, uvOffset_X/Y, uvGrow, enhance,
+    useRandomGrow, uiCurve, _adjustColor, useWorldPos, manualStart, _startPos, _endPos, _startWidth, _normalLength, _textureMode,
+    _uvFrom0, _startTrans, _endTrans, showStartAttachNode, showEndAttachNode, yPriorityOffset (232 byte than)"""
+    r = Raw(raw); r.header()
+    color = [r.f32() for _ in range(4)]
+    nx = r.i32(); ny = r.i32(); ox = r.i32(); oy = r.i32(); grow = r.i32(); enhance = r.f32()
+    rnd = r.u8(); r.align()
+    n = r.i32(); curve = []
+    for _ in range(n):
+        kt = r.f32(); kv = r.f32(); r.f32(); r.f32(); r.i32(); r.f32(); r.f32()
+        curve.append([round(kt, 4), round(kv, 4)])
+    r.i32(); r.i32(); r.i32()
+    r.f32(); r.f32(); r.f32(); r.f32()   # _adjustColor
+    world = r.u8(); r.align(); manual = r.u8(); r.align()
+    sp = [r.f32() for _ in range(3)]; ep = [r.f32() for _ in range(3)]
+    width = r.f32(); normal_len = r.f32(); tex_mode = r.i32(); uv0 = r.u8(); r.align()
+    r.pptr(); r.pptr()
+    sa = r.pptr(); ea = r.pptr()
+    ypri = r.f32()
+    if len(raw) - r.p != 0:
+        raise struct.error("SFXLineMesh: con %d byte" % (len(raw) - r.p))
+    return {"color": color, "nx": max(1, nx), "ny": max(1, ny), "ox": ox, "oy": oy, "grow": grow, "enhance": enhance, "random": bool(rnd),
+            "curve": curve, "world": bool(world), "manual": bool(manual), "start": [-sp[0], sp[1], sp[2]], "end": [-ep[0], ep[1], ep[2]],
+            "width": width, "normal_len": normal_len, "tex_mode": tex_mode, "uv_from0": bool(uv0), "start_attach": sa[1], "end_attach": ea[1]}
+
+
 def read_xtrail(raw, material_of):
     r = Raw(raw); r.header()
     r.string(); r.u8(); r.u8(); r.align()
@@ -452,6 +479,18 @@ class SfxExporter:
                         tw = None
                     if tw is not None:
                         jn.setdefault("tweens", []).append(tw)
+                if cls == "SFXLineMesh":
+                    try:
+                        lm = read_linemesh(raw)
+                        # the material of the MeshRenderer beside it (the line builds its own mesh at run time)
+                        if comps.get("MeshRenderer"):
+                            mr0 = comps["MeshRenderer"][0].read()
+                            mats0 = [self.material(m.path_id) for m in mr0.m_Materials]
+                            lm["material"] = mats0[0] if mats0 and mats0[0] else None
+                        jn["linemesh"] = lm
+                        pending_attach.append((gi, lm["start_attach"], lm["end_attach"]))
+                    except (struct.error, IndexError):
+                        self.log.append("SFXLineMesh khong doc duoc: " + g.m_Name)
                 if cls == "Trail":
                     try:
                         jn["ptrail"] = read_ptrail(raw, self.material)
@@ -624,7 +663,12 @@ class SfxExporter:
                     walk(co.read().m_GameObject.path_id, gi, depth + 1)
         pending_skins = []
         pending_bb = []
+        pending_attach = []
         walk(pid, None, 0)
+        for gi_, sa_pid, ea_pid in pending_attach:
+            # the attach nodes are GameObjects: their glTF node index
+            jnodes[gi_]["linemesh"]["start_attach"] = by_pid.get(sa_pid, -1)
+            jnodes[gi_]["linemesh"]["end_attach"] = by_pid.get(ea_pid, -1)
         # SFXBillboardHelper.Execute [TK 0x6f5bf0]: the Trans of each entry turns to the camera every frame; written on that node
         for t_pid, mode, e, po, pt_pid in pending_bb:
             tgo = self.objs.get(t_pid)

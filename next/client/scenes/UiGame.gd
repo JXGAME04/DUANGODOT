@@ -976,6 +976,17 @@ func _auto3d_run() -> void:
 				if me != null and node != me and node.is_attackable() and node.scene_pos.distance_to(me.scene_pos) < best_d:
 					best_d = node.scene_pos.distance_to(me.scene_pos)
 					victim = node
+			if victim == null and fx_skill != 153 and me != null:
+				# --skill: no monster within 600 units - step next to the nearest one anywhere in view (SetPos, cells of 32 units)
+				var far_d := INF
+				for node in _entities.values():
+					if node != me and node.is_attackable() and node.scene_pos.distance_to(me.scene_pos) < far_d:
+						far_d = node.scene_pos.distance_to(me.scene_pos)
+						victim = node
+				if victim != null:
+					var at: Vector2 = victim.scene_pos + Vector2(-160, 0)
+					Game.chat("?gm ds SetPos(%d, %d)" % [int(at.x / 32.0), int(at.y / 32.0)])
+					await get_tree().create_timer(1.2).timeout
 			Game.chat("?gm ds SetFightState(1)")
 			await get_tree().create_timer(0.3).timeout
 			var before_fx: int = _world.fx.spawned
@@ -996,6 +1007,10 @@ func _auto3d_run() -> void:
 					for mv in _world.get("_views_root").get_children():
 						if mv.get("missle") != null and mv.get("_custom") != null:
 							print("AUTO3D_MISSLE k=%d node=%s pos=%s yaw=%.1f dir64=%s status=%s" % [k, mv.name, str(mv.global_position), rad_to_deg(mv.rotation.y), str(mv.missle.get("dir64")), str(mv.missle.get("status"))])
+							for ln in mv._custom.get_children():
+								if str(ln.name).begins_with("line_") or str(ln.name).begins_with("ptrail_"):
+									var im = ln.get("mesh")
+									print("AUTO3D_MISSLE_LINE %s surfaces=%d start=%s end=%s vis=%s aabb=%s" % [ln.name, im.get_surface_count() if im != null else -1, str(ln.get("start_pos")), str(ln.get("end_node").global_position) if ln.get("end_node") != null else "-", str(ln.visible), str(ln.get_aabb())])
 			await get_tree().create_timer(0.3).timeout
 			await _save_screenshot("user://logs/auto3d_%d.png" % n)
 			n += 1

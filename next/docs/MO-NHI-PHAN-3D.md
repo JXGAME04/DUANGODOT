@@ -190,10 +190,10 @@ Nguồn: `global-metadata.dat` → `D:\game3gtQ_mo\meta_pc_res.txt` (9 212 lớp
 **Chưa có, làm theo thứ tự (mỗi mục một phần 3D-nn, số liệu mổ từ nhị phân):**
 1. ~~Vòng chọn mục tiêu `TargetSelectEffect` (`cmn_select`)~~ **xong 3D-59**; `TouchEffect` = gợn chạm UI di động → *bỏ*.
 2. ~~Vật rơi: `cmn_droplight_*`~~ *bỏ* (gói 2.0 không mang phẩm chất; 3D-59).
-3. Bầu trời `SkyboxCam/SkyBoxCollection` (mỗi cảnh) và `MirrorReflection` nước.
-4. Hậu kỳ `PostEffectBloom` (+ distortion khi có prefab dùng).
-5. Chết tan xác `TaskTweenDissolve` (B8), viền sáng `TaskRimLight`, tiếng bước `TaskStepSound`.
-6. Hiệu ứng còn lại: `SFXMeshTrailDrag`, `SFXLineMesh`/`LineCOCtrl`, `Trail`, `SFXXWeaponAdapter`, `PC2Anim`, `Orbiter` (C4/C5).
-7. Camera rung (`CameraAnim`, kind 103) (F4); nhạc/tiếng vùng `AreaSound` (F5); đổi đèn/sương theo vùng.
+3. ~~Bầu trời~~: bản 3D **không có skybox** (camera `m_ClearFlags 2` = màu đặc theo cảnh, `SkyBoxCollection` không gắn ở cảnh nào, cubemap `skycube_tex_3` chỉ là `customReflection`) → xuất `render.camera_bg` (3D-61); ~~`MirrorReflection`~~ *bỏ* (0 bundle dùng; nước lấy `_ReflectTex` tĩnh).
+4. ~~Hậu kỳ `PostEffectBloom`/distortion~~ *bỏ*: `PostEffectBase.IsEnable`/`PostEffectBloom.IsEnable` = stub `0x33e630` trả false → bản 3D không bật hậu kỳ.
+5. Chết tan xác `TaskTweenDissolve` (B8) — giữ theo 2.0 (xác mờ dần, D6); ~~`TaskRimLight`~~ *bỏ* (không có nơi gọi trong Lua/sự kiện: kind 111 toàn là bóng mờ Ghost, kể cả 5 bóng né theo hệ `ghost_{jin,mu,shui,huo,tu}.mat`); tiếng bước `TaskStepSound` — 2.0 không có → *bỏ*.
+6. Hiệu ứng còn lại: ~~`SFXMeshTrailDrag`~~ *bỏ* (3 prefab của boss 道清真人 riêng bản 3D), `SFXLineMesh`/`LineCOCtrl` (2 sự kiện kind 26: 昆仑天际迅雷), ~~`Trail`~~ **xong 3D-60**, ~~`SFXXWeaponAdapter`~~ *bỏ* (71 vũ khí `sfx` = 0, không vũ khí nào có hào quang), `PC2Anim` (1: 追心箭), `Orbiter` (sync 7, chưa gặp).
+7. ~~Camera rung~~ *bỏ* (bảng `skill_event` **không có** sự kiện 103; enum có nhưng không dùng); nhạc/tiếng vùng `AreaSound` (F5, chờ nhạc 2.0 của main); đổi đèn/sương theo vùng (`TaskTweenDirLight/Fog`) — chưa thấy dữ liệu gọi.
 8. `bonechain` vải/tóc, phi phong (B5); `GFX` LOD hạt; `CullDistances` theo lớp.
 9. Còn của lịch trình cũ: 62 NPC tên riêng, 6 map trống, E-group UI 2.0, cài đặt, Android.
