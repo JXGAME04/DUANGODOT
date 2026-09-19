@@ -43,6 +43,9 @@ PIDS = os.path.join(BUILD, "dev-pids.json")
 EXE = ".exe" if os.name == "nt" else ""
 PRESET = os.environ.get("JX_PRESET", "windows-msvc" if os.name == "nt" else "linux-gcc")
 CONFIG = os.environ.get("JX_CONFIG", "Debug")
+# a checkout that builds Release only (the 3D copy: build/build_zone.cmd) runs what it has
+if "JX_CONFIG" not in os.environ and not os.path.exists(os.path.join(BUILD, PRESET, "bin", "Debug", "jx_zone" + EXE))         and os.path.exists(os.path.join(BUILD, PRESET, "bin", "Release", "jx_zone" + EXE)):
+    CONFIG = "Release"
 # A second copy of the system on the same machine (another checkout, a worktree) moves every port
 # by this much: JX_PORT_OFFSET=1000 -> zone 20001, gateway 20100 / 20102.  Without it two
 # checkouts fight over 19001 and the second one reports a zone that "did not open its port".

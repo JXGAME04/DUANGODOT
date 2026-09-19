@@ -61,11 +61,24 @@ CHA_TO_TEMPLATE = {
     31: (11, 0, 15),     # 小黄金BOSS -> Heo rừng cap 15
 }
 PLAYER_MODELS = {"0": 1, "1": 1}   # sex -> cha_pic (bo tham khao chi xuat nhan vat nam 1; nu dung tam nam)
-# ngua: nhom mau (particular) cua vat pham ngua JX1 (items/base.json "horse") -> cha_pic ngua bo tham khao; ba ten trung khop
-# chinh xac (玉花骢 Ngọc Hoa Thông, 黑骐 Hắc Kỳ, 红骊 Hồng Ly), con lai theo mau [tự chọn]: 0 hoang -> 棕马, 1 thanh -> 青马,
-# 2 bach -> 白马, 3 hac -> 黑马, 4 hong -> 红骊, 5 ngua huyen thoai -> 血龙马, 6 Bon Tieu -> 白龙马, 7 Phien Vu -> 黑龙马
-HORSES = {"by_particular": {"0": 1502, "1": 1503, "2": 1500, "3": 1501, "4": 1512, "5": 1562, "6": 1560, "7": 1561},
-          "by_name": {"Ngọc Hoa Thông": 1510, "Hắc Kỳ": 1511, "Hồng Ly": 1512}, "default": 1500}
+# ngua: client 2.0 ve ngua theo HANG ANH (Settings\item\HorseRes.txt cot 2 - 2, KItemChangeRes::GetHorseRes; goi 0xad dong bo
+# dung hang do cho nguoi khac) - nhieu vat pham ngua chung mot hang (vd hang 4 = ngua thanh cap 6..10 cua nhom 1 + cap 1..3 cua
+# nhom 2). Cot 3 cua HorseRes.txt ta ten anh (普通黄马, 赤兔，顶级红...) -> cha_pic bo tham khao theo MAU trong ten [tự chọn
+# cach ghep mau]: 白/雪白 -> 白马 1500 (顶级 -> 玉花骢 1510), 黑/黝黑 -> 黑马 1501 (顶级 -> 黑骐 1511, 绝地 -> 黑龙马 1561),
+# 青/青白 -> 青马 1503, 黄/棕黄 -> 棕马 1502, 红/棕红 -> 红骊 1512, 血红/龙驹 -> 血龙马 1562; ho, su tu, lac da, huou, lua,
+# soi, lon... bo tham khao khong co -> None (ngua mac dinh).
+HORSE_RES = {   # hang anh: (ten trong HorseRes.txt [2.0], cha_pic)
+    0: ("赤兔，顶级红", 1512), 1: ("照夜玉狮子，顶级白", 1510), 2: ("的卢，顶级黄", 1502), 3: ("普通黑马", 1501),
+    4: ("普通青马", 1503), 5: ("乌云踏雪，顶级黑", 1511), 6: ("普通红马", 1512), 7: ("普通白马", 1500), 8: ("普通黄马", 1502),
+    9: ("绝影，顶级青", 1503), 10: ("奔宵，顶级黝黑", 1511), 11: ("翻羽，顶级雪白 / 风云战马", 1510), 12: ("飞云，顶级青白", 1503),
+    13: ("赤龙驹，顶级血红", 1562), 14: ("绝地，顶级黝黑", 1561), 15: ("逾辉，顶级血红", 1562), 16: ("腾雾，顶级棕黄", 1502),
+    17: ("超光，顶级棕红", 1512), 18: ("虎王", None), 19: ("火睛金虎王", None), 20: ("金睛白虎王", None), 21: ("龙睛黑虎王", None),
+    22: ("汗血龙驹", 1562), 23: ("狮子", None), 24: ("骆驼", None), 25: ("草泥马", None), 26: ("梅花鹿", None), 27: ("扬沙", None),
+    28: ("御风", None), 29: ("追电", None), 30: ("流星", None), 31: ("蓝麟神鹿", None), 32: ("2015VIP·墨羽仙驴", None),
+    34: ("2017VIP·战狼", None), 35: ("银甲玄彘", None),
+}
+HORSES = {"by_res": {str(k): v[1] for k, v in HORSE_RES.items() if v[1] is not None},
+          "names": {str(k): v[0] for k, v in HORSE_RES.items()}, "default": 1500}
 
 
 def yaw_to_dir(yaw_deg):

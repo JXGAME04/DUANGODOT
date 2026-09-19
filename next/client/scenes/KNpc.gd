@@ -148,7 +148,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	if not has_res and not no_2d:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
-	elif entity_type == ENTITY_PLAYER:
+	elif entity_type == ENTITY_PLAYER and _res != null:
 		# 0x005F1A15..0x005F1A63: SetRideHorse(+0x19c0), SetArmor(+0x13f4), SetHelm(+0x13f0), SetMantle(+0x13f8), SetHorse(+0x13fc), the weapon
 		if not equip_rows.is_empty():
 			_res.set_equips(equip_rows)

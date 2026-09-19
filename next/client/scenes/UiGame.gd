@@ -729,6 +729,9 @@ func _auto3d_run() -> void:
 		await get_tree().process_frame
 	await _save_screenshot("user://logs/auto3d_%d.png" % n)
 	n += 1
+	if _world.has_method("debug_equip_rows"):
+		var eq: Dictionary = _world.debug_equip_rows()
+		print("AUTO3D_WEAPON bag=%s rows=%s row=%s" % [eq.get("weapon_bag", ""), eq.get("weapon_rows", ""), str(eq.get("rows", {}).get(2, -1))])
 	# a horse (AddItem genre 0 detail 10 particular 2 level 1 = Liệt Bạch Mã), worn on part 10, then C2G_RIDE: the 3D view mounts
 	# (the reference 白马 under the rider, group 20 / 21)
 	var horses_before := Game.items.size()
@@ -756,6 +759,11 @@ func _auto3d_run() -> void:
 			await get_tree().process_frame
 		await _save_screenshot("user://logs/auto3d_ride.png")
 		print("AUTO3D_RIDE item=%d worn=%d riding=%s" % [horse_item, Game.item_worn(10), bool(own.get("riding")) if own != null else false])
+		if _world.has_method("debug_equip_rows"):
+			var eq: Dictionary = _world.debug_equip_rows()
+			var hv = _world.get("_views").get(own) if own != null else null
+			var horse_cha: String = str(hv.horse.get("cha")) if hv != null and hv.get("horse") != null and hv.horse.get("cha") != null else "?"
+			print("AUTO3D_HORSE rows=%s row=%s item_row=%s shown=%s" % [str(eq.get("horse_rows", -1)), str(eq.get("rows", {}).get(3, -1)), str(eq.get("horse_item_row", -1)), horse_cha])
 		Game.ride(false)
 		await get_tree().create_timer(0.6).timeout
 	print("AUTO3D_WEAPON item=%d worn=%d weapon=%s skill53=%s skill53_level=%d level=%d item_results=%s item=%s" % [sword, Game.item_worn(3), _world._own_weapon, Game.skills.has(53),

@@ -240,6 +240,14 @@ func _on_riding_changed(on: bool) -> void:
 		_on_doing_changed(int(npc.doing), int(npc.total_frame))
 
 
+# The horse rows of the 0xad sync changed while mounted: dismount and mount again so the world view picks the horse anew
+func reload_horse() -> void:
+	if horse == null or not (npc.get("riding") is bool and bool(npc.riding)):
+		return
+	_on_riding_changed(false)
+	_on_riding_changed(true)
+
+
 # KNpc's doing changed (its frame count too): the matching clip of the model, as long as the zone says
 func _on_doing_changed(doing: int, total_frame: int) -> void:
 	_doing = doing

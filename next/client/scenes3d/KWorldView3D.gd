@@ -52,6 +52,9 @@ var right_click_handler: Callable   # UiGame's right mouse skill (a right click 
 var _weapons := {}             # weapon/weapons.json: id -> {file, hangs, animgrp, anchors...}
 var _weapon_dir := ""
 var _own_weapon := ""          # weapons.json id on the character now ("" = bare hands)
+var _weapon_of := {}           # state node -> weapons.json id on it now (every player: ours from the bag, others from the 0xad sync)
+var _res_inverse := {}         # items/item_res.json inverted: "melee"/"horse" -> res row -> [particular, level] (the first item of the row)
+var _res_tables := {}          # items/item_res.json as loaded: "melee"/"horse" -> rows (KItemChangeRes: row = particular * 10 + level + 2)
 var _trail: Node = null        # Scn3DTrail of the character's weapon
 var _last_dir_offset := -1
 var _auras := {}               # state node -> {skill_id: fx node} the halos it shows now
@@ -105,6 +108,8 @@ func _ready() -> void:
 	Game.state_icons_changed.connect(func(eid: int): _refresh_auras_of(eid))
 	Game.item_changed.connect(func(_it: Dictionary): _refresh_own_weapon())
 	Game.item_removed.connect(func(_id: int): _refresh_own_weapon())
+	Game.entity_res.connect(func(r: Dictionary): _refresh_weapon_of.call_deferred(int(r.id)))
+	_load_res_inverse()
 
 
 # ---- the map --------------------------------------------------------------------------------------
@@ -180,9 +185,9 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	_views_root.add_child(view)
 	view.bind(node, place, mv[0], mv[1])
 	_views[node] = view
-	if own:
-		_own_weapon = ""
-		_refresh_own_weapon()
+	_weapon_of.erase(node)
+	if int(d.get("type", 0)) == ENTITY_PLAYER:
+		_refresh_weapon(node)
 	_auras.erase(node)
 	_refresh_auras(node)
 	return node
@@ -231,6 +236,7 @@ func _refresh_auras(node: Node) -> void:
 
 func remove_entity(node: Node) -> void:
 	_auras.erase(node)
+	_weapon_of.erase(node)
 	var view = _views.get(node)
 	if view != null and is_instance_valid(view):
 		view.queue_free()
@@ -259,36 +265,142 @@ func _model_for(node: Node) -> Array:
 	if not m.setup(_npc_dir, str(mi.get("file", "")), float(mi.get("scale", 1.0)), str(node.get("display_name")), size_y, mi):
 		m.queue_free()
 		return [null, {}]
+	m.cha = cha
 	return [m, mi]
 
 
-# The reference weapon id of the worn weapon, "" for bare hands / no model
-func _own_weapon_id() -> String:
-	var wid := Game.item_worn(ITEMPART_WEAPON)
-	if wid == 0 or not Game.items.has(wid):
+# items/item_res.json (the *Res.txt of the old server, KItemChangeRes): every res row of the melee / horse table back to the
+# first (particular, level) that draws it - the 0xad sync of other players names the row only (KNpc::SetPlayerRes 0x005ED920)
+func _load_res_inverse() -> void:
+	var p := "%s/items/item_res.json" % Assets.assets_root()
+	var j = Assets.load_json(p) if FileAccess.file_exists(p) else null
+	if not (j is Dictionary):
+		return
+	_res_tables = j
+	for key in ["melee", "horse"]:
+		var inv := {}
+		var rows: Array = j.get(key, [])
+		for i in rows.size():
+			var row := i + 1
+			if row < 3 or not (rows[i] is Array) or rows[i].size() < 2:
+				continue
+			# KItemChangeRes::weapon_res / horse_res: row = particular * 10 + level + 2, res = column 2 - 2
+			@warning_ignore("integer_division")
+			var particular: int = (row - 3) / 10
+			var level: int = (row - 3) % 10 + 1
+			var res := int(rows[i][1]) - 2
+			if not inv.has(res):
+				inv[res] = [particular, level]
+		_res_inverse[key] = inv
+
+
+# KItemChangeRes::Get*Res of the old server: the picture row an item (particular, level) draws, -1 = none
+func _item_res_row(key: String, particular: int, level: int) -> int:
+	var rows: Array = _res_tables.get(key, [])
+	var row := particular * 10 + level + 2
+	if row < 1 or row > rows.size() or not (rows[row - 1] is Array) or rows[row - 1].size() < 2:
+		return -1
+	return int(rows[row - 1][1]) - 2
+
+
+# The horse picture row of a state node: the 0xad rows when the zone sent them (ours too), else our own worn horse item
+func _horse_res_of(node: Node) -> int:
+	var rows = node.get("equip_rows")
+	if rows is Dictionary and rows.has(3) and int(rows[3]) >= 0:
+		return int(rows[3])
+	if node == _own:
+		var hid := Game.item_worn(10)   # itempart_horse
+		if hid != 0 and Game.items.has(hid):
+			var it: Dictionary = Game.items[hid]
+			return _item_res_row("horse", int(it.get("particular", -1)), int(it.get("level", 1)))
+	return -1
+
+
+# (particular, level) of the weapon on a state node: ours from the worn item, others from their weapon res row
+func _weapon_particular(node: Node) -> Array:
+	if node == _own:
+		var wid := Game.item_worn(ITEMPART_WEAPON)
+		if wid == 0 or not Game.items.has(wid):
+			return []
+		var it: Dictionary = Game.items[wid]
+		if int(it.get("detail", -1)) != 0:
+			return []
+		return [int(it.get("particular", -1)), int(it.get("level", 1))]
+	var rows = node.get("equip_rows")
+	if rows is Dictionary and rows.has(2) and int(rows[2]) >= 0:
+		var pl = _res_inverse.get("melee", {}).get(int(rows[2]), null)
+		if pl is Array:
+			return pl
+	return []
+
+
+# The reference weapon id for a state node, "" for bare hands / no model: the reference list is JX1 weapons in the same order
+func _weapon_id_of(node: Node) -> String:
+	var pl := _weapon_particular(node)
+	if pl.is_empty():
 		return ""
-	var it: Dictionary = Game.items[wid]
-	if int(it.get("detail", -1)) != 0:
-		return ""
-	var t: int = WEAPON_TYPE_OF_PARTICULAR.get(int(it.get("particular", -1)), 0)
+	var t: int = WEAPON_TYPE_OF_PARTICULAR.get(int(pl[0]), 0)
 	if t == 0:
 		return ""
-	var id := str(int(WEAPON_BASE_ID[t]) + clampi(int(it.get("level", 1)) - 1, 0, 9))
+	var id := str(int(WEAPON_BASE_ID[t]) + clampi(int(pl[1]) - 1, 0, 9))
 	return id if _weapons.has(id) else ""
 
 
 func _refresh_own_weapon() -> void:
+	if _own != null and is_instance_valid(_own):
+		_refresh_weapon(_own)
+
+
+# --auto3d proof: what the 0xad rows of our own character would give another client (the "others" path of
+# _weapon_particular / _horse_for) next to what the bag gives us - the two must name the same weapon / horse
+func debug_equip_rows() -> Dictionary:
+	var out := {"weapon_bag": _own_weapon, "weapon_rows": "", "horse_rows": -1, "rows": {}}
 	if _own == null or not is_instance_valid(_own):
+		return out
+	var rows = _own.get("equip_rows")
+	if not (rows is Dictionary):
+		return out
+	out["rows"] = rows
+	if rows.has(2) and int(rows[2]) >= 0:
+		var pl = _res_inverse.get("melee", {}).get(int(rows[2]), null)
+		if pl is Array:
+			var t: int = WEAPON_TYPE_OF_PARTICULAR.get(int(pl[0]), 0)
+			if t != 0:
+				out["weapon_rows"] = str(int(WEAPON_BASE_ID[t]) + clampi(int(pl[1]) - 1, 0, 9))
+	if rows.has(3) and int(rows[3]) >= 0:
+		var by_res: Dictionary = _models.get("horses", {}).get("by_res", {})
+		if by_res.has(str(int(rows[3]))):
+			out["horse_rows"] = int(by_res[str(int(rows[3]))])
+	var hid := Game.item_worn(10)
+	if hid != 0 and Game.items.has(hid):
+		var it: Dictionary = Game.items[hid]
+		out["horse_item_row"] = _item_res_row("horse", int(it.get("particular", -1)), int(it.get("level", 1)))
+	return out
+
+
+# the 0xad sync of a player: weapon and horse pictures picked again (KNpc::SetPlayerRes -> the res rows)
+func _refresh_weapon_of(entity_id: int) -> void:
+	for node in _views.keys():
+		if is_instance_valid(node) and int(node.get("entity_id")) == entity_id:
+			_refresh_weapon(node)
+			var view = _views.get(node)
+			if view != null and is_instance_valid(view) and view.has_method("reload_horse"):
+				view.reload_horse()
+			return
+
+
+func _refresh_weapon(node: Node) -> void:
+	var view = _views.get(node)
+	if view == null or not is_instance_valid(view) or view.model == null:
 		return
-	var view = _views.get(_own)
-	if view == null or view.model == null:
+	var id := _weapon_id_of(node)
+	if id == str(_weapon_of.get(node, "")):
 		return
-	var id := _own_weapon_id()
-	if id == _own_weapon:
-		return
-	_own_weapon = id
+	_weapon_of[node] = id
+	if node == _own:
+		_own_weapon = id
 	var m: Node3D = view.model
-	if _trail != null:
+	if node == _own and _trail != null:
 		_trail.queue_free()
 		_trail = null
 	if id == "":
@@ -299,29 +411,24 @@ func _refresh_own_weapon() -> void:
 	var n: int = m.attach_weapon(_weapon_dir, w)
 	var g := str(int(w.get("animgrp", 0)))
 	m.set_group(g if g != "0" else "1")
-	if n > 0 and not m.weapon_nodes.is_empty():
+	if node == _own and n > 0 and not m.weapon_nodes.is_empty():
 		_trail = TrailScript.new()
 		_trail.name = "Trail"
 		root.add_child(_trail)
 		_trail.setup(m.weapon_nodes[0], w.get("anchors", {}))
-	Log.debug("map3d", "weapon in hand", {"weapon": id, "name": w.get("name", ""), "hangs": n, "group": g})
+	Log.debug("map3d", "weapon in hand", {"entity": node.get("entity_id"), "weapon": id, "name": w.get("name", ""), "hangs": n, "group": g})
 
 
-# The horse of an entity: the worn horse item's colour group / exact name for our own character (models.json "horses",
-# from the JX1 horse list vs the reference cha_pic), the default horse for everyone else (their equipment is not synced)
+# The horse of an entity: the 2.0 client draws the horse of the HorseRes.txt picture row (KItemChangeRes::GetHorseRes; the
+# 0xad sync carries that row for everyone) - models.json "horses" maps the row (its Chinese picture name) to a reference
+# cha_pic, rows without a model get the default horse
 func _horse_for(node: Node) -> Node3D:
 	var horses: Dictionary = _models.get("horses", {})
 	var cha := int(horses.get("default", 1500))
-	if node == _own:
-		var hid := Game.item_worn(10)   # itempart_horse
-		if hid != 0 and Game.items.has(hid):
-			var it: Dictionary = Game.items[hid]
-			var by_name: Dictionary = horses.get("by_name", {})
-			var by_part: Dictionary = horses.get("by_particular", {})
-			if by_name.has(str(it.get("name", ""))):
-				cha = int(by_name[str(it.get("name", ""))])
-			elif by_part.has(str(int(it.get("particular", -1)))):
-				cha = int(by_part[str(int(it.get("particular", -1)))])
+	var res := _horse_res_of(node)
+	var by_res: Dictionary = horses.get("by_res", {})
+	if res >= 0 and by_res.has(str(res)):
+		cha = int(by_res[str(res)])
 	var mi = _npc_models.get(str(cha))
 	if not (mi is Dictionary):
 		return null
@@ -330,6 +437,7 @@ func _horse_for(node: Node) -> Node3D:
 	if not h.setup(_npc_dir, str(mi.get("file", "")), float(mi.get("scale", 1.0)), "", 0.0, mi):
 		h.queue_free()
 		return null
+	h.cha = cha
 	h.set_group("21")
 	return h
 
