@@ -566,7 +566,15 @@ def main():
     ids = list(a.cha)
     placements = []
     if a.map:
-        mapping = MARK_TO_CHA.get(a.map, {})
+        # the mark -> npc binding lives on the reference's server (task tables only name marks, "2010*1004 n_tiejiang"):
+        # the town roles keep their mark names across maps (n_tiejiang, n_yaodian, n_yizhan...) so Ba Lang's list is the
+        # base for every map, a map's own list overrides; a monster mark is the cha_pic bone name (cha_pic col 3: "baizhu")
+        mapping = dict(MARK_TO_CHA.get("world_baling", {}))
+        mapping.update(MARK_TO_CHA.get(a.map, {}))
+        bone_to_cha = {}
+        for cid, info in ex.tables.cha_pic.items():
+            if info.get("bone"):
+                bone_to_cha.setdefault(info["bone"], cid)
         scene_json = os.path.join(NEXT, "client", "assets3d", a.map, "scene.json")
         marks = {}
         if os.path.exists(scene_json):
@@ -575,7 +583,11 @@ def main():
             print("chua co", scene_json, "- chay export_scene.py truoc")
         for mark, pts in marks.items():
             cha = mapping.get(mark)
+            if cha is None and mark in bone_to_cha and not mark.startswith("n_"):
+                cha = bone_to_cha[mark]
             if cha is None:
+                if not mark.startswith(("BeginPoint", "ExitPoint", "EnterPoint")):
+                    print("mark chua ghep cha:", mark, len(pts))
                 continue
             for p in pts:
                 placements.append({"mark": mark, "cha": cha, "pos": p["pos"], "angle": p.get("angle", 0.0)})

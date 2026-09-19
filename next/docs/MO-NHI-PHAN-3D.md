@@ -140,7 +140,7 @@ chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 
 | F4 | Rung camera `CameraAnim`, `TweenCamera`, `CameraSave` | IL2CPP | **chưa** (C10) |
 | F5 | Sương mù/ambient/đèn đổi theo vùng (`scn_area_list` cột 10–12) | A13 | *bỏ* (4 vùng toàn game); nhạc vùng chờ 3.5 (3D-52) |
 | F6 | Shader: lightmap 2 mặt, nước, cỏ đung đưa (float vật liệu), dissolve, distortion, bloom | bundle shader | **một phần**: lightmap/nước/cỏ xong (công thức tự chọn); dissolve/bloom **chưa** |
-| F7 | 45 map 3D còn lại: chạy `export_scene.py` + `make_map3d.py` theo lô, ghép NPC template (`CHA_TO_TEMPLATE` mở rộng bằng tên Hán ↔ tên JX1 như kỹ năng) | scenes_* | **chưa** (mỗi map ~2–5 phút xuất; cần bảng ghép NPC tự động) |
+| F7 | 45 map 3D: `batch_maps.py --all` (id 9052 + scene), mark quái theo xương `cha_pic`, mark vai trò dùng chung | scenes_* | **một phần** (3D-53): quy trình + 9054/9055 vào được; tên JX1 là bản dịch nên NPC lạ cần `CHA_TO_TEMPLATE` tay (165 cha còn lại) |
 
 ### G. Lua uLua của bản tham khảo (245 tệp, vừa trích)
 

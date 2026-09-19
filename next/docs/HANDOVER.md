@@ -702,6 +702,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-53) — đợt 5 (F7): dựng map 3D theo lô, map thứ hai/ba vào được
+
+- Ghép mark → NPC: bảng ràng buộc mark ↔ NPC nằm ở **server** bản tham khảo (client chỉ có `task_child` "2010*1004 n_tiejiang"); các vai trong trấn giữ tên mark qua mọi map (`n_tiejiang`, `n_yaodian`, `n_yizhan`…) → `export_npc.py` dùng danh sách Ba Lăng làm nền cho mọi map, danh sách riêng của map ghi đè; **mark quái = tên xương `cha_pic` cột 3** (`baizhu` → 白猪 25, `jinmao`, `meihualu`) → tự ghép; mark chưa ghép in ra `mark chua ghep cha`.
+- `tools/scn3d/batch_maps.py [--list | <scene>… | --all] [--force]`: `scn_list` → 45 scene có bundle, id map = 9052 + id scene (Ba Lăng 9053, Vĩnh Lạc Trấn 9054, Đạo Hương Thôn 9055…), chạy `export_scene` → `export_npc --map` → `make_map3d --id --spawn` (~13 s/map), log `build/batch_maps.log`.
+- Kiểm: `--gm=NewWorld(9054,344,338)` → Vĩnh Lạc Trấn (3D): 41×22 region, 604 NPC (Ăn mày…), minimap ảnh riêng, 143 FPS (`AUTO3D_OK map=9054`); Đạo Hương Thôn 9055 dựng 13 s. Lô 45 map đang chạy nền (ghi ở phần sau).
+- Còn: NPC chưa có trong `CHA_TO_TEMPLATE` (195 cha_pic, 30 đã ghép) → chưa đặt (cần bảng ghép tay tiếp; hoặc template dự phòng "Nam/Nữ thanh niên" 322/337 [tự chọn]); map không có ExitPoint → về bằng GM.
+- commit: `JX NEXT 3D: 3D-53 - batch_maps.py dung 45 map theo lo (id 9052 + scene), mark quai theo xuong cha_pic, mark vai tro dung chung; map 9054/9055 vao duoc`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-52) — đợt 4: camera (F3), bóng chân (B7), vùng (F5) — mổ xong, làm phần cần
 
 - **F3** `GameCamera.UpdateCameraParam` 0x4ae1d0 / `OnUpdate` 0x4ae9b0 / `get_targetPos` [TK]: **không** có Physics.Raycast/SphereCast — camera tham khảo không va chạm địa hình/nhà (chỉ `CameraBuildingFade`, góc 40–80° do `cameraInit`). JX NEXT đã có `SpringArm3D` lớp địa hình (mask 1) từ M3D-1 [tự chọn] → giữ; không làm thêm.
