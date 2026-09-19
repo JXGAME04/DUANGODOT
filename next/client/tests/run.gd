@@ -56,6 +56,7 @@ func _init() -> void:
 	test_state_pictures()
 	test_wav_sound()
 	test_gold_name()
+	test_team()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -763,6 +764,7 @@ func test_gold_name() -> void:
 	check(NpcGold.life_bar_color(100, 1, true).is_equal_approx(Color(1, 0, 64.0 / 255.0)), "fight state with the flag: (255, 0, 64)")
 	check(NpcGold.life_bar_color(100, 2, false).is_equal_approx(Color(1, 105.0 / 255.0, 180.0 / 255.0)), "state 2 without the flag: pink")
 	check(NpcGold.life_bar_color(100, 0, false) == Color(0, 1, 0), "no PK: the percent colour")
+	check(NpcGold.life_bar_color(10, 2, true, true).is_equal_approx(Color(230.0 / 255.0, 190.0 / 255.0, 0.0)), "a team mate: (230, 190, 0) before any PK colour (0x005EADD5)")
 	# GetNpcPate 0x005EBCF0: a sitting player's head sinks MulDiv(30, cur, total) once MulDiv(10, cur, total) >= 8 (rounded)
 	check(NpcGold.sit_pate_drop(false, 14, 15) == 0 and NpcGold.sit_pate_drop(true, 11, 15) == 0, "no sink standing or before frame 12 of 15")
 	check(NpcGold.sit_pate_drop(true, 12, 15) == 24 and NpcGold.sit_pate_drop(true, 13, 15) == 26 and NpcGold.sit_pate_drop(true, 14, 15) == 28, "24 / 26 / 28 over the last three frames")
@@ -773,3 +775,50 @@ func test_gold_name() -> void:
 	check(NpcGold.player_name_color(1).to_html(false) == "ffa85e", "camp_justice: 0xFFFFA85E (%s)" % NpcGold.player_name_color(1).to_html(false))
 	check(NpcGold.player_name_color(2).to_html(false) == "ff92ff" and NpcGold.player_name_color(3).to_html(false) == "55ff91", "evil / balance")
 	check(NpcGold.player_name_color(4) == Color(1, 0, 0) and NpcGold.player_name_color(6).to_html(false) == "ff69b4", "free red, above 4 pink")
+
+
+# ---- the team (docs/LINUX-SERVER.md §17, CLIENT-2.0.md §21): the protocol round trip and the 0x53 sub-command numbers ----
+func test_team() -> void:
+	check(Proto.MsgId.C2G_TEAM == 1119 and Proto.MsgId.G2C_TEAM_SELF == 2130 and Proto.MsgId.G2C_TEAM_EVENT == 2131, "team message ids")
+	# the sub-commands of the 0x53 packet as jx_linux_y 0x080DCC90 and the 2.0 client (0x005F7070 leave = 6, 0x005F70B0 kick = 7, 0x005F7100 change captain = 8) number them
+	check(Proto.TeamCmd.TEAM_CREATE == 2 and Proto.TeamCmd.TEAM_OPEN_CLOSE == 3 and Proto.TeamCmd.TEAM_APPLY_ADD == 4 and Proto.TeamCmd.TEAM_ACCEPT == 5
+		and Proto.TeamCmd.TEAM_LEAVE == 6 and Proto.TeamCmd.TEAM_KICK == 7 and Proto.TeamCmd.TEAM_CHANGE_CAPTAIN == 8 and Proto.TeamCmd.TEAM_DISMISS == 9
+		and Proto.TeamCmd.TEAM_INVITE == 10 and Proto.TeamCmd.TEAM_REPLY_INVITE == 11, "0x53 sub-command numbers")
+	var self_info := Proto.TeamSelf.new()
+	self_info.set_in_team(true)
+	self_info.set_team_id(3)
+	self_info.set_state(1)
+	self_info.set_captain(true)
+	self_info.set_lead_level(4)
+	self_info.set_lead_exp(1234)
+	self_info.set_members_max(5)
+	var l = self_info.new_leader()
+	l.set_entity_id(77)
+	l.set_name("Đại Hiệp")
+	l.set_level(30)
+	var m = self_info.add_members()
+	m.set_entity_id(78)
+	m.set_name("Tiểu Đệ")
+	m.set_level(12)
+	var back := Proto.TeamSelf.new()
+	check(back.from_bytes(self_info.to_bytes()) == Proto.PB_ERR.NO_ERRORS, "TeamSelf from_bytes")
+	check(back.get_in_team() and back.get_team_id() == 3 and back.get_state() == 1 and back.get_captain() and back.get_lead_level() == 4
+		and back.get_lead_exp() == 1234 and back.get_members_max() == 5, "TeamSelf scalars")
+	check(back.has_leader() and back.get_leader().get_entity_id() == 77 and back.get_leader().get_name() == "Đại Hiệp"
+		and back.get_members().size() == 1 and back.get_members()[0].get_name() == "Tiểu Đệ" and back.get_members()[0].get_level() == 12, "TeamSelf leader + members")
+	var ev := Proto.TeamEvent.new()
+	ev.set_event(Proto.TeamEventKind.TEAM_EV_MSG)
+	ev.set_arg(0x28)
+	ev.set_entity_id(77)
+	ev.set_name("Đại Hiệp")
+	var ev2 := Proto.TeamEvent.new()
+	check(ev2.from_bytes(ev.to_bytes()) == Proto.PB_ERR.NO_ERRORS and ev2.get_event() == Proto.TeamEventKind.TEAM_EV_MSG and ev2.get_arg() == 0x28
+		and ev2.get_entity_id() == 77 and ev2.get_name() == "Đại Hiệp", "TeamEvent round trip")
+	# the request the window sends
+	var req := Proto.TeamReq.new()
+	req.set_cmd(Proto.TeamCmd.TEAM_INVITE)
+	req.set_target(78)
+	req.set_flag(0)
+	req.set_seq(9)
+	var req2 := Proto.TeamReq.new()
+	check(req2.from_bytes(req.to_bytes()) == Proto.PB_ERR.NO_ERRORS and req2.get_cmd() == Proto.TeamCmd.TEAM_INVITE and req2.get_target() == 78 and req2.get_seq() == 9, "TeamReq round trip")

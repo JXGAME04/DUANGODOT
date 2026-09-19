@@ -14,6 +14,7 @@ const PICK_UP_RANGE := 180.0          # scene units: inside PLAYER_PICKUP_SERVER
 const ScenePlaceScript := preload("res://scenes/KScenePlaceC.gd")
 const KLogin := preload("res://net/KLogin.gd")
 const KUiGameWindows := preload("res://ui/KUiGameWindows.gd")
+const Proto := preload("res://proto/jx_pb.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 const GRID_CELL := 512
@@ -58,8 +59,10 @@ func _ready() -> void:
 	_build_hud()
 	_windows = KUiGameWindows.new()
 	_windows.quick_skill.connect(func(id: int): cast_skill_at_mouse(id))
+	_windows.system_line.connect(func(text: String): _append_chat("[color=#e6be00]%s[/color]" % text))
 	_windows.name = "Windows"
 	add_child(_windows)
+	Game.team_changed.connect(_on_team_changed)
 	# the 2.0 bottom bar carries the chat line ([InputEdit] of 玩家信息主界面.ini): the plain one steps aside
 	if _windows.player_bar != null and _windows.player_bar.chat_input != null:
 		_chat_input.visible = false
@@ -444,6 +447,8 @@ func _add_entity(d: Dictionary) -> void:
 		_entity_layer.add_child(node)
 		_entities[id] = node
 	node.setup(d, id == Game.entity_id)
+	if node.has_method("set_team_mate"):
+		node.set_team_mate(Game.is_team_mate(id))
 	if _map.map_id > 0:
 		_map.add_entity(node)
 	_spawn_count += 1
@@ -533,6 +538,15 @@ func _on_entity_pk(r: Dictionary) -> void:
 		node.set_pk_state(int(r.pk_state))
 
 
+# G2C_TEAM_SELF: the life bar of a team mate is (230, 190, 0) (PaintLife 0x005EADB8 when 0x0066D070 == 8) - every player
+# node learns whether it is one now
+func _on_team_changed() -> void:
+	for id in _entities:
+		var node: Node2D = _entities[id]
+		if node != null and is_instance_valid(node) and node.has_method("set_team_mate"):
+			node.set_team_mate(Game.is_team_mate(int(id)))
+
+
 # the 0x90 / 0x93 packets: one's own PK state and value (G2C_PK_STATE); a refused switch keeps the state
 func _on_pk_changed(state: int, _value: int, refused: bool) -> void:
 	var own: Node2D = _entities.get(Game.entity_id)
@@ -615,6 +629,7 @@ func _auto_run() -> void:
 	await _auto_sit()
 	await _auto_ride()
 	await _auto_pk()
+	await _auto_team()
 	await _auto_death()
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d smooth=%d fps=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0, _missle_smooth(), int(Engine.get_frames_per_second())])
@@ -880,6 +895,49 @@ func _auto_pk() -> void:
 	Game.pk_changed.disconnect(cb)
 	Log.info("auto", "auto pk", {"on": on, "bar_state": bar_state, "value": Game.pk_value, "back": answer.back, "refused": answer.refused})
 	print("AUTO_PK on=%s bar_state=%d value=%d back=%s refused=%s" % [on, bar_state, Game.pk_value, answer.back, answer.refused])
+
+
+# the team of one character: create (the 0x53 sub 2 -> TeamSelf captain / open), the window, close the team (sub 3), dismiss
+# (sub 9 -> TeamSelf out of a team); the invitations need a second player (the [team] tests of the zone cover them)
+func _auto_team() -> void:
+	var answer := {"changes": 0}
+	var cb := func() -> void:
+		answer.changes += 1
+	Game.team_changed.connect(cb)
+	Game.team_request(Proto.TeamCmd.TEAM_CREATE)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if bool(Game.team.in_team):
+			break
+	var created := bool(Game.team.in_team)
+	var captain := bool(Game.team.captain)
+	var open_state := int(Game.team.state)
+	var lead_level := int(Game.team.lead_level)
+	var members_max := int(Game.team.members_max)
+	var window_ok := false
+	if _windows != null and _windows.team_window != null:
+		_windows.team_window.open_window()
+		await get_tree().create_timer(0.3).timeout
+		window_ok = _windows.team_window.visible and _windows.team_window.member_count() == 1
+		await _save_screenshot("user://logs/auto_team.png")
+		_windows.team_window.close_window()
+	Game.team_request(Proto.TeamCmd.TEAM_OPEN_CLOSE, 0, 0)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if int(Game.team.state) == 0:
+			break
+	var closed_ok := int(Game.team.state) == 0
+	Game.team_request(Proto.TeamCmd.TEAM_DISMISS)
+	for i in 20:
+		await get_tree().create_timer(0.1).timeout
+		if not bool(Game.team.in_team):
+			break
+	var dismissed := not bool(Game.team.in_team)
+	Game.team_changed.disconnect(cb)
+	Log.info("auto", "auto team", {"created": created, "captain": captain, "state": open_state, "lead_level": lead_level,
+		"members_max": members_max, "window": window_ok, "closed": closed_ok, "dismissed": dismissed, "changes": answer.changes})
+	print("AUTO_TEAM created=%s captain=%s open=%d lead_level=%d members_max=%d window=%s closed=%s dismissed=%s changes=%d" % [created, captain,
+		open_state, lead_level, members_max, window_ok, closed_ok, dismissed, answer.changes])
 
 
 func _auto_ride() -> void:

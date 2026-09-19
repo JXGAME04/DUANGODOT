@@ -51,6 +51,8 @@ signal gold_changed(entity_id: int)         # G2C_NPC_GOLD: a monster turned gol
 signal entity_res(r: Dictionary)            # G2C_ENTITY_RES: a player's look (the 0xad packet -> KNpc::SetPlayerRes 0x005ED920)
 signal pk_changed(state: int, value: int, refused: bool)   # G2C_PK_STATE: one's own PK state (the 0x90 packet) / value (0x93)
 signal entity_pk(r: Dictionary)             # G2C_ENTITY_PK: a player's PK state (the flag & 3 of the 0x4b sync -> KNpc+0x16e4)
+signal team_changed()                       # G2C_TEAM_SELF: one's own team as it stands (the 0x69 sub 2 / sub 9 packets; `team`)
+signal team_event(ev: Dictionary)           # G2C_TEAM_EVENT: {event, id, name, level, arg, leader, members} (the other 0x69 sub-commands, the 0x86 team messages)
 signal missle_sync(m: Dictionary)       # G2C_MISSLE: a missile born / flying / gone (the scene draws it)
 signal kicked(reason: int, text: String)
 signal connection_lost(reason: String)
@@ -101,6 +103,9 @@ var skills := {}
 var faction := -1
 var pk_state := 0        # KPlayerPK state of one's own character: 0 exercise, 1 fight, 2 kill (the 0x90 packet)
 var pk_value := 0        # the PK value 0..10 (the 0x93 packet)
+# the client's KPlayerTeam (core+0xa878+0x7258 of the 2.0 client) + the s2c_teamselfinfo table (0x1f17608..): in_team, team_id,
+# state (1 open), captain (am I), leader {id, name, level}, members [{id, name, level}], lead_level, lead_exp, members_max
+var team := {"in_team": false, "team_id": -1, "state": 0, "captain": false, "leader": {}, "members": [], "lead_level": 1, "lead_exp": 0, "members_max": 0}
 var faction_last := -1
 var faction_count := 0
 var camp := 0
@@ -296,6 +301,48 @@ func pk_state_request(wanted: int) -> int:
 	Net.send_msg(Proto.MsgId.C2G_PK_STATE, req)
 	Log.trace("world", "pk state request", {"state": wanted, "seq": _move_seq})
 	return _move_seq
+
+
+# the 0x53 packet {0x53, word 7, byte sub, dword npc} of the 2.0 client (KPlayer team ops of core+0xa878: create 0x005F6F40,
+# leave 0x005F7070, kick 0x005F70B0, change captain 0x005F7100, invite 0x005F75B0, open/close 0x005FA7C0, ...; the same
+# sub-commands jx_linux_y reads at 0x080DCC90 - docs/LINUX-SERVER.md §17)
+func team_request(cmd: int, target: int = 0, flag: int = 0) -> int:
+	if state != "world":
+		return 0
+	_move_seq += 1
+	var req := Proto.TeamReq.new()
+	req.set_cmd(cmd)
+	req.set_target(target)
+	req.set_flag(flag)
+	req.set_seq(_move_seq)
+	Net.send_msg(Proto.MsgId.C2G_TEAM, req)
+	Log.trace("world", "team request", {"cmd": cmd, "target": target, "flag": flag, "seq": _move_seq})
+	return _move_seq
+
+
+# the entity ids of one's team mates (the captain and the members but oneself): the life bar of a team mate is
+# (230, 190, 0) in PaintLife 0x005EADB8 (0x0066D070 == 8)
+func team_mate_ids() -> Dictionary:
+	var out := {}
+	if not team.in_team:
+		return out
+	if not team.leader.is_empty() and int(team.leader.id) != entity_id:
+		out[int(team.leader.id)] = true
+	for m in team.members:
+		if int(m.id) != entity_id:
+			out[int(m.id)] = true
+	return out
+
+
+func is_team_mate(id: int) -> bool:
+	if not team.in_team or id == entity_id:
+		return false
+	if not team.leader.is_empty() and int(team.leader.id) == id:
+		return true
+	for m in team.members:
+		if int(m.id) == id:
+			return true
+	return false
 
 
 # the 0x71 packet {0x71, byte sit} of the 2.0 client (the tool bar's Switch([[sit]]) 0x0044B470): sit down (1) / stand up (0)
@@ -879,6 +926,42 @@ func _on_message(msg_id: int, payload: PackedByteArray) -> void:
 			if d != null:
 				d["pk_state"] = int(m.get_pk_state())
 			entity_pk.emit({"id": int(m.get_entity_id()), "pk_state": int(m.get_pk_state())})
+
+		Proto.MsgId.G2C_TEAM_SELF:
+			# the 0x69 sub 2 handler of the 2.0 client (0x005F8280: +0x7258 flag, +0x725c figure, the captain 0x1f17610, the
+			# members 0x1f17614.., the names, the levels, the lead exp +0x7230 -> level) or sub 9 with one's own npc (out of a team)
+			var m := Proto.TeamSelf.new()
+			if not _decode(m, payload):
+				return
+			var members: Array = []
+			for mm in m.get_members():
+				members.append({"id": int(mm.get_entity_id()), "name": str(mm.get_name()), "level": int(mm.get_level())})
+			var leader := {}
+			if m.get_in_team() and m.has_leader():
+				var l = m.get_leader()
+				leader = {"id": int(l.get_entity_id()), "name": str(l.get_name()), "level": int(l.get_level())}
+			team = {"in_team": bool(m.get_in_team()), "team_id": int(m.get_team_id()), "state": int(m.get_state()),
+				"captain": bool(m.get_captain()), "leader": leader, "members": members,
+				"lead_level": int(m.get_lead_level()), "lead_exp": int(m.get_lead_exp()), "members_max": int(m.get_members_max())}
+			team_changed.emit()
+			Log.info("player", "team", {"in_team": team.in_team, "team": team.team_id, "state": team.state, "captain": team.captain,
+				"members": members.size(), "lead_level": team.lead_level})
+
+		Proto.MsgId.G2C_TEAM_EVENT:
+			# the other 0x69 sub-commands (4 create ok, 5 create fail, 6 open/close, 7 apply, 8 add member, 9 leave, 0xc invite, 0xd
+			# change captain, ...) and the 0x86 team messages: the windows decide what to show
+			var m := Proto.TeamEvent.new()
+			if not _decode(m, payload):
+				return
+			var ev := {"event": int(m.get_event()), "id": int(m.get_entity_id()), "name": str(m.get_name()), "level": int(m.get_level()),
+				"arg": int(m.get_arg()), "leader": {}, "members": []}
+			if m.has_leader():
+				var l = m.get_leader()
+				ev.leader = {"id": int(l.get_entity_id()), "name": str(l.get_name()), "level": int(l.get_level())}
+			for mm in m.get_members():
+				ev.members.append({"id": int(mm.get_entity_id()), "name": str(mm.get_name()), "level": int(mm.get_level())})
+			team_event.emit(ev)
+			Log.info("player", "team event", {"event": ev.event, "id": ev.id, "name": ev.name, "arg": ev.arg})
 
 		Proto.MsgId.G2C_ENTITY_RES:
 			# the 0xad handler of the 2.0 client (0x006515A0): the rows into KNpc::SetPlayerRes 0x005ED920, the version into +0x1408

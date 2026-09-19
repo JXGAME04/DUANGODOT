@@ -92,6 +92,10 @@ var GameScreens = []UiScreenDef{
 	{"thanh-dieu-khien-tren", "Thanh điều khiển trên", "KUiHeaderControlBar", `顶部控制条.ini`},
 	{"thanh-cong-cu", "Thanh công cụ", "KUiToolsControlBar", `工具控制条.ini`},
 	{"trang-thai-ky-nang", "Danh sách trạng thái kỹ năng", "KUiSkillStateList", `技能状态列表.ini`},
+	// M14 T2: the team window (KUiTeamManage::OpenWindow 0x004ADAF0 loads "%s\队伍管理.ini") and the message box with up
+	// to two text buttons (KUiInformation, 提示.ini: [Info], [FirstBtn], [SecondBtn]) the invitations and applications use
+	{"to-doi", "Tổ đội", "KUiTeamManage", `队伍管理.ini`},
+	{"hop-thoai", "Hộp thông báo hai nút", "KUiInformation", `提示.ini`},
 }
 
 // UiImage is one picture of the old client, written out.

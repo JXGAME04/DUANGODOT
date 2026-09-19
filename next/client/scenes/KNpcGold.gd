@@ -96,7 +96,9 @@ static func life_bar(entity_type: int, life_switch: int, focus: bool) -> bool:
 # PaintLife 0x005EADB8..0x005EAE5B in order: a team mate (0x0066D070 == 8, not on this client) (230, 190, 0); the PK flag
 # (KNpc+0x16e8, the switch on) -> (255, 0, 0) for the kill state 2, (255, 0, 64) otherwise; no flag but state 2 -> (255, 105, 180);
 # else by the percent: 50 green, 25 yellow, below red
-static func life_bar_color(pct: int, pk_state: int = 0, pk_flag: bool = false) -> Color:
+static func life_bar_color(pct: int, pk_state: int = 0, pk_flag: bool = false, team_mate: bool = false) -> Color:
+	if team_mate:
+		return Color(230.0 / 255.0, 190.0 / 255.0, 0.0)   # 0x005EADD5: a player / partner of one's team, not oneself
 	if pk_flag:
 		return Color(1.0, 0.0, 0.0) if pk_state == 2 else Color(1.0, 0.0, 64.0 / 255.0)
 	if pk_state == 2:

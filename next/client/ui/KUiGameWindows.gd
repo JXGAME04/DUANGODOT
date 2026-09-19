@@ -16,12 +16,15 @@ const UiControlBar := preload("res://ui/uicase/UiControlBar.gd")
 const UiPlayerBar := preload("res://ui/uicase/UiPlayerBar.gd")
 const UiSkillTree := preload("res://ui/uicase/UiSkillTree.gd")
 const UiSkillState := preload("res://ui/uicase/UiSkillState.gd")
+const UiTeam := preload("res://ui/uicase/UiTeam.gd")
+const UiInformation := preload("res://ui/uicase/UiInformation.gd")
 const KUiShortcut := preload("res://ui/KUiShortcut.gd")
 const KUiShortcutItem := preload("res://ui/KUiShortcutItem.gd")
 const KUiSkillDesc := preload("res://ui/KUiSkillDesc.gd")
 const KUiDraggedObject := preload("res://ui/KUiDraggedObject.gd")
 const KUiItemView := preload("res://ui/KUiItemView.gd")
 const KUiScheme := preload("res://ui/KUiScheme.gd")
+const Proto := preload("res://proto/jx_pb.gd")
 
 var item_window: UiItem = null
 var status_window: UiStatus = null
@@ -33,6 +36,9 @@ var tool_bar: UiControlBar = null
 var player_bar: UiPlayerBar = null
 var skill_tree: UiSkillTree = null   # the mouse-skill tree (Open([[leftskill]]) / Open([[rightskill]]))
 var state_window: UiSkillState = null   # the skill state list under the top bar (技能状态列表.ini)
+var team_window: UiTeam = null          # the team window (队伍管理.ini; the tool bar's "team", docs/CLIENT-2.0.md §21)
+var info_box: UiInformation = null      # the two-button message box (提示.ini): the invitations and applications ask through it
+signal system_line(text: String)        # a sentence for the chat log (the 0x69 / 0x86 team messages the 2.0 client prints)
 var shortcuts := KUiShortcut.new()      # the nine shortcut skills (Q W E A S D Z X C), kept per character
 var quick := KUiShortcutItem.new()      # the nine quick slots of the bottom bar (keys 1..9), kept per character
 var _tip_skill := 0                     # the skill whose tip the mouse hover shows (0 = none); the zone's numbers may arrive later
@@ -67,6 +73,12 @@ func _ready() -> void:
 		if not w.load_scheme(screen):
 			Log.error("ui", "layout missing", {"window": w.SCHEME})
 			return
+	team_window = UiTeam.new()
+	_canvas.add_child(team_window)
+	if not team_window.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiTeam.SCHEME})
+		team_window.queue_free()
+		team_window = null
 	skill_tree = UiSkillTree.new()
 	_canvas.add_child(skill_tree)
 	if not skill_tree.load_scheme(screen):
@@ -80,6 +92,15 @@ func _ready() -> void:
 	_load_shortcuts()
 	_canvas.add_child(hover)
 	hover.load_scheme(screen)
+	info_box = UiInformation.new()
+	_canvas.add_child(info_box)
+	if not info_box.load_scheme(screen):
+		Log.warn("ui", "layout missing", {"window": UiInformation.SCHEME})
+		info_box.queue_free()
+		info_box = null
+	else:
+		info_box.answered.connect(_on_info_answered)
+	Game.team_event.connect(_on_team_event)
 	_canvas.add_child(hand)
 	item_window.open_status.connect(func(): status_window.open_window())
 	status_window.open_item.connect(func(): item_window.open_window())
@@ -140,15 +161,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			if hand.holding():
 				_drop_hand()
 				get_viewport().set_input_as_handled()
-			elif item_window.visible or status_window.visible or skills_window.visible:
+			elif item_window.visible or status_window.visible or skills_window.visible or (team_window != null and team_window.visible):
 				item_window.hide_window()
 				status_window.hide_window()
 				skills_window.hide_window()
+				if team_window != null:
+					team_window.hide_window()
 				get_viewport().set_input_as_handled()
 
 
 func any_open() -> bool:
-	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible or (skill_tree != null and skill_tree.visible))
+	return ready_ok and (item_window.visible or status_window.visible or skills_window.visible or (skill_tree != null and skill_tree.visible)
+		or (team_window != null and team_window.visible) or (info_box != null and info_box.visible))
 
 
 func _on_item_hovered(item) -> void:
@@ -218,6 +242,10 @@ func _on_bar_command(cmd: String) -> void:
 			var own = Game.entities.get(Game.entity_id)
 			var sitting: bool = own != null and int(own.get("doing", 0)) == 7   # jx.pb.Action ACTION_SIT
 			Game.sit(not sitting)
+		"team":
+			# Open([[team]]) of the 2.0 tool bar -> KUiTeamManage::OpenWindow 0x004AE880
+			if team_window != null:
+				team_window.toggle_window()
 		_:
 			Log.info("ui", "window not built yet", {"command": cmd})
 
@@ -227,6 +255,96 @@ func _refresh_bars() -> void:
 		top_bar.refresh()
 	if tool_bar != null:
 		tool_bar.refresh()
+
+
+# the 0x69 sub-commands and the 0x86 team messages as the 2.0 client shows them (docs/CLIENT-2.0.md §21): an invitation (sub
+# 0xc, 0x00604630) and an application (sub 7, 0x00603780) open the two-button box of UiSysMsgCentre (G_SysMsgCentre_0 / _1,
+# G_ACCEPT_WORD / G_REFUSE_WORD); everything else is a line of the string table in the chat log
+func _on_team_event(ev: Dictionary) -> void:
+	var kind := int(ev.event)
+	var who := str(ev.name)
+	match kind:
+		Proto.TeamEventKind.TEAM_EV_INVITE:
+			system_line.emit(KUiItemView.core_string("MSG_TEAM_GET_INVITE") % who)
+			if info_box != null:
+				info_box.show_box(KUiItemView.client_string("G_SysMsgCentre_0") % who, KUiItemView.client_string("G_ACCEPT_WORD"),
+					KUiItemView.client_string("G_REFUSE_WORD"), {"kind": "invite", "id": int(ev.id)})
+		Proto.TeamEventKind.TEAM_EV_APPLY:
+			system_line.emit(KUiItemView.core_string("MSG_TEAM_APPLY_ADD") % who)
+			if info_box != null:
+				info_box.show_box(KUiItemView.client_string("G_SysMsgCentre_1") % who, KUiItemView.client_string("G_ACCEPT_WORD"),
+					KUiItemView.client_string("G_REFUSE_WORD"), {"kind": "apply", "id": int(ev.id)})
+		_:
+			var line := team_event_text(ev)
+			if line != "":
+				system_line.emit(line)
+
+
+# the sentence of a team event, "" when the 2.0 client says nothing for it
+static func team_event_text(ev: Dictionary) -> String:
+	var kind := int(ev.event)
+	var who := str(ev.name)
+	var arg := int(ev.arg)
+	var own := int(ev.id) == Game.entity_id
+	match kind:
+		Proto.TeamEventKind.TEAM_EV_CREATE_OK:
+			return KUiItemView.core_string("MSG_TEAM_CREATE")
+		Proto.TeamEventKind.TEAM_EV_CREATE_FAIL:
+			return KUiItemView.core_string("MSG_TEAM_CANNOT_CREATE" if arg == 4 else "MSG_TEAM_CREATE_FAIL")
+		Proto.TeamEventKind.TEAM_EV_ADD_MEMBER:
+			return KUiItemView.core_string("MSG_TEAM_ADD_MEMBER") % who
+		Proto.TeamEventKind.TEAM_EV_SELF_ADD:
+			return KUiItemView.core_string("MSG_TEAM_SELF_ADD") % who
+		Proto.TeamEventKind.TEAM_EV_LEAVE:
+			if own:
+				var leader: Dictionary = Game.team.get("leader", {})
+				return KUiItemView.core_string("MSG_TEAM_LEAVE_SELF_MSG") % str(leader.get("name", ""))
+			return KUiItemView.core_string("MSG_TEAM_LEAVE") % who
+		Proto.TeamEventKind.TEAM_EV_KICK:
+			return KUiItemView.core_string("MSG_TEAM_BE_KICKEN") if own else KUiItemView.core_string("MSG_TEAM_KICK_ONE") % who
+		Proto.TeamEventKind.TEAM_EV_CHANGE_CAPTAIN:
+			if arg == 1:
+				var leader: Dictionary = Game.team.get("leader", {})
+				return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_SELF") % str(leader.get("name", ""))
+			return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN") % who
+		Proto.TeamEventKind.TEAM_EV_OPEN_CLOSE:
+			return KUiItemView.core_string("MSG_TEAM_OPEN" if arg != 0 else "MSG_TEAM_CLOSE")
+		Proto.TeamEventKind.TEAM_EV_DISMISS:
+			if bool(Game.team.get("captain", false)):
+				return KUiItemView.core_string("MSG_TEAM_DISMISS_CAPTAIN")
+			var leader: Dictionary = Game.team.get("leader", {})
+			return KUiItemView.core_string("MSG_TEAM_DISMISS_MEMBER") % str(leader.get("name", ""))
+		Proto.TeamEventKind.TEAM_EV_REFUSE:
+			return KUiItemView.core_string("MSG_TEAM_REFUSE_INVITE") % who
+		Proto.TeamEventKind.TEAM_EV_MSG:
+			# the 0x86 handler 0x00657AD0: the id picks the key (the jump table 0x658674)
+			match arg:
+				6:
+					return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL1") + KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL2") % who
+				7:
+					return KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL1") + KUiItemView.core_string("MSG_TEAM_CHANGE_CAPTAIN_FAIL3")
+				0x12, 0x13:
+					return KUiItemView.core_string("MSG_TEAM_TARGET_CANNOT_ADD_TEAM")
+				0x24, 0x25, 0x26, 0x27, 0x28:
+					return KUiItemView.core_string("MSG_TEAM_ERROR0%d" % (arg - 0x23))
+				_:
+					return ""
+		_:
+			return ""
+
+
+# the answer of the box: the first button agrees (UiSysMsgCentre nSelAction == 0)
+func _on_info_answered(index: int, param: Variant) -> void:
+	if not (param is Dictionary):
+		return
+	match str(param.get("kind", "")):
+		"invite":
+			# TEAM_OI_INVITE_RESPONSE -> the 0x53 sub 11 {captain, flag}
+			Game.team_request(Proto.TeamCmd.TEAM_REPLY_INVITE, int(param.id), 1 if index == 0 else 0)
+		"apply":
+			# TEAM_OI_APPLY_RESPONSE: agreeing is AddTeamMember (the 0x53 sub 5); a refusal sends nothing to jx_linux_y
+			if index == 0:
+				Game.team_request(Proto.TeamCmd.TEAM_ACCEPT, int(param.id))
 
 
 # the two mouse skill boxes of the bottom bar (ImediaLeftSkill / ImediaRightSkill)

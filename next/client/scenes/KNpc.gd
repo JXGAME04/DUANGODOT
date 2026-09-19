@@ -296,6 +296,17 @@ func set_equip_rows(rows: Dictionary) -> void:
 		queue_redraw()
 
 
+# a team mate of the character (0x0066D070 == 8 in PaintLife 0x005EADB8): the life bar is (230, 190, 0) before any PK colour
+var team_mate := false
+
+
+func set_team_mate(on: bool) -> void:
+	if team_mate == on:
+		return
+	team_mate = on
+	queue_redraw()
+
+
 # the flag & 3 of the 0x4b sync (0x0065D617 -> +0x16e4): the PK state colours the life bar
 func set_pk_state(s: int) -> void:
 	if pk_state == s:
@@ -549,7 +560,7 @@ func _draw() -> void:
 		var pct := int(round(float(life) * 100.0 / float(life_max)))
 		var w := float(pct * 38 / 100)
 		var top := Vector2(-19.0, -float(_pate()) + 2.0)
-		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct, pk_state, pk_state != 0))
+		draw_rect(Rect2(top, Vector2(w, 3.0)), KNpcGold.life_bar_color(pct, pk_state, pk_state != 0, team_mate and not is_own))
 		draw_rect(Rect2(top + Vector2(w, 0.0), Vector2(38.0 - w, 3.0)), Color(0.5, 0.5, 0.5))
 	if is_target and not is_dead():
 		draw_arc(Vector2(0, 0), 18.0, 0, TAU, 24, Color(1.0, 0.9, 0.2, 0.8), 2.0)

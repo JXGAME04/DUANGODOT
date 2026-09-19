@@ -329,8 +329,16 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `KNpc::damage_record_key`, `share_experience → best`, `lose_treasure(dead, killer, best)`, `lose_treasure_shared`, `team_may_take`; proto `TeamReq/TeamSelf/TeamEvent`,
   `C2G_TEAM` 1119 (gateway chuyển tiếp), `G2C_TEAM_SELF` 2130, `G2C_TEAM_EVENT` 2131, `RoleData.lead_exp/lead_level`; Go `player.LeadExp` → `player.json`.
   Client 2.0: handler 0x86 `0x00657AD0` + bảng nhảy `0x658674` → khoá `stringtable_core.txt` (`MSG_TEAM_ERROR01..05` = "Nhóm trưởng do hệ thống chỉ định…").
-  Kiểm: ctest 249/249 (`[team]` 10 ca 341 khẳng định), Godot 452/452, `go vet` xanh, catalog/includes sạch. **T2 (client: cửa sổ `队伍管理.ini`, lời mời/xin, màu thanh máu
-  đồng đội) chưa làm.**
+  Kiểm: ctest 249/249 (`[team]` 10 ca 341 khẳng định), Godot 452/452, `go vet` xanh, catalog/includes sạch.
+- **M14 lát T2 (xong 2026-09-19)**: **tổ đội trên client** (`CLIENT-2.0.md` §21.1): cửa sổ `KUiTeamManage` (`队伍管理.ini` theme `ui3_1024`: Main 404×253, hai danh sách
+  Đội mình / Lân cận, nút Mời vào / Rời đội (Kick) / Chuyển / Tạo mới (Refresh) / Rời đội / Giải tán đội, ô "Đóng tổ đội", "Tài lãnh đạo %d") → `UiTeam.gd` (lệnh
+  thanh công cụ `team`); `OperationRequest 0x005B9560` 5..0xc = **cùng số lệnh con 0x53 với `jx_linux_y`** (`{0x53, word 7, byte sub, dword npc}` — khác PK) →
+  `Game.team_request`; handler 0x69 `0x006516D0` (14 lệnh con; `s2c_teamselfinfo` mang **kinh nghiệm thống lĩnh**, client tự tính cấp bằng bảng `level_lead_exp.txt`
+  của client `0x006E2270`); hộp hai nút `KUiInformation` (`提示.ini`) → `UiInformation.gd` cho lời mời/đơn xin (`G_SysMsgCentre_0/1`, `G_ACCEPT_WORD/G_REFUSE_WORD`);
+  thông điệp 0x69/0x86 thành dòng chat theo khoá `stringtable_core.txt` (`KUiGameWindows.team_event_text`); thanh máu đồng đội (230,190,0) (`PaintLife 0x005EADD5`);
+  `export-ui` thêm `to-doi`, `hop-thoai` (**chạy lại `python tools/dev.py assets`** — cả `export-player` để có `lead_exp`). Kiểm: Godot 460/460, e2e `AUTO_TEAM
+  created=true captain=true open=1 lead_level=1 members_max=3 window=true closed=true dismissed=true`, `auto_team.png`. Chưa: `队伍一览信息.ini`/`teamoverview` (xem đội
+  quanh, `s2c_teaminfo`), menu tên 0x693, `InputEdit`, kinh nghiệm thống lĩnh không tăng (nhị phân không cộng).
 - **M12 lát B3c-4 (xong 2026-09-18)**: **PK** (`LINUX-SERVER.md` §16.16, `CLIENT-2.0.md` §20): `KPlayerPK` `Player+0x5a50` (ba trạng thái 0/1/2, khoá, giây
   trong trạng thái, giá trị 0..10, % né), `SetPKState 0x080C3740` (về 0 cần `NormalPKTimeLong` 3240 s trừ khi ép; gói 0x90), `SetPKValue 0x080C38C0` (0x93),
   `AddPKValue 0x080C3930`, tick `0x080C35E0`, gói 0x76 → `0x080DBE00` (cửa `NotFightExpPercent`, ép khi ngoài chiến và không khoá), `GetPKRelation 0x0807A350`
@@ -393,7 +401,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~Chạy trừ thể lực~~ (xong 2026-09-18: `ProcessState 0x0808BD3D` gain/`RunSub` theo `Player+0x5a50`, `ForbitStamina`; bước chạy `0x08080C50` → kiệt sức đi bộ `0x0807B430`; tốc độ người chơi = `m_CurrentRunSpeed`/khung = 180/giây, bỏ `move_speed` 200 của persist) | ~~ngồi~~ (xong B6a 2026-09-18: `0x080DC300` → `DoSit 0x0807B550`, `SitAddLife/Mana` `0x0808BBE6`, `SitAdd` ‰; §16.14, `CLIENT-2.0.md` §18). Còn: cưỡi ngựa chặn ngồi đã có (`horse ≠ 0`); áo 45 của `GetNpcPate`; chạy đánh `0x12`. |
 | ~~`m_nLucky` vào rơi đồ~~ (xong 2026-09-18) | `GenRandomItem 0x08083D52..0x08083DB5`: `luck = (Player+0x5994 ≠ 0 && +0x5998 ≥ 0 ? 0x080CC620(g_Team + 0x30·+0x5998, player) = số đồng đội gần : 0) + Player+0x5958` (cờ tham số 4 ≠ 0 hay không có người → 0) → `lose_treasure` truyền `k->player.cur_lucky` (phần tông chờ M14). |
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
-| **M14 T2 — tổ đội trên client** | cửa sổ `\Ui\Ui3\队伍管理.ini` (Main 340×229 tại 230,170: LeaderAbility, InputEdit, MemberList, NearbyList + cuộn, nút Invite/Kick/Appoint/Refresh/Leave/Dismiss, ô CloseTeam, Cancel; sprite `\Spr\Ui3\组队\*.spr`), lệnh thanh công cụ `team` (`UiControlBar` đã phát), hộp mời/xin (`MSG_TEAM_GET_INVITE`/`APPLY_ADD`), thông điệp 0x86 theo khoá `stringtable_core.txt` (§21 `CLIENT-2.0.md`: xuất `text/strings.json`), màu thanh máu đồng đội (230,190,0) `PaintLife 0x005EADB8` (`0x0066D070 == 8`), `_auto_team` + ảnh. |
+| ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat, bạn bè, thư, bang hội, giao dịch), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
 | CI | sau mỗi push xem `https://github.com/JXGAME04/DUANGODOT/actions?query=branch%3Aclaude%2Flogin-system-upgrade-95794b` (trình duyệt tích hợp, không đăng nhập); push dồn làm các run trước bị **cancelled** (bình thường); run đỏ nhanh (~1 phút) thường là `gofmt`, `check_includes`, `check_log_catalog`. |
@@ -716,6 +724,27 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 45) — M14 lát T2: tổ đội trên client (KUiTeamManage 队伍管理.ini, KUiInformation 提示.ini, gói 0x53/0x69 phía client)
+
+- **gamecl.exe** (đọc từng dòng, `CLIENT-2.0.md` §21.1): `KUiTeamManage::OpenWindow 0x004AE880` → `0x004ADAF0` (`%s\队伍管理.ini`) → `0x004AD930` (20 ô, offset
+  `+0x584..+0x8fe4`), `WndProc 0x004AE0D0` (0x565 nút: `Invite 0x004ADE00` (lập đội trước khi chưa có, `OperationRequest(5)`, rồi `(7, mục)`), `Kick 0x004ADDD0 (8)`,
+  `Appoint 0x004ADDA0 (6)`, `Leave/Dismiss 0x004ADEF0 (9)`, `Refresh 0x004ADE50` (`GetGameData 0x3fa` → `0x0066B180` quét npc: kind 1, luật camp 0, không cùng đội),
+  `CloseTeam (0xa, checked)`, `Cancel 0x004ADF20`; 0x691 chọn mục `0x004ADBD0/0x004ADC70`; 0x693 menu tên), cập nhật `0x004AE300` (`GetGameData 0x3fc` = cấp thống lĩnh
+  `core+0x11aac`, `OperationRequest(0/1)` trạng thái + danh sách 0xf0 byte/mục), `OperationRequest 0x005B9560` bảng nhảy `0x5b9844` (5..0xd) → `0x005F6F40/0x005F7100/
+  0x005F75B0/0x005F70B0/0x005F7070/0x005FA7C0/0x005F6F70`: gói **`{0x53, word 7, byte sub, dword npc}` cùng số với server** (6 rời, 7 đuổi, 8 nhường…); handler 0x69
+  `0x006516D0` (bảng `0x6518ac`, 14 lệnh con với độ dài 0x27/0x14c/4/8/4/4/7/0x2b/7/0xb/0xb/0x27/0xb/9): `s2c_teamselfinfo 0x005F8280` (0x14c byte: `+0x129` **kinh
+  nghiệm thống lĩnh**, cấp tính bằng bảng client `0x006E2270`/`0x006E2300` từ `\settings\npc\player\level_lead_exp.txt` của client), đơn xin `0x00603780` (hộp 0x1f),
+  lời mời `0x00604630`; `KUiInformation` `提示.ini` (`0x004AC748`: Info, FirstBtn, SecondBtn); `UiSysMsgCentre` 2004 (`SMCT_UI_TEAM_INVITE/APPLY` "同意/拒绝" →
+  `TeamOperation(INVITE_RESPONSE/APPLY_RESPONSE, nSelAction == 0)`); chuỗi 2.0 `G_SysMsgCentre_0/1`, `G_ACCEPT_WORD/G_REFUSE_WORD` (`stringtable_client.txt`).
+- **Go**: `export.GameScreens` + `to-doi` (`队伍管理.ini` — theme `\Ui\ui3_1024`: 20 ô, nút chữ `小按钮四字.spr`, nhãn VN) + `hop-thoai` (`提示.ini`).
+- **Client**: `Game.team/team_request/team_mate_ids/is_team_mate`, `G2C_TEAM_SELF/G2C_TEAM_EVENT` → `team_changed/team_event`; `UiTeam.gd` (danh sách, nút, ô mở/đóng,
+  cuộn bằng bánh xe); `UiInformation.gd` (`show_box` → `answered`); `KUiGameWindows` (`team` của thanh công cụ, `_on_team_event` → hộp mời/đơn + dòng chat
+  `team_event_text` theo khoá `MSG_TEAM_*`, Esc đóng); `KNpc.set_team_mate` + `KNpcGold.life_bar_color(…, team_mate)` (230,190,0); `KUiItemView.client_string`;
+  `_auto_team` (lập → cửa sổ → ảnh → đóng đội → giải tán); test `test_team` (+8) và màu đồng đội (+1).
+- **Kiểm**: Godot 460/460, e2e `AUTO_TEAM created=true captain=true open=1 lead_level=1 members_max=3 window=true closed=true dismissed=true changes=3`,
+  `auto_team.png` (đã gửi chủ dự án), `AUTO_DEATH revived=true`, exit=0. `player.json` cần xuất lại (`export-player`) để có `lead_exp` (trước đó `members_max=1`).
+- commit: `JX NEXT: M14 lat T2 - to doi tren client (KUiTeamManage 0x004AE880/队伍管理.ini, OperationRequest 0x005B9560 5..0xc = goi 0x53 cung so voi server, handler 0x69 0x006516D0, KUiInformation 提示.ini, UiSysMsgCentre G_SysMsgCentre_0/1, PaintLife 0x005EADD5 (230,190,0))`.
 
 ### 2026-09-19 (phiên tiếp theo, phần 44) — M14 lát T1: tổ đội phía zone (KPlayerTeam, g_Team, gói 0x53, AddExpTeam, sổ sát thương theo đội trưởng, rơi đồ chia đội)
 
