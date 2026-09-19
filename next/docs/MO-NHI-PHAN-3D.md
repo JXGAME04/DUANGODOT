@@ -163,3 +163,37 @@ chỉ mổ để lấy **quy tắc 3D không có trong 2.0** (thanh tên đầu 
 | **5** | F7 các map còn lại theo lô (bảng ghép NPC tự động), B5 phi phong, E5/E6 (6.2) | mỗi map: zone nạp, client vào, `AUTO3D_OK` |
 
 Mỗi hạng mục xong: ghi HANDOVER phần "3D-nn", cập nhật cột trạng thái ở đây và bảng trạng thái LO-TRINH-3D.
+
+## H. Danh mục lớp của bản 3D (toàn bộ `Assembly-CSharp`, 2026-09-19) và những gì bản mình chưa có
+
+Nguồn: `global-metadata.dat` → `D:\game3gtQ_mo\meta_pc_res.txt` (9 212 lớp; bỏ System/Unity/NGUI widget/Lua wrapper/enum/delegate → **639 lớp
+ứng dụng**, liệt kê ở `build/ref_classes.txt` có số trường/hàm). Gom theo hệ; trạng thái: **có** (đã làm theo nhị phân), *một phần*, **chưa**,
+*bỏ* (không cần theo ADR-008: UI/luật theo 2.0 + Linux, hoặc chỉ dành cho di động/SDK). Thứ tự làm tiếp = thứ tự bảng "Chưa có" ở cuối.
+
+| Hệ | Lớp (bản 3D) | Ở bản mình | Trạng thái |
+|---|---|---|---|
+| Nhân vật & hoạt ảnh | `Creature`, `Player`, `EntityObj`, `AnimStator`, `ForcedlyAnimStator`, `ChaResourceRef`, `HangItem/HangItemMgr`, `EquipModel`, `RideUnit`, `AssetPool_Skin/_AnimationClip`, `GameNodePool_*` | `Scn3DNpc`, `KNpc3DView`, `export_npc.py` | **có** (nhóm anim 1–11/20/21, treo vũ khí/ngựa, `UpdateAutoGroup`) |
+| Nhân vật: phụ | `bonechain`, `ClothStrings` (tóc/vải vật lý), `BlingBling/BlingBlingMgr` (lấp lánh), `TaskRimLight` (viền sáng khi chọn/trúng), `TaskTweenDissolve` (tan xác), `TaskStepSound` (tiếng bước theo mặt đất), `TaskGhost` (bóng mờ), `TaskAutoPick`, `Attract`, `LookTargetEvent`, `ChaAI*` (AI phụ client: nhìn theo, hành động rảnh) | bóng mờ có; còn lại chưa | *một phần* — **chưa**: bonechain/vải, RimLight, Dissolve (B8), StepSound, BlingBling |
+| Kỹ năng | `ActionBase/Forcedly/Skill`, `SkillHelper`, `SkillMainWrap/Method`, `SkillEvent*`, `SkillHit/HitNode`, `SkillChildObjMethod`, `ChildObject`, `KinematicHelper`, `Orbiter`, `ConstForce`, `AlwaysForward`, `LineCOCtrl/LineData`, `StateInstance/StateMgrLogic/StateCD/CoolDownMgr`, `TaskStateMgr`, `PKRule`, `AfterEnemyState/LockEnemyState` | `KSkillFx3D`, `map_skills.py` (hình); luật ở zone (Linux) | **có** phần hình (3D-47/57); `LineCOCtrl` (tia nối, kind 26) **chưa**; `Orbiter` (bay vòng, sync 7) **chưa** |
+| Hiệu ứng | `SFXObject`, `SFXUIObject`, `SFXMeshModify`, `SFXMixerMesh`, `SFXBillboardHelper`, `SFXMaterialModify`, `SFXMeshTrailDrag`, `SFXLineMesh`, `SFXXWeaponAdapter/Anchor/Anim`, `XftWeapon.XWeaponTrail/Spline/VertexPool`, `PocketRPGWeaponTrail`, `TronTrailSection`, `PC2Anim`, `ParticleKFAnimation`, `GFX` (LOD hạt theo khoảng cách/FPS), `Tween*` (17), `UITweener` | `Scn3DSfx`, `Scn3DTrail`, `export_sfx.py` | *một phần*: 343 prefab, tween, mixer, billboard, skinned, rim, uv-anim **có**; **chưa**: `SFXMeshTrailDrag` (3), `SFXLineMesh` (1), `Trail` (5), `SFXXWeaponAdapter` (10 hào quang vũ khí), `SFXMaterialModify`, `PC2Anim` (1), `GFX` LOD, `TweenFOV/OrthoSize/Camera/Volume` |
+| Cảnh | `Scene`, `SceneLoad`, `SceneBuildData/DataInfo/DataNode`, `Scene_Ref`, `PrefabRef`, `SceneConfiger`, `SceneRenderSetting`, `CullDistances`, `T4M*` (địa hình), `Grass/MeshGrass/UGrid2DGrass` (cỏ sinh), `MarkPoint/Area/Line`, `NavContext`, `PathFindContext.*`, `MapHandle/MapHelper`, `AreaData`, `TaskScnArea` | `KScenePlace3D`, `export_scene.py`, `batch_maps.py`, zone obstacle | **có** 45 map + hiệu ứng cảnh (3D-58); `Grass` sinh theo lưới **chưa** (cỏ có sẵn trong mesh cảnh?), `CullDistances` theo lớp **chưa** (dùng 45 m chung) |
+| Vẽ / hậu kỳ | `ScnRenderPipeline`, `PostEffectBase/Bloom/Distortion/RadialBlur`, `DistortionMapCamera`, `DepthMapCamera`, `CustomDepthTexture`, `GrabPassFeature`, `FullScreenPassRendererFeature`, `MirrorReflection` (phản chiếu nước), `SkyboxCam/SkyBoxCollection` (bầu trời), `DynamicShadowProjector.*`, `ShadowProjMgr`, `SeqProjectorHelper`, `Decal/DecalBuilder/NavMeshDecal`, `RenderQueueModifier`, `GUIColorTransit`, `TaskTweenDirLight/Fog/SupColor` (đổi đèn/sương theo vùng) | shader lightmap/địa hình/nước/cỏ; bóng đĩa | *một phần* — **chưa**: bloom, distortion, radial blur, phản chiếu nước, skybox, decal (vòng cảnh báo A9), bóng chiếu thật (B7 dùng đĩa), đổi đèn/sương theo vùng |
+| Camera | `GameCamera`, `CameraInitParam`, `CameraAnim`, `CameraFade`, `CameraBlur`, `CameraBuildingFade`, `CameraSave`, `CameraTargetMotifier`, `CameraModifyNode`, `CameraPostEffect`, `FreeCamera`, `FPSController`, `TweenCamera/FOV` | `KCamera3D` | *một phần*: khoảng cách/góc, che nhà **có**; rung (F4), mờ dần chuyển cảnh, `CameraAnim` (cốt truyện) **chưa** |
+| Đầu nhân vật | `HeadBarBase/Crt/Still`, `HeadTop*` (11 lớp vẽ gộp), `TopRoot`, `FloatingText`, `HUDText`, `NumBoard`, `TargetSelectEffect`, `TouchEffect` | `_draw_names` (theo 2.0), `KFloatingText3D` | **có** tên/máu theo 2.0 + số bay theo bản 3D; `TargetSelectEffect` (vòng chọn `cmn_select`) và `TouchEffect` (dấu click đất) **chưa** (đang dùng vòng tự vẽ) |
+| Vật rơi / tĩnh | `StillObject`, `mbtb_still_list`, `Cmn/cmn_droplight_*`, `cmn_drop_*` | ObjData 2.0 (billboard) | **chưa** (D7): cột sáng theo phẩm chất, hình vật rơi 3D |
+| Âm thanh | `AudioSourceMgr`, `AreaSound`, `AudioListenerFollow`, `PitchShifter`, `TaskStepSound`, `mbtb_sound_list/group` | `KWavSound` (2.0) | *một phần*: tiếng thi triển/đạn/hành động theo 2.0 **có**; nhạc vùng (`AreaSound`, F5) và bước chân **chưa** |
+| Cốt truyện | `StoryAnim*`, `mbtb_story_*` | — | *bỏ* (2.0 không có cắt cảnh) |
+| Mạng / Lua / bảng | `UnityTcpClient.*`, `Net*`, `Msg*`, `Lua*` (120), `mbtb_*` (49 bảng), `TableInterface`, `mb_view_base` | zone/gateway/protocol riêng (ADR-008) | *bỏ* (chỉ đọc bảng để lấy dữ liệu hình) |
+| UI | `UI*` (124 NGUI), `UIMgr`, `UIMapPointManager`, `JoystackCc`, `TouchUseSkill`, `UICoolDown`, `UIBag*` | UI 2.0 (`uicase`) | *bỏ* theo ADR-008 trừ: bản đồ (đã lấy ảnh `ui_map_view`), cần cân nhắc `JoystackCc` (Android, M3D-6) |
+| Nền tảng / SDK | `AndroidTool`, `OpSdkWrapper`, `CApolloVoiceSys`, `GMTool.*`, `Debugger`, `HUDFPS`, `GameConfig`, `GameInitLoad/Startup`, `AssetPool*`, `BundleAsync`, `ResourceLoader`, `Localization*` | — | *bỏ* |
+
+**Chưa có, làm theo thứ tự (mỗi mục một phần 3D-nn, số liệu mổ từ nhị phân):**
+1. Vòng chọn mục tiêu `TargetSelectEffect` (`cmn_select`) + dấu click đất `TouchEffect` (`cmn_rocker_*`?) — thấy ngay khi đánh quái.
+2. Vật rơi: `cmn_droplight_*` theo phẩm chất + `StillObject`/`still_list` (D7).
+3. Bầu trời `SkyboxCam/SkyBoxCollection` (mỗi cảnh) và `MirrorReflection` nước.
+4. Hậu kỳ `PostEffectBloom` (+ distortion khi có prefab dùng).
+5. Chết tan xác `TaskTweenDissolve` (B8), viền sáng `TaskRimLight`, tiếng bước `TaskStepSound`.
+6. Hiệu ứng còn lại: `SFXMeshTrailDrag`, `SFXLineMesh`/`LineCOCtrl`, `Trail`, `SFXXWeaponAdapter`, `PC2Anim`, `Orbiter` (C4/C5).
+7. Camera rung (`CameraAnim`, kind 103) (F4); nhạc/tiếng vùng `AreaSound` (F5); đổi đèn/sương theo vùng.
+8. `bonechain` vải/tóc, phi phong (B5); `GFX` LOD hạt; `CullDistances` theo lớp.
+9. Còn của lịch trình cũ: 62 NPC tên riêng, 6 map trống, E-group UI 2.0, cài đặt, Android.
