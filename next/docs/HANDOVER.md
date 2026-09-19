@@ -673,6 +673,14 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-44) — 3.1 đợt 2: hào quang/trạng thái theo `state_list`
+
+- `map_skills.py`: cột 4 của `skill_section` ("光环数据, 状态id") → `state_list` (cột 13 vật con, cột 14 sfx_object) → `aura` của kỹ năng (Thất Tinh Trận 159/211 → `Halo/halo_wd_qixingzhen`, La Hán Trận 16/202 → `Halo/halo_sl_luohanzhen`, Nga Mi: Lưu Thủy, Mộng Điệp, Phật Tâm Từ Hữu, Phổ Độ Chúng Sinh); `skill_of_special` (StateSpecialId → kỹ năng) cho trạng thái của người khác (gói 0x7a).
+- Client: `KSkillFx3D.aura()` + `KWorldView3D._refresh_auras` (mình: `Game.states`; người khác: `state_icons`) — vòng lặp tại chân, gỡ khi hết trạng thái. **Phát hiện**: 6 hào quang phái (七星阵, 罗汉阵, 流水, 梦蝶, 普渡众生, boss_red) là prefab `SFXMixerMesh` (mesh dựng lúc chạy) mà `export_sfx.py` chưa đọc → glTF rỗng; tạm thay bằng vòng sáng màu ngũ hành [tự chọn]; việc còn: đọc `SFXMixerMesh` (typetree stripped → raw) để xuất đúng.
+- Kiểm `--auto3d`: `AddMagic(159,1)` + `set_aura(159)` → `Game.states = [211]`, 1 hào quang (`AUTO3D_AURA`), ảnh `auto3d_aura.png`.
+- Trả lời chủ dự án ("xoay được 60° không"): map 3D thật xoay tự do 360° yaw, pitch 40–80° (theo `cameraInit`); map 2.5D giới hạn ±25° (`KCamera3D.CLASSIC_YAW`, tự chọn vì bảng giấy lộ khi quay nhiều) — đổi một hằng số là được 60°.
+- commit: `JX NEXT 3D: M3D-3 (3.1 dot 2) - hao quang/trang thai tu state_list, skill_of_special, vong sang tam cho prefab SFXMixerMesh`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-43) — M3D-6 bước 6.1 (một phần): mức chất lượng, tầm vẽ cây/cỏ, đo FPS thật
 
 - `KScenePlace3D.QUALITY` (`--quality=low|medium|high` hoặc `user://settings3d.json`): bóng nắng bật/tắt + tầm bóng 0/50/90 m, cây `visibility_range_end` 60/120/∞ m, cỏ-đá 30/50/∞ m (mờ dần `FADE_SELF`), camera far 200/300/400 m — con số tự chọn.

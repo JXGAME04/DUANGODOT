@@ -769,6 +769,20 @@ func _auto3d_run() -> void:
 			await _save_screenshot("user://logs/auto3d_%d.png" % n)
 			n += 1
 			print("AUTO3D_SKILL skill=%d target=%d fx_spawned=%d map_entries=%d" % [fx_skill, victim.entity_id if victim != null else 0, _world.fx.spawned - before_fx, _world.fx.map.get("by_jx", {}).size()])
+			# the aura: Wudang's Thất Tinh Trận (159) switched on (KNpc::SetAura) - its child state comes back in Game.states and the
+			# reference halo (Halo/halo_wd_qixingzhen, state_list 100) loops at the feet
+			Game.chat("?gm ds AddMagic(159, 1)")
+			await get_tree().create_timer(0.5).timeout
+			Game.set_aura(159)
+			waited = 0.0
+			while waited < 4.0 and not (Game.states.has(159) or Game.states.has(211)):
+				await get_tree().create_timer(0.25).timeout
+				waited += 0.25
+			await get_tree().create_timer(0.5).timeout
+			await _save_screenshot("user://logs/auto3d_aura.png")
+			var auras = _world._auras.get(_own(), {})
+			print("AUTO3D_AURA states=%s halos=%d" % [str(Game.states.keys()), auras.size() if auras is Dictionary else 0])
+			Game.set_aura(0)
 	# a trap (the reference map's EnterPoint_wld became one, make_map3d.py): stand next to it, walk in, the zone's NewWorld
 	# takes us to Phuong Tuong - a 2D map - and the view swaps back to 2D (KNpc::ChangeWorld -> G2C_CHANGE_MAP)
 	var map_before := Game.map_id

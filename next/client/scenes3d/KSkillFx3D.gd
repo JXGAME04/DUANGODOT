@@ -125,6 +125,51 @@ func attach_flying(view: Node3D, skill_id: int) -> Node3D:
 	return fx
 
 
+# The halo of an aura / state (state_list: child object or sfx_object kept while the state holds [TK]) as a looping
+# child of the entity's view at its feet (sys_foot) or chest; null when the skill has none
+func aura(view: Node3D, skill_id: int) -> Node3D:
+	if not load_map():
+		return null
+	var list: Array = entry(skill_id).get("aura", [])
+	if list.is_empty():
+		return null
+	var c: Dictionary = list[0]
+	var fx: Node3D = SfxScript.spawn(view, dir, _file(str(c["res"])), view.global_position, 0.0, 0.0, true)
+	if fx != null:
+		fx.position = Vector3(0, float(HANG_HEIGHT.get(str(c.get("hang", "")), 0.0)) + float(c.get("height", 0.0)), 0)
+		spawned += 1
+		return fx
+	# the faction halos are SFXMixerMesh prefabs (a mesh the reference client builds at run time) the exporter cannot read
+	# yet: a plain slowly turning ring in the element's colour stands in [tự chọn]
+	var ring := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 1.0
+	tor.outer_radius = 1.4
+	tor.rings = 32
+	tor.ring_segments = 6
+	ring.mesh = tor
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var el := element_of(skill_id)
+	var colors := {0: Color(1.0, 0.9, 0.5, 0.7), 1: Color(0.5, 1.0, 0.5, 0.7), 2: Color(0.5, 0.8, 1.0, 0.7), 3: Color(1.0, 0.5, 0.3, 0.7), 4: Color(0.9, 0.8, 0.5, 0.7)}
+	m.albedo_color = colors.get(el, Color(0.9, 0.9, 1.0, 0.7))
+	ring.material_override = m
+	ring.name = "aura_ring"
+	view.add_child(ring)
+	ring.position = Vector3(0, 0.25, 0)
+	var tw := ring.create_tween().set_loops()
+	tw.tween_property(ring, "rotation:y", TAU, 6.0).from(0.0)
+	spawned += 1
+	return ring
+
+
+# The JX1 skill a StateSpecialId (the 0x7a packet's icons on other entities) belongs to, 0 when none
+func skill_of_special(special_id: int) -> int:
+	return int(map.get("skill_of_special", {}).get(str(special_id), 0))
+
+
 func hit(parent: Node, skill_id: int, pos: Vector3) -> void:
 	if not load_map():
 		return

@@ -54,6 +54,7 @@ var _weapon_dir := ""
 var _own_weapon := ""          # weapons.json id on the character now ("" = bare hands)
 var _trail: Node = null        # Scn3DTrail of the character's weapon
 var _last_dir_offset := -1
+var _auras := {}               # state node -> {skill_id: fx node} the halos it shows now
 var fx = SkillFxScript.new()   # KSkillFx3D: the skill effects of skill_map.json (3D maps)
 
 
@@ -100,6 +101,8 @@ func _ready() -> void:
 	_names.draw.connect(_draw_names)
 	layer.add_child(_names)
 	Game.items_changed.connect(_refresh_own_weapon)
+	Game.state_changed.connect(func(_sid: int): _refresh_auras(_own))
+	Game.state_icons_changed.connect(func(eid: int): _refresh_auras_of(eid))
 	Game.item_changed.connect(func(_it: Dictionary): _refresh_own_weapon())
 	Game.item_removed.connect(func(_id: int): _refresh_own_weapon())
 
@@ -180,10 +183,54 @@ func add_entity(d: Dictionary, own: bool, existing: Node = null) -> Node:
 	if own:
 		_own_weapon = ""
 		_refresh_own_weapon()
+	_auras.erase(node)
+	_refresh_auras(node)
 	return node
 
 
+# The halos of the states an entity holds: our own from Game.states (skill ids), the others from their state icons
+# (StateSpecialId -> skill through skill_map.json); spawned looping at the feet, dropped when the state goes
+func _refresh_auras_of(entity_id: int) -> void:
+	for node in _views.keys():
+		if is_instance_valid(node) and int(node.get("entity_id")) == entity_id:
+			_refresh_auras(node)
+			return
+
+
+func _refresh_auras(node: Node) -> void:
+	if node == null or not is_instance_valid(node) or place.mode != "3d":
+		return
+	var view = _views.get(node)
+	if view == null or not is_instance_valid(view):
+		return
+	var want := {}
+	if node == _own:
+		for sid in Game.states.keys():
+			if not fx.entry(int(sid)).get("aura", []).is_empty():
+				want[int(sid)] = true
+	else:
+		var icons = node.get("state_icons")
+		if icons is Array:
+			for sp in icons:
+				var sid := fx.skill_of_special(int(sp))
+				if sid > 0 and not fx.entry(sid).get("aura", []).is_empty():
+					want[sid] = true
+	var have: Dictionary = _auras.get(node, {})
+	for sid in have.keys():
+		if not want.has(sid):
+			if is_instance_valid(have[sid]):
+				have[sid].queue_free()
+			have.erase(sid)
+	for sid in want.keys():
+		if not have.has(sid):
+			var f := fx.aura(view, sid)
+			if f != null:
+				have[sid] = f
+	_auras[node] = have
+
+
 func remove_entity(node: Node) -> void:
+	_auras.erase(node)
 	var view = _views.get(node)
 	if view != null and is_instance_valid(view):
 		view.queue_free()

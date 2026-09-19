@@ -79,6 +79,26 @@ def main():
                 e["hit"] = h
         return e
 
+    states = {r[0].strip(): r for r in rows("state_list_cmn") if r[0].strip().isdigit()}
+
+    def state_effects(state_id):
+        """state_list: cot 13 vat con (id*giu hat*server), cot 14 sfx_object -> [{res, hang, loop}] (hao quang / trang thai, lap toi khi het)"""
+        out = []
+        r = states.get(str(state_id))
+        if r is None:
+            return out
+        ch = (r[13].split("*") or [""])[0].strip() if len(r) > 13 else ""
+        if ch.isdigit():
+            c = child_entry(ch, 0.0)
+            if c:
+                out.append({"res": c["res"], "hang": c.get("hang", "sys_foot"), "height": c.get("height", 0.0), "loop": True})
+        sf = r[14].strip() if len(r) > 14 else ""
+        if sf.isdigit():
+            e = sfx_entry(sf)
+            if e:
+                out.append({"res": e["res"], "hang": e.get("hang", ""), "height": 0.0, "loop": True})
+        return out
+
     def section_effects(sec_id, depth=0):
         """-> (cast[], child[], next_sections[])"""
         casts, childs = [], []
@@ -130,8 +150,12 @@ def main():
                 hit = hv
                 break
         casts, childs = section_effects(sec)
+        aura = []
+        srow = sections.get(sec)
+        if srow is not None and len(srow) > 4 and srow[4].strip().isdigit():
+            aura = state_effects(srow[4].strip())   # "光环数据, 状态id": the halo the aura / buff keeps while it holds
         entry = {"ref": int(rid), "cn": name, "vi": hit or (rs[0] if rs else ""), "element": r[2].strip(), "type": r[3].strip(),
-                 "cast": casts, "child": childs}
+                 "cast": casts, "child": childs, "aura": aura}
         by_ref[rid] = entry
         if hit is None:
             unmatched.append({"ref": int(rid), "cn": name, "hanviet": rs[0] if rs else "?"})
@@ -144,13 +168,20 @@ def main():
     out = {"by_jx": by_jx, "element_cast": ELEMENT_CAST, "element_hit": ELEMENT_HIT, "series_of": {str(k): v for k, v in jx_series.items() if v >= 0},
            "unmatched": unmatched, "section_fps": SECTION_FPS}
     dst = os.path.join(NEXT, "client", "assets3d", "sfx", "skill_map.json")
+    with_fx = sum(1 for e in by_jx.values() if e["cast"] or e["child"] or e.get("aura"))
+    # StateSpecialId cua moi ky nang JX1 (skills.json): the 0x7a packet names the states of other entities by it
+    special = {}
+    for r in skills["rows"]:
+        sp = str(r.get("cells", {}).get("StateSpecialId", "")).strip()
+        if sp.isdigit() and int(sp) > 0:
+            special.setdefault(sp, int(r["id"]))
+    out["skill_of_special"] = special
     with io.open(dst, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
-    with_fx = sum(1 for e in by_jx.values() if e["cast"] or e["child"])
     print("ky nang tham khao %d, ghep JX1 %d ky nang (co hieu ung %d), khong ghep %d -> %s" % (len(by_ref), len(by_jx), with_fx, len(unmatched), dst))
     res = set()
     for e in by_jx.values():
-        for c in e["cast"]:
+        for c in e["cast"] + e.get("aura", []):
             res.add(c["res"])
         for c in e["child"]:
             res.add(c["res"])
