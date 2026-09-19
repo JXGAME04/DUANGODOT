@@ -282,6 +282,44 @@ func clear_weapons() -> void:
 	weapon_nodes.clear()
 
 
+# The hinge node of a hang point (HangItemMgr row: path = the node or bone it sits under, pos/rot/scale = its own
+# offset): the prefab's own hinge object when the bundle had one (hang@wq_r), else a BoneAttachment3D on the bone
+# (Bip001 Spine1 of a horse, Bip001 L Hand of the dual weapons - Godot keeps joints inside the Skeleton3D) plus a
+# child carrying the offset. RideUnit.CreateRide [TK 0x5bd930] parents the rider to GetItemTrans(hinge) with
+# localPosition zero and localRotation identity, so whatever hangs here goes in with an identity transform.
+func hang_node(hname: String) -> Node3D:
+	var h: Dictionary = hangs.get(hname, {})
+	if h.is_empty() or model == null:
+		return null
+	var existing := model.find_child("hinge_" + hname, true, false)
+	if existing is Node3D:
+		return existing
+	var target: Node = model.find_child(str(h.get("node_godot", "")), true, false)
+	if target == null:
+		target = model.find_child(str(h.get("node", "")), true, false)
+	if target == null:
+		for sk in model.find_children("*", "Skeleton3D", true, false):
+			var bi: int = sk.find_bone(str(h.get("node", "")))
+			if bi < 0:
+				bi = sk.find_bone(str(h.get("node_godot", "")))
+			if bi >= 0:
+				var ba := BoneAttachment3D.new()
+				ba.name = "bone_" + str(h.get("node_godot", ""))
+				sk.add_child(ba)
+				ba.bone_idx = bi
+				target = ba
+				break
+	if not (target is Node3D):
+		return null
+	var hinge := Node3D.new()
+	hinge.name = "hinge_" + hname
+	(target as Node3D).add_child(hinge)
+	hinge.position = Vector3(h["pos"][0], h["pos"][1], h["pos"][2])
+	hinge.quaternion = Quaternion(h["quat"][0], h["quat"][1], h["quat"][2], h["quat"][3])
+	hinge.scale = Vector3(h["scale"][0], h["scale"][1], h["scale"][2])
+	return hinge
+
+
 # winfo: muc trong weapons.json (file, hangs = ten diem treo). Tra ve so mau treo duoc.
 func attach_weapon(weapon_dir: String, winfo: Dictionary) -> int:
 	clear_weapons()
@@ -299,22 +337,14 @@ func attach_weapon(weapon_dir: String, winfo: Dictionary) -> int:
 		_cache[full] = pair
 	var n := 0
 	for hname in winfo.get("hangs", []):
-		var h: Dictionary = hangs.get(str(hname), {})
-		if h.is_empty():
-			continue
-		var target: Node = model.find_child(str(h.get("node_godot", "")), true, false)
-		if target == null:
-			target = model.find_child(str(h.get("node", "")), true, false)
-		if target == null or not (target is Node3D):
+		var hinge := hang_node(str(hname))
+		if hinge == null:
 			continue
 		var w: Node3D = pair[0].generate_scene(pair[1])
 		if w == null:
 			continue
 		w.name = "weapon_%s" % hname
-		w.position = Vector3(h["pos"][0], h["pos"][1], h["pos"][2])
-		w.quaternion = Quaternion(h["quat"][0], h["quat"][1], h["quat"][2], h["quat"][3])
-		w.scale = Vector3(h["scale"][0], h["scale"][1], h["scale"][2])
-		(target as Node3D).add_child(w)
+		hinge.add_child(w)
 		weapon_nodes.append(w)
 		n += 1
 	return n

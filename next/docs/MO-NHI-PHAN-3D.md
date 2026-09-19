@@ -82,7 +82,7 @@ Cột "LT" = bước trong LO-TRINH-3D.
 | B2 | Animation 716 clip | 19b6b49a7124 | ghép theo `anim_group` | trong glTF | **xong** nhóm dùng; nhóm 12–19 (NPC đặc biệt/boss) khi cần |
 | B3 | Vũ khí 71 + điểm treo `daojian/qianggun/ssdaochui/ssqt/sys_*` | 8dd679aa97a2 | UnityPy | `assets3d/weapon` | **xong** |
 | B4 | `XWeaponTrail` (MaxFrame 5 / Fps 30 / Granularity 15 / màu / ô atlas) | bố cục byte 156 của 16 prefab `dg_xw_*` | `export_sfx.read_xtrail` | `Scn3DTrail` | **xong** (3D-49); spline Granularity (làm mượt) [tự chọn] chưa |
-| B5 | `HangItemMgr`, `ModelHangMgr`, `eEquipHangType` (treo mũ/áo/phi phong/vũ khí) | IL2CPP | disasm | `Scn3DNpc.attach_weapon` | **một phần**: vũ khí + ngựa; phi phong **chưa** (JX1 có phi phong) |
+| B5 | `HangItemMgr`, `ModelHangMgr`, `eEquipHangType` (treo mũ/áo/phi phong/vũ khí), `RideUnit.CreateRide 0x5bd930` (người vào bản lề `ma_qi1` với transform đơn vị), `AnimStator.UpdateAutoGroup 0x4d6210` (cưỡi → nhóm 20) | IL2CPP | disasm | `Scn3DNpc.hang_node/attach_weapon`, `KNpc3DView.set_weapon_group` | **một phần**: vũ khí (kể cả điểm treo trên xương) + ngựa đúng (3D-56); phi phong **chưa** (JX1 có phi phong) |
 | B6 | `RideUnit`, `eRideType`, `lua_scnobj_ride.lua` | IL2CPP + Lua | đọc Lua (điểm `ma_qi1`, nhóm 20/21) | `KNpc3DView._on_riding_changed` | **xong** (cần soát lại theo Lua vừa trích) |
 | B7 | `ShadowProjMgr` = `DynamicShadowProjector` (bóng hình thật, 45 m) | IL2CPP | đã đọc | mức low: đĩa mờ `_add_blob_shadow` | **xong** (3D-52) [tự chọn đĩa] |
 | B8 | `TaskTweenDissolve` (tan xác khi chết) | IL2CPP + shader dissolve | disasm | shader tan | **chưa** ([2.0] xác nằm rồi mờ dần — làm theo 2.0: mờ) |

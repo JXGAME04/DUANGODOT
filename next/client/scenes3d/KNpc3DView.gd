@@ -309,25 +309,21 @@ func _on_riding_changed(on: bool) -> void:
 		horse = h
 		horse.name = "Horse"
 		add_child(horse)
-		var seat: Node = null
-		var hang: Dictionary = horse.hangs.get("ma_qi1", {})
-		if not hang.is_empty() and horse.model != null:
-			seat = horse.model.find_child(str(hang.get("node_godot", "")), true, false)
-			if seat == null:
-				seat = horse.model.find_child(str(hang.get("node", "")), true, false)
+		# the seat: hinge ma_qi1 (hinge_list 50 [TK]) on the horse's Bip001 Spine1 bone; RideUnit.CreateRide [TK 0x5bd930]
+		# parents the rider there with an identity local transform (set_localPosition zero, set_localRotation identity)
+		var seat: Node3D = horse.hang_node("ma_qi1") if horse.has_method("hang_node") else null
 		_rider_group = str(model.group)
 		remove_child(model)
-		if seat is Node3D:
-			(seat as Node3D).add_child(model)
-			model.position = Vector3(hang["pos"][0], hang["pos"][1], hang["pos"][2])
-			model.quaternion = Quaternion(hang["quat"][0], hang["quat"][1], hang["quat"][2], hang["quat"][3])
-			model.scale = Vector3(hang["scale"][0], hang["scale"][1], hang["scale"][2])
-			# the rider's Model child was turned 180 for -Z; the seat node is in the horse's own frame: undo that turn
+		if seat != null:
+			seat.add_child(model)
+			model.transform = Transform3D.IDENTITY
+			# the rider's Model child was turned 180 for -Z; the seat hinge is in the horse's own (turned) frame: undo that
 			if model.model != null:
 				model.model.rotation.y = 0.0
 		else:
 			horse.add_child(model)
 			model.position = Vector3(0, 1.3, 0)
+			Log.warn("map3d", "horse has no ma_qi1 seat", {"entity": npc.get("entity_id"), "cha": horse.get("cha")})
 		model.set_group("20")
 		bar_height = float(horse.bar_height) + 0.6
 	elif not on and horse != null:
@@ -344,6 +340,18 @@ func _on_riding_changed(on: bool) -> void:
 		bar_height = float(model.get("bar_height")) if model.get("bar_height") != null else 2.0
 	if npc.get("doing") != null and npc.get("total_frame") != null:
 		_on_doing_changed(int(npc.doing), int(npc.total_frame))
+
+
+# The weapon's animation group (anim_group of the weapon row): AnimStator.UpdateAutoGroup [TK 0x4d6210] keeps group 20
+# (RideHorse) as long as the creature rides, the weapon group is what it goes back to on dismounting
+func set_weapon_group(g: String) -> void:
+	if model == null:
+		return
+	if horse != null:
+		_rider_group = g
+		model.set_group("20")
+	else:
+		model.set_group(g)
 
 
 # The horse rows of the 0xad sync changed while mounted: dismount and mount again so the world view picks the horse anew

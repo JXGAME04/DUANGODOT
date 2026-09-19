@@ -450,12 +450,12 @@ func _refresh_weapon(node: Node) -> void:
 		_trail = null
 	if id == "":
 		m.clear_weapons()
-		m.set_group("1")
+		view.set_weapon_group("1")
 		return
 	var w: Dictionary = _weapons[id]
 	var n: int = m.attach_weapon(_weapon_dir, w)
 	var g := str(int(w.get("animgrp", 0)))
-	m.set_group(g if g != "0" else "1")
+	view.set_weapon_group(g if g != "0" else "1")
 	if n > 0 and not m.weapon_nodes.is_empty():
 		var tr = TrailScript.new()
 		tr.name = "Trail"

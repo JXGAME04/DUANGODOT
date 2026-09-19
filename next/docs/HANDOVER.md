@@ -702,6 +702,24 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
 
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-56) — cưỡi ngựa sai hình (chủ dự án phát hiện): điểm ngồi trên xương, nhóm anim 20 bị vũ khí ghi đè
+
+- Sai: `ma_qi1` (hinge_list 50 "坐骑1号位" [TK]) của ngựa nằm trên **xương** `Bip001 Spine1` (boneIsHang = false, lệch (0,005; −0,338; 0), quay
+  (0,707; 0; 0,707; 0)); Godot giữ xương trong `Skeleton3D`, `find_child` = null → người bị đặt ở (0; 1,3; 0) cố định, không theo yên; sau đó
+  `_refresh_weapon` (đồng bộ 0xad khi mặc ngựa) gọi `set_group(nhóm vũ khí)` → người đứng thẳng trên yên (`xx01` thay cho `qm_xx01`).
+- Bản tham khảo `RideUnit.CreateRide 0x5bd930`: `HangItemMgr.GetHangPoint(c_rideHingeName[i])` → `GetItemTrans` → `Transform.set_parent(bản lề)`,
+  `localPosition = 0`, `localRotation = identity`, `GameCamera.set_target(ngựa)`, `mRideType = Driver (2)`, `AnimStator.ResetState` +
+  `StopClip` + `LogicTick`, `HangItemMgr.ExchangeHangItems(ngựa, người)`, `Creature.ResetHearBarTarget`; `AnimStator.UpdateAutoGroup 0x4d6210`:
+  **đang cưỡi → nhóm 0x14 (20) bất kể vũ khí**, không thì nhóm của `cha_list` (≠ −1) hoặc nhóm vũ khí. Chuỗi "bus" (`CreateBus/AddPassenger/
+  SetBusLink/OnJoinRide` = stub `0x3350d0`) không dùng trong bản này.
+- Sửa: `Scn3DNpc.hang_node(tên)` = node bản lề của điểm treo — node prefab (`hang@wq_r`) hoặc **`BoneAttachment3D` trên xương + node con mang
+  lệch riêng** (dùng chung cho vũ khí: `ssdaochui_l` trên `Bip001 L Hand`, `ssqt_*` trên `Forearm` trước đây cũng không treo được); người vào
+  bản lề với transform đơn vị, `Model` con quay về 0 (khung của ngựa đã quay π); `KNpc3DView.set_weapon_group` giữ nhóm 20 khi đang cưỡi,
+  nhóm vũ khí chỉ để xuống ngựa dùng. `UiMiniMap`: `bool(null)` khi có người chơi khác → `== true`.
+- `client3d.cmd [map x y]`: mở client và dịch vào Ba Lăng 3D (`--gm=NewWorld(9053,232,194)`) ngay khi đăng nhập (chủ dự án vào map 1 thấy 2.5D).
+- Kiểm: `--auto3d`: `AUTO3D_RIDE riding=true`, `AUTO3D_HORSE shown=1503`, ảnh `auto3d_ride.png` người ngồi trên yên, hai chân hai bên, kiếm trên tay.
+- commit: `JX NEXT 3D: 3D-56 - cuoi ngua: diem ngoi ma_qi1 tren xuong (BoneAttachment3D), nhom 20 giu khi mang vu khi (UpdateAutoGroup), client3d.cmd`.
+
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-55) — hang/mê cung tối: do sương mù, không phải shader
 
 - Đọc lại `render` của `maze_wuling` đầy đủ: có `MainLightDir` 1,5 (mê cung **có** đèn hướng — shader `地形_迷宫_A高度` GLSL: Lambert theo `_MainLightPosition` × `_MainLightColor` + 4 splat, không phải lightmap) và **sương mù tuyến tính 4..12 m** màu tối (0,13; 0,07; 0,10) trong khi camera cách 10–20 m → sương phủ kín = đen. Ở bản tham khảo chỉ vật liệu biên dịch với `FOG_LINEAR` (hạt, một vài prefab) thấy sương, đồ tĩnh của scene không.

@@ -1,10 +1,15 @@
 @echo off
-rem Mo scene thu nghiem 3D (map world_baling + NPC) cua ban swrod3-3d - nhap doi la chay. Khong can server.
-rem Tai san phai co san: python tools\scn3d\export_scene.py world_baling  va  python tools\scn3d\export_npc.py --map world_baling
+rem Mo client JX NEXT (Godot 4.7) va dich thang vao map 3D Ba Lang (9053) sau khi dang nhap (--gm=NewWorld...).
+rem Server phai dang chay truoc:  python tools\dev.py start   (zone 19001, gateway 19100)
+rem Map 3D khac: client3d.cmd 9078 171 421   (id = 9052 + id scene, xem: python tools\scn3d\batch_maps.py --list)
 setlocal
 set "HERE=%~dp0"
 set "MAP=%~1"
-if "%MAP%"=="" set "MAP=world_baling"
+set "X=%~2"
+set "Y=%~3"
+if not defined MAP set "MAP=9053"
+if not defined X set "X=232"
+if not defined Y set "Y=194"
 set "GODOT="
 if defined JX_GODOT if exist "%JX_GODOT%" set "GODOT=%JX_GODOT%"
 if not defined GODOT for /d %%D in ("%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_*") do (
@@ -16,5 +21,5 @@ if not defined GODOT (
   pause
   exit /b 1
 )
-echo Mo scene 3D: "%GODOT%" --path "%HERE%client" scenes3d/Scn3D.tscn -- --map=%MAP%
-start "JX NEXT 3D" "%GODOT%" --path "%HERE%client" scenes3d/Scn3D.tscn -- --map=%MAP%
+echo Mo client 3D: "%GODOT%" --path "%HERE%client" -- --gm=NewWorld(%MAP%,%X%,%Y%)
+start "JX NEXT client 3D" "%GODOT%" --path "%HERE%client" -- "--gm=NewWorld(%MAP%,%X%,%Y%)"
