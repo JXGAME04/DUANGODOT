@@ -714,6 +714,24 @@ python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
 
+### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-70
+
+- **Đọc**: `docs/LO-TRINH-3D.md` (lộ trình), `docs/MO-NHI-PHAN-3D.md` (lịch mổ bản 剑网江湖 3D, nhóm A–G + §H danh mục 639 lớp với
+  trạng thái có/bỏ/chưa), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
+- **Xong** (nhật ký 3D-1..3D-70): 45 map 3D + hiệu ứng cảnh + cắt theo lớp + mặt xa theo cảnh; 494 NPC/model, vũ khí 71 (bảng tay cầm
+  `--weapons`), ngựa; 234 kỹ năng JX ghép hiệu ứng 3D (133 có hình, quét `--factions` 133/133) với luật xoay/treo/bay/vòng/vẽ đỉnh/tia nối/
+  vệt dải/billboard/rim/uv; số bay + tên kỹ năng + hiệu ứng trúng (`FloatingText`); vòng chọn; bloom theo profile URP; điểm treo theo model.
+- **Còn** (§H mục 7–9): nhạc vùng chờ 3.5 của main; 62 NPC tên riêng; 6 map trống (không có bảng sinh quái); UI nhóm E (theo main);
+  cài đặt; Android. **Chờ chủ dự án**: đổi ADR-008 sang renderer Mobile (Vulkan) để bloom toả rộng như bản tham khảo (GL chỉ vài pixel,
+  đo ở 3D-66) — tạm thời `set JX_RENDER=mobile` trước `client3d.cmd`.
+- **Cách chạy**: `client3d.cmd [map x y]`; test: `--auto --auto3d [--skill=<id>:<phái> --series=n | --factions | --fxshots]`, viewer
+  `Scn3D.tscn -- --auto --map=<scene> [--sfx=<tệp> | --weapons]`. e2e khi server chủ dự án đang chạy: `JX_PORT_OFFSET=1000` **và sau
+  đó `python tools/dev.py start` lại** (e2e gửi CTRL_BREAK cả nhóm console → zone 19001 dừng). Sau khi gộp main: dựng lại zone
+  (`builduild_zone.cmd all`, tắt `jx_zone.exe` trước) + Go, chạy ctest (`ctest` của VS: thêm `…\CMakein` vào PATH) / Godot / UiCheck / e2e.
+- **Bẫy đã gặp**: MonoBehaviour không type tree → đọc byte thô theo thứ tự trường metadata, bool 4 byte; TextAsset qua UnityPy phải
+  `encode("utf-8", "surrogateescape")`; xref chuỗi IL2CPP quét section `il2cpp`; gốc prefab bị bỏ (`UpdateModelLogic`/`TryInstantiateNode`);
+  gương x: pos (−x, y, z), quat (x, −y, −z, w), prefab quay mặt +Z, model mình −Z → hiệu ứng `yaw + PI`.
+
 ## 1. Chạy được ngay trong mười phút
 
 ```bash
