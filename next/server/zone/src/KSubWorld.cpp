@@ -771,6 +771,7 @@ void KSubWorld::tick()
     flush_pending_drops();   // ai + movement integration end here
     flush_pending_summons();
     flush_pending_removes(); // the 0x3e9 nodes of DelNpc
+    mission_tick();          // KMission::Activate: the timers due (KTimerTaskFun 0x080F9480)
     flush_doomed();          // the 0x3e9 nodes: the summons whose corpse settled
 
     {
@@ -2039,6 +2040,117 @@ bool KSubWorld::execute_script_args(const std::string& game_path, const char* fn
     ctx = saved;
     if (!ok) log::warn("zone.trap", "script function missing", {log::kv("script", game_path), log::kv("function", fn)});
     return ok;
+}
+
+bool KSubWorld::execute_script_world(const std::string& game_path, const char* fn, const std::vector<KLuaScript::Arg>& args)
+{
+    if (!cfg_.scripts || game_path.empty()) return false;
+    KLuaScript* script = cfg_.scripts->get(game_path);
+    if (script == nullptr) return false;
+    KScriptContext& ctx = g_ScriptContext();
+    const KScriptContext saved = ctx;
+    ctx.world = this;
+    ctx.player = nullptr;
+    ctx.sid = 0;
+    ctx.script_path = game_path;
+    const bool ok = script->call_number(fn, args).has_value() || script->has_function(fn);
+    ctx = saved;
+    if (!ok) log::debug("zone.mission", "mission function missing", {log::kv("script", game_path), log::kv("function", fn)});
+    return ok;
+}
+
+KMission* KSubWorld::find_mission(int id)
+{
+    for (KMission& m : missions_) {
+        if (m.id == id) return &m;
+    }
+    return nullptr;
+}
+
+const KMission* KSubWorld::find_mission(int id) const
+{
+    for (const KMission& m : missions_) {
+        if (m.id == id) return &m;
+    }
+    return nullptr;
+}
+
+KMission* KSubWorld::open_mission(int id)
+{
+    if (id < 0) return nullptr;
+    if (KMission* m = find_mission(id)) return m;   // 0x08133589: one there already changes nothing (2003 _ASSERT)
+    KMission m;
+    m.id = id;
+    if (cfg_.missions) m.script = cfg_.missions->mission_script(id);
+    missions_.push_back(std::move(m));
+    KMission& made = missions_.back();
+    log::info("zone.mission", "mission opened", {log::kv("mission", id), log::kv("script", made.script)});
+    if (!made.script.empty()) execute_script_world(made.script, "InitMission", {0.0});   // 0x0813377E
+    return find_mission(id);   // the vector may have moved
+}
+
+bool KSubWorld::run_mission(int id)
+{
+    const KMission* m = find_mission(id);
+    if (m == nullptr) return false;
+    if (!m->script.empty()) execute_script_world(m->script, "RunMission", {0.0});   // 0x08133150
+    return true;
+}
+
+bool KSubWorld::close_mission(int id)
+{
+    const KMission* m = find_mission(id);
+    if (m == nullptr) return false;
+    const std::string script = m->script;
+    if (!script.empty()) execute_script_world(script, "EndMission", {0.0});   // 0x08132B0A
+    for (auto it = missions_.begin(); it != missions_.end(); ++it) {
+        if (it->id == id) {
+            it->clear();   // StopMission
+            missions_.erase(it);
+            break;
+        }
+    }
+    log::info("zone.mission", "mission closed", {log::kv("mission", id)});
+    return true;
+}
+
+bool KSubWorld::join_mission(int id, const KNpc& player, int group)
+{
+    KMission* m = find_mission(id);
+    if (m == nullptr) return false;
+    m->id = id;   // 0x08138135
+    if (m->script.empty()) return false;
+    return execute_script_world(m->script, "JoinMission", {static_cast<double>(player.id.value), static_cast<double>(group)});   // 0x08138266
+}
+
+bool KSubWorld::mission_remove_player(int id, EntityId player)
+{
+    KMission* m = find_mission(id);
+    if (m == nullptr || !m->remove_player(player)) return false;
+    if (!m->script.empty()) execute_script_world(m->script, "OnLeave", {static_cast<double>(player.value)});   // 2003 RemovePlayer
+    return true;
+}
+
+void KSubWorld::mission_message(const KMission& m, int group, std::string_view text)
+{
+    if (text.empty()) return;   // 2003 Msg2All / Msg2Group
+    for (const EntityId id : m.players(group)) {
+        if (const KNpc* e = find_entity(id); e != nullptr && e->kind == KNpcKind::player) msg_to_player(e->sid, text);
+    }
+}
+
+void KSubWorld::mission_tick()
+{
+    if (missions_.empty()) return;
+    std::vector<std::pair<int, int>> due;   // {mission, timer}: gathered first - OnTimer may open or close missions
+    for (KMission& m : missions_) {
+        for (const int timer : m.fire_timers(tick_)) due.emplace_back(m.id, timer);
+    }
+    for (const auto& [mission, timer] : due) {
+        const std::string script = cfg_.missions ? cfg_.missions->timer_script(timer) : std::string();
+        log::debug("zone.mission", "mission timer", {log::kv("mission", mission), log::kv("timer", timer), log::kv("script", script)});
+        if (!script.empty()) execute_script_world(script, "OnTimer", {0.0});   // g_MissionTimerCallBackFun: OnTimer with 0
+    }
 }
 
 bool KSubWorld::set_pos(EntityId id, Pos p)

@@ -521,6 +521,10 @@ def cmd_assets(map_ids: list[str]) -> None:
     # born in its village and where the revive / SetRevPos put a character
     if subprocess.call([*jxassets_args(), "export-revive-pos", "-out", out], cwd=ROOT) != 0:
         print("export-revive-pos: no settings/revivepos.ini in the reference server folder - characters start at the map's spawn point")
+    # the mission scripts (settings/task/missions.txt) and the timer-task scripts (settings/timertask.txt): what OpenMission /
+    # StartMissionTimer of the scripts run (docs/LINUX-SERVER.md §33)
+    if subprocess.call([*jxassets_args(), "export-missions", "-out", out], cwd=ROOT) != 0:
+        print("export-missions: no settings/task/missions.txt in the reference server folder - missions open without scripts")
     # the eleven factions (settings/faction/门派设定.ini + factionskill.txt): SetFaction of the script api, the
     # camp of a member, the branch pages of the client's skill book
     if subprocess.call([*jxassets_args(), "export-faction", "-out", out], cwd=ROOT) != 0:

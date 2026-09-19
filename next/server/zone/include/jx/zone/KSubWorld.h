@@ -28,6 +28,7 @@
 #include "jx/zone/KLuaScript.h"
 #include "jx/zone/KRegion.h"
 #include "jx/zone/KFaction.h"
+#include "jx/zone/KMission.h"
 #include "jx/zone/KRevivePos.h"
 #include "jx/zone/KNpc.h"
 #include "jx/zone/KObj.h"
@@ -141,6 +142,9 @@ struct KSubWorldConfig {
     std::shared_ptr<const KKillEventTable> kill_events;      // settings/npc/player/event_killnpc.txt (KPlayerEvent.h; jxassets export-kill-events): what a kill counts; null = nothing
     std::shared_ptr<const KItemChangeRes> item_res;           // settings/item/*Res.txt (jxassets export-item-res); null = everyone keeps the bare look
     std::shared_ptr<const KRevivePosTable> revive_pos;      // revivepos.ini (jxassets export-revive-pos): the revive / reference points of every map; null = spawn points only
+    // \settings\task\missions.txt + \settings\timertask.txt (jxassets export-missions): the script of a mission id and of a
+    // timer id (docs/LINUX-SERVER.md §33); null = the missions open without scripts
+    std::shared_ptr<const KMissionTable> missions;
     std::shared_ptr<const KFaction> faction;                // 门派设定.ini (jxassets export-faction): the eleven factions; null = no faction can be joined
 };
 
@@ -387,6 +391,18 @@ public:
     // a system line (CH_SYSTEM) to every player of this map: Lua Msg2SubWorld 0x08105170 (kind 0 of 0x081C9220 reaches every
     // player of the old process) and Msg2Map 0x08105080 for this map
     void msg_to_all(std::string_view text);
+    // the missions of this map (KMissionArray of 2003, SubWorld+0x60.. of jx_linux_y; docs §33).  Every call into a mission
+    // script has no player behind it (KMission::ExecuteScript / 0x082095A0)
+    [[nodiscard]] KMission* find_mission(int id);
+    [[nodiscard]] const KMission* find_mission(int id) const;
+    KMission* open_mission(int id);                        // OpenMission 0x081332F0: made (when new), InitMission of its script
+    bool run_mission(int id);                              // RunMission 0x08132E50: RunMission of the script
+    bool close_mission(int id);                            // CloseMission 0x081327E0: EndMission, StopMission, removed
+    bool join_mission(int id, const KNpc& player, int group);   // JoinMission 0x08137E40: JoinMission(player, group) of the script
+    bool mission_remove_player(int id, EntityId player);   // RemovePlayer + OnLeave(player) of the script (2003 KMission)
+    void mission_message(const KMission& m, int group, std::string_view text);   // Msg2All (group 0) / Msg2Group: a system line each
+    // a function of a script with no player (KMission::ExecuteScript 2003: only the SubWorld global set)
+    bool execute_script_world(const std::string& game_path, const char* fn, const std::vector<KLuaScript::Arg>& args);
     // the maps this zone hosts (KSubWorldSet of the old server): SubWorldID2Idx / SubWorldIdx2ID answer from it; empty =
     // only this map
     void set_hosted_maps(std::vector<std::uint32_t> maps) { hosted_maps_ = std::move(maps); }
@@ -909,6 +925,8 @@ private:
     std::vector<std::uint32_t> hosted_maps_;                    // the zone's maps (set by KGameServer)
     std::vector<EntityId> pending_removes_;                     // DelNpc: taken out at the next frame (the 0x3e9 nodes)
     void flush_pending_removes();
+    std::vector<KMission> missions_;                            // KMissionArray: the missions open on this map
+    void mission_tick();                                        // KMission::Activate: the timers due
     std::unordered_map<std::uint64_t, pb::RoleData> roles_;    // sid -> persistent data
     std::unordered_map<std::uint64_t, KItemList> items_;       // sid -> what the player carries
     std::unique_ptr<KLuaScript> gm_script_;                    // the state "?gm ds" code runs in (made on first use)

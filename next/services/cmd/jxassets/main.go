@@ -413,6 +413,28 @@ func openServerSet(serverDir string) (*pak.Set, error) {
 
 // readServerFile reads the first of the candidate files (game paths with backslashes) found
 // under the old server folder chain.
+// tabScripts reads a two-column tab file of the old server ("ID\tSCRIPT", the first line the header) into id -> the
+// script's game path as UTF-8 (the file is GBK); a row without a number or a path is skipped
+func tabScripts(data []byte) map[string]string {
+	out := map[string]string{}
+	for i, line := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+		if i == 0 {
+			continue
+		}
+		cells := strings.Split(line, "\t")
+		if len(cells) < 2 {
+			continue
+		}
+		id, err := strconv.Atoi(strings.TrimSpace(cells[0]))
+		path := strings.TrimSpace(cells[1])
+		if err != nil || path == "" {
+			continue
+		}
+		out[strconv.Itoa(id)] = text.GBKToUTF8([]byte(path))
+	}
+	return out
+}
+
 func readServerFile(serverDir string, candidates ...string) ([]byte, string, error) {
 	var last error
 	for _, root := range serverRoots(serverDir) {
@@ -1151,6 +1173,46 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-revive-pos: diem hoi sinh %s (%d map) -> %s\n", file, len(table.Maps), p)
+
+	case "export-missions":
+		// \settings\task\missions.txt (KTabFile 0x9780b00 of jx_linux_y: row = mission id + 1, column 2 = the mission script
+		// OpenMission / RunMission / CloseMission run, 0x0813313A) and \settings\timertask.txt (KTimerTaskFun::m_TimerTaskTab:
+		// row = timer id + 1, column 2 = the script whose OnTimer a mission timer runs) -> <out>/missions.json
+		// (docs/LINUX-SERVER.md §33)
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		sdir := *flagServer
+		if sdir == "" {
+			sdir = os.Getenv("JX_OLD_SERVER")
+		}
+		if sdir == "" {
+			sdir = findServer(findClient())
+		}
+		if sdir == "" {
+			fail("no old server folder: -server, JX_OLD_SERVER or config/oldgame.local.json")
+		}
+		mdata, mfile, err := readServerFile(sdir, "settings/task/missions.txt", "Settings/task/missions.txt", "Settings/Task/Missions.txt")
+		if err != nil {
+			fail("no settings/task/missions.txt under %s: %v", sdir, err)
+		}
+		tdata, tfile, err := readServerFile(sdir, "settings/timertask.txt", "Settings/timertask.txt", "Settings/TimerTask.txt")
+		if err != nil {
+			fail("no settings/timertask.txt under %s: %v", sdir, err)
+		}
+		missions := tabScripts(mdata)
+		timers := tabScripts(tdata)
+		table := map[string]interface{}{"source": []string{mfile, tfile}, "missions": missions, "timers": timers}
+		buf, err := json.MarshalIndent(table, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		p := filepath.Join(out, "missions.json")
+		if err := os.WriteFile(p, buf, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-missions: %s (%d nhiem vu) + %s (%d hen gio) -> %s\n", mfile, len(missions), tfile, len(timers), p)
 
 	case "export-chat-cost":
 		// \settings\npc\player\chatcost.ini of the old server, read the way 0x080A0C40 of jx_linux_y reads it

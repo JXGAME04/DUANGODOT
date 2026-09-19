@@ -64,6 +64,10 @@
     // settings/revivepos.ini of the old server (jxassets export-revive-pos): the revive / reference points of every
     // map - where a new character is born in its village, where the revive and SetRevPos go; missing = spawn points
     "revive_pos_file": "client/assets/revive_pos.json",
+    // settings/task/missions.txt + settings/timertask.txt of the old server (jxassets export-missions): the script of a
+    // mission id (OpenMission / RunMission / CloseMission / JoinMission of the script api) and the script whose OnTimer a
+    // mission timer runs (StartMissionTimer); missing = missions open without scripts
+    "mission_file": "client/assets/missions.json",
     // settings/faction/门派设定.ini + factionskill.txt of the old server (jxassets export-faction): the eleven factions -
     // SetFaction of the script api, the camp of a member, the branch pages of the client's skill book; missing = no faction
     "faction_file": "client/assets/faction.json",

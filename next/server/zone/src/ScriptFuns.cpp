@@ -19,6 +19,7 @@ extern "C" {
 #include <mutex>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "jx/log.hpp"
@@ -3525,6 +3526,233 @@ int l_SetNpcTimer(lua_State* L)
     return 1;
 }
 
+// ---- S4 (docs/LINUX-SERVER.md §33): the missions of a map - KMission of 2003, still the class of jx_linux_y
+
+// the mission a script names: id >= 0 and open on this map
+KMission* mission_arg(lua_State* L, int idx)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return nullptr;
+    const auto id = static_cast<std::int64_t>(lua_tonumber(L, idx));
+    return id < 0 ? nullptr : w->find_mission(static_cast<int>(id));
+}
+
+// OpenMission(id) (0x081332F0): an argument, id >= 0 and the script's map -> KMissionArray::Add (0x081396D0) unless it is
+// open, then InitMission of \settings\task\missions.txt's script with no player (0x0813377E).  Nothing returned.
+int l_OpenMission(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 0 && w != nullptr) {
+        const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (id >= 0) w->open_mission(static_cast<int>(id));
+    }
+    return 0;
+}
+
+// RunMission(id) (0x08132E50): the mission open -> RunMission of its script (0x08133150); nothing returned
+int l_RunMission(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 0 && w != nullptr) {
+        const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (id >= 0) w->run_mission(static_cast<int>(id));
+    }
+    return 0;
+}
+
+// CloseMission(id) (0x081327E0): the mission open -> EndMission of its script (0x08132B0A), StopMission, removed; nothing
+int l_CloseMission(lua_State* L)
+{
+    KSubWorld* w = g_ScriptContext().world;
+    if (lua_gettop(L) > 0 && w != nullptr) {
+        const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+        if (id >= 0) w->close_mission(static_cast<int>(id));
+    }
+    return 0;
+}
+
+// JoinMission(id, group) (0x08137E40): two arguments, id >= 0, the script's map and its player -> the mission open ->
+// JoinMission(player, group) of the mission's script (0x08138266; the script adds the player itself); nothing returned
+int l_JoinMission(lua_State* L)
+{
+    if (lua_gettop(L) <= 1) return 0;
+    const KNpc* p = player_of(L, "JoinMission");
+    if (p == nullptr) return 0;
+    const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    const auto group = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+    if (id >= 0) g_ScriptContext().world->join_mission(static_cast<int>(id), *p, group);
+    return 0;
+}
+
+// AddMSPlayer(id, group) / AddMSPlayer(id, player, group) (0x081366A0, LuaAddMissionPlayer 2003): two arguments name the
+// script's player, three another one; id >= 0, player > 0, group >= 0 and the mission open -> KMission::AddPlayer (the
+// player's id, the group, the join time); nothing returned
+int l_AddMSPlayer(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    const KNpc* target = nullptr;
+    int group = 0;
+    if (top == 2) {
+        target = player_of(L, "AddMSPlayer");
+        group = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+    } else {
+        target = w->find_entity(entity_arg(L, 2));
+        group = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 3)));
+    }
+    if (id < 0 || group < 0 || target == nullptr || target->kind != KNpcKind::player) return 0;
+    if (KMission* m = w->find_mission(static_cast<int>(id))) m->add_player(target->id, target->player_id, group, w->tick_count());
+    return 0;
+}
+
+// DelMSPlayer(id, group) / DelMSPlayer(id, player, group) (0x081372A0, LuaRemoveMissionPlayer 2003): as AddMSPlayer; the
+// entry removed and OnLeave(player) of the mission's script; nothing returned
+int l_DelMSPlayer(lua_State* L)
+{
+    const int top = lua_gettop(L);
+    if (top <= 1) return 0;
+    KSubWorld* w = g_ScriptContext().world;
+    if (w == nullptr) return 0;
+    const auto id = static_cast<std::int64_t>(lua_tonumber(L, 1));
+    EntityId target;
+    int group = 0;
+    if (top == 2) {
+        const KNpc* p = player_of(L, "DelMSPlayer");
+        if (p != nullptr) target = p->id;
+        group = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 2)));
+    } else {
+        target = entity_arg(L, 2);
+        group = static_cast<int>(static_cast<std::int64_t>(lua_tonumber(L, 3)));
+    }
+    if (id < 0 || group < 0 || target.value == 0) return 0;
+    w->mission_remove_player(static_cast<int>(id), target);
+    return 0;
+}
+
+// GetMSPlayerCount(id[, group]) (0x081351F0, LuaMissionPlayerCount 2003): the players of the mission, of one group when
+// given (0 = everyone, 0x08135533); 0 without a mission
+int l_GetMSPlayerCount(lua_State* L)
+{
+    lua_Integer n = 0;
+    if (lua_gettop(L) > 0) {
+        const auto group = lua_gettop(L) > 1 ? static_cast<std::int64_t>(lua_tonumber(L, 2)) : 0;
+        const KMission* m = mission_arg(L, 1);
+        if (m != nullptr && group >= 0) n = m->player_count(static_cast<int>(group));
+    }
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+// GetNextPlayer(id, idx, group) (0x08135760, LuaGetNextPlayer 2003): fewer than two arguments -> 0, 0; the next used entry
+// above `idx` (of `group` when it is not 0) -> its data index and its player; 0, 0 at the end or without a mission
+int l_GetNextPlayer(lua_State* L)
+{
+    int idx = 0;
+    EntityId player;
+    if (lua_gettop(L) > 1) {
+        const auto start = static_cast<std::int64_t>(lua_tonumber(L, 2));
+        const auto group = static_cast<std::int64_t>(lua_tonumber(L, 3));
+        const KMission* m = mission_arg(L, 1);
+        if (m != nullptr && start >= 0 && group >= 0) std::tie(idx, player) = m->next_player(static_cast<int>(start), static_cast<int>(group));
+    }
+    lua_pushinteger(L, idx);
+    lua_pushinteger(L, static_cast<lua_Integer>(player.value));
+    return 2;
+}
+
+// PIdx2MSDIdx(id, player) (0x08136D90, LuaGetMissionPlayer_DataIndex 2003): the data index of a player in the mission, 0 when
+// not in
+int l_PIdx2MSDIdx(lua_State* L)
+{
+    lua_Integer idx = 0;
+    if (lua_gettop(L) > 1) {
+        if (const KMission* m = mission_arg(L, 1)) idx = m->data_index(entity_arg(L, 2));
+    }
+    lua_pushinteger(L, idx);
+    return 1;
+}
+
+// MSDIdx2PIdx(id, data index) (0x08137970, LuaGetMissionPlayer_PlayerIndex 2003): the player of a data index, 0 when none
+int l_MSDIdx2PIdx(lua_State* L)
+{
+    lua_Integer player = 0;
+    if (lua_gettop(L) > 1) {
+        const KMission* m = mission_arg(L, 1);
+        const auto idx = static_cast<std::int64_t>(lua_tonumber(L, 2));
+        if (m != nullptr && idx >= 0) {
+            if (const KMissionPlayer* e = m->entry(static_cast<int>(idx))) player = static_cast<lua_Integer>(e->player.value);
+        }
+    }
+    lua_pushinteger(L, player);
+    return 1;
+}
+
+// Msg2MSAll(id, text) (0x08134280) / Msg2MSGroup(id, text, group) (0x08134C60): KMission::Msg2All / Msg2Group 2003 - a system
+// line (KPlayerChat::SendSystemInfo, 0x081C9220 kind 1) to every player of the mission / of the group; nothing returned
+int l_Msg2MSAll(lua_State* L)
+{
+    if (lua_gettop(L) > 1) {
+        const char* text = lua_tostring(L, 2);
+        if (const KMission* m = mission_arg(L, 1); m != nullptr && text != nullptr) g_ScriptContext().world->mission_message(*m, 0, text);
+    }
+    return 0;
+}
+
+int l_Msg2MSGroup(lua_State* L)
+{
+    if (lua_gettop(L) > 2) {
+        const char* text = lua_tostring(L, 2);
+        const auto group = static_cast<std::int64_t>(lua_tonumber(L, 3));
+        const KMission* m = mission_arg(L, 1);
+        if (m != nullptr && text != nullptr && group >= 0) g_ScriptContext().world->mission_message(*m, static_cast<int>(group), text);
+    }
+    return 0;
+}
+
+// StartMissionTimer(id, timer, frames) (0x08138840, LuaStartMissionTimer 2003): three arguments, all >= 0, the mission open ->
+// a timer entry (three at most) firing OnTimer of \settings\timertask.txt's script for `timer` every `frames` frames (0 =
+// closed at once); nothing returned
+int l_StartMissionTimer(lua_State* L)
+{
+    if (lua_gettop(L) <= 2) return 0;
+    const auto timer = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    const auto frames = static_cast<std::int64_t>(lua_tonumber(L, 3));
+    KMission* m = mission_arg(L, 1);
+    if (m == nullptr || timer < 0 || frames < 0) return 0;
+    if (!m->start_timer(static_cast<int>(timer), static_cast<std::uint64_t>(frames), g_ScriptContext().world->tick_count())) {
+        log::warn("zone.mission", "mission timer refused", {log::kv("mission", m->id), log::kv("timer", timer)});
+    }
+    return 0;
+}
+
+// StopMissionTimer(id, timer) (0x08134720): two arguments >= 0 and the mission open -> the first entry with that timer id
+// closed and removed; nothing returned
+int l_StopMissionTimer(lua_State* L)
+{
+    if (lua_gettop(L) <= 1) return 0;
+    const auto timer = static_cast<std::int64_t>(lua_tonumber(L, 2));
+    KMission* m = mission_arg(L, 1);
+    if (m != nullptr && timer >= 0) m->stop_timer(static_cast<int>(timer));
+    return 0;
+}
+
+// GetMSRestTime(id, timer) (0x081361C0, LuaGetMissionRestTime 2003): the frames until the first entry with that timer id
+// fires, 0 when none or past
+int l_GetMSRestTime(lua_State* L)
+{
+    lua_Integer rest = 0;
+    if (lua_gettop(L) > 1) {
+        const auto timer = static_cast<std::int64_t>(lua_tonumber(L, 2));
+        const KMission* m = mission_arg(L, 1);
+        if (m != nullptr && timer >= 0) rest = static_cast<lua_Integer>(m->rest_time(static_cast<int>(timer), g_ScriptContext().world->tick_count()));
+    }
+    lua_pushinteger(L, rest);
+    return 1;
+}
+
 const luaL_Reg kGameScriptFuns[] = {
     {"GetFightState", l_GetFightState}, {"SetFightState", l_SetFightState}, {"SetPos", l_SetPos},
     {"NewWorld", l_NewWorld},           {"GetPos", l_GetPos},               {"GetWorldPos", l_GetWorldPos},
@@ -3606,6 +3834,11 @@ const luaL_Reg kGameScriptFuns[] = {
     {"IsMyItem", l_IsMyItem},             {"GetNpcId", l_GetNpcId},           {"CalcItemCount", l_CalcItemCount},
     {"ConsumeItem", l_ConsumeItem},       {"SetPunish", l_SetPunish},         {"DisabledUseTownP", l_DisabledUseTownP},
     {"SetDeathScript", l_SetDeathScript}, {"SetRank", l_SetRank},             {"SetNpcTimer", l_SetNpcTimer},
+    {"OpenMission", l_OpenMission},       {"RunMission", l_RunMission},       {"CloseMission", l_CloseMission},
+    {"JoinMission", l_JoinMission},       {"AddMSPlayer", l_AddMSPlayer},     {"DelMSPlayer", l_DelMSPlayer},
+    {"GetMSPlayerCount", l_GetMSPlayerCount}, {"GetNextPlayer", l_GetNextPlayer}, {"PIdx2MSDIdx", l_PIdx2MSDIdx},
+    {"MSDIdx2PIdx", l_MSDIdx2PIdx},       {"Msg2MSAll", l_Msg2MSAll},         {"Msg2MSGroup", l_Msg2MSGroup},
+    {"StartMissionTimer", l_StartMissionTimer}, {"StopMissionTimer", l_StopMissionTimer}, {"GetMSRestTime", l_GetMSRestTime},
     {nullptr, nullptr},
 };
 

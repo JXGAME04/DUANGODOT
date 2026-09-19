@@ -67,9 +67,10 @@ quen mã cũ tìm đúng chỗ. Khi một file cũ tách thành nhiều file m�
 | `Core/Src/ScriptFuns.cpp` (`GameScriptFuns[]`, `GetPlayerIndex`) | `server/zone/…/ScriptFuns.h/.cpp` (`RegisterGameScriptFuns`, `KScriptContext`) | API script cho trap: `NewWorld`, `SetPos`, `GetFightState`… |
 | `KRegion::LoadServerTrap` + `KNpc::CheckTrap` + `KNpc::ChangeWorld` | `KMapData::trap_at`, `KSubWorld::check_trap/execute_script/change_world_request`, `KGameServer::process_world_changes` | bẫy, cổng, nhiều map trong một zone |
 | `KSubWorldSet` (nhiều `SubWorld[]`) | `KGameServer::worlds_` (`world_of_map`, `world_of_session`) | một `KSubWorld` cho mỗi map |
+| `KMission` / `KMissionArray` / `KTimerTaskFun` (`Core/Src/KMission.h`, `KMissionArray.h`, `KTaskFuns.h`; JX2 `SubWorld+0x60 + i·0x73a0`, `LINUX-SERVER.md` §33) | `KMission`, `KMissionTable` (`server/zone/include/jx/zone/KMission.h`, `src/KMission.cpp`; `settings/task/missions.txt` + `settings/timertask.txt` → `jxassets export-missions` → `missions.json`, `zone.mission_file`), `KSubWorld::open_mission/run_mission/close_mission/join_mission/mission_remove_player/mission_message/mission_tick`, Lua `OpenMission`… `GetMSRestTime` | hệ nhiệm vụ bản đồ (chiến trường, đấu trường…): người chơi theo nhóm, 3 hẹn giờ tuần hoàn, script `InitMission/RunMission/EndMission/OnLeave/JoinMission/OnTimer` |
 
 Sắp tới (chưa có, sẽ dùng đúng tên): `KSkillList` (kỹ năng của từng nhân vật),
-`KMission`/`KPlayerTask`, `KPlayerTeam`, `KPlayerTong`, `KScriptValueSet` (Lua 5.4).
+`KPlayerTask`, `KPlayerTeam`, `KPlayerTong`, `KScriptValueSet` (Lua 5.4).
 
 ## Gateway / auth / DB (Bishop, PaySys, Goddess cũ → Go `services/`)
 

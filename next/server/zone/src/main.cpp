@@ -302,6 +302,19 @@ int main(int argc, char** argv)
             jx::log::warn("boot", "no revive point table", {jx::log::kv("file", revive_file), jx::log::kv("error", error)});
         }
     }
+    // the mission scripts (settings/task/missions.txt) and the timer-task scripts (settings/timertask.txt): what OpenMission /
+    // StartMissionTimer of the scripts run (jxassets export-missions; docs/LINUX-SERVER.md §33)
+    const std::string mission_file = cfg.get_string("zone.mission_file", "client/assets/missions.json");
+    if (!mission_file.empty()) {
+        std::string error;
+        if (auto t = jx::zone::KMissionTable::load(mission_file, &error)) {
+            w.missions = std::make_shared<const jx::zone::KMissionTable>(std::move(*t));
+            jx::log::info("boot", "mission table loaded", {jx::log::kv("file", mission_file), jx::log::kv("missions", w.missions->missions.size()),
+                                                         jx::log::kv("timers", w.missions->timers.size())});
+        } else {
+            jx::log::warn("boot", "no mission table", {jx::log::kv("file", mission_file), jx::log::kv("error", error)});
+        }
+    }
     // the eleven factions (jxassets export-faction): SetFaction of the script api, the camp of a member (docs §16.7)
     const std::string faction_file = cfg.get_string("zone.faction_file", "client/assets/faction.json");
     if (!faction_file.empty()) {
