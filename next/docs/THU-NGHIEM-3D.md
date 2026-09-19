@@ -149,7 +149,9 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
    Ám khí (Đường Môn): `AddItem(0,1,<0 phi tiêu | 1 phi đao | 2 nỏ>,1,0,0)`. Mở túi **I** (F4), nhấp đúp món đồ để mặc — mô hình 3D theo món đang mặc.
 3. Ngựa: `?gm ds AddItem(0,10,<số>,1,0,0)` (2 = Liệt Bạch Mã, 0/1 ngựa nâu, 3 ngựa trắng…; ngựa rồng cần cấp cao) → mặc vào ô ngựa trong túi →
    phím **M** lên / xuống ngựa (`KUiGameWindows`: `Game.ride`). Đi lại khi cưỡi: nhấp chuột trái.
-4. Cấp: `?gm ds AddExp(2000000000, 0)` — mỗi lần **một cấp** (`KPlayer::add_exp 0x080AFEA0` chặn), gõ lặp tới cấp cần (kỹ năng 90 cần cấp ≥ 80).
+4. Cấp: **`?gm ds for i=1,89 do AddExp(100000000,0) end`** → cấp 90 ngay (đã thử: 1 → 90). Mỗi `AddExp` chỉ **một cấp** (`KPlayer::add_exp
+   0x080AFEA0` cắt ở mốc cấp kế) nên phải lặp; dùng 100 000 000 chứ không phải 2 000 000 000: `calc_exp 0x080B00C0` nhân `exp × (25 − |d|)` bằng int 32
+   bit ở chênh cấp 6..15 → tràn số, chỉ được 1 điểm (đó là lý do lệnh lớn dừng ở cấp 6). Cấp 89→90 cần 21,9 M (`level_exp`).
 5. Phái + kỹ năng: `?gm ds SetFaction("<phái>")` với `shaolin | tianwang | tangmen | wudu | emei | cuiyan | gaibang | tianren | wudang | kunlun`,
    rồi `?gm ds Include("\\script\\global\\skills_table.lua") add_<xx>(90)` (`add_sl / add_tw / add_tm / add_wu / add_em / add_cy / add_gb / add_tr /
    add_wd / add_kl`; số = cấp nhân vật giả định để cấp kỹ năng). Một kỹ năng lẻ: `?gm ds AddMagic(<id>, 1)`. Mở bảng kỹ năng **K** (F5), kéo ra
