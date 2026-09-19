@@ -111,6 +111,7 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KSkillList` (kỹ năng của 
 | `ucl/n2b_d.c` | `pkg/jxold/nrv2b` |
 | `Engine/Src/KTabFile.h/.cpp` (bảng tab, hàng/cột 1-based) | `pkg/jxold/npcres/KTabFile.go` |
 | `Core/Src/KNpcTemplate.cpp` (`npcs.txt`) | `pkg/jxold/npcres/KNpcTemplate.go` |
+| `Core/Src/KNpcResNode.cpp` `CStateMagicTable` (`状态图形对照表.txt`, `STATE_MAGIC_TABLE_NAME`) | `pkg/jxold/npcres/CStateMagicTable.go` (`ParseStateMagicTable`, `StateMagic`); `jxassets export-state-gfx` → `client/assets/npcres/state_gfx.json` |
 | `Core/Src/KNpcResList.cpp`, `KNpcResNode.cpp` (`人物类型.txt`, bảng bộ phận/关联表/贴图顺序表, `CSortTable`) | `pkg/jxold/npcres/KNpcResNode.go` (`List`, `Node`, `SortTable`) |
 | `KNpcRes::Init/SetAction` (chọn file spr theo trang bị + action) | `pkg/jxold/export/KNpcResExport.go` → `client/assets/npcres/{npcs.json,res/<tên>.json}`; `jxassets export-npcres` |
 | Bảng TCVN3 (skill `vn_to_octal.py`) | `pkg/jxold/text/KTextTCVN3.go` |
@@ -140,6 +141,8 @@ Sắp tới (chưa có, sẽ dùng đúng tên): `KSkillList` (kỹ năng của 
 | `Core/Src/Scene/KIpotLeaf.h/.cpp` (lá: vật point/line, nhân vật runtime, `Clone` cắt ảnh) | `client/scenes/KIpotLeaf.gd` | |
 | `Core/Src/Scene/SceneMath.h/.cpp` (`SM_Relation_PointLine`, `SM_Relation_LineLine_CheckCut`) | `client/scenes/KSceneMath.gd` | |
 | `Core/Src/KNpc` (phía client: `Activate`/`Paint`, `m_Frames`, `m_ResDir` quay dần) | `client/scenes/KNpc.gd` | |
-| `Core/Src/KNpcRes.h/.cpp` (`Draw`: ghép bộ phận theo hướng/khung, bóng, thứ tự vẽ) | `client/scenes/KNpcRes.gd` | |
+| `Core/Src/KNpcRes.h/.cpp` (`Draw`: ghép bộ phận theo hướng/khung, bóng, thứ tự vẽ; `SetState`: ảnh trạng thái vào 6 ô) | `client/scenes/KNpcRes.gd` (`set_state_spr`, `_step_state_sprs`, `_reorder`) | |
+| `Core/Src/KSprControl.h/.cpp` (`SetSprFile`, `SetCurDir64`, `GetNextFrame`, `CheckEnd`) | `client/scenes/KSprControl.gd` | |
+| `KStateSpr` (`Core/Src/KNpcRes.h`), `KNpc::SetNpcState` (gói 0x7a) | `client/scenes/KStateSpr.gd` (`sync`, `step`, `behind`), `KNpc.set_state_icons` | |
 | `Core/Src/KNpcResNode.cpp` (`GetActNo`, `CSortTable::GetSort`) | `client/scenes/KNpcResNode.gd` (hàm tĩnh, test được) | |
 | `Core/Src/KNpcResList.cpp` (`g_NpcResList`) | `client/autoload/KNpcResList.gd` | `NpcResList` |

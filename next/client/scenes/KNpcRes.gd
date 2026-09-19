@@ -2,11 +2,14 @@
 # doing; a main character is composed of body parts (head, body, hands, weapons ...) drawn in
 # the order of its sort table, all sharing the direction and frame of the first part.  Every
 # image is drawn from its reference spot (sprite centre, RUIMAGE_RENDER_FLAG_REF_SPOT) placed on
-# the character's feet, the shadow underneath.
+# the character's feet, the shadow underneath.  The pictures of the states it holds (docs/CLIENT-2.0.md §14)
+# sit in six slots (KNpcRes+0x15b0 of the 2.0 client, KStateSpr): Foot ones under the body, Body ones behind it
+# for the frames of their behind range and in front for the rest, Head ones over everything.
 extends Node2D
 
 const KNpcResNode := preload("res://scenes/KNpcResNode.gd")
 const KMath := preload("res://scenes/KMath.gd")
+const KStateSpr := preload("res://scenes/KStateSpr.gd")
 
 var res: Dictionary = {}
 var special := false
@@ -16,7 +19,10 @@ var action := -1
 var parts: Array = []         # [{index, sprite, atlas, frames, dirs}] in part-slot order
 var shadow: Dictionary = {}   # {sprite, atlas, frames, dirs} or empty
 var head_top := -40.0         # y of the top of the drawn body (name label anchor)
+var state_sprs: Array = []    # m_cStateSpr: MAX_STATE_SPR slots of KStateSpr
+var frame_time := 0           # SubWorld[0].m_dwCurrentTime: the logic frames painted, the clock of the state pictures
 var _order: Array = []
+var _draw_order: Array = []   # the children in draw order, as last arranged
 
 
 # KNpcRes::Init
@@ -50,6 +56,31 @@ func _release() -> void:
 		shadow.sprite.queue_free()
 		shadow = {}
 	_order.clear()
+	_draw_order.clear()
+
+
+# KNpcRes::SetState (2.0: 0x006DF7E0 from the state list the 0x7a packet built): `icons` are the StateSpecialIds
+# the character holds; KStateSpr.sync frees the gone ones and fills free slots from the state graphics table, and a
+# slot with a new picture gets its atlas and node here.
+func set_state_spr(icons: Array) -> void:
+	for s in KStateSpr.sync(state_sprs, icons, NpcResList.state_gfx, frame_time):
+		s.atlas = Assets.sprite(s.ctrl.file)
+		if s.atlas != null:
+			s.sprite = Sprite2D.new()
+			s.sprite.centered = false
+			s.sprite.visible = false
+			add_child(s.sprite)
+
+
+# The state pictures on the body now: [{id, type, frame, behind, rect}] of the drawn ones (the --auto proof).
+func state_spr_info() -> Array:
+	var out: Array = []
+	for s in state_sprs:
+		if s.id == 0 or s.sprite == null or not s.sprite.visible or s.sprite.texture == null:
+			continue
+		out.append({"id": s.id, "type": s.type, "frame": s.ctrl.cur_frame, "behind": s.behind(),
+			"rect": Rect2(s.sprite.position, s.sprite.texture.get_size())})
+	return out
 
 
 func _load_images() -> void:
@@ -101,7 +132,10 @@ func _make(entry: Dictionary, index: int) -> Dictionary:
 
 # KNpcRes::Draw ("draw" is a CanvasItem signal in Godot, hence the name): dir64 is the facing
 # (0..63), cur_frame / all_frame the progress of the action.
-func paint(dir64: int, all_frame: int, cur_frame: int) -> void:
+# head_z: the z (scene units above the feet, screen y = -z * 887 / 1024) of the Head pictures - the 2.0 client's
+# 0x006DFAC0 puts them at the name block's height + 9 - 100 (KNpc::_head_effect_z).
+func paint(dir64: int, all_frame: int, cur_frame: int, head_z: int = 0) -> void:
+	frame_time += 1
 	if parts.is_empty() or dir64 < 0 or all_frame <= 0 or cur_frame < 0:
 		return
 	var first: Dictionary = parts[0]
@@ -112,7 +146,32 @@ func paint(dir64: int, all_frame: int, cur_frame: int) -> void:
 		_apply(shadow, KNpcResNode.frame_no(dir64, all_frame, cur_frame, shadow.frames, shadow.dirs))
 	var f := clampi(frame, 0, first.atlas.frame_count() - 1)
 	head_top = first.sprite.position.y
+	_step_state_sprs(dir64, head_z)
 	_reorder(KMath.dir64_to_sprite(dir64, first.dirs), f)
+
+
+# KNpcRes::Draw 0x006E05FD: every state picture steps on the logic clock - its block follows the facing (a turn
+# restarts the pass and skips the step), a Loop one runs on, a once-only one is dropped at its last frame; then
+# each drawn one is put at the feet like a body part (REF_SPOT: - centre + frame offset), lifted by its z.
+func _step_state_sprs(dir64: int, head_z: int) -> void:
+	for s in state_sprs:
+		s.step(dir64, frame_time)
+		var sp: Sprite2D = s.sprite
+		if sp == null:
+			continue
+		if s.id == 0 or not s.loaded or s.type == KStateSpr.STATE_MINIMAP or s.atlas.frame_count() == 0:
+			sp.visible = false
+			continue
+		var fr := clampi(s.ctrl.cur_frame, 0, s.atlas.frame_count() - 1)
+		var tex: Texture2D = s.atlas.frame_texture(fr)
+		if sp.texture != tex:
+			sp.texture = tex
+		var z := head_z if s.type == KStateSpr.STATE_HEAD else 0   # Foot / Body: z 0 (no jump height, no riding yet)
+		var pos: Vector2 = -KNpcResNode.ref_spot(s.atlas.width, s.atlas.center_x, s.atlas.center_y) + s.atlas.frame_offset(fr)
+		pos.y -= float((z * 887) >> 10)   # KRepresentShell2::CoordinateTransform
+		if sp.position != pos:
+			sp.position = pos
+		sp.visible = true
 
 
 func _apply(p: Dictionary, frame: int) -> void:
@@ -127,22 +186,35 @@ func _apply(p: Dictionary, frame: int) -> void:
 		sp.position = pos
 
 
-# Child order = draw order: shadow, then the parts back to front (weapon effects 10/11 skipped
-# like the old Draw), then anything the table does not mention.
+# Child order = draw order (KNpcRes::Draw, gamecl.exe 0x006E0340): the shadow, the Foot pictures and the Body ones
+# within their behind range, then the parts back to front (weapon effects 10/11 skipped like the old Draw), the
+# Body pictures outside their range, and the Head pictures last (0x006DFAC0 draws them after the body).
 func _reorder(dir: int, frame: int) -> void:
 	var order := KNpcResNode.sort_order(res, action, dir, frame)
-	if order == _order:
-		return
-	_order = order
-	var idx := 0
+	var nodes: Array = []
 	if not shadow.is_empty():
-		move_child(shadow.sprite, idx)
-		idx += 1
+		nodes.append(shadow.sprite)
+	for s in state_sprs:
+		if s.sprite != null and s.sprite.visible and s.behind():
+			nodes.append(s.sprite)
 	for pi in order:
 		var i := int(pi)
 		if i == 10 or i == 11:
 			continue
 		for p in parts:
 			if p.index == i:
-				move_child(p.sprite, idx)
-				idx += 1
+				nodes.append(p.sprite)
+	for s in state_sprs:
+		if s.sprite != null and s.sprite.visible and not s.behind() and s.type == KStateSpr.STATE_BODY:
+			nodes.append(s.sprite)
+	for s in state_sprs:
+		if s.sprite != null and s.sprite.visible and s.type == KStateSpr.STATE_HEAD:
+			nodes.append(s.sprite)
+	if order == _order and nodes == _draw_order:
+		return
+	_order = order
+	_draw_order = nodes
+	var idx := 0
+	for n in nodes:
+		move_child(n, idx)
+		idx += 1

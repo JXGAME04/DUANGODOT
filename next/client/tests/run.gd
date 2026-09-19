@@ -13,6 +13,8 @@ const IpoTree := preload("res://scenes/KIpoTree.gd")
 const IpotLeaf := preload("res://scenes/KIpotLeaf.gd")
 const KMath := preload("res://scenes/KMath.gd")
 const NpcResNode := preload("res://scenes/KNpcResNode.gd")
+const SprControl := preload("res://scenes/KSprControl.gd")
+const StateSpr := preload("res://scenes/KStateSpr.gd")
 
 var _failed := 0
 var _passed := 0
@@ -49,6 +51,7 @@ func _init() -> void:
 	test_skill_desc()
 	test_missle_math()
 	test_knock_back()
+	test_state_pictures()
 	print("client tests: %d passed, %d failed" % [_passed, _failed])
 	quit(0 if _failed == 0 else 1)
 
@@ -584,3 +587,84 @@ func test_knock_back() -> void:
 	check(absf(here.x - 2146.0) < 1.0 and here.y == 2000.0, "arrives within a unit: %s" % str(here))
 	# facing: from the spot toward here (0x005E8DB0 of here - spot) - the pig pushed east looks west at the hero
 	check(KMath.get_dir_index(2146, 2000, 2050, 2000) == 16, "faces the pusher")
+
+
+# ---- the state pictures (KSprControl, KStateSpr; gamecl.exe 0x0070B920 / 0x006DF7E0 / 0x006E0610) ---------------
+
+func test_state_pictures() -> void:
+	# KSprControl::GetNextFrame 0x0070B920 - La Hán Trận (Status45: 10 frames, 1 dir, interval 8): frame = 10 * elapsed / 8
+	var c := SprControl.new()
+	c.set_spr_file("ring", 10, 1, 8, 100)
+	check(c.check_exist() and c.total_frame == 10 and c.timer == 100 and c.one_dir_frames() == 10, "SetSprFile keeps the sprite")
+	c.get_next_frame(103, true)
+	check(c.cur_frame == 3, "10 * 3 / 8 = 3: %d" % c.cur_frame)
+	c.get_next_frame(107, true)
+	check(c.cur_frame == 8, "10 * 7 / 8 = 8: %d" % c.cur_frame)
+	c.get_next_frame(108, true)
+	check(c.cur_frame == 0 and c.timer == 108, "a Loop pass starts over at the interval")
+	c.set_spr_file("ring", 10, 1, 8, 200)
+	check(c.timer == 108, "the same sprite again changes nothing")
+	var o := SprControl.new()
+	o.set_spr_file("once", 8, 1, 4, 0)
+	o.get_next_frame(4, false)
+	check(o.cur_frame == 7 and o.check_end(), "a once-only picture holds its last frame (CheckEnd)")
+	# SetCurDir64 0x0070B7C0 - eight blocks of 35 frames (Status238: 280 frames, 8 dirs, interval 36): dir 20 -> (20 + 4) / 8 = 3
+	var d := SprControl.new()
+	d.set_spr_file("eight", 280, 8, 36, 0)
+	check(not d.set_cur_dir64(20, 5) and d.cur_dir == 3 and d.cur_frame == 105 and d.timer == 5, "a turn restarts at the block's first frame")
+	check(d.set_cur_dir64(22, 6) and d.cur_dir == 3 and d.timer == 5, "the same block: no restart")
+	check(not d.set_cur_dir64(62, 7) and d.cur_dir == 0 and d.cur_frame == 0, "dir 62 -> (62 + 4) / 8 = 8 -> block 0")
+	d.get_next_frame(25, true)
+	check(d.cur_frame == 17 and d.cur_dir_frame_no() == 17, "block 0, 35 * 18 / 36 = 17: %d" % d.cur_frame)
+	d.set_cur_dir64(20, 30)
+	d.get_next_frame(48, true)
+	check(d.cur_frame == 105 + 17, "block 3, frame 17: %d" % d.cur_frame)
+	var one := SprControl.new()
+	one.set_spr_file("one", 10, 1, 8, 0)
+	check(one.set_cur_dir64(40, 1) and one.cur_dir == 0, "a single block: every facing is block 0 ((40 + 32) / 64 = 1 -> 0)")
+	check(not one.set_cur_dir64(64, 1) and not one.set_cur_dir64(-1, 1), "facings outside 0..63 are refused")
+	# KStateSpr.sync (KNpcRes::SetState 0x006DF7E0): the six slots from the 0x7a packet's icons
+	var rows := {
+		45: {"sprite": "ring", "type": 2, "loop": true, "behind_start": 0, "behind_end": 0, "frames": 10, "dirs": 1, "interval": 8, "split": 1},
+		52: {"sprite": "c", "type": 1, "loop": true, "behind_start": 0, "behind_end": 0, "frames": 13, "dirs": 1, "interval": 12, "split": 1},
+		7: {"sprite": "shield", "type": 1, "loop": true, "behind_start": 0, "behind_end": 15, "frames": 20, "dirs": 1, "interval": 12, "split": 1},
+		1: {"sprite": "", "type": 0, "special": true},
+		77: {"sprite": "star", "type": 3, "loop": true, "frames": 10, "dirs": 1, "interval": 100},
+	}
+	var row_of := func(id: int): return rows.get(id, {})
+	var slots: Array = []
+	var fresh: Array = StateSpr.sync(slots, [0, 0, 0, 45, 45, 52], row_of, 10)
+	check(slots.size() == 6 and fresh.size() == 2, "two pictures took slots: %d" % fresh.size())
+	check(slots[0].id == 45 and slots[0].type == 2 and slots[1].id == 52 and slots[2].id == 0, "the first free slots, in icon order")
+	check(slots[0].ctrl.file == "ring" and slots[0].ctrl.timer == 10 and slots[0].ctrl.total_frame == 10 and slots[0].loaded, "the control got the sprite")
+	fresh = StateSpr.sync(slots, [45, 52], row_of, 11)
+	check(fresh.is_empty() and slots[0].id == 45 and slots[0].ctrl.timer == 10, "nothing new: the same slots stay")
+	fresh = StateSpr.sync(slots, [52, 7, 1, 77, 999], row_of, 12)
+	check(slots[0].id == 7 and slots[1].id == 52 and slots[2].id == 77 and slots[3].id == 0 and fresh.size() == 2, "45 gone frees slot 0, 7 takes it; the Special row 1 and an unknown id take none, the MiniMap mark does")
+	check(not slots[1].behind(), "c.spr (behind range 0..0) is in front of the body")
+	slots[0].ctrl.cur_frame = 14
+	check(slots[0].behind(), "the shield's frame 14 (range 0..15) is behind the body")
+	slots[0].ctrl.cur_frame = 15
+	check(not slots[0].behind(), "its frame 15 is in front")
+	var foot: Array = []
+	StateSpr.sync(foot, [45], row_of, 0)
+	foot[0].ctrl.cur_frame = 9
+	check(foot[0].behind(), "a Foot picture is always behind")
+	# step (0x006E0610): a Loop one runs on, a once-only one is dropped at its last frame, a turn skips the step
+	rows[9] = {"sprite": "once", "type": 0, "loop": false, "frames": 8, "dirs": 1, "interval": 4, "split": 1}
+	StateSpr.sync(slots, [9], row_of, 20)
+	var once = slots[0]
+	check(once.id == 9 and slots[1].id == 0 and slots[2].id == 0, "9 alone: the rest freed")
+	once.step(0, 21)
+	check(once.loaded and once.ctrl.cur_frame == 2, "once: 8 * 1 / 4 = 2: %d" % once.ctrl.cur_frame)
+	once.step(0, 24)
+	check(not once.loaded and once.ctrl.cur_frame == 7, "dropped at its last frame")
+	rows[238] = {"sprite": "eight", "type": 1, "loop": true, "frames": 280, "dirs": 8, "interval": 36, "split": 1}
+	StateSpr.sync(slots, [238], row_of, 40)
+	var eight = slots[0]
+	eight.step(0, 58)
+	check(eight.ctrl.cur_frame == 17, "block 0 after 18 of 36: %d" % eight.ctrl.cur_frame)
+	eight.step(20, 59)
+	check(eight.ctrl.cur_frame == 105 and eight.ctrl.timer == 59, "a turn to block 3 restarts and skips the step")
+	eight.step(20, 77)
+	check(eight.ctrl.cur_frame == 105 + 17, "then runs on in block 3: %d" % eight.ctrl.cur_frame)

@@ -24,6 +24,9 @@ const ACTION_REVIVE := 4
 const ACTION_JUMP := 5
 const ACTION_KNOCK_BACK := 6
 const LIFE_BAR := Vector2(40, 4)
+# the name block over a character as gamecl.exe 0x005F2DB0 sizes it with names shown: 3 (life bar) + 5, the name
+# line 12 + 2 - the Head state pictures hang from it (0x006DFAC0: z = block height + 9 - 100)
+const INFO_LINES := 22
 
 var entity_id := 0
 var entity_type := 0
@@ -51,6 +54,7 @@ var _tick_acc := 0.0
 var _rng := RandomNumberGenerator.new()
 var _knock_dest := Vector2.ZERO    # KNpc+0x13b4/+0x13b8 of the 2.0 client: where a knock back pushes to
 var _knocked := false
+var state_icons: Array = []        # the six StateSpecialIds of the 0x7a packet (G2C_STATE_ICONS), drawn by KNpcRes
 
 
 static func to_screen(p: Vector2) -> Vector2:
@@ -110,6 +114,7 @@ func setup(d: Dictionary, own: bool) -> void:
 	if not has_res:
 		Log.debug("npcres", "no appearance, drawing a marker", {"entity": entity_id, "type": entity_type,
 			"template": template_id, "res": res_name})
+	set_state_icons(d.get("state_icons", state_icons))
 	# KNpc::GetNpcPate: the name sits m_nStature (+84 for players) above the feet
 	_label.position.y = -float(_pate()) - 20.0
 	doing = -1
@@ -176,6 +181,27 @@ func set_life(l: Dictionary) -> void:
 	life = int(l.get("life", life))
 	life_max = int(l.get("life_max", life_max))
 	queue_redraw()
+
+
+# The 0x7a packet (KNpc::SetNpcState of the old client): the states shown on the body - KNpcRes::SetState picks
+# their pictures from the state graphics table.  docs/CLIENT-2.0.md §14
+func set_state_icons(icons: Array) -> void:
+	state_icons = []
+	for v in icons:
+		state_icons.append(int(v))
+	if has_res:
+		_res.set_state_spr(state_icons)
+
+
+# The state pictures drawn on the body now (the --auto proof): [{id, type, frame, behind, rect}].
+func state_spr_info() -> Array:
+	return _res.state_spr_info() if has_res else []
+
+
+# gamecl.exe 0x006DFAC0 (the head pictures, called from KNpc::Paint 0x005F2FC4 with GetNpcPate + the name block):
+# their z above the feet = pate + block + 9 - 100.
+func _head_effect_z() -> int:
+	return _pate() + INFO_LINES + 9 - 100
 
 
 func set_target(on: bool) -> void:
@@ -286,7 +312,7 @@ func _tick() -> void:
 			off += 64
 		res_dir = posmod(res_dir + (off / 2 if absi(off) > 1 else off), 64)
 	if has_res:
-		_res.paint(res_dir, total_frame, cur_frame)
+		_res.paint(res_dir, total_frame, cur_frame, _head_effect_z())
 
 
 # KNpc::GetNpcPate (no jump height, sitting or riding yet).

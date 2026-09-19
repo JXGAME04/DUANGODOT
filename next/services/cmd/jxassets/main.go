@@ -17,6 +17,8 @@
 //	                                 server reads) as skills.json for the zone's KSkillManager
 //	export-missles -out <dir>        settings/missles.txt of the old server (the missile templates the skills
 //	                                 fire) as missles.json for the zone's KMissleTable
+//	export-state-gfx -out <dir>      settings/npcres/状态图形对照表.txt of the client (the picture a state puts on a
+//	                                 character) as npcres/state_gfx.json + the sprites the skills' StateSpecialId use
 //
 // Game paths are UTF-8 on the command line and encoded to GBK for hashing (the archives use
 // the original Chinese paths); hex:<bytes> passes raw bytes.  A map id refers to Settings/MapList.ini.
@@ -1323,6 +1325,74 @@ func main() {
 			fail("%s: %v", p, err)
 		}
 		fmt.Printf("export-missle-res: %d dan (theo ChildSkillId cua %d ky nang), %d sprite (%d moi) -> %s\n", len(rows), len(want), sprites, ex.Exported, p)
+
+	case "export-state-gfx":
+		// the state pictures (\settings\npcres\状态图形对照表.txt, CStateMagicTable of the old client, loader 0x006AE200 of
+		// gamecl.exe 2.0): one row per StateSpecialId - the sprite, Head / Body / Foot / MiniMap, Loop, the frames a Body
+		// picture spends behind the character, frames / dirs / interval, split -> <out>/npcres/state_gfx.json, plus the
+		// sprites of the ids the skills of <out>/skills.json name (all of them with -all).  docs/CLIENT-2.0.md §14
+		out := *flagOut
+		if out == "" {
+			out = "client/assets"
+		}
+		set := openSet(findClient())
+		defer set.Close()
+		data, err := set.ReadFile(gamePath(npcres.StateMagicTable))
+		if err != nil {
+			fail("no settings/npcres/状态图形对照表.txt in the client's archives: %v", err)
+		}
+		table := npcres.ParseStateMagicTable(data)
+		want := map[int]bool{}
+		if sk, err := os.ReadFile(filepath.Join(out, "skills.json")); err == nil {
+			var doc struct {
+				Rows []struct {
+					Cells map[string]string `json:"cells"`
+				} `json:"rows"`
+			}
+			if json.Unmarshal(sk, &doc) == nil {
+				for _, r := range doc.Rows {
+					if v, err := strconv.Atoi(strings.TrimSpace(r.Cells["StateSpecialId"])); err == nil && v > 0 {
+						want[v] = true
+					}
+				}
+			}
+		}
+		ex := export.New(set, out)
+		rows := map[string]any{}
+		sprites, special := 0, 0
+		for _, m := range table {
+			sid := ""
+			if m.IsSpecial() {
+				special++
+			} else if *flagAll || want[m.ID] {
+				sid = ex.SpriteID(m.File)
+				if sid != "" {
+					sprites++
+				}
+			}
+			rows[strconv.Itoa(m.ID)] = map[string]any{
+				"name": m.Name, "type": m.Type, "special": m.IsSpecial(), "sprite": sid, "file": text.GBKToUTF8([]byte(m.File)),
+				"loop": m.Loop, "behind_start": m.BackStart, "behind_end": m.BackEnd, "frames": m.Frames, "dirs": m.Dirs,
+				"interval": m.Interval, "split": m.Split,
+			}
+		}
+		p := filepath.Join(out, "npcres", "state_gfx.json")
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			fail("%v", err)
+		}
+		doc := map[string]any{
+			"source": "the client's archives: " + npcres.StateMagicTable + " (CStateMagicTable; gamecl.exe 2.0 loader 0x006AE200)",
+			"types":  map[string]int{"head": npcres.StateMagicHead, "body": npcres.StateMagicBody, "foot": npcres.StateMagicFoot, "minimap": npcres.StateMagicMiniMap},
+			"rows":   rows,
+		}
+		js, err := json.MarshalIndent(doc, "", "  ")
+		if err != nil {
+			fail("%v", err)
+		}
+		if err := os.WriteFile(p, js, 0o644); err != nil {
+			fail("%s: %v", p, err)
+		}
+		fmt.Printf("export-state-gfx: %d trang thai (%d Special, %d ky nang dung), %d sprite (%d moi) -> %s\n", len(rows), special, len(want), sprites, ex.Exported, p)
 
 	case "export-objdata":
 		// The objects of the ground (\settings\obj\ObjData.txt + MoneyObj.txt of the old server):

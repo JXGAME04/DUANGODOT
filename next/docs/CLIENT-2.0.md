@@ -434,10 +434,10 @@ của 2.0 cần mốc thời gian trong gói — không có): client bắt đầ
 Server: ô 111 `0x080DC460` (`LINUX-SERVER.md` §16.10). Gói **0x85** (server `0x080873B0`): handler `0x00652600` (`+0x218` của hàm tạo `0x0065DCB0`, ô 0x86):
 `{+1 launcher (−1), +5 kỹ năng con, +9 id npc, +0xd id npc, +0x11 cấp, +0x15 cờ}` → `GetSkill(con, cấp)` → **`KSkill::Cast` phía client `0x006FACD0`** (tự tạo đạn để
 vẽ) và `cờ == 1` → `0x005ED9F0(npc, con, cấp)` (đặt hồi chiêu `0x00623860`). Đạn của La Hán Trận (con 202 → đạn 92 "友好光环传递子弹") **không có ảnh**: hào quang chỉ
-thấy qua biểu tượng (`StateSpecialId` 45, gói 0x7a) và hiệu ứng trạng thái trên npc (`0x005EDFC0`, chưa port — B4e).
+thấy qua biểu tượng (`StateSpecialId` 45, gói 0x7a) và hiệu ứng trạng thái trên npc (§14, B4e).
 
 Client mới: `KUiGameWindows._on_skill_clicked(id, phải)` → `Game.set_aura(IsAura ? id : 0)` (`C2G_SET_AURA`); zone thi triển kỹ năng con → `G2C_MISSLE`; biểu tượng
-6 ô → `G2C_STATE_ICONS` → `Game.entities[id].state_icons` (chưa vẽ). `--auto`: `AUTO_AURA skill=16 child=202 packets=18 spawned=3 icons=[0,0,0,45,45,52] icon_ok=true
+6 ô → `G2C_STATE_ICONS` → `Game.entities[id].state_icons` (vẽ ở §14). `--auto`: `AUTO_AURA skill=16 child=202 packets=18 spawned=3 icons=[0,0,0,45,45,52] icon_ok=true
 child_state=true` (45 hai lần: hào quang + trạng thái con cùng `StateSpecialId`, đúng như `0x08087160`).
 
 | Mã cũ / 2.0 | Client mới |
@@ -445,3 +445,56 @@ child_state=true` (45 hai lần: hào quang + trạng thái con cùng `StateSpec
 | `SetRightSkill 0x005FB280` → `KNpc::SetAura 0x005EA870` → gói 0x6f | `KUiGameWindows._on_skill_clicked` → `KProtocolProcess.set_aura` |
 | gói 0x85 → `0x00652600` → `KSkill::Cast` client | `G2C_MISSLE` (zone thi triển thật) |
 | gói 0x7a (biểu tượng) | `G2C_STATE_ICONS` → `entities[id].state_icons`, tín hiệu `state_icons_changed` |
+
+## 14. Hiệu ứng trạng thái trên npc — bảng `状态图形对照表.txt`, `KNpcRes::SetState 0x006DF7E0`, `KSprControl 0x0070B920`, `KNpcRes::Draw 0x006E0340`, `0x006DFAC0` (M12 lát B4e, đã đọc từng dòng `gamecl.exe` + mã 2004)
+
+Mã 2004 đã có cơ chế này (`KNpcRes.h`: `KStateSpr m_cStateSpr[18]`, `CStateMagicTable` trong `KNpcResNode.cpp`, `KSprControl.cpp`); bản 2.0 giữ nguyên
+thuật toán, đổi bảng (thêm cột `图分几瓣` split và loại `MiniMap`), còn **6 ô** thay vì 18, và chuyển ảnh loại Head sang hàm vẽ trên đầu.
+
+**Bảng** `\settings\npcres\状态图形对照表.txt` (323 dòng: `Status1..Status322`, id = thứ tự dòng — loader `0x006AE200` (đối tượng `g_NpcResList+0x501c`) lưu theo
+thứ tự dòng, getter `0x006AE540(id 1..count, tên, &loại, &không-lặp, &sau-đầu, &sau-cuối, &khung, &hướng, &nhịp, &split)`): cột 2 `FileName` (spr; **"Special"** = 5
+dòng đầu 眩晕/中毒/冰冻/燃烧/混乱 — client tự vẽ, không kỹ năng nào trong `skills.txt` dùng), cột 3 `Head` 0 / `Foot` 2 / `MiniMap` 3 / khác → `Body` 1 (mã 2004:
+`STATE_MAGIC_HEAD/BODY/FOOT`), cột 4 `Loop` → lặp (khác → chơi một lần), cột 5/6 khung "sau lưng nhân vật" [bắt đầu, kết thúc), cột 7 tổng khung (mặc 1), cột 8 hướng
+(mặc 1), cột 9 **nhịp = số khung logic cho một lượt** (mặc 1), cột 10 split kẹp 1..3 (mọi dòng = 1). 170 id được `StateSpecialId` của `skills.txt` dùng (Foot 61, Body
+40, Head 68, MiniMap 1 = Status77 `star2.spr` "小地图高亮显示"); 6 sprite không có trong pak 2.0 (68/69/70/161/203/221) → không vẽ.
+
+**`KSprControl`** (0x84 byte: `+0 m_bChange, +4 m_nTotalFrame, +8 m_nCurFrame, +0xc m_nTotalDir, +0x10 m_nCurDir, +0x14 m_dwTimer, +0x18 m_dwInterval, +0x2c
+m_szName[80], +0x7c m_dwNameID`; đồng hồ = `SubWorld[0].m_dwCurrentTime` `[0x1f178c4]+0x50`, tăng mỗi khung logic 18 Hz):
+`SetSprFile 0x0070B580(tên, khung, hướng, nhịp)` (cùng tên → không đổi; hướng ≥ 1, khung ≥ hướng, `timer = now`); `SetCurDir64 0x0070B7C0(dir)`: khối =
+`(dir + 32/hướng) / (64/hướng)` (≥ hướng → trừ hướng), đổi khối → `frame = khối·fpd`, `timer = now`, trả 0 (**bỏ bước khung ấy**), cùng khối trả 1;
+`GetNextFrame 0x0070B920(lặp)`: `trôi = now − timer` (so **unsigned**); `trôi ≥ nhịp` → lặp: `timer = now, frame = khối·fpd`; không lặp: `frame = (khối+1)·fpd − 1`;
+còn lại **`frame = khối·fpd + fpd·trôi/nhịp`** (fpd = khung/hướng); `CheckEnd 0x0070B880`: `frame == (khối+1)·fpd − 1`. Ví dụ La Hán Trận (Status45: 10 khung,
+nhịp 8) chạy 10 khung trong 8 khung logic (0,44 s một vòng); 不动明王 (Status52 `c.spr`) 13 khung / 12; 眩晕 8 / 50.
+
+**Ô trạng thái** (`KNpcRes` = `KNpc+0x1a14`, 6 ô tại `+0x15b0` bước 0xa0: `+0 id, +4 loại, +8 không-lặp, +0xc/+0x10 sau-lưng, +0x14 split, +0x18 đã nạp, +0x1c
+KSprControl`): **`KNpcRes::SetState 0x006DF7E0(&KNpc+0x110 danh sách trạng thái, g_NpcResList)`** gọi mỗi `KNpc::Paint` (`0x005F37BF`; mã 2004 `KNpc.cpp:424`) — ô có
+id không còn trong danh sách (`nút+0xcc` = `m_StateGraphics`, từ gói **0x7a** `KNpc::SetNpcState`) → xoá `0x006DDFB0`; id mới → getter, tên rỗng hay loại > 3 → bỏ;
+ô trống đầu tiên nhận (id, loại, không-lặp, sau-lưng, split, nạp = 1, `SetSprFile`).
+
+**Vẽ** (`KNpcRes::Draw 0x006E0340(dir, x, y, z = KNpc+0x34 m_nHeight, …)`, gọi từ `KNpc::Paint 0x005F2FAF`): (1) mỗi ô `CheckExist` → `SetCurDir64(dir)` (đổi hướng →
+thôi) → lặp ? `GetNextFrame(1)` : `GetNextFrame(0)` rồi `CheckEnd` → **`+0x18 = 0`** (ảnh một lần chơi xong thì biến); (2) danh sách vẽ 1: bóng (z 0), **Foot** (`x +
+lệch nhảy, y, z 0`), **Body có split 1 và khung ∈ [sau-đầu, sau-cuối)** (`z = m_nHeight + 38 nếu [KNpcRes+0x2c] cưỡi ngựa`) → `DrawPrimitives`; (3) các bộ phận
+thân (z = m_nHeight); (4) **Body ngoài khoảng** + ảnh đặc biệt `+0x1a10`; **Head không vẽ ở đây** (mã 2004 vẽ ở đây với z = m_nHeight + 38 cưỡi ngựa). Mọi ảnh vẽ
+REF_SPOT tại (x, y) chân: `màn = (x − tâm.x + lệch khung, y/2 − tâm.y + lệch khung − (z·887 >> 10))` (`KRepresentShell2::CoordinateTransform`).
+Split 2/3 (`0x0070B900`) không có dòng nào dùng — không port.
+
+**Head**: `KNpc::Paint 0x005F2FC4` → `0x005EB7C0(x + lệch nhảy, y, h)` với `h = 0x005F2DB0 (chiều cao khối tên: ebx 12 (14 khi là mục tiêu); edi 3 + 5 khi
+tuỳ chọn bit `0x1eb4` bật; + ebx + 2 dòng tên; người chơi thêm danh hiệu 6, `+ebx+3` mỗi dòng bang/…) + GetNpcPate 0x005EBCF0 ([+0x3c] m_nStature + [+0x34]
+m_nHeight, ngồi trừ dần, cưỡi +38)` → **`0x006DFAC0(x, y, h, [KNpc+0x40])`**: `h += 9`; (混乱 = 5 vẽ ba ảnh `+0x1b1c` và chữ, `h += 20`); ảnh đặc biệt `+0x1ac4` nếu
+có; rồi mỗi ô loại 0 đã nạp → phần tử `(x, y, z = h − 100)` → `DrawPrimitives` → trả `h + 20`. `m_nStature` người chơi = **84** (`0x005EC13D`, không có mẫu npc
+−1/−2), npc = cột `Stature` mẫu (`template+0x124`, `0x005EC0ED`). Mặc định tên hiện: khối = 3 + 5 + 12 + 2 = 22 → **z Head = pate + 22 + 9 − 100** (người chơi 15,
+thú thử nghiệm Stature 100 → 31).
+
+Client mới (`client/scenes/KSprControl.gd`, `KStateSpr.gd`, `KNpcRes.gd`, `KNpc.gd`; bảng `jxassets export-state-gfx` → `npcres/state_gfx.json` + sprite,
+`NpcResList.state_gfx(id)`): `G2C_STATE_ICONS` → `UiGame._on_state_icons` → `KNpc.set_state_icons` → `KNpcRes.set_state_spr` (`KStateSpr.sync`, hàm tĩnh test
+được) → mỗi tick 18 Hz `KNpcRes.paint(dir, …, head_z)`: `KStateSpr.step` (SetCurDir64/GetNextFrame/CheckEnd), đặt `Sprite2D` (`centered = false`) tại `−tâm + lệch
+khung − (z·887 >> 10)` và xếp con: bóng, Foot, Body-sau, bộ phận, Body-trước, Head. Chưa: lệch x khi nhảy, +38 cưỡi ngựa, 5 dòng "Special", MiniMap, split 2/3.
+`--auto`: `AUTO_AURA … pictures=[52:1@-119,-110 256x154,45:2@-42,-36 98x71 behind]` + `auto_aura_state.png` (vòng La Hán Trận dưới chân, ánh 不动明王 quanh thân).
+
+| Mã cũ / 2.0 | Client mới |
+|---|---|
+| `CStateMagicTable::Init/GetInfo` (`KNpcResNode.cpp`), loader `0x006AE200` / getter `0x006AE540` | Go `pkg/jxold/npcres/CStateMagicTable.go` (`ParseStateMagicTable`), `jxassets export-state-gfx`, `NpcResList.state_gfx` |
+| `KSprControl` (`KSprControl.cpp`; `0x0070B540..0x0070B9B4`) | `client/scenes/KSprControl.gd` |
+| `KStateSpr` (`KNpcRes.h`), 6 ô `KNpcRes+0x15b0` | `client/scenes/KStateSpr.gd` (`sync`, `step`, `behind`) |
+| `KNpcRes::SetState 0x006DF7E0`, `KNpc::SetNpcState` (gói 0x7a) | `KNpc.set_state_icons` → `KNpcRes.set_state_spr` |
+| `KNpcRes::Draw 0x006E0340` (Foot/Body-sau/thân/Body-trước), `0x006DFAC0` (Head) | `KNpcRes._step_state_sprs` + `_reorder`, `KNpc._head_effect_z` |

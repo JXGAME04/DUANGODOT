@@ -60,6 +60,7 @@ func _ready() -> void:
 	Game.entity_action.connect(_on_action)
 	Game.missle_sync.connect(_on_missle)
 	Game.entity_life.connect(_on_life)
+	Game.state_icons_changed.connect(_on_state_icons)
 	Game.chat_msg.connect(_on_chat)
 	Game.kicked.connect(_on_kicked)
 	Game.connection_lost.connect(_on_connection_lost)
@@ -416,6 +417,14 @@ func _on_life(l: Dictionary) -> void:
 		node.set_life(l)
 
 
+# G2C_STATE_ICONS (the 0x7a packet): the pictures of the states an entity holds
+func _on_state_icons(entity_id: int) -> void:
+	var node: Node2D = _entities.get(entity_id)
+	var d = Game.entities.get(entity_id)
+	if node != null and d != null and node.has_method("set_state_icons"):
+		node.set_state_icons(d.get("state_icons", []))
+
+
 func _on_chat(msg: Dictionary) -> void:
 	_append_chat("[b]%s:[/b] %s" % [msg.name, str(msg.text).replace("[", "[lb]")])
 
@@ -603,6 +612,9 @@ func _auto_fight() -> void:
 	while waited < 6.0 and (own.is_moving() or own.scene_pos.distance_to(stand) > 24.0):
 		await get_tree().create_timer(0.25).timeout
 		waited += 0.25
+	if not is_instance_valid(best):
+		print("AUTO_FIGHT none (the target left while walking)")
+		return
 	var life_before: int = best.life
 	var actions_before := _action_count
 	_select_target(best)
@@ -910,11 +922,24 @@ func _auto_aura() -> void:
 		var own_d = Game.entities.get(Game.entity_id)
 		var icons: Array = own_d.get("state_icons", []) if own_d != null else []
 		var special := KUiSkillDesc._cell_int(Game.skill_row(aura_id), "StateSpecialId", 0)
-		print("AUTO_AURA skill=%d child=%d packets=%d spawned=%d icons=%s icon_ok=%s child_state=%s" % [aura_id, child, Game.missle_packets - packets_before, _missle_spawns - spawned_before, str(icons), icons.has(special), Game.states.has(child)])
+		# the state pictures on the body (B4e): the aura's StateSpecialId ring at the feet and the child's state
+		var own_node: Node2D = _entities.get(Game.entity_id)
+		var pics: Array = own_node.state_spr_info() if own_node != null and own_node.has_method("state_spr_info") else []
+		await _save_screenshot("user://logs/auto_aura_state.png")
+		print("AUTO_AURA skill=%d child=%d packets=%d spawned=%d icons=%s icon_ok=%s child_state=%s pictures=%s" % [aura_id, child, Game.missle_packets - packets_before, _missle_spawns - spawned_before, str(icons), icons.has(special), Game.states.has(child), _state_pics_text(pics)])
 		_windows._on_skill_clicked(0, true)   # off again: SetRightSkill of a non-aura clears it (0x005EA8B4)
 		await get_tree().create_timer(0.2).timeout
 	else:
 		print("AUTO_AURA skill=0 (no aura held) skills=%s" % str(Game.skills.keys()))
+
+
+# --auto: the state pictures of KNpc.state_spr_info() as "id:type@x,y wxh behind" words
+func _state_pics_text(pics: Array) -> String:
+	var words: PackedStringArray = []
+	for p in pics:
+		var r: Rect2 = p.rect
+		words.append("%d:%d@%d,%d %dx%d%s" % [int(p.id), int(p.type), int(r.position.x), int(r.position.y), int(r.size.x), int(r.size.y), " behind" if bool(p.behind) else ""])
+	return "[%s]" % ",".join(words)
 
 
 # --auto: the first aura (IsAura) among the skills held, 0 = none

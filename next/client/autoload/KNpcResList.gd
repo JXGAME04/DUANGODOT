@@ -6,6 +6,8 @@ var _bundle: Dictionary = {}   # npcres/npcs.json
 var _res := {}                 # name -> res json
 var _missing := {}
 var _loaded := false
+var _state_gfx := {}           # npcres/state_gfx.json rows by StateSpecialId (CStateMagicTable), loaded on first use
+var _state_gfx_loaded := false
 
 
 func _load_bundle() -> void:
@@ -54,3 +56,16 @@ func res(name: String) -> Dictionary:
 		return {}
 	_res[name] = data
 	return data
+
+
+# CStateMagicTable::GetInfo (KNpcResNode.cpp; gamecl.exe 2.0 0x006AE540): the picture of a state, one row of
+# settings/npcres/status graphics table (jxassets export-state-gfx), {} when the id is out of the table.
+func state_gfx(id: int) -> Dictionary:
+	if not _state_gfx_loaded:
+		_state_gfx_loaded = true
+		var d = Assets.load_json(Assets.assets_root() + "/npcres/state_gfx.json")
+		if d != null:
+			_state_gfx = d.get("rows", {})
+		else:
+			Log.warn("npcres", "state pictures missing", {"file": Assets.assets_root() + "/npcres/state_gfx.json"})
+	return _state_gfx.get(str(id), {})
