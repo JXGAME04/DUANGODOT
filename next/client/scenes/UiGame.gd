@@ -30,6 +30,13 @@ var _scene_w := 8192
 var _scene_h := 8192
 var _windows: KUiGameWindows = null   # the bag, the character window, the tooltip, the item on the cursor
 var _pending_pickup := 0              # the ground object the player walks to (0 = none)
+var _follow_target := 0               # KNpcAI::FollowPeople: the enemy the character walks up to before its mouse skill (0 = none)
+var _follow_skill := 0
+var _follow_dest := Vector2.ZERO      # where the last walk was sent
+var _follow_tries := 0
+var _area_id := -1                    # the 3D map's area the character stands in (KWorldView3D.area_at; -1 = not looked yet)
+var _area_label: Label = null
+var _area_left := 0.0                 # seconds the area title stays (ShowAreaTitle(name, white, 2) of the reference)
 
 
 func _ready() -> void:
@@ -117,6 +124,21 @@ func _build_hud() -> void:
 	_hud.add_theme_constant_override("shadow_offset_x", 1)
 	_hud.add_theme_constant_override("shadow_offset_y", 1)
 	layer.add_child(_hud)
+	# the name of the area entered on a 3D map (scn_area.lua STC_IntoArea -> ui_showmsg.ShowAreaTitle(name, white, 2 s));
+	# the place and size are ours [tự chọn]: top centre under the 2.0 top bar
+	_area_label = Label.new()
+	_area_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_area_label.offset_top = 140
+	_area_label.offset_bottom = 180
+	_area_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_area_label.add_theme_font_size_override("font_size", 26)
+	_area_label.add_theme_color_override("font_color", Color.WHITE)
+	_area_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_area_label.add_theme_constant_override("shadow_offset_x", 1)
+	_area_label.add_theme_constant_override("shadow_offset_y", 1)
+	_area_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_area_label.visible = false
+	layer.add_child(_area_label)
 
 	var chat_box := VBoxContainer.new()
 	chat_box.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -154,6 +176,8 @@ func _setup_map() -> bool:
 # follows right after (KNpc::ChangeWorld -> SendSyncData of the old server).
 func _on_map_changed(info: Dictionary) -> void:
 	_select_target(null)
+	_follow_target = 0
+	_area_id = -1
 	for id in _entities.keys():
 		var node: Node = _entities[id]
 		_world.remove_entity(node)
@@ -188,6 +212,8 @@ func _update_camera(snap: bool, delta: float = 0.0) -> void:
 func _process(delta: float) -> void:
 	_update_camera(false, delta)
 	_walk_to_pickup()
+	_walk_to_enemy()
+	_area_title(delta)
 	_world.update(delta)
 	var own := _own()
 	var st: Dictionary = Assets.stats()
@@ -216,6 +242,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			var p := _mouse()
 			var hit := _entity_at(p)
+			_follow_target = 0   # any click ends the walk up to an enemy (KPlayer's click: m_nPeopleIdx set anew)
 			if hit != null and hit.entity_type == ENTITY_DROP:
 				_pick_up(hit)
 			elif hit != null and hit.entity_id != Game.entity_id and hit.has_method("is_dialoger") and hit.is_dialoger():
@@ -227,8 +254,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				# the left mouse skill of the old client (KPlayer::m_nLeftSkillID): a skill picked in the book is cast
 				# (NpcSkillCommand), else the plain attack of the weapon (the swing the zone picks for it)
 				if Game.left_skill > 0 and Game.skills.has(Game.left_skill):
-					var cseq := Game.cast_skill(Game.left_skill, hit.entity_id)
-					Log.debug("ui", "click cast", {"skill": Game.left_skill, "target": hit.entity_id, "name": hit.display_name, "seq": cseq})
+					_follow_enemy(Game.left_skill, hit)
 				else:
 					var aseq := Game.attack(hit.entity_id)
 					Log.debug("ui", "click attack", {"target": hit.entity_id, "name": hit.display_name, "seq": aseq})
@@ -333,6 +359,86 @@ func _walk_to_pickup() -> void:
 		_pending_pickup = 0
 	elif not own.is_moving():
 		_pending_pickup = 0   # could not get there
+
+
+# KNpcAI::FollowPeople of the JX1 source (Core/Src/KNpcAI.cpp, the client side the 2.0 client descends from): a click on
+# an enemy keeps it as m_nPeopleIdx and every AI frame the character either sends the do_skill command - within the
+# active skill's attack radius - or walks (runs) to the enemy's position ("嗷嗷追").  The zone's own walk-up covers only
+# radius + 300 (ProcessCommand 0x0809BB07) and drops the command beyond, so the client does the chase as the old one did.
+func _follow_enemy(skill_id: int, node: Node) -> void:
+	var own := _own()
+	if own == null:
+		return
+	_follow_target = 0
+	if own.scene_pos.distance_to(node.scene_pos) <= _skill_reach(skill_id):
+		var cseq := Game.cast_skill(skill_id, node.entity_id)
+		Log.debug("ui", "click cast", {"skill": skill_id, "target": node.entity_id, "name": node.display_name, "seq": cseq})
+		return
+	_follow_target = node.entity_id
+	_follow_skill = skill_id
+	_follow_tries = 0
+	_follow_walk(node)
+	Log.debug("ui", "click chase", {"skill": skill_id, "target": node.entity_id, "name": node.display_name, "distance": int(own.scene_pos.distance_to(node.scene_pos))})
+
+
+func _follow_walk(node: Node) -> void:
+	_follow_dest = node.scene_pos
+	_follow_tries += 1
+	Game.move_to(int(node.scene_pos.x), int(node.scene_pos.y))
+
+
+func _walk_to_enemy() -> void:
+	if _follow_target == 0:
+		return
+	var node: Node = _entities.get(_follow_target)
+	var own := _own()
+	if node == null or own == null or not node.is_attackable() or own.is_dead():
+		_follow_target = 0
+		return
+	if own.scene_pos.distance_to(node.scene_pos) <= _skill_reach(_follow_skill):
+		var cseq := Game.cast_skill(_follow_skill, node.entity_id)
+		Log.debug("ui", "chase cast", {"skill": _follow_skill, "target": node.entity_id, "seq": cseq, "tries": _follow_tries})
+		_follow_target = 0
+		return
+	# the old client re-sent the walk every AI frame; here when the enemy moved on or the walk ended short of it
+	if node.scene_pos.distance_to(_follow_dest) > 64.0 or not own.is_moving():
+		if _follow_tries >= 8:
+			_follow_target = 0   # could not get there (the zone gives up after five tries too)
+			return
+		_follow_walk(node)
+
+
+# The area of the 3D map under the character, named for two seconds when it changes (the reference client shows the
+# scn_area_list name on STC_IntoArea; the zone switches the fight mode by the same polygons - KSubWorld::check_area).
+func _area_title(delta: float) -> void:
+	if _area_left > 0.0:
+		_area_left -= delta
+		if _area_left <= 0.0 and _area_label != null:
+			_area_label.visible = false
+	if not _world.has_method("area_at"):
+		return
+	var own := _own()
+	if own == null:
+		return
+	var a: Dictionary = _world.area_at(own.scene_pos)
+	var id := int(a.get("id", 0))
+	if id == _area_id:
+		return
+	_area_id = id
+	if a.is_empty():
+		return
+	var title := str(a.get("title_vi", a.get("title", a.get("name", ""))))
+	Log.debug("ui", "area", {"id": id, "name": a.get("name", ""), "title": title, "safe": a.get("safe", false)})
+	if _area_label != null and not title.is_empty():
+		_area_label.text = title
+		_area_label.visible = true
+		_area_left = 2.0
+
+
+# the attack radius of a skill's row (the zone's KSkill::GetAttackRadius; the level script may widen it - the zone's
+# own +300 tolerance covers that); the table's default 50 (KSkill::GetInfoFromTabFile) for a skill without a row
+func _skill_reach(skill_id: int) -> float:
+	return float(Game.skill_row(skill_id).get("AttackRadius", "50"))
 
 
 # The entity drawn under a viewport point (the one on top wins).
@@ -831,6 +937,46 @@ func _auto3d_run() -> void:
 	if _world.is_3d() and _world.get("place") != null and _world.place.has_method("scene_effects_live"):
 		await get_tree().create_timer(1.0).timeout
 		print("AUTO3D_SCENEFX placed=%d live=%d cam_far=%.0f glow=%s" % [_world.place._effects.size(), _world.place.scene_effects_live(), _world.cam_rig.cam.far, str(_world.place._env.environment.glow_enabled) if _world.place._env != null else "-"])
+	# --clicktest=<faction>:<weapon type>:<left skill>: the owner's own steps (level 90, the faction's skills, that weapon
+	# worn, that skill on the left button), then only the mouse-click attack test - what a person does with client3d.cmd play
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--clicktest="):
+			var parts := arg.substr(12).split(":")
+			var fac := str(parts[0])
+			var wtype := int(parts[1]) if parts.size() > 1 else -1
+			var left := int(parts[2]) if parts.size() > 2 else 0
+			Game.chat("?gm ds for i=1,89 do AddExp(100000000,0) end")
+			Game.chat("?gm ds SetFaction(\"%s\")" % fac)
+			Game.chat("?gm ds Include(\"\\\\script\\\\global\\\\skills_table.lua\") %s(90)" % FACTION_ADD.get(fac, "add_sl"))
+			if wtype >= 0:
+				var nb := Game.items.size()
+				Game.chat("?gm ds AddItem(0,0,%d,1,0,0)" % wtype)
+				waited = 0.0
+				while waited < 3.0 and Game.items.size() < nb + 1:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+				for id in Game.items:
+					if int(Game.items[id].genre) == 0 and int(Game.items[id].detail) == 0 and int(Game.items[id].particular) == wtype and int(Game.items[id].room) == Game.ROOM_BAG:
+						Game.item_equip(int(id), 3)
+			await get_tree().create_timer(2.0).timeout
+			if left > 0:
+				Game.left_skill = left
+			print("AUTO3D_CLICKTEST level=%d faction=%s skills=%d weapon=%s left=%d has_left=%s" % [int(Game.player_attrib.get("level", 0)), fac, Game.skills.size(), str(_world._own_weapon), Game.left_skill, str(Game.skills.has(left))])
+			# :<cx>:<cy> - the cells to jump to when no monster is in view where the character stands (the village)
+			var area0: Dictionary = _world.area_at(_own().scene_pos) if _own() != null and _world.has_method("area_at") else {}
+			if parts.size() > 4 and _auto3d_nearest_monster() == null:
+				Game.chat("?gm ds NewWorld(%d,%d,%d)" % [Game.map_id, int(parts[3]), int(parts[4])])
+				waited = 0.0
+				while waited < 6.0 and _auto3d_nearest_monster() == null:
+					await get_tree().create_timer(0.25).timeout
+					waited += 0.25
+				await get_tree().create_timer(1.0).timeout
+			var area1: Dictionary = _world.area_at(_own().scene_pos) if _own() != null and _world.has_method("area_at") else {}
+			print("AUTO3D_AREA spawn=%s:%s:%s now=%s:%s:%s label=%s" % [str(area0.get("id", 0)), str(area0.get("name", "-")), str(area0.get("safe", false)),
+				str(area1.get("id", 0)), str(area1.get("name", "-")), str(area1.get("safe", false)), _area_label.text if _area_label != null else "-"])
+			await _auto3d_click_attack()
+			get_tree().quit()
+			return
 	if not _world.is_3d():
 		print("AUTO3D_FAIL no 3D view")
 		get_tree().quit(1)
@@ -1277,19 +1423,27 @@ func _auto_items() -> void:
 # prints AUTO_FIGHT so tools/dev.py e2e / screenshot can check the combat path end to end.
 # The player's own gesture in the 3D world: a left click on a monster's body (the pixel its view projects to) must pick
 # it (KWorldView3D.pick) and send the attack (the 2.0 rule of the left button); the monster's life then drops
-func _auto3d_click_attack() -> void:
+func _auto3d_nearest_monster(min_distance: float = 0.0) -> Node:
 	var own := _own()
-	if own == null or not _world.is_3d():
-		return
+	if own == null:
+		return null
 	var best: Node = null
 	var best_d := INF
 	for node in _entities.values():
 		if node == own or not node.is_attackable() or node.is_dead():
 			continue
 		var d: float = node.scene_pos.distance_to(own.scene_pos)
-		if d < best_d:
+		if d > min_distance and d < best_d:
 			best = node
 			best_d = d
+	return best
+
+
+func _auto3d_click_attack() -> void:
+	var own := _own()
+	if own == null or not _world.is_3d():
+		return
+	var best: Node = _auto3d_nearest_monster()
 	if best == null:
 		print("AUTO3D_CLICK none")
 		return
@@ -1311,6 +1465,8 @@ func _auto3d_click_attack() -> void:
 	var body: Vector3 = view.global_position + Vector3(0, float(view.bar_height) * 0.5, 0)
 	var screen: Vector2 = cam.unproject_position(body)
 	var picked: Node = _entity_at(screen)
+	print("AUTO3D_PICK target=%d picked=%s screen=%s view_pos=%s radius=%.2f bar=%.2f dist=%.2f own_pos=%s" % [best.entity_id, str(picked.entity_id) if picked != null else "none", str(screen),
+		str(view.global_position), float(view.radius), float(view.bar_height), view.global_position.distance_to(_world.get("_views").get(own).global_position), str(_world.get("_views").get(own).global_position)])
 	var life_before: int = best.life
 	var actions_before := _action_count
 	# the click itself, as the mouse would send it
@@ -1332,8 +1488,11 @@ func _auto3d_click_attack() -> void:
 	while waited < 8.0 and is_instance_valid(best) and best.life >= life_before and not best.is_dead():
 		await get_tree().create_timer(0.25).timeout
 		waited += 0.25
+	if not is_instance_valid(best):
+		print("AUTO3D_CLICK target gone (died / left) picked=%s actions=%d" % [str(picked.entity_id) if picked != null and is_instance_valid(picked) else "none", _action_count - actions_before])
+		return
 	print("AUTO3D_CLICK target=%d name=%s screen=%s picked=%s behind_cam=%s life=%d->%d actions=%d left_skill=%d target_now=%s" % [best.entity_id, best.display_name, str(screen),
-		str(picked.entity_id) if picked != null else "none", str(cam.is_position_behind(body)), life_before, best.life if is_instance_valid(best) else -1, _action_count - actions_before, Game.left_skill,
+		str(picked.entity_id) if picked != null and is_instance_valid(picked) else "none", str(cam.is_position_behind(body)), life_before, best.life, _action_count - actions_before, Game.left_skill,
 		str(_target.entity_id) if _target != null and is_instance_valid(_target) else "-"])
 	# the close-combat case: the camera swung behind the character so the monster stands right past it - the click on the
 	# monster's body must still pick the monster, not the character in between (KWorldView3D.pick leaves the player out)
@@ -1349,6 +1508,73 @@ func _auto3d_click_attack() -> void:
 		var picked2: Node = _entity_at(screen2)
 		var own_t: float = _world._ray_cylinder(cam.project_ray_origin(screen2), cam.project_ray_normal(screen2), own_view.global_position, float(own_view.radius), float(own_view.bar_height))
 		print("AUTO3D_CLICK_BEHIND picked=%s own_in_ray=%s screen=%s" % [str(picked2.entity_id) if picked2 != null else "none", str(own_t >= 0.0), str(screen2)])
+	await _auto3d_chase_click()
+
+
+# the chase (KNpcAI::FollowPeople): a click on a monster beyond the skill's reach + the zone's 300 tolerance must still
+# end in a blow - the character walks up on its own and sends the command within reach
+func _auto3d_chase_click() -> void:
+	var own := _own()
+	if own == null:
+		return
+	# the held blow of the shortest reach on the left button: the zone only sends what lies within its 2.0 screen view
+	# (1280 x 1536 units), so a long-reach skill would find nothing beyond reach + 300 in it
+	var left_before := Game.left_skill
+	var reach := INF
+	for id in Game.skills:
+		var row: Dictionary = Game.skill_row(int(id))
+		if row.is_empty() or str(row.get("TargetEnemy", "0")) != "1" or str(row.get("IsAura", "0")) == "1" or int(row.get("SkillStyle", "0")) > 4:
+			continue
+		var r := float(row.get("AttackRadius", "50"))
+		if r > 0.0 and r < reach:
+			reach = r
+			Game.left_skill = int(id)
+	if reach == INF:
+		print("AUTO3D_CHASE none (no blow held)")
+		return
+	var best: Node = _auto3d_nearest_monster(reach + 320.0)
+	var best_d: float = best.scene_pos.distance_to(own.scene_pos) if best != null else 0.0
+	if best == null:
+		print("AUTO3D_CHASE none (no monster beyond %d in view)" % int(reach + 320.0))
+		Game.left_skill = left_before
+		return
+	var cam: Camera3D = _world.cam_rig.cam
+	var view = _world.get("_views").get(best)
+	var own_view = _world.get("_views").get(own)
+	# the camera turned toward it so the click lands on its body
+	var to_it: Vector3 = view.global_position - own_view.global_position
+	_world.cam_rig.yaw = rad_to_deg(atan2(-to_it.x, -to_it.z))
+	_world.cam_rig.pitch = 25.0
+	for i in 4:
+		await get_tree().process_frame
+	var body: Vector3 = view.global_position + Vector3(0, float(view.bar_height) * 0.5, 0)
+	var screen: Vector2 = cam.unproject_position(body)
+	var picked: Node = _entity_at(screen)
+	var life_before: int = best.life
+	var actions_before := _action_count
+	var start: Vector2 = own.scene_pos
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = screen
+	ev.global_position = screen
+	get_viewport().warp_mouse(screen)
+	await get_tree().process_frame
+	Input.parse_input_event(ev)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = screen
+	up.global_position = screen
+	Input.parse_input_event(up)
+	var waited := 0.0
+	while waited < 25.0 and is_instance_valid(best) and best.life >= life_before and not best.is_dead():
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	print("AUTO3D_CHASE skill=%d target=%d name=%s distance=%d reach=%d picked=%s walked=%d life=%d->%s actions=%d follow=%d seconds=%.1f" % [Game.left_skill, best.entity_id if is_instance_valid(best) else 0,
+		best.display_name if is_instance_valid(best) else "-", int(best_d), int(reach), str(picked.entity_id) if picked != null and is_instance_valid(picked) else "none",
+		int(own.scene_pos.distance_to(start)), life_before, str(best.life) if is_instance_valid(best) else "gone", _action_count - actions_before, _follow_target, waited])
+	Game.left_skill = left_before
 
 
 func _auto_fight() -> void:

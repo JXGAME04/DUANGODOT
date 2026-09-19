@@ -714,18 +714,21 @@ python tools/dev.py e2e           # kịch bản đầu-cuối TCP + WS
 Godot --headless --path client tests/UiCheck.tscn                              # 160 kiểm tra giao diện
 ```
 
-### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-71
+### 0.8 Nhánh 3D `exp/3d-baling` (bản sao `swrod3-3d`, ADR-008) — trạng thái 2026-09-19, phần 3D-74
 
 - **Đọc**: `docs/LO-TRINH-3D.md` (lộ trình), `docs/MO-NHI-PHAN-3D.md` (lịch mổ bản 剑网江湖 3D, nhóm A–G + §H danh mục 639 lớp với
   trạng thái có/bỏ/chưa), `docs/THU-NGHIEM-3D.md` (cách chạy, công cụ, đo), `docs/3D-QUY-UOC.md`, `docs/ref_classes_3d.txt`.
 - **Xong** (nhật ký 3D-1..3D-71): 45 map 3D + hiệu ứng cảnh + cắt theo lớp + mặt xa theo cảnh; 494 NPC/model, vũ khí 71 (bảng tay cầm
   `--weapons`), ngựa; 234 kỹ năng JX ghép hiệu ứng 3D (133 có hình, quét `--factions` 133/133) với luật xoay/treo/bay/vòng/vẽ đỉnh/tia nối/
   vệt dải/billboard/rim/uv; số bay + tên kỹ năng + hiệu ứng trúng (`FloatingText`); vòng chọn; bloom theo profile URP; điểm treo theo model; bóng mờ `TaskGhost`;
-  công cụ kiểm: `--factions` (133/133), `--weapons` (bảng 71 vũ khí), `--sfxall` (tầm xa 343 hiệu ứng).
+  công cụ kiểm: `--factions` (133/133), `--weapons` (bảng 71 vũ khí), `--sfxall` (tầm xa 343 hiệu ứng); 3D-72..74: cưỡi ngựa đúng yên
+  (`Scn3DGltfCache`), nhấp quái không trúng mình, **vùng an toàn/chiến đấu** của map 3D đổi `fight_mode` (thay bẫy cổng) + đuổi theo quái
+  (`FollowPeople`) + tên vùng; `client3d.cmd play [tài khoản]` vào thẳng nhân vật Cái Bang 90 có kỹ năng/côn/ngựa.
 - **Còn** (§H mục 7–9): nhạc vùng chờ 3.5 của main; 62 NPC tên riêng; 6 map trống (không có bảng sinh quái); UI nhóm E (theo main);
   cài đặt; Android. **Chờ chủ dự án**: đổi ADR-008 sang renderer Mobile (Vulkan) để bloom toả rộng như bản tham khảo (GL chỉ vài pixel,
   đo ở 3D-66) — tạm thời `set JX_RENDER=mobile` trước `client3d.cmd`.
-- **Cách chạy**: `client3d.cmd [map x y]`; test: `--auto --auto3d [--skill=<id>:<phái> --series=n | --factions | --fxshots]`, viewer
+- **Cách chạy**: `client3d.cmd [map x y]` / `client3d.cmd play`; test: `--auto --auto3d [--skill=<id>:<phái> --series=n | --factions | --fxshots |
+  --clicktest=<phái>:<vũ khí>:<kỹ năng>[:cx:cy]]`, viewer
   `Scn3D.tscn -- --auto --map=<scene> [--sfx=<tệp> | --weapons]`. e2e khi server chủ dự án đang chạy: `JX_PORT_OFFSET=1000` **và sau
   đó `python tools/dev.py start` lại** (e2e gửi CTRL_BREAK cả nhóm console → zone 19001 dừng). Sau khi gộp main: dựng lại zone
   (`build\build_zone.cmd all`, tắt `jx_zone.exe` trước) + Go, chạy ctest (`ctest` của VS: thêm `…\CMake\bin` vào PATH) / Godot / UiCheck / e2e.
@@ -864,6 +867,42 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (nhánh exp/3d-baling, phần 3D-74) — "vẫn không đánh quái với dùng skill được" (chủ dự án báo): map 3D không có bẫy cổng nên chưa bao giờ vào trạng thái chiến đấu; thêm vùng an toàn/chiến đấu theo bản tham khảo + đuổi theo quái như client 2.0
+
+- **Nguyên nhân** (zone, log `skill command check failed why=peace mode`): `CheckCommand 0x0809B840` bỏ mọi lệnh kỹ năng khi `+0x168c`
+  (chiến đấu) = 0 và kỹ năng không `PeaceCanUse`; theo LINUX-SERVER §16.8 chỉ **script bẫy cổng** (`SetFightState(1)` ra thành, `(0)` vào
+  thành) đổi trạng thái này — map 3D xuất từ bản tham khảo chỉ có bẫy lối ra (`exit_*.lua`), không có cổng. `AttackReq` (đánh thường) tự bật
+  `fight_mode` (sai khác đã ghi), còn `CastSkillReq` của kỹ năng chuột thì không → nhấp quái bằng kỹ năng bị bỏ lặng.
+- **Luật bản tham khảo [TK]**: bảng `scn_area_list` (cột 2 tên mark, 3 scene, 4 "区域优先级" ưu tiên, **5 "是否是安全区(切换战斗模式)"** —
+  vùng an toàn *đổi chế độ chiến đấu*, 22 "纯客户端区域" không gửi server); đa giác trong mark json (`marks.areas` của `scene.json`, đã đảo x).
+  `TaskScnArea.LogicTick 0x52ee00`: mỗi khung lấy vị trí nhân vật, duyệt `ScnUnit.areas` (hộp bao `+0x18..+0x2c` rồi `ScnUnit.InArea 0x4a2e30`
+  = chẵn–lẻ trên mặt XZ: cạnh cắt ngang z, giao điểm x > x điểm thì đếm), giữ vùng **ưu tiên cao nhất** (`>` nghiêm ngặt, vùng đầu tiên thắng khi
+  bằng), khi đổi vùng gửi `eCTS_IntoArea 0x90d {h, id}` (hay sự kiện Lua `ClientIntoArea` với vùng chỉ client); server trả `STC_IntoArea`
+  → `scn_area.lua` đổi nhạc/sương/camera và `ui_showmsg.ShowAreaTitle(tên, trắng, 2 s)`. Ba Lăng: `safe` (巴陵县, ưu tiên 2, an toàn) là đa giác
+  quanh huyện thành, `fight` (巴陵县野外, 1) cả map; 363 quái đều ngoài `safe`, con gần nhất cách điểm sinh 31 m.
+- **Zone** (`KMapData` + `KSubWorld::check_area`, cạnh `check_trap` mỗi khung của người chơi): `map.json "areas"` → `KMapArea` (đa giác đơn vị
+  scene, hộp bao, `contains` chẵn–lẻ y hệt `InArea`), `area_at` = ưu tiên cao nhất; đổi vùng → `fight_mode = !safe` (tương đương
+  `SetFightState` của bẫy cổng; đứng yên trong vùng thì GM `SetFightState` vẫn giữ). Map cũ không có `areas` → không đổi gì. Bỏ đoạn tạm
+  "bật `fight_mode` + tự đi tới trong `cast_skill_request`" (làm ctest 85/210 đỏ). Test mới `test_KTrap.cpp` ×2 (đa giác/ưu tiên/nạp bundle;
+  ra khỏi làng bật, vào tắt, ngoài mọi vùng giữ nguyên). ctest **289/289**.
+- **Xuất** (`make_map3d.py export_areas`): ghép `marks.areas` với `scn_area_list` (bỏ dòng `#131` bị chú thích), `title_vi` Hán Việt từ tên map
+  (`ten_viet.json`) + đuôi 野外/迷宫/N层/-传送X/…; ghi vào `map.json` (zone) và `map3d.json` (client). 45 map → 60 vùng (2 map không có: 9001
+  thôn thử của ta, 9078 Thanh Thành Sơn chỉ còn `fight` vì `fight_mid` bị chú thích).
+- **Client** — hai việc của client 2.0 mà client Godot còn thiếu: (1) **đuổi theo quái** `KNpcAI::FollowPeople` (nguồn JX1
+  `Core/Src/KNpcAI.cpp`, client 2.0 cùng dòng — địa chỉ trong `gamecl.exe` chưa mổ): nhấp quái giữ `m_nPeopleIdx`, mỗi khung AI trong tầm
+  `AttackRadius` thì gửi `do_skill`, ngoài tầm thì đi/chạy tới vị trí quái ("嗷嗷追"). Zone chỉ tự đi trong `tầm + 300` (ProcessCommand
+  `0x0809BB07`) rồi bỏ → 300 đơn vị = 6 m, trong 3D nhấp quái xa hơn là mất lệnh. `UiGame._follow_enemy/_walk_to_enemy`: gửi ngay khi trong
+  tầm, không thì `move_to` vị trí quái, gửi lại khi quái dời > 64 đơn vị hay đi xong mà chưa tới (tối đa 8 lần); nhấp khác huỷ. (2) **tên vùng**
+  khi đổi vùng (`KWorldView3D.area_at` cùng thuật toán; nhãn trắng 2 s giữa trên, vị trí/cỡ [tự chọn]).
+- **Kiểm** `--clicktest=gaibang:2:359:203:160` (thêm `:cx:cy` nhảy tới chỗ có quái khi trong làng không thấy con nào): `AUTO3D_AREA spawn=1:safe
+  now=2:fight label="Ba Lăng Huyện Dã Ngoại"`; `AUTO3D_CLICK … life=80->0 actions=3 left_skill=359`; **`AUTO3D_CHASE skill=125 distance=562
+  reach=72 walked=460 life=80->0 seconds=4.3`** (quái ngoài tầm+300, nhân vật tự đi tới rồi đánh). Godot 637/637, UiCheck 162, e2e OK
+  (offset 1000, server bật lại sau).
+- **Chưa**: zone chỉ gửi thực thể trong khung nhìn 2.0 (1280×1536 đơn vị = ±13/15 m) → trong 3D quái chỉ hiện khi tới gần dù camera thấy 60 m
+  (cần `view_width/height` riêng cho map 3D — luật hiển thị, cân nhắc ở phần sau); `ExitArea_*` (vùng dịch chuyển cột 6/7) chưa dùng, lối ra vẫn
+  là bẫy `exit_*.lua`; đổi nhạc/sương/camera theo vùng (cột 8–20) chưa.
+- commit: `JX NEXT 3D: 3D-74 - vung an toan/chien dau theo scn_area_list (TaskScnArea.LogicTick, ScnUnit.InArea) -> fight_mode; duoi theo quai (KNpcAI::FollowPeople); ten vung`.
 
 ### 2026-09-19 (nhánh exp/3d-baling, phần 3D-73) — nhấp vào quái không đánh (chủ dự án báo): tia chọn trúng trụ của chính mình trước quái
 

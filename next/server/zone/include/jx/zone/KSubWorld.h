@@ -759,6 +759,7 @@ private:
     void approach(KNpc& e, const KNpc& target);
     bool check_hit_target(int ar, int df, int ignore = 0);   // KNpc::CheckHitTarget 0x0807ED60
     void check_trap(KNpc& e);                                // KNpc::CheckTrap (players, every frame with m_ProcessAI)
+    void check_area(KNpc& e);                                // the 3D map's areas: the safe flag of the area entered switches the fight mode (the gate traps of the old maps)
     void process_state(KNpc& e);                            // the every-GAME_UPDATE_TIME part of KNpc::ProcessState: the regeneration
     // KNpc::Init -> g_pNpcTemplate[id][level]: the level data of a template, computed once per (id, level, series)
     [[nodiscard]] const KNpcLevelData& level_data_of(const KNpcTemplate& t, int level, int series) const;

@@ -92,6 +92,14 @@ std::optional<KMapData> KMapData::load(const std::filesystem::path& dir, std::st
         for (const auto& t : j.value("traps", nlohmann::json::array())) {
             traps.push_back({t.value("x", 0), t.value("y", 0), t.value("n", 0), t.value("id", 0u), t.value("script", "")});
         }
+        for (const auto& ar : j.value("areas", nlohmann::json::array())) {
+            std::vector<Pos> poly;
+            for (const auto& v : ar.value("poly", nlohmann::json::array())) {
+                if (v.is_array() && v.size() >= 2) poly.push_back(Pos{v[0].get<int>(), v[1].get<int>()});
+            }
+            if (poly.size() < 3) continue;
+            m.add_area(ar.value("id", 0u), ar.value("name", ""), ar.value("safe", false), ar.value("priority", 0), std::move(poly));
+        }
     } catch (const std::exception& e) {
         return fail(std::string("map.json fields: ") + e.what());
     }
@@ -136,6 +144,72 @@ void KMapData::set_trap(int cx, int cy, int n, std::uint32_t trap_id, const std:
         trap[static_cast<std::size_t>(cy) * static_cast<std::size_t>(cells_x) + static_cast<std::size_t>(cx + i)] = trap_id;
     }
     if (trap_id != 0 && (!trap_scripts.contains(trap_id) || trap_scripts[trap_id].empty())) trap_scripts[trap_id] = script;
+}
+
+void KMapArea::finish()
+{
+    min_x = max_x = poly.empty() ? 0 : poly[0].x;
+    min_y = max_y = poly.empty() ? 0 : poly[0].y;
+    for (const Pos& v : poly) {
+        min_x = std::min(min_x, v.x);
+        max_x = std::max(max_x, v.x);
+        min_y = std::min(min_y, v.y);
+        max_y = std::max(max_y, v.y);
+    }
+}
+
+// ScnUnit.InArea 0x4a2e30: for every edge (i, (i+1) % n) whose z range straddles the point's z, the x of the edge at
+// that z is compared with the point's x - an odd number of crossings to the right means inside
+bool KMapArea::contains(Pos p) const noexcept
+{
+    if (poly.size() < 3 || p.x < min_x || p.x > max_x || p.y < min_y || p.y > max_y) return false;
+    int crossings = 0;
+    const std::size_t n = poly.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        const Pos a = poly[i];
+        const Pos b = poly[(i + 1) % n];
+        if (a.y == b.y) continue;
+        const int lo = std::min(a.y, b.y), hi = std::max(a.y, b.y);
+        if (p.y <= lo || p.y > hi) continue;   // the reference: min < z <= max (the equal-z endpoint counted once)
+        const double x = static_cast<double>(p.y - a.y) / static_cast<double>(b.y - a.y) * static_cast<double>(b.x - a.x) + a.x;
+        if (x > p.x) ++crossings;
+    }
+    return (crossings & 1) == 1;
+}
+
+void KMapData::add_area(std::uint32_t area_id, const std::string& area_name, bool safe, int priority, std::vector<Pos> poly)
+{
+    KMapArea a;
+    a.id = area_id;
+    a.name = area_name;
+    a.safe = safe;
+    a.priority = priority;
+    a.poly = std::move(poly);
+    a.finish();
+    areas.push_back(std::move(a));
+}
+
+std::uint32_t KMapData::area_at(Pos p) const noexcept
+{
+    // TaskScnArea.LogicTick 0x52f081..0x52f18a: the first area of a strictly higher priority wins
+    std::uint32_t best = 0;
+    int best_priority = 0;
+    for (const KMapArea& a : areas) {
+        if (!a.contains(p)) continue;
+        if (best == 0 || a.priority > best_priority) {
+            best = a.id;
+            best_priority = a.priority;
+        }
+    }
+    return best;
+}
+
+const KMapArea* KMapData::area(std::uint32_t area_id) const noexcept
+{
+    for (const KMapArea& a : areas) {
+        if (a.id == area_id) return &a;
+    }
+    return nullptr;
 }
 
 void KMapData::set_blocked(int cx, int cy, std::uint8_t kind)

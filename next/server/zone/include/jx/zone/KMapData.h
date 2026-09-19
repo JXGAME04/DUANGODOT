@@ -66,6 +66,23 @@ struct KMapSettings {
     }
 };
 
+// A named region of a 3D map (the reference client's scn_area_list row + its MarkArea polygon, map.json "areas"):
+// TaskScnArea.LogicTick 0x52ee00 of the reference picks, every frame, the area of the highest priority whose polygon
+// holds the character (ScnUnit.InArea 0x4a2e30: even-odd crossings on the ground plane, a bounding box first) and tells
+// the server; the row's "是否是安全区(切换战斗模式)" flag (column 5) says whether that area is a safe one - entering it
+// switches the fight mode.  The old maps do this with their gate traps (SetFightState of script/maps, LINUX-SERVER §16.8).
+struct KMapArea {
+    std::uint32_t id = 0;
+    std::string name;          // the mark's name ("safe", "fight", "ExitArea_wld")
+    bool safe = false;         // column 5: 1 = peace inside (fight mode off), else fight mode on
+    int priority = 0;          // column 4: the higher wins where areas overlap
+    std::vector<Pos> poly;     // scene units, the mark's nodes in order
+    int min_x = 0, min_y = 0, max_x = 0, max_y = 0;   // the bounding box of poly
+
+    void finish();
+    [[nodiscard]] bool contains(Pos p) const noexcept;
+};
+
 class KMapData {
 public:
     // Loads <dir>/map.json and <dir>/obstacle.bin; returns nullopt and fills *error on failure.
@@ -88,6 +105,7 @@ public:
     // KRegion::m_dwTrap: the trap script id of every cell (0 = none), and the script each id names
     std::vector<std::uint32_t> trap;
     std::unordered_map<std::uint32_t, std::string> trap_scripts;   // id -> `\script\...lua` ("" = unknown)
+    std::vector<KMapArea> areas;   // the 3D map's regions (none on the old 2D maps)
 
     [[nodiscard]] bool in_bounds(int cx, int cy) const noexcept
     {
@@ -117,6 +135,12 @@ public:
     }
     // Marks n cells from (cx, cy) rightwards with a trap (KRegion::LoadServerTrap: one KSPTrap run).
     void set_trap(int cx, int cy, int n, std::uint32_t trap_id, const std::string& script);
+    // The area under a position: the highest priority among those holding it (the first of equal ones, as the
+    // reference loop keeps the first strictly greater priority); 0 = none.
+    [[nodiscard]] std::uint32_t area_at(Pos p) const noexcept;
+    [[nodiscard]] const KMapArea* area(std::uint32_t area_id) const noexcept;
+    // Adds an area from its polygon (scene units); the bounding box is computed here.
+    void add_area(std::uint32_t area_id, const std::string& area_name, bool safe, int priority, std::vector<Pos> poly);
     // Closest walkable position to p (p itself when walkable); p when nothing within max_radius cells.
     [[nodiscard]] Pos nearest_walkable(Pos p, int max_radius = 16) const noexcept;
     // True when every cell crossed by the segment a-b is walkable.

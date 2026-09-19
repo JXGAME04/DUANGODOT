@@ -969,7 +969,9 @@ chiến đấu), **khôi phục lúc vào game** `0x080B5DF0` (`Player+0x8074 = 
 `SetFightMode(0)`; cũng gọi từ dùng vật phẩm `0x08204710` với sự kiện `UseTownPortalEvent:OnEvent`) / `ReturnFromPortal 0x081178C0` → `0x080AD960`
 (về chỗ đã lưu, `SetFightMode(1)`), `0x080DD37D` (một lệnh con của handler `0x080DBA90` → `UseTownPortal`), `0x081EAA80` (đồng hành chép trạng thái
 chủ), `0x08050580` (khôi phục `+0x1690`). Vậy client 2.0 không có nút/gói "vào chiến đấu"; `--auto` của zone dùng `SetFightState(1)` qua GM đúng như
-bẫy cổng. Chưa port: thổ địa phù (`+0x34` đếm lùi ở đâu tiêu — đọc tiếp khi làm vật phẩm), `+0x8074`.
+bẫy cổng. Chưa port: thổ địa phù (`+0x34` đếm lùi ở đâu tiêu — đọc tiếp khi làm vật phẩm), `+0x8074`. **Map 3D** (nhánh exp/3d-baling, 3D-74):
+không có bẫy cổng — `map.json "areas"` (bảng `scn_area_list` của bản 3D: cột 5 "là vùng an toàn (đổi chế độ chiến đấu)") → `KSubWorld::check_area`
+mỗi khung cạnh `check_trap`: đổi vùng → `fight_mode = !safe` (tương đương `SetFightState` của script cổng); map cũ không có `areas` nên không đổi gì.
 
 ### 16.9 Gói trạng thái 0x87 — `SetStateSkillEffect 0x08086892` / `RemoveStateSkillEffect 0x0807D40A` (M12 lát B4b-4, đã kiểm)
 

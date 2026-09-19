@@ -158,6 +158,40 @@ func map_name() -> String:
 	return place.map_name()
 
 
+# The area of the map under a scene point (map3d.json "areas" = the reference's scn_area_list rows with their MarkArea
+# polygons, scene units): the highest priority among those holding it, as TaskScnArea.LogicTick 0x52ee00 picks it with
+# ScnUnit.InArea 0x4a2e30 (even-odd crossings on the ground plane).  The zone runs the same test to switch the fight
+# mode; the client only names the area entered (scn_area.lua STC_IntoArea: ui_showmsg.ShowAreaTitle(mb.name, white, 2)).
+func area_at(p: Vector2) -> Dictionary:
+	var best := {}
+	for a in place.info.get("areas", []):
+		if not (a is Dictionary) or not _in_poly(a.get("poly", []), p):
+			continue
+		if best.is_empty() or int(a.get("priority", 0)) > int(best.get("priority", 0)):
+			best = a
+	return best
+
+
+static func _in_poly(poly: Array, p: Vector2) -> bool:
+	var n := poly.size()
+	if n < 3:
+		return false
+	var crossings := 0
+	for i in n:
+		var a: Array = poly[i]
+		var b: Array = poly[(i + 1) % n]
+		var ay := float(a[1])
+		var by := float(b[1])
+		if ay == by:
+			continue
+		if p.y <= minf(ay, by) or p.y > maxf(ay, by):
+			continue
+		var x := (p.y - ay) / (by - ay) * (float(b[0]) - float(a[0])) + float(a[0])
+		if x > p.x:
+			crossings += 1
+	return (crossings & 1) == 1
+
+
 func map_info() -> Dictionary:
 	return place.map_info()
 

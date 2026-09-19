@@ -73,6 +73,10 @@ phân biệt hoa/thường, đường dẫn viết thường như `KSortScript` 
 (`npcres.ScriptIndex`; bản Linux **không có** script theo map → `server_fallback` = `bin/Server`) và ghi vào `map.json`
 `traps: [{x, y, n, id, script}]` (ô 32 đơn vị tuyệt đối). `jxassets traps <map>` liệt kê để đối chiếu.
 
+Map 3D (nhánh exp/3d-baling, `tools/scn3d/make_map3d.py`, 3D-74) thêm `areas: [{id, name, title, title_vi, safe, priority, poly: [[x, y]…]}]`
+(đơn vị scene cục bộ, đa giác `marks.areas` của bản tham khảo ghép bảng `scn_area_list`): `KMapData::area_at` = vùng ưu tiên cao nhất chứa
+điểm (chẵn–lẻ như `ScnUnit.InArea`), `KSubWorld::check_area` đổi `fight_mode = !safe` khi đổi vùng — thay cho bẫy cổng `SetFightState`.
+
 Zone (`KMapData::trap_at`): mỗi tick người chơi đang đứng/đi (`m_ProcessAI`) kiểm tra ô dưới chân như
 `KNpcAI::ProcessPlayer → TriggerMapTrap → KNpc::CheckTrap`: id đổi → nhớ vào `m_TrapScriptID` và chạy `main(0)` của script
 (`KPlayer::ExecuteScript`) qua Lua 5.4 với API `ScriptFuns` (`GetFightState/SetFightState/SetPos/NewWorld/GetPos/

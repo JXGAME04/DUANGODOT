@@ -638,7 +638,10 @@ void KSubWorld::tick()
         }
         if (frozen) continue;   // 0x0808C0D8: stunned, or the odd frame of a freeze - nothing else this frame
         // KNpcAI::ProcessPlayer -> TriggerMapTrap -> KNpc::CheckTrap (players, while m_ProcessAI)
-        if (e.kind == KNpcKind::player && e.process_ai()) check_trap(e);
+        if (e.kind == KNpcKind::player && e.process_ai()) {
+            check_trap(e);
+            check_area(e);
+        }
         if (awake && e.kind != KNpcKind::player && e.ai_mode != 0 && e.process_ai()) KNpcAI::activate(*this, e);
         process_command(e);   // KNpc::ProcessCommand 0x0809B9E0: the do_skill commands waiting
         update_action(e);
@@ -1896,6 +1899,25 @@ void KSubWorld::check_trap(KNpc& e)
     }
     log::debug("zone.trap", "trap", {log::kv("entity", e.id), log::kv("trap", id), log::kv("script", script)});
     execute_script(script, "main", e, 0);   // Player.ExecuteScript(m_TrapScriptID, "main", 0)
+}
+
+// The 3D maps have no gate traps: their scn_area_list rows say which region is a safe one.  The reference client
+// (TaskScnArea.LogicTick 0x52ee00) finds the highest-priority area under the character every frame and reports a change
+// to its server (eCTS_IntoArea), whose reply switches the fight mode by the row's "是否是安全区(切换战斗模式)" flag; the
+// zone, which owns the position, evaluates the same polygons itself - the equivalent of SetFightState(0)/(1) in the
+// gate scripts of the old maps (docs/LINUX-SERVER.md §16.8).  No change while the character stays in one area, so a
+// GM SetFightState holds until the next border.
+void KSubWorld::check_area(KNpc& e)
+{
+    if (!cfg_.map || cfg_.map->areas.empty()) return;
+    const std::uint32_t id = cfg_.map->area_at(e.pos());
+    if (e.area_id == id) return;
+    e.area_id = id;
+    const KMapArea* a = cfg_.map->area(id);
+    if (a == nullptr) return;   // out of every area: the state stays
+    const bool fight = !a->safe;
+    log::debug("zone.trap", "area", {log::kv("entity", e.id), log::kv("area", id), log::kv("name", a->name), log::kv("fight", fight)});
+    if (e.fight_mode != fight) e.fight_mode = fight;   // KNpc::SetFightMode 0x08079B30
 }
 
 bool KSubWorld::execute_script(const std::string& game_path, const char* fn, KNpc& player, int param)

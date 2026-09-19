@@ -4,7 +4,7 @@
     python tools/scn3d/make_map3d.py world_baling --id 9053
 
 Ghi client/assets3d/maps/<id>/:
-    map.json      ban 2D toi thieu cho zone (id, luoi o 32, spawn, npcs theo template JX1, traps) - schema MAPS.md §3
+    map.json      ban 2D toi thieu cho zone (id, luoi o 32, spawn, npcs theo template JX1, traps, areas) - schema MAPS.md §3
     obstacle.bin  1 byte/o, hang truoc cot, 0 = di duoc: o di duoc khi tam o nam trong mot tam giac navmesh (chieu XZ)
     map3d.json    scene glTF, UNIT, origin (goc scene (0,0) cua zone nam o dau trong glTF), camera, y mat dat
     models.json   template JX1 -> model 3D (cha_pic id cua bo tham khao) cho KWorldView3D
@@ -17,6 +17,7 @@ import io
 import json
 import math
 import os
+import re
 import struct
 import sys
 
@@ -98,7 +99,101 @@ def point_in_tri(px, pz, a, b, c):
     return not (neg and pos)
 
 
-def export_minimap(scene_id, origin, out):
+def ref_tables():
+    """Bang excel cua bo tham khao [TK] (export_npc.Tables) - None khi thieu bo/khoa."""
+    try:
+        import UnityPy
+    except ImportError:
+        return None
+    src = os.environ.get("JX_SCN3D_SRC", r"D:\game3gtQ_mo\pc\剑网江湖_Data\StreamingAssets")
+    keyf = os.environ.get("JX_SCN3D_KEY", r"D:\game3gtQ_mo\khoa_bundle.txt")
+    if not os.path.exists(keyf) or not os.path.isdir(src):
+        return None
+    UnityPy.set_assetbundle_decrypt_key(io.open(keyf, encoding="utf-8").read().strip().split()[0])
+    from export_npc import Tables
+    return Tables(src)
+
+
+def export_areas(scene, tables, to_scene):
+    """Vung cua map: marks.areas cua scene.json (da doi truc x) ghep bang scn_area_list [TK] (cot 3 = id scene, cot 2 = ten
+    mark, cot 4 = uu tien "区域优先级", cot 5 = "是否是安全区(切换战斗模式)" an toan) -> map.json "areas" cho zone:
+    KSubWorld::check_area chon vung uu tien cao nhat chua vi tri (TaskScnArea.LogicTick 0x52ee00 + ScnUnit.InArea 0x4a2e30
+    cua bo tham khao) va bat/tat che do chien dau theo co an toan - thay cho bay cong SetFightState cua map cu."""
+    sid = str(scene["table"].get("id", ""))
+    rows = {}
+    if tables is not None:
+        for r in tables.t.get("scn_area_list", [])[1:]:
+            if len(r) > 5 and r[3].strip() == sid and r[0].strip().isdigit():   # '#131' = a row commented out
+                rows.setdefault(r[2].strip(), r)
+    areas = []
+    for a in scene["marks"].get("areas", []):
+        name = (a.get("name") or "").strip()
+        r = rows.get(name)
+        poly = [list(to_scene(n)) for n in a.get("nodes", [])]
+        if len(poly) < 3:
+            continue
+        if r is None:
+            print("vung %s: khong co dong scn_area_list cho scene %s (bo qua)" % (name, sid))
+            continue
+        pr = r[4].strip()
+        title = r[1].strip()
+        areas.append({"id": int(r[0]), "name": name, "title": title, "title_vi": area_title_vi(title, scene["table"], tables),
+                      "safe": r[5].strip() == "1", "priority": int(pr) if pr.lstrip("-").isdigit() else 0, "poly": poly})
+    return areas
+
+
+# 地区名称 (cot 1 cua scn_area_list) -> Han Viet: ten map (ten_viet.json) + cac duoi thuong gap noi tiep nhau; phan chua
+# biet giu nguyen chu Han (make_map3d in ra de bo sung)
+AREA_TITLE = {"宋金报名": "Tống Kim Báo Danh", "死亡沙漠": "Tử Vong Sa Mạc"}   # ten khong bat dau bang ten map
+AREA_SUFFIX = [("野外", " Dã Ngoại"), ("迷宫", " Mê Cung"), ("-战斗区中心", " - Trung tâm chiến khu"), ("-雪原", " - Tuyết Nguyên"),
+               ("-草原", " - Thảo Nguyên"), ("报名", " Báo Danh"), ("小", " (nhỏ)"), ("(副本)", ""), ("地下", "")]
+
+
+def area_title_vi(title, table, tables):
+    name_cn = (table.get("name") or "").strip()
+    name_vi = (table.get("name_vi") or "").strip() or name_cn
+    try:
+        tv = json.load(io.open(os.path.join(HERE, "ten_viet.json"), encoding="utf-8")).get("map", {})
+    except Exception:
+        tv = {}
+    tv = dict(tv)
+    if name_cn:
+        tv.setdefault(name_cn, name_vi)
+    if title in AREA_TITLE:
+        return AREA_TITLE[title]
+    # the longest known map name the title starts with (宋金报名 is not 宋金战场报名: the map's own name comes second)
+    head = ""
+    for cn in sorted(tv, key=len, reverse=True):
+        if cn and title.startswith(cn):
+            head = cn
+            break
+    out = tv[head] if head else ""
+    rest = title[len(head):]
+    while rest:
+        m = re.match(r"^-?传送(.+)$", rest)
+        if m:
+            out = "%s - Cổng sang %s" % (out or title, tv.get(m.group(1), m.group(1)))
+            rest = ""
+            break
+        m = re.match(r"^(\d+)层", rest)
+        if m:
+            out = "%s Tầng %s" % (out, m.group(1))
+            rest = rest[m.end():]
+            continue
+        for cn, vi in AREA_SUFFIX:
+            if rest.startswith(cn):
+                out += vi
+                rest = rest[len(cn):]
+                break
+        else:
+            break
+    if rest:
+        print("vung: chua dich '%s' trong '%s'" % (rest, title))
+        out = (out + " " + rest).strip()
+    return out.strip()
+
+
+def export_minimap(scene_id, origin, out, tables=None):
     """Anh minimap cua bo tham khao [TK]: bang ui_map_view (id scene -> ten anh trong Assets/GUI/res/textures/map/, ti le,
     toa do the gioi Unity cua goc trai-duoi (x, z) va phai-tren) trong bundle UI 9431897d8969 (container = md5 duong dan).
     Bo xuat dao truc X (Unity -> Godot) nen anh xoay 180 do de toa do scene cua ta (x = (-x_unity - origin.X)/UNIT,
@@ -111,12 +206,9 @@ def export_minimap(scene_id, origin, out):
     except ImportError:
         return None
     src = os.environ.get("JX_SCN3D_SRC", r"D:\game3gtQ_mo\pc\剑网江湖_Data\StreamingAssets")
-    keyf = os.environ.get("JX_SCN3D_KEY", r"D:\game3gtQ_mo\khoa_bundle.txt")
-    if not os.path.exists(keyf):
+    t = tables or ref_tables()
+    if t is None:
         return None
-    UnityPy.set_assetbundle_decrypt_key(io.open(keyf, encoding="utf-8").read().strip().split()[0])
-    from export_npc import Tables
-    t = Tables(src)
     row = None
     for r in t.t.get("ui_map_view_cmn", [])[1:]:
         if r and r[0].strip() == str(scene_id):
@@ -264,6 +356,8 @@ def main():
                 for dy in (-1, 0, 1):
                     traps.append({"x": cx - 1, "y": cy + dy, "n": 3, "id": n_exit, "script": game_path})
 
+    tables = ref_tables()
+    areas = export_areas(scene, tables, to_scene)
     out = os.path.join(NEXT, "client", "assets3d", "maps", str(a.id))
     os.makedirs(out, exist_ok=True)
     map_json = {
@@ -271,7 +365,7 @@ def main():
         "region_left": 0, "region_top": 0, "region_cols": region_cols, "region_rows": region_rows,
         "region_w": REGION_W, "region_h": REGION_H, "cell_size": CELL, "cells_x": cells_x, "cells_y": cells_y,
         "scene_w": cells_x * CELL, "scene_h": cells_y * CELL, "spawn": [spawn[0], spawn[1]], "indoor": False,
-        "regions": [], "traps": traps, "npcs": placements, "exits": exits,
+        "regions": [], "traps": traps, "npcs": placements, "exits": exits, "areas": areas,
     }
     with io.open(os.path.join(out, "map.json"), "w", encoding="utf-8") as f:
         json.dump(map_json, f, ensure_ascii=False, indent=1)
@@ -281,9 +375,9 @@ def main():
     map3d = {
         "id": a.id, "name": name, "scene": "../../%s/%s.gltf" % (a.map, a.map), "scene_json": "../../%s/scene.json" % a.map,
         "npcs_json": "../../%s/npcs.json" % a.map, "unit": UNIT, "origin": [origin[0], origin[1]], "scale": 1.0,
-        "camera": cam, "ground_y": min(ys), "models": "models.json",
+        "camera": cam, "ground_y": min(ys), "models": "models.json", "areas": areas,
     }
-    mm = export_minimap(scene["table"].get("id"), origin, out)
+    mm = export_minimap(scene["table"].get("id"), origin, out, tables)
     if mm:
         map3d["minimap"] = mm
         print("minimap: %s %dx%d, scene x %.0f..%.0f y %.0f..%.0f" % (mm["source"], mm["width"], mm["height"], mm["left"], mm["right"], mm["top"], mm["bottom"]))
@@ -291,8 +385,9 @@ def main():
         json.dump(map3d, f, ensure_ascii=False, indent=1)
     with io.open(os.path.join(out, "models.json"), "w", encoding="utf-8") as f:
         json.dump({"templates": models, "player": PLAYER_MODELS, "horses": HORSES, "models_dir": "../../npc"}, f, ensure_ascii=False, indent=1)
-    print("map %d %s: origin (%.2f, %.2f) m, %d x %d region, %d x %d o, di duoc %d o (%.1f%%), spawn %s, npc %d, exit %d (bay %d o)"
-          % (a.id, name, origin[0], origin[1], region_cols, region_rows, cells_x, cells_y, walk, 100.0 * walk / len(grid), spawn, len(placements), len(exits), len(traps)))
+    print("map %d %s: origin (%.2f, %.2f) m, %d x %d region, %d x %d o, di duoc %d o (%.1f%%), spawn %s, npc %d, exit %d (bay %d o), vung %s"
+          % (a.id, name, origin[0], origin[1], region_cols, region_rows, cells_x, cells_y, walk, 100.0 * walk / len(grid), spawn, len(placements), len(exits), len(traps),
+             ", ".join("%s(%d%s)" % (x["name"], x["priority"], " an toan" if x["safe"] else "") for x in areas) or "-"))
     if missing:
         print("cha chua co template JX1 (bo qua):", sorted(missing))
     print("->", out)

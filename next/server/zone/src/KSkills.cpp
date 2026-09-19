@@ -391,7 +391,7 @@ int KSubWorld::check_command(KNpc& e, KNpcCommand& c)
 {
     // 0x0809B840 - the same checks in the same order; `why` only names the failing one for the trace log
     auto no = [&](const char* why) {
-        log::trace("zone.fight", "skill command check failed", {log::kv("entity", e.id), log::kv("skill", c.skill_id), log::kv("why", why)});
+        log::debug("zone.fight", "skill command check failed", {log::kv("entity", e.id), log::kv("skill", c.skill_id), log::kv("why", why)});
         return 2;
     };
     if (c.cmd != kCommandSkill) return no("not a skill");

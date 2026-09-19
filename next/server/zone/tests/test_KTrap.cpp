@@ -227,3 +227,84 @@ TEST_CASE("a portal trap asks for another map (NewWorld) instead of moving on it
     jx::zone::KNpc* self = nullptr;
     (void)self;
 }
+
+// The 3D maps' areas (map.json "areas", the reference's scn_area_list + MarkArea polygons): the safe flag of the
+// highest-priority area under the character switches the fight mode as the gate traps do (KSubWorld::check_area).
+TEST_CASE("KMapData areas: even-odd polygon test, the highest priority wins, the bundle field", "[trap][map][area]")
+{
+    KMapData m = KMapData::synthetic(64, 64);
+    // a diamond of priority 2 (safe) inside a rectangle of priority 1 (fight)
+    m.add_area(1, "safe", true, 2, {Pos{500, 200}, Pos{800, 500}, Pos{500, 800}, Pos{200, 500}});
+    m.add_area(2, "fight", false, 1, {Pos{0, 0}, Pos{2000, 0}, Pos{2000, 2000}, Pos{0, 2000}});
+    CHECK(m.area_at(Pos{500, 500}) == 1);      // the middle of the diamond
+    CHECK(m.area_at(Pos{260, 500}) == 1);      // near the left tip (x = 200 at y = 500)
+    CHECK(m.area_at(Pos{230, 250}) == 2);      // outside the diamond's slanted edge, inside the rectangle
+    CHECK(m.area_at(Pos{1500, 1500}) == 2);
+    CHECK(m.area_at(Pos{2001, 5}) == 0);       // out of every area
+    REQUIRE(m.area(1) != nullptr);
+    CHECK(m.area(1)->safe);
+    CHECK(m.area(1)->min_x == 200);
+    CHECK(m.area(1)->max_y == 800);
+    CHECK(m.area(3) == nullptr);
+    // the order of the list does not matter: the higher priority still wins where they overlap
+    KMapData m2 = KMapData::synthetic(64, 64);
+    m2.add_area(2, "fight", false, 1, {Pos{0, 0}, Pos{2000, 0}, Pos{2000, 2000}, Pos{0, 2000}});
+    m2.add_area(1, "safe", true, 2, {Pos{500, 200}, Pos{800, 500}, Pos{500, 800}, Pos{200, 500}});
+    CHECK(m2.area_at(Pos{500, 500}) == 1);
+    // a polygon of fewer than three points is not an area
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "jxnext_area_bundle";
+    std::filesystem::create_directories(dir);
+    std::ofstream(dir / "map.json") << R"({"id": 6, "name": "a", "cell_size": 32, "cells_x": 4, "cells_y": 4, "scene_w": 128, "scene_h": 128,
+        "spawn": [16, 16], "npcs": [], "areas": [{"id": 1, "name": "safe", "safe": true, "priority": 2, "poly": [[0, 0], [64, 0], [64, 64], [0, 64]]},
+        {"id": 2, "name": "fight", "priority": 1, "poly": [[0, 0], [128, 0], [128, 128], [0, 128]]}, {"id": 3, "name": "bad", "poly": [[1, 1], [2, 2]]}]})";
+    std::ofstream(dir / "obstacle.bin", std::ios::binary) << std::string(16, '\0');
+    std::string error;
+    const auto b = KMapData::load(dir, &error);
+    REQUIRE(b.has_value());
+    REQUIRE(b->areas.size() == 2);
+    CHECK(b->area_at(Pos{10, 10}) == 1);
+    CHECK(b->area_at(Pos{100, 100}) == 2);
+    CHECK_FALSE(b->area(2)->safe);
+}
+
+TEST_CASE("walking out of the safe area switches the fight mode on, back in switches it off", "[trap][world][area]")
+{
+    Quiet q;
+    KSubWorldConfig c = trap_world();
+    KMapData m = KMapData::synthetic(64, 64);
+    m.id = 1;
+    m.add_area(1, "safe", true, 2, {Pos{0, 0}, Pos{640, 0}, Pos{640, 640}, Pos{0, 640}});
+    m.add_area(2, "fight", false, 1, {Pos{0, 0}, Pos{1500, 0}, Pos{1500, 1500}, Pos{0, 1500}});
+    c.map = std::make_shared<const KMapData>(std::move(m));
+    KSubWorld w(c);
+    EntityId hero;
+    Pos at;
+    jx::pb::RoleData r = role(70, "Hero", Pos{300, 300});
+    r.set_fight_mode(true);   // the saved stance: the village area takes it off on the first tick
+    REQUIRE(w.spawn_player(7, r, hero, at) == jx::pb::RESULT_OK);
+    w.tick();
+    const jx::zone::KNpc* h = w.find_player(7);
+    REQUIRE(h != nullptr);
+    CHECK(h->area_id == 1);
+    CHECK_FALSE(h->fight_mode);
+    // a GM SetFightState holds while the character stays in the area
+    w.mutable_entity(hero)->fight_mode = true;
+    w.tick();
+    CHECK(w.find_player(7)->fight_mode);
+    // out into the wild: fight mode on
+    REQUIRE(w.teleport(hero, Pos{1000, 1000}));
+    w.tick();
+    CHECK(w.find_player(7)->area_id == 2);
+    CHECK(w.find_player(7)->fight_mode);
+    // back into the village: off again
+    REQUIRE(w.teleport(hero, Pos{100, 100}));
+    w.tick();
+    CHECK(w.find_player(7)->area_id == 1);
+    CHECK_FALSE(w.find_player(7)->fight_mode);
+    // beyond every area the stance stays as it was
+    w.mutable_entity(hero)->fight_mode = true;
+    REQUIRE(w.teleport(hero, Pos{1800, 1800}));
+    w.tick();
+    CHECK(w.find_player(7)->area_id == 0);
+    CHECK(w.find_player(7)->fight_mode);
+}

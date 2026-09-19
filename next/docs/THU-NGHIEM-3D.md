@@ -163,6 +163,11 @@ Lần đầu ở máy mới chạy `godot --path client --headless --import` m�
    Q W E A S D Z X C thì gán kỹ năng đang rê vào phím đó; sau này bấm phím = chọn kỹ năng đó cho chuột). Nhấp **trái** quái = kỹ năng chuột trái (không có
    thì đánh thường), nhấp **phải** = kỹ năng chuột phải tại chỗ trỏ. Kỹ năng cần đúng vũ khí (`EqtLimit`: −2 bất kỳ, 0 kiếm, 1 đao, 2 côn, 3 thương…,
    100+ ám khí) và cấp ≥ `ReqLevel` (zone `can_cast 0x080E4540`), ví dụ Cái Bang: 打狗棒 cần côn (`AddItem(0,0,2,1,0,0)`), 降龙十八掌 bất kỳ.
+   **Phải ra khỏi làng mới đánh được** (3D-74): trong vùng an toàn (`safe` của `scn_area_list`, huyện thành) zone ở chế độ hoà bình và bỏ mọi
+   kỹ năng không `PeaceCanUse` — như bẫy cổng của map cũ; bước ra vùng `fight` (nhãn "… Dã Ngoại" hiện 2 giây giữa màn hình) là đánh được.
+   Ở Ba Lăng quái gần nhất cách điểm sinh ~30 m về phía tây; nhấp quái xa cũng được: nhân vật tự chạy tới (như client 2.0) rồi mới đánh.
+   Kiểm tự động của bước này: `--auto --auto3d --clicktest=gaibang:2:359:203:160` → dòng `AUTO3D_AREA` (safe → fight), `AUTO3D_CLICK`
+   (máu quái giảm), `AUTO3D_CHASE` (quái ngoài tầm + 300: tự đi tới rồi đánh).
 6. Kiểm tự động thay tay: `--auto --auto3d --skill=<id>:<phái> --series=<0..4>` (tự lên 90, tự đeo vũ khí đúng loại, 4 ảnh `auto3d_skill_<id>_k.png`
    trong `%APPDATA%\Godot\app_userdata\JX NEXT\logs`), `--factions` (mọi kỹ năng có hình), `--horse=<số>` (ngựa khác trong luồng `--auto3d`,
    ảnh `auto3d_ride.png` / `auto3d_ride_move.png`, dòng `AUTO3D_SEAT` = cao độ yên / hông).
