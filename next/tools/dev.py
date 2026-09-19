@@ -816,9 +816,17 @@ def main() -> None:
     elif cmd == "screenshot":
         cmd_stop()
         cmd_start(new_console=False)
+        # a second player for the team / trade proofs (M14): jxbot -partner puts its trade sign up and says yes
+        os.makedirs(os.path.join(ROOT, "logs"), exist_ok=True)
+        partner_log = open(os.path.join(ROOT, "logs", "jxbot-partner.log"), "w", encoding="utf-8")
+        partner = subprocess.Popen([go_exe("jxbot"), "-gateway", f"127.0.0.1:{gateway_ports(0)[0]}", "-partner", "-prefix", "auto",
+                                    "-first", "2", "-duration", "150s", "-meet-map", "1"], cwd=ROOT, stdout=partner_log, stderr=subprocess.STDOUT)
+        time.sleep(2.5)
         try:
             sys.exit(run_client_auto("shot1", windowed=True))
         finally:
+            partner.kill()
+            partner_log.close()
             cmd_stop()
     elif cmd == "test":
         sys.exit(cmd_test())

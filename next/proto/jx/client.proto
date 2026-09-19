@@ -171,6 +171,11 @@ message EntityInfo {
   int32 horse_res = 26;          // -1 = no horse (HorseRes level 0)
   int32 mantle_res = 27;         // -1 = none
   int32 pk_state = 28;           // a player's PK state (Player+0x5a50 & 3 in the 0x4a / 0x4b flag -> KNpc+0x16e4): 0 exercise, 1 fight, 2 kill
+  // the full sync 0x4c of a player (0x0807FDD8): byte +0x10 = KPlayerMenuState Player+0x5700 (0 normal, 1 team open, 2 trade
+  // open, 3 trading, 4 idle) and the sentence Player+0x570c (at most 0x1e bytes) after the name - the 2.0 client's handler
+  // 0x0065C070 calls KNpc::SetMenuState with them (0x0065C4ED), so a sign already up is seen by whoever walks in
+  uint32 menu_state = 29;
+  string menu_sentence = 30;
 }
 
 message PKStateReq {             // C2G_PK_STATE: the 0x76 packet {0x76, byte state} of the PK switch (0x080DBE00)

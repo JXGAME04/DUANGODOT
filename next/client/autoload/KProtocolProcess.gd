@@ -1353,7 +1353,9 @@ func _entity_dict(e) -> Dictionary:
 		"count": e.get_count(), "riding": e.get_riding() if e.has_method("get_riding") else false,
 		"gold_type": e.get_gold_type() if e.has_method("get_gold_type") else 0,
 		"camp": e.get_camp() if e.has_method("get_camp") else 4, "current_camp": e.get_current_camp() if e.has_method("get_current_camp") else 4,
-		"res": _res_dict(e), "pk_state": int(e.get_pk_state()) if e.has_method("get_pk_state") else 0}
+		"res": _res_dict(e), "pk_state": int(e.get_pk_state()) if e.has_method("get_pk_state") else 0,
+		"menu_state": int(e.get_menu_state()) if e.has_method("get_menu_state") else 0,
+		"menu_sentence": str(e.get_menu_sentence()) if e.has_method("get_menu_sentence") else ""}
 
 
 # the equipment rows of the 0x4a / 0x4b player sync (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse,

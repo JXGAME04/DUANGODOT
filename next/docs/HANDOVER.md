@@ -338,8 +338,16 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
   `界面状态与图形对照表.txt` (`KPlayerMenuStateGraph 0x00703F40`; 1 đội `menustate01`, 2 giao dịch `02`, 3 đang giao dịch `03`, 4 ngủ `04`) → `export-menu-state` +
   `KNpc._refresh_sign` (sprite trên khối tên + câu 24 ký tự — vị trí chính xác `+0x14` z chưa đo); `G2C_SYS_MSG` → dòng chat theo bảng id→khoá; `G2C_ENTITY_MENU_STATE`
   → `entities[id].menu_state`. Zone: `kTradeRoomWidth` 10 → **8** (Init `0x081FF129`: 15 phòng của bản Linux ghi ở `KItem.h`). Kiểm: Godot 460/460, e2e
-  `AUTO_TRADE opened=true sign=2 drawn=true closed=true`, `auto_trade.png` (đã gửi). **Chưa**: giao dịch hai client (cần `jxbot` trả lời), sprite menu 2.0
+  `AUTO_TRADE opened=true sign=2 drawn=true closed=true`, `auto_trade.png` (đã gửi). **Chưa**: sprite menu 2.0
   (`0x00475690`), các mục menu còn lại, kéo–thả vào ô, phòng 4 kim đĩnh. **Chạy lại `python tools/dev.py assets`** (`export-menu-state`, `giao-dich`).
+- **M14 lát G3 (xong 2026-09-19)**: **giao dịch + mời đội giữa hai client** — `jxbot -partner` (`-meet-map`, `-assets`: vào thế giới rồi `?gm ds NewWorld(map, ô Mps
+  tuyệt đối)`, treo bảng `"bot ban do"`, đồng ý mời đội / xin giao dịch, khoá sau client, OK khi cả hai khoá, treo lại sau `G2C_TRADE_END`); `dev.py screenshot`
+  chạy bot cạnh client; `UiGame._auto_team` mời bot, `_auto_trade` giao dịch thật (`Earn(50)`, kiếm vào bàn, 5 lượng qua `UiTrade.put_money`, khoá/OK) →
+  `AUTO_TEAM_PARTNER invited=true mate_color=true`, `AUTO_TRADE … both_locked=true dest_ok=true end=1 item_gone=true money=50->45` (`auto_team.png` 2 tên,
+  `auto_trade.png` hai bàn khoá — đã gửi). Sửa theo nhị phân: **bảng rao đi trong gói spawn** (`0x0807FDD8`: byte `+0x10` = `Player+0x5700`, câu `+0x570c` ≤
+  0x1e byte; client 2.0 `0x0065C4ED` gọi `SetMenuState` trong handler 0x4c) → `EntityInfo.menu_state/menu_sentence`; Lua **`Earn`/`Pay`/`GetCash`**
+  (`0x08118970`/`0x08118A90`/`0x081116D0` → `KPlayer::Earn 0x080AAED0`/`Pay 0x080A9450` → `KItemList::Earn 0x081FC990`/`Pay 0x081FC940`, gói 0x61) →
+  `KSubWorld::earn/pay/cash`, test `[script]` (`test_KItem.cpp`). Kiểm: ctest 252/252 Release + Debug, Godot 460/460, `go vet` xanh, catalog/includes sạch.
 - **M14 lát G1 (xong 2026-09-19)**: **giao dịch phía zone** (`LINUX-SERVER.md` §18): `KPlayerMenuState` `Player+0x5700` (bảng rao trên đầu: 0 thường / 1 mở đội /
   2 mở giao dịch + câu ≤ 255 / 3 đang giao dịch; `SetState 0x080C29D0` giữ bản cũ, `RestoreBackupState 0x080C2ED0` khi huỷ), `KTrade` `Player+0x5910` (đối tác,
   OK, khoá, **người xin nhớ mình xin ai** `+0x591c`, đang giao dịch), `TradeApplyOpen 0x080AE590`, gói 0x6a đóng bảng, 0x6b xin (`0x080B4DE0`: đích phải ở trạng
@@ -423,7 +431,7 @@ Mọi số đưa vào mã phải kèm địa chỉ hàm trong chú thích (`// 0
 | ~~Chạy trừ thể lực~~ (xong 2026-09-18: `ProcessState 0x0808BD3D` gain/`RunSub` theo `Player+0x5a50`, `ForbitStamina`; bước chạy `0x08080C50` → kiệt sức đi bộ `0x0807B430`; tốc độ người chơi = `m_CurrentRunSpeed`/khung = 180/giây, bỏ `move_speed` 200 của persist) | ~~ngồi~~ (xong B6a 2026-09-18: `0x080DC300` → `DoSit 0x0807B550`, `SitAddLife/Mana` `0x0808BBE6`, `SitAdd` ‰; §16.14, `CLIENT-2.0.md` §18). Còn: cưỡi ngựa chặn ngồi đã có (`horse ≠ 0`); áo 45 của `GetNpcPate`; chạy đánh `0x12`. |
 | ~~`m_nLucky` vào rơi đồ~~ (xong 2026-09-18) | `GenRandomItem 0x08083D52..0x08083DB5`: `luck = (Player+0x5994 ≠ 0 && +0x5998 ≥ 0 ? 0x080CC620(g_Team + 0x30·+0x5998, player) = số đồng đội gần : 0) + Player+0x5958` (cờ tham số 4 ≠ 0 hay không có người → 0) → `lose_treasure` truyền `k->player.cur_lucky` (phần tông chờ M14). |
 | M11 dồn lại | bạch kim / lỗ khảm (quality 2 `0x0806B6C0`), `AddItemEx`, móc `Check_ItemUsable`/`OnUseItem`, kho đồ (cần NPC), giao dịch, `bAllActived` (`+0x4c7c`), dòng khoá/ràng buộc trong chú thích. |
-| ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`) | còn: giao dịch hai client trong `--auto` (`jxbot` trả lời `G2C_TRADE_APPLY`/khoá/OK), sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
+| ~~M14 G2 — giao dịch trên client~~ (xong 2026-09-19, §22 `CLIENT-2.0.md`; ~~giao dịch hai client trong `--auto`~~ xong G3 cùng ngày: `jxbot -partner`) | còn: sprite menu 2.0 `0x00475690`, mục menu 0/1/5/6/7/8/9/0xa.. (chat/bạn/theo sau/thông tin/bang/cừu sát/đưa tiền), kéo–thả đồ vào ô cụ thể, `SendHoldMsg` lặp, phòng 4 kim đĩnh, vị trí chính xác bảng rao (`+0x14` z của `0x006DFD79`). |
 | ~~M14 T2 — tổ đội trên client~~ (xong 2026-09-19, §21.1 `CLIENT-2.0.md`) | còn: `队伍一览信息.ini` + `teamoverview\组队一览界面.ini` (xem đội quanh, `s2c_teaminfo` 0x69 sub 1 `0x005F8270`), menu tên khi nhấp đúp (0x693 → `0x00475690`), `InputEdit` tìm tên, `MSG_TEAM_CANT_INVITE`, `BuildATeam`. |
 | M13 nhiệm vụ / hàm script, M14 xã hội (còn: chat, bạn bè, thư, bang hội, giao dịch), M15 client (hoạt ảnh đánh/chết, trang bị lên người, minimap, âm thanh), M16 chia vùng, M17 vận hành (O2–O5, D1–D3), U6/U7 | theo mục 3 và 4. `spawn_npc` trong tick cần hoãn (nguy cơ `EntityTable` cấp phát lại) — chip task đã tạo. |
 | Đo 20 000 nhân vật PostgreSQL (M9) | cần PostgreSQL / Docker tại chỗ — chờ chủ dự án cấp. |
@@ -747,6 +755,28 @@ chính xác bản cũ làm gì. Mọi thứ khác có thể đổi chỗ.
 ## 4b. Nhật ký — cập nhật mỗi lần có việc xong
 
 Ghi từ trên xuống, mới nhất ở trên. Mỗi dòng: **làm gì — đo được gì — commit nào**.
+
+### 2026-09-19 (phiên tiếp theo, phần 49) — M14 lát G3: hai client mời đội + giao dịch thật qua `jxbot -partner`; bảng rao trong gói spawn; Lua Earn/Pay/GetCash
+
+- **jx_linux_y** (đọc từng dòng, `LINUX-SERVER.md` §18): gói đồng bộ đầy đủ 0x4c `0x0807FBB0` nhánh người chơi `0x0807FDD8` — byte `+0x10` = `Player+0x5700`,
+  câu rao `memcpy(min(strlen(+0x570c), 0x1e))` sau tên, byte `+0x20` = `+0x86b8` (trùng sinh); Lua `Earn 0x08118970` → `KPlayer::Earn 0x080AAED0` →
+  `KItemList::Earn 0x081FC990` (`KRoom::AddMoney 0x081F8B10`, `SyncMoney 0x081FAFD0` gói 0x61 13 byte, `events.lua OnRoomMoneyChange`, log `Lua_Earn`,
+  > 99 999 → dấu vết 10 tầng), `Pay 0x08118A90` → `0x080A9450` → `0x081FC940` (hơn túi → 0; trả 1/0), `GetCash 0x081116D0` = `Player+0x508c`.
+- **gamecl.exe** (`CLIENT-2.0.md` §22): handler 0x4c `0x0065C070` đọc `+0x10` trạng thái menu, `+0x20` cờ (PK/chiến đấu/ngủ/bang), `+0x21 == 1` → `+0x138c`, tên
+  `+0x22`, câu rao còn lại → `KNpc::SetMenuState 0x005EB2A0` (`0x0065C4ED`); server Linux ghi lệch một byte (`+0x20` trùng sinh, tên `" "` ở `+0x21`).
+- **Zone**: `EntityInfo.menu_state` (29) / `menu_sentence` (30) trong `fill_info` (cắt `kMenuSyncSentenceMax` 0x1e byte tròn UTF-8); `KSubWorld::earn/pay/cash`
+  + `l_Earn/l_Pay/l_GetCash` (log `script money`); test `[script]` tiền trong `test_KItem.cpp`.
+- **Go `jxbot -partner`** (`-meet-map`, `-assets`): `mapSpawn` trả ô Mps tuyệt đối (gốc `region_left·region_w`, `region_top·region_h` + `spawn`) → `?gm ds
+  NewWorld(1, 1551, 3150)`; bảng rao `"bot ban do"`, `G2C_TEAM_EVENT` INVITE → `TEAM_REPLY_INVITE 1`, `G2C_TRADE_APPLY` → `TRADE_REPLY 1`, `G2C_TRADE_SYNC`
+  → khoá (2) rồi OK (1), `G2C_TRADE_END` → treo lại; không chat rác, không đi lang thang. `dev.py screenshot` chạy bot (`logs/jxbot-partner.log`) 2,5 s trước client.
+- **Client**: `_entity_dict` đọc `menu_state/menu_sentence`; `UiGame._auto_partner_id`, `_auto_team` mời bot (`AUTO_TEAM_PARTNER`), `_auto_trade` hai người
+  (`Earn(50)`, `TRADE_APPLY_START`, `item_move(…, 2, 0, 0)`, `UiTrade.put_money(5)`, khoá, chờ `both_locked & dest_ok`, ảnh, OK, chờ `trade_end`).
+- **Lỗi đã gặp**: `NewWorld` nhận ô Mps **tuyệt đối** (bot gửi ô cục bộ → `to_local` âm → kẹp (0,0)); bảng rao chỉ gửi lúc đổi nên client vào sau không thấy
+  (đã sửa theo 0x4c); tiền bàn gõ thẳng `TRADE_MONEY` thì ô `SelfMoney` không hiện (đi qua `put_money`).
+- **Kiểm**: ctest 252/252 (Release + Debug), Godot 460/460, e2e `AUTO_TEAM_PARTNER partner=4294968772 invited=true members=1 mate_color=true`,
+  `AUTO_TRADE partner=4294968772 started=true placed=true both_locked=true dest_ok=true window=true my_table=1 end=1 item_gone=true money=50->45`; zone log
+  `trade started` / `item traded new_id=3` / `trade done items=1 money=5`; `auto_team.png`, `auto_trade.png` gửi chủ dự án.
+- commit: `JX NEXT: M14 lat G3 - hai client moi doi + giao dich qua jxbot -partner (NewWorld o Mps tuyet doi), bang rao trong goi spawn (0x4c 0x0807FDD8 / 0x0065C4ED), Lua Earn/Pay/GetCash (0x08118970/0x08118A90/0x081116D0)`.
 
 ### 2026-09-19 (phiên tiếp theo, phần 48) — M14 lát G2: giao dịch trên client (KUiTrade, menu người chơi Ctrl+RButton, bảng rao trên đầu, hộp xin giao dịch)
 

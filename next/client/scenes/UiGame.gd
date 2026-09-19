@@ -930,13 +930,27 @@ func _auto_team() -> void:
 	var open_state := int(Game.team.state)
 	var lead_level := int(Game.team.lead_level)
 	var members_max := int(Game.team.members_max)
+	# the partner bot (jxbot -partner, dev.py screenshot): invited, it says yes - the list grows, its life bar turns team colour
+	var partner_id := _auto_partner_id()
+	var invited := false
+	var mate_color := false
+	if partner_id != 0:
+		Game.team_request(Proto.TeamCmd.TEAM_INVITE, partner_id)
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if Game.team.members.size() >= 1:
+				break
+		invited = Game.team.members.size() >= 1
+		var pn: Node2D = _entities.get(partner_id)
+		mate_color = pn != null and "team_mate" in pn and bool(pn.team_mate)
 	var window_ok := false
 	if _windows != null and _windows.team_window != null:
 		_windows.team_window.open_window()
 		await get_tree().create_timer(0.3).timeout
-		window_ok = _windows.team_window.visible and _windows.team_window.member_count() == 1
+		window_ok = _windows.team_window.visible and _windows.team_window.member_count() == (2 if invited else 1)
 		await _save_screenshot("user://logs/auto_team.png")
 		_windows.team_window.close_window()
+	print("AUTO_TEAM_PARTNER partner=%d invited=%s members=%d mate_color=%s" % [partner_id, invited, Game.team.members.size(), mate_color])
 	Game.team_request(Proto.TeamCmd.TEAM_OPEN_CLOSE, 0, 0)
 	for i in 20:
 		await get_tree().create_timer(0.1).timeout
@@ -956,13 +970,102 @@ func _auto_team() -> void:
 		open_state, lead_level, members_max, window_ok, closed_ok, dismissed, answer.changes])
 
 
-# the trade of one character: T puts the sign up (TradeApplyOpen -> G2C_TRADE_STATE 1 + the sign over the head), a picture,
-# T takes it down; a real trade needs a second player (the [trade] tests of the zone cover it)
+# the player of the partner bot around (jxbot -partner): another player with its trade sign up, else any other player
+func _auto_partner_id() -> int:
+	var any_player := 0
+	for id in Game.entities:
+		var e: Dictionary = Game.entities[id]
+		if int(id) == Game.entity_id or int(e.get("type", 0)) != ENTITY_PLAYER_KIND:
+			continue
+		if int(e.get("menu_state", 0)) == 2:
+			return int(id)
+		if any_player == 0:
+			any_player = int(id)
+	return any_player
+
+
+# the trade with the partner bot: Ctrl+right click "Giao Dịch" = TradeApplyStart, the bot says yes (both TRADING, the
+# window opens), an item and 5 coins go on my table, the lock (the bot locks and confirms after me), a picture of the window
+# with both locked, my ok -> the exchange (0x78 {1}): the item left, the money moved.  Without a partner: T puts my own
+# sign up, a picture, T takes it down.
 func _auto_trade() -> void:
-	var answer := {"changes": 0}
+	var answer := {"changes": 0, "end": -1}
 	var cb := func() -> void:
 		answer.changes += 1
+	var cb_end := func(ok: bool) -> void:
+		answer.end = 1 if ok else 0
 	Game.trade_changed.connect(cb)
+	Game.trade_end.connect(cb_end)
+	var partner_id := 0
+	for i in 30:
+		partner_id = _auto_partner_id()
+		var e = Game.entities.get(partner_id)
+		if e != null and int(e.get("menu_state", 0)) == 2:
+			break
+		await get_tree().create_timer(0.2).timeout
+	var pe = Game.entities.get(partner_id)
+	if partner_id != 0 and pe != null and int(pe.get("menu_state", 0)) == 2:
+		# 50 coins from the script api (Earn 0x08118970) so 5 of them can go on the table
+		Game.chat("?gm ds Earn(50)")
+		for i in 20:
+			await get_tree().create_timer(0.1).timeout
+			if int(Game.money) >= 5:
+				break
+		var money_before := int(Game.money)
+		var item_id := 0
+		for id in Game.items:
+			var it: Dictionary = Game.items[id]
+			if int(it.room) == 0 and int(it.genre) != 4:
+				item_id = int(id)
+				break
+		Game.trade_request(Proto.TradeCmd.TRADE_APPLY_START, partner_id)
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if int(Game.trade.state) == 2:
+				break
+		var started := int(Game.trade.state) == 2
+		var placed := false
+		if started and item_id != 0:
+			Game.item_move(item_id, 2, 0, 0)
+			for i in 20:
+				await get_tree().create_timer(0.1).timeout
+				var it2 = Game.items.get(item_id)
+				if it2 != null and int(it2.room) == 2:
+					placed = true
+					break
+		if started:
+			# 5 coins typed into the window's SelfMoney edit (the 0x6c packet), or the bare request without a window
+			if _windows != null and _windows.trade_window != null and _windows.trade_window.visible:
+				_windows.trade_window.put_money(5)
+			else:
+				Game.trade_request(Proto.TradeCmd.TRADE_MONEY, 0, 5)
+			await get_tree().create_timer(0.3).timeout
+			Game.trade_request(Proto.TradeCmd.TRADE_DECISION, 0, 2)   # the lock: the bot locks and confirms after it
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if bool(Game.trade.self_lock) and bool(Game.trade.dest_lock) and bool(Game.trade.dest_ok):
+				break
+		var both_locked := bool(Game.trade.self_lock) and bool(Game.trade.dest_lock)
+		var dest_ok := bool(Game.trade.dest_ok)
+		var window_open: bool = _windows != null and _windows.trade_window != null and _windows.trade_window.visible
+		var my_table: int = _windows.trade_window.my_table_count() if window_open else -1
+		await get_tree().create_timer(0.2).timeout
+		await _save_screenshot("user://logs/auto_trade.png")
+		if started:
+			Game.trade_request(Proto.TradeCmd.TRADE_DECISION, 0, 1)   # my ok: the exchange
+		for i in 40:
+			await get_tree().create_timer(0.1).timeout
+			if answer.end >= 0:
+				break
+		await get_tree().create_timer(0.3).timeout
+		var item_gone := item_id != 0 and not Game.items.has(item_id)
+		Game.trade_changed.disconnect(cb)
+		Game.trade_end.disconnect(cb_end)
+		Log.info("auto", "auto trade", {"partner": partner_id, "started": started, "placed": placed, "both_locked": both_locked, "dest_ok": dest_ok,
+			"window": window_open, "my_table": my_table, "end": answer.end, "item_gone": item_gone, "money_before": money_before, "money": int(Game.money)})
+		print("AUTO_TRADE partner=%d started=%s placed=%s both_locked=%s dest_ok=%s window=%s my_table=%d end=%d item_gone=%s money=%d->%d" % [
+			partner_id, started, placed, both_locked, dest_ok, window_open, my_table, answer.end, item_gone, money_before, int(Game.money)])
+		return
 	if _windows != null:
 		_windows.toggle_trade_sign("ban gi cung mua")
 	for i in 20:
@@ -983,6 +1086,7 @@ func _auto_trade() -> void:
 			break
 	var closed := int(Game.trade.state) == 0
 	Game.trade_changed.disconnect(cb)
+	Game.trade_end.disconnect(cb_end)
 	Log.info("auto", "auto trade", {"opened": opened, "sign": sign_state, "drawn": sign_drawn, "closed": closed, "changes": answer.changes})
 	print("AUTO_TRADE opened=%s sign=%d drawn=%s closed=%s changes=%d" % [opened, sign_state, sign_drawn, closed, answer.changes])
 

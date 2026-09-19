@@ -2381,6 +2381,16 @@ class EntityInfo:
 		service.field = __pk_state
 		data[__pk_state.tag] = service
 		
+		__menu_state = PBField.new("menu_state", PB_DATA_TYPE.UINT32, PB_RULE.OPTIONAL, 29, true, DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32])
+		service = PBServiceField.new()
+		service.field = __menu_state
+		data[__menu_state.tag] = service
+		
+		__menu_sentence = PBField.new("menu_sentence", PB_DATA_TYPE.STRING, PB_RULE.OPTIONAL, 30, true, DEFAULT_VALUES_3[PB_DATA_TYPE.STRING])
+		service = PBServiceField.new()
+		service.field = __menu_sentence
+		data[__menu_sentence.tag] = service
+		
 	var data = {}
 	
 	var __entity_id: PBField
@@ -2746,6 +2756,32 @@ class EntityInfo:
 		__pk_state.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
 	func set_pk_state(value : int) -> void:
 		__pk_state.value = value
+	
+	var __menu_state: PBField
+	func has_menu_state() -> bool:
+		if __menu_state.value != null:
+			return true
+		return false
+	func get_menu_state() -> int:
+		return __menu_state.value
+	func clear_menu_state() -> void:
+		data[29].state = PB_SERVICE_STATE.UNFILLED
+		__menu_state.value = DEFAULT_VALUES_3[PB_DATA_TYPE.UINT32]
+	func set_menu_state(value : int) -> void:
+		__menu_state.value = value
+	
+	var __menu_sentence: PBField
+	func has_menu_sentence() -> bool:
+		if __menu_sentence.value != null:
+			return true
+		return false
+	func get_menu_sentence() -> String:
+		return __menu_sentence.value
+	func clear_menu_sentence() -> void:
+		data[30].state = PB_SERVICE_STATE.UNFILLED
+		__menu_sentence.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
+	func set_menu_sentence(value : String) -> void:
+		__menu_sentence.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

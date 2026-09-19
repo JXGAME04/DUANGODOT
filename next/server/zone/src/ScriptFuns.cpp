@@ -115,6 +115,44 @@ int l_GetWorldPos(lua_State* L)
     return 3;
 }
 
+// Earn(n) (0x08118970): n > 0 -> KPlayer::Earn; the money log line "Lua_Earn" (0x081E8EA0), and a sum above 99 999
+// also writes the script's call stack (10 levels) to the log.  Returns nothing.
+int l_Earn(lua_State* L)
+{
+    if (KNpc* p = player_of(L, "Earn")) {
+        const int n = static_cast<int>(luaL_checknumber(L, 1));
+        if (n > 0 && g_ScriptContext().world->earn(g_ScriptContext().sid, n)) {
+            log::info("zone.money", "script money", {log::kv("entity", p->id), log::kv("reason", "Lua_Earn"), log::kv("amount", n),
+                                                     log::kv("money", g_ScriptContext().world->cash(g_ScriptContext().sid))});
+        }
+    }
+    return 0;
+}
+
+// Pay(n) (0x08118A90) -> 1 paid (the log line "Lua_Pay"), 0 not (less in the bag); n <= 0 returns nothing
+int l_Pay(lua_State* L)
+{
+    KNpc* p = player_of(L, "Pay");
+    if (p == nullptr) return 0;
+    const int n = static_cast<int>(luaL_checknumber(L, 1));
+    if (n <= 0) return 0;
+    const bool ok = g_ScriptContext().world->pay(g_ScriptContext().sid, n);
+    if (ok) {
+        log::info("zone.money", "script money", {log::kv("entity", p->id), log::kv("reason", "Lua_Pay"), log::kv("amount", -n),
+                                                 log::kv("money", g_ScriptContext().world->cash(g_ScriptContext().sid))});
+    }
+    lua_pushnumber(L, ok ? 1 : 0);
+    return 1;
+}
+
+// GetCash() (0x081116D0) -> the bag's money, Player+0x508c
+int l_GetCash(lua_State* L)
+{
+    if (player_of(L, "GetCash") == nullptr) return 0;
+    lua_pushnumber(L, g_ScriptContext().world->cash(g_ScriptContext().sid));
+    return 1;
+}
+
 // Msg2Player(text): a line in the player's chat window
 int l_Msg2Player(lua_State* L)
 {
@@ -1159,6 +1197,7 @@ const luaL_Reg kGameScriptFuns[] = {
     {"GetItemCount", l_GetItemCount},   {"GetItemCountEx", l_GetItemCountEx}, {"DelItem", l_DelItem},
     {"DelItemEx", l_DelItemEx},         {"HaveCommonItem", l_HaveCommonItem}, {"DelCommonItem", l_DelCommonItem},
     {"GetTotalItemCount", l_GetTotalItemCount},
+    {"Earn", l_Earn},                   {"Pay", l_Pay},                     {"GetCash", l_GetCash},
     {"SetSkillLevel", l_SetSkillLevel},   {"HaveMagic", l_HaveMagic},           {"DelMagic", l_DelMagic},
     {"GetCurrentMagicLevel", l_GetCurrentMagicLevel}, {"GetSkillMaxLevel", l_GetSkillMaxLevel}, {"GetSkillExp", l_GetSkillExp},
     {"GetSkillNextExp", l_GetSkillNextExp}, {"AddSkillExp", l_AddSkillExp},     {"RollbackSkill", l_RollbackSkill},

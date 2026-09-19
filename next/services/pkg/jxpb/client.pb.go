@@ -1460,12 +1460,17 @@ type EntityInfo struct {
 	CurrentCamp int32 `protobuf:"varint,22,opt,name=current_camp,json=currentCamp,proto3" json:"current_camp,omitempty"` // m_CurrentCamp +0x220 (the byte +3 -> KNpc+0xf8): the colour of a player's name (0x005F2507, the table 0x5f2d94)
 	// +0x14dc..+0x14ec of the 0x4a / 0x4b player sync (0x0807BF86, 0x080813BD): the equipment rows of the main characters'
 	// part tables the client dresses a player in (KNpc+0x13f0 helm, +0x13f4 armour, +0x1400 weapon, +0x13fc horse, +0x13f8 mantle)
-	HelmRes       int32 `protobuf:"varint,23,opt,name=helm_res,json=helmRes,proto3" json:"helm_res,omitempty"`
-	ArmorRes      int32 `protobuf:"varint,24,opt,name=armor_res,json=armorRes,proto3" json:"armor_res,omitempty"`
-	WeaponRes     int32 `protobuf:"varint,25,opt,name=weapon_res,json=weaponRes,proto3" json:"weapon_res,omitempty"`
-	HorseRes      int32 `protobuf:"varint,26,opt,name=horse_res,json=horseRes,proto3" json:"horse_res,omitempty"`    // -1 = no horse (HorseRes level 0)
-	MantleRes     int32 `protobuf:"varint,27,opt,name=mantle_res,json=mantleRes,proto3" json:"mantle_res,omitempty"` // -1 = none
-	PkState       int32 `protobuf:"varint,28,opt,name=pk_state,json=pkState,proto3" json:"pk_state,omitempty"`       // a player's PK state (Player+0x5a50 & 3 in the 0x4a / 0x4b flag -> KNpc+0x16e4): 0 exercise, 1 fight, 2 kill
+	HelmRes   int32 `protobuf:"varint,23,opt,name=helm_res,json=helmRes,proto3" json:"helm_res,omitempty"`
+	ArmorRes  int32 `protobuf:"varint,24,opt,name=armor_res,json=armorRes,proto3" json:"armor_res,omitempty"`
+	WeaponRes int32 `protobuf:"varint,25,opt,name=weapon_res,json=weaponRes,proto3" json:"weapon_res,omitempty"`
+	HorseRes  int32 `protobuf:"varint,26,opt,name=horse_res,json=horseRes,proto3" json:"horse_res,omitempty"`    // -1 = no horse (HorseRes level 0)
+	MantleRes int32 `protobuf:"varint,27,opt,name=mantle_res,json=mantleRes,proto3" json:"mantle_res,omitempty"` // -1 = none
+	PkState   int32 `protobuf:"varint,28,opt,name=pk_state,json=pkState,proto3" json:"pk_state,omitempty"`       // a player's PK state (Player+0x5a50 & 3 in the 0x4a / 0x4b flag -> KNpc+0x16e4): 0 exercise, 1 fight, 2 kill
+	// the full sync 0x4c of a player (0x0807FDD8): byte +0x10 = KPlayerMenuState Player+0x5700 (0 normal, 1 team open, 2 trade
+	// open, 3 trading, 4 idle) and the sentence Player+0x570c (at most 0x1e bytes) after the name - the 2.0 client's handler
+	// 0x0065C070 calls KNpc::SetMenuState with them (0x0065C4ED), so a sign already up is seen by whoever walks in
+	MenuState     uint32 `protobuf:"varint,29,opt,name=menu_state,json=menuState,proto3" json:"menu_state,omitempty"`
+	MenuSentence  string `protobuf:"bytes,30,opt,name=menu_sentence,json=menuSentence,proto3" json:"menu_sentence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1694,6 +1699,20 @@ func (x *EntityInfo) GetPkState() int32 {
 		return x.PkState
 	}
 	return 0
+}
+
+func (x *EntityInfo) GetMenuState() uint32 {
+	if x != nil {
+		return x.MenuState
+	}
+	return 0
+}
+
+func (x *EntityInfo) GetMenuSentence() string {
+	if x != nil {
+		return x.MenuSentence
+	}
+	return ""
 }
 
 type PKStateReq struct {
@@ -6412,7 +6431,7 @@ const file_jx_client_proto_rawDesc = "" +
 	"\x04life\x18\x02 \x01(\rR\x04life\x12\x19\n" +
 	"\blife_max\x18\x03 \x01(\rR\alifeMax\x12\x14\n" +
 	"\x05delta\x18\x04 \x01(\x05R\x05delta\x12\x16\n" +
-	"\x06source\x18\x05 \x01(\x04R\x06source\"\xa3\x06\n" +
+	"\x06source\x18\x05 \x01(\x04R\x06source\"\xe7\x06\n" +
 	"\n" +
 	"EntityInfo\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\x04R\bentityId\x122\n" +
@@ -6448,7 +6467,10 @@ const file_jx_client_proto_rawDesc = "" +
 	"\thorse_res\x18\x1a \x01(\x05R\bhorseRes\x12\x1d\n" +
 	"\n" +
 	"mantle_res\x18\x1b \x01(\x05R\tmantleRes\x12\x19\n" +
-	"\bpk_state\x18\x1c \x01(\x05R\apkState\"4\n" +
+	"\bpk_state\x18\x1c \x01(\x05R\apkState\x12\x1d\n" +
+	"\n" +
+	"menu_state\x18\x1d \x01(\rR\tmenuState\x12#\n" +
+	"\rmenu_sentence\x18\x1e \x01(\tR\fmenuSentence\"4\n" +
 	"\n" +
 	"PKStateReq\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\x05R\x05state\x12\x10\n" +

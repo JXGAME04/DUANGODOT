@@ -18,6 +18,7 @@ enum KMenuState : int {
 };
 
 inline constexpr std::size_t kMenuSentenceMax = 255;   // MAX_SENTENCE_LENGTH - 1 (0x080AE605: longer sentences are cut)
+inline constexpr std::size_t kMenuSyncSentenceMax = 0x1e;   // the full sync 0x4c copies that much of the sentence (0x0807FE32)
 
 // what the others see over the head (m_cMenuState; SetState 0x080C29D0 keeps the state before as the backup, which a
 // cancelled trade restores through 0x080C2ED0)

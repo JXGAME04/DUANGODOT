@@ -516,6 +516,7 @@
     "dropped item lost": "Vật phẩm vứt ra không đặt được xuống đất — đã mất",
     "item picked up": "Nhặt vật phẩm",
     "money picked up": "Nhặt tiền",
+    "script money": "Script cộng / trừ tiền túi (Earn / Pay - dòng log Lua_Earn / Lua_Pay của server cũ)",
     "treasure dropped": "Quái chết rơi đồ",
     "drop row missing": "Bảng rơi đồ trỏ tới dòng vật phẩm không có",
     "drop quality not made yet": "Bảng rơi đồ đòi phẩm chất chưa làm được (bạch kim / lỗ khảm)",

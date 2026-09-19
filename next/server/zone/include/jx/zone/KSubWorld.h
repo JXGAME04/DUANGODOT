@@ -303,6 +303,13 @@ public:
     // KGameServer (1); 0 = failed.  Only players change worlds.
     int change_world_request(KNpc& player, std::uint32_t map_id, Pos pos);
     std::vector<KWorldChange> take_world_changes();
+    // KPlayer::Earn 0x080AAED0 -> KItemList::Earn(room 0, n) 0x081FC990: n < 0 refused, the room's sum may not turn
+    // negative (KRoom 0x081F8B10), then the 0x61 money sync (0x081FAFD0) - events.lua OnRoomMoneyChange(room, money) of
+    // the binary is not called (the event system is not ported).  KPlayer::Pay 0x080A9450 -> KItemList::Pay 0x081FC940:
+    // more than the bag holds -> 0.  cash = Player+0x508c, the bag's money.
+    bool earn(std::uint64_t sid, int n);
+    bool pay(std::uint64_t sid, int n);
+    [[nodiscard]] int cash(std::uint64_t sid) const;
     // Msg2Player: one line in the player's chat window.
     void msg_to_player(std::uint64_t sid, std::string_view text);
     // KPlayer::ExecuteScript: runs fn(param) of the script (a game path) for the player.

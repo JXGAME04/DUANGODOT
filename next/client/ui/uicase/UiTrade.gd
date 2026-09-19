@@ -169,6 +169,11 @@ func refresh() -> void:
 	_reduce.enable(not self_lock)
 
 
+# what typing a sum into the SelfMoney edit does (the --auto run uses it instead of the keyboard)
+func put_money(value: int) -> void:
+	_set_money(value)
+
+
 # the money on my table: 0..the bag's; the zone clamps it too (the 0x6c packet)
 func _set_money(value: int) -> void:
 	if bool(Game.trade.self_lock):

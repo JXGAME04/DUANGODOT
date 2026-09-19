@@ -206,6 +206,20 @@ void KSubWorld::fill_info(const KNpc& e, pb::EntityInfo& out) const
     out.set_hide(e.hide);   // the hide bit of the 0x4d status packet (0x08081230); only its own client gets a hidden npc
     out.set_riding(e.horse != 0);   // the 0x20 flag (0x0807C07E / 0x080814ED)
     if (e.kind == KNpcKind::player) out.set_pk_state(e.player.pk.state);   // the flag & 3 of the 0x4a / 0x4b sync (0x0807C02D)
+    if (e.kind == KNpcKind::player && e.player.menu.state != 0) {
+        // 0x0807FDD8: byte +0x10 = Player+0x5700, then the sentence Player+0x570c, memcpy of min(strlen, 0x1e) bytes after
+        // the name (cut at a whole UTF-8 character here)
+        out.set_menu_state(static_cast<std::uint32_t>(e.player.menu.state));
+        if (e.player.menu.state == menu_state_trade_open) {
+            std::string_view s = e.player.menu.sentence;
+            if (s.size() > kMenuSyncSentenceMax) {
+                std::size_t n = kMenuSyncSentenceMax;
+                while (n > 0 && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) --n;
+                s = s.substr(0, n);
+            }
+            out.set_menu_sentence(std::string(s));
+        }
+    }
     // the 0x4a / 0x4b bytes +0x14dc..+0x14ec (0x0807BF86.., 0x080813BD..): what the clients dress the character in
     out.set_helm_res(e.helm_res);
     out.set_armor_res(e.armor_res);
@@ -2531,6 +2545,30 @@ void KSubWorld::send_money(std::uint64_t sid)
     m.set_money(static_cast<std::uint32_t>(list->money(room_equipment)));
     m.set_bank_money(static_cast<std::uint32_t>(list->money(room_repository)));
     emit({sid}, static_cast<std::uint16_t>(pb::G2C_MONEY), m);
+}
+
+bool KSubWorld::earn(std::uint64_t sid, int n)
+{
+    if (n < 0) return false;   // 0x080AAEDD
+    KItemList* list = items_of(sid);
+    if (list == nullptr || !list->add_money(room_equipment, n)) return false;
+    send_money(sid);
+    return true;
+}
+
+bool KSubWorld::pay(std::uint64_t sid, int n)
+{
+    if (n < 0) return false;   // 0x080A945E
+    KItemList* list = items_of(sid);
+    if (list == nullptr || !list->cost_money(n)) return false;   // 0x081FC94D: n > the bag -> 0
+    send_money(sid);
+    return true;
+}
+
+int KSubWorld::cash(std::uint64_t sid) const
+{
+    const KItemList* list = items_of(sid);
+    return list != nullptr ? list->money(room_equipment) : 0;
 }
 
 std::function<int(int)> KSubWorld::attrib_of(const KNpc& e) const

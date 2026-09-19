@@ -1023,6 +1023,22 @@ TEST_CASE("AddItem / AddGoldItem give the player what the tables describe; ?gm d
     CHECK(iw.list().size() == 5);
     out = iw.w->take_outbox();
     CHECK(packets(out, 1, jx::pb::G2C_ITEM_REMOVE).size() == 2);
+
+    // the money of the bag: Earn(n) (0x08118970 -> KPlayer::Earn 0x080AAED0), Pay(n) (0x08118A90 -> 0x080A9450: 1 paid,
+    // 0 when the bag holds less) and GetCash() (0x081116D0: Player+0x508c); every change is a 0x61 money sync (G2C_MONEY)
+    const int cash0 = static_cast<int>(script.call_number("GetCash", {}).value_or(-1.0));
+    CHECK(cash0 == iw.list().money(jx::zone::room_equipment));
+    script.call_number("Earn", {50.0});
+    CHECK(script.call_number("GetCash", {}) == static_cast<double>(cash0 + 50));
+    script.call_number("Earn", {-5.0});   // n <= 0: nothing happens (0x08118991)
+    CHECK(script.call_number("GetCash", {}) == static_cast<double>(cash0 + 50));
+    CHECK(script.call_number("Pay", {30.0}) == 1.0);
+    CHECK(script.call_number("GetCash", {}) == static_cast<double>(cash0 + 20));
+    CHECK(script.call_number("Pay", {static_cast<double>(cash0 + 21)}) == 0.0);   // more than the bag: refused, nothing taken
+    CHECK(script.call_number("GetCash", {}) == static_cast<double>(cash0 + 20));
+    CHECK(!script.call_number("Pay", {0.0}).has_value());   // n <= 0 returns nothing
+    out = iw.w->take_outbox();
+    CHECK(packets(out, 1, jx::pb::G2C_MONEY).size() == 2);
     ctx = jx::zone::KScriptContext{};
 
     // the chat: "?gm ds <lua>" runs for the player only while gm_chat is on
