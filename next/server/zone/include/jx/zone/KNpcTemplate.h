@@ -89,6 +89,13 @@ struct KNpcLevelData {
     int poison_resist = 0;
     int physics_resist = 0;
     int skill_level[5] = {};           // KSkillList::SetNpcSkill levels (0 = slot unusable)
+    // InitNpcLevelData 0x080A37A0 (jx_linux_y): the AuraSkillId / PasstSkillId columns with their level cells run through
+    // the level script ("AuraSkillLevel" / "PasstSkillLevel": a + b * level) and clamped to 64 (0x080A3AB2 / 0x080A3B0A);
+    // a level of 0 drops the id (+0x10fc/+0x1100, +0x1104/+0x1108 of the level record)
+    int aura_skill_id = 0;
+    int aura_skill_level = 0;
+    int passive_skill_id = 0;
+    int passive_skill_level = 0;
 };
 
 class KNpcTemplateSet {

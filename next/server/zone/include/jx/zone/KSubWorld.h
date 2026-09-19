@@ -255,8 +255,11 @@ public:
     static constexpr std::uint64_t kDormantAfterTicks = 36;
     // level / series above 0 / -1 override the template's (KNpcSet::Add 0x0813A770 packs template << 16 | level and
     // hands the series on: the create-npc skill's npc takes the attribute's level and the skill's Series)
+    // 0x08085250 (after KNpcSet::Add for a placement / the script's AddNpc / a bKind Add): cell 5 = the template's aura
+    // (AuraSkillId at its level), cell 6 = its passive skill when the row is style 3, cast on the npc itself at once
+    void init_template_skills(KNpc& e);
     EntityId spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius = 0,
-                       KNpcKind kind = KNpcKind::npc, std::uint32_t level = 0, int series = -1);
+                       KNpcKind kind = KNpcKind::npc, std::uint32_t level = 0, int series = -1, int boss_flag = 0);
     // Puts an entity elsewhere at once (KNpc::SetPos of the old core; traps and tests use it).
     bool teleport(EntityId id, Pos p);
     // Overrides the AIMode of a npc (SetNpcAIMode of the old script api); 0 switches the ai off.

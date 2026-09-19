@@ -87,12 +87,10 @@ KSubWorld::KSubWorld(KSubWorldConfig cfg)
                 // NPCKIND of the old GameDataDef.h: 0 = kind_normal (a monster); everything else
                 // (partner, dialoger, bird, mouse) is a friendly npc
                 const KNpcKind kind = n.kind == 0 ? KNpcKind::monster : KNpcKind::npc;
-                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind);
+                // the region loader 0x080F03ED: Add(template << 16 | level, series ...), 0x08085250, +0x181c = 1
+                const EntityId id = spawn_npc(n.name, n.pos, n.template_id, 0, kind, static_cast<std::uint32_t>(std::max(1, n.level)), n.series, 1);
                 if (KNpc* placed = entities_.find(id)) {
                     placed->dir = static_cast<std::uint32_t>(n.dir & 63);
-                    placed->level = static_cast<std::uint32_t>(std::max(1, n.level));
-                    placed->series = static_cast<std::uint32_t>(n.series);
-                    apply_template(*placed);   // skill levels depend on the level (KNpcTemplate::InitNpcLevelData)
                     placed->npc_kind = n.kind;   // KNpcSet::Add: m_Kind / m_Camp come from the placement (KSNpcInfo)
                     placed->camp = std::clamp(n.camp, 0, camp_num - 1);
                     placed->current_camp = placed->camp;
@@ -471,10 +469,11 @@ bool KSubWorld::gm_command(std::uint64_t sid, std::string_view text)
     return true;
 }
 
-EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind, std::uint32_t level, int series)
+EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_id, std::int32_t wander_radius, KNpcKind kind, std::uint32_t level, int series, int boss_flag)
 {
     KNpc e;
     e.kind = kind;
+    e.boss_flag = boss_flag;
     e.name = std::move(name);
     e.template_id = template_id;
     e.speed = cfg_.default_speed / 2;
@@ -492,9 +491,32 @@ EntityId KSubWorld::spawn_npc(std::string name, Pos pos, std::uint32_t template_
     const EntityId id = entities_.insert(std::move(e));
     entities_.at(id).id = id;
     grid_.insert(id, home);
+    if (boss_flag != 0) init_template_skills(entities_.at(id));   // 0x08085250 follows KNpcSet::Add only for these
     // Nothing is sent here: the clients around notice the newcomer at their next look, which also
     // means a script that spawns a hundred npcs at once does not flood anybody.
     return id;
+}
+
+void KSubWorld::init_template_skills(KNpc& e)
+{
+    // 0x08085250(npc): the level record of (template, level, series); +0x10fc > 0 -> SetNpcSkill(5, id, +0x1100);
+    // +0x1104 in 1..1999 with +0x1108 in 1..63 and the skill instance's style (vtable+0x10) == 3 -> SetNpcSkill(6, id, level)
+    // and KSkill::Cast(skill, npc, -1, npc, 0, 0, 0) - the passive's states on the npc for good
+    const KNpcTemplate* t = cfg_.templates ? cfg_.templates->find(e.template_id) : nullptr;
+    if (t == nullptr) return;
+    const KNpcLevelData& d = level_data_of(*t, static_cast<int>(std::max(1u, e.level)), static_cast<int>(e.series));
+    if (d.aura_skill_id > 0) e.skill_list.set_npc_skill(5, d.aura_skill_id, d.aura_skill_level);
+    if (d.passive_skill_id >= 1 && d.passive_skill_id <= 1999 && d.passive_skill_level >= 1 && d.passive_skill_level <= 63) {
+        const KSkill* sk = skill_instance(d.passive_skill_id, d.passive_skill_level);
+        if (sk != nullptr && sk->row.style == skill_style_passivity_npc_state) {
+            e.skill_list.set_npc_skill(6, d.passive_skill_id, d.passive_skill_level);
+            KCastParams p;
+            p.target = e.id;
+            skill_cast(*sk, e, p);
+            log::debug("zone.fight", "template passive skill", {log::kv("entity", e.id), log::kv("skill", d.passive_skill_id), log::kv("level", d.passive_skill_level)});
+        }
+    }
+    if (d.aura_skill_id > 0) log::debug("zone.fight", "template aura", {log::kv("entity", e.id), log::kv("skill", d.aura_skill_id), log::kv("level", d.aura_skill_level)});
 }
 
 void KSubWorld::wander(KNpc& e)
@@ -1054,7 +1076,13 @@ void KSubWorld::process_state(KNpc& e)
         if (e.cur.stamina > e.cur.stamina_max) e.cur.stamina = e.cur.stamina_max;
         else if (e.cur.stamina < 0) e.cur.stamina = 0;
     }
-    // (0x0808BAF6: a boss casts its +0x340 / +0x358 skill - B2b)
+    // 0x0808BAF6: a placed / scripted npc (+0x181c, not a player or a partner) casts the template's aura in cell 5
+    // (+0x340 id, +0x358 current level, both > 0) - the level clamped to 64 by InitNpcLevelData never passes 0x080873B0's
+    // bound of 63, exactly like the original
+    if (e.kind != KNpcKind::player && e.npc_kind != kind_partner && e.boss_flag != 0) {
+        const KNpcSkill* c5 = e.skill_list.cell(5);
+        if (c5 != nullptr && c5->id > 0 && c5->current_level > 0) cast_skill_effect(e, c5->id, c5->current_level);
+    }
     // 0x0808BB83: the aura +0x244 - held in a cell of the list (index 1..79) whose ReqLevel the npc's level reaches ->
     // 0x080873B0(npc, aura, its current level)
     if (e.aura_skill_id != 0) {

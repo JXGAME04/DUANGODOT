@@ -577,6 +577,8 @@
     "aura set": "bật hào quang",
     "aura cleared": "tắt hào quang",
     "aura cast": "hào quang thi triển kỹ năng con",
+    "template aura": "hào quang của mẫu npc (ô 5)",
+    "template passive skill": "kỹ năng bị động của mẫu npc (ô 6, thi triển lên mình)",
     "skill desc": "Trả lời số liệu một cấp kỹ năng cho chú thích của client (chi phí, phạm vi, thuộc tính; gói G2C_SKILL_DESC)",
     "missile sync": "Báo client một viên đạn: sinh / đang bay (mỗi 6 khung) / tan (gói G2C_MISSLE)",
     "weapon skill table loaded": "Đã nạp bảng vũ khí → kỹ năng vật lý",

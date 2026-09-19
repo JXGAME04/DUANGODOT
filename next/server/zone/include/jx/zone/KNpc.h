@@ -184,7 +184,10 @@ struct KNpc {
     // the skills' timed states (KStateNode) and what the combat code keeps between two blows
     std::vector<KStateNode> state_skills;   // m_StateSkillList +0x234
     int damage_lock = 0;                    // +0x1694: ReceiveDamage refuses while it is not 0
-    bool boss_flag = false;                 // +0x181c: a boss - the attacker's add_boss_damage counts (0x08079750 == 3)
+    // +0x181c: how the npc came to be - 1 a map placement (0x080F0412), 2 the script's AddNpc (0x0811BF2A; 3 with
+    // remove-on-death), 0 one a skill made (KNpcSet::Add 0x0813A770 with bKind 0) or a player.  Non-zero: the attacker's
+    // add_boss_damage counts (0x08079750 == 3) and every tenth frame casts the template's aura in cell 5 (0x0808BAF6)
+    int boss_flag = 0;
     EntityId last_damage_id;                // m_nLastDamageIdx +0x1598 (CalcDamage)
     EntityId last_poison_id;                // +0x15a0: who poisoned us last (0x0807BD60)
     KStateModifier state_modifier;          // +0x19d8..

@@ -994,10 +994,30 @@ Hào quang (`IsAura`, 50 dòng `skills.txt`, tất cả `LRSkill 2`, style 2, d�
 | `0x08087160` | **dựng lại 6 biểu tượng** (`+0x54`, `+0x50 = 6`, `+0x4c = 1`): người chơi → `0x08079240(Player+0x7dec, 100)`; `+0x244` ở cấp 1..63 → biểu tượng của bản hào quang; rồi mỗi nút trạng thái `+0x234` (`+0x164/+0x168`) | `rebuild_state_icons` (chưa có `Player+0x7dec`) |
 | `0x0808BF5C` (`KNpc::Activate 0x0808BE80`) | mỗi khung: `+0x4c > 1` → `0x08087160`; `+0x4c ≠ 0` → **`0x08079F60`** | vòng tick (`state_flag`) |
 | `0x08079F60` | **gói 0x7a** 11 byte `{0x7a, 6 byte biểu tượng (`+0x54 + i·8`; người chơi: 0 trừ khi `+0x388 == 1`), dword id npc}` → người chơi trong 100 ô (`0x080E1C80`, vtable+0x2c); rồi `+0x4c ≤ 1 → 0` | `emit_state_icons` → `G2C_STATE_ICONS 2125` |
-| `0x0809E054` / `0x08105879` | npc từ mẫu: `SetNpcSkill(sổ, 5, Skill5, Level5)` rồi `SetAura(npc, Skill5)` (ô 5 = hào quang của quái); Lua `SetNpcAuraSkill(idx, id)` `0x081057B0` | chưa (ô 5 của mẫu, chờ quy ước chỉ số npc) |
+| `0x0809E054` / `0x08105879` | **đính chính (B4d-2)**: `0x0809E054` nằm trong `KNpcGold::SetGoldTypeAndBackData 0x0809D8D0` (quái vàng: `SetNpcSkill(sổ, 5, Skill5 của mẫu vàng, "Level5")` rồi `SetAura`) — không phải mẫu npc thường (§16.11); Lua `SetNpcAuraSkill(idx, id)` `0x081057B0` → `SetAura` | quái vàng chưa; `SetNpcAuraSkill` chờ quy ước chỉ số npc |
 | `0x08111560` Lua `ForbitAura(n)` | `Player+0x375 = (n ≠ 0)`; cấm → `SetAura(npc, 0)` | `l_ForbitAura` |
 | `0x0810CC10` Lua `ForbitSyncAura(n)` | `Player+0x388 = 0` khi `n ≠ 0`, 1 khi 0 (`0x08079F60` gửi lại) | `l_ForbitSyncAura` |
 
 Zone: `KNpc::aura_skill_id`, `KPlayer::forbid_aura / sync_aura`, `set_aura` / `set_aura_request` / `cast_skill_effect` / `rebuild_state_icons` /
 `emit_state_icons` (`KNpc.cpp`, `KSubWorld.cpp`), test `[command][aura]`. Sổ đánh lùi cũ ghi `+0x244` là "kỹ năng vũ khí bị động" — **sai**: là hào quang đang bật.
 Client 2.0: `CLIENT-2.0.md` §13.
+
+### 16.11 Hào quang và kỹ năng bị động của mẫu npc — `AuraSkillId`/`AuraSkillLevel`, `PasstSkillId`/`PasstSkillLevel` của `npcs.txt`, `InitNpcLevelData 0x080A37A0`, `0x08085250`, `+0x181c`, `ProcessState 0x0808BAF6` (M12 lát B4d-2, đã kiểm từng dòng)
+
+`settings\npcs.txt` của server có bốn cột cuối `AuraSkillId`, `AuraSkillLevel`, `PasstSkillId`, `PasstSkillLevel` (457 dòng có hào quang: Lưu Thủy 86, Vòng tròn miễn dịch 539,
+Ngũ hành trận 146, La Hán Trận 16, Thất Tinh Trận 159…; 746 dòng có kỹ năng bị động: Miễn dịch băng 297, Sát thủ 547, Tất cả trạng thái miễn dịch 309…). Bảng client 2.0
+không có (client không cần).
+
+| Hàm | Luật (đã đọc) | Zone |
+|---|---|---|
+| `KNpcTemplate::InitNpcLevelData 0x080A2160` (phần `0x080A37A0`) | sau `Level4`: `AuraSkillId` = `GetInteger(dòng, 0)` (`0x080A37C5`) > 0 → `+0x10fc = id`; chuỗi `AuraSkillLevel` (`0x080A380C`, 100 byte, mặc "") **rỗng → xoá cả hai**; không rỗng → `GetNpcLevelDataFromScript(script, hệ, "AuraSkillLevel", cấp, chuỗi) 0x080A2070` → `+0x1100`; `≤ 0 → xoá cả hai`; **`> 0x40 → 0x40`** (`0x080A3AB2`). `PasstSkillId`/`PasstSkillLevel` y hệt → `+0x1104/+0x1108` (`0x080A3867..0x080A3B1D`). Script: `npclevelscript.lua` `GetData(cấp, a, b) = floor(b·cấp + a)` với "a\|b"; **`makeboss.lua`/`property.lua` `SetAuraSkillLevel = Linear(cấp, a, b) = floor(a·cấp + b)`, ≥ 64 → 63** (thứ tự tham số ngược nhau!) | `KNpcLevelData::aura_skill_id/level`, `passive_skill_id/level` (`skill_pair` trong `KNpcTemplate.cpp`; không script: "a\|b" = a + b·cấp như `npclevelscript.lua`) |
+| `0x08085250(npc)` | bản ghi cấp `0x836EB00[(mẫu·0x2d0 + (cấp+1)·0x78 + hệ)]`; `+0x10fc > 0` → **`SetNpcSkill(sổ, 5, id, +0x1100)`** (không `SetAura`); `+0x1104` 1..1999 và `+0x1108` 1..63 → bản `[(id−1)<<6 + cấp + 0x22aaf]` (`0x080E6E10` tạo nếu chưa) → **`vtable+0x10 == 3`** (style bị động) → `SetNpcSkill(sổ, 6, id, cấp)` rồi **`KSkill::Cast 0x080EA920(bản, npc, −1, npc, 0, 0, 0)`** (trạng thái lên mình vĩnh viễn) → trả 1; cấp `> 63` → trả 0 (không đặt gì) | `KSubWorld::init_template_skills` |
+| Ai gọi `0x08085250` | bộ nạp vùng `0x080F0320` (sau `0x0809FB10`, rồi **`+0x181c = 1`** `0x080F0412`); Lua `AddNpc 0x0811BB10` (`+0x181c = 3` khi tham số xoá-khi-chết, không thì 2, `0x0811BF12/0x0811BF2A`), `AddNpcEx 0x0811BF40`; `KNpcSet::Add 0x0813A770` **chỉ khi bKind == 1** (kỹ năng tạo npc `0x080E8770` truyền 0 → không hào quang/bị động); `0x08085E70` (Init lại sau hồi sinh); `0x081EB040` | `spawn_npc(…, boss_flag)`: bản đồ 1, npc thử nghiệm 1, kỹ năng tạo 0 |
+| `ProcessState 0x0808B610` khối `% 10` `0x0808B727` | `+0x24` 1 (người) → nhánh riêng; 2 (đồng hành) → bỏ qua boss; khác: **`+0x181c ≠ 0`** → `0x0808BAF6`: `+0x358` (cấp hiện ô 5) > 0 và `+0x340` (id ô 5) > 0 → **`0x080873B0(npc, id, cấp)`**; rồi mới `+0x244` (§16.10) | `process_state` |
+| `0x080873B0` | `cấp > 0x3f → thôi` (`0x08087468`): **cấp bị kẹp 64 không bao giờ thi triển** — với `npclevelscript.lua` ("0\|20"/"0\|30" = 20–30·cấp) hào quang mẫu chỉ chạy khi npc cấp ≤ 3; với `makeboss.lua` ("0\|1" = 1) chạy ở cấp 1 | `cast_skill_effect` giữ nguyên chặn `> 63` |
+
+Zone: `KNpc::boss_flag` (int, `+0x181c`), `KSubWorld::init_template_skills`, `spawn_npc(…, boss_flag)`, `process_state` nhánh ô 5; test `[command][aura][template]` (mẫu 950:
+hào quang 1103 "0\|1" → ô 5 cấp 3, con 1102 lên mình sau 10 khung; bị động 1130 "1\|0" → ô 6 + trạng thái ngay; mẫu 951 "0\|30" → ô 5 = 64, không thi triển; npc do kỹ
+năng tạo → không ô 5/6). Go `LevelCells` thêm bốn cột → `npcs.json` (`dev.py assets`). Còn: quái vàng `KNpcGold` (`NpcGoldTemplate.txt` 16 loại, `0x0809D8D0`), Lua
+`SetNpcAuraSkill`. Ghi nhận khi chạy thật (Tiễn Tháp 1375, hào quang 313 → con 316 `allres_p` bán kính 180 lên đồng minh): zone log `hit` lên 4 thú nhưng không `state added` —
+cần soát `create_missle_magic_attribs_data`/dạng 3 ở B2b (ghi §0.4).

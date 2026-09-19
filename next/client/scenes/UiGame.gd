@@ -514,6 +514,14 @@ func _auto_run() -> void:
 	print("AUTO_MISSLE packets=%d spawned=%d effects=%d live=%d sounds=%d dropped=%d files=%d" % [Game.missle_packets, _missle_spawns, _missle_effects, _missles.size(),
 		_sounds.played if _sounds != null else 0, _sounds.dropped if _sounds != null else 0, _sounds.get_child_count() if _sounds != null else 0])
 	print("AUTO_SOUNDS %s" % str(_sounds.history if _sounds != null else []))
+	# the state pictures every npc around carries (B4d-2: a template's aura in cell 5 casts its child every ten frames)
+	var npc_states: PackedStringArray = []
+	for node in _entities.values():
+		if node != null and is_instance_valid(node) and node.has_method("state_spr_info") and not node.is_own:
+			var icons: Array = node.state_icons
+			if not icons.is_empty() and icons.any(func(v): return int(v) != 0):
+				npc_states.append("%s=%s pics=%s" % [node.display_name, str(icons), _state_pics_text(node.state_spr_info())])
+	print("AUTO_NPC_STATES %s" % ", ".join(npc_states))
 	# stability probe: two frames half a second apart while idle must be (almost) identical
 	if DisplayServer.get_name() != "headless":
 		await get_tree().create_timer(1.0).timeout

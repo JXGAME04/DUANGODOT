@@ -17,6 +17,7 @@
 #include "jx/zone/KFaction.h"
 #include "jx/zone/KMagicAttribId.h"
 #include "jx/zone/KMapData.h"
+#include "jx/zone/KNpcTemplate.h"
 #include "jx/zone/KScriptCache.h"
 #include "jx/zone/KSkill.h"
 #include "jx/zone/KSkillList.h"
@@ -87,6 +88,7 @@ std::shared_ptr<const KSkillTable> skill_table()
     add(1106, {{"AttackRadius", "40"}, {"SkillStyle", "0"}, {"MisslesForm", "3"}, {"Param1", "0"}});   // CanCastSkill checks no reach for it (form 3, Param1 != 1): ProcessCommand walks up
     add(1107, {{"ReqLevel", "10"}});
     add(1108, {{"TargetEnemy", "0"}, {"TargetSelf", "1"}, {"PeaceCanUse", "1"}, {"IsPhysical", "0"}, {"LvlSetting1", "hide"}, {"LvlData1", "buff"}});
+    add(1130, {{"SkillStyle", "3"}, {"TargetEnemy", "0"}, {"TargetSelf", "1"}, {"IsPhysical", "0"}, {"LvlSetting1", "armordefense_v"}, {"LvlData1", "buff"}});   // a passive (style 3) for a template's PasstSkillId
     t.set_attrib_data(magic_hide, {70, 713, 1108});   // [hide] of attribconstdata.ini: Data0 the transparency, Data1.. the state skills
     // the moves of style 1 (MisslesForm 8..13): 1109 a jump to a spot, 1110 a jump at the target then the child blow 1106,
     // 1111 a run at the target with +5 speed then 1106, 1112 the child 1106 three times, 1113 a blink within 300 after
@@ -1256,4 +1258,81 @@ TEST_CASE("the skill tip names the skills of a level the way 0x006FAA00 / 0x006F
     CHECK(descs[0].held_level() == 3);
     CHECK(descs[0].level_inc() == 2);
     CHECK((descs[0].with_cur() && descs[0].cur().level() == 3));
+}
+
+
+TEST_CASE("a template's aura and passive skill: InitNpcLevelData 0x080A37A0 fills cells 5 / 6 at creation (0x08085250), a placed npc casts cell 5 every ten frames (0x0808BAF6)", "[command][aura][template]")
+{
+    // 950: a monk with the aura 1103 (AuraSkillLevel "0|1" = the npc's level) and the passive 1130 ("1|0" = 1);
+    // 951: its twin whose aura level "0|30" clamps to 64 (0x080A3AB2) - held in cell 5 but never cast (0x080873B0 refuses > 63)
+    KSubWorldConfig c = small_world();
+    KNpcTemplateSet set;
+    KNpcTemplate t;
+    t.id = 950;
+    t.name = "monk";
+    t.kind = kind_normal;
+    t.camp = camp_animal;
+    t.life_param = 50;
+    t.cells["AuraSkillId"] = "1103";
+    t.cells["AuraSkillLevel"] = "0|1";
+    t.cells["PasstSkillId"] = "1130";
+    t.cells["PasstSkillLevel"] = "1|0";
+    set.add(t);
+    t.id = 951;
+    t.cells["AuraSkillLevel"] = "0|30";
+    set.add(t);
+    c.templates = std::make_shared<const KNpcTemplateSet>(std::move(set));
+    Quiet quiet;
+    KSubWorld w(c);
+    const KNpcLevelData d = KNpcTemplateSet::level_data(*c.templates->find(950), 3, 0, c.scripts.get());
+    CHECK(d.aura_skill_id == 1103);
+    CHECK(d.aura_skill_level == 3);
+    CHECK(d.passive_skill_id == 1130);
+    CHECK(d.passive_skill_level == 1);
+    const KSkill* passive = w.skill_instance(1130, 1);
+    REQUIRE(passive != nullptr);
+    CHECK(passive->row.style == skill_style_passivity_npc_state);
+    CHECK(passive->state_attrib_count > 0);
+    Pos at;
+    EntityId hero;
+    REQUIRE(w.spawn_player(7, role(70, "Hero", Pos{2000, 2000}, {1}), hero, at) == jx::pb::RESULT_OK);
+    // a placement (+0x181c = 1): the region loader's Add -> 0x08085250
+    const EntityId monk = w.spawn_npc("monk", Pos{2100, 2000}, 950, 0, KNpcKind::monster, 3, 0, 1);
+    KNpc* m = w.mutable_entity(monk);
+    REQUIRE(m != nullptr);
+    CHECK(m->boss_flag == 1);
+    const KNpcSkill* c5 = m->skill_list.cell(5);
+    REQUIRE(c5 != nullptr);
+    CHECK(c5->id == 1103);
+    CHECK(c5->current_level == 3);
+    const KNpcSkill* c6 = m->skill_list.cell(6);
+    REQUIRE(c6 != nullptr);
+    CHECK(c6->id == 1130);
+    CHECK(c6->current_level == 1);
+    CHECK(m->state_of(1130) != nullptr);   // KSkill::Cast(passive, npc, -1, npc): its states on itself for good
+    CHECK(m->state_of(1102) == nullptr);
+    for (int i = 0; i < 11; ++i) w.tick();
+    m = w.mutable_entity(monk);
+    REQUIRE(m != nullptr);
+    CHECK(m->state_of(1102) != nullptr);   // the aura's child every tenth frame (0x0808BAF6 -> 0x080873B0)
+    // a skill-made npc (KNpcSet::Add with bKind 0): no cells 5 / 6, no aura
+    const EntityId plain = w.spawn_npc("plain", Pos{2200, 2000}, 950, 0, KNpcKind::monster, 3, 0, 0);
+    KNpc* p = w.mutable_entity(plain);
+    REQUIRE(p != nullptr);
+    CHECK(p->boss_flag == 0);
+    CHECK(p->skill_list.cell(5)->id == 0);
+    CHECK(p->state_of(1130) == nullptr);
+    // the clamped twin: cell 5 at 64, nothing cast
+    const EntityId twin = w.spawn_npc("twin", Pos{2300, 2000}, 951, 0, KNpcKind::monster, 3, 0, 1);
+    KNpc* tw = w.mutable_entity(twin);
+    REQUIRE(tw != nullptr);
+    CHECK(tw->skill_list.cell(5)->id == 1103);
+    CHECK(tw->skill_list.cell(5)->current_level == 64);
+    for (int i = 0; i < 11; ++i) w.tick();
+    tw = w.mutable_entity(twin);
+    REQUIRE(tw != nullptr);
+    CHECK(tw->state_of(1102) == nullptr);
+    p = w.mutable_entity(plain);
+    REQUIRE(p != nullptr);
+    CHECK(p->state_of(1102) == nullptr);
 }

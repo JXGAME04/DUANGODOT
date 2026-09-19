@@ -366,7 +366,7 @@ int main(int argc, char** argv)
         const std::int32_t dy = static_cast<std::int32_t>((i / 4) * 160) - 80;
         const std::uint32_t tpl = test_npc_templates[static_cast<std::size_t>(i) % test_npc_templates.size()];
         const jx::EntityId id = server.world().spawn_npc("npc" + std::to_string(i + 1), jx::zone::Pos{spawn.x + dx, spawn.y + dy},
-                                                        tpl, 200, jx::zone::KNpcKind::monster, test_npc_level);   // attackable, wander 200
+                                                        tpl, 200, jx::zone::KNpcKind::monster, test_npc_level, -1, 1);   // attackable, wander 200; placed like a map npc (+0x181c = 1)
         // the templates are active hunters (AIMode 1, vision 1200): passive here (AIMode 4, strike back only)
         // so a fresh character can look around the spawn point; the real monsters keep their data
         server.world().set_ai_mode(id, 4);
